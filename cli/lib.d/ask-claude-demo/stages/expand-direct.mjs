@@ -22,22 +22,39 @@ const JSON_ENFORCEMENT = `
 RESPONSE FORMAT: You MUST respond with ONLY a valid JSON object. No markdown code fences, no commentary, no text before or after the JSON. The JSON must follow this exact structure:
 {"instructions": [{"id": 1, "perspective": "Name of analytical angle", "instruction": "Full research instruction text", "methodology": "Brief approach note"}, ...]}`;
 
-const expand = async ({ originalPrompt, config }) => {
+const RESUME_ADDENDUM = `\n\nThe user is continuing a research session. Previous research context is provided below. The new question builds on this prior work. Decompose the NEW question into perspectives that complement (not repeat) the prior analysis.`;
+
+const expand = async ({ originalPrompt, config, sessionContext }) => {
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	const systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives)) + JSON_ENFORCEMENT;
+	let systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives));
+
+	// If resuming a session, add the resume addendum to the system prompt
+	if (sessionContext) {
+		systemPrompt += RESUME_ADDENDUM;
+	}
+	systemPrompt += JSON_ENFORCEMENT;
 
 	if (verbose) {
 		xLog.status(`[Expand-Direct] Calling messages API with model=${config.expandModel}...`);
+		if (sessionContext) {
+			xLog.status(`[Expand-Direct] Session context injected (${sessionContext.length} chars)`);
+		}
 	}
 
 	const client = new Anthropic({ apiKey: config.anthropicApiKey });
+
+	// Build user message: new prompt + session context (if resuming)
+	let userContent = originalPrompt;
+	if (sessionContext) {
+		userContent = `${originalPrompt}\n\n${sessionContext}`;
+	}
 
 	const requestParams = {
 		model: config.expandModel,
 		max_tokens: 16384,
 		system: systemPrompt,
-		messages: [{ role: "user", content: originalPrompt }],
+		messages: [{ role: "user", content: userContent }],
 	};
 
 	// Use adaptive thinking for Opus 4.6, skip for others

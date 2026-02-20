@@ -6,15 +6,18 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
 	const localConfig = getConfig(moduleName);
 
-	const formatJson = ({ originalPrompt, instructions, results, expandCost, elapsedSeconds, config }) => {
+	const formatJson = ({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds, config }) => {
 		const totalInputTokens = (expandCost ? expandCost.inputTokens : 0) +
-			(results ? results.reduce((s, r) => s + r.cost.inputTokens, 0) : 0);
+			(results ? results.reduce((s, r) => s + r.cost.inputTokens, 0) : 0) +
+			(synthesisCost ? synthesisCost.inputTokens : 0);
 		const totalOutputTokens = (expandCost ? expandCost.outputTokens : 0) +
-			(results ? results.reduce((s, r) => s + r.cost.outputTokens, 0) : 0);
+			(results ? results.reduce((s, r) => s + r.cost.outputTokens, 0) : 0) +
+			(synthesisCost ? synthesisCost.outputTokens : 0);
 		const totalCostUsd = (expandCost ? expandCost.usd : 0) +
-			(results ? results.reduce((s, r) => s + r.cost.usd, 0) : 0);
+			(results ? results.reduce((s, r) => s + r.cost.usd, 0) : 0) +
+			(synthesisCost ? synthesisCost.usd : 0);
 
-		return {
+		const output = {
 			prompt: originalPrompt,
 			expansion: {
 				model: config.expandModel,
@@ -38,6 +41,17 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 				elapsedSeconds: elapsedSeconds || 0,
 			},
 		};
+
+		// Add synthesis if present
+		if (synthesis) {
+			output.synthesis = {
+				text: synthesis,
+				model: config.expandModel,
+				cost: synthesisCost || { inputTokens: 0, outputTokens: 0, usd: 0 },
+			};
+		}
+
+		return output;
 	};
 
 	return { formatJson };

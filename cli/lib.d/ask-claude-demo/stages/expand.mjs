@@ -34,20 +34,36 @@ const expansionSchema = {
 	required: ["instructions"]
 };
 
-export const expand = async ({ originalPrompt, config }) => {
+const RESUME_ADDENDUM = `\n\nThe user is continuing a research session. Previous research context is provided below. The new question builds on this prior work. Decompose the NEW question into perspectives that complement (not repeat) the prior analysis.`;
+
+export const expand = async ({ originalPrompt, config, sessionContext }) => {
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	const systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives));
+	let systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives));
+
+	// If resuming a session, add the resume addendum to the system prompt
+	if (sessionContext) {
+		systemPrompt += RESUME_ADDENDUM;
+	}
 
 	let instructions = [];
 	let expandCost = { inputTokens: 0, outputTokens: 0, usd: 0 };
 
+	// Build user message: new prompt + session context (if resuming)
+	let userContent = originalPrompt;
+	if (sessionContext) {
+		userContent = `${originalPrompt}\n\n${sessionContext}`;
+	}
+
 	if (verbose) {
 		xLog.status(`[Expand] Calling query() with model=${config.expandModel}...`);
+		if (sessionContext) {
+			xLog.status(`[Expand] Session context injected (${sessionContext.length} chars)`);
+		}
 	}
 
 	for await (const message of query({
-		prompt: originalPrompt,
+		prompt: userContent,
 		options: {
 			model: config.expandModel,
 			systemPrompt: systemPrompt,

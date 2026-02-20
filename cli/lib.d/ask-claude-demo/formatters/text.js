@@ -6,7 +6,7 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
 	const localConfig = getConfig(moduleName);
 
-	const formatText = ({ originalPrompt, instructions, results, expandCost, elapsedSeconds }) => {
+	const formatText = ({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds }) => {
 		const lines = [];
 
 		lines.push("================================================================");
@@ -38,6 +38,16 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 			});
 		}
 
+		// Synthesis section (only if synthesis was performed)
+		if (synthesis) {
+			lines.push("================================================================");
+			lines.push("SYNTHESIS");
+			lines.push("================================================================");
+			lines.push("");
+			lines.push(synthesis);
+			lines.push("");
+		}
+
 		// Cost summary
 		lines.push("================================================================");
 		lines.push("COST SUMMARY");
@@ -51,9 +61,13 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 				lines.push(`    Perspective ${r.id}:     $${r.cost.usd.toFixed(4)}   (${r.cost.inputTokens} input / ${r.cost.outputTokens} output tokens)`);
 			});
 		}
+		if (synthesisCost) {
+			lines.push(`  Stage 3 (Synthesis): $${synthesisCost.usd.toFixed(4)}   (${synthesisCost.inputTokens} input / ${synthesisCost.outputTokens} output tokens)`);
+		}
 
 		const totalCost = (expandCost ? expandCost.usd : 0) +
-			(results ? results.reduce((sum, r) => sum + r.cost.usd, 0) : 0);
+			(results ? results.reduce((sum, r) => sum + r.cost.usd, 0) : 0) +
+			(synthesisCost ? synthesisCost.usd : 0);
 		lines.push("  ----------------------------");
 		lines.push(`  TOTAL:               $${totalCost.toFixed(4)}`);
 		if (elapsedSeconds) {
