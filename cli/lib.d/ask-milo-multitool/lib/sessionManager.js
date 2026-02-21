@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Session storage location
-const SESSION_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'askClaude', 'sessions');
+const SESSION_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'askMilo', 'sessions');
 
 // Word lists for session name generation
 const ADJECTIVES = [

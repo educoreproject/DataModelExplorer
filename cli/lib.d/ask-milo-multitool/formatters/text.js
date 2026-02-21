@@ -9,7 +9,7 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const formatSingleCallText = ({ promptName, prompt, responseText, cost, model, elapsedSeconds }) => {
 		const lines = [];
 		lines.push("================================================================");
-		lines.push(`askClaude -- ${promptName || 'default'}`);
+		lines.push(`askMilo -- ${promptName || 'default'}`);
 		lines.push("================================================================");
 		lines.push("");
 		lines.push(`PROMPT: ${prompt}`);

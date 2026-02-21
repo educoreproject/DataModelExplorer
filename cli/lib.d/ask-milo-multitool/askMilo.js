@@ -18,7 +18,7 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	// -- help text --
 	if (commandLineParameters.switches.help) {
 		xLog.result(`
-askClaude -- Configurable AI pipeline
+askMilo -- Configurable AI pipeline
 
   Default: single prompt, single call, single response.
   Add --perspectives=N for multi-perspective chorus research.
@@ -26,9 +26,9 @@ askClaude -- Configurable AI pipeline
   Any prompt from [prompts] section can serve any role.
 
 Usage:
-  askClaude [options] "your prompt here"
-  echo '{ JSON }' | askClaude
-  askClaude <<EOF
+  askMilo [options] "your prompt here"
+  echo '{ JSON }' | askMilo
+  askMilo <<EOF
   { JSON }
   EOF
 
@@ -76,23 +76,23 @@ JSON input (programmatic):
   fileList   Positional args (the prompt goes here as the first element)
 
 Examples:
-  askClaude "What is quantum computing?"
-  askClaude --perspectives=3 "Evaluate microservices vs monolith"
-  askClaude --perspectives=3 -summarize "Compare ML frameworks"
-  askClaude --firstPrompt=chorusResearcher "Analyze this transcript"
-  askClaude --resumeSession=amber_ridge "How does this affect developing nations?"
-  askClaude --resumeSession=amber_ridge -interrogate "Expand on the economic impacts"
-  askClaude -listSessions
-  askClaude --viewSession=amber_ridge
+  askMilo "What is quantum computing?"
+  askMilo --perspectives=3 "Evaluate microservices vs monolith"
+  askMilo --perspectives=3 -summarize "Compare ML frameworks"
+  askMilo --firstPrompt=chorusResearcher "Analyze this transcript"
+  askMilo --resumeSession=amber_ridge "How does this affect developing nations?"
+  askMilo --resumeSession=amber_ridge -interrogate "Expand on the economic impacts"
+  askMilo -listSessions
+  askMilo --viewSession=amber_ridge
 
   JSON via stdin (for piping from scripts or AI agents):
-  echo '{"switches":{"noSave":true},"values":{},"fileList":["What is 2+2?"]}' | askClaude
+  echo '{"switches":{"noSave":true},"values":{},"fileList":["What is 2+2?"]}' | askMilo
 
   JSON as argument:
-  askClaude '{"switches":{"verbose":true},"values":{"model":["haiku"]},"fileList":["Summarize this"]}'
+  askMilo '{"switches":{"verbose":true},"values":{"model":["haiku"]},"fileList":["Summarize this"]}'
 
   JSON via heredoc (readable multi-line):
-  askClaude <<EOF
+  askMilo <<EOF
   {
     "switches": { "noSave": true, "verbose": true },
     "values": { "model": ["haiku"], "perspectives": ["3"] },
@@ -196,7 +196,7 @@ Examples:
 		const renameSessionNew = (commandLineParameters.values.sessionName || [])[0];
 		if (!renameSessionNew) {
 			xLog.error('--renameSession requires --sessionName=NEW_NAME');
-			xLog.error('Usage: askClaude --renameSession=OLD_NAME --sessionName=NEW_NAME');
+			xLog.error('Usage: askMilo --renameSession=OLD_NAME --sessionName=NEW_NAME');
 			return;
 		}
 		try {
@@ -323,7 +323,7 @@ Examples:
 		// Validate that a new prompt exists
 		if (!evalConfig.prompt) {
 			xLog.error('--resumeSession requires a new prompt.');
-			xLog.error('Usage: askClaude --resumeSession=NAME "your follow-up question"');
+			xLog.error('Usage: askMilo --resumeSession=NAME "your follow-up question"');
 			return;
 		}
 		// Restore saved CLI args as defaults when -restoreSwitches is set
@@ -416,7 +416,7 @@ Examples:
 
 	// -- usage validation --
 	if (!evalConfig.prompt) {
-		xLog.error('Usage: askClaude [options] "your prompt here"');
+		xLog.error('Usage: askMilo [options] "your prompt here"');
 		xLog.error('Use -help for full options list');
 		return;
 	}

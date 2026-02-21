@@ -1,8 +1,8 @@
 {
-  "name": "ask-claude-demo",
+  "name": "ask-milo-multitool",
   "version": "1.0.0",
-  "description": "Multi-perspective research tool using the Anthropic API",
-  "main": "askClaude.js",
+  "description": "Configurable AI pipeline and multi-perspective research tool",
+  "main": "askMilo.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

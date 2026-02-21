@@ -1,6 +1,6 @@
 'use strict';
 
-// confluenceAccessor.js - Confluence HTTP accessor for askClaude
+// confluenceAccessor.js - Confluence HTTP accessor for askMilo
 // Handles all HTTP communication with Confluence Cloud: auth, fetch, content conversion.
 // No knowledge of Anthropic tools - pure HTTP.
 // CJS module following moduleFunction pattern (curried factory).

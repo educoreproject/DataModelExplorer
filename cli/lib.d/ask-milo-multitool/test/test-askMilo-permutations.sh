@@ -1,15 +1,15 @@
 #!/bin/bash
-# test-askClaude-permutations.sh — Exercise all askClaude flag combinations
+# test-askMilo-permutations.sh — Exercise all askMilo flag combinations
 #
 # Default: runs with -mockApi (no API calls, fast, free)
 # Pass -prod to run with real API calls (costs money, slower)
 #
 # Usage:
-#   ./test-askClaude-permutations.sh              # all groups, mock mode
-#   ./test-askClaude-permutations.sh -prod         # all groups, live API
-#   ./test-askClaude-permutations.sh single-call   # one group, mock mode
-#   ./test-askClaude-permutations.sh -prod chorus  # one group, live API
-#   ./test-askClaude-permutations.sh -verbose       # all groups, show full output
+#   ./test-askMilo-permutations.sh              # all groups, mock mode
+#   ./test-askMilo-permutations.sh -prod         # all groups, live API
+#   ./test-askMilo-permutations.sh single-call   # one group, mock mode
+#   ./test-askMilo-permutations.sh -prod chorus  # one group, live API
+#   ./test-askMilo-permutations.sh -verbose       # all groups, show full output
 #
 # Groups: single-call, chorus, prompts, interrogate, confluence, sessions, output, json-stdin, edge
 
@@ -111,16 +111,16 @@ should_run() {
 if should_run "single-call"; then
 	echo "── Single-Call Basics ──"
 	run_test "default single-call" "pass" "" \
-		askClaude $MOCK_FLAG -noSave "What is 2+2?"
+		askMilo $MOCK_FLAG -noSave "What is 2+2?"
 
 	run_test "explicit model (haiku)" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --model=haiku "What is 2+2?"
+		askMilo $MOCK_FLAG -noSave --model=haiku "What is 2+2?"
 
 	run_test "verbose shows mode" "pass" "mode.*singlecall|singlecall.*mode" \
-		askClaude $MOCK_FLAG -noSave -verbose "What is 2+2?"
+		askMilo $MOCK_FLAG -noSave -verbose "What is 2+2?"
 
 	run_test "help flag" "pass" "configurable ai pipeline|pipeline control" \
-		askClaude -help
+		askMilo -help
 
 	echo ""
 fi
@@ -130,16 +130,16 @@ fi
 if should_run "chorus"; then
 	echo "── Chorus Modes ──"
 	run_test "chorus perspectives=2" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --perspectives=2 "Compare X and Y"
+		askMilo $MOCK_FLAG -noSave --perspectives=2 "Compare X and Y"
 
 	run_test "chorus perspectives=3 + summarize" "pass" "synthe" \
-		askClaude $MOCK_FLAG -noSave --perspectives=3 -summarize "Compare frameworks"
+		askMilo $MOCK_FLAG -noSave --perspectives=3 -summarize "Compare frameworks"
 
 	run_test "chorus without summarize (no synthesis section)" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --perspectives=3 "Compare things"
+		askMilo $MOCK_FLAG -noSave --perspectives=3 "Compare things"
 
 	run_test "dryRun shows perspectives only" "pass" "perspective|instruction" \
-		askClaude $MOCK_FLAG -noSave --perspectives=3 -dryRun "Evaluate something"
+		askMilo $MOCK_FLAG -noSave --perspectives=3 -dryRun "Evaluate something"
 
 	echo ""
 fi
@@ -149,16 +149,16 @@ fi
 if should_run "prompts"; then
 	echo "── Prompt Selection ──"
 	run_test "firstPrompt=default" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --firstPrompt=default "test"
+		askMilo $MOCK_FLAG -noSave --firstPrompt=default "test"
 
 	run_test "firstPrompt=whitePaper" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --firstPrompt=whitePaper "Write about SIF"
+		askMilo $MOCK_FLAG -noSave --firstPrompt=whitePaper "Write about SIF"
 
 	run_test "firstPrompt=chorusResearcher" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --firstPrompt=chorusResearcher "Analyze this"
+		askMilo $MOCK_FLAG -noSave --firstPrompt=chorusResearcher "Analyze this"
 
 	run_test "firstPrompt=chorusExpander (chorus mode)" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --perspectives=2 --firstPrompt=chorusExpander "Compare things"
+		askMilo $MOCK_FLAG -noSave --perspectives=2 --firstPrompt=chorusExpander "Compare things"
 
 	echo ""
 fi
@@ -168,13 +168,13 @@ fi
 if should_run "interrogate"; then
 	echo "── Interrogate Mode ──"
 	run_test "interrogate basic" "pass" "" \
-		askClaude $MOCK_FLAG -noSave -interrogate "Explain the implications"
+		askMilo $MOCK_FLAG -noSave -interrogate "Explain the implications"
 
 	run_test "interrogate with firstPrompt override" "pass" "" \
-		askClaude $MOCK_FLAG -noSave -interrogate --firstPrompt=default "Explain more"
+		askMilo $MOCK_FLAG -noSave -interrogate --firstPrompt=default "Explain more"
 
 	run_test "interrogate verbose" "pass" "interrogat|first prompt" \
-		askClaude $MOCK_FLAG -noSave -interrogate -verbose "Expand on that"
+		askMilo $MOCK_FLAG -noSave -interrogate -verbose "Expand on that"
 
 	echo ""
 fi
@@ -184,13 +184,13 @@ fi
 if should_run "confluence"; then
 	echo "── Confluence Tools ──"
 	run_test "tools=confluence single-call" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --tools=confluence "Search for SIF standards"
+		askMilo $MOCK_FLAG -noSave --tools=confluence "Search for SIF standards"
 
 	run_test "tools=confluence + whitePaper prompt" "pass" "" \
-		askClaude $MOCK_FLAG -noSave --tools=confluence --firstPrompt=whitePaper "Write about true-up"
+		askMilo $MOCK_FLAG -noSave --tools=confluence --firstPrompt=whitePaper "Write about true-up"
 
 	run_test "tools=confluence verbose shows config" "pass" "confluence|tool" \
-		askClaude $MOCK_FLAG -noSave --tools=confluence -verbose "test"
+		askMilo $MOCK_FLAG -noSave --tools=confluence -verbose "test"
 
 	echo ""
 fi
@@ -202,28 +202,28 @@ if should_run "sessions"; then
 
 	# Create a session we can work with
 	run_test "create named session" "pass" "" \
-		askClaude $MOCK_FLAG --sessionName="$TEST_SESSION_NAME" "Session test prompt"
+		askMilo $MOCK_FLAG --sessionName="$TEST_SESSION_NAME" "Session test prompt"
 
 	run_test "listSessions" "pass" "session|name|date" \
-		askClaude -listSessions
+		askMilo -listSessions
 
 	run_test "viewSession" "pass" "session test prompt|$TEST_SESSION_NAME" \
-		askClaude --viewSession="$TEST_SESSION_NAME"
+		askMilo --viewSession="$TEST_SESSION_NAME"
 
 	run_test "resumeSession" "pass" "" \
-		askClaude $MOCK_FLAG --resumeSession="$TEST_SESSION_NAME" "Follow up question"
+		askMilo $MOCK_FLAG --resumeSession="$TEST_SESSION_NAME" "Follow up question"
 
 	run_test "renameSession" "pass" "" \
-		askClaude --renameSession="$TEST_SESSION_NAME" --sessionName="${TEST_SESSION_NAME}_renamed"
+		askMilo --renameSession="$TEST_SESSION_NAME" --sessionName="${TEST_SESSION_NAME}_renamed"
 
 	run_test "deleteSession (cleanup)" "pass" "" \
-		askClaude --deleteSession="${TEST_SESSION_NAME}_renamed"
+		askMilo --deleteSession="${TEST_SESSION_NAME}_renamed"
 
 	run_test "resumeSession auto-creates missing" "pass" "not found.*starting new|session saved.*${TEST_SESSION_NAME}_autocreate" \
-		askClaude $MOCK_FLAG --resumeSession="${TEST_SESSION_NAME}_autocreate" "auto-create test"
+		askMilo $MOCK_FLAG --resumeSession="${TEST_SESSION_NAME}_autocreate" "auto-create test"
 
 	run_test "deleteSession (auto-create cleanup)" "pass" "" \
-		askClaude --deleteSession="${TEST_SESSION_NAME}_autocreate"
+		askMilo --deleteSession="${TEST_SESSION_NAME}_autocreate"
 
 	echo ""
 fi
@@ -233,13 +233,13 @@ fi
 if should_run "output"; then
 	echo "── Output Formats ──"
 	run_test "json output" "pass" "question|response|model" \
-		askClaude $MOCK_FLAG -noSave -json "What is 2+2?"
+		askMilo $MOCK_FLAG -noSave -json "What is 2+2?"
 
 	run_test "json chorus" "pass" "perspectives|question" \
-		askClaude $MOCK_FLAG -noSave -json --perspectives=2 "Compare things"
+		askMilo $MOCK_FLAG -noSave -json --perspectives=2 "Compare things"
 
 	run_test "verbose + json" "pass" "" \
-		askClaude $MOCK_FLAG -noSave -verbose -json "test"
+		askMilo $MOCK_FLAG -noSave -verbose -json "test"
 
 	echo ""
 fi
@@ -250,16 +250,16 @@ if should_run "json-stdin"; then
 	echo "── JSON Stdin (bb2 pattern) ──"
 
 	run_test "json stdin single-call" "pass" "" \
-		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{},\"fileList\":[\"What is 2+2?\"]}" | askClaude'
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{},\"fileList\":[\"What is 2+2?\"]}" | askMilo'
 
 	run_test "json stdin with model override" "pass" "haiku" \
-		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true,\"verbose\":true},\"values\":{\"model\":[\"haiku\"]},\"fileList\":[\"test\"]}" | askClaude'
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true,\"verbose\":true},\"values\":{\"model\":[\"haiku\"]},\"fileList\":[\"test\"]}" | askMilo'
 
 	run_test "json stdin chorus" "pass" "perspective" \
-		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{\"perspectives\":[\"2\"]},\"fileList\":[\"Compare X and Y\"]}" | askClaude'
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{\"perspectives\":[\"2\"]},\"fileList\":[\"Compare X and Y\"]}" | askMilo'
 
 	run_test "json argv direct" "pass" "" \
-		askClaude '{"switches":{"mockApi":true,"noSave":true},"values":{},"fileList":["Tell me a joke"]}'
+		askMilo '{"switches":{"mockApi":true,"noSave":true},"values":{},"fileList":["Tell me a joke"]}'
 
 	echo ""
 fi
@@ -269,13 +269,13 @@ fi
 if should_run "edge"; then
 	echo "── Edge Cases ──"
 	run_test "summarize without perspectives (warning)" "pass" "warn|perspectives|ignor" \
-		askClaude $MOCK_FLAG -noSave -summarize "test"
+		askMilo $MOCK_FLAG -noSave -summarize "test"
 
 	run_test "bad prompt name (error)" "fail" "not found|available|unknown" \
-		askClaude $MOCK_FLAG -noSave --firstPrompt=nonExistentPrompt "test"
+		askMilo $MOCK_FLAG -noSave --firstPrompt=nonExistentPrompt "test"
 
 	run_test "noSave flag (no session created)" "pass" "" \
-		askClaude $MOCK_FLAG -noSave "ephemeral test"
+		askMilo $MOCK_FLAG -noSave "ephemeral test"
 
 	echo ""
 fi
