@@ -1,13 +1,21 @@
 // Stage 3 -- Synthesize (SDK): cross-perspective analysis of all fan-out results
 // Uses Agent SDK query() instead of direct API
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { buildSdkEnv } from "./expand.mjs";
 
 const synthesize = async ({ originalPrompt, instructions, results, config }) => {
+	if (config.mockApi) {
+		const { mockSynthesize } = require('../lib/mockApi');
+		return mockSynthesize({ originalPrompt, results, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	const systemPrompt = config.synthesisSystemPrompt.replace(/\{N\}/g, String(results.length));
+	const systemPrompt = config.summarizerPromptText;
 
 	// Build user message: original prompt + all perspective findings
 	const perspectiveSections = results.map((r) => {

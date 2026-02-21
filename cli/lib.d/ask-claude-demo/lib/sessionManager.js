@@ -140,8 +140,13 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 			lines.push(`PROMPT: ${turn.prompt}`);
 			lines.push('');
 
-			if (turn.turnType === 'interrogation') {
-				lines.push(`INTERROGATION RESPONSE: ${turn.response}`);
+			if (turn.turnType === 'interrogation' || turn.turnType === 'singleCall') {
+				const label = turn.turnType === 'singleCall' && turn.promptName
+					? `RESPONSE (${turn.promptName})`
+					: turn.turnType === 'interrogation'
+						? 'INTERROGATION RESPONSE'
+						: 'RESPONSE';
+				lines.push(`${label}: ${turn.response}`);
 				lines.push('');
 			} else {
 				if (turn.perspectives && turn.perspectives.length > 0) {
@@ -211,6 +216,11 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 			sessionName,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
+			promptConfig: {
+				firstPromptName: config.firstPromptName,
+				perspectives: config.perspectives,
+				summarize: config.summarize || false,
+			},
 			commandLineParameters: {
 				switches: commandLineParameters.switches || {},
 				values: commandLineParameters.values || {},

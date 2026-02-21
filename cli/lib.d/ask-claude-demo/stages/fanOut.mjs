@@ -1,10 +1,18 @@
 // Stage 2 -- Fan-Out: dispatches N parallel research agents
 // This is a .mjs file because it imports from the Agent SDK (ES module)
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { buildSdkEnv } from "./expand.mjs";
 
 const runOneAgent = async ({ instruction, config }) => {
+	if (config.mockApi) {
+		const { mockFanOutAgent } = require('../lib/mockApi');
+		return mockFanOutAgent({ instruction, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
 	const tag = `[Agent ${instruction.id}/${instruction.perspective}]`;
@@ -21,7 +29,7 @@ const runOneAgent = async ({ instruction, config }) => {
 
 	const queryOptions = {
 		model: config.agentModel,
-		systemPrompt: config.researcherSystemPrompt,
+		systemPrompt: config.agentPromptText,
 		permissionMode: "bypassPermissions",
 		allowDangerouslySkipPermissions: true,
 		maxTurns: config.maxTurns,

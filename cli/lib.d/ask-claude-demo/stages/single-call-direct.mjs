@@ -1,5 +1,9 @@
-// Interrogate -- Single-call Q&A against a prior session's research findings
-// Uses @anthropic-ai/sdk directly. No expand, no fan-out, no synthesis — just one call.
+// SingleCall (Direct API): generalized single-call pipeline stage
+// Handles any prompt + optional session context. Generalized from interrogate-direct.mjs.
+// Uses @anthropic-ai/sdk directly.
+
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -17,17 +21,28 @@ const estimateCost = (model, usage) => {
 	return inputCost + outputCost;
 };
 
-const interrogate = async ({ question, sessionContext, config }) => {
+const singleCall = async ({ prompt, systemPrompt, sessionContext, config }) => {
+	if (config.mockApi) {
+		const { mockSingleCall } = require('../lib/mockApi');
+		return mockSingleCall({ prompt, systemPrompt, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
 	const model = config.agentModel;
-	const systemPrompt = config.interrogationSystemPrompt;
 
-	const userMessage = `${sessionContext}\n\n--- NEW QUESTION ---\n${question}`;
+	// Build user message: prompt + optional session context
+	let userMessage = prompt;
+	if (sessionContext) {
+		userMessage = `${sessionContext}\n\n--- NEW PROMPT ---\n${prompt}`;
+	}
 
 	if (verbose) {
-		xLog.status(`[Interrogate] Calling messages API with model=${model}...`);
-		xLog.status(`[Interrogate] User message length: ${userMessage.length} chars`);
+		xLog.status(`[SingleCall] Calling messages API with model=${model}...`);
+		xLog.status(`[SingleCall] User message length: ${userMessage.length} chars`);
+		if (sessionContext) {
+			xLog.status(`[SingleCall] Session context injected (${sessionContext.length} chars)`);
+		}
 	}
 
 	const client = new Anthropic({ apiKey: config.anthropicApiKey });
@@ -49,7 +64,7 @@ const interrogate = async ({ question, sessionContext, config }) => {
 
 	if (verbose) {
 		const blockTypes = response.content.map(b => b.type).join(', ');
-		xLog.status(`[Interrogate] Response blocks: [${blockTypes}]`);
+		xLog.status(`[SingleCall] Response blocks: [${blockTypes}]`);
 	}
 
 	// Extract text blocks (skip thinking blocks)
@@ -67,10 +82,10 @@ const interrogate = async ({ question, sessionContext, config }) => {
 	};
 
 	if (verbose) {
-		xLog.status(`[Interrogate] Success: ${responseText.length} chars, ${cost.outputTokens} output tokens, $${cost.usd.toFixed(4)}`);
+		xLog.status(`[SingleCall] Success: ${responseText.length} chars, ${cost.outputTokens} output tokens, $${cost.usd.toFixed(4)}`);
 	}
 
 	return { responseText, cost };
 };
 
-export { interrogate };
+export { singleCall };

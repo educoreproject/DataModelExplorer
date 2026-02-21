@@ -18,51 +18,56 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	// -- help text --
 	if (commandLineParameters.switches.help) {
 		xLog.result(`
-askClaude -- Multi-perspective research tool
+askClaude -- Configurable AI pipeline
 
-  Decomposes a prompt into N distinct analytical perspectives, runs each
-  through a separate Claude instance in parallel, synthesizes findings
-  into cross-cutting analysis, and collects results into a unified report.
-  Two drivers available: "direct" calls the Anthropic API with no
-  overhead; "sdk" uses the Agent SDK with tool access.
+  Default: single prompt, single call, single response.
+  Add --perspectives=N for multi-perspective chorus research.
+  Add -summarize for cross-perspective synthesis.
+  Any prompt from [prompts] section can serve any role.
 
 Usage:
   askClaude [options] "your prompt here"
 
-Options:
+Pipeline control:
+  --perspectives=N       Number of chorus perspectives. 0 = single-call (default: 0)
+  --firstPrompt=NAME     Select prompt from [prompts] section of .ini
+  -summarize             Add synthesis stage after chorus (requires perspectives>0)
+  -interrogate           Set prompt to interrogator + prepend analysis framing
+
+Model & driver:
   --driver=DRIVER        API driver: direct|sdk (default: direct)
-  --perspectives=N       Number of parallel perspectives (default: 3)
-  --model=MODEL          Model for research agents: opus|sonnet|haiku (default: sonnet)
+  --model=MODEL          Model for agents/single-call: opus|sonnet|haiku (default: sonnet)
   --expandModel=MODEL    Model for expansion stage: opus|sonnet|haiku (default: opus)
-  -verbose               Show detailed progress and cost info per stage
-  -json                  Output raw JSON instead of formatted text report
-  -dryRun                Run expansion only; show perspectives without research
-  -noSynthesize          Skip cross-perspective synthesis stage
-  -noSave                Do not save this run as a session
-  -restoreSwitches       On --resumeSession, restore saved CLI args as defaults
-  -help                  Show this help message
 
   SDK driver only (ignored by direct driver):
   --budget=USD           Max budget per agent in USD (default: 1.00)
   --maxTurns=N           Max conversation turns per agent (default: 10)
   --tools=LIST           Comma-separated tools for agents (use "none" to disable)
 
+Output control:
+  -verbose               Show detailed progress and cost info per stage
+  -json                  Output raw JSON instead of formatted text report
+  -dryRun                Run expansion only; show perspectives without research
+  -mockApi               Return canned mock responses (no API calls, for testing)
+  -noSave                Do not save this run as a session
+  -restoreSwitches       On --resumeSession, restore saved CLI args as defaults
+  -help                  Show this help message
+
 Session management:
   --resumeSession=NAME   Continue a previous session with a follow-up prompt
   --sessionName=NAME     Name this session (default: auto-generated)
-  -interrogateSession    Ask a single question about prior research (requires --resumeSession)
   -listSessions          List all saved sessions with date, size, prompt preview
   --viewSession=NAME     Display full session content
   --deleteSession=NAME   Delete a saved session
   --renameSession=NAME   Rename a session (use with --sessionName=NEW_NAME)
 
 Examples:
-  askClaude "What are the implications of quantum computing for cryptography?"
-  askClaude --perspectives=5 --model=opus "Evaluate microservices vs monolith"
-  askClaude -dryRun "How should we restructure authentication?"
-  askClaude --driver=sdk --tools=WebSearch "Research current AI regulations"
+  askClaude "What is quantum computing?"
+  askClaude --perspectives=3 "Evaluate microservices vs monolith"
+  askClaude --perspectives=3 -summarize "Compare ML frameworks"
+  askClaude --firstPrompt=chorusResearcher "Analyze this transcript"
   askClaude --resumeSession=amber_ridge "How does this affect developing nations?"
-  askClaude --resumeSession=amber_ridge -interrogateSession "Expand on the economic impacts"
+  askClaude --resumeSession=amber_ridge -interrogate "Expand on the economic impacts"
   askClaude -listSessions
   askClaude --viewSession=amber_ridge
 		`);
@@ -106,11 +111,18 @@ Examples:
 			}
 			xLog.result('');
 			(session.turns || []).forEach(turn => {
-				const turnLabel = turn.turnType === 'interrogation' ? 'Interrogation' : 'Turn';
+				const turnLabel = turn.turnType === 'singleCall' ? 'SingleCall'
+					: turn.turnType === 'interrogation' ? 'Interrogation'
+					: 'Turn';
 				xLog.result(`--- ${turnLabel} ${turn.turnNumber} (${turn.timestamp || 'N/A'}) ---`);
 				xLog.result(`Prompt: ${turn.prompt}`);
 				xLog.result('');
-				if (turn.turnType === 'interrogation') {
+				if (turn.turnType === 'singleCall') {
+					const promptLabel = turn.promptName ? `[${turn.promptName}] ` : '';
+					const resp = turn.response || '';
+					xLog.result(`  ${promptLabel}RESPONSE: ${resp.slice(0, 400)}${resp.length > 400 ? '...' : ''}`);
+					xLog.result('');
+				} else if (turn.turnType === 'interrogation') {
 					const resp = turn.response || '';
 					xLog.result(`  RESPONSE: ${resp.slice(0, 400)}${resp.length > 400 ? '...' : ''}`);
 					xLog.result('');
@@ -184,12 +196,50 @@ Examples:
 
 	// -- build config from .ini + CLI args --
 	const buildConfig = () => {
-		const prompt = commandLineParameters.fileList.join(' ');
+		let prompt = commandLineParameters.fileList.join(' ');
 		const cfg = localConfig;
+		const parsedPerspectives = parseInt(cfg.perspectives, 10);
+		const perspectives = isNaN(parsedPerspectives) ? 0 : parsedPerspectives;
+		const interrogate = !!commandLineParameters.switches.interrogate;
+
+		// Read [prompts] section
+		const prompts = getConfig('prompts') || {};
+
+		// Resolve a prompt name to its text, applying template variables
+		const resolvePrompt = (name, templateVars) => {
+			const text = prompts[name];
+			if (!text) throw new Error(`Prompt "${name}" not found in [prompts]. Available: ${Object.keys(prompts).join(', ')}`);
+			let resolved = text.replace(/\\n/g, '\n');
+			if (templateVars) {
+				Object.keys(templateVars).forEach(key => {
+					resolved = resolved.replace(new RegExp(`\\{${key}\\}`, 'g'), templateVars[key]);
+				});
+			}
+			return resolved;
+		};
+
+		const templateVars = { N: String(perspectives) };
+
+		// Resolve firstPromptName based on mode and flags
+		let firstPromptName = (commandLineParameters.values.firstPrompt || [])[0];
+
+		if (interrogate && !firstPromptName) {
+			firstPromptName = 'interrogator';
+		}
+		if (!firstPromptName) {
+			firstPromptName = perspectives > 0
+				? (cfg.chorusExpanderPromptName || 'chorusExpander')
+				: (cfg.singleCallPromptName || 'default');
+		}
+
+		// -interrogate prepends framing to the user's prompt
+		if (interrogate) {
+			prompt = `Analyze the prior research findings in context of the following question: ${prompt}`;
+		}
 
 		return {
 			prompt,
-			perspectives: parseInt(cfg.perspectives, 10) || 3,
+			perspectives,
 			agentModel: resolveModel(cfg.agentModel || 'sonnet'),
 			expandModel: resolveModel(cfg.expandModel || 'opus'),
 			budget: parseFloat(cfg.budget) || 1.00,
@@ -202,18 +252,32 @@ Examples:
 			dryRun: !!commandLineParameters.switches.dryRun,
 			driver: (cfg.driver || 'direct').toLowerCase(),
 			anthropicApiKey: cfg.anthropicApiKey,
-			noSynthesize: !!commandLineParameters.switches.noSynthesize,
+			summarize: !!commandLineParameters.switches.summarize,
+			interrogate,
 			noSave: !!commandLineParameters.switches.noSave,
 			restoreSwitches: !!commandLineParameters.switches.restoreSwitches,
-			interrogateSession: !!commandLineParameters.switches.interrogateSession,
-			expansionSystemPrompt: (cfg.expansionSystemPrompt || '').replace(/\\n/g, '\n'),
-			researcherSystemPrompt: (cfg.researcherSystemPrompt || '').replace(/\\n/g, '\n'),
-			synthesisSystemPrompt: (cfg.synthesisSystemPrompt || '').replace(/\\n/g, '\n'),
-			interrogationSystemPrompt: (cfg.interrogationSystemPrompt || '').replace(/\\n/g, '\n'),
+			mockApi: !!commandLineParameters.switches.mockApi,
+			firstPromptName,
+			firstPromptText: resolvePrompt(firstPromptName, templateVars),
+			agentPromptName: cfg.agentPromptName || 'chorusResearcher',
+			agentPromptText: resolvePrompt(cfg.agentPromptName || 'chorusResearcher', {}),
+			summarizerPromptName: cfg.summarizerPromptName || 'chorusSynthesizer',
+			summarizerPromptText: resolvePrompt(cfg.summarizerPromptName || 'chorusSynthesizer', templateVars),
+			confluenceBaseUrl: cfg.confluenceBaseUrl,
+			confluenceEmail: cfg.confluenceEmail,
+			confluenceApiToken: cfg.confluenceApiToken,
+			confluenceDefaultSpace: cfg.confluenceDefaultSpace || 'ARCHITECTU',
+			resumeAddendumText: resolvePrompt('resumeAddendum', {}),
+			jsonEnforcementText: resolvePrompt('jsonEnforcement', {}),
 		};
 	};
 
 	const evalConfig = buildConfig();
+
+	// -- -summarize warning --
+	if (evalConfig.summarize && evalConfig.perspectives === 0) {
+		xLog.error('Warning: -summarize ignored (no perspectives to synthesize)');
+	}
 
 	// -- session resume logic (Phase 6) --
 	let resumeSession = null;
@@ -247,6 +311,7 @@ Examples:
 				budget: { prop: 'budget', parse: (v) => parseFloat(v) },
 				maxTurns: { prop: 'maxTurns', parse: (v) => parseInt(v, 10) },
 				driver: { prop: 'driver', parse: (v) => String(v).toLowerCase() },
+				firstPrompt: { prop: 'firstPromptName', parse: (v) => String(v) },
 			};
 
 			Object.keys(savedValues).forEach(key => {
@@ -264,6 +329,20 @@ Examples:
 			if (evalConfig.verbose && restoredKeys.length > 0) {
 				xLog.status(`[Resume] Restored from saved session: ${restoredKeys.join(', ')}`);
 			}
+
+			// If firstPromptName was restored, re-resolve firstPromptText to match
+			if (restoredKeys.some(k => k.startsWith('firstPrompt='))) {
+				const prompts = getConfig('prompts') || {};
+				const text = prompts[evalConfig.firstPromptName];
+				if (text) {
+					let resolved = text.replace(/\\n/g, '\n');
+					const templateVars = { N: String(evalConfig.perspectives) };
+					Object.keys(templateVars).forEach(key => {
+						resolved = resolved.replace(new RegExp(`\\{${key}\\}`, 'g'), templateVars[key]);
+					});
+					evalConfig.firstPromptText = resolved;
+				}
+			}
 		}
 		// Build session context from prior turns
 		sessionContext = sessionManager.buildSessionContext(resumeSession);
@@ -273,65 +352,14 @@ Examples:
 		}
 	}
 
-	// -- interrogate session mode (single-call Q&A, no pipeline) --
-	if (evalConfig.interrogateSession) {
-		if (!resumeSession || !sessionContext) {
-			xLog.error('-interrogateSession requires --resumeSession=NAME');
-			xLog.error('Usage: askClaude --resumeSession=NAME -interrogateSession "your question"');
-			return;
-		}
-		if (evalConfig.verbose) {
-			xLog.status(`[Interrogate] Model: ${evalConfig.agentModel}`);
-			xLog.status(`[Interrogate] Session: ${resumeSessionName}, ${resumeSession.turns.length} prior turn(s)`);
-			xLog.status(`[Interrogate] Question: ${evalConfig.prompt}`);
-		}
-
-		const startTime = Date.now();
-		import('./stages/interrogate-direct.mjs').then(({ interrogate }) => {
-			interrogate({ question: evalConfig.prompt, sessionContext, config: evalConfig })
-				.then(({ responseText, cost }) => {
-					const elapsedSeconds = (Date.now() - startTime) / 1000;
-
-					// Output the response
-					xLog.result(`\n================================================================`);
-					xLog.result(`INTERROGATION — ${resumeSessionName}`);
-					xLog.result(`================================================================`);
-					xLog.result(`\nQUESTION: ${evalConfig.prompt}\n`);
-					xLog.result(responseText);
-					xLog.result(`\n================================================================`);
-					xLog.result(`Cost: $${cost.usd.toFixed(4)}  (${cost.inputTokens} input / ${cost.outputTokens} output)  Model: ${evalConfig.agentModel}  Elapsed: ${elapsedSeconds.toFixed(1)}s`);
-					xLog.result(`================================================================`);
-
-					// Save as a turn in the session
-					if (!evalConfig.noSave) {
-						try {
-							const thisTurn = {
-								turnNumber: resumeSession.turns.length + 1,
-								turnType: 'interrogation',
-								prompt: evalConfig.prompt,
-								response: responseText,
-								totalCost: cost,
-								elapsedSeconds,
-								timestamp: new Date().toISOString(),
-							};
-							sessionManager.appendTurnToSession(resumeSession, thisTurn);
-							sessionManager.saveSession(resumeSession);
-							xLog.status(`Session saved: ${resumeSession.sessionName}`);
-						} catch (saveErr) {
-							xLog.error(`Warning: Failed to save session: ${saveErr.message}`);
-						}
-					}
-				})
-				.catch(err => {
-					xLog.error(`Interrogation error: ${err.message}`);
-					process.exit(1);
-				});
-		});
-		return;
-	}
+	// -- Confluence tool detection (needed for verbose display and pipeline routing) --
+	const hasConfluenceTools = evalConfig.tools.some(t => t.toLowerCase() === 'confluence');
 
 	if (evalConfig.verbose) {
+		const modeLabel = evalConfig.perspectives === 0 ? 'singleCall' : `chorus (${evalConfig.perspectives} perspectives)`;
 		xLog.status(`\n--- Config ---`);
+		xLog.status(`  Mode:          ${modeLabel}`);
+		xLog.status(`  First prompt:  ${evalConfig.firstPromptName}`);
 		xLog.status(`  Expand model:  ${evalConfig.expandModel}`);
 		xLog.status(`  Agent model:   ${evalConfig.agentModel}`);
 		xLog.status(`  Perspectives:  ${evalConfig.perspectives}`);
@@ -340,9 +368,14 @@ Examples:
 		xLog.status(`  Tools:         ${evalConfig.tools.length > 0 ? evalConfig.tools.join(', ') : '(none)'}`);
 		xLog.status(`  Driver:        ${evalConfig.driver}`);
 		xLog.status(`  Dry run:       ${evalConfig.dryRun}`);
-		xLog.status(`  No synthesize: ${evalConfig.noSynthesize}`);
+		xLog.status(`  Summarize:     ${evalConfig.summarize}`);
 		xLog.status(`  No save:       ${evalConfig.noSave}`);
 		xLog.status(`  Restore args:  ${evalConfig.restoreSwitches}`);
+		if (hasConfluenceTools) {
+			xLog.status(`  Confluence:    ${evalConfig.confluenceBaseUrl || '(not set)'}`);
+			xLog.status(`  Confl. space:  ${evalConfig.confluenceDefaultSpace || '(not set)'}`);
+			xLog.status(`  Confl. email:  ${evalConfig.confluenceEmail || '(not set)'}`);
+		}
 		if (resumeSessionName) {
 			xLog.status(`  Resume:        ${resumeSessionName}`);
 		}
@@ -362,140 +395,224 @@ Examples:
 
 	const taskList = new taskListPlus();
 
-	// Stage 1: Expand
-	taskList.push((args, next) => {
-		const expandModule = args.config.driver === 'sdk' ? './stages/expand.mjs' : './stages/expand-direct.mjs';
-		if (args.config.verbose) {
-			xLog.status(`[Stage 1] Loading ${expandModule}...`);
-		}
-		import(expandModule).then(({ expand }) => {
-			if (args.config.verbose) {
-				xLog.status(`[Stage 1] expand.mjs loaded. Calling Opus for expansion into ${args.config.perspectives} perspectives...`);
-			}
-			const stageStart = Date.now();
-			expand({ originalPrompt: args.originalPrompt, config: args.config, sessionContext: args.sessionContext })
-				.then(({ instructions, expandCost }) => {
-					if (args.config.verbose) {
-						const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
-						xLog.status(`[Stage 1] Complete in ${elapsed}s. Got ${instructions.length} perspectives:`);
-						instructions.forEach(instr => {
-							xLog.status(`  ${instr.id}. [${instr.perspective}]`);
-						});
-						xLog.status(`[Stage 1] Cost: $${expandCost.usd.toFixed(4)}`);
-					}
-					next('', { ...args, instructions, expandCost });
-				})
-				.catch(err => next(err.message, args));
-		});
-	});
+	if (evalConfig.perspectives === 0) {
+		// ============================================================
+		// SINGLE-CALL PIPELINE
+		// ============================================================
 
-	// Stage 2: Fan-out (skip if dry-run)
-	taskList.push((args, next) => {
-		if (args.config.dryRun) {
-			if (args.config.verbose) {
-				xLog.status(`[Stage 2] Skipped (dry-run mode)`);
+		// SingleCall stage — route to tools-enabled driver when confluence tools are requested
+		taskList.push((args, next) => {
+			const useToolsDriver = hasConfluenceTools && args.config.driver === 'direct';
+
+			if (useToolsDriver) {
+				// -- Tools-enabled direct driver (confluence) --
+				const mod = './stages/single-call-tools-direct.mjs';
+				if (args.config.verbose) {
+					xLog.status(`[SingleCall] Loading ${mod} (tools-enabled)...`);
+					xLog.status(`[SingleCall] Mode: singleCallWithTools, Prompt: ${args.config.firstPromptName}, Model: ${args.config.agentModel}`);
+				}
+
+				// Create confluenceAccessor instance
+				const confluenceAccessor = require('./lib/confluenceAccessor')({
+					baseUrl: args.config.confluenceBaseUrl,
+					email: args.config.confluenceEmail,
+					apiToken: args.config.confluenceApiToken,
+					defaultSpace: args.config.confluenceDefaultSpace,
+					mockApi: args.config.mockApi,
+				});
+
+				// Get tool definitions and handler
+				const confluenceTools = require('./lib/confluenceTools');
+				const toolHandler = require('./lib/toolHandler');
+
+				import(mod).then(({ singleCallWithTools }) => {
+					singleCallWithTools({
+						prompt: args.originalPrompt,
+						systemPrompt: args.config.firstPromptText,
+						sessionContext: args.sessionContext,
+						config: args.config,
+						tools: confluenceTools.getToolDefinitions(),
+						toolHandler,
+						accessor: confluenceAccessor,
+					}).then(({ responseText, cost }) => {
+						next('', { ...args, responseText, singleCallCost: cost });
+					}).catch(err => next(err.message, args));
+				});
+			} else {
+				// -- Standard driver (no tools) --
+				const mod = args.config.driver === 'sdk' ? './stages/single-call.mjs' : './stages/single-call-direct.mjs';
+				if (args.config.verbose) {
+					xLog.status(`[SingleCall] Loading ${mod}...`);
+					xLog.status(`[SingleCall] Mode: singleCall, Prompt: ${args.config.firstPromptName}, Model: ${args.config.agentModel}`);
+				}
+				import(mod).then(({ singleCall }) => {
+					singleCall({
+						prompt: args.originalPrompt,
+						systemPrompt: args.config.firstPromptText,
+						sessionContext: args.sessionContext,
+						config: args.config,
+					}).then(({ responseText, cost }) => {
+						next('', { ...args, responseText, singleCallCost: cost });
+					}).catch(err => next(err.message, args));
+				});
 			}
-			next('', args);
-			return;
-		}
-		const fanOutModule = args.config.driver === 'sdk' ? './stages/fanOut.mjs' : './stages/fanOut-direct.mjs';
-		if (args.config.verbose) {
-			xLog.status(`[Stage 2] Loading ${fanOutModule}...`);
-		}
-		import(fanOutModule).then(({ fanOut }) => {
+		});
+
+		// Collect stage (single-call)
+		taskList.push((args, next) => {
+			const elapsedSeconds = (Date.now() - args.startTime) / 1000;
 			if (args.config.verbose) {
-				xLog.status(`[Stage 2] fanOut.mjs loaded. Launching ${args.instructions.length} research agents in parallel...`);
+				xLog.status(`[Collect] Formatting singleCall output...`);
 			}
-			const stageStart = Date.now();
-			fanOut({ instructions: args.instructions, config: args.config })
-				.then(({ results }) => {
+			const { report, reportJson } = collect({
+				mode: 'singleCall',
+				promptName: args.config.firstPromptName,
+				prompt: args.originalPrompt,
+				responseText: args.responseText,
+				cost: args.singleCallCost,
+				model: args.config.agentModel,
+				elapsedSeconds,
+				config: args.config,
+			});
+			next('', { ...args, report, reportJson, elapsedSeconds });
+		});
+
+	} else {
+		// ============================================================
+		// CHORUS PIPELINE (perspectives > 0)
+		// ============================================================
+
+		// Expand stage
+		taskList.push((args, next) => {
+			const expandModule = args.config.driver === 'sdk' ? './stages/expand.mjs' : './stages/expand-direct.mjs';
+			if (args.config.verbose) {
+				xLog.status(`[Expand] Loading ${expandModule}...`);
+			}
+			import(expandModule).then(({ expand }) => {
+				if (args.config.verbose) {
+					xLog.status(`[Expand] Calling ${args.config.expandModel} for expansion into ${args.config.perspectives} perspectives...`);
+				}
+				const stageStart = Date.now();
+				expand({ originalPrompt: args.originalPrompt, config: args.config, sessionContext: args.sessionContext })
+					.then(({ instructions, expandCost }) => {
+						if (args.config.verbose) {
+							const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
+							xLog.status(`[Expand] Complete in ${elapsed}s. Got ${instructions.length} perspectives:`);
+							instructions.forEach(instr => {
+								xLog.status(`  ${instr.id}. [${instr.perspective}]`);
+							});
+							xLog.status(`[Expand] Cost: $${expandCost.usd.toFixed(4)}`);
+						}
+						next('', { ...args, instructions, expandCost });
+					})
+					.catch(err => next(err.message, args));
+			});
+		});
+
+		// Fan-out stage (skip if dry-run)
+		taskList.push((args, next) => {
+			if (args.config.dryRun) {
+				if (args.config.verbose) {
+					xLog.status(`[Fan-Out] Skipped (dry-run mode)`);
+				}
+				next('', args);
+				return;
+			}
+			const fanOutModule = args.config.driver === 'sdk' ? './stages/fanOut.mjs' : './stages/fanOut-direct.mjs';
+			if (args.config.verbose) {
+				xLog.status(`[Fan-Out] Loading ${fanOutModule}...`);
+			}
+			import(fanOutModule).then(({ fanOut }) => {
+				if (args.config.verbose) {
+					xLog.status(`[Fan-Out] Launching ${args.instructions.length} research agents in parallel...`);
+				}
+				const stageStart = Date.now();
+				fanOut({ instructions: args.instructions, config: args.config })
+					.then(({ results }) => {
+						if (args.config.verbose) {
+							const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
+							xLog.status(`[Fan-Out] All agents returned in ${elapsed}s`);
+							results.forEach(r => {
+								if (r.findings.startsWith('[AGENT FAILED') || r.findings.startsWith('[AGENT ERROR')) {
+									xLog.error(`  Agent ${r.id} (${r.perspective}): FAILED`);
+								} else {
+									xLog.status(`  Agent ${r.id} (${r.perspective}): done ($${r.cost.usd.toFixed(4)}, ${r.turns} turns)`);
+								}
+							});
+						}
+						next('', { ...args, results });
+					})
+					.catch(err => next(err.message, args));
+			});
+		});
+
+		// Synthesize stage (only if -summarize is set and not dry-run)
+		if (evalConfig.summarize) {
+			taskList.push((args, next) => {
+				if (args.config.dryRun) {
 					if (args.config.verbose) {
-						const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
-						xLog.status(`[Stage 2] All agents returned in ${elapsed}s`);
-						results.forEach(r => {
-							if (r.findings.startsWith('[AGENT FAILED') || r.findings.startsWith('[AGENT ERROR')) {
-								xLog.error(`  Agent ${r.id} (${r.perspective}): FAILED`);
-							} else {
-								xLog.status(`  Agent ${r.id} (${r.perspective}): done ($${r.cost.usd.toFixed(4)}, ${r.turns} turns)`);
+						xLog.status(`[Synthesize] Skipped (dry-run mode)`);
+					}
+					next('', args);
+					return;
+				}
+				const synthesizeModule = args.config.driver === 'sdk' ? './stages/synthesize.mjs' : './stages/synthesize-direct.mjs';
+				if (args.config.verbose) {
+					xLog.status(`[Synthesize] Loading ${synthesizeModule}...`);
+				}
+				import(synthesizeModule).then(({ synthesize }) => {
+					if (args.config.verbose) {
+						xLog.status(`[Synthesize] Calling ${args.config.expandModel} for cross-perspective synthesis...`);
+					}
+					const stageStart = Date.now();
+					synthesize({
+						originalPrompt: args.originalPrompt,
+						instructions: args.instructions,
+						results: args.results,
+						config: args.config,
+					})
+						.then(({ synthesis, synthesisCost }) => {
+							if (args.config.verbose) {
+								const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
+								xLog.status(`[Synthesize] Complete in ${elapsed}s. Synthesis: ${synthesis.length} chars`);
+								xLog.status(`[Synthesize] Cost: $${synthesisCost.usd.toFixed(4)}`);
 							}
-						});
-					}
-					next('', { ...args, results });
-				})
-				.catch(err => next(err.message, args));
-		});
-	});
+							next('', { ...args, synthesis, synthesisCost });
+						})
+						.catch(err => next(err.message, args));
+				});
+			});
+		}
 
-	// Stage 3: Synthesize (skip if dry-run or -noSynthesize)
-	taskList.push((args, next) => {
-		if (args.config.dryRun) {
+		// Collect stage (chorus)
+		taskList.push((args, next) => {
+			const elapsedSeconds = (Date.now() - args.startTime) / 1000;
 			if (args.config.verbose) {
-				xLog.status(`[Stage 3] Skipped (dry-run mode)`);
+				xLog.status(`[Collect] Collecting and formatting chorus output...`);
 			}
-			next('', args);
-			return;
-		}
-		if (args.config.noSynthesize) {
-			if (args.config.verbose) {
-				xLog.status(`[Stage 3] Skipped (-noSynthesize)`);
+
+			if (args.config.dryRun) {
+				const report = JSON.stringify(
+					{ instructions: args.instructions, expandCost: args.expandCost },
+					null, 2
+				);
+				next('', { ...args, report, elapsedSeconds });
+				return;
 			}
-			next('', args);
-			return;
-		}
-		const synthesizeModule = args.config.driver === 'sdk' ? './stages/synthesize.mjs' : './stages/synthesize-direct.mjs';
-		if (args.config.verbose) {
-			xLog.status(`[Stage 3] Loading ${synthesizeModule}...`);
-		}
-		import(synthesizeModule).then(({ synthesize }) => {
-			if (args.config.verbose) {
-				xLog.status(`[Stage 3] Calling ${args.config.expandModel} for cross-perspective synthesis...`);
-			}
-			const stageStart = Date.now();
-			synthesize({
+			const { report, reportJson } = collect({
+				mode: 'chorus',
 				originalPrompt: args.originalPrompt,
 				instructions: args.instructions,
 				results: args.results,
+				expandCost: args.expandCost,
+				synthesis: args.synthesis || null,
+				synthesisCost: args.synthesisCost || null,
+				elapsedSeconds,
 				config: args.config,
-			})
-				.then(({ synthesis, synthesisCost }) => {
-					if (args.config.verbose) {
-						const elapsed = ((Date.now() - stageStart) / 1000).toFixed(1);
-						xLog.status(`[Stage 3] Complete in ${elapsed}s. Synthesis: ${synthesis.length} chars`);
-						xLog.status(`[Stage 3] Cost: $${synthesisCost.usd.toFixed(4)}`);
-					}
-					next('', { ...args, synthesis, synthesisCost });
-				})
-				.catch(err => next(err.message, args));
+			});
+			next('', { ...args, report, reportJson, elapsedSeconds });
 		});
-	});
-
-	// Stage 4: Collect & format
-	taskList.push((args, next) => {
-		const elapsedSeconds = (Date.now() - args.startTime) / 1000;
-		if (args.config.verbose) {
-			xLog.status(`[Stage 4] Collecting results and formatting output...`);
-		}
-
-		if (args.config.dryRun) {
-			const report = JSON.stringify(
-				{ instructions: args.instructions, expandCost: args.expandCost },
-				null, 2
-			);
-			next('', { ...args, report, elapsedSeconds });
-			return;
-		}
-		const { report, reportJson } = collect({
-			originalPrompt: args.originalPrompt,
-			instructions: args.instructions,
-			results: args.results,
-			expandCost: args.expandCost,
-			synthesis: args.synthesis || null,
-			synthesisCost: args.synthesisCost || null,
-			elapsedSeconds,
-			config: args.config,
-		});
-		next('', { ...args, report, reportJson, elapsedSeconds });
-	});
+	}
 
 	// Run pipeline
 	const initialData = {
@@ -526,16 +643,32 @@ Examples:
 				const elapsedSeconds = result.elapsedSeconds || ((Date.now() - result.startTime) / 1000);
 				const turnNumber = result.session ? result.session.turns.length + 1 : 1;
 
-				const thisTurn = sessionManager.buildTurnFromResults({
-					originalPrompt: result.originalPrompt,
-					instructions: result.instructions,
-					results: result.results,
-					expandCost: result.expandCost,
-					synthesis: result.synthesis,
-					synthesisCost: result.synthesisCost,
-					elapsedSeconds,
-					turnNumber,
-				});
+				let thisTurn;
+				if (result.config.perspectives === 0) {
+					// Single-call turn
+					thisTurn = {
+						turnNumber,
+						turnType: 'singleCall',
+						promptName: result.config.firstPromptName,
+						prompt: result.originalPrompt,
+						response: result.responseText,
+						totalCost: result.singleCallCost,
+						elapsedSeconds,
+						timestamp: new Date().toISOString(),
+					};
+				} else {
+					// Chorus turn
+					thisTurn = sessionManager.buildTurnFromResults({
+						originalPrompt: result.originalPrompt,
+						instructions: result.instructions,
+						results: result.results,
+						expandCost: result.expandCost,
+						synthesis: result.synthesis,
+						synthesisCost: result.synthesisCost,
+						elapsedSeconds,
+						turnNumber,
+					});
+				}
 
 				let session;
 				if (result.session) {

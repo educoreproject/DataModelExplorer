@@ -6,7 +6,23 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
 	const localConfig = getConfig(moduleName);
 
-	const formatText = ({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds }) => {
+	const formatSingleCallText = ({ promptName, prompt, responseText, cost, model, elapsedSeconds }) => {
+		const lines = [];
+		lines.push("================================================================");
+		lines.push(`askClaude -- ${promptName || 'default'}`);
+		lines.push("================================================================");
+		lines.push("");
+		lines.push(`PROMPT: ${prompt}`);
+		lines.push("");
+		lines.push(responseText);
+		lines.push("");
+		lines.push("================================================================");
+		lines.push(`Cost: $${cost.usd.toFixed(4)}  (${cost.inputTokens} input / ${cost.outputTokens} output)  Model: ${model}  Elapsed: ${elapsedSeconds.toFixed(1)}s`);
+		lines.push("================================================================");
+		return lines.join("\n");
+	};
+
+	const formatChorusText = ({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds }) => {
 		const lines = [];
 
 		lines.push("================================================================");
@@ -53,16 +69,16 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 		lines.push("COST SUMMARY");
 		lines.push("================================================================");
 		if (expandCost) {
-			lines.push(`  Stage 1 (Expand):    $${expandCost.usd.toFixed(4)}   (${expandCost.inputTokens} input / ${expandCost.outputTokens} output tokens)`);
+			lines.push(`  Expand:              $${expandCost.usd.toFixed(4)}   (${expandCost.inputTokens} input / ${expandCost.outputTokens} output tokens)`);
 		}
 		if (results) {
-			lines.push("  Stage 2 (Fan-out):");
+			lines.push("  Fan-out:");
 			results.forEach((r) => {
 				lines.push(`    Perspective ${r.id}:     $${r.cost.usd.toFixed(4)}   (${r.cost.inputTokens} input / ${r.cost.outputTokens} output tokens)`);
 			});
 		}
 		if (synthesisCost) {
-			lines.push(`  Stage 3 (Synthesis): $${synthesisCost.usd.toFixed(4)}   (${synthesisCost.inputTokens} input / ${synthesisCost.outputTokens} output tokens)`);
+			lines.push(`  Synthesis:           $${synthesisCost.usd.toFixed(4)}   (${synthesisCost.inputTokens} input / ${synthesisCost.outputTokens} output tokens)`);
 		}
 
 		const totalCost = (expandCost ? expandCost.usd : 0) +
@@ -76,6 +92,13 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 		lines.push("================================================================");
 
 		return lines.join("\n");
+	};
+
+	const formatText = ({ mode, ...params }) => {
+		if (mode === 'singleCall') {
+			return formatSingleCallText(params);
+		}
+		return formatChorusText(params);
 	};
 
 	return { formatText };

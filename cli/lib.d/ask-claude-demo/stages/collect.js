@@ -9,16 +9,17 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { formatText } = require('../formatters/text');
 	const { formatJson } = require('../formatters/json');
 
-	const collect = ({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds, config }) => {
+	const collect = ({ mode, ...params }) => {
+		const { config } = params;
 		if (config.verbose) {
 			const format = config.json ? 'JSON' : 'text';
-			xLog.status(`[Collect] Formatting ${(results || []).length} results as ${format}`);
+			xLog.status(`[Collect] Formatting ${mode} output as ${format}`);
 		}
 		if (config.json) {
-			const reportJson = formatJson({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds, config });
+			const reportJson = formatJson({ mode, ...params });
 			return { report: JSON.stringify(reportJson, null, 2), reportJson };
 		} else {
-			const report = formatText({ originalPrompt, instructions, results, expandCost, synthesis, synthesisCost, elapsedSeconds });
+			const report = formatText({ mode, ...params });
 			return { report };
 		}
 	};

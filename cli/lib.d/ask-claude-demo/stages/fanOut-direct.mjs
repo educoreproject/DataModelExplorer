@@ -1,6 +1,9 @@
 // Stage 2 -- Fan-Out (Direct API): dispatches N parallel research calls
 // Uses @anthropic-ai/sdk directly instead of Agent SDK subprocess
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import Anthropic from "@anthropic-ai/sdk";
 
 // Cost estimation based on model pricing (per million tokens)
@@ -18,6 +21,11 @@ const estimateCost = (model, usage) => {
 };
 
 const runOneAgent = async ({ instruction, config }) => {
+	if (config.mockApi) {
+		const { mockFanOutAgent } = require('../lib/mockApi');
+		return mockFanOutAgent({ instruction, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
 	const tag = `[Agent ${instruction.id}/${instruction.perspective}]`;
@@ -34,7 +42,7 @@ const runOneAgent = async ({ instruction, config }) => {
 	const requestParams = {
 		model: config.agentModel,
 		max_tokens: 16384,
-		system: config.researcherSystemPrompt,
+		system: config.agentPromptText,
 		messages: [{ role: "user", content: instruction.instruction }],
 	};
 

@@ -1,6 +1,9 @@
 // Stage 1 -- Expand (Direct API): transforms a single prompt into N diverse research instructions
 // Uses @anthropic-ai/sdk directly instead of Agent SDK subprocess
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import Anthropic from "@anthropic-ai/sdk";
 
 // Cost estimation based on model pricing (per million tokens)
@@ -17,23 +20,21 @@ const estimateCost = (model, usage) => {
 	return inputCost + outputCost;
 };
 
-const JSON_ENFORCEMENT = `
-
-RESPONSE FORMAT: You MUST respond with ONLY a valid JSON object. No markdown code fences, no commentary, no text before or after the JSON. The JSON must follow this exact structure:
-{"instructions": [{"id": 1, "perspective": "Name of analytical angle", "instruction": "Full research instruction text", "methodology": "Brief approach note"}, ...]}`;
-
-const RESUME_ADDENDUM = `\n\nThe user is continuing a research session. Previous research context is provided below. The new question builds on this prior work. Decompose the NEW question into perspectives that complement (not repeat) the prior analysis.`;
-
 const expand = async ({ originalPrompt, config, sessionContext }) => {
+	if (config.mockApi) {
+		const { mockExpand } = require('../lib/mockApi');
+		return mockExpand({ originalPrompt, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	let systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives));
+	let systemPrompt = config.firstPromptText;
 
 	// If resuming a session, add the resume addendum to the system prompt
 	if (sessionContext) {
-		systemPrompt += RESUME_ADDENDUM;
+		systemPrompt += config.resumeAddendumText;
 	}
-	systemPrompt += JSON_ENFORCEMENT;
+	systemPrompt += config.jsonEnforcementText;
 
 	if (verbose) {
 		xLog.status(`[Expand-Direct] Calling messages API with model=${config.expandModel}...`);

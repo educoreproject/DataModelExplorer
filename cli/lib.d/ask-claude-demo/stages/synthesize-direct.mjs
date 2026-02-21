@@ -1,6 +1,9 @@
 // Stage 3 -- Synthesize (Direct API): cross-perspective analysis of all fan-out results
 // Uses @anthropic-ai/sdk directly instead of Agent SDK subprocess
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import Anthropic from "@anthropic-ai/sdk";
 
 // Cost estimation based on model pricing (per million tokens)
@@ -18,9 +21,14 @@ const estimateCost = (model, usage) => {
 };
 
 const synthesize = async ({ originalPrompt, instructions, results, config }) => {
+	if (config.mockApi) {
+		const { mockSynthesize } = require('../lib/mockApi');
+		return mockSynthesize({ originalPrompt, results, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	const systemPrompt = config.synthesisSystemPrompt.replace(/\{N\}/g, String(results.length));
+	const systemPrompt = config.summarizerPromptText;
 
 	// Build user message: original prompt + all perspective findings
 	const perspectiveSections = results.map((r) => {

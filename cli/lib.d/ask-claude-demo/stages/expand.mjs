@@ -1,6 +1,9 @@
 // Stage 1 -- Expand: transforms a single prompt into N diverse research instructions
 // This is a .mjs file because it imports from the Agent SDK (ES module)
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 // Build a clean env for SDK subprocess calls
@@ -34,16 +37,19 @@ const expansionSchema = {
 	required: ["instructions"]
 };
 
-const RESUME_ADDENDUM = `\n\nThe user is continuing a research session. Previous research context is provided below. The new question builds on this prior work. Decompose the NEW question into perspectives that complement (not repeat) the prior analysis.`;
-
 export const expand = async ({ originalPrompt, config, sessionContext }) => {
+	if (config.mockApi) {
+		const { mockExpand } = require('../lib/mockApi');
+		return mockExpand({ originalPrompt, config });
+	}
+
 	const { xLog } = process.global;
 	const verbose = config.verbose;
-	let systemPrompt = config.expansionSystemPrompt.replace(/\{N\}/g, String(config.perspectives));
+	let systemPrompt = config.firstPromptText;
 
 	// If resuming a session, add the resume addendum to the system prompt
 	if (sessionContext) {
-		systemPrompt += RESUME_ADDENDUM;
+		systemPrompt += config.resumeAddendumText;
 	}
 
 	let instructions = [];
