@@ -33,7 +33,7 @@ const selectTool = (toolName) => {
 					<v-col style="flex: 1;">
 						<v-card flat class="h-100">
 							<!-- Tool selection toolbar -->
-							<v-toolbar flat density="compact" color="white">
+							<v-toolbar flat density="compact" color="surface">
 								<v-spacer></v-spacer>
 
 								<!-- Add/Edit User button -->

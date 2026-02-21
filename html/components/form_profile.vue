@@ -183,9 +183,9 @@ watch(
 		<v-sheet class="pa-12" color="transparent">
 			<v-sheet
 				class="mx-auto pa-10"
-				width="300"
-				:elevation="16"
-				:rounded="'xl'"
+				width="400"
+				:elevation="2"
+				rounded="lg"
 			>
 
 				<v-alert type="info" class="annotation" v-if="LoginStore.legacy">

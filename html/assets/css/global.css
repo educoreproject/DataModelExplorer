@@ -1,0 +1,98 @@
+/* EDUcore Global Styles — Editorial Typography
+   Inspired by the business plan document aesthetic.
+   Applied globally via nuxt.config.ts css[] array. */
+
+/* Base typography */
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #333;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Override Vuetify's default Roboto on key elements */
+.v-application {
+  font-family: Georgia, 'Times New Roman', serif !important;
+  line-height: 1.7;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6,
+.v-toolbar-title,
+.v-list-item-title,
+.v-card-title,
+.text-h1, .text-h2, .text-h3, .text-h4, .text-h5, .text-h6 {
+  font-family: Georgia, 'Times New Roman', serif !important;
+  color: #2c5f8a;
+}
+
+/* Buttons get a clean sans-serif for UI crispness */
+.v-btn {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 500 !important;
+}
+
+/* Text fields */
+.v-field__input,
+.v-label {
+  font-family: Georgia, 'Times New Roman', serif !important;
+}
+
+/* App bar nav title */
+.v-app-bar-title {
+  font-family: Georgia, 'Times New Roman', serif !important;
+}
+
+/* Tables (for any future data tables) */
+.v-table thead th {
+  background: #2c5f8a !important;
+  color: #fff !important;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.v-table tbody tr:nth-child(even) {
+  background: #f5f5f0;
+}
+
+.v-table tbody tr:hover {
+  background: #eef3f9 !important;
+}
+
+/* Lists — sidebar style */
+.v-list-item--active {
+  border-left: 3px solid #2c5f8a;
+}
+
+/* Cards — subtle editorial feel */
+.v-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Alerts — match the editorial palette */
+.v-alert {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 14px;
+}
+
+/* Chips */
+.v-chip {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}

@@ -6,6 +6,8 @@ export default defineNuxtConfig({
   ssr: false, // Disable server-side rendering for an SPA
   target: 'static', // Set target to 'static' for static site generation
 
+  css: ['~/assets/css/global.css'],
+
   modules: [
     '@pinia/nuxt',
     (_options, nuxt) => {
