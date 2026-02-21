@@ -470,6 +470,34 @@ Examples:
 						next('', { ...args, responseText, singleCallCost: cost });
 					}).catch(err => next(err.message, args));
 				});
+			} else if (hasConfluenceTools && args.config.driver === 'sdk') {
+				// -- SDK driver with Confluence MCP server --
+				const mod = './stages/single-call.mjs';
+				if (args.config.verbose) {
+					xLog.status(`[SingleCall] Loading ${mod} (with Confluence MCP)...`);
+					xLog.status(`[SingleCall] Mode: singleCallWithMCP, Prompt: ${args.config.firstPromptName}, Model: ${args.config.agentModel}`);
+				}
+
+				// Create confluenceAccessor instance
+				const confluenceAccessor = require('./lib/confluenceAccessor')({
+					baseUrl: args.config.confluenceBaseUrl,
+					email: args.config.confluenceEmail,
+					apiToken: args.config.confluenceApiToken,
+					defaultSpace: args.config.confluenceDefaultSpace,
+					mockApi: args.config.mockApi,
+				});
+
+				import(mod).then(({ singleCall }) => {
+					singleCall({
+						prompt: args.originalPrompt,
+						systemPrompt: args.config.firstPromptText,
+						sessionContext: args.sessionContext,
+						config: args.config,
+						accessor: confluenceAccessor,
+					}).then(({ responseText, cost }) => {
+						next('', { ...args, responseText, singleCallCost: cost });
+					}).catch(err => next(err.message, args));
+				});
 			} else {
 				// -- Standard driver (no tools) --
 				const mod = args.config.driver === 'sdk' ? './stages/single-call.mjs' : './stages/single-call-direct.mjs';

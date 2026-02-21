@@ -4,10 +4,11 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod/v4";
 import { buildSdkEnv } from "./expand.mjs";
 
-const singleCall = async ({ prompt, systemPrompt, sessionContext, config }) => {
+const singleCall = async ({ prompt, systemPrompt, sessionContext, config, accessor }) => {
 	if (config.mockApi) {
 		const { mockSingleCall } = require('../lib/mockApi');
 		return mockSingleCall({ prompt, systemPrompt, config });
@@ -34,6 +35,20 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config }) => {
 	let responseText = '';
 	let cost = { inputTokens: 0, outputTokens: 0, usd: 0 };
 
+	// Build MCP servers map when confluence accessor is provided
+	let mcpServers;
+	if (accessor) {
+		const { createConfluenceMcpServer } = require('../lib/confluenceTools');
+		const mcpServer = createConfluenceMcpServer(accessor, { tool, createSdkMcpServer, z });
+		mcpServers = { confluence: mcpServer };
+		if (verbose) {
+			xLog.status(`[SingleCall-SDK] Created Confluence MCP server (in-process)`);
+		}
+	}
+
+	// Filter out 'confluence' from the built-in tools list — it's handled by the MCP server
+	const builtInTools = config.tools.filter(t => t.toLowerCase() !== 'confluence');
+
 	const queryOptions = {
 		model,
 		systemPrompt,
@@ -43,7 +58,8 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config }) => {
 		maxBudgetUsd: config.budget,
 		persistSession: false,
 		env: buildSdkEnv(config.anthropicApiKey),
-		tools: config.tools.length > 0 ? config.tools : [],
+		tools: builtInTools.length > 0 ? builtInTools : [],
+		...(mcpServers && { mcpServers }),
 	};
 
 	for await (const message of query({
