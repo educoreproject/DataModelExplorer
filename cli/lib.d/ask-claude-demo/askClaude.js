@@ -27,6 +27,10 @@ askClaude -- Configurable AI pipeline
 
 Usage:
   askClaude [options] "your prompt here"
+  echo '{ JSON }' | askClaude
+  askClaude <<EOF
+  { JSON }
+  EOF
 
 Pipeline control:
   --perspectives=N       Number of chorus perspectives. 0 = single-call (default: 0)
@@ -55,11 +59,21 @@ Output control:
 
 Session management:
   --resumeSession=NAME   Continue a previous session with a follow-up prompt
+                         (auto-creates session if NAME doesn't exist)
   --sessionName=NAME     Name this session (default: auto-generated)
   -listSessions          List all saved sessions with date, size, prompt preview
   --viewSession=NAME     Display full session content
   --deleteSession=NAME   Delete a saved session
   --renameSession=NAME   Rename a session (use with --sessionName=NEW_NAME)
+
+JSON input (programmatic):
+  Accepts a JSON object via stdin or as the first argument, replacing
+  CLI flag parsing entirely. The JSON must have the structure:
+    { "switches": {...}, "values": {...}, "fileList": [...] }
+
+  switches   Boolean flags (e.g. mockApi, noSave, verbose, summarize)
+  values     Keyed arrays    (e.g. model: ["haiku"], perspectives: ["3"])
+  fileList   Positional args (the prompt goes here as the first element)
 
 Examples:
   askClaude "What is quantum computing?"
@@ -70,6 +84,21 @@ Examples:
   askClaude --resumeSession=amber_ridge -interrogate "Expand on the economic impacts"
   askClaude -listSessions
   askClaude --viewSession=amber_ridge
+
+  JSON via stdin (for piping from scripts or AI agents):
+  echo '{"switches":{"noSave":true},"values":{},"fileList":["What is 2+2?"]}' | askClaude
+
+  JSON as argument:
+  askClaude '{"switches":{"verbose":true},"values":{"model":["haiku"]},"fileList":["Summarize this"]}'
+
+  JSON via heredoc (readable multi-line):
+  askClaude <<EOF
+  {
+    "switches": { "noSave": true, "verbose": true },
+    "values": { "model": ["haiku"], "perspectives": ["3"] },
+    "fileList": ["Compare React, Vue, and Svelte"]
+  }
+  EOF
 		`);
 		return;
 	}
@@ -287,8 +316,9 @@ Examples:
 		try {
 			resumeSession = sessionManager.loadSession(resumeSessionName);
 		} catch (e) {
-			xLog.error(e.message);
-			return;
+			// Session not found — start a new one with that name
+			xLog.error(`Session "${resumeSessionName}" not found. Starting new session with that name.`);
+			commandLineParameters.values.sessionName = [resumeSessionName];
 		}
 		// Validate that a new prompt exists
 		if (!evalConfig.prompt) {
@@ -344,11 +374,13 @@ Examples:
 				}
 			}
 		}
-		// Build session context from prior turns
-		sessionContext = sessionManager.buildSessionContext(resumeSession);
-		if (evalConfig.verbose) {
-			xLog.status(`[Resume] Loaded session "${resumeSessionName}" with ${resumeSession.turns.length} prior turn(s)`);
-			xLog.status(`[Resume] Session context: ${sessionContext.length} chars`);
+		// Build session context from prior turns (only if session was found)
+		if (resumeSession) {
+			sessionContext = sessionManager.buildSessionContext(resumeSession);
+			if (evalConfig.verbose) {
+				xLog.status(`[Resume] Loaded session "${resumeSessionName}" with ${resumeSession.turns.length} prior turn(s)`);
+				xLog.status(`[Resume] Session context: ${sessionContext.length} chars`);
+			}
 		}
 	}
 
@@ -700,7 +732,17 @@ Examples:
 		__dirname.replace(new RegExp(`^(.*${closest ? '' : '?'}\\/${rootFolderName}).*$`), "$1");
 	const projectRoot = findProjectRoot();
 
-	const commandLineParameters = commandLineParser.getParameters({ noFunctions: true });
+	let commandLineParameters = commandLineParser.getParameters({ noFunctions: true });
+
+	// Accept JSON from stdin or argv[2] as override (bb2 pattern)
+	try {
+		const stdinText = !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : '';
+		const possibleJson = process.argv[2] ? process.argv[2] : stdinText;
+		commandLineParameters = JSON.parse(possibleJson);
+		commandLineParameters.fromJson = true;
+	} catch (err) {
+		// no JSON found — use normal commandLineParameters from qtools-parse-command-line
+	}
 
 	// Map CLI flag names to .ini substitution tag names
 	const cliToIniMap = { model: 'agentModel' };

@@ -11,7 +11,7 @@
 #   ./test-askClaude-permutations.sh -prod chorus  # one group, live API
 #   ./test-askClaude-permutations.sh -verbose       # all groups, show full output
 #
-# Groups: single-call, chorus, prompts, interrogate, confluence, sessions, output, edge
+# Groups: single-call, chorus, prompts, interrogate, confluence, sessions, output, json-stdin, edge
 
 PASSED=0
 FAILED=0
@@ -219,6 +219,12 @@ if should_run "sessions"; then
 	run_test "deleteSession (cleanup)" "pass" "" \
 		askClaude --deleteSession="${TEST_SESSION_NAME}_renamed"
 
+	run_test "resumeSession auto-creates missing" "pass" "not found.*starting new|session saved.*${TEST_SESSION_NAME}_autocreate" \
+		askClaude $MOCK_FLAG --resumeSession="${TEST_SESSION_NAME}_autocreate" "auto-create test"
+
+	run_test "deleteSession (auto-create cleanup)" "pass" "" \
+		askClaude --deleteSession="${TEST_SESSION_NAME}_autocreate"
+
 	echo ""
 fi
 
@@ -234,6 +240,26 @@ if should_run "output"; then
 
 	run_test "verbose + json" "pass" "" \
 		askClaude $MOCK_FLAG -noSave -verbose -json "test"
+
+	echo ""
+fi
+
+# ── Group: json-stdin ────────────────────────────────────────────────
+
+if should_run "json-stdin"; then
+	echo "── JSON Stdin (bb2 pattern) ──"
+
+	run_test "json stdin single-call" "pass" "" \
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{},\"fileList\":[\"What is 2+2?\"]}" | askClaude'
+
+	run_test "json stdin with model override" "pass" "haiku" \
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true,\"verbose\":true},\"values\":{\"model\":[\"haiku\"]},\"fileList\":[\"test\"]}" | askClaude'
+
+	run_test "json stdin chorus" "pass" "perspective" \
+		bash -c 'echo "{\"switches\":{\"mockApi\":true,\"noSave\":true},\"values\":{\"perspectives\":[\"2\"]},\"fileList\":[\"Compare X and Y\"]}" | askClaude'
+
+	run_test "json argv direct" "pass" "" \
+		askClaude '{"switches":{"mockApi":true,"noSave":true},"values":{},"fileList":["Tell me a joke"]}'
 
 	echo ""
 fi
