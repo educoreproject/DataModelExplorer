@@ -10,6 +10,7 @@
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
+const makeRefId = require('../../lib/make-ref-id');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -99,7 +100,7 @@ const moduleFunction = function ({
 
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			if (err) {
-				const errorId = qt.generateShortId();
+				const errorId = makeRefId(12);
 				xLog.error(`Admin user update error (${errorId}): ${err}`);
 				xRes.status(400).send(`${err.toString()} (${errorId})`);
 				return;

@@ -13,6 +13,7 @@
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
+const makeRefId = require('../../lib/make-ref-id');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -79,7 +80,7 @@ const moduleFunction = function ({
 
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			if (err) {
-				const errorId = Math.random().toString().slice(2);
+				const errorId = makeRefId(12);
 				xLog.error(`Library catalog error (${errorId}): ${err}`);
 				xRes.status(401).send(`${err.toString()} (${errorId})`);
 				return;
