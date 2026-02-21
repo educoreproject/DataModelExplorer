@@ -3,6 +3,7 @@
 	const LoginStore = useLoginStore();
 
 	const router = useRouter();
+	const route = useRoute();
 
 	const username = ref('');
 	const password = ref('');
@@ -28,7 +29,8 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					router.push('work');
+					const redirect = route.query.redirect || '/library';
+					router.push(redirect);
 				}
 			})
 			.catch((err) => {
@@ -42,11 +44,18 @@
 		<v-sheet class="pa-12" color="transparent">
 			<v-sheet
 				class="mx-auto pa-10"
-				width="300"
-				:elevation="16"
-				:rounded="'xl'"
+				width="340"
+				:elevation="2"
+				rounded="lg"
 			>
-				<div v-if="LoginStore.statusMsg">{{LoginStore.statusMsg}}</div>
+				<v-alert
+					v-if="LoginStore.statusMsg"
+					type="error"
+					density="compact"
+					class="mb-4"
+				>
+					{{ LoginStore.statusMsg }}
+				</v-alert>
 				<v-form fast-fail @submit.prevent>
 					<v-text-field
 						v-model="username"
@@ -68,10 +77,19 @@
 					>
 					</v-text-field>
 
-					<v-btn class="mt-2" @click="submitButton" block>Login</v-btn>
+					<v-btn class="mt-2" color="primary" @click="submitButton" block>Login</v-btn>
 				</v-form>
 			</v-sheet>
 		</v-sheet>
-		<div style="font-size: 8pt; color: #aaa; text-align: center">v1.43</div>
+		<div class="version-tag">v1.43</div>
 	</v-container>
 </template>
+
+<style scoped>
+.version-tag {
+	font-size: 8pt;
+	color: #bbb;
+	text-align: center;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+</style>

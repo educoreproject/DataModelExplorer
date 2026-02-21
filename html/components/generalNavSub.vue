@@ -39,7 +39,7 @@
 <template>
 	<!-- Top banner (not an app bar) -->
 	<div class="banner justify-center align-center">
-		<h1 class="banner-title">educore</h1>
+		<h1 class="banner-title">EDUcore</h1>
 	</div>
 
 	<!-- Navigation bar -->
@@ -48,29 +48,32 @@
 	>
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
-			<template v-else>educore Tools</template>
+			<template v-else>EDUcore Tools</template>
 		</v-app-bar-title>
 
 		<v-btn
 			v-if="(LoginStore.loggedInUser.role === 'client') && !isWorkPage"
+			variant="text"
 			prepend-icon="mdi-image"
 			title="Get to Work"
-			:to="{ path: 'work' }"
+			:to="{ path: '/work' }"
 		>
 			Open Work.vue
 		</v-btn>
 
 		<v-btn
 			v-if="!isAdminPage && LoginStore.loggedInUser.role === 'admin'"
+			variant="text"
 			prepend-icon="mdi-shield-account"
 			title="Admin Tools"
-			:to="{ path: 'admin' }"
+			:to="{ path: '/admin' }"
 		>
-			ADMIN
+			Admin
 		</v-btn>
 
 		<v-btn
 			v-if="LoginStore.validUser"
+			variant="text"
 			prepend-icon="mdi-bookshelf"
 			title="Document Library"
 			:to="{ path: '/library' }"
@@ -80,9 +83,10 @@
 		</v-btn>
 
 		<v-btn
+			variant="text"
 			prepend-icon="mdi-account"
 			title="Profile"
-			:to="{ path: 'utility', query: { purpose: 'profile' } }"
+			:to="{ path: '/utility', query: { purpose: 'profile' } }"
 		>
 			<span v-if="LoginStore.loggedInUser.last">
 				{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
@@ -90,7 +94,7 @@
 			<span v-else>{{ LoginStore.loggedInUser.username }}</span>
 		</v-btn>
 
-		<v-btn prepend-icon="mdi-logout" title="Logout" @click="reloadPage">
+		<v-btn variant="text" prepend-icon="mdi-logout" title="Logout" @click="reloadPage">
 			Logout
 		</v-btn>
 	</v-app-bar>
@@ -99,24 +103,26 @@
 <style scoped>
 	/* Banner styling */
 	.banner {
-		background: #ffc425;
-		padding: 0.1rem;
+		background: linear-gradient(135deg, #2c5f8a 0%, #1a3d5c 100%);
+		padding: 0.4rem;
 		text-align: center;
 	}
 
 	.banner-title {
 		margin: 0;
 		color: #fff;
-		font-family: 'Roboto', sans-serif;
-		font-size: 1.5rem;
+		font-family: Georgia, 'Times New Roman', serif;
+		font-size: 1.6rem;
+		letter-spacing: 2px;
 	}
 	.titleOrange {
-		color: #ffc425;
+		color: #2c5f8a;
 		font-weight: bold;
 		padding-left: 5px;
 	}
 	.v-app-bar {
-		margin-top: 2.5rem;
+		margin-top: 2.7rem;
+		border-bottom: 1px solid #ddd !important;
 	}
 	/* Toolbar title alignment fixes */
 	.v-app-bar-title {

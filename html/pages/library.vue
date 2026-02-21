@@ -2,24 +2,37 @@
 import { useLoginStore } from '@/stores/loginStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const LoginStore = useLoginStore();
 const libraryStore = useLibraryStore();
 const router = useRouter();
+const route = useRoute();
 
 const newWindowDocName = ref('');
 
-// Auth guard
+// Auth guard + deep-link support
 onMounted(async () => {
 	if (!LoginStore.validUser) {
-		router.push('/');
+		router.push({ path: '/', query: { redirect: route.fullPath } });
 		return;
 	}
 	await libraryStore.fetchCatalog();
+
+	// Auto-open document from ?doc= query parameter
+	const docParam = route.query.doc;
+	if (docParam && libraryStore.catalog.length) {
+		const match = libraryStore.catalog.find(d => d.filename === docParam);
+		if (match) {
+			handleDocClick(match);
+		}
+	}
 });
 
 const handleDocClick = (doc) => {
+	// Update URL with ?doc= for bookmarkability
+	router.replace({ query: { doc: doc.filename } });
+
 	if (doc.hasOwnNav) {
 		newWindowDocName.value = doc.displayName;
 		libraryStore.currentPage = null;
@@ -91,6 +104,7 @@ const handleDocClick = (doc) => {
 <style scoped>
 .sidebar {
 	border-right: 1px solid rgba(0, 0, 0, 0.12);
+	background-color: #f9f9f6;
 	overflow-y: auto;
 	max-height: calc(100vh - 120px);
 }
