@@ -18,8 +18,14 @@
 
 	// Check if we're on the admin page
 	const isAdminPage = computed(() => {
-		return router.currentRoute.value.path === '/admin' || 
+		return router.currentRoute.value.path === '/admin' ||
 		       router.currentRoute.value.path === '/admin/';
+	});
+
+	// Check if we're on the library page
+	const isLibraryPage = computed(() => {
+		return router.currentRoute.value.path === '/library' ||
+		       router.currentRoute.value.path === '/library/';
 	});
 
 	const reloadPage = () => {
@@ -61,6 +67,16 @@
 			:to="{ path: 'admin' }"
 		>
 			ADMIN
+		</v-btn>
+
+		<v-btn
+			v-if="LoginStore.validUser"
+			prepend-icon="mdi-bookshelf"
+			title="Document Library"
+			:to="{ path: '/library' }"
+			:disabled="isLibraryPage"
+		>
+			Library
 		</v-btn>
 
 		<v-btn
