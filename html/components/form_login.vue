@@ -7,6 +7,7 @@
 
 	const username = ref('');
 	const password = ref('');
+	const showPassword = ref(false);
 
 	const usernameRules = [
 		(value) => {
@@ -68,11 +69,13 @@
 					</v-text-field>
 
 					<v-text-field
-						type="password"
+						:type="showPassword ? 'text' : 'password'"
 						v-model="password"
 						:rules="passwordRules"
 						label="Password"
 						autocompleset="password"
+						:append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+						@click:append-inner="showPassword = !showPassword"
 						@keyup.enter="submitButton"
 					>
 					</v-text-field>
