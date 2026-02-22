@@ -10,6 +10,7 @@ const router = useRouter();
 const route = useRoute();
 
 const newWindowDocName = ref('');
+const openInNewWindow = ref(false);
 
 // Auth guard + deep-link support
 onMounted(async () => {
@@ -33,7 +34,7 @@ const handleDocClick = (doc) => {
 	// Update URL with ?doc= for bookmarkability
 	router.replace({ query: { doc: doc.filename } });
 
-	if (doc.hasOwnNav) {
+	if (openInNewWindow.value) {
 		newWindowDocName.value = doc.displayName;
 		libraryStore.currentPage = null;
 		libraryStore.openInNewWindow(doc.filename);
@@ -53,20 +54,21 @@ const handleDocClick = (doc) => {
 					<!-- Left sidebar: catalog -->
 					<v-col cols="3" class="sidebar">
 						<v-list density="compact" nav>
+							<v-list-item @click="openInNewWindow = !openInNewWindow">
+								<v-list-item-title>
+									Open in new window
+									<v-icon size="small" class="ml-1">
+										{{ openInNewWindow ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline' }}
+									</v-icon>
+								</v-list-item-title>
+							</v-list-item>
+							<v-divider />
 							<v-list-item
 								v-for="doc in libraryStore.sortedCatalog"
 								:key="doc.anchor"
 								:active="doc.filename === libraryStore.currentFilename"
 								@click="handleDocClick(doc)"
 							>
-								<template #prepend>
-									<v-icon v-if="doc.hasOwnNav" size="small">
-										mdi-open-in-new
-									</v-icon>
-									<v-icon v-else size="small">
-										mdi-file-document-outline
-									</v-icon>
-								</template>
 								<v-list-item-title>{{ doc.displayName }}</v-list-item-title>
 								<v-tooltip v-if="doc.tooltip" activator="parent">
 									{{ doc.tooltip }}
