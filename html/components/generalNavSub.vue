@@ -28,6 +28,12 @@
 		       router.currentRoute.value.path === '/library/';
 	});
 
+	// Check if we're on the ontology page
+	const isOntologyPage = computed(() => {
+		return router.currentRoute.value.path === '/ontology' ||
+		       router.currentRoute.value.path === '/ontology/';
+	});
+
 	const reloadPage = () => {
 		window.location.href = window.location.href.replace(
 			/^(https?:\/\/[^\/]+).*/,
@@ -48,6 +54,9 @@
 	>
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
+			<template v-else-if="isOntologyPage">Ontology13</template>
+			<template v-else-if="isLibraryPage">Library</template>
+			<template v-else-if="isWorkPage">Work</template>
 			<template v-else>EDUcore Tools</template>
 		</v-app-bar-title>
 
@@ -69,6 +78,17 @@
 			:to="{ path: '/admin' }"
 		>
 			Admin
+		</v-btn>
+
+		<v-btn
+			v-if="LoginStore.validUser"
+			variant="text"
+			prepend-icon="mdi-file-tree"
+			title="CEDS Ontology Browser"
+			:to="{ path: '/ontology' }"
+			:disabled="isOntologyPage"
+		>
+			Ontology13
 		</v-btn>
 
 		<v-btn
