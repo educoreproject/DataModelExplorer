@@ -10,6 +10,8 @@ const actionSuggestionMap = {
 	optionSet: 'listOptionSets',
 	property: 'listProperties',
 	path: 'listClasses',
+	compare: 'listClasses',
+	dataSpec: 'listClasses',
 };
 
 // -------------------------------------------------------------------------
@@ -47,6 +49,8 @@ export const useCedsOntologyStore = defineStore('cedsOntologyStore', {
 				optionSet: state.optionSetSuggestions,
 				property: state.propertySuggestions,
 				path: state.classSuggestions,
+				compare: state.classSuggestions,
+				dataSpec: state.classSuggestions,
 			};
 			return map[state.currentAction] || [];
 		},

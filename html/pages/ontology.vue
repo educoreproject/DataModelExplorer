@@ -10,7 +10,17 @@ const router = useRouter();
 const route = useRoute();
 
 // -------------------------------------------------------------------------
-// Action definitions with descriptive titles
+// Tab configuration
+
+const activeTab = ref('lookup');
+
+const ontologyTabs = [
+	{ label: 'Lookup', value: 'lookup', icon: 'mdi-magnify' },
+	{ label: 'Explore', value: 'explore-tab', icon: 'mdi-graph' },
+];
+
+// -------------------------------------------------------------------------
+// LOOKUP TAB: Action definitions with descriptive titles
 
 const actions = [
 	{
@@ -30,8 +40,12 @@ const actions = [
 		value: 'property',
 	},
 	{
-		title: 'Path -- Find relationship path between two classes',
+		title: 'Path -- Find semantic path between two classes',
 		value: 'path',
+	},
+	{
+		title: 'Compare -- Show shared and unique properties of two classes',
+		value: 'compare',
 	},
 	{
 		title: 'Search -- Semantic vector search across all descriptions',
@@ -41,7 +55,7 @@ const actions = [
 ];
 
 // -------------------------------------------------------------------------
-// Reactive state
+// LOOKUP TAB: Reactive state
 
 const selectedAction = ref('stats');
 const inputText = ref('');
@@ -50,7 +64,27 @@ const showHelp = ref(false);
 const restoringState = ref(false);
 
 // -------------------------------------------------------------------------
-// Computed properties
+// EXPLORE TAB: Action definitions
+
+const exploreActions = [
+	{
+		title: 'Data Specification -- Full property list with resolved types',
+		value: 'dataSpec',
+	},
+	{
+		title: 'Shared Vocabularies -- Option sets used across 3+ classes',
+		value: 'shared',
+	},
+];
+
+// -------------------------------------------------------------------------
+// EXPLORE TAB: Reactive state
+
+const selectedExploreAction = ref('dataSpec');
+const exploreInput = ref('');
+
+// -------------------------------------------------------------------------
+// LOOKUP TAB: Computed properties
 
 const placeholderText = computed(() => {
 	const placeholders = {
@@ -59,6 +93,7 @@ const placeholderText = computed(() => {
 		optionSet: 'Option set name (e.g., "Sex", "Grade Level")',
 		property: 'Property name (e.g., "BirthDate")',
 		path: 'First class (e.g., "K12 Student")',
+		compare: 'First class (e.g., "K12 Student")',
 		search: 'Natural language query (e.g., "assessment scores for ELL")',
 		stats: '',
 	};
@@ -74,11 +109,30 @@ const isInputDisabled = computed(() => {
 });
 
 const showSecondInput = computed(() => {
-	return selectedAction.value === 'path';
+	return selectedAction.value === 'path' || selectedAction.value === 'compare';
 });
 
 const useAutocomplete = computed(() => {
 	return cedsStore.hasSuggestions;
+});
+
+// -------------------------------------------------------------------------
+// EXPLORE TAB: Computed properties
+
+const isExploreInputDisabled = computed(() => {
+	return selectedExploreAction.value === 'shared';
+});
+
+const explorePlaceholder = computed(() => {
+	const placeholders = {
+		dataSpec: 'Class name (e.g., "K12 Student")',
+		shared: '',
+	};
+	return placeholders[selectedExploreAction.value] || '';
+});
+
+const useExploreAutocomplete = computed(() => {
+	return selectedExploreAction.value === 'dataSpec';
 });
 
 // -------------------------------------------------------------------------
@@ -104,7 +158,7 @@ onMounted(async () => {
 });
 
 // -------------------------------------------------------------------------
-// Watchers
+// LOOKUP TAB: Watchers
 
 watch(selectedAction, (newAction) => {
 	if (restoringState.value) return;
@@ -133,7 +187,20 @@ watch(showHelp, (newVal) => {
 });
 
 // -------------------------------------------------------------------------
-// Event handlers
+// EXPLORE TAB: Watchers
+
+watch(selectedExploreAction, (newAction) => {
+	cedsStore.clearOutput();
+	exploreInput.value = '';
+	cedsStore.currentAction = newAction;
+	cedsStore.fetchSuggestions(newAction);
+	if (newAction === 'shared') {
+		runExploreAction();
+	}
+});
+
+// -------------------------------------------------------------------------
+// LOOKUP TAB: Event handlers
 
 const runAction = () => {
 	// Don't run if help is showing
@@ -145,9 +212,9 @@ const runAction = () => {
 
 	// Build args based on action type
 	let args = [];
-	if (action === 'path') {
+	if (action === 'path' || action === 'compare') {
 		if (!inputText.value || !inputText.value.trim() || !inputTextB.value || !inputTextB.value.trim()) {
-			cedsStore.statusMsg = 'Path requires two class names';
+			cedsStore.statusMsg = `${action === 'path' ? 'Path' : 'Compare'} requires two class names`;
 			return;
 		}
 		args = [inputText.value.trim(), inputTextB.value.trim()];
@@ -165,8 +232,8 @@ const runAction = () => {
 // Handle autocomplete selection: auto-submit when user picks from dropdown
 const onAutocompleteSelect = (value) => {
 	if (value) {
-		// For path action, only auto-submit if both fields are filled
-		if (selectedAction.value === 'path') {
+		// For two-input actions, only auto-submit if both fields are filled
+		if (selectedAction.value === 'path' || selectedAction.value === 'compare') {
 			if (inputText.value && inputTextB.value) {
 				runAction();
 			}
@@ -181,13 +248,40 @@ const onAutocompleteSelectB = (value) => {
 		runAction();
 	}
 };
+
+// -------------------------------------------------------------------------
+// EXPLORE TAB: Event handlers
+
+const runExploreAction = () => {
+	const action = selectedExploreAction.value;
+	let args = [];
+	if (action !== 'shared') {
+		if (!exploreInput.value || !exploreInput.value.trim()) {
+			cedsStore.statusMsg = 'Please enter a class name';
+			return;
+		}
+		args = [exploreInput.value.trim()];
+	}
+	cedsStore.runAction(action, args);
+};
+
+const onExploreAutocompleteSelect = (value) => {
+	if (value) {
+		runExploreAction();
+	}
+};
 </script>
 
 <template>
 	<v-app>
 		<generalNavSub />
 		<v-main style="padding-top: 65px">
-			<v-container fluid class="pa-4">
+			<SubPageNav v-model="activeTab" :tabs="ontologyTabs" />
+
+			<!-- ============================================================ -->
+			<!-- LOOKUP TAB -->
+			<!-- ============================================================ -->
+			<v-container v-show="activeTab === 'lookup'" fluid class="pa-4">
 				<!-- Top bar: action selector + input -->
 				<v-row align="center" class="mb-2">
 					<v-col cols="12" md="3">
@@ -200,6 +294,7 @@ const onAutocompleteSelectB = (value) => {
 							variant="outlined"
 							density="compact"
 							hide-details
+							:menu-props="{ maxHeight: 500 }"
 						/>
 					</v-col>
 
@@ -232,7 +327,7 @@ const onAutocompleteSelectB = (value) => {
 					</v-col>
 
 					<v-col v-if="showSecondInput" cols="12" md="3">
-						<!-- Path action: second input is also autocomplete with class suggestions -->
+						<!-- Path/Compare: second input with class suggestions -->
 						<v-autocomplete
 							v-model="inputTextB"
 							:items="cedsStore.currentSuggestions"
@@ -290,6 +385,90 @@ const onAutocompleteSelectB = (value) => {
 					v13 ontology.
 				</div>
 			</v-container>
+
+			<!-- ============================================================ -->
+			<!-- EXPLORE TAB -->
+			<!-- ============================================================ -->
+			<v-container v-show="activeTab === 'explore-tab'" fluid class="pa-4">
+				<v-row align="center" class="mb-2">
+					<v-col cols="12" md="3">
+						<v-select
+							v-model="selectedExploreAction"
+							:items="exploreActions"
+							item-title="title"
+							item-value="value"
+							label="Analysis"
+							variant="outlined"
+							density="compact"
+							hide-details
+						/>
+					</v-col>
+					<v-col cols="12" md="7">
+						<v-autocomplete
+							v-if="useExploreAutocomplete"
+							v-model="exploreInput"
+							:items="cedsStore.classSuggestions"
+							:placeholder="explorePlaceholder"
+							variant="outlined"
+							density="compact"
+							hide-details
+							clearable
+							hide-no-data
+							@keyup.enter="runExploreAction"
+							@update:model-value="onExploreAutocompleteSelect"
+						/>
+						<v-text-field
+							v-else
+							:placeholder="explorePlaceholder"
+							:disabled="isExploreInputDisabled"
+							variant="outlined"
+							density="compact"
+							hide-details
+						/>
+					</v-col>
+					<v-col cols="12" md="2">
+						<v-btn
+							color="primary"
+							@click="runExploreAction"
+							:loading="cedsStore.loading"
+							block
+						>
+							Analyze
+						</v-btn>
+					</v-col>
+				</v-row>
+
+				<!-- Error message -->
+				<v-alert
+					v-if="cedsStore.statusMsg"
+					type="warning"
+					density="compact"
+					class="mb-3"
+					closable
+					@click:close="cedsStore.statusMsg = ''"
+				>
+					{{ cedsStore.statusMsg }}
+				</v-alert>
+
+				<!-- Loading indicator -->
+				<v-progress-linear
+					v-if="cedsStore.loading"
+					indeterminate
+					color="primary"
+					class="mb-3"
+				/>
+
+				<!-- Output area -->
+				<div v-if="cedsStore.output" class="output-area">
+					<pre>{{ cedsStore.output }}</pre>
+				</div>
+				<div
+					v-else-if="!cedsStore.loading"
+					class="placeholder-text text-medium-emphasis"
+				>
+					Select an analysis type to explore structural patterns in the CEDS v13 ontology.
+				</div>
+			</v-container>
 		</v-main>
 	</v-app>
 </template>
@@ -311,6 +490,7 @@ const onAutocompleteSelectB = (value) => {
 	margin: 0;
 	white-space: pre-wrap;
 	word-wrap: break-word;
+	color: #1a1a1a;
 }
 
 .placeholder-text {

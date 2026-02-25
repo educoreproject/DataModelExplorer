@@ -43,7 +43,7 @@ const OPENAI_API_KEY = cedsConfig.openaiApiKey || process.env.OPENAI_API_KEY || 
 
 // Parse action from process.argv (single-dash convention: -lookup, -stats, etc.)
 const detectAction = () => {
-	const actionNames = ['help', 'stats', 'lookup', 'explore', 'optionSet', 'property', 'path', 'search', 'listClasses', 'listOptionSets', 'listProperties'];
+	const actionNames = ['help', 'stats', 'lookup', 'explore', 'optionSet', 'property', 'path', 'search', 'compare', 'dataSpec', 'shared', 'listClasses', 'listOptionSets', 'listProperties'];
 	for (const arg of process.argv.slice(2)) {
 		const match = arg.match(/^-(\w+)$/);
 		if (match && actionNames.includes(match[1])) {
@@ -76,7 +76,10 @@ USAGE:
   ceds1 -explore "ClassName"          Show a class with its properties and relationships
   ceds1 -optionSet "OptionSetName"    List all values in an option set/enumeration
   ceds1 -property "PropertyName"      Show details for a specific property
-  ceds1 -path "ClassA" "ClassB"       Find relationship path between two classes
+  ceds1 -path "ClassA" "ClassB"       Find semantic path between two classes
+  ceds1 -compare "ClassA" "ClassB"     Compare properties of two classes
+  ceds1 -dataSpec "ClassName"          Full data specification with resolved types
+  ceds1 -shared                        Show option sets shared across 3+ classes
   ceds1 -search "natural language"    Semantic vector search across all descriptions
   ceds1 -stats                        Show ontology statistics
   ceds1 -help                         Show this help
@@ -421,7 +424,7 @@ actions.property = async (session, params) => {
 	console.log('');
 };
 
-// -path: Find path between two classes
+// -path: Find semantic path between two classes
 actions.path = async (session, params) => {
 	const classA = params.fileList[0];
 	const classB = params.fileList[1];
@@ -433,77 +436,354 @@ actions.path = async (session, params) => {
 	const patternA = `(?i).*${classA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
 	const patternB = `(?i).*${classB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
 
-	// Find shared properties (classes connected by having a property whose domain is one and range is the other)
-	const result = await session.run(`
+	// Resolve the two class nodes first
+	const resolveResult = await session.run(`
 		MATCH (a:Class)
 		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
 		WITH a LIMIT 1
 		MATCH (b:Class)
 		WHERE any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
 		WITH a, b LIMIT 1
-
-		OPTIONAL MATCH pathAB = (a)-[:subClassOf*0..5]->(common)<-[:subClassOf*0..5]-(b)
-		WITH a, b, common, length(pathAB) AS pathLen
-		ORDER BY pathLen
-		LIMIT 3
-		RETURN a.label AS labelA, b.label AS labelB,
-			common.label AS commonAncestor,
-			pathLen
+		RETURN a.label AS labelA, b.label AS labelB
 	`, { patternA, patternB });
 
-	if (result.records.length === 0) {
-		console.log(`\nNo path found between "${classA}" and "${classB}".`);
+	if (resolveResult.records.length === 0) {
+		console.log(`\nNo classes found matching "${classA}" and/or "${classB}".`);
 		return;
 	}
 
-	const labelA = formatLabel(result.records[0].get('labelA'));
-	const labelB = formatLabel(result.records[0].get('labelB'));
+	const labelA = formatLabel(resolveResult.records[0].get('labelA'));
+	const labelB = formatLabel(resolveResult.records[0].get('labelB'));
 
-	console.log(`\n=== Path: ${labelA} <-> ${labelB} ===\n`);
+	console.log(`\n=== Path: ${labelA} <-> ${labelB} ===`);
 
-	console.log('COMMON ANCESTORS:');
-	result.records.forEach(r => {
-		const ancestor = formatLabel(r.get('commonAncestor'));
-		const pathLen = r.get('pathLen');
-		if (ancestor) {
-			console.log(`  ${ancestor} (distance: ${pathLen})`);
-		}
-	});
-
-	// Also find properties shared between the classes
-	const sharedResult = await session.run(`
-		MATCH (a:Class)
+	// Section 1: Direct connecting properties (domain=A range=B, or domain=B range=A)
+	const directResult = await session.run(`
+		MATCH (a:Class), (b:Class)
 		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
-		WITH a LIMIT 1
-		MATCH (b:Class)
-		WHERE any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		OPTIONAL MATCH (p1:Property)-[:domainIncludes]->(a)
+		WHERE (p1)-[:rangeIncludes]->(b)
+		WITH a, b, collect(DISTINCT p1.label) AS aToBProps
+		OPTIONAL MATCH (p2:Property)-[:domainIncludes]->(b)
+		WHERE (p2)-[:rangeIncludes]->(a)
+		RETURN aToBProps, collect(DISTINCT p2.label) AS bToAProps
+	`, { patternA, patternB });
+
+	if (directResult.records.length > 0) {
+		const aToBProps = directResult.records[0].get('aToBProps').filter(Boolean).map(formatLabel);
+		const bToAProps = directResult.records[0].get('bToAProps').filter(Boolean).map(formatLabel);
+		if (aToBProps.length > 0 || bToAProps.length > 0) {
+			console.log('\nDIRECT CONNECTIONS:');
+			aToBProps.forEach(p => console.log(`  ${labelA} -[${p}]-> ${labelB}`));
+			bToAProps.forEach(p => console.log(`  ${labelB} -[${p}]-> ${labelA}`));
+		}
+	}
+
+	// Section 2: Shared properties (both classes have these in their domain)
+	const sharedResult = await session.run(`
+		MATCH (a:Class), (b:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
 		WITH a, b LIMIT 1
 		MATCH (p:Property)-[:domainIncludes]->(a)
-		MATCH (p)-[:rangeIncludes]->(b)
-		RETURN p.label AS propLabel, p.description AS propDesc
-		UNION
-		MATCH (a:Class)
-		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
-		WITH a LIMIT 1
-		MATCH (b:Class)
-		WHERE any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
-		WITH a, b LIMIT 1
-		MATCH (p:Property)-[:domainIncludes]->(b)
-		MATCH (p)-[:rangeIncludes]->(a)
-		RETURN p.label AS propLabel, p.description AS propDesc
+		WHERE (p)-[:domainIncludes]->(b)
+		RETURN p.label AS propLabel
+		ORDER BY p.label
 	`, { patternA, patternB });
 
 	if (sharedResult.records.length > 0) {
-		console.log('\nCONNECTING PROPERTIES:');
-		sharedResult.records.forEach(r => {
-			const propLabel = formatLabel(r.get('propLabel'));
-			const desc = r.get('propDesc') || '';
-			const truncDesc = desc.length > 100 ? desc.substring(0, 97) + '...' : desc;
-			console.log(`  ${propLabel}`);
-			if (truncDesc) console.log(`    ${truncDesc}`);
+		const sharedProps = sharedResult.records.map(r => formatLabel(r.get('propLabel')));
+		console.log(`\nSHARED PROPERTIES (both classes have these): ${sharedProps.length}`);
+		sharedProps.forEach(p => console.log(`  ${p}`));
+	}
+
+	// Section 3: Semantic bridge paths (connected through shared types via domainIncludes/rangeIncludes)
+	const bridgeResult = await session.run(`
+		MATCH (a:Class), (b:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		MATCH (a)<-[:domainIncludes]-(p1:Property)-[:rangeIncludes]->(mid)<-[:rangeIncludes]-(p2:Property)-[:domainIncludes]->(b)
+		WHERE a <> b AND p1 <> p2
+		RETURN p1.label AS propA, mid.label AS bridge, mid.uri AS bridgeUri, p2.label AS propB,
+			labels(mid) AS bridgeLabels
+		LIMIT 10
+	`, { patternA, patternB });
+
+	if (bridgeResult.records.length > 0) {
+		console.log('\nSEMANTIC BRIDGES (connected through shared types):');
+		bridgeResult.records.forEach(r => {
+			const propA = formatLabel(r.get('propA'));
+			let bridge = formatLabel(r.get('bridge'));
+			if (!bridge) {
+				// Fall back to URI fragment for datatypes like xsd:date
+				const uri = r.get('bridgeUri') || '';
+				bridge = uri.replace(/^.*[#\/]/, '') || uri;
+			}
+			const propB = formatLabel(r.get('propB'));
+			const bridgeLabels = r.get('bridgeLabels') || [];
+			const typeTag = bridgeLabels.includes('ConceptScheme') ? ' [OptionSet]' : '';
+			console.log(`  ${labelA} <-[${propA}]-> ${bridge}${typeTag} <-[${propB}]-> ${labelB}`);
 		});
 	}
 
+	// Check if all sections were empty
+	const hasDirectConnections = directResult.records.length > 0 &&
+		(directResult.records[0].get('aToBProps').filter(Boolean).length > 0 ||
+		 directResult.records[0].get('bToAProps').filter(Boolean).length > 0);
+	const hasSharedProps = sharedResult.records.length > 0;
+	const hasBridges = bridgeResult.records.length > 0;
+
+	if (!hasDirectConnections && !hasSharedProps && !hasBridges) {
+		console.log('\nNo path found between these two classes.');
+		console.log('They have no direct connections, shared properties, or semantic bridges.');
+	}
+
+	console.log('');
+};
+
+// -compare: Subgraph comparison — shared vs unique properties between two classes
+actions.compare = async (session, params) => {
+	const classA = params.fileList[0];
+	const classB = params.fileList[1];
+	if (!classA || !classB) {
+		console.error('Usage: ceds1 -compare "ClassA" "ClassB"');
+		return;
+	}
+
+	const patternA = `(?i).*${classA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+	const patternB = `(?i).*${classB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+
+	// Resolve the two class nodes first
+	const resolveResult = await session.run(`
+		MATCH (a:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		WITH a LIMIT 1
+		MATCH (b:Class)
+		WHERE any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		RETURN a.label AS labelA, b.label AS labelB
+	`, { patternA, patternB });
+
+	if (resolveResult.records.length === 0) {
+		console.log(`\nNo classes found matching "${classA}" and/or "${classB}".`);
+		return;
+	}
+
+	const labelA = formatLabel(resolveResult.records[0].get('labelA'));
+	const labelB = formatLabel(resolveResult.records[0].get('labelB'));
+
+	// Query 1: Shared properties (in both classes' domains)
+	const sharedResult = await session.run(`
+		MATCH (a:Class), (b:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		MATCH (p:Property)-[:domainIncludes]->(a)
+		WHERE (p)-[:domainIncludes]->(b)
+		OPTIONAL MATCH (p)-[:rangeIncludes]->(range)
+		RETURN p.label AS propLabel, collect(DISTINCT range.label) AS rangeLabels
+		ORDER BY p.label
+	`, { patternA, patternB });
+
+	const sharedProps = sharedResult.records.map(r => ({
+		label: formatLabel(r.get('propLabel')),
+		ranges: r.get('rangeLabels').filter(Boolean).map(formatLabel),
+	}));
+
+	// Query 2: Unique to A
+	const uniqueAResult = await session.run(`
+		MATCH (a:Class), (b:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		MATCH (p:Property)-[:domainIncludes]->(a)
+		WHERE NOT (p)-[:domainIncludes]->(b)
+		OPTIONAL MATCH (p)-[:rangeIncludes]->(range)
+		RETURN p.label AS propLabel, collect(DISTINCT range.label) AS rangeLabels
+		ORDER BY p.label
+	`, { patternA, patternB });
+
+	const uniqueAProps = uniqueAResult.records.map(r => ({
+		label: formatLabel(r.get('propLabel')),
+		ranges: r.get('rangeLabels').filter(Boolean).map(formatLabel),
+	}));
+
+	// Query 3: Unique to B
+	const uniqueBResult = await session.run(`
+		MATCH (a:Class), (b:Class)
+		WHERE any(lbl IN coalesce(a.label, []) WHERE lbl =~ $patternA)
+		AND any(lbl IN coalesce(b.label, []) WHERE lbl =~ $patternB)
+		WITH a, b LIMIT 1
+		MATCH (p:Property)-[:domainIncludes]->(b)
+		WHERE NOT (p)-[:domainIncludes]->(a)
+		OPTIONAL MATCH (p)-[:rangeIncludes]->(range)
+		RETURN p.label AS propLabel, collect(DISTINCT range.label) AS rangeLabels
+		ORDER BY p.label
+	`, { patternA, patternB });
+
+	const uniqueBProps = uniqueBResult.records.map(r => ({
+		label: formatLabel(r.get('propLabel')),
+		ranges: r.get('rangeLabels').filter(Boolean).map(formatLabel),
+	}));
+
+	// Output
+	console.log(`\n=== Compare: ${labelA} vs. ${labelB} ===`);
+
+	console.log(`\nSHARED PROPERTIES (both classes have these): ${sharedProps.length}`);
+	sharedProps.forEach(p => {
+		const rangeStr = p.ranges.length > 0 ? ` -> [${p.ranges.join(', ')}]` : '';
+		console.log(`  ${p.label}${rangeStr}`);
+	});
+
+	console.log(`\nUNIQUE TO ${labelA}: ${uniqueAProps.length}`);
+	uniqueAProps.forEach(p => {
+		const rangeStr = p.ranges.length > 0 ? ` -> [${p.ranges.join(', ')}]` : '';
+		console.log(`  ${p.label}${rangeStr}`);
+	});
+
+	console.log(`\nUNIQUE TO ${labelB}: ${uniqueBProps.length}`);
+	uniqueBProps.forEach(p => {
+		const rangeStr = p.ranges.length > 0 ? ` -> [${p.ranges.join(', ')}]` : '';
+		console.log(`  ${p.label}${rangeStr}`);
+	});
+
+	const totalA = sharedProps.length + uniqueAProps.length;
+	const totalB = sharedProps.length + uniqueBProps.length;
+	const overlapPct = totalA + totalB > 0
+		? ((sharedProps.length * 2 / (totalA + totalB)) * 100).toFixed(1)
+		: '0.0';
+
+	console.log('\nSUMMARY:');
+	console.log(`  ${labelA}:`.padEnd(40) + `${totalA} properties (${sharedProps.length} shared + ${uniqueAProps.length} unique)`);
+	console.log(`  ${labelB}:`.padEnd(40) + `${totalB} properties (${sharedProps.length} shared + ${uniqueBProps.length} unique)`);
+	console.log(`  Overlap:`.padEnd(40) + `${overlapPct}%`);
+	console.log('');
+};
+
+// -dataSpec: Full data specification for a class — every property with resolved types
+actions.dataSpec = async (session, params) => {
+	const className = params.fileList[0];
+	if (!className) {
+		console.error('Usage: ceds1 -dataSpec "ClassName"');
+		return;
+	}
+
+	const pattern = `(?i).*${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+
+	const result = await session.run(`
+		MATCH (c:Class)
+		WHERE any(lbl IN coalesce(c.label, []) WHERE lbl =~ $pattern)
+		WITH c LIMIT 1
+		MATCH (p:Property)-[:domainIncludes]->(c)
+		OPTIONAL MATCH (p)-[:rangeIncludes]->(range)
+		OPTIONAL MATCH (enumVal:NamedIndividual)-[:inScheme]->(range)
+		WHERE range:ConceptScheme
+		WITH c, p, range,
+			CASE
+				WHEN range:ConceptScheme THEN 'OptionSet'
+				WHEN range:Class THEN 'ClassRef'
+				ELSE 'DataType'
+			END AS rangeType,
+			count(DISTINCT enumVal) AS valueCount
+		RETURN c.label AS classLabel,
+			p.label AS propLabel,
+			p.description AS propDesc,
+			range.label AS rangeLabel,
+			range.uri AS rangeUri,
+			rangeType,
+			valueCount
+		ORDER BY p.label
+	`, { pattern });
+
+	if (result.records.length === 0) {
+		console.log(`\nNo class or properties found matching "${className}".`);
+		return;
+	}
+
+	const classLabel = formatLabel(result.records[0].get('classLabel'));
+	let optionSetCount = 0;
+	let classRefCount = 0;
+	let dataTypeCount = 0;
+
+	console.log(`\n=== Data Specification: ${classLabel} ===`);
+	console.log(`Properties: ${result.records.length}`);
+
+	result.records.forEach(r => {
+		const propLabel = formatLabel(r.get('propLabel'));
+		let rangeLabel = formatLabel(r.get('rangeLabel'));
+		if (!rangeLabel) {
+			const uri = r.get('rangeUri') || '';
+			rangeLabel = uri.replace(/^.*[#\/]/, '') || 'unknown';
+		}
+		const rangeType = r.get('rangeType');
+		const valueCount = r.get('valueCount').toNumber ? r.get('valueCount').toNumber() : Number(r.get('valueCount'));
+
+		console.log(`\n  ${propLabel}`);
+
+		if (rangeType === 'OptionSet') {
+			console.log(`    Type: ${rangeLabel} (OptionSet — ${valueCount} values)`);
+			optionSetCount++;
+		} else if (rangeType === 'ClassRef') {
+			console.log(`    Type: ${rangeLabel} (ClassRef)`);
+			console.log(`    A reference to another entity`);
+			classRefCount++;
+		} else {
+			console.log(`    Type: ${rangeLabel} (DataType)`);
+			dataTypeCount++;
+		}
+	});
+
+	console.log('\nSUMMARY:');
+	console.log(`  Total properties:`.padEnd(30) + `${result.records.length}`);
+	console.log(`  With option sets:`.padEnd(30) + `${optionSetCount}`);
+	console.log(`  With class refs:`.padEnd(30) + `${classRefCount}`);
+	console.log(`  With data types:`.padEnd(30) + `${dataTypeCount}`);
+	console.log('');
+};
+
+// -shared: Cross-domain vocabulary analysis — option sets shared across 3+ classes
+actions.shared = async (session, params) => {
+	const result = await session.run(`
+		MATCH (p:Property)-[:rangeIncludes]->(os:ConceptScheme)
+		MATCH (p)-[:domainIncludes]->(c:Class)
+		WHERE NOT c:ConceptScheme
+		WITH os, collect(DISTINCT c.label) AS classLabels, count(DISTINCT c) AS classCount
+		WHERE classCount >= 3
+		OPTIONAL MATCH (v:NamedIndividual)-[:inScheme]->(os)
+		RETURN os.label AS optionSetLabel,
+			classCount,
+			size(collect(DISTINCT v)) AS valueCount,
+			classLabels
+		ORDER BY classCount DESC
+		LIMIT 30
+	`);
+
+	if (result.records.length === 0) {
+		console.log('\nNo option sets found shared across 3+ classes.');
+		return;
+	}
+
+	console.log('\n=== Shared Vocabularies (Option Sets used by 3+ classes) ===');
+
+	let maxClassCount = 0;
+	result.records.forEach(r => {
+		const osLabel = formatLabel(r.get('optionSetLabel'));
+		const classCount = r.get('classCount').toNumber ? r.get('classCount').toNumber() : Number(r.get('classCount'));
+		const valueCount = r.get('valueCount').toNumber ? r.get('valueCount').toNumber() : Number(r.get('valueCount'));
+		const classLabels = r.get('classLabels').map(lbl => formatLabel(lbl));
+		if (classCount > maxClassCount) maxClassCount = classCount;
+
+		console.log(`\n  ${osLabel} (${classCount} classes, ${valueCount} values)`);
+		console.log(`    Used by: ${classLabels.slice(0, 6).join(', ')}${classLabels.length > 6 ? ', ...' : ''}`);
+	});
+
+	const mostConnected = formatLabel(result.records[0].get('optionSetLabel'));
+	console.log('\nSUMMARY:');
+	console.log(`  Option sets shared across 3+ classes: ${result.records.length}`);
+	console.log(`  Most connected: ${mostConnected} (${maxClassCount} classes)`);
 	console.log('');
 };
 
@@ -606,8 +886,9 @@ actions.listOptionSets = async (session, params) => {
 actions.listProperties = async (session, params) => {
 	const result = await session.run(`
 		MATCH (p:Property)
-		RETURN p.label AS label, p.notation AS notation
-		ORDER BY p.label
+		WITH DISTINCT p.label AS label
+		RETURN label, '' AS notation
+		ORDER BY label
 	`);
 	const items = result.records.map(r => ({
 		label: formatLabel(r.get('label')),
