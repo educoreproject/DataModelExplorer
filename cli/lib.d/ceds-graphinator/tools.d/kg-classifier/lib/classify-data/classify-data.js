@@ -105,7 +105,8 @@ const moduleFunction =
 						OPTIONAL MATCH (p2:Property)-[:rangeIncludes]->(c)
 						OPTIONAL MATCH (p2)-[:domainIncludes]->(source:Class)
 						WHERE NOT source:ConceptScheme AND source <> c
-						RETURN c.uri AS uri, outDegree + count(DISTINCT source) AS degree
+						WITH c.uri AS uri, outDegree, count(DISTINCT source) AS inDegree
+						RETURN uri, outDegree + inDegree AS degree
 					`;
 					const resultB = await session.run(queryB);
 					resultB.records.forEach((r) => {
