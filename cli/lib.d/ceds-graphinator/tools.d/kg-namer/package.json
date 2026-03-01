@@ -1,0 +1,7 @@
+{
+	"name": "kg-namer",
+	"version": "1.0.0",
+	"description": "CEDS knowledge graph naming tools - Stage 2 of the ontology pipeline",
+	"main": "kg-namer.js",
+	"private": true
+}

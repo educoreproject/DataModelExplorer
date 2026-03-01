@@ -1,0 +1,7 @@
+{
+	"name": "kg-surfacer",
+	"version": "1.0.0",
+	"description": "CEDS knowledge graph surfacing tools - Stage 3 of the ontology pipeline",
+	"main": "kg-surfacer.js",
+	"private": true
+}

@@ -1,0 +1,7 @@
+{
+	"name": "kg-classifier",
+	"version": "1.0.0",
+	"description": "CEDS knowledge graph classification tools - Stage 1 of the ontology pipeline",
+	"main": "kg-classifier.js",
+	"private": true
+}

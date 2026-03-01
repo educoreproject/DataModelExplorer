@@ -1,0 +1,7 @@
+{
+	"name": "kg-materializer",
+	"version": "1.0.0",
+	"description": "CEDS knowledge graph materializer tools - Stage 4 of the ontology pipeline",
+	"main": "kg-materializer.js",
+	"private": true
+}
