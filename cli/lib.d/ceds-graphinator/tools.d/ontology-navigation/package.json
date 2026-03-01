@@ -1,0 +1,7 @@
+{
+	"name": "ontology-navigation",
+	"version": "1.0.0",
+	"description": "CEDS ontology navigation tools - ported from ceds1",
+	"main": "ontology-navigation.js",
+	"private": true
+}
