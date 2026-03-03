@@ -53,9 +53,16 @@ export default defineNuxtConfig({
         changeOrigin: true,
         prependPath: true,
       },
-      '/ws': {
-        target: 'http://localhost:7790',
-        ws: true,
+    },
+  },
+
+  vite: {
+    server: {
+      proxy: {
+        '/ws/graphinator': {
+          target: 'http://localhost:7790',
+          ws: true,
+        },
       },
     },
   },

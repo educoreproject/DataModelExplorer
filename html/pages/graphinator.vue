@@ -1,13 +1,28 @@
 <script setup>
 import { useLoginStore } from '@/stores/loginStore';
 import { useGraphinatorStore } from '@/stores/graphinatorStore';
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { marked } from 'marked';
+
+// Configure marked for streaming-friendly rendering
+marked.setOptions({
+	breaks: true,
+	gfm: true,
+});
 
 const LoginStore = useLoginStore();
 const graphStore = useGraphinatorStore();
 const router = useRouter();
 const route = useRoute();
+
+// -------------------------------------------------------------------------
+// Rendered markdown from stdout
+
+const renderedStdout = computed(() => {
+	if (!graphStore.stdout) return '';
+	return marked.parse(graphStore.stdout);
+});
 
 // -------------------------------------------------------------------------
 // Tab configuration
@@ -19,15 +34,65 @@ const graphinatorTabs = [
 ];
 
 // -------------------------------------------------------------------------
-// User input
+// User input with history
 
 const promptText = ref('');
+const promptHistory = ref([]);
+const historyIndex = ref(-1);
+
+const handleKeydown = (event) => {
+	if (event.key === 'Enter' && !event.shiftKey) {
+		event.preventDefault();
+		submitPrompt();
+		return;
+	}
+	if (event.key === 'ArrowUp' && promptText.value === '') {
+		event.preventDefault();
+		if (promptHistory.value.length === 0) return;
+		if (historyIndex.value < promptHistory.value.length - 1) {
+			historyIndex.value++;
+		}
+		promptText.value = promptHistory.value[historyIndex.value];
+	}
+	if (event.key === 'ArrowDown' && historyIndex.value >= 0) {
+		event.preventDefault();
+		historyIndex.value--;
+		promptText.value = historyIndex.value >= 0 ? promptHistory.value[historyIndex.value] : '';
+	}
+};
 
 // -------------------------------------------------------------------------
 // Panel refs for auto-scroll
 
 const stdoutPanel = ref(null);
 const stderrPanel = ref(null);
+const outputRow = ref(null);
+
+// -------------------------------------------------------------------------
+// Draggable column divider
+
+const leftPanelPct = ref(50);
+const dragging = ref(false);
+
+const startDrag = (event) => {
+	event.preventDefault();
+	dragging.value = true;
+	document.addEventListener('mousemove', onDrag);
+	document.addEventListener('mouseup', stopDrag);
+};
+
+const onDrag = (event) => {
+	if (!outputRow.value) return;
+	const rect = outputRow.value.getBoundingClientRect();
+	const pct = ((event.clientX - rect.left) / rect.width) * 100;
+	leftPanelPct.value = Math.min(85, Math.max(15, pct));
+};
+
+const stopDrag = () => {
+	dragging.value = false;
+	document.removeEventListener('mousemove', onDrag);
+	document.removeEventListener('mouseup', stopDrag);
+};
 
 watch(() => graphStore.stdout, () => {
 	nextTick(() => {
@@ -53,7 +118,8 @@ onMounted(() => {
 		router.push({ path: '/', query: { redirect: route.fullPath } });
 		return;
 	}
-	graphStore.connect();
+	// Delay WebSocket connect so the page renders first (debug: lets you see console errors)
+	setTimeout(() => graphStore.connect(), 1500);
 });
 
 onUnmounted(() => {
@@ -66,6 +132,9 @@ onUnmounted(() => {
 const submitPrompt = () => {
 	const text = promptText.value.trim();
 	if (!text) return;
+	promptHistory.value.unshift(text);
+	historyIndex.value = -1;
+	promptText.value = '';
 	graphStore.sendPrompt(text);
 };
 </script>
@@ -80,16 +149,17 @@ const submitPrompt = () => {
 			<!-- CEDS TAB -->
 			<!-- ============================================================ -->
 			<v-container v-show="activeTab === 'ceds'" fluid class="pa-4 graphinator-container">
-				<!-- Top row: stdout + stderr panels -->
-				<div class="output-row">
-					<div class="output-panel">
+				<!-- Top row: stdout + stderr panels with draggable divider -->
+				<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
+					<div class="output-panel" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
 						<div class="panel-header">STDOUT</div>
-						<div ref="stdoutPanel" class="panel-content">
-							<pre v-if="graphStore.stdout">{{ graphStore.stdout }}</pre>
+						<div ref="stdoutPanel" class="panel-content prose">
+							<div v-if="graphStore.stdout" v-html="renderedStdout"></div>
 							<span v-else class="text-medium-emphasis">Response will appear here...</span>
 						</div>
 					</div>
-					<div class="output-panel">
+					<div class="column-divider" @mousedown="startDrag"></div>
+					<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
 						<div class="panel-header">STDERR</div>
 						<div ref="stderrPanel" class="panel-content">
 							<pre v-if="graphStore.stderr">{{ graphStore.stderr }}</pre>
@@ -102,12 +172,12 @@ const submitPrompt = () => {
 				<div class="input-row">
 					<v-textarea
 						v-model="promptText"
-						placeholder="Enter your prompt..."
+						placeholder="Enter your prompt... (Shift+Enter for newline, ↑ for history)"
 						variant="outlined"
 						rows="3"
 						auto-grow
 						hide-details
-						@keyup.ctrl.enter="submitPrompt"
+						@keydown="handleKeydown"
 						class="input-field"
 					/>
 					<v-btn
@@ -158,18 +228,45 @@ const submitPrompt = () => {
 
 .output-row {
 	display: flex;
-	gap: 12px;
 	flex: 1;
 	min-height: 0;
 }
 
+.output-row.is-dragging {
+	cursor: col-resize;
+	user-select: none;
+}
+
 .output-panel {
-	flex: 1;
 	display: flex;
 	flex-direction: column;
 	border: 1px solid rgba(0, 0, 0, 0.12);
 	border-radius: 4px;
 	overflow: hidden;
+	min-width: 0;
+}
+
+.column-divider {
+	flex: 0 0 8px;
+	cursor: col-resize;
+	background: transparent;
+	position: relative;
+}
+
+.column-divider::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 3px;
+	width: 2px;
+	background: rgba(0, 0, 0, 0.12);
+	transition: background 0.15s;
+}
+
+.column-divider:hover::after,
+.is-dragging .column-divider::after {
+	background: rgba(0, 0, 0, 0.4);
 }
 
 .panel-header {
@@ -191,6 +288,7 @@ const submitPrompt = () => {
 	min-height: 0;
 }
 
+/* STDERR keeps raw pre styling */
 .panel-content pre {
 	font-family: 'Courier New', Courier, monospace;
 	font-size: 0.85rem;
@@ -200,6 +298,62 @@ const submitPrompt = () => {
 	word-wrap: break-word;
 	color: #1a1a1a;
 }
+
+/* Prose styles for rendered markdown in STDOUT */
+.prose :deep(h1) { font-size: 1.4rem; font-weight: 700; margin: 0.8em 0 0.4em; }
+.prose :deep(h2) { font-size: 1.2rem; font-weight: 600; margin: 0.7em 0 0.3em; }
+.prose :deep(h3) { font-size: 1.05rem; font-weight: 600; margin: 0.6em 0 0.3em; }
+.prose :deep(p) { margin: 0.4em 0; line-height: 1.6; }
+.prose :deep(ul), .prose :deep(ol) { margin: 0.4em 0; padding-left: 1.5em; }
+.prose :deep(li) { margin: 0.2em 0; line-height: 1.5; }
+.prose :deep(code) {
+	font-family: 'Courier New', Courier, monospace;
+	font-size: 0.85em;
+	background: rgba(0, 0, 0, 0.06);
+	padding: 0.15em 0.3em;
+	border-radius: 3px;
+}
+.prose :deep(pre) {
+	background: #2d2d2d;
+	color: #f8f8f2;
+	padding: 0.8em 1em;
+	border-radius: 4px;
+	overflow-x: auto;
+	margin: 0.5em 0;
+}
+.prose :deep(pre code) {
+	background: none;
+	padding: 0;
+	color: inherit;
+}
+.prose :deep(blockquote) {
+	border-left: 3px solid rgba(0, 0, 0, 0.2);
+	margin: 0.5em 0;
+	padding: 0.3em 0.8em;
+	color: #555;
+}
+.prose :deep(table) {
+	border-collapse: collapse;
+	margin: 0.5em 0;
+	width: 100%;
+}
+.prose :deep(th), .prose :deep(td) {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	padding: 0.4em 0.6em;
+	text-align: left;
+}
+.prose :deep(th) {
+	background: #f0f0f0;
+	font-weight: 600;
+}
+.prose :deep(hr) {
+	border: none;
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin: 0.8em 0;
+}
+.prose :deep(strong) { font-weight: 600; }
+.prose :deep(a) { color: #1976d2; text-decoration: none; }
+.prose :deep(a:hover) { text-decoration: underline; }
 
 .input-row {
 	display: flex;

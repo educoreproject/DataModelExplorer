@@ -18,11 +18,24 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 
 			const protocol =
 				window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-			ws = new WebSocket(
-				`${protocol}//${window.location.host}/ws/graphinator`,
-			);
+			// In dev, Nitro intercepts /ws before Vite proxy can upgrade it.
+			// Connect directly to the API server for WebSocket.
+			const wsHost = import.meta.dev ? 'localhost:7790' : window.location.host;
+			const url = `${protocol}//${wsHost}/ws/graphinator`;
+
+			console.log(`[graphinator] Connecting to ${url}`);
+
+			try {
+				ws = new WebSocket(url);
+			} catch (err) {
+				console.error('[graphinator] WebSocket constructor threw:', err);
+				this.statusMsg = `WebSocket creation failed: ${err.message}`;
+				this.connected = false;
+				return;
+			}
 
 			ws.onopen = () => {
+				console.log('[graphinator] WebSocket connected');
 				this.connected = true;
 				this.statusMsg = '';
 			};
@@ -39,12 +52,14 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 				}
 			};
 
-			ws.onclose = () => {
+			ws.onclose = (event) => {
+				console.log(`[graphinator] WebSocket closed: code=${event.code} reason=${event.reason}`);
 				this.connected = false;
 			};
 
-			ws.onerror = () => {
-				this.statusMsg = 'WebSocket connection failed';
+			ws.onerror = (event) => {
+				console.error('[graphinator] WebSocket error:', event);
+				this.statusMsg = `WebSocket connection failed (see browser console for details)`;
 				this.connected = false;
 			};
 		},

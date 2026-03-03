@@ -297,6 +297,16 @@ ${err.toString()}
 		// START SERVER
 
 		const server = expressApp.listen(apiPort);
+
+		server.on('error', (err) => {
+			if (err.code === 'EADDRINUSE') {
+				xLog.error(`Port ${apiPort} is already in use. Kill the other process or use a different port.`);
+			} else {
+				xLog.error(`Server error: ${err.message}`);
+			}
+			process.exit(1);
+		});
+
 		xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
 		// WebSocket server for streaming connections

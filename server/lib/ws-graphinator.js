@@ -8,6 +8,11 @@ const moduleFunction = ({ server }) => {
 
 	const wss = new WebSocketServer({ server, path: '/ws/graphinator' });
 
+	// Prevent unhandled error from crashing the process (e.g., EADDRINUSE on restart)
+	wss.on('error', (err) => {
+		xLog.error(`WebSocket server error: ${err.message}`);
+	});
+
 	xLog.status('WebSocket server listening on /ws/graphinator');
 
 	wss.on('connection', (ws) => {
