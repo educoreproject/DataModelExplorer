@@ -10,6 +10,17 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 		loading: false,
 		connected: false,
 		statusMsg: '',
+		settings: {
+			model: 'opus',
+			perspectives: 0,
+			summarize: true,
+			agentModel: 'sonnet',
+			serialFanOut: true,
+			tools: ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'],
+			promptName: 'default',
+			newSession: true,
+			resumeSessionName: '',
+		},
 	}),
 
 	actions: {
@@ -18,8 +29,22 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 
 			const protocol =
 				window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-			// In dev, Nitro intercepts /ws before Vite proxy can upgrade it.
-			// Connect directly to the API server for WebSocket.
+			// DEV vs PRODUCTION WebSocket routing:
+			//
+			// PROBLEM: In Nuxt 3 SPA mode (ssr:false), Nitro's catch-all route serves
+			// index.html for ANY unrecognized path — including /ws/graphinator. This
+			// returns HTTP 200 instead of allowing the WebSocket upgrade handshake.
+			// Neither nitro.devProxy nor vite.server.proxy can intercept the request
+			// before Nitro's catch-all does. Tested exhaustively with ws://, http://,
+			// changeOrigin, and both proxy config locations. It's a Nuxt/Nitro limitation.
+			//
+			// DEV SOLUTION: Connect directly to the API server on port 7790, bypassing
+			// the Nuxt dev server (7791) entirely for WebSocket connections.
+			//
+			// PRODUCTION: nginx handles the upgrade correctly via the /ws/ location
+			// block (see configs/.../nginx/educore.tqwhite.com.conf). The client uses
+			// window.location.host, and nginx forwards the upgrade to port 7790.
+			//
 			const wsHost = import.meta.dev ? 'localhost:7790' : window.location.host;
 			const url = `${protocol}//${wsHost}/ws/graphinator`;
 
@@ -47,6 +72,16 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 					this.stdout += msg.delta;
 				} else if (msg.channel === 'stderr') {
 					this.stderr += msg.delta;
+					// Auto-detect session name from stderr.
+					// askMilo outputs "Session saved: session_name" via xLog.status.
+					// Capture it so the user can resume the session on subsequent prompts.
+					const sessionMatch = msg.delta.match(
+						/Session saved:\s*(\S+)/,
+					);
+					if (sessionMatch) {
+						this.settings.resumeSessionName = sessionMatch[1];
+						this.settings.newSession = false;
+					}
 				} else if (msg.channel === 'done') {
 					this.loading = false;
 				}
@@ -75,13 +110,22 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 			this.loading = true;
 			this.statusMsg = '';
 
-			ws.send(JSON.stringify({ type: 'prompt', text }));
+			ws.send(JSON.stringify({
+				type: 'prompt',
+				text,
+				settings: { ...this.settings },
+			}));
 		},
 
 		clear() {
 			this.stdout = '';
 			this.stderr = '';
 			this.statusMsg = '';
+		},
+
+		startNewSession() {
+			this.settings.resumeSessionName = '';
+			this.settings.newSession = true;
 		},
 
 		disconnect() {

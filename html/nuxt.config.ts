@@ -56,11 +56,16 @@ export default defineNuxtConfig({
     },
   },
 
-  // NOTE: WebSocket proxying does NOT work through either nitro.devProxy or
-  // vite.server.proxy — Nitro's SPA catch-all intercepts the request (returns 200)
-  // before either proxy layer can handle the upgrade. The client connects directly
-  // to the API server in dev (see graphinatorStore.js import.meta.dev).
-  // In production, nginx handles the WebSocket upgrade.
+  // WEBSOCKET PROXY — WHY THERE ISN'T ONE HERE
+  //
+  // Nuxt 3 in SPA mode (ssr:false) has a catch-all route that serves index.html
+  // for any path Nitro doesn't recognize. This fires BEFORE either nitro.devProxy
+  // or vite.server.proxy can intercept, so /ws/graphinator gets an HTTP 200
+  // (the SPA page) instead of a WebSocket upgrade. No combination of ws:// target,
+  // changeOrigin, or proxy location fixes this — it's a Nitro architectural issue.
+  //
+  // DEV:  graphinatorStore.js uses import.meta.dev to connect directly to port 7790
+  // PROD: nginx /ws/ location handles the upgrade (see nginx/educore.tqwhite.com.conf)
 
   app: {
     head: {

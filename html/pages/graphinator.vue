@@ -40,6 +40,30 @@ const promptText = ref('');
 const promptHistory = ref([]);
 const historyIndex = ref(-1);
 
+// -------------------------------------------------------------------------
+// Settings panel
+
+const showSettings = ref(false);
+
+const modelOptions = [
+	{ title: 'Opus', value: 'opus' },
+	{ title: 'Sonnet', value: 'sonnet' },
+	{ title: 'Haiku', value: 'haiku' },
+];
+
+const perspectiveOptions = [0, 1, 2, 3, 4, 5, 6, 7];
+
+const availableTools = ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep', 'Confluence'];
+
+const promptOptions = [
+	{ title: 'Default', value: 'default' },
+	{ title: 'White Paper', value: 'whitePaper' },
+	{ title: 'Interrogator', value: 'interrogator' },
+];
+
+// -------------------------------------------------------------------------
+// Keyboard handling
+
 const handleKeydown = (event) => {
 	if (event.key === 'Enter' && !event.shiftKey) {
 		event.preventDefault();
@@ -168,11 +192,11 @@ const submitPrompt = () => {
 					</div>
 				</div>
 
-				<!-- Bottom row: user input -->
+				<!-- Bottom: input + controls side by side -->
 				<div class="input-row">
 					<v-textarea
 						v-model="promptText"
-						placeholder="Enter your prompt... (Shift+Enter for newline, ↑ for history)"
+						placeholder="Enter your prompt... (Shift+Enter for newline)"
 						variant="outlined"
 						rows="3"
 						auto-grow
@@ -180,16 +204,130 @@ const submitPrompt = () => {
 						@keydown="handleKeydown"
 						class="input-field"
 					/>
-					<v-btn
-						color="primary"
-						@click="submitPrompt"
-						:loading="graphStore.loading"
-						:disabled="!graphStore.connected || !promptText.trim()"
-						size="large"
-						class="ml-3 submit-btn"
-					>
-						Submit
-					</v-btn>
+					<div class="input-controls">
+						<div class="controls-row">
+							<v-checkbox
+								v-model="graphStore.settings.newSession"
+								label="New Session"
+								density="compact"
+								hide-details
+								color="primary"
+								class="new-session-checkbox"
+							/>
+						</div>
+						<div class="controls-row">
+							<v-menu v-model="showSettings" :close-on-content-click="false" location="top">
+								<template v-slot:activator="{ props }">
+									<v-btn
+										icon
+										v-bind="props"
+										variant="text"
+										size="small"
+										class="settings-btn"
+										:color="showSettings ? 'primary' : undefined"
+									>
+										<v-icon>mdi-cog</v-icon>
+									</v-btn>
+								</template>
+						<v-card min-width="340" max-width="420" class="settings-card">
+							<v-card-title class="text-subtitle-1 font-weight-bold pb-1">
+								Pipeline Settings
+							</v-card-title>
+							<v-card-text class="pt-2">
+								<!-- Basic controls -->
+								<v-select
+									v-model="graphStore.settings.model"
+									:items="modelOptions"
+									label="Model"
+									density="compact"
+									variant="outlined"
+									hide-details
+									class="mb-3"
+								/>
+								<div class="d-flex align-center ga-3 mb-1">
+									<v-select
+										v-model="graphStore.settings.perspectives"
+										:items="perspectiveOptions"
+										label="Perspectives"
+										density="compact"
+										variant="outlined"
+										hide-details
+										style="max-width: 140px"
+									/>
+									<v-switch
+										v-model="graphStore.settings.summarize"
+										label="Summarize"
+										density="compact"
+										hide-details
+										:disabled="graphStore.settings.perspectives === 0"
+										color="primary"
+									/>
+								</div>
+
+								<!-- Advanced controls (disclosure) -->
+								<v-expansion-panels variant="accordion" class="mt-2 settings-advanced">
+									<v-expansion-panel>
+										<v-expansion-panel-title class="text-body-2 py-2">
+											Advanced
+										</v-expansion-panel-title>
+										<v-expansion-panel-text>
+											<v-select
+												v-model="graphStore.settings.agentModel"
+												:items="modelOptions"
+												label="Agent Model"
+												density="compact"
+												variant="outlined"
+												hide-details
+												class="mb-3"
+												:disabled="graphStore.settings.perspectives === 0"
+											/>
+											<v-switch
+												v-model="graphStore.settings.serialFanOut"
+												label="Serial Fan-Out"
+												density="compact"
+												hide-details
+												color="primary"
+												class="mb-2"
+											/>
+											<div class="text-caption text-medium-emphasis mb-1">Tools</div>
+											<div class="tools-grid mb-3">
+												<v-checkbox
+													v-for="tool in availableTools"
+													:key="tool"
+													v-model="graphStore.settings.tools"
+													:label="tool"
+													:value="tool"
+													density="compact"
+													hide-details
+													color="primary"
+												/>
+											</div>
+											<v-select
+												v-model="graphStore.settings.promptName"
+												:items="promptOptions"
+												label="Prompt"
+												density="compact"
+												variant="outlined"
+												hide-details
+											/>
+										</v-expansion-panel-text>
+									</v-expansion-panel>
+								</v-expansion-panels>
+								</v-card-text>
+							</v-card>
+							</v-menu>
+							<v-btn
+								color="primary"
+								@click="submitPrompt"
+								:loading="graphStore.loading"
+								:disabled="!graphStore.connected || !promptText.trim()"
+								size="large"
+								class="ml-2 submit-btn"
+							>
+								Submit
+							</v-btn>
+						</div>
+					</div>
 				</div>
 
 				<!-- Status alert -->
@@ -357,13 +495,48 @@ const submitPrompt = () => {
 
 .input-row {
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	padding-top: 12px;
 	flex-shrink: 0;
+	gap: 12px;
 }
 
 .input-field {
 	flex: 1;
+}
+
+.input-controls {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	flex: 0 0 auto;
+	gap: 4px;
+}
+
+.controls-row {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.new-session-checkbox {
+	flex: 0 0 auto;
+}
+
+.settings-card {
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+.settings-advanced :deep(.v-expansion-panel-title) {
+	min-height: 36px;
+	padding: 0 12px;
+}
+
+.tools-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0;
 }
 
 .submit-btn {
