@@ -56,16 +56,11 @@ export default defineNuxtConfig({
     },
   },
 
-  vite: {
-    server: {
-      proxy: {
-        '/ws/graphinator': {
-          target: 'http://localhost:7790',
-          ws: true,
-        },
-      },
-    },
-  },
+  // NOTE: WebSocket proxying does NOT work through either nitro.devProxy or
+  // vite.server.proxy — Nitro's SPA catch-all intercepts the request (returns 200)
+  // before either proxy layer can handle the upgrade. The client connects directly
+  // to the API server in dev (see graphinatorStore.js import.meta.dev).
+  // In production, nginx handles the WebSocket upgrade.
 
   app: {
     head: {
