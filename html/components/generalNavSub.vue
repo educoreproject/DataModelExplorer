@@ -34,6 +34,12 @@
 		       router.currentRoute.value.path === '/ontology/';
 	});
 
+	// Check if we're on the graphinator page
+	const isGraphinatorPage = computed(() => {
+		return router.currentRoute.value.path === '/graphinator' ||
+		       router.currentRoute.value.path === '/graphinator/';
+	});
+
 	const reloadPage = () => {
 		window.location.href = window.location.href.replace(
 			/^(https?:\/\/[^\/]+).*/,
@@ -55,6 +61,7 @@
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isOntologyPage">Ontology13</template>
+			<template v-else-if="isGraphinatorPage">Graphinator</template>
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
 			<template v-else>EDUcore Tools</template>
@@ -89,6 +96,17 @@
 			:disabled="isOntologyPage"
 		>
 			Ontology13
+		</v-btn>
+
+		<v-btn
+			v-if="LoginStore.validUser"
+			variant="text"
+			prepend-icon="mdi-graph"
+			title="Graphinator - AI-Powered Ontology Analysis"
+			:to="{ path: '/graphinator' }"
+			:disabled="isGraphinatorPage"
+		>
+			Graphinator
 		</v-btn>
 
 		<v-btn
