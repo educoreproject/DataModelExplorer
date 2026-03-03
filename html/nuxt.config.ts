@@ -53,6 +53,10 @@ export default defineNuxtConfig({
         changeOrigin: true,
         prependPath: true,
       },
+      '/ws': {
+        target: 'http://localhost:7790',
+        ws: true,
+      },
     },
   },
 

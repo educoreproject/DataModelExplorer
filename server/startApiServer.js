@@ -296,8 +296,11 @@ ${err.toString()}
 		// ======================================================================================
 		// START SERVER
 
-		expressApp.listen(apiPort);
+		const server = expressApp.listen(apiPort);
 		xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
+
+		// WebSocket server for streaming connections
+		require('./lib/ws-graphinator')({ server });
 	};
 //END OF moduleFunction() ============================================================
 
