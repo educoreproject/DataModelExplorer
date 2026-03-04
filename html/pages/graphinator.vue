@@ -173,21 +173,29 @@ const submitPrompt = () => {
 			<!-- CEDS TAB -->
 			<!-- ============================================================ -->
 			<v-container v-show="activeTab === 'ceds'" fluid class="pa-4 graphinator-container">
-				<!-- Top row: stdout + stderr panels with draggable divider -->
+				<!-- Top row: left column (stdout + stderr) | divider | right panel -->
 				<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
-					<div class="output-panel" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
-						<div class="panel-header">STDOUT</div>
-						<div ref="stdoutPanel" class="panel-content prose">
-							<div v-if="graphStore.stdout" v-html="renderedStdout"></div>
-							<span v-else class="text-medium-emphasis">Response will appear here...</span>
+					<div class="left-column" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
+						<div class="output-panel" style="flex: 1; min-height: 0;">
+							<div class="panel-header">STDOUT</div>
+							<div ref="stdoutPanel" class="panel-content prose">
+								<div v-if="graphStore.stdout" v-html="renderedStdout"></div>
+								<span v-else class="text-medium-emphasis">Response will appear here...</span>
+							</div>
+						</div>
+						<div class="output-panel stderr-panel">
+							<div class="panel-header">STDERR</div>
+							<div ref="stderrPanel" class="panel-content">
+								<pre v-if="graphStore.stderr">{{ graphStore.stderr }}</pre>
+								<span v-else class="text-medium-emphasis">Diagnostics...</span>
+							</div>
 						</div>
 					</div>
 					<div class="column-divider" @mousedown="startDrag"></div>
 					<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
-						<div class="panel-header">STDERR</div>
-						<div ref="stderrPanel" class="panel-content">
-							<pre v-if="graphStore.stderr">{{ graphStore.stderr }}</pre>
-							<span v-else class="text-medium-emphasis">Diagnostics will appear here...</span>
+						<div class="panel-header">&nbsp;</div>
+						<div class="panel-content">
+							<span class="text-medium-emphasis"></span>
 						</div>
 					</div>
 				</div>
@@ -375,6 +383,13 @@ const submitPrompt = () => {
 	user-select: none;
 }
 
+.left-column {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	gap: 6px;
+}
+
 .output-panel {
 	display: flex;
 	flex-direction: column;
@@ -382,6 +397,11 @@ const submitPrompt = () => {
 	border-radius: 4px;
 	overflow: hidden;
 	min-width: 0;
+}
+
+.stderr-panel {
+	flex: 0 0 auto;
+	max-height: 110px;
 }
 
 .column-divider {
