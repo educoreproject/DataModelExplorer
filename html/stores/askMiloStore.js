@@ -8,6 +8,7 @@ let ws = null;
 export const useAskMiloStore = defineStore('askMiloStore', {
 	state: () => ({
 		stdout: '',
+		sessionStdout: '',
 		stderr: '',
 		loading: false,
 		connected: false,
@@ -107,6 +108,9 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 				return;
 			}
 
+			if (this.stdout) {
+				this.sessionStdout += this.stdout + '\n\n';
+			}
 			this.stdout = '';
 			this.stderr = '';
 			this.loading = true;
@@ -126,6 +130,7 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 		},
 
 		startNewSession() {
+			this.sessionStdout = '';
 			this.settings.resumeSessionName = '';
 			this.settings.newSession = true;
 		},
@@ -150,9 +155,10 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 
 		// Download stdout as markdown with AI-suggested filename
 		async downloadStdout() {
-			if (!this.stdout) return;
+			const fullContent = this.sessionStdout + this.stdout;
+			if (!fullContent) return;
 
-			const snippet = this.stdout.slice(0, 500);
+			const snippet = fullContent.slice(0, 500);
 			const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
 
 			let filename = await this.utilityCall(prompt, 'haiku');
@@ -162,7 +168,7 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 			// Clean up — haiku might add quotes or extension
 			filename = filename.replace(/['"`.]/g, '').trim();
 
-			const blob = new Blob([this.stdout], { type: 'text/markdown' });
+			const blob = new Blob([fullContent], { type: 'text/markdown' });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
