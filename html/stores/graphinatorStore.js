@@ -7,6 +7,7 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 	state: () => ({
 		stdout: '',
 		stderr: '',
+		controlHtml: '',
 		loading: false,
 		connected: false,
 		statusMsg: '',
@@ -17,7 +18,7 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 			agentModel: 'sonnet',
 			serialFanOut: true,
 			tools: ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'],
-			promptName: 'default',
+			promptName: 'graphinator',
 			newSession: true,
 			resumeSessionName: '',
 		},
@@ -124,6 +125,7 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 		},
 
 		startNewSession() {
+			this.controlHtml = '';
 			this.settings.resumeSessionName = '';
 			this.settings.newSession = true;
 		},

@@ -17,11 +17,55 @@ const router = useRouter();
 const route = useRoute();
 
 // -------------------------------------------------------------------------
-// Rendered markdown from stdout
+// Split stdout into response text and control HTML
+//
+// The AI model can embed <control>...</control> tags inline in its output.
+// Everything inside those tags is routed to the right panel as raw HTML.
+// Everything outside is rendered as markdown in the left STDOUT panel.
+// During streaming, an unclosed <control> tag is buffered until it closes.
+
+const splitContent = computed(() => {
+	const raw = graphStore.stdout;
+	if (!raw) return { response: '', control: '' };
+
+	let response = '';
+	let control = '';
+	let lastIndex = 0;
+
+	const controlTagRegex = /<control[^>]*>([\s\S]*?)<\/control>/g;
+	let match;
+
+	while ((match = controlTagRegex.exec(raw)) !== null) {
+		response += raw.slice(lastIndex, match.index);
+		control += match[1];
+		lastIndex = match.index + match[0].length;
+	}
+
+	// Handle remaining text after last complete block
+	const remaining = raw.slice(lastIndex);
+
+	// Check for unclosed <control> tag — buffer it until it closes
+	const unclosedIndex = remaining.indexOf('<control>');
+	if (unclosedIndex !== -1) {
+		response += remaining.slice(0, unclosedIndex);
+	} else {
+		response += remaining;
+	}
+
+	return { response, control };
+});
 
 const renderedStdout = computed(() => {
-	if (!graphStore.stdout) return '';
-	return marked.parse(graphStore.stdout);
+	if (!splitContent.value.response) return '';
+	return marked.parse(splitContent.value.response);
+});
+
+// Persist control HTML in store so it survives across turns.
+// Only overwrite when new control content arrives.
+watch(() => splitContent.value.control, (newControl) => {
+	if (newControl) {
+		graphStore.controlHtml = newControl;
+	}
 });
 
 // -------------------------------------------------------------------------
@@ -90,6 +134,7 @@ const handleKeydown = (event) => {
 
 const stdoutPanel = ref(null);
 const stderrPanel = ref(null);
+const controlPanel = ref(null);
 const outputRow = ref(null);
 
 // -------------------------------------------------------------------------
@@ -134,6 +179,15 @@ watch(() => graphStore.stderr, () => {
 	});
 });
 
+watch(() => graphStore.controlHtml, () => {
+	nextTick(() => {
+		if (controlPanel.value) {
+			controlPanel.value.scrollTop = controlPanel.value.scrollHeight;
+		}
+	});
+});
+
+
 // -------------------------------------------------------------------------
 // Auth guard + WebSocket connection
 
@@ -151,6 +205,39 @@ onUnmounted(() => {
 });
 
 // -------------------------------------------------------------------------
+// Scrape form values from control panel on submit
+
+const scrapeControlData = () => {
+	if (!controlPanel.value) return null;
+	const forms = controlPanel.value.querySelectorAll('form');
+	const inputs = controlPanel.value.querySelectorAll('input, select, textarea');
+	if (forms.length === 0 && inputs.length === 0) return null;
+
+	const data = {};
+
+	// Scrape named forms
+	forms.forEach((form) => {
+		const name = form.getAttribute('name') || form.id || form.dataset.name || 'default';
+		data[name] = Object.fromEntries(new FormData(form));
+	});
+
+	// Scrape loose inputs not inside a form
+	inputs.forEach((el) => {
+		if (el.closest('form')) return; // already captured above
+		const key = el.name || el.id || el.dataset.name;
+		if (!key) return;
+		if (!data['default']) data['default'] = {};
+		if (el.type === 'checkbox' || el.type === 'radio') {
+			data['default'][key] = el.checked;
+		} else {
+			data['default'][key] = el.value;
+		}
+	});
+
+	return Object.keys(data).length > 0 ? data : null;
+};
+
+// -------------------------------------------------------------------------
 // Submit handler
 
 const submitPrompt = () => {
@@ -159,7 +246,11 @@ const submitPrompt = () => {
 	promptHistory.value.unshift(text);
 	historyIndex.value = -1;
 	promptText.value = '';
-	graphStore.sendPrompt(text);
+	const controlData = scrapeControlData();
+	const prompt = controlData
+		? `[CONTROL_STATE: ${JSON.stringify(controlData)}]\n\n${text}`
+		: text;
+	graphStore.sendPrompt(prompt);
 };
 </script>
 
@@ -179,7 +270,7 @@ const submitPrompt = () => {
 						<div class="output-panel" style="flex: 1; min-height: 0;">
 							<div class="panel-header">STDOUT</div>
 							<div ref="stdoutPanel" class="panel-content prose">
-								<div v-if="graphStore.stdout" v-html="renderedStdout"></div>
+								<div v-if="splitContent.response" v-html="renderedStdout"></div>
 								<span v-else class="text-medium-emphasis">Response will appear here...</span>
 							</div>
 						</div>
@@ -193,9 +284,10 @@ const submitPrompt = () => {
 					</div>
 					<div class="column-divider" @mousedown="startDrag"></div>
 					<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
-						<div class="panel-header">&nbsp;</div>
-						<div class="panel-content">
-							<span class="text-medium-emphasis"></span>
+						<div class="panel-header">{{ graphStore.controlHtml ? 'CONTROL' : '' }}</div>
+						<div ref="controlPanel" class="panel-content control-content">
+							<div v-if="graphStore.controlHtml" v-html="graphStore.controlHtml"></div>
+							<span v-else class="text-medium-emphasis">No control content</span>
 						</div>
 					</div>
 				</div>
@@ -512,6 +604,43 @@ const submitPrompt = () => {
 .prose :deep(strong) { font-weight: 600; }
 .prose :deep(a) { color: #1976d2; text-decoration: none; }
 .prose :deep(a:hover) { text-decoration: underline; }
+
+/* Control panel: style injected HTML form elements */
+.control-content :deep(select),
+.control-content :deep(input:not([type="submit"]):not([type="button"]):not([type="hidden"])),
+.control-content :deep(textarea) {
+	font-family: inherit;
+	font-size: 0.9rem;
+	padding: 4px 8px;
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	border-radius: 4px;
+	background: #fff;
+	margin: 2px 0;
+}
+
+.control-content :deep(button),
+.control-content :deep(input[type="submit"]) {
+	font-family: inherit;
+	font-size: 0.85rem;
+	padding: 6px 16px;
+	border: none;
+	border-radius: 4px;
+	background: #1976d2;
+	color: #fff;
+	cursor: pointer;
+	margin: 4px 2px;
+}
+
+.control-content :deep(button:hover),
+.control-content :deep(input[type="submit"]:hover) {
+	background: #1565c0;
+}
+
+.control-content :deep(label) {
+	display: inline-block;
+	margin: 4px 8px 4px 0;
+	font-size: 0.9rem;
+}
 
 .input-row {
 	display: flex;
