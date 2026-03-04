@@ -15,7 +15,7 @@ const moduleFunction = ({ server }) => {
 		xLog.error(`WebSocket server error: ${err.message}`);
 	});
 
-	xLog.status('WebSocket server registered for /ws/graphinator');
+	xLog.status('WebSocket server registered for /ws/askmilo');
 
 	wss.on('connection', (ws) => {
 		let activeChild = null;

@@ -309,8 +309,29 @@ ${err.toString()}
 
 		xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
-		// WebSocket server for streaming connections
-		require('./lib/ws-graphinator')({ server });
+		// WebSocket servers for streaming connections
+		// Each handler uses noServer:true and returns its WebSocketServer instance.
+		// Central upgrade routing prevents the ws library's per-instance path matching
+		// from aborting connections meant for a different instance (causes "Invalid frame header").
+		const wssGraphinator = require('./lib/ws-graphinator')({ server });
+		const wssAskMilo = require('./lib/ws-askmilo')({ server });
+
+		const wsRoutes = {
+			'/ws/graphinator': wssGraphinator,
+			'/ws/askmilo': wssAskMilo,
+		};
+
+		server.on('upgrade', (request, socket, head) => {
+			const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+			const wss = wsRoutes[pathname];
+			if (wss) {
+				wss.handleUpgrade(request, socket, head, (ws) => {
+					wss.emit('connection', ws, request);
+				});
+			} else {
+				socket.destroy();
+			}
+		});
 	};
 //END OF moduleFunction() ============================================================
 
