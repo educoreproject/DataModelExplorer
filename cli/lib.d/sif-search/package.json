@@ -1,0 +1,11 @@
+{
+	"name": "sif-search",
+	"version": "1.0.0",
+	"description": "SIF/Confluence Documentation Search - query and read Confluence pages from the command line",
+	"main": "sifSearch.js",
+	"dependencies": {
+		"qtools-config-file-processor": "^1.0.18",
+		"qtools-parse-command-line": "^1.0.10",
+		"turndown": "^7.2.0"
+	}
+}
