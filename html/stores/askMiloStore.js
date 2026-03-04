@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+import axios from 'axios';
+import { useLoginStore } from '@/stores/loginStore';
 
 // WebSocket reference kept outside reactive state
 let ws = null;
@@ -126,6 +128,47 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 		startNewSession() {
 			this.settings.resumeSessionName = '';
 			this.settings.newSession = true;
+		},
+
+		// Generic utility AI call (prompt in, response out)
+		// Uses the /api/askmilo-utility endpoint via Nuxt proxy, not WebSocket
+		async utilityCall(prompt, model = 'haiku') {
+			const loginStore = useLoginStore();
+			try {
+				const response = await axios.post(
+					'/api/askmilo-utility',
+					{ prompt, model },
+					{ headers: { ...loginStore.getAuthTokenProperty } },
+				);
+				return response.data.response;
+			} catch (err) {
+				console.error('[askMilo] utilityCall error:', err);
+				this.statusMsg = err.response?.data || err.message;
+				return null;
+			}
+		},
+
+		// Download stdout as markdown with AI-suggested filename
+		async downloadStdout() {
+			if (!this.stdout) return;
+
+			const snippet = this.stdout.slice(0, 500);
+			const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
+
+			let filename = await this.utilityCall(prompt, 'haiku');
+			if (!filename) {
+				filename = 'askMilo-output';
+			}
+			// Clean up — haiku might add quotes or extension
+			filename = filename.replace(/['"`.]/g, '').trim();
+
+			const blob = new Blob([this.stdout], { type: 'text/markdown' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${filename}.md`;
+			a.click();
+			URL.revokeObjectURL(url);
 		},
 
 		disconnect() {

@@ -309,6 +309,9 @@ ${err.toString()}
 
 		xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
+		// askMilo utility endpoint (simple AI relay — prompt in, response out)
+		require('./lib/askmilo-utility')({ expressApp });
+
 		// WebSocket servers for streaming connections
 		// Each handler uses noServer:true and returns its WebSocketServer instance.
 		// Central upgrade routing prevents the ws library's per-instance path matching

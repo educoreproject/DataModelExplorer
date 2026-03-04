@@ -176,7 +176,20 @@ const submitPrompt = () => {
 				<!-- Top row: stdout + stderr panels with draggable divider -->
 				<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
 					<div class="output-panel" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
-						<div class="panel-header">STDOUT</div>
+						<div class="panel-header">
+							STDOUT
+							<v-btn
+								v-if="askMiloStore.stdout"
+								icon
+								variant="text"
+								size="x-small"
+								class="ml-2 download-btn"
+								title="Download as Markdown"
+								@click="askMiloStore.downloadStdout()"
+							>
+								<v-icon size="small">mdi-download</v-icon>
+							</v-btn>
+						</div>
 						<div ref="stdoutPanel" class="panel-content prose">
 							<div v-if="askMiloStore.stdout" v-html="renderedStdout"></div>
 							<span v-else class="text-medium-emphasis">Response will appear here...</span>
@@ -408,6 +421,8 @@ const submitPrompt = () => {
 }
 
 .panel-header {
+	display: flex;
+	align-items: center;
 	background: #f5f5f5;
 	padding: 6px 12px;
 	font-weight: 600;
@@ -416,6 +431,13 @@ const submitPrompt = () => {
 	letter-spacing: 0.5px;
 	color: #666;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.download-btn {
+	opacity: 0.6;
+}
+.download-btn:hover {
+	opacity: 1;
 }
 
 .panel-content {
