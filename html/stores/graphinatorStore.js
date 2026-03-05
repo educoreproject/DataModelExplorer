@@ -11,13 +11,14 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 		loading: false,
 		connected: false,
 		statusMsg: '',
+		availableTools: [],
 		settings: {
 			model: 'opus',
 			perspectives: 0,
 			summarize: true,
 			agentModel: 'sonnet',
 			serialFanOut: true,
-			tools: ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'],
+			tools: [],
 			promptName: 'graphinator',
 			newSession: true,
 			resumeSessionName: '',
@@ -68,6 +69,18 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 
 			ws.onmessage = (event) => {
 				const msg = JSON.parse(event.data);
+
+				if (msg.channel === 'config') {
+					// Server sends config defaults on connection
+					const cfg = msg.config || {};
+					if (cfg.defaultTools) {
+						this.settings.tools = cfg.defaultTools;
+					}
+					if (cfg.availableTools) {
+						this.availableTools = cfg.availableTools;
+					}
+					return;
+				}
 
 				if (msg.channel === 'stdout') {
 					this.stdout += msg.delta;

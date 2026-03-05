@@ -1,0 +1,63 @@
+{
+	"providerName": "SifSearch",
+	"description": "Search and read Confluence/SIF documentation",
+	"tools": [
+		{
+			"definition": {
+				"name": "sif_search",
+				"description": "Search SIF/Confluence documentation pages by text or CQL query. Returns page titles, IDs, and excerpts. Use this to find relevant pages before reading their full content.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": { "type": "string", "description": "Search text. Automatically wrapped in CQL for the configured space." },
+						"cql": { "type": "string", "description": "Raw CQL for advanced searches. Overrides query if provided." },
+						"limit": { "type": "integer", "description": "Max results (default 10, max 25)", "default": 10 }
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "sifSearch -search",
+				"positionalArgs": ["query"],
+				"flagArgs": { "cql": "--cql", "limit": "--limit" }
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_read_page",
+				"description": "Read the full content of a Confluence page by ID. Returns title and body as clean markdown. Use page IDs from search results.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"page_id": { "type": "string", "description": "Confluence page ID from search results" }
+					},
+					"required": ["page_id"]
+				}
+			},
+			"cli": {
+				"command": "sifSearch -readPage",
+				"positionalArgs": ["page_id"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_list_pages",
+				"description": "List all pages in a Confluence space. Returns page titles, IDs, and URLs.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"space": { "type": "string", "description": "Confluence space key (default: ARCHITECTU)" },
+						"limit": { "type": "integer", "description": "Max results (default 10)", "default": 10 }
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "sifSearch -listPages",
+				"positionalArgs": [],
+				"flagArgs": { "space": "--space", "limit": "--limit" }
+			}
+		}
+	]
+}

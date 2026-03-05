@@ -97,7 +97,7 @@ const modelOptions = [
 
 const perspectiveOptions = [0, 1, 2, 3, 4, 5, 6, 7];
 
-const availableTools = ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep', 'Confluence'];
+// availableTools comes from the server via WebSocket config channel (graphStore.availableTools)
 
 const promptOptions = [
 	{ title: 'Default', value: 'default' },
@@ -392,7 +392,7 @@ const submitPrompt = () => {
 											<div class="text-caption text-medium-emphasis mb-1">Tools</div>
 											<div class="tools-grid mb-3">
 												<v-checkbox
-													v-for="tool in availableTools"
+													v-for="tool in graphStore.availableTools"
 													:key="tool"
 													v-model="graphStore.settings.tools"
 													:label="tool"

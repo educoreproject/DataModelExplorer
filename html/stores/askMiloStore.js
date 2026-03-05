@@ -13,13 +13,14 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 		loading: false,
 		connected: false,
 		statusMsg: '',
+		availableTools: [],
 		settings: {
 			model: 'opus',
 			perspectives: 0,
 			summarize: true,
 			agentModel: 'sonnet',
 			serialFanOut: true,
-			tools: ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'],
+			tools: [],
 			promptName: 'default',
 			newSession: true,
 			resumeSessionName: '',
@@ -70,6 +71,17 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 
 			ws.onmessage = (event) => {
 				const msg = JSON.parse(event.data);
+
+				if (msg.channel === 'config') {
+					const cfg = msg.config || {};
+					if (cfg.defaultTools) {
+						this.settings.tools = cfg.defaultTools;
+					}
+					if (cfg.availableTools) {
+						this.availableTools = cfg.availableTools;
+					}
+					return;
+				}
 
 				if (msg.channel === 'stdout') {
 					this.stdout += msg.delta;

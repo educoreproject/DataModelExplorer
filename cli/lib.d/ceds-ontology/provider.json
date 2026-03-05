@@ -1,0 +1,117 @@
+{
+	"providerName": "CEDS",
+	"description": "Query the CEDS education data standard ontology",
+	"tools": [
+		{
+			"definition": {
+				"name": "ceds_lookup",
+				"description": "Search CEDS classes, properties, and option sets by name. Returns matching items with types and descriptions. Use this as the starting point for exploring the ontology.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": { "type": "string", "description": "Search term to find in class names, property names, and option set names" },
+						"limit": { "type": "integer", "description": "Max results (default 20)", "default": 20 }
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -lookup",
+				"positionalArgs": ["query"],
+				"flagArgs": { "limit": "--limit" }
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds_explore",
+				"description": "Show a CEDS class with its properties and relationships. Returns the class definition, all properties with types, and relationships to other classes.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"class_name": { "type": "string", "description": "Exact CEDS class name (e.g. 'K12 Student', 'Assessment Result')" }
+					},
+					"required": ["class_name"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -explore",
+				"positionalArgs": ["class_name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds_option_set",
+				"description": "List all values in a CEDS option set (enumeration). Returns the option set name and all allowed values with descriptions.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": { "type": "string", "description": "Option set name (e.g. 'Sex', 'Grade Level')" }
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -optionSet",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds_data_spec",
+				"description": "Full data specification for a CEDS class with resolved types. Shows all properties with their data types, option set values, and cardinality. Use for detailed data modeling.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"class_name": { "type": "string", "description": "CEDS class name to get full specification for" }
+					},
+					"required": ["class_name"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -dataSpec",
+				"positionalArgs": ["class_name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds_search",
+				"description": "Semantic vector search across all CEDS ontology descriptions. Use natural language to find relevant classes, properties, and option sets by meaning rather than exact name.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": { "type": "string", "description": "Natural language search query (e.g. 'assessment scores for english language learners')" },
+						"limit": { "type": "integer", "description": "Max results (default 20)", "default": 20 }
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -search",
+				"positionalArgs": ["query"],
+				"flagArgs": { "limit": "--limit" }
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds_path",
+				"description": "Find the semantic path between two CEDS classes. Shows how classes are connected through relationships and intermediate classes.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"class_a": { "type": "string", "description": "Starting class name" },
+						"class_b": { "type": "string", "description": "Ending class name" }
+					},
+					"required": ["class_a", "class_b"]
+				}
+			},
+			"cli": {
+				"command": "ceds1 -path",
+				"positionalArgs": ["class_a", "class_b"],
+				"flagArgs": {}
+			}
+		}
+	]
+}

@@ -17,8 +17,30 @@ const moduleFunction = ({ server }) => {
 
 	xLog.status('WebSocket server registered for /ws/askmilo');
 
+	// Fetch askMilo config defaults and send to client on connection.
+	const sendConfigDefaults = (ws) => {
+		const child = spawn('askMilo', [], { shell: true, env: process.env });
+		let stdout = '';
+		child.stdin.write(JSON.stringify({ switches: { getDefaults: true }, values: {}, fileList: [] }));
+		child.stdin.end();
+		child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+		child.on('close', () => {
+			try {
+				const config = JSON.parse(stdout.trim());
+				if (ws.readyState === ws.OPEN) {
+					ws.send(JSON.stringify({ channel: 'config', config }));
+				}
+			} catch (e) {
+				xLog.error(`[ws-askmilo] Failed to parse askMilo defaults: ${e.message}`);
+			}
+		});
+	};
+
 	wss.on('connection', (ws) => {
 		let activeChild = null;
+
+		// Send config defaults so the client knows what tools are available
+		sendConfigDefaults(ws);
 
 		ws.on('message', (raw) => {
 			let msg;

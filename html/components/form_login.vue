@@ -30,7 +30,7 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					const redirect = route.query.redirect || '/library';
+					const redirect = route.query.redirect || '/graphinator';
 					router.push(redirect);
 				}
 			})
