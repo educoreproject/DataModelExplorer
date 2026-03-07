@@ -286,6 +286,15 @@ const submitPrompt = () => {
 	graphStore.sendPrompt(prompt);
 };
 
+const onNewSessionToggle = (checked) => {
+	if (checked) {
+		graphStore.startNewSession();
+		multipartMode.value = false;
+		if (controlPanelRef.value) {
+			controlPanelRef.value.innerHTML = '';
+		}
+	}
+};
 
 </script>
 
@@ -302,8 +311,11 @@ const submitPrompt = () => {
 				<!-- Top row: left column (stdout + stderr) | divider | right panel -->
 				<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
 					<div class="left-column" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
-						<div class="output-panel" style="flex: 1; min-height: 0;">
-							<div class="panel-header">STDOUT</div>
+						<div class="output-panel" :class="{ 'panel-loading': graphStore.loading }" style="flex: 1; min-height: 0;">
+							<div class="panel-header">
+								STDOUT
+								<span v-if="graphStore.loading" class="loading-indicator">Still working. Don't give up.</span>
+							</div>
 							<div ref="stdoutPanel" class="panel-content prose">
 								<div v-if="splitContent.response" v-html="renderedStdout"></div>
 								<span v-else class="text-medium-emphasis">Response will appear here...</span>
@@ -349,6 +361,7 @@ const submitPrompt = () => {
 								v-model="graphStore.settings.newSession"
 								label="New Session"
 								density="compact"
+								@update:modelValue="onNewSessionToggle"
 								hide-details
 								color="primary"
 								class="new-session-checkbox"
@@ -533,6 +546,29 @@ const submitPrompt = () => {
 .stderr-panel {
 	flex: 0 0 auto;
 	max-height: 110px;
+}
+
+.panel-loading {
+	border-color: #1976d2;
+	animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+	0%, 100% { border-color: #1976d2; }
+	50% { border-color: #64b5f6; }
+}
+
+.loading-indicator {
+	float: right;
+	color: #d27619;
+	font-weight: 400;
+	font-style: italic;
+	animation: pulse-text 2s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
 }
 
 .column-divider {
