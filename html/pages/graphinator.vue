@@ -4,6 +4,8 @@ import { useGraphinatorStore } from '@/stores/graphinatorStore';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { marked } from 'marked';
+import { parseMultipartContent, resolveCidReferences } from '~/composables/useMultipartContent.js';
+import { vizLoading } from '~/composables/useVizRenderer.js';
 
 // Configure marked for streaming-friendly rendering
 marked.setOptions({
@@ -61,12 +63,40 @@ const renderedStdout = computed(() => {
 });
 
 // Persist control HTML in store so it survives across turns.
-// Only overwrite when new control content arrives.
-watch(() => splitContent.value.control, (newControl) => {
-	if (newControl) {
-		graphStore.controlHtml = newControl;
+// Detects multipart JSON and resolves CID references for embedded diagrams.
+watch(
+	() => splitContent.value.control,
+	async (newControl) => {
+		if (!newControl) return;
+
+		const multipart = parseMultipartContent(newControl);
+
+		if (multipart) {
+			// Multipart JSON: inject HTML then resolve CID references
+			multipartMode.value = true;
+
+			await nextTick(); // Ensure DOM is ready
+
+			if (controlPanelRef.value) {
+				controlPanelRef.value.innerHTML = multipart.html;
+				const errors = await resolveCidReferences(
+					controlPanelRef.value,
+					multipart.attachments
+				);
+				if (errors.length > 0) {
+					console.warn('[Graphinator] CID resolution errors:', errors);
+				}
+			}
+
+			// Also store the raw for form scraping compatibility
+			graphStore.controlHtml = multipart.html;
+		} else {
+			// Legacy raw HTML
+			multipartMode.value = false;
+			graphStore.controlHtml = newControl;
+		}
 	}
-});
+);
 
 // -------------------------------------------------------------------------
 // Tab configuration
@@ -100,6 +130,7 @@ const perspectiveOptions = [0, 1, 2, 3, 4, 5, 6, 7];
 // availableTools comes from the server via WebSocket config channel (graphStore.availableTools)
 
 const promptOptions = [
+	{ title: 'Graphinator', value: 'graphinator' },
 	{ title: 'Default', value: 'default' },
 	{ title: 'White Paper', value: 'whitePaper' },
 	{ title: 'Interrogator', value: 'interrogator' },
@@ -135,7 +166,9 @@ const handleKeydown = (event) => {
 const stdoutPanel = ref(null);
 const stderrPanel = ref(null);
 const controlPanel = ref(null);
+const controlPanelRef = ref(null);
 const outputRow = ref(null);
+const multipartMode = ref(false);
 
 // -------------------------------------------------------------------------
 // Draggable column divider
@@ -252,6 +285,8 @@ const submitPrompt = () => {
 		: text;
 	graphStore.sendPrompt(prompt);
 };
+
+
 </script>
 
 <template>
@@ -286,8 +321,12 @@ const submitPrompt = () => {
 					<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
 						<div class="panel-header">{{ graphStore.controlHtml ? 'CONTROL' : '' }}</div>
 						<div ref="controlPanel" class="panel-content control-content">
-							<div v-if="graphStore.controlHtml" v-html="graphStore.controlHtml"></div>
-							<span v-else class="text-medium-emphasis">No control content</span>
+							<div v-if="vizLoading" style="text-align: center; padding: 12px; color: #888;">
+								Loading diagram renderer...
+							</div>
+							<div ref="controlPanelRef" v-show="multipartMode"></div>
+							<div v-if="!multipartMode && graphStore.controlHtml" v-html="graphStore.controlHtml"></div>
+							<span v-if="!multipartMode && !graphStore.controlHtml" class="text-medium-emphasis">No control content</span>
 						</div>
 					</div>
 				</div>
@@ -698,5 +737,40 @@ const submitPrompt = () => {
 	justify-content: flex-end;
 	padding-top: 8px;
 	flex-shrink: 0;
+}
+
+.control-content :deep(.cid-rendered-content) {
+	margin: 12px 0;
+	text-align: center;
+	cursor: pointer;
+}
+
+.control-content :deep(.cid-rendered-content svg) {
+	max-width: 100%;
+	height: auto;
+}
+
+.control-content :deep(.cid-render-error) {
+	margin: 8px 0;
+}
+
+.control-content :deep(.cid-fullscreen) {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background: rgba(255, 255, 255, 0.95);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40px;
+	cursor: zoom-out;
+}
+
+.control-content :deep(.cid-fullscreen svg) {
+	max-width: 90vw;
+	max-height: 90vh;
 }
 </style>
