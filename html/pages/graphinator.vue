@@ -222,6 +222,25 @@ watch(() => graphStore.controlHtml, () => {
 
 
 // -------------------------------------------------------------------------
+// Heartbeat staleness tracking
+
+const now = ref(Date.now());
+let nowTimer = null;
+
+const heartbeatStatus = computed(() => {
+	if (!graphStore.loading) return '';
+	if (!graphStore.lastHeartbeat) return 'waiting...';
+	const gap = Math.round((now.value - graphStore.lastHeartbeat) / 1000);
+	if (gap < 10) return 'active';
+	return `no activity ${gap}s`;
+});
+
+const heartbeatStale = computed(() => {
+	if (!graphStore.loading || !graphStore.lastHeartbeat) return false;
+	return (now.value - graphStore.lastHeartbeat) > 15000;
+});
+
+// -------------------------------------------------------------------------
 // Auth guard + WebSocket connection
 
 onMounted(() => {
@@ -235,6 +254,15 @@ onMounted(() => {
 
 onUnmounted(() => {
 	graphStore.disconnect();
+	if (nowTimer) clearInterval(nowTimer);
+});
+
+watch(() => graphStore.loading, (loading) => {
+	if (loading) {
+		nowTimer = setInterval(() => { now.value = Date.now(); }, 1000);
+	} else {
+		if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
+	}
 });
 
 // -------------------------------------------------------------------------
@@ -314,7 +342,9 @@ const onNewSessionToggle = (checked) => {
 						<div class="output-panel" :class="{ 'panel-loading': graphStore.loading }" style="flex: 1; min-height: 0;">
 							<div class="panel-header">
 								STDOUT
-								<span v-if="graphStore.loading" class="loading-indicator">Still working. Don't give up.</span>
+								<span v-if="graphStore.loading" class="loading-indicator" :class="{ 'loading-stale': heartbeatStale }">
+								Still working. Don't give up. ({{ heartbeatStatus }})
+							</span>
 							</div>
 							<div ref="stdoutPanel" class="panel-content prose">
 								<div v-if="splitContent.response" v-html="renderedStdout"></div>
@@ -324,7 +354,7 @@ const onNewSessionToggle = (checked) => {
 						<div class="output-panel stderr-panel">
 							<div class="panel-header">STDERR</div>
 							<div ref="stderrPanel" class="panel-content">
-								<pre v-if="graphStore.stderr">{{ graphStore.stderr }}</pre>
+								<pre v-if="graphStore.stderr" v-html="graphStore.stderr"></pre>
 								<span v-else class="text-medium-emphasis">Diagnostics...</span>
 							</div>
 						</div>
@@ -569,6 +599,12 @@ const onNewSessionToggle = (checked) => {
 @keyframes pulse-text {
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.4; }
+}
+
+.loading-stale {
+	color: #c62828;
+	animation: none;
+	font-weight: 600;
 }
 
 .column-divider {

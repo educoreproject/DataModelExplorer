@@ -9,6 +9,7 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 		stderr: '',
 		controlHtml: '',
 		loading: false,
+		lastHeartbeat: null,
 		connected: false,
 		statusMsg: '',
 		availableTools: [],
@@ -96,8 +97,11 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 						this.settings.resumeSessionName = sessionMatch[1];
 						this.settings.newSession = false;
 					}
+				} else if (msg.channel === 'heartbeat') {
+					this.lastHeartbeat = Date.now();
 				} else if (msg.channel === 'done') {
 					this.loading = false;
+					this.lastHeartbeat = null;
 				}
 			};
 
@@ -122,6 +126,7 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 			this.stdout = '';
 			this.stderr = '';
 			this.loading = true;
+			this.lastHeartbeat = Date.now();
 			this.statusMsg = '';
 
 			ws.send(JSON.stringify({
