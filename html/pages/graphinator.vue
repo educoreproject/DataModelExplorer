@@ -6,6 +6,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { marked } from 'marked';
 import { parseMultipartContent, resolveCidReferences } from '~/composables/useMultipartContent.js';
 import { vizLoading } from '~/composables/useVizRenderer.js';
+import axios from 'axios';
 
 // Configure marked for streaming-friendly rendering
 marked.setOptions({
@@ -169,6 +170,25 @@ const controlPanel = ref(null);
 const controlPanelRef = ref(null);
 const outputRow = ref(null);
 const multipartMode = ref(false);
+
+// -------------------------------------------------------------------------
+// Download support
+
+const generateAiFilename = async (snippet) => {
+	const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
+	try {
+		const response = await axios.post(
+			'/api/askmilo-utility',
+			{ prompt, model: 'haiku' },
+			{ headers: { ...LoginStore.getAuthTokenProperty } },
+		);
+		return response.data.response;
+	} catch (err) {
+		console.warn('[Graphinator] AI filename generation failed:', err);
+		return null;
+	}
+};
+
 
 // -------------------------------------------------------------------------
 // Draggable column divider
@@ -342,6 +362,13 @@ const onNewSessionToggle = (checked) => {
 						<div class="output-panel" :class="{ 'panel-loading': graphStore.loading }" style="flex: 1; min-height: 0;">
 							<div class="panel-header">
 								STDOUT
+								<DownloadButton
+									:content="splitContent.response"
+									:generate-filename="generateAiFilename"
+									fallback-name="graphinator-output"
+									file-type="md"
+									title="Download as Markdown"
+								/>
 								<span v-if="graphStore.loading" class="loading-indicator" :class="{ 'loading-stale': heartbeatStale }">
 								Still working. Don't give up. ({{ heartbeatStatus }})
 							</span>
@@ -361,7 +388,16 @@ const onNewSessionToggle = (checked) => {
 					</div>
 					<div class="column-divider" @mousedown="startDrag"></div>
 					<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
-						<div class="panel-header">{{ graphStore.controlHtml ? 'CONTROL' : '' }}</div>
+						<div class="panel-header">
+							{{ graphStore.controlHtml ? 'CONTROL' : '' }}
+							<DownloadButton
+								v-if="graphStore.controlHtml"
+								:content="graphStore.controlHtml"
+								fallback-name="graphinator-control"
+								file-type="html"
+								title="Download as HTML"
+							/>
+						</div>
 						<div ref="controlPanel" class="panel-content control-content">
 							<div v-if="vizLoading" style="text-align: center; padding: 12px; color: #888;">
 								Loading diagram renderer...
