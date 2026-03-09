@@ -17,7 +17,7 @@
 				}
 			},
 			"cli": {
-				"command": "sifSearch -search",
+				"command": "node sifSearch.js -search",
 				"positionalArgs": ["query"],
 				"flagArgs": { "cql": "--cql", "limit": "--limit" }
 			}
@@ -35,7 +35,7 @@
 				}
 			},
 			"cli": {
-				"command": "sifSearch -readPage",
+				"command": "node sifSearch.js -readPage",
 				"positionalArgs": ["page_id"],
 				"flagArgs": {}
 			}
@@ -54,7 +54,7 @@
 				}
 			},
 			"cli": {
-				"command": "sifSearch -listPages",
+				"command": "node sifSearch.js -listPages",
 				"positionalArgs": [],
 				"flagArgs": { "space": "--space", "limit": "--limit" }
 			}
