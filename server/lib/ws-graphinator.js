@@ -97,9 +97,9 @@ const moduleFunction = ({ server }) => {
 					switches.serialFanOut = true;
 				}
 
-				// Tools available to agents
-				if (settings.tools && settings.tools.length > 0) {
-					values.tools = [settings.tools.join(',')];
+				// AI tool providers to suppress (exclude from loading)
+				if (settings.aiToolsSuppressed && settings.aiToolsSuppressed.length > 0) {
+					values.aiTools = [settings.aiToolsSuppressed.join(',')];
 				}
 
 				// Prompt name (maps to singleCallPromptName in askMilo config)

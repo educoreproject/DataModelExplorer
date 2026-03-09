@@ -114,6 +114,7 @@ const graphinatorTabs = [
 const promptText = ref('');
 const promptHistory = ref([]);
 const historyIndex = ref(-1);
+const promptInput = ref(null);
 
 // -------------------------------------------------------------------------
 // Settings panel
@@ -270,6 +271,10 @@ onMounted(() => {
 	}
 	// Delay WebSocket connect so the page renders first (debug: lets you see console errors)
 	setTimeout(() => graphStore.connect(), 1500);
+	// Focus the input field after WebSocket connect delay
+	setTimeout(() => {
+		if (promptInput.value) promptInput.value.focus();
+	}, 1600);
 });
 
 onUnmounted(() => {
@@ -375,7 +380,23 @@ const onNewSessionToggle = (checked) => {
 							</div>
 							<div ref="stdoutPanel" class="panel-content prose">
 								<div v-if="splitContent.response" v-html="renderedStdout"></div>
-								<span v-else class="text-medium-emphasis">Response will appear here...</span>
+								<div v-else class="welcome-text">
+									<h2>Welcome to the Graphinator</h2>
+									<p>Presently we have tools demonstrating:</p>
+									<ol>
+										<li><strong>Graph database integration</strong> &mdash; structured ontology lookup</li>
+										<li><strong>External website as RAG source</strong> &mdash; live documentation search</li>
+										<li><strong>Body of text files converted to an AI-searchable source</strong> &mdash; semantic vector search</li>
+										<li><strong>Integration of HTML and diagrams in results</strong> &mdash; rich control panel rendering</li>
+									</ol>
+									<p>You can try these with these queries:</p>
+									<ol>
+										<li><em>Tell me about the CEDS student object</em></li>
+										<li><em>What HTTP verbs are supported by the SIF Infrastructure?</em></li>
+										<li><em>Is there any reason I should respect TQ?</em> <span style="font-size: 0.85em; color: #888;">(no really, do it)</span></li>
+										<li><em>Draw a diagram of a circle and a square with an arrow pointing at the square. Show it with a caption that says, "Got the point?"</em></li>
+									</ol>
+								</div>
 							</div>
 						</div>
 						<div class="output-panel stderr-panel">
@@ -412,6 +433,7 @@ const onNewSessionToggle = (checked) => {
 				<!-- Bottom: input + controls side by side -->
 				<div class="input-row">
 					<v-textarea
+						ref="promptInput"
 						v-model="promptText"
 						placeholder="Enter your prompt... (Shift+Enter for newline)"
 						variant="outlined"
@@ -860,6 +882,37 @@ const onNewSessionToggle = (checked) => {
 
 .control-content :deep(.cid-render-error) {
 	margin: 8px 0;
+}
+
+.welcome-text {
+	color: #555;
+	padding: 8px 4px;
+}
+
+.welcome-text h2 {
+	font-size: 1.3rem;
+	font-weight: 600;
+	color: #333;
+	margin-bottom: 0.6em;
+}
+
+.welcome-text p {
+	margin: 0.6em 0;
+	line-height: 1.6;
+}
+
+.welcome-text ol {
+	margin: 0.4em 0 0.8em;
+	padding-left: 1.5em;
+}
+
+.welcome-text li {
+	margin: 0.3em 0;
+	line-height: 1.6;
+}
+
+.welcome-text em {
+	color: #1976d2;
 }
 
 .control-content :deep(.cid-fullscreen) {

@@ -74,11 +74,10 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 				if (msg.channel === 'config') {
 					// Server sends config defaults on connection
 					const cfg = msg.config || {};
-					if (cfg.defaultTools) {
-						this.settings.tools = cfg.defaultTools;
-					}
 					if (cfg.availableTools) {
 						this.availableTools = cfg.availableTools;
+						// Default: all tools selected (nothing suppressed)
+						this.settings.tools = [...cfg.availableTools];
 					}
 					return;
 				}
@@ -129,10 +128,15 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 			this.lastHeartbeat = Date.now();
 			this.statusMsg = '';
 
+			// Compute suppression list: available tools NOT selected by user
+			const aiToolsSuppressed = this.availableTools.filter(
+				t => !this.settings.tools.includes(t),
+			);
+
 			ws.send(JSON.stringify({
 				type: 'prompt',
 				text,
-				settings: { ...this.settings },
+				settings: { ...this.settings, aiToolsSuppressed },
 			}));
 		},
 
@@ -143,6 +147,8 @@ export const useGraphinatorStore = defineStore('graphinatorStore', {
 		},
 
 		startNewSession() {
+			this.stdout = '';
+			this.stderr = '';
 			this.controlHtml = '';
 			this.settings.resumeSessionName = '';
 			this.settings.newSession = true;
