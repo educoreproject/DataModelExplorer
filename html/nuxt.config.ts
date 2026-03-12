@@ -36,6 +36,16 @@ export default defineNuxtConfig({
     transpile: ['vuetify'],
   },
 
+  vite: {
+    resolve: {
+      // Symlinked shared files (GraphinatorPanel, etc.) live in qbookSuperTool
+      // but must resolve their imports (pinia, vue, marked) from THIS project's
+      // node_modules. Without this, Vite follows the symlink and looks for
+      // dependencies relative to the real file path, causing dual-instance errors.
+      preserveSymlinks: true,
+    },
+  },
+
   devServer: {
     port: 7791, // Set dev server port
     open: true, // Automatically open browser on start
