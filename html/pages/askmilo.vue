@@ -650,6 +650,16 @@ const onNewSessionToggle = (checked) => {
 	font-weight: 600;
 }
 
+.panel-loading > .panel-header {
+	background: none;
+	animation: pulse-header-bg 2s ease-in-out infinite;
+}
+
+@keyframes pulse-header-bg {
+	0%, 100% { background-color: #f5f5f5; }
+	50% { background-color: #bbdefb; }
+}
+
 .column-divider {
 	flex: 0 0 8px;
 	cursor: col-resize;
