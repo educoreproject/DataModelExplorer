@@ -1,0 +1,92 @@
+{
+	"providerName": "CedsOntology14",
+	"description": "CEDS (Common Education Data Standards) Ontology v14 — education data element definitions, domain classes, option sets, and relationships",
+	"startup": "node ../index-ontology14-for-milo/indexOntology14ForMilo.js -start --assetsDir=./assets",
+	"startupTimeout": 30,
+	"tools": [
+		{
+			"definition": {
+				"name": "ceds14_search",
+				"description": "Search the CEDS v14 education data standards ontology using hybrid BM25 + semantic search. Finds classes, properties (data elements), option sets (enumerations), and their relationships. Results include neighborhood context (a class shows its properties, a property shows its parent classes and option sets). Use for any question about education data standards, CEDS element definitions, data types, or valid value sets.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query — CEDS element name, ID (e.g., P600559), concept, or natural language question about education data elements"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node cedsOntology14Search.js -search",
+				"positionalArgs": ["query"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds14_explore",
+				"description": "Deep dive into a CEDS v14 class. Shows the class definition, all its properties with data types, parent/child relationships, and connected option sets. Use when you know the class name and want full detail.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "CEDS class name (e.g., 'Membership', 'Enrollment') or CEDS ID (e.g., 'C200257')"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node cedsOntology14Search.js -explore",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds14_option_set",
+				"description": "List all allowed values in a CEDS v14 option set (enumeration). Use when you need to know what valid values exist for a particular coded field.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Option set name (e.g., 'Sex', 'Grade Level') or CEDS ID"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node cedsOntology14Search.js -optionSet",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ceds14_raw_cypher",
+				"description": "Execute a raw Cypher query against the CEDS v14 ontology graph. The graph contains :CedsClass, :CedsProperty, :CedsOptionSet, :CedsOptionValue nodes (all with :CEDS label) connected by :HAS_PROPERTY, :HAS_OPTION_SET, :HAS_VALUE, :SUBCLASS_OF, :PART_OF relationships. Properties have cedsId, label, description, notation, and type-specific fields.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute against the CEDS v14 Neo4j graph"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node cedsOntology14Search.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": { "query": "--query" }
+			}
+		}
+	]
+}

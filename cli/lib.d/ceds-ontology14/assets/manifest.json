@@ -1,0 +1,8 @@
+{
+	"providerName": "CedsOntology14",
+	"neo4jPassword": "cedsontology14_dev",
+	"embeddingModel": "voyage-3",
+	"embeddingDimensions": 1024,
+	"topK": 10,
+	"searchModuleName": "cedsOntology14Search"
+}
