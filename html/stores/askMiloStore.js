@@ -1,6 +1,4 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
 
 // WebSocket reference kept outside reactive state
 let ws = null;
@@ -8,9 +6,10 @@ let ws = null;
 export const useAskMiloStore = defineStore('askMiloStore', {
 	state: () => ({
 		stdout: '',
-		sessionStdout: '',
 		stderr: '',
+		controlHtml: '',
 		loading: false,
+		lastHeartbeat: null,
 		connected: false,
 		statusMsg: '',
 		availableTools: [],
@@ -21,7 +20,7 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 			agentModel: 'sonnet',
 			serialFanOut: true,
 			tools: [],
-			promptName: 'default',
+			promptName: 'graphinator',
 			newSession: true,
 			resumeSessionName: '',
 		},
@@ -73,12 +72,12 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 				const msg = JSON.parse(event.data);
 
 				if (msg.channel === 'config') {
+					// Server sends config defaults on connection
 					const cfg = msg.config || {};
-					if (cfg.defaultTools) {
-						this.settings.tools = cfg.defaultTools;
-					}
 					if (cfg.availableTools) {
 						this.availableTools = cfg.availableTools;
+						// Default: all tools selected (nothing suppressed)
+						this.settings.tools = [...cfg.availableTools];
 					}
 					return;
 				}
@@ -97,8 +96,11 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 						this.settings.resumeSessionName = sessionMatch[1];
 						this.settings.newSession = false;
 					}
+				} else if (msg.channel === 'heartbeat') {
+					this.lastHeartbeat = Date.now();
 				} else if (msg.channel === 'done') {
 					this.loading = false;
+					this.lastHeartbeat = null;
 				}
 			};
 
@@ -120,18 +122,21 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 				return;
 			}
 
-			if (this.stdout) {
-				this.sessionStdout += this.stdout + '\n\n';
-			}
 			this.stdout = '';
 			this.stderr = '';
 			this.loading = true;
+			this.lastHeartbeat = Date.now();
 			this.statusMsg = '';
+
+			// Compute suppression list: available tools NOT selected by user
+			const aiToolsSuppressed = this.availableTools.filter(
+				t => !this.settings.tools.includes(t),
+			);
 
 			ws.send(JSON.stringify({
 				type: 'prompt',
 				text,
-				settings: { ...this.settings },
+				settings: { ...this.settings, aiToolsSuppressed },
 			}));
 		},
 
@@ -142,51 +147,11 @@ export const useAskMiloStore = defineStore('askMiloStore', {
 		},
 
 		startNewSession() {
-			this.sessionStdout = '';
+			this.stdout = '';
+			this.stderr = '';
+			this.controlHtml = '';
 			this.settings.resumeSessionName = '';
 			this.settings.newSession = true;
-		},
-
-		// Generic utility AI call (prompt in, response out)
-		// Uses the /api/askmilo-utility endpoint via Nuxt proxy, not WebSocket
-		async utilityCall(prompt, model = 'haiku') {
-			const loginStore = useLoginStore();
-			try {
-				const response = await axios.post(
-					'/api/askmilo-utility',
-					{ prompt, model },
-					{ headers: { ...loginStore.getAuthTokenProperty } },
-				);
-				return response.data.response;
-			} catch (err) {
-				console.error('[askMilo] utilityCall error:', err);
-				this.statusMsg = err.response?.data || err.message;
-				return null;
-			}
-		},
-
-		// Download stdout as markdown with AI-suggested filename
-		async downloadStdout() {
-			const fullContent = this.sessionStdout + this.stdout;
-			if (!fullContent) return;
-
-			const snippet = fullContent.slice(0, 500);
-			const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
-
-			let filename = await this.utilityCall(prompt, 'haiku');
-			if (!filename) {
-				filename = 'askMilo-output';
-			}
-			// Clean up — haiku might add quotes or extension
-			filename = filename.replace(/['"`.]/g, '').trim();
-
-			const blob = new Blob([fullContent], { type: 'text/markdown' });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `${filename}.md`;
-			a.click();
-			URL.revokeObjectURL(url);
 		},
 
 		disconnect() {

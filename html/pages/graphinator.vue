@@ -484,75 +484,66 @@ const onNewSessionToggle = (checked) => {
 									hide-details
 									class="mb-3"
 								/>
-								<div class="d-flex align-center ga-3 mb-1">
+								<!-- All controls -->
+								<div class="mt-2">
 									<v-select
-										v-model="graphStore.settings.perspectives"
-										:items="perspectiveOptions"
-										label="Perspectives"
+										v-model="graphStore.settings.agentModel"
+										:items="modelOptions"
+										label="Agent Model"
 										density="compact"
 										variant="outlined"
 										hide-details
-										style="max-width: 140px"
+										class="mb-3"
 									/>
+									<div class="text-caption text-medium-emphasis mb-1">Tools</div>
+									<div class="tools-grid mb-3">
+										<v-checkbox
+											v-for="tool in graphStore.availableTools"
+											:key="tool"
+											v-model="graphStore.settings.tools"
+											:label="tool"
+											:value="tool"
+											density="compact"
+											hide-details
+											color="primary"
+										/>
+									</div>
+									<v-select
+										v-model="graphStore.settings.promptName"
+										:items="promptOptions"
+										label="Prompt"
+										density="compact"
+										variant="outlined"
+										hide-details
+										class="mb-3"
+									/>
+									<div class="d-flex align-center ga-3 mb-1">
+										<v-select
+											v-model="graphStore.settings.perspectives"
+											:items="perspectiveOptions"
+											label="Perspectives"
+											density="compact"
+											variant="outlined"
+											hide-details
+											style="max-width: 140px"
+										/>
+										<v-switch
+											v-model="graphStore.settings.summarize"
+											label="Summarize"
+											density="compact"
+											hide-details
+											:disabled="graphStore.settings.perspectives === 0"
+											color="primary"
+										/>
+									</div>
 									<v-switch
-										v-model="graphStore.settings.summarize"
-										label="Summarize"
+										v-model="graphStore.settings.serialFanOut"
+										label="Serial Fan-Out"
 										density="compact"
 										hide-details
-										:disabled="graphStore.settings.perspectives === 0"
 										color="primary"
 									/>
 								</div>
-
-								<!-- Advanced controls (disclosure) -->
-								<v-expansion-panels variant="accordion" class="mt-2 settings-advanced">
-									<v-expansion-panel>
-										<v-expansion-panel-title class="text-body-2 py-2">
-											Advanced
-										</v-expansion-panel-title>
-										<v-expansion-panel-text>
-											<v-select
-												v-model="graphStore.settings.agentModel"
-												:items="modelOptions"
-												label="Agent Model"
-												density="compact"
-												variant="outlined"
-												hide-details
-												class="mb-3"
-												:disabled="graphStore.settings.perspectives === 0"
-											/>
-											<v-switch
-												v-model="graphStore.settings.serialFanOut"
-												label="Serial Fan-Out"
-												density="compact"
-												hide-details
-												color="primary"
-												class="mb-2"
-											/>
-											<div class="text-caption text-medium-emphasis mb-1">Tools</div>
-											<div class="tools-grid mb-3">
-												<v-checkbox
-													v-for="tool in graphStore.availableTools"
-													:key="tool"
-													v-model="graphStore.settings.tools"
-													:label="tool"
-													:value="tool"
-													density="compact"
-													hide-details
-													color="primary"
-												/>
-											</div>
-											<v-select
-												v-model="graphStore.settings.promptName"
-												:items="promptOptions"
-												label="Prompt"
-												density="compact"
-												variant="outlined"
-												hide-details
-											/>
-										</v-expansion-panel-text>
-									</v-expansion-panel>
-								</v-expansion-panels>
 								</v-card-text>
 							</v-card>
 							</v-menu>

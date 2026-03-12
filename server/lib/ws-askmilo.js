@@ -3,6 +3,8 @@
 const { WebSocketServer } = require('ws');
 const { spawn } = require('child_process');
 
+const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 const moduleFunction = ({ server }) => {
 	const { xLog } = process.global;
 
@@ -18,6 +20,7 @@ const moduleFunction = ({ server }) => {
 	xLog.status('WebSocket server registered for /ws/askmilo');
 
 	// Fetch askMilo config defaults and send to client on connection.
+	// Spawns askMilo -getDefaults (reads ini, discovers providers, exits).
 	const sendConfigDefaults = (ws) => {
 		const child = spawn('askMilo', [], { shell: true, env: process.env });
 		let stdout = '';
@@ -94,9 +97,9 @@ const moduleFunction = ({ server }) => {
 					switches.serialFanOut = true;
 				}
 
-				// Tools available to agents
-				if (settings.tools && settings.tools.length > 0) {
-					values.tools = [settings.tools.join(',')];
+				// AI tool providers to suppress (exclude from loading)
+				if (settings.aiToolsSuppressed && settings.aiToolsSuppressed.length > 0) {
+					values.aiTools = [settings.aiToolsSuppressed.join(',')];
 				}
 
 				// Prompt name (maps to singleCallPromptName in askMilo config)
@@ -138,20 +141,48 @@ const moduleFunction = ({ server }) => {
 					}
 				});
 
-				// Pipe stderr chunks to WebSocket stderr channel
+				// Pipe stderr chunks to WebSocket stderr channel (HTML-escaped for v-html rendering)
 				child.stderr.on('data', (chunk) => {
 					if (ws.readyState === ws.OPEN) {
 						ws.send(
 							JSON.stringify({
 								channel: 'stderr',
-								delta: chunk.toString(),
+								delta: escapeHtml(chunk.toString()),
 							}),
 						);
 					}
 				});
 
+				// Heartbeat: confirm child process is alive every 5s
+				const heartbeatStyles = [
+					{ sym: '♥', color: '#e74c3c' },
+					{ sym: '♦', color: '#3498db' },
+					{ sym: '♣', color: '#2ecc71' },
+					{ sym: '♠', color: '#e67e22' },
+					{ sym: '●', color: '#9b59b6' },
+					{ sym: '◆', color: '#1abc9c' },
+				];
+				let heartbeatTick = 0;
+				const heartbeatInterval = setInterval(() => {
+					if (ws.readyState === ws.OPEN && child.pid) {
+						try {
+							process.kill(child.pid, 0); // Signal 0 = existence check
+							ws.send(JSON.stringify({ channel: 'heartbeat', alive: true }));
+							// Colored HTML heartbeat in stderr so user sees proof of life
+							const { sym, color } = heartbeatStyles[heartbeatTick % heartbeatStyles.length];
+							const ts = new Date().toLocaleTimeString();
+							ws.send(JSON.stringify({ channel: 'stderr', delta: `<span style="color:${color}">${sym} heartbeat: Process ALIVE ${ts}</span>\n` }));
+							heartbeatTick++;
+						} catch (e) {
+							ws.send(JSON.stringify({ channel: 'heartbeat', alive: false }));
+							clearInterval(heartbeatInterval);
+						}
+					}
+				}, 5000);
+
 				// Process exit signals done
 				child.on('close', (exitCode) => {
+					clearInterval(heartbeatInterval);
 					if (ws.readyState === ws.OPEN) {
 						ws.send(
 							JSON.stringify({ channel: 'done', exitCode }),
@@ -167,7 +198,7 @@ const moduleFunction = ({ server }) => {
 						ws.send(
 							JSON.stringify({
 								channel: 'stderr',
-								delta: `Process error: ${err.message}\n`,
+								delta: `Process error: ${escapeHtml(err.message)}\n`,
 							}),
 						);
 						ws.send(
