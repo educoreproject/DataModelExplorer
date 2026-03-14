@@ -316,11 +316,11 @@ ${err.toString()}
 		// Each handler uses noServer:true and returns its WebSocketServer instance.
 		// Central upgrade routing prevents the ws library's per-instance path matching
 		// from aborting connections meant for a different instance (causes "Invalid frame header").
-		const wssGraphinator = require('./lib/ws-graphinator')({ server });
+		const wssExplorer = require('./lib/ws-graphinator')({ server });
 		const wssAskMilo = require('./lib/ws-askmilo')({ server });
 
 		const wsRoutes = {
-			'/ws/graphinator': wssGraphinator,
+			'/ws/explorer': wssExplorer,
 			'/ws/askmilo': wssAskMilo,
 		};
 

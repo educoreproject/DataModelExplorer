@@ -1,5 +1,5 @@
 <script setup>
-// graphinator.vue — Thin wrapper for GraphinatorPanel
+// explorer.vue — Data Model Explorer page
 //
 // Site-specific: auth guard, navigation, welcome text, AI filename generation.
 // All UI logic lives in GraphinatorPanel.vue (shared component).
@@ -16,8 +16,8 @@ const route = useRoute();
 
 // Create store instance for this page's WS endpoint
 const useGraphStore = createGraphinatorStore({
-	storeId: 'graphinatorStore',
-	wsPath: '/ws/graphinator',
+	storeId: 'explorerStore',
+	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'graphinator',
 });
@@ -43,14 +43,14 @@ const generateAiFilename = async (snippet) => {
 		);
 		return response.data.response;
 	} catch (err) {
-		console.warn('[graphinator] AI filename generation failed:', err);
+		console.warn('[explorer] AI filename generation failed:', err);
 		return null;
 	}
 };
 
 // Fallback prompt options (used if server doesn't provide availablePrompts)
 const fallbackPromptOptions = [
-	{ title: 'Graphinator', value: 'graphinator' },
+	{ title: 'Data Model Explorer', value: 'graphinator' },
 	{ title: 'Enrichment Analyst', value: 'enrichmentAnalyst' },
 	{ title: 'Default', value: 'default' },
 	{ title: 'White Paper', value: 'whitePaper' },
@@ -68,7 +68,7 @@ const fallbackPromptOptions = [
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
-				download-prefix="graphinator-output"
+				download-prefix="explorer-output"
 			>
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>

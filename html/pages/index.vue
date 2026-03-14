@@ -7,7 +7,7 @@
 	if (router?.currentRoute.value.query.logout) {
 		LoginStore.logout();
 	} else if (LoginStore.validUser) {
-		router.push('/graphinator');
+		router.push('/explorer');
 	}
 </script>
 

@@ -17,7 +17,7 @@ const moduleFunction = ({ server }) => {
 		xLog.error(`WebSocket server error: ${err.message}`);
 	});
 
-	xLog.status('WebSocket server registered for /ws/graphinator');
+	xLog.status('WebSocket server registered for /ws/explorer');
 
 	// Fetch askMilo config defaults and send to client on connection.
 	// Spawns askMilo -getDefaults (reads ini, discovers providers, exits).

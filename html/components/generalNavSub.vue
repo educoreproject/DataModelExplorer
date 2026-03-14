@@ -34,10 +34,10 @@
 		       router.currentRoute.value.path === '/ontology/';
 	});
 
-	// Check if we're on the graphinator page
-	const isGraphinatorPage = computed(() => {
-		return router.currentRoute.value.path === '/graphinator' ||
-		       router.currentRoute.value.path === '/graphinator/';
+	// Check if we're on the explorer page
+	const isExplorerPage = computed(() => {
+		return router.currentRoute.value.path === '/explorer' ||
+		       router.currentRoute.value.path === '/explorer/';
 	});
 
 	// Check if we're on the askMilo page
@@ -67,7 +67,7 @@
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isOntologyPage">Ontology13</template>
-			<template v-else-if="isGraphinatorPage">Graphinator</template>
+			<template v-else-if="isExplorerPage">Data Model Explorer</template>
 			<template v-else-if="isAskMiloPage">askMilo</template>
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
@@ -109,11 +109,11 @@
 			v-if="LoginStore.validUser"
 			variant="text"
 			prepend-icon="mdi-graph"
-			title="Graphinator - AI-Powered Ontology Analysis"
-			:to="{ path: '/graphinator' }"
-			:disabled="isGraphinatorPage"
+			title="Data Model Explorer - Cross-Standard Search and Mapping"
+			:to="{ path: '/explorer' }"
+			:disabled="isExplorerPage"
 		>
-			Graphinator
+			Explorer
 		</v-btn>
 
 		<v-btn
