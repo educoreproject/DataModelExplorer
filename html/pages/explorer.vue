@@ -19,7 +19,7 @@ const useGraphStore = createGraphinatorStore({
 	storeId: 'explorerStore',
 	wsPath: '/ws/explorer',
 	devPort: 7790,
-	defaultPromptName: 'graphinator',
+	defaultPromptName: 'DataModelExplorer',
 });
 const graphStore = useGraphStore();
 
@@ -50,7 +50,7 @@ const generateAiFilename = async (snippet) => {
 
 // Fallback prompt options (used if server doesn't provide availablePrompts)
 const fallbackPromptOptions = [
-	{ title: 'Data Model Explorer', value: 'graphinator' },
+	{ title: 'Data Model Explorer', value: 'DataModelExplorer' },
 	{ title: 'Enrichment Analyst', value: 'enrichmentAnalyst' },
 	{ title: 'Default', value: 'default' },
 	{ title: 'White Paper', value: 'whitePaper' },
