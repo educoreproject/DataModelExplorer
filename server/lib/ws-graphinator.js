@@ -213,7 +213,7 @@ const moduleFunction = ({ server }) => {
 						ws.send(
 							JSON.stringify({
 								channel: 'stderr',
-								delta: `Process error: ${escapeHtml(err.message)}\n`,
+								delta: `<span class="ws-error">PROCESS ERROR: ${escapeHtml(err.message)}</span>\n`,
 							}),
 						);
 						ws.send(
