@@ -317,11 +317,9 @@ ${err.toString()}
 		// Central upgrade routing prevents the ws library's per-instance path matching
 		// from aborting connections meant for a different instance (causes "Invalid frame header").
 		const wssExplorer = require('./lib/ws-graphinator')({ server });
-		const wssAskMilo = require('./lib/ws-askmilo')({ server });
 
 		const wsRoutes = {
 			'/ws/explorer': wssExplorer,
-			'/ws/askmilo': wssAskMilo,
 		};
 
 		server.on('upgrade', (request, socket, head) => {

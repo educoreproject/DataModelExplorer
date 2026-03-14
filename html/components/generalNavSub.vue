@@ -40,11 +40,6 @@
 		       router.currentRoute.value.path === '/explorer/';
 	});
 
-	// Check if we're on the askMilo page
-	const isAskMiloPage = computed(() => {
-		return router.currentRoute.value.path === '/askmilo' ||
-		       router.currentRoute.value.path === '/askmilo/';
-	});
 
 	const reloadPage = () => {
 		window.location.href = window.location.href.replace(
@@ -68,7 +63,7 @@
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isOntologyPage">Ontology13</template>
 			<template v-else-if="isExplorerPage">Data Model Explorer</template>
-			<template v-else-if="isAskMiloPage">askMilo</template>
+
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
 			<template v-else>EDUcore Tools</template>
@@ -114,17 +109,6 @@
 			:disabled="isExplorerPage"
 		>
 			Explorer
-		</v-btn>
-
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-chat"
-			title="askMilo - AI Dialog"
-			:to="{ path: '/askmilo' }"
-			:disabled="isAskMiloPage"
-		>
-			askMilo
 		</v-btn>
 
 		<v-btn
