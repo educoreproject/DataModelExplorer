@@ -51,6 +51,7 @@ const generateAiFilename = async (snippet) => {
 // Fallback prompt options (used if server doesn't provide availablePrompts)
 const fallbackPromptOptions = [
 	{ title: 'Graphinator', value: 'graphinator' },
+	{ title: 'Enrichment Analyst', value: 'enrichmentAnalyst' },
 	{ title: 'Default', value: 'default' },
 	{ title: 'White Paper', value: 'whitePaper' },
 	{ title: 'Interrogator', value: 'interrogator' },
@@ -70,21 +71,23 @@ const fallbackPromptOptions = [
 				download-prefix="graphinator-output"
 			>
 				<template #welcome>
-					<h2>Welcome to the Graphinator</h2>
-					<p>Presently we have tools demonstrating:</p>
-					<ol>
-						<li><strong>Graph database integration</strong> &mdash; structured ontology lookup</li>
-						<li><strong>External website as RAG source</strong> &mdash; live documentation search</li>
-						<li><strong>Body of text files converted to an AI-searchable source</strong> &mdash; semantic vector search</li>
-						<li><strong>Integration of HTML and diagrams in results</strong> &mdash; rich control panel rendering</li>
-					</ol>
-					<p>You can try these with these queries:</p>
-					<ol>
-						<li><em>Tell me about the CEDS student object</em></li>
-						<li><em>What HTTP verbs are supported by the SIF Infrastructure?</em></li>
-						<li><em>Is there any reason I should respect TQ?</em> <span style="font-size: 0.85em; color: #888;">(no really, do it)</span></li>
-						<li><em>Draw a diagram of a circle and a square with an arrow pointing at the square. Show it with a caption that says, "Got the point?"</em></li>
-					</ol>
+					<h2>Welcome to the Data Model Explorer</h2>
+					<p>This tool provides a unified graph of education data standards &mdash; currently <strong>CEDS</strong> and <strong>SIF</strong> &mdash; with cross-standard search, mapping, and comparison. Enter your query in the prompt below to get started.</p>
+
+					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
+					<p>The bridge builder creates edges that only exist because both standards are in the same graph. It runs in four phases:</p>
+
+					<h4 style="margin-top: 1em;">Phase 1 &mdash; Spec-Annotation MAPS_TO <span style="color: #888;">(confidence=1.0)</span></h4>
+					<p>The SIF specification already annotates 2,231 fields with CEDS Global IDs. The builder takes each SIF field's cedsId (e.g., 000040), prepends P to get the CEDS Element ID (P000040), and creates a MAPS_TO edge to the matching CedsProperty node. These are authoritative &mdash; the SIF spec committee decided this mapping. 2,168 resolve; 63 reference CEDS IDs absent from the v14 RDF.</p>
+
+					<h4 style="margin-top: 1em;">Phase 2 &mdash; Embedding-Inferred MAPS_TO <span style="color: #888;">(confidence=cosine score)</span></h4>
+					<p>For every SIF field that doesn't already have a spec-annotation link, the builder takes its vector embedding and runs a nearest-neighbor search against the CEDS vector index. If the top CEDS property scores above 0.6 cosine similarity, it creates a MAPS_TO edge with the similarity as the confidence score. Up to 3 candidates per field. This is how the 13,452 unannotated fields get provisional mappings.</p>
+
+					<h4 style="margin-top: 1em;">Phase 3 &mdash; ALIGNS_WITH <span style="color: #888;">(codeset comparison)</span></h4>
+					<p>For SIF fields that have both a spec-annotation MAPS_TO edge and a codeset (allowed values list), the builder checks whether the corresponding CEDS property also has an option set. When both sides have value lists, it compares them: exact match, subset, superset, partial overlap, or disjoint. The edge records alignment type and coverage percentage. This is how you answer &ldquo;does SIF's grade level codeset match CEDS's?&rdquo;</p>
+
+					<h4 style="margin-top: 1em;">Phase 4 &mdash; STRUCTURALLY_MAPS_TO <span style="color: #888;">(class-level inference)</span></h4>
+					<p>SIF has complex types (Address, Demographics, PhoneNumber) that are structural analogs to CEDS classes. The builder looks at all the field-level MAPS_TO edges and asks: &ldquo;If most fields inside SIF complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; Requires at least 2 mapped fields to create the edge. This enables class-level questions like &ldquo;what CEDS class corresponds to SIF's Address structure?&rdquo;</p>
 				</template>
 			</GraphinatorPanel>
 		</v-main>
