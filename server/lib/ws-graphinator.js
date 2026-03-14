@@ -42,6 +42,21 @@ const moduleFunction = ({ server }) => {
 	wss.on('connection', (ws) => {
 		let activeChild = null;
 
+		// WebSocket keepalive — send ping every 30s to prevent timeouts.
+		// The ws library handles pong responses automatically on the client side.
+		ws.isAlive = true;
+		ws.on('pong', () => { ws.isAlive = true; });
+
+		const pingInterval = setInterval(() => {
+			if (!ws.isAlive) {
+				clearInterval(pingInterval);
+				ws.terminate();
+				return;
+			}
+			ws.isAlive = false;
+			if (ws.readyState === ws.OPEN) ws.ping();
+		}, 30000);
+
 		// Send config defaults so the client knows what tools are available
 		sendConfigDefaults(ws);
 
@@ -212,8 +227,9 @@ const moduleFunction = ({ server }) => {
 			}
 		});
 
-		// Clean up child process on WebSocket disconnect
+		// Clean up on WebSocket disconnect
 		ws.on('close', () => {
+			clearInterval(pingInterval);
 			if (activeChild) {
 				activeChild.kill('SIGTERM');
 				activeChild = null;
