@@ -20,6 +20,7 @@ const useGraphStore = createGraphinatorStore({
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
+	defaultTools: ['DataModelExplorer', 'CareerStoryGraph', 'SifSpecGraph'],
 });
 const graphStore = useGraphStore();
 

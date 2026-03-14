@@ -217,10 +217,26 @@ const startContainer = ({ voyageApiKey, providerProjectRoot, providerDir, assets
 		xLog.status(`[containerManager] Container ${containerName} not found, recreating...`);
 	}
 
-	// Case 2: Search .ini already exists — externally managed
+	// -----------------------------------------------------------------
+	// Resolve assets directory for tarball-based cold start
+	// -----------------------------------------------------------------
+
+	let assetManifest = null;
+	const resolvedAssetsDir = assetsDir
+		? (path.isAbsolute(assetsDir) ? assetsDir : path.join(providerDir, assetsDir))
+		: null;
+	const manifestPath = resolvedAssetsDir ? path.join(resolvedAssetsDir, 'manifest.json') : null;
+	const assetTarball = resolvedAssetsDir ? path.join(resolvedAssetsDir, 'neo4j-data.tar.gz') : null;
+
+	if (manifestPath && fs.existsSync(manifestPath)) {
+		assetManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+	}
+
+	// Case 2: Search .ini already exists — container previously set up
 	const searchIniPath = getSearchIniPath(providerProjectRoot);
 	if (fs.existsSync(searchIniPath)) {
 		xLog.status(`[containerManager] Search config already exists: ${searchIniPath}`);
+		xLog.status('[containerManager] Skipping initialization — existing database may contain additional data.');
 		try {
 			const existingSearchConfig = configFileProcessor.getConfig(
 				`${SEARCH_MODULE_NAME}.ini`,
@@ -238,7 +254,22 @@ const startContainer = ({ voyageApiKey, providerProjectRoot, providerDir, assets
 		return;
 	}
 
-	// Case 3: Fresh installation — create new container
+	// -----------------------------------------------------------------
+	// Case 3: Fresh installation — create from tarball or empty
+	// -----------------------------------------------------------------
+
+	const hasTarball = assetManifest && assetTarball && fs.existsSync(assetTarball);
+
+	if (!hasTarball && !assetManifest) {
+		// No tarball, no manifest — create empty container with generated password
+		xLog.status('[containerManager] No assets found — creating empty container');
+	} else if (!hasTarball) {
+		callback('manifest.json found but neo4j-data.tar.gz missing from assets');
+		return;
+	} else {
+		xLog.status(`[containerManager] Found pre-built assets for ${assetManifest.providerName}`);
+	}
+
 	try {
 		execSync('which docker', { encoding: 'utf-8' });
 	} catch (err) {
@@ -253,30 +284,54 @@ const startContainer = ({ voyageApiKey, providerProjectRoot, providerDir, assets
 		}
 
 		const { boltPort, httpPort } = ports;
-		const generatedPassword = crypto.randomBytes(16).toString('hex');
-		const dataDir = path.join(dataStoreBase, `neo4j-DataModelExplorer`);
+		const password = hasTarball ? assetManifest.password : crypto.randomBytes(16).toString('hex');
+		const dataDir = path.join(dataStoreBase, 'neo4j-DataModelExplorer');
 
 		xLog.status(`[containerManager] Initializing ${CONTAINER_NAME} on ports bolt:${boltPort} http:${httpPort}`);
 
 		// Create directory structure
-		['data', 'logs', 'plugins', 'import'].forEach((sub) => {
-			const subPath = path.join(dataDir, sub);
-			if (!fs.existsSync(subPath)) {
-				fs.mkdirSync(subPath, { recursive: true });
-			}
-		});
-
-		// Write instanceConfig
 		if (!fs.existsSync(dataStoreBase)) {
 			fs.mkdirSync(dataStoreBase, { recursive: true });
 		}
 
+		if (hasTarball) {
+			// Extract pre-built data from tarball into dataDir/data/
+			const dataSubDir = path.join(dataDir, 'data');
+			if (!fs.existsSync(dataSubDir)) {
+				fs.mkdirSync(dataSubDir, { recursive: true });
+			}
+			xLog.status('[containerManager] Extracting pre-built Neo4j data from tarball...');
+			try {
+				execSync(`tar -xzf "${assetTarball}" -C "${dataSubDir}"`, { encoding: 'utf-8', timeout: 120000 });
+			} catch (cpErr) {
+				callback(`Failed to extract asset tarball: ${cpErr.message}`);
+				return;
+			}
+			// Create empty dirs for logs/plugins/import
+			['logs', 'plugins', 'import'].forEach((sub) => {
+				const subPath = path.join(dataDir, sub);
+				if (!fs.existsSync(subPath)) {
+					fs.mkdirSync(subPath, { recursive: true });
+				}
+			});
+			xLog.status('[containerManager] Pre-built data extracted');
+		} else {
+			// Create empty directory structure
+			['data', 'logs', 'plugins', 'import'].forEach((sub) => {
+				const subPath = path.join(dataDir, sub);
+				if (!fs.existsSync(subPath)) {
+					fs.mkdirSync(subPath, { recursive: true });
+				}
+			});
+		}
+
+		// Write instanceConfig
 		const instanceConfigContent = `[neo4j]
 providerName=DataModelExplorer
 containerName=${CONTAINER_NAME}
 boltPort=${boltPort}
 httpPort=${httpPort}
-password=${generatedPassword}
+password=${password}
 dataDir=${dataDir}
 searchModuleName=${SEARCH_MODULE_NAME}
 
@@ -287,9 +342,14 @@ voyageApiKey=${voyageApiKey || ''}
 		fs.writeFileSync(instanceConfigPath, instanceConfigContent);
 		xLog.status(`[containerManager] Wrote instanceConfig to ${instanceConfigPath}`);
 
+		// When starting from tarball, do NOT pass NEO4J_AUTH — the tarball's system database
+		// already has auth configured. Passing NEO4J_AUTH triggers Neo4j's password init
+		// routine which reinitializes the system database and wipes the pre-built data.
+		const authEnv = hasTarball ? '' : `-e NEO4J_AUTH=neo4j/${password} `;
+
 		const dockerCmd = `docker run -d --name ${CONTAINER_NAME} --restart unless-stopped ` +
 			`-p ${boltPort}:7687 -p ${httpPort}:7474 ` +
-			`-e NEO4J_AUTH=neo4j/${generatedPassword} ` +
+			`${authEnv}` +
 			`-e NEO4J_PLUGINS='["apoc"]' ` +
 			`-e NEO4J_dbms_security_procedures_unrestricted=apoc.* ` +
 			`-e NEO4J_dbms_security_procedures_allowlist=apoc.* ` +
@@ -311,10 +371,14 @@ voyageApiKey=${voyageApiKey || ''}
 					return;
 				}
 
+				if (hasTarball) {
+					xLog.status('[containerManager] Pre-built data loaded, skipping index creation');
+				}
+
 				generateSearchIni({
 					providerProjectRoot,
 					boltPort: String(boltPort),
-					neo4jPassword: generatedPassword,
+					neo4jPassword: password,
 					voyageApiKey: voyageApiKey || '',
 				});
 

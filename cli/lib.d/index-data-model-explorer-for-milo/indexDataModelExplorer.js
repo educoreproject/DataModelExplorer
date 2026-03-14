@@ -47,6 +47,7 @@ Options:
 
 	// -- resolve common parameters --
 	const voyageApiKey = (commandLineParameters.values.voyageApiKey || [])[0] || localConfig.voyageApiKey || '';
+	const assetsDir = (commandLineParameters.values.assetsDir || [])[0] || '';
 	const providerDir = (commandLineParameters.values.providerDir || [])[0] || process.cwd();
 
 	// Resolve the provider's project root
@@ -74,7 +75,7 @@ Options:
 	const { startContainer, stopContainer, statusContainer, forceInitContainer } = require('./lib/containerManager');
 
 	if (commandLineParameters.switches.start) {
-		startContainer({ voyageApiKey, providerProjectRoot, providerDir, assetsDir: '' }, (err, result) => {
+		startContainer({ voyageApiKey, providerProjectRoot, providerDir, assetsDir }, (err, result) => {
 			if (err) {
 				xLog.error(`[indexDataModelExplorer] Start failed: ${err}`);
 				process.exit(1);
