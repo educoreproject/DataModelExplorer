@@ -1,0 +1,12 @@
+{
+	"name": "index-data-model-explorer-for-milo",
+	"version": "1.0.0",
+	"description": "Indexer for DataModelExplorer — unified education data standards graph",
+	"main": "indexDataModelExplorer.js",
+	"dependencies": {
+		"neo4j-driver": "^5.27.0",
+		"xml2js": "^0.6.2",
+		"qtools-parse-command-line": "*",
+		"qtools-config-file-processor": "*"
+	}
+}

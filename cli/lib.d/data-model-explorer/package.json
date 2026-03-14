@@ -1,0 +1,10 @@
+{
+	"name": "data-model-explorer",
+	"version": "1.0.0",
+	"description": "Search provider for DataModelExplorer — unified education data standards graph",
+	"main": "dataModelExplorerSearch.js",
+	"dependencies": {
+		"neo4j-driver": "^5.27.0",
+		"qtools-config-file-processor": "*"
+	}
+}

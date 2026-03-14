@@ -1,0 +1,133 @@
+{
+	"providerName": "DataModelExplorer",
+	"description": "Unified education data standards graph — CEDS v14 + SIF with cross-standard mappings, codeset comparison, and semantic search across all standards",
+	"startup": "docker start rag_DataModelExplorer >/dev/null 2>&1 || true",
+	"startupTimeout": 15,
+	"tools": [
+		{
+			"definition": {
+				"name": "dme_search",
+				"description": "Semantic search across ALL education data standards (CEDS + SIF) simultaneously. Uses hybrid BM25 + vector search. Returns results from both standards ranked together by relevance. Use for any question about education data elements, field definitions, or data types across standards.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Natural language search query — concept name, field description, or question about education data elements"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -search",
+				"positionalArgs": ["query"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_find_mappings",
+				"description": "Given a field from one standard, return its MAPS_TO counterparts in the other standard. Works bidirectionally: give a SIF field name/xpath to find CEDS mappings, or a CEDS property name/ID to find SIF mappings. Shows confidence score and whether the mapping is spec-annotated or embedding-inferred.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "SIF field name, XPath, CEDS property name, or CEDS ID (e.g., 'BirthDate', '/StudentPersonals/StudentPersonal/Name/FirstName', 'P600559')"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -findMappings",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_compare_codesets",
+				"description": "Compare allowed values (codesets) between SIF and CEDS for a concept. Shows alignment type (exact/subset/superset/partial), coverage percentage, and which values are unique to each standard. Useful for data mapping decisions.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Concept name to compare codesets for (e.g., 'grade', 'sex', 'state')"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -compareCodesets",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_unmapped_fields",
+				"description": "List SIF fields that have no CEDS mapping — neither spec-annotated nor embedding-inferred. The annotation backlog. Shows object name, field name, xpath, and description.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "string",
+							"description": "Max results (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -unmappedFields",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_stats",
+				"description": "Database statistics: node counts by standard and type, bridge edge counts (MAPS_TO, ALIGNS_WITH, STRUCTURALLY_MAPS_TO), and mapping coverage (annotated vs inferred vs unmapped).",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. CEDS nodes: :CedsClass, :CedsProperty, :CedsOptionSet, :CedsOptionValue (all :CEDS). SIF nodes: :SifObject, :SifField, :SifComplexType, :SifSimpleType, :SifPrimitiveType, :SifCodeset, :SifXmlElement (all :SifModel). Bridge edges: MAPS_TO (SifField→CedsProperty, props: source, confidence, reviewed), ALIGNS_WITH (SifCodeset→CedsOptionSet), STRUCTURALLY_MAPS_TO (SifComplexType→CedsClass). CEDS edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, SUBCLASS_OF, PART_OF. SIF edges: HAS_FIELD, REFERENCES, HAS_TYPE, CONSTRAINED_BY, MEMBER_OF, CONTAINS, USES_COMPLEX_TYPE, CHILD_ELEMENT, HAS_ROOT_ELEMENT, REALIZED_BY, TYPED_AS.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		}
+	]
+}
