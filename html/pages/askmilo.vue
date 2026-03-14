@@ -49,6 +49,7 @@ const generateAiFilename = async (snippet) => {
 
 const fallbackPromptOptions = [
 	{ title: 'Graphinator', value: 'graphinator' },
+	{ title: 'Enrichment Analyst', value: 'enrichmentAnalyst' },
 	{ title: 'Default', value: 'default' },
 	{ title: 'White Paper', value: 'whitePaper' },
 	{ title: 'Interrogator', value: 'interrogator' },
