@@ -28,12 +28,6 @@
 		       router.currentRoute.value.path === '/library/';
 	});
 
-	// Check if we're on the ontology page
-	const isOntologyPage = computed(() => {
-		return router.currentRoute.value.path === '/ontology' ||
-		       router.currentRoute.value.path === '/ontology/';
-	});
-
 	// Check if we're on the explorer page
 	const isExplorerPage = computed(() => {
 		return router.currentRoute.value.path === '/explorer' ||
@@ -67,7 +61,6 @@
 	>
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
-			<template v-else-if="isOntologyPage">Ontology13</template>
 			<template v-else-if="isExplorerPage">Data Model Explorer</template>
 			<template v-else-if="isLookupPage">Lookup Browser</template>
 
@@ -84,27 +77,6 @@
 			:to="{ path: '/work' }"
 		>
 			Open Work.vue
-		</v-btn>
-
-		<v-btn
-			v-if="!isAdminPage && LoginStore.loggedInUser.role === 'admin'"
-			variant="text"
-			prepend-icon="mdi-shield-account"
-			title="Admin Tools"
-			:to="{ path: '/admin' }"
-		>
-			Admin
-		</v-btn>
-
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-file-tree"
-			title="CEDS Ontology Browser"
-			:to="{ path: '/ontology' }"
-			:disabled="isOntologyPage"
-		>
-			Ontology13
 		</v-btn>
 
 		<v-btn
@@ -150,6 +122,16 @@
 				{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
 			</span>
 			<span v-else>{{ LoginStore.loggedInUser.username }}</span>
+		</v-btn>
+
+		<v-btn
+			v-if="!isAdminPage && LoginStore.loggedInUser.role === 'admin'"
+			variant="text"
+			prepend-icon="mdi-shield-account"
+			title="Admin Tools"
+			:to="{ path: '/admin' }"
+		>
+			Admin
 		</v-btn>
 
 		<v-btn variant="text" prepend-icon="mdi-logout" title="Logout" @click="reloadPage">
