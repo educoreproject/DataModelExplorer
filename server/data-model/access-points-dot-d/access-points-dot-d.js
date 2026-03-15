@@ -9,7 +9,7 @@ const {pipeRunner, taskListPlus, mergeArgs, forwardArgs} = new require('qtools-a
 
 
 //START OF moduleFunction() ============================================================
-const moduleFunction = ({ sqlDb, hxAccess, dataMapping }, callback) => {
+const moduleFunction = ({ sqlDb, hxAccess, dataMapping, neo4jDb }, callback) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 	const localConfig = getConfig(moduleName); //moduleName is closure
 
@@ -64,7 +64,7 @@ const moduleFunction = ({ sqlDb, hxAccess, dataMapping }, callback) => {
 			next(err, { ...args, newValue });
 		};
 		
-		const passThroughParameters = {sqlDb, hxAccess, dataMapping, accessPointsDotD};
+		const passThroughParameters = {sqlDb, hxAccess, dataMapping, neo4jDb, accessPointsDotD};
 		accessPointsDotD.loadModules({ passThroughParameters }, localCallback);
 		
 	});

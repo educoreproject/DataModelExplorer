@@ -185,6 +185,39 @@ const moduleFunction =
 		
 
 		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 3.5: NEO4J INSTANCE CREATION
+		//
+		// EXPLANATION: Creates Neo4j database connection for the Data Model Explorer.
+		// Config comes from dataModelExplorerSearch.ini via getConfig.
+		// Produces neo4jDb accessor with runQuery(cypher, params, callback).
+
+		taskList.push((args, next) => {
+			const { dataModelLogInfoList } = args;
+
+			const neo4jConfig = getConfig('dataModelExplorerSearch');
+
+			if (!neo4jConfig || !neo4jConfig.neo4jBoltUri) {
+				xLog.status('neo4j-instance: no dataModelExplorerSearch config found, skipping');
+				next('', { ...args, neo4jDb: null });
+				return;
+			}
+
+			const neo4jGen = require('./lib/neo4j-instance/neo4j-instance')({ unused: true });
+
+			const localCallback = (err, neo4jDb) => {
+				if (err) {
+					xLog.error(`neo4j-instance initialization failed: ${err}`);
+					next('', { ...args, neo4jDb: null });
+					return;
+				}
+				dataModelLogInfoList.push(`Neo4j connected: ${neo4jConfig.neo4jBoltUri}`);
+				next('', { ...args, neo4jDb, dataModelLogInfoList });
+			};
+
+			neo4jGen.initDatabaseInstance(neo4jConfig, localCallback);
+		});
+
+		// --------------------------------------------------------------------------------
 		// PIPELINE STAGE 4: ACCESS POINTS LOADING
 		// 
 		// EXPLANATION: Loads all access point modules from accessPoints.d/ directory.
@@ -207,7 +240,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb']),
 				localCallback,
 			);
 		});

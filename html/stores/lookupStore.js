@@ -171,23 +171,21 @@ export const useLookupStore = defineStore('lookupStore', {
 				return;
 			}
 
-			// AI mode results — search the real graph by name to find the actual node
+			// AI mode results — look up the real node by ID
 			if (this.aiMode && item.standard) {
 				const pathEntry = {
 					id: item.id,
 					label: item.label,
-					level: 'search',
+					level: 'detail',
 					standard: item.standard,
 					nodeType: item.nodeType,
-					nodeId: item.label,
+					nodeId: item.path || item.id,
 				};
 				this.path.push(pathEntry);
-				// Use 'search' level — finds real nodes by name match
 				this.fetchLeafDetail({
-					level: 'search',
 					standard: item.standard,
 					nodeType: item.nodeType,
-					nodeId: item.label,
+					nodeId: item.path || item.id,
 				});
 				return;
 			}

@@ -40,6 +40,12 @@
 		       router.currentRoute.value.path === '/explorer/';
 	});
 
+	// Check if we're on the lookup page
+	const isLookupPage = computed(() => {
+		return router.currentRoute.value.path === '/lookup' ||
+		       router.currentRoute.value.path === '/lookup/';
+	});
+
 
 	const reloadPage = () => {
 		window.location.href = window.location.href.replace(
@@ -63,6 +69,7 @@
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isOntologyPage">Ontology13</template>
 			<template v-else-if="isExplorerPage">Data Model Explorer</template>
+			<template v-else-if="isLookupPage">Lookup Browser</template>
 
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
@@ -109,6 +116,17 @@
 			:disabled="isExplorerPage"
 		>
 			Explorer
+		</v-btn>
+
+		<v-btn
+			v-if="LoginStore.validUser"
+			variant="text"
+			prepend-icon="mdi-file-tree"
+			title="Lookup - Browse Data Standards"
+			:to="{ path: '/lookup' }"
+			:disabled="isLookupPage"
+		>
+			Lookup
 		</v-btn>
 
 		<v-btn
