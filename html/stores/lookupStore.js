@@ -107,7 +107,11 @@ export const useLookupStore = defineStore('lookupStore', {
 				});
 
 				this.leafDetail = response.data[0] || null;
-				return true;
+				if (!this.leafDetail) {
+					this.statusMsg = 'No matching element found in the graph. The AI may have suggested a non-existent element.';
+					this.path.pop(); // remove the dead-end from breadcrumbs
+				}
+				return !!this.leafDetail;
 			} catch (error) {
 				if (error.response?.data) {
 					this.statusMsg = error.response.data;

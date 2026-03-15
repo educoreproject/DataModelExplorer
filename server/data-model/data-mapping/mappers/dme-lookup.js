@@ -169,8 +169,9 @@ const moduleFunction =
 				'cedsPropertyByName': {
 					cypher: `
 						MATCH (p:CedsProperty)
-						WHERE toLower(p.label) = toLower($nodeId) OR p.label CONTAINS $nodeId
-						WITH p LIMIT 1
+						WHERE toLower(p.label) CONTAINS toLower($nodeId)
+						   OR toLower($nodeId) CONTAINS toLower(p.label)
+						WITH p ORDER BY size(p.label) LIMIT 1
 						OPTIONAL MATCH (p)-[:HAS_OPTION_SET]->(os:CedsOptionSet)-[:HAS_VALUE]->(ov:CedsOptionValue)
 						OPTIONAL MATCH (f:SifField)-[:MAPS_TO]->(p)
 						OPTIONAL MATCH (f)<-[:REALIZED_BY]-(el:SifXmlElement)<-[:HAS_ROOT_ELEMENT|CHILD_ELEMENT*]-(obj:SifObject)
@@ -193,8 +194,9 @@ const moduleFunction =
 				'sifFieldByName': {
 					cypher: `
 						MATCH (f:SifField)
-						WHERE toLower(f.name) = toLower($nodeId) OR f.name CONTAINS $nodeId
-						WITH f LIMIT 1
+						WHERE toLower(f.name) CONTAINS toLower($nodeId)
+						   OR toLower($nodeId) CONTAINS toLower(f.name)
+						WITH f ORDER BY size(f.name) LIMIT 1
 						OPTIONAL MATCH (obj:SifObject)-[:HAS_FIELD]->(f)
 						OPTIONAL MATCH (f)-[:HAS_TYPE]->(t)
 						OPTIONAL MATCH (f)-[:CONSTRAINED_BY]->(cs:SifCodeset)
@@ -222,8 +224,9 @@ const moduleFunction =
 				'cedsClassByName': {
 					cypher: `
 						MATCH (c:CedsClass)
-						WHERE toLower(c.label) = toLower($nodeId) OR c.label CONTAINS $nodeId
-						WITH c LIMIT 1
+						WHERE toLower(c.label) CONTAINS toLower($nodeId)
+						   OR toLower($nodeId) CONTAINS toLower(c.label)
+						WITH c ORDER BY size(c.label) LIMIT 1
 						OPTIONAL MATCH (c)-[:HAS_PROPERTY]->(p:CedsProperty)
 						RETURN c.label AS label, 'CedsClass' AS nodeType,
 							c.description AS description, c.cedsId AS cedsId,
