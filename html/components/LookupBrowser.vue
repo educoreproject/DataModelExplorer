@@ -311,7 +311,7 @@ const getNodeTypeIcon = (nodeType) => {
 		<v-card v-if="!store.isShowingDetail && !store.loading" variant="outlined">
 			<v-list lines="one" density="compact">
 				<v-list-item
-					v-for="item in store.children"
+					v-for="item in store.children.filter(i => !store.path.some(seg => (seg.nodeId || seg.id) === (i.path || i.id) && seg.nodeType === i.nodeType))"
 					:key="item.id"
 					@click="handleItemClick(item)"
 					class="lookup-item"
