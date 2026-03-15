@@ -282,6 +282,7 @@ Return ONLY a JSON array. No other text outside the array.`;
 				values: {
 					singleCallPromptName: ['DataModelExplorer'],
 					expandModel: ['haiku'],
+					maxTurns: ['30'],
 				},
 				fileList: [promptText],
 			});
@@ -336,7 +337,8 @@ Return ONLY a JSON array. No other text outside the array.`;
 					items = JSON.parse(jsonStr);
 				} catch (jsonErr) {
 					xLog.error(`askMilo response JSON parse failed: ${jsonErr}`);
-					next('AI search returned data that could not be parsed', args);
+					xLog.error(`askMilo raw response (first 300 chars): ${(wrapper.response || '').slice(0, 300)}`);
+					next(`AI search failed: the AI could not complete the search. Try a simpler query.`, args);
 					return;
 				}
 
