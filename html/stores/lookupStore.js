@@ -281,13 +281,23 @@ Return 10-20 of the most relevant results, mixing both standards where applicabl
 			try {
 				const response = await axios.post(
 					'/api/askmilo-utility',
-					{ prompt, model: 'sonnet' },
+					{ prompt, model: 'sonnet', maxTokens: 4096 },
 					{ headers: { ...loginStore.getAuthTokenProperty } },
 				);
 
 				const raw = response.data.response.trim();
-				// Parse JSON — handle potential markdown code fences
-				const jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+				// Parse JSON — handle markdown code fences and possible truncation
+				let jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+				// If truncated (doesn't end with ]), try to salvage by closing the array
+				if (!jsonStr.endsWith(']')) {
+					// Find the last complete object (ends with })
+					const lastBrace = jsonStr.lastIndexOf('}');
+					if (lastBrace > 0) {
+						jsonStr = jsonStr.slice(0, lastBrace + 1) + ']';
+					}
+				}
+
 				const items = JSON.parse(jsonStr);
 
 				this.children = items.map(item => ({

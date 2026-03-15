@@ -37,9 +37,10 @@ const moduleFunction = ({ expressApp }) => {
 		const resolvedModel = modelMap[model] || model;
 
 		try {
+			const maxTokens = xReq.body.maxTokens || 4096;
 			const message = await anthropic.messages.create({
 				model: resolvedModel,
-				max_tokens: 1024,
+				max_tokens: maxTokens,
 				messages: [{ role: 'user', content: prompt }],
 			});
 
