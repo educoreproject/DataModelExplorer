@@ -133,32 +133,34 @@ const getNodeTypeIcon = (nodeType) => {
 			</v-card-text>
 		</v-card>
 
-		<!-- AI Search input — only visible when AI mode is active -->
-		<v-card v-if="store.aiMode && !store.isShowingDetail" class="mb-4" variant="outlined">
-			<v-card-text class="py-2 px-4 d-flex align-center ga-3">
-				<v-icon color="#7b1fa2" size="small">mdi-brain</v-icon>
-				<v-text-field
-					v-model="aiSearchText"
-					placeholder="Describe what you're looking for..."
-					variant="underlined"
-					density="compact"
-					hide-details
-					class="flex-grow-1"
-					@keydown="handleAiKeydown"
-				/>
-				<v-btn
-					icon
-					variant="text"
-					size="small"
-					color="#7b1fa2"
-					:loading="store.loading"
-					:disabled="!aiSearchText.trim()"
-					@click="handleAiGo"
-				>
-					<v-icon>mdi-send</v-icon>
-				</v-btn>
-			</v-card-text>
-		</v-card>
+		<!-- AI Search input — reserve space always, show content only in AI mode -->
+		<div class="ai-search-slot" :class="{ 'ai-search-active': store.aiMode && !store.isShowingDetail }">
+			<v-card v-if="store.aiMode && !store.isShowingDetail" class="mb-0" variant="outlined">
+				<v-card-text class="py-2 px-4 d-flex align-center ga-3">
+					<v-icon color="#7b1fa2" size="small">mdi-brain</v-icon>
+					<v-text-field
+						v-model="aiSearchText"
+						placeholder="Describe what you're looking for..."
+						variant="underlined"
+						density="compact"
+						hide-details
+						class="flex-grow-1"
+						@keydown="handleAiKeydown"
+					/>
+					<v-btn
+						icon
+						variant="text"
+						size="small"
+						color="#7b1fa2"
+						:loading="store.loading"
+						:disabled="!aiSearchText.trim()"
+						@click="handleAiGo"
+					>
+						<v-icon>mdi-send</v-icon>
+					</v-btn>
+				</v-card-text>
+			</v-card>
+		</div>
 
 		<!-- Loading indicator -->
 		<v-progress-linear
@@ -376,5 +378,16 @@ const getNodeTypeIcon = (nodeType) => {
 }
 .lookup-item:hover {
 	background-color: #f5f5f5;
+}
+.ai-search-slot {
+	height: 0;
+	overflow: hidden;
+	transition: height 0.2s ease, margin 0.2s ease;
+	margin-bottom: 0;
+}
+.ai-search-active {
+	height: auto;
+	overflow: visible;
+	margin-bottom: 16px;
 }
 </style>

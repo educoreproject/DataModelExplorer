@@ -87,7 +87,7 @@ export const useLookupStore = defineStore('lookupStore', {
 		// ------------------------------------------------------------
 		// fetchLeafDetail - load detail for a leaf node
 
-		async fetchLeafDetail({ standard, nodeType, nodeId }) {
+		async fetchLeafDetail({ level, standard, nodeType, nodeId }) {
 			this.loading = true;
 			this.statusMsg = '';
 
@@ -96,7 +96,7 @@ export const useLookupStore = defineStore('lookupStore', {
 			try {
 				const response = await axios.get('/api/dme-lookup', {
 					params: {
-						level: 'detail',
+						level: level || 'detail',
 						standard,
 						nodeType,
 						nodeId,
@@ -161,21 +161,23 @@ export const useLookupStore = defineStore('lookupStore', {
 		// selectItem - push item to path and fetch its children or detail
 
 		selectItem(item) {
-			// AI mode results carry their own standard — go straight to detail
+			// AI mode results — search the real graph by name to find the actual node
 			if (this.aiMode && item.standard) {
 				const pathEntry = {
 					id: item.id,
 					label: item.label,
-					level: 'detail',
+					level: 'search',
 					standard: item.standard,
 					nodeType: item.nodeType,
-					nodeId: item.path || item.id,
+					nodeId: item.label,
 				};
 				this.path.push(pathEntry);
+				// Use 'search' level — finds real nodes by name match
 				this.fetchLeafDetail({
+					level: 'search',
 					standard: item.standard,
 					nodeType: item.nodeType,
-					nodeId: item.path || item.id,
+					nodeId: item.label,
 				});
 				return;
 			}
