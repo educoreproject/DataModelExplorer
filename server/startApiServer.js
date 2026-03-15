@@ -290,6 +290,8 @@ ${err.toString()}
 
 			xLog.status(accessPointsDotD.toString());
 
+			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
+
 			//callback(err, {localResult1Value, localResult2});
 		});
 
@@ -306,8 +308,6 @@ ${err.toString()}
 			}
 			process.exit(1);
 		});
-
-		xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
 		// askMilo utility endpoint (simple AI relay — prompt in, response out)
 		require('./lib/askmilo-utility')({ expressApp });
