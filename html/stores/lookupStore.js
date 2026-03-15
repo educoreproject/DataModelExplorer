@@ -165,6 +165,12 @@ export const useLookupStore = defineStore('lookupStore', {
 		// selectItem - push item to path and fetch its children or detail
 
 		selectItem(item) {
+			// Prevent cycles — don't navigate to a node already in the path
+			const itemKey = item.path || item.id;
+			if (this.path.some(seg => (seg.nodeId || seg.id) === itemKey && seg.nodeType === item.nodeType)) {
+				return;
+			}
+
 			// AI mode results — search the real graph by name to find the actual node
 			if (this.aiMode && item.standard) {
 				const pathEntry = {
