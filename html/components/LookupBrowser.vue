@@ -5,10 +5,26 @@
 // Navigation is direct — click handlers call store then update display.
 
 import { useLookupStore } from '@/stores/lookupStore';
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 const store = useLookupStore();
 const aiSearchText = ref('');
+const filterText = ref('');
+const filterDescriptions = ref(false);
+
+// Fuzzy filter: split query into words, every word must appear somewhere in searchable fields
+const filteredChildren = computed(() => {
+	const raw = (filterText.value || '').trim().toLowerCase();
+	if (!raw) return store.children;
+
+	const words = raw.split(/\s+/);
+	return store.children.filter(item => {
+		const fields = [item.label, item.id, item.nodeType, item.standard];
+		if (filterDescriptions.value) fields.push(item.description);
+		const haystack = fields.filter(Boolean).join(' ').toLowerCase();
+		return words.every(word => haystack.includes(word));
+	});
+});
 
 // Load root level on mount
 onMounted(() => {
@@ -20,15 +36,17 @@ onMounted(() => {
 // ----- Event handlers (direct navigation, no watchers)
 
 const handleItemClick = (item) => {
+	filterText.value = '';
 	store.selectItem(item);
 };
 
 const handleBreadcrumbClick = (index) => {
-	// If navigating back to AI Search breadcrumb, stay in AI mode with cached results
+	filterText.value = '';
+	// If navigating back to AI Search breadcrumb, restore cached AI results
 	if (store.path[index] && store.path[index].level === 'ai') {
 		store.path = store.path.slice(0, index + 1);
 		store.leafDetail = null;
-		// Results are still in store.children if we haven't cleared them
+		store.children = [...store.aiResults];
 		return;
 	}
 	store.navigateTo(index);
@@ -162,9 +180,57 @@ const getNodeTypeIcon = (nodeType) => {
 			</v-card>
 		</div>
 
-		<!-- Loading indicator -->
+		<!-- Filter input — shown when a list is visible -->
+		<div v-if="!store.isShowingDetail && !store.loading && store.children.length > 0 && store.path.length > 0" class="d-flex align-center ga-3 mb-3">
+			<v-text-field
+				v-model="filterText"
+				placeholder="Filter this list..."
+				variant="outlined"
+				density="compact"
+				hide-details
+				clearable
+				autofocus
+				prepend-inner-icon="mdi-filter-outline"
+				class="flex-grow-1"
+			/>
+			<v-checkbox
+				v-model="filterDescriptions"
+				label="Search Descriptions"
+				density="compact"
+				hide-details
+				class="flex-shrink-0"
+			/>
+		</div>
+
+		<!-- AI search patience panel -->
+		<v-card
+			v-if="store.loading && store.aiMode"
+			class="mb-4 ai-patience-panel"
+			variant="flat"
+		>
+			<v-card-text class="d-flex align-center pa-5">
+				<v-progress-circular
+					indeterminate
+					color="#7b1fa2"
+					size="32"
+					width="3"
+					class="mr-4"
+				/>
+				<div>
+					<div class="text-body-1" style="color: #4a3660">
+						Searching the data standards graph...
+					</div>
+					<div class="text-body-2 mt-1" style="color: #8a7a9a">
+						The AI is examining CEDS and SIF standards to find relevant elements.
+						<strong>This can take a couple of minutes or more.</strong>
+					</div>
+				</div>
+			</v-card-text>
+		</v-card>
+
+		<!-- Loading indicator (non-AI) -->
 		<v-progress-linear
-			v-if="store.loading"
+			v-if="store.loading && !store.aiMode"
 			indeterminate
 			color="primary"
 			class="mb-4"
@@ -180,6 +246,7 @@ const getNodeTypeIcon = (nodeType) => {
 					{{ getNodeTypeIcon(store.leafDetail.nodeType) }}
 				</v-icon>
 				{{ store.leafDetail.label }}
+				<span v-if="store.leafDetail.cedsId || store.leafDetail.xpath" class="item-id-hint">({{ store.leafDetail.cedsId || store.leafDetail.xpath }})</span>
 				<v-chip size="small" class="ml-2" variant="outlined">
 					{{ store.leafDetail.nodeType }}
 				</v-chip>
@@ -309,9 +376,9 @@ const getNodeTypeIcon = (nodeType) => {
 
 		<!-- Item list -->
 		<v-card v-if="!store.isShowingDetail && !store.loading" variant="outlined">
-			<v-list lines="one" density="compact">
+			<v-list density="compact">
 				<v-list-item
-					v-for="item in store.children.filter(i => !store.path.some(seg => (seg.nodeId || seg.id) === (i.path || i.id) && seg.nodeType === i.nodeType))"
+					v-for="item in filteredChildren.filter(i => !store.path.some(seg => (seg.nodeId || seg.id) === (i.path || i.id) && seg.nodeType === i.nodeType))"
 					:key="item.id"
 					@click="handleItemClick(item)"
 					class="lookup-item"
@@ -327,6 +394,7 @@ const getNodeTypeIcon = (nodeType) => {
 
 					<v-list-item-title>
 						{{ item.label }}
+						<span v-if="item.id && item.id !== item.label" class="item-id-hint">({{ item.id }})</span>
 						<v-chip v-if="item.standard" size="x-small" class="ml-2" variant="outlined"
 							:color="item.standard === 'ceds' ? 'orange' : 'teal'">
 							{{ item.standard.toUpperCase() }}
@@ -389,5 +457,14 @@ const getNodeTypeIcon = (nodeType) => {
 	height: auto;
 	overflow: visible;
 	margin-bottom: 16px;
+}
+.item-id-hint {
+	color: #aaa;
+	font-size: 0.85em;
+	margin-left: 4px;
+}
+.ai-patience-panel {
+	background: linear-gradient(135deg, #f3e8ff 0%, #e8f0fe 100%);
+	border-left: 3px solid #7b1fa2;
 }
 </style>

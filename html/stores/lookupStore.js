@@ -19,6 +19,7 @@ const lookupStoreInitObject = {
 	statusMsg: '',
 	aiMode: false,
 	aiQuery: '',
+	aiResults: [],
 };
 
 // =========================================================================
@@ -37,37 +38,48 @@ export const useLookupStore = defineStore('lookupStore', {
 		// ------------------------------------------------------------
 		// fetchChildren - load children for a given level
 
-		async fetchChildren({ level, standard, nodeType, nodeId }) {
+		async fetchChildren({ model, nodeId, level }) {
 			this.loading = true;
 			this.leafDetail = null;
 			this.statusMsg = '';
 
+			// Handle backward compat: level='standards' maps to model='standards'
+			if (level === 'standards') {
+				model = 'standards';
+			}
+
+			// Standards root is a hardcoded local list — no server call needed
+			if (model === 'standards') {
+				this.children = [
+					{ id: 'sif', label: 'SIF', nodeType: 'standard', hasChildren: true, childCount: 0 },
+					{ id: 'ceds', label: 'CEDS v14', nodeType: 'standard', hasChildren: true, childCount: 0 },
+					{ id: 'ai', label: 'AI Search', nodeType: 'ai', hasChildren: true, childCount: 0 },
+				];
+				this.loading = false;
+				return true;
+			}
+
 			const loginStore = useLoginStore();
 
-			const params = { level };
-			if (standard) params.standard = standard;
-			if (nodeType) params.nodeType = nodeType;
+			const params = {};
+			if (model) params.model = model;
 			if (nodeId) params.nodeId = nodeId;
 
 			try {
-				const response = await axios.get('/api/dme-lookup', {
+				const response = await axios.get('/api/lookupNodes', {
 					params,
 					headers: {
 						...loginStore.getAuthTokenProperty,
 					},
 				});
 
-				this.children = response.data;
-				// Inject AI Search option at root level
-				if (level === 'standards') {
-					this.children.push({
-						id: 'ai',
-						label: 'AI Search',
-						nodeType: 'ai',
-						hasChildren: true,
-						childCount: 0,
-					});
+				// If backend returned a detail result (leaf node), show as detail
+				if (response.data.length === 1 && response.data[0].isDetail) {
+					this.leafDetail = response.data[0];
+					return true;
 				}
+
+				this.children = response.data;
 				return true;
 			} catch (error) {
 				if (error.response?.data) {
@@ -87,20 +99,15 @@ export const useLookupStore = defineStore('lookupStore', {
 		// ------------------------------------------------------------
 		// fetchLeafDetail - load detail for a leaf node
 
-		async fetchLeafDetail({ level, standard, nodeType, nodeId }) {
+		async fetchLeafDetail({ nodeId }) {
 			this.loading = true;
 			this.statusMsg = '';
 
 			const loginStore = useLoginStore();
 
 			try {
-				const response = await axios.get('/api/dme-lookup', {
-					params: {
-						level: level || 'detail',
-						standard,
-						nodeType,
-						nodeId,
-					},
+				const response = await axios.get('/api/lookupNodes', {
+					params: { nodeId },
 					headers: {
 						...loginStore.getAuthTokenProperty,
 					},
@@ -137,7 +144,7 @@ export const useLookupStore = defineStore('lookupStore', {
 				this.leafDetail = null;
 				this.aiMode = false;
 				this.aiQuery = '';
-				this.fetchChildren({ level: 'standards' });
+				this.fetchChildren({ model: 'standards' });
 				return;
 			}
 
@@ -145,19 +152,11 @@ export const useLookupStore = defineStore('lookupStore', {
 			const current = this.path[pathIndex];
 
 			if (current.level === 'standards') {
-				this.fetchChildren({ level: 'standards' });
+				this.fetchChildren({ model: 'standards' });
 			} else if (current.level === 'topLevel') {
-				this.fetchChildren({
-					level: 'topLevel',
-					standard: current.standard,
-				});
+				this.fetchChildren({ model: current.standard });
 			} else {
-				this.fetchChildren({
-					level: 'children',
-					standard: current.standard,
-					nodeType: current.nodeType,
-					nodeId: current.nodeId,
-				});
+				this.fetchChildren({ nodeId: current.nodeId });
 			}
 		},
 
@@ -171,27 +170,8 @@ export const useLookupStore = defineStore('lookupStore', {
 				return;
 			}
 
-			// AI mode results — look up the real node by ID
-			if (this.aiMode && item.standard) {
-				const pathEntry = {
-					id: item.id,
-					label: item.label,
-					level: 'detail',
-					standard: item.standard,
-					nodeType: item.nodeType,
-					nodeId: item.path || item.id,
-				};
-				this.path.push(pathEntry);
-				this.fetchLeafDetail({
-					standard: item.standard,
-					nodeType: item.nodeType,
-					nodeId: item.path || item.id,
-				});
-				return;
-			}
-
 			const currentStandard = this.path.length > 0
-				? this.path[this.path.length - 1].standard || item.id
+				? this.path[this.path.length - 1].standard || item.standard || item.id
 				: null;
 
 			if (this.path.length === 0) {
@@ -209,10 +189,7 @@ export const useLookupStore = defineStore('lookupStore', {
 					nodeType: item.nodeType,
 				};
 				this.path.push(pathEntry);
-				this.fetchChildren({
-					level: 'topLevel',
-					standard: item.id,
-				});
+				this.fetchChildren({ model: item.id });
 				return;
 			}
 
@@ -227,8 +204,6 @@ export const useLookupStore = defineStore('lookupStore', {
 				};
 				this.path.push(pathEntry);
 				this.fetchLeafDetail({
-					standard: currentStandard,
-					nodeType: item.nodeType,
 					nodeId: item.path || item.id,
 				});
 				return;
@@ -243,12 +218,7 @@ export const useLookupStore = defineStore('lookupStore', {
 				nodeId: item.path || item.id,
 			};
 			this.path.push(pathEntry);
-			this.fetchChildren({
-				level: 'children',
-				standard: currentStandard,
-				nodeType: item.nodeType,
-				nodeId: item.path || item.id,
-			});
+			this.fetchChildren({ nodeId: item.path || item.id });
 		},
 
 		// ------------------------------------------------------------
@@ -263,7 +233,7 @@ export const useLookupStore = defineStore('lookupStore', {
 		},
 
 		// ------------------------------------------------------------
-		// aiSearch - ask askMilo to find relevant elements
+		// aiSearch - use the new lookupNodes endpoint with model=ai
 
 		async aiSearch(query) {
 			if (!query.trim()) return;
@@ -274,53 +244,19 @@ export const useLookupStore = defineStore('lookupStore', {
 
 			const loginStore = useLoginStore();
 
-			const prompt = `You are a data standards lookup assistant. The user wants to find education data elements matching their query.
-
-Search the Data Model Explorer graph (CEDS + SIF) for elements matching: "${query}"
-
-Return ONLY a valid JSON array of objects. No other text, no markdown, no explanation. Each object must have exactly these fields:
-- "id": the element identifier (cedsId for CEDS, xpath or name for SIF)
-- "label": human-readable display name
-- "nodeType": one of "CedsProperty", "CedsClass", "SifField", "SifObject"
-- "standard": "ceds" or "sif"
-- "hasChildren": false
-- "description": one-sentence description of what this element represents
-
-Return 10-20 of the most relevant results, mixing both standards where applicable.`;
-
 			try {
-				const response = await axios.post(
-					'/api/askmilo-utility',
-					{ prompt, model: 'sonnet', maxTokens: 4096 },
-					{ headers: { ...loginStore.getAuthTokenProperty } },
-				);
+				const response = await axios.get('/api/lookupNodes', {
+					params: { model: 'ai', query },
+					headers: {
+						...loginStore.getAuthTokenProperty,
+					},
+				});
 
-				const raw = response.data.response.trim();
-				// Parse JSON — handle markdown code fences and possible truncation
-				let jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-
-				// If truncated (doesn't end with ]), try to salvage by closing the array
-				if (!jsonStr.endsWith(']')) {
-					// Find the last complete object (ends with })
-					const lastBrace = jsonStr.lastIndexOf('}');
-					if (lastBrace > 0) {
-						jsonStr = jsonStr.slice(0, lastBrace + 1) + ']';
-					}
-				}
-
-				const items = JSON.parse(jsonStr);
-
-				this.children = items.map(item => ({
-					...item,
-					childCount: 0,
-					path: item.id,
-				}));
-
+				this.children = response.data;
+				this.aiResults = response.data;
 				return true;
 			} catch (error) {
-				if (error instanceof SyntaxError) {
-					this.statusMsg = 'AI returned invalid data format. Try a different query.';
-				} else if (error.response?.data) {
+				if (error.response?.data) {
 					this.statusMsg = error.response.data;
 				} else {
 					this.statusMsg = error.message || 'AI search failed';
@@ -342,7 +278,8 @@ Return 10-20 of the most relevant results, mixing both standards where applicabl
 			this.statusMsg = '';
 			this.aiMode = false;
 			this.aiQuery = '';
-			this.fetchChildren({ level: 'standards' });
+			this.aiResults = [];
+			this.fetchChildren({ model: 'standards' });
 		},
 	},
 
