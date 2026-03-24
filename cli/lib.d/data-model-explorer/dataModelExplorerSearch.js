@@ -440,6 +440,32 @@ const rawCypher = async (session, query) => {
 };
 
 // =====================================================================
+// GRAPH RETRIEVER (VectorCypherRetriever)
+// =====================================================================
+
+const graphRetriever = async (session, query, config, params) => {
+	const { retrieve } = require('/Users/tqwhite/tq_usr_bin/qbookSuperTool/system/code/cli/lib.d/ask-milo-multitool/lib/vectorCypherRetriever');
+
+	const limit = params.limit ? parseInt(params.limit) : 10;
+	const traversalMode = params.traversalMode || 'static';
+	const searchMode = params.searchMode || 'hybrid';
+
+	const traversalFilePath = path.join(__dirname, 'traversal.cypher');
+	const schemaFilePath = path.join(__dirname, 'schema-summary.json');
+
+	return retrieve({
+		neo4jSession: session,
+		queryText: query,
+		voyageApiKey: config.voyageApiKey,
+		traversalFilePath,
+		schemaFilePath,
+		limit,
+		traversalMode,
+		searchMode,
+	});
+};
+
+// =====================================================================
 // SEARCH API (module interface)
 // =====================================================================
 
@@ -456,6 +482,7 @@ const search = async (queryType, params, callback) => {
 		const result = await withNeo4jSession(config, async (session) => {
 			switch (queryType) {
 				case 'search': return hybridSearch(session, params.query, config);
+				case 'graphRetriever': return graphRetriever(session, params.query, config, params);
 				case 'findMappings': return findMappings(session, params.name);
 				case 'compareCodesets': return compareCodesets(session, params.name);
 				case 'unmappedFields': return unmappedFields(session, params);
@@ -510,12 +537,19 @@ if (require.main === module) {
 		params.limit = flags.limit || '50';
 	} else if (flags.stats) {
 		queryType = 'stats';
+	} else if (flags.graphRetriever) {
+		queryType = 'graphRetriever';
+		params.query = positionalArgs[0] || '';
+		params.limit = flags.limit || '10';
+		params.traversalMode = flags.traversalMode || 'static';
+		params.searchMode = flags.searchMode || 'hybrid';
 	} else if (flags.rawCypher) {
 		queryType = 'rawCypher';
 		params.query = flags.query || positionalArgs[0] || '';
 	} else if (flags.help) {
 		process.stderr.write(`Usage:
   ${moduleName} -search "query text"
+  ${moduleName} -graphRetriever "query text" [--limit=10] [--traversalMode=static] [--searchMode=hybrid]
   ${moduleName} -findMappings "field name or xpath"
   ${moduleName} -compareCodesets "concept name"
   ${moduleName} -unmappedFields [--limit=50]

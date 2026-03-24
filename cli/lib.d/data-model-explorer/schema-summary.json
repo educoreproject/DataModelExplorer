@@ -1,0 +1,414 @@
+{
+  "generatedAt": "2026-03-24T16:40:22.138Z",
+  "container": "rag_DataModelExplorer",
+  "vectorIndexes": [
+    {
+      "name": "ceds14_vector",
+      "nodeLabel": "CEDS",
+      "primaryNodeLabel": "CedsOptionValue",
+      "embeddedTypes": [
+        {
+          "label": "CedsOptionValue",
+          "count": 19546
+        },
+        {
+          "label": "CedsProperty",
+          "count": 2324
+        },
+        {
+          "label": "CedsOptionSet",
+          "count": 965
+        },
+        {
+          "label": "CedsClass",
+          "count": 402
+        }
+      ],
+      "dimensions": 1024,
+      "similarity": "COSINE"
+    },
+    {
+      "name": "sif_field_vector",
+      "nodeLabel": "SifField",
+      "primaryNodeLabel": "SifField",
+      "embeddedTypes": [
+        {
+          "label": "SifField",
+          "count": 0
+        }
+      ],
+      "dimensions": 1024,
+      "similarity": "COSINE"
+    }
+  ],
+  "fulltextIndexes": [
+    {
+      "name": "dme_ceds_fulltext",
+      "nodeLabels": [
+        "CedsClass",
+        "CedsProperty",
+        "CedsOptionSet",
+        "CedsOptionValue"
+      ]
+    },
+    {
+      "name": "dme_sif_fulltext",
+      "nodeLabels": [
+        "SifObject",
+        "SifField",
+        "SifComplexType"
+      ]
+    }
+  ],
+  "nodeTypes": [
+    {
+      "label": "CEDS",
+      "count": 23238,
+      "properties": [
+        "name",
+        "version",
+        "importDate",
+        "sourceUri",
+        "classCount",
+        "propertyCount",
+        "optionSetCount",
+        "optionValueCount",
+        "cedsId",
+        "uri",
+        "label",
+        "description",
+        "notation",
+        "embedding",
+        "dataType",
+        "textFormat",
+        "maxLength"
+      ]
+    },
+    {
+      "label": "SifModel",
+      "count": 23004,
+      "properties": [
+        "name",
+        "category",
+        "valueCount",
+        "fingerprint",
+        "values",
+        "objectCount",
+        "fieldCount",
+        "tableName",
+        "mandatoryFieldCount",
+        "cedsId",
+        "description",
+        "characteristics",
+        "embedding",
+        "pathSegments",
+        "depth",
+        "isAttribute",
+        "mandatory",
+        "xpath",
+        "isLeaf",
+        "isShared",
+        "path"
+      ]
+    },
+    {
+      "label": "CedsOptionValue",
+      "count": 19546,
+      "properties": [
+        "cedsId",
+        "uri",
+        "label",
+        "description",
+        "notation",
+        "embedding"
+      ]
+    },
+    {
+      "label": "SifField",
+      "count": 15620,
+      "properties": [
+        "cedsId",
+        "name",
+        "description",
+        "characteristics",
+        "embedding",
+        "pathSegments",
+        "depth",
+        "isAttribute",
+        "mandatory",
+        "xpath"
+      ]
+    },
+    {
+      "label": "SifXmlElement",
+      "count": 5872,
+      "properties": [
+        "name",
+        "isLeaf",
+        "isShared",
+        "path",
+        "depth"
+      ]
+    },
+    {
+      "label": "CedsProperty",
+      "count": 2324,
+      "properties": [
+        "cedsId",
+        "uri",
+        "label",
+        "description",
+        "notation",
+        "dataType",
+        "textFormat",
+        "maxLength",
+        "embedding"
+      ]
+    },
+    {
+      "label": "CedsOptionSet",
+      "count": 965,
+      "properties": [
+        "cedsId",
+        "uri",
+        "label",
+        "description",
+        "notation",
+        "embedding"
+      ]
+    },
+    {
+      "label": "SifComplexType",
+      "count": 897,
+      "properties": [
+        "name",
+        "objectCount",
+        "fieldCount"
+      ]
+    },
+    {
+      "label": "CedsClass",
+      "count": 402,
+      "properties": [
+        "cedsId",
+        "uri",
+        "label",
+        "description",
+        "notation",
+        "embedding"
+      ]
+    },
+    {
+      "label": "SifSimpleType",
+      "count": 301,
+      "properties": [
+        "name",
+        "category"
+      ]
+    },
+    {
+      "label": "SifObject",
+      "count": 159,
+      "properties": [
+        "name",
+        "tableName",
+        "mandatoryFieldCount",
+        "fieldCount"
+      ]
+    },
+    {
+      "label": "SifCodeset",
+      "count": 140,
+      "properties": [
+        "valueCount",
+        "fingerprint",
+        "values"
+      ]
+    },
+    {
+      "label": "SifPrimitiveType",
+      "count": 15,
+      "properties": [
+        "name",
+        "category"
+      ]
+    },
+    {
+      "label": "CedsOntology",
+      "count": 1,
+      "properties": [
+        "name",
+        "version",
+        "importDate",
+        "sourceUri",
+        "classCount",
+        "propertyCount",
+        "optionSetCount",
+        "optionValueCount"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "type": "MAPS_TO",
+      "from": "SifField",
+      "to": "CedsProperty",
+      "count": 35969,
+      "avgCardinality": 2.4
+    },
+    {
+      "type": "HAS_VALUE",
+      "from": "CedsOptionSet",
+      "to": "CedsOptionValue",
+      "count": 19546,
+      "avgCardinality": 20.3
+    },
+    {
+      "type": "PART_OF",
+      "from": "CedsOptionValue",
+      "to": "CedsOntology",
+      "count": 19546,
+      "avgCardinality": 1
+    },
+    {
+      "type": "HAS_FIELD",
+      "from": "SifObject",
+      "to": "SifField",
+      "count": 15620,
+      "avgCardinality": 98.2
+    },
+    {
+      "type": "MEMBER_OF",
+      "from": "SifField",
+      "to": "SifComplexType",
+      "count": 14431,
+      "avgCardinality": 1
+    },
+    {
+      "type": "HAS_TYPE",
+      "from": "SifField",
+      "to": "SifPrimitiveType",
+      "count": 13518,
+      "avgCardinality": 1
+    },
+    {
+      "type": "REALIZED_BY",
+      "from": "SifXmlElement",
+      "to": "SifField",
+      "count": 12936,
+      "avgCardinality": 3.3
+    },
+    {
+      "type": "USES_COMPLEX_TYPE",
+      "from": "SifObject",
+      "to": "SifComplexType",
+      "count": 6954,
+      "avgCardinality": 43.7
+    },
+    {
+      "type": "CHILD_ELEMENT",
+      "from": "SifXmlElement",
+      "to": "SifXmlElement",
+      "count": 4977,
+      "avgCardinality": 2.5
+    },
+    {
+      "type": "HAS_PROPERTY",
+      "from": "CedsClass",
+      "to": "CedsProperty",
+      "count": 2750,
+      "avgCardinality": 7.3
+    },
+    {
+      "type": "PART_OF",
+      "from": "CedsProperty",
+      "to": "CedsOntology",
+      "count": 2324,
+      "avgCardinality": 1
+    },
+    {
+      "type": "HAS_TYPE",
+      "from": "SifField",
+      "to": "SifSimpleType",
+      "count": 2102,
+      "avgCardinality": 1
+    },
+    {
+      "type": "TYPED_AS",
+      "from": "SifXmlElement",
+      "to": "SifComplexType",
+      "count": 2006,
+      "avgCardinality": 1
+    },
+    {
+      "type": "HAS_ROOT_ELEMENT",
+      "from": "SifObject",
+      "to": "SifXmlElement",
+      "count": 1888,
+      "avgCardinality": 11.9
+    },
+    {
+      "type": "CONSTRAINED_BY",
+      "from": "SifField",
+      "to": "SifCodeset",
+      "count": 1745,
+      "avgCardinality": 1
+    },
+    {
+      "type": "HAS_OPTION_SET",
+      "from": "CedsProperty",
+      "to": "CedsOptionSet",
+      "count": 994,
+      "avgCardinality": 1
+    },
+    {
+      "type": "PART_OF",
+      "from": "CedsOptionSet",
+      "to": "CedsOntology",
+      "count": 965,
+      "avgCardinality": 1
+    },
+    {
+      "type": "CONTAINS",
+      "from": "SifComplexType",
+      "to": "SifComplexType",
+      "count": 854,
+      "avgCardinality": 1.9
+    },
+    {
+      "type": "STRUCTURALLY_MAPS_TO",
+      "from": "SifComplexType",
+      "to": "CedsClass",
+      "count": 482,
+      "avgCardinality": 1
+    },
+    {
+      "type": "REFERENCES",
+      "from": "SifObject",
+      "to": "SifObject",
+      "count": 427,
+      "avgCardinality": 2.7
+    },
+    {
+      "type": "PART_OF",
+      "from": "CedsClass",
+      "to": "CedsOntology",
+      "count": 402,
+      "avgCardinality": 1
+    },
+    {
+      "type": "SUBCLASS_OF",
+      "from": "CedsClass",
+      "to": "CedsClass",
+      "count": 398,
+      "avgCardinality": 1
+    },
+    {
+      "type": "ALIGNS_WITH",
+      "from": "SifCodeset",
+      "to": "CedsOptionSet",
+      "count": 135,
+      "avgCardinality": 1.3
+    }
+  ]
+}

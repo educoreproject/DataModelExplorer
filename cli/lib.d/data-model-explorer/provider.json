@@ -27,6 +27,48 @@
 		},
 		{
 			"definition": {
+				"name": "dme_graph_retriever",
+				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Natural language description of what to search for"
+						},
+						"limit": {
+							"type": "integer",
+							"description": "Number of results (default 10)",
+							"default": 10
+						},
+						"traversalMode": {
+							"type": "string",
+							"enum": ["static", "dynamic"],
+							"description": "static: use pre-defined traversal (fast, free). dynamic: generate traversal Cypher specific to this query (slower, costs one LLM call, potentially richer).",
+							"default": "static"
+						},
+						"searchMode": {
+							"type": "string",
+							"enum": ["hybrid", "vector", "bm25"],
+							"description": "hybrid: BM25 + vector (default when both indexes exist). vector: vector similarity only. bm25: full-text only.",
+							"default": "hybrid"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -graphRetriever",
+				"positionalArgs": ["query"],
+				"flagArgs": {
+					"limit": "--limit",
+					"traversalMode": "--traversalMode",
+					"searchMode": "--searchMode"
+				}
+			}
+		},
+		{
+			"definition": {
 				"name": "dme_find_mappings",
 				"description": "Given a field from one standard, return its MAPS_TO counterparts in the other standard. Works bidirectionally: give a SIF field name/xpath to find CEDS mappings, or a CEDS property name/ID to find SIF mappings. Shows confidence score and whether the mapping is spec-annotated or embedding-inferred.",
 				"input_schema": {

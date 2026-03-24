@@ -35,11 +35,17 @@ Data Loading (requires running container):
   indexDataModelExplorer -buildBridges
   indexDataModelExplorer -rebuild         # forceInit + start + loadCeds + loadSif + buildBridges
 
+Traversal Generation (VectorCypherRetriever):
+  indexDataModelExplorer -generateTraversal              # Generate schema + traversal files
+  indexDataModelExplorer -generateTraversal --preview     # Show diff only
+  indexDataModelExplorer -generateTraversal --apply       # Overwrite traversal.cypher (with backup)
+
 Options:
   --rdfPath=PATH              Path to CEDS-Ontology.rdf
   --tsvPath=PATH              Path to SIF Implementation Specification TSV
   --resolutionMapPath=PATH    Path to SIF RefId resolution map TSV
   --voyageApiKey=KEY          Override Voyage API key from config
+  --providerDir=PATH          Output directory for generated files (default: data-model-explorer provider dir)
   -help                       Show help
 		`);
 		return;
@@ -292,6 +298,58 @@ Options:
 				console.error(err.stack);
 				process.exit(1);
 			});
+		return;
+	}
+
+	// =====================================================================
+	// GENERATE TRAVERSAL (VectorCypherRetriever)
+	// =====================================================================
+
+	if (commandLineParameters.switches.generateTraversal) {
+		const neo4jConfig = resolveNeo4jConfig({ providerProjectRoot });
+		if (!neo4jConfig) {
+			xLog.error('[indexDataModelExplorer] No Neo4j config found. Run -start first.');
+			process.exit(1);
+		}
+
+		// Determine output directory (provider dir for generated artifacts)
+		const defaultProviderDir = path.join(providerProjectRoot, 'code', 'cli', 'lib.d', 'data-model-explorer');
+		const outputProviderDir = providerDir !== process.cwd() ? providerDir : defaultProviderDir;
+
+		const preview = commandLineParameters.switches.preview || false;
+		const apply = commandLineParameters.switches.apply || false;
+
+		const { exportSchema } = require('./lib/schemaExporter');
+		const { generateTraversal } = require('./lib/traversalGenerator');
+
+		const runPipeline = async () => {
+			xLog.status('[indexDataModelExplorer] === GENERATING TRAVERSAL ARTIFACTS ===');
+
+			// Step 1: Export schema
+			xLog.status('[indexDataModelExplorer] Step 1/2: Exporting schema...');
+			await exportSchema({
+				...neo4jConfig,
+				outputDir: outputProviderDir,
+			});
+
+			// Step 2: Generate traversal
+			xLog.status('[indexDataModelExplorer] Step 2/2: Generating traversal Cypher...');
+			generateTraversal({
+				schemaPath: path.join(outputProviderDir, 'schema-summary.json'),
+				outputDir: outputProviderDir,
+				apply,
+				preview,
+			});
+
+			xLog.status(`[indexDataModelExplorer] === TRAVERSAL GENERATION COMPLETE ===`);
+			xLog.status(`[indexDataModelExplorer] Output directory: ${outputProviderDir}`);
+		};
+
+		runPipeline().catch(err => {
+			xLog.error(`[indexDataModelExplorer] Traversal generation failed: ${err.message}`);
+			console.error(err.stack);
+			process.exit(1);
+		});
 		return;
 	}
 
