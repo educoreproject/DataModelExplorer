@@ -28,6 +28,11 @@
 		       router.currentRoute.value.path === '/library/';
 	});
 
+	// Check if we're on any use cases page
+	const isUseCasesPage = computed(() => {
+		return router.currentRoute.value.path.startsWith('/uc');
+	});
+
 	// Check if we're on any data models page
 	const isDataModelsPage = computed(() => {
 		return router.currentRoute.value.path.startsWith('/dm');
@@ -55,7 +60,7 @@
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isDataModelsPage">Data Models</template>
-
+			<template v-else-if="isUseCasesPage">Use Cases</template>
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
 			<template v-else>EDUcore Tools</template>
@@ -80,6 +85,17 @@
 			:disabled="isDataModelsPage"
 		>
 			Data Models
+		</v-btn>
+
+		<v-btn
+			v-if="LoginStore.validUser"
+			variant="text"
+			prepend-icon="mdi-lightbulb-on"
+			title="Use Cases - Standards Matrix and Applications"
+			:to="{ path: '/uc/matrix' }"
+			:disabled="isUseCasesPage"
+		>
+			Use Cases
 		</v-btn>
 
 		<v-btn
