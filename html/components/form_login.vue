@@ -1,6 +1,7 @@
 <script setup>
 	import { useLoginStore } from '@/stores/loginStore';
 	const LoginStore = useLoginStore();
+	const { gitCommitHash } = useRuntimeConfig().public;
 
 	const router = useRouter();
 	const route = useRoute();
@@ -84,7 +85,7 @@
 				</v-form>
 			</v-sheet>
 		</v-sheet>
-		<div class="version-tag">v1.43</div>
+		<div class="version-tag">build {{ gitCommitHash }}</div>
 	</v-container>
 </template>
 

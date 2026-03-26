@@ -1,4 +1,13 @@
 import vuetify from 'vite-plugin-vuetify';
+import { execSync } from 'child_process';
+
+const gitCommitHash = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+})();
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -76,6 +85,12 @@ export default defineNuxtConfig({
   //
   // DEV:  graphinatorStore.js uses import.meta.dev to connect directly to port 7790
   // PROD: nginx /ws/ location handles the upgrade (see nginx/educore.tqwhite.com.conf)
+
+  runtimeConfig: {
+    public: {
+      gitCommitHash,
+    },
+  },
 
   app: {
     head: {
