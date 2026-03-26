@@ -144,10 +144,10 @@ const moduleFunction =
 				}
 
 				const userRole = authclaims.user?.role;
-				const tmp=permissionList.some((item) => userRole.includes(item));
 				const isValid =
 					permissionList.includes('public') ||
-					permissionList.some((item) => userRole.includes(item)); //permissionList.includes(userRole);
+					userRole === 'super' ||
+					permissionList.some((item) => userRole.includes(item));
 
 				const err = isValid ? false : 'Unauthorized access';
 

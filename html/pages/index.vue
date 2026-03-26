@@ -7,7 +7,7 @@
 	if (router?.currentRoute.value.query.logout) {
 		LoginStore.logout();
 	} else if (LoginStore.validUser) {
-		router.push('/explorer');
+		router.push('/dm/explorer');
 	}
 </script>
 

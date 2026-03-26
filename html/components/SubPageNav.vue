@@ -1,9 +1,13 @@
 <script setup>
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
 const props = defineProps({
 	tabs: {
 		type: Array,
 		required: true,
-		// Each tab: { label: 'Lookup', value: 'lookup', icon: 'mdi-magnify' }
+		// Each tab: { label: 'Lookup', value: 'lookup', icon: 'mdi-magnify', to: '/path' }
 	},
 	modelValue: {
 		type: String,
@@ -14,7 +18,12 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const selectTab = (value) => {
-	emit('update:modelValue', value);
+	const tab = props.tabs.find(t => t.value === value);
+	if (tab && tab.to) {
+		router.push(tab.to);
+	} else {
+		emit('update:modelValue', value);
+	}
 };
 </script>
 

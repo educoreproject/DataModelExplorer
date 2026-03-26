@@ -6,7 +6,7 @@
 
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -25,7 +25,7 @@ const useGraphStore = createGraphinatorStore({
 });
 const graphStore = useGraphStore();
 
-const activeTab = ref('ceds');
+const activeTab = 'explore';
 
 // Auth guard
 onMounted(() => {
@@ -64,17 +64,17 @@ const fallbackPromptOptions = [
 	<v-app>
 		<generalNavSub />
 		<v-main style="padding-top: 65px">
-			<SubPageNav v-model="activeTab" :tabs="[{ label: 'CEDS', value: 'ceds', icon: 'mdi-graph' }]" />
+			<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
 
 			<v-alert
-				v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"
-				type="warning"
-				class="mx-4 mt-4"
-			>
-				No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
-			</v-alert>
+					v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"
+					type="warning"
+					class="mx-4 mt-4"
+				>
+					No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
+				</v-alert>
 
-			<GraphinatorPanel
+				<GraphinatorPanel
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"

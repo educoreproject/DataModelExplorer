@@ -28,16 +28,9 @@
 		       router.currentRoute.value.path === '/library/';
 	});
 
-	// Check if we're on the explorer page
-	const isExplorerPage = computed(() => {
-		return router.currentRoute.value.path === '/explorer' ||
-		       router.currentRoute.value.path === '/explorer/';
-	});
-
-	// Check if we're on the lookup page
-	const isLookupPage = computed(() => {
-		return router.currentRoute.value.path === '/lookup' ||
-		       router.currentRoute.value.path === '/lookup/';
+	// Check if we're on any data models page
+	const isDataModelsPage = computed(() => {
+		return router.currentRoute.value.path.startsWith('/dm');
 	});
 
 
@@ -61,8 +54,7 @@
 	>
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
-			<template v-else-if="isExplorerPage">Data Model Explorer</template>
-			<template v-else-if="isLookupPage">Lookup Browser</template>
+			<template v-else-if="isDataModelsPage">Data Models</template>
 
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
@@ -83,22 +75,11 @@
 			v-if="LoginStore.validUser"
 			variant="text"
 			prepend-icon="mdi-graph"
-			title="Data Model Explorer - Cross-Standard Search and Mapping"
-			:to="{ path: '/explorer' }"
-			:disabled="isExplorerPage"
+			title="Data Models - Cross-Standard Search, Mapping, and Lookup"
+			:to="{ path: '/dm/explorer' }"
+			:disabled="isDataModelsPage"
 		>
-			Explorer
-		</v-btn>
-
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-file-tree"
-			title="Lookup - Browse Data Standards"
-			:to="{ path: '/lookup' }"
-			:disabled="isLookupPage"
-		>
-			Lookup
+			Data Models
 		</v-btn>
 
 		<v-btn
@@ -125,7 +106,7 @@
 		</v-btn>
 
 		<v-btn
-			v-if="!isAdminPage && LoginStore.loggedInUser.role === 'admin'"
+			v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
 			variant="text"
 			prepend-icon="mdi-shield-account"
 			title="Admin Tools"
