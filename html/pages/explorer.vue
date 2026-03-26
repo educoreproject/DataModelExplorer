@@ -67,11 +67,11 @@ const fallbackPromptOptions = [
 			<SubPageNav v-model="activeTab" :tabs="[{ label: 'CEDS', value: 'ceds', icon: 'mdi-graph' }]" />
 
 			<v-alert
-				v-if="graphStore.connected && graphStore.availableTools.length === 0"
+				v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"
 				type="warning"
 				class="mx-4 mt-4"
 			>
-				No tools are configured for your role ({{ LoginStore.loggedInUser.role || 'unknown' }}). Contact an administrator.
+				No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
 			</v-alert>
 
 			<GraphinatorPanel
