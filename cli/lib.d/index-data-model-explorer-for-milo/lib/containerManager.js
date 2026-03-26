@@ -20,6 +20,28 @@ const SEARCH_MODULE_NAME = 'dataModelExplorerSearch';
 // PORT SCANNING
 // =====================================================================
 
+// getDockerBoundPorts — Collect host-side ports already claimed by Docker containers.
+// Docker's port binding is asynchronous: `docker run -d` returns before the port is
+// fully bound at the OS level. A net.createServer check can see the port as "free"
+// even though Docker is about to bind it. Querying `docker ps` catches these ports
+// because Docker tracks them internally as soon as the container is created.
+const getDockerBoundPorts = () => {
+	try {
+		const output = execSync(
+			"docker ps --format '{{.Ports}}' 2>/dev/null",
+			{ encoding: 'utf-8' }
+		);
+		const ports = new Set();
+		const matches = output.matchAll(/0\.0\.0\.0:(\d+)->/g);
+		for (const match of matches) {
+			ports.add(parseInt(match[1], 10));
+		}
+		return ports;
+	} catch (err) {
+		return new Set();
+	}
+};
+
 const isPortAvailable = (port, callback) => {
 	const server = net.createServer();
 	server.once('error', () => {
@@ -35,12 +57,20 @@ const isPortAvailable = (port, callback) => {
 
 const findAvailablePortPair = (startPort, callback) => {
 	const { xLog } = process.global;
+	const dockerPorts = getDockerBoundPorts();
 	let candidate = startPort;
 	const maxPort = startPort + 200;
 
 	const tryNext = () => {
 		if (candidate >= maxPort) {
 			callback('No available port pair found in range');
+			return;
+		}
+
+		// Skip ports already claimed by Docker (catches async binding race)
+		if (dockerPorts.has(candidate) || dockerPorts.has(candidate + 1)) {
+			candidate += 2;
+			tryNext();
 			return;
 		}
 

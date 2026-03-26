@@ -1,7 +1,7 @@
 {
 	"providerName": "CedsOntology14",
 	"description": "CEDS (Common Education Data Standards) Ontology v14 — education data element definitions, domain classes, option sets, and relationships",
-	"startup": "node ../index-ontology14-for-milo/indexOntology14ForMilo.js -start --assetsDir=./assets",
+	"_note": "No startup needed. Docker --restart unless-stopped keeps containers running. First-time init: indexOntology14ForMilo -start --assetsDir=./assets",
 	"startupTimeout": 30,
 	"tools": [
 		{

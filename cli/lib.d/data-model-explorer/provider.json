@@ -1,7 +1,7 @@
 {
 	"providerName": "DataModelExplorer",
 	"description": "Unified education data standards graph — CEDS v14 + SIF with cross-standard mappings, codeset comparison, and semantic search across all standards",
-	"startup": "docker start rag_DataModelExplorer >/dev/null 2>&1 || true",
+	"_note": "No startup needed. Docker --restart unless-stopped keeps containers running. First-time init: indexDataModelExplorer -start --assetsDir=./assets",
 	"startupTimeout": 15,
 	"tools": [
 		{

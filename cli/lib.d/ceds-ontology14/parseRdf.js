@@ -167,7 +167,7 @@ const loadToNeo4j = async (result) => {
 	}
 
 	process.stderr.write(`${moduleName}: Connecting to Neo4j at ${neo4jBoltUri}...\n`);
-	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword));
+	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword), { encrypted: false });
 
 	try {
 		await driver.verifyConnectivity();
@@ -386,7 +386,7 @@ const createFullTextIndex = async () => {
 	const { neo4jBoltUri, neo4jUser, neo4jPassword } = localConfig;
 
 	process.stderr.write(`${moduleName}: --index mode: creating BM25 full-text index...\n`);
-	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword));
+	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword), { encrypted: false });
 
 	try {
 		await driver.verifyConnectivity();
@@ -474,7 +474,7 @@ const createEmbeddings = async () => {
 	}
 
 	process.stderr.write(`${moduleName}: --embed mode: creating vector embeddings...\n`);
-	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword));
+	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword), { encrypted: false });
 
 	try {
 		await driver.verifyConnectivity();

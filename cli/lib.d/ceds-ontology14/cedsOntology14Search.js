@@ -364,7 +364,7 @@ const search = async (queryType, params, callback) => {
 		throw err;
 	}
 
-	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword));
+	const driver = neo4j.driver(neo4jBoltUri, neo4j.auth.basic(neo4jUser, neo4jPassword), { encrypted: false });
 	const session = driver.session();
 
 	try {
