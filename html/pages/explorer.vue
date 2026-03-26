@@ -21,7 +21,7 @@ const useGraphStore = createGraphinatorStore({
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
-	userRole: LoginStore.loggedInUser.role || null,
+	getUserRole: () => LoginStore.loggedInUser.role || null,
 });
 const graphStore = useGraphStore();
 
