@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const moduleFunction = ({ server }) => {
-	const { xLog } = process.global;
+	const { xLog, getConfig } = process.global;
 
 	// noServer: true — upgrade routing handled centrally in startApiServer.js
 	// to avoid conflicts when multiple WebSocketServer instances share one HTTP server.
@@ -19,8 +19,39 @@ const moduleFunction = ({ server }) => {
 
 	xLog.status('WebSocket server registered for /ws/explorer');
 
+	// ---------------------------------------------------------------------
+	// buildToolsByRole - parse [explorerToolsByRole] config into structured object
+	//
+	// Input (from ini):  { super: { available: "getAllFromAskMilo", default: "Tool1,Tool2" }, ... }
+	// Output:            { super: { available: "getAllFromAskMilo", default: ["Tool1","Tool2"] }, ... }
+	//
+	// Comma-separated strings become arrays. The magic value "getAllFromAskMilo"
+	// stays as a string — the client interprets it to mean "use the full list."
+	const buildToolsByRole = () => {
+		const rawSection = getConfig('explorerToolsByRole') || {};
+		const toolsByRole = {};
+		const roleKeys = Object.keys(rawSection).filter(key => key !== 'ANNOTATION');
+
+		roleKeys.forEach(roleName => {
+			const roleConfig = rawSection[roleName];
+			if (roleConfig && typeof roleConfig === 'object') {
+				toolsByRole[roleName] = {
+					available: roleConfig.available === 'getAllFromAskMilo'
+						? 'getAllFromAskMilo'
+						: roleConfig.available.split(',').map(t => t.trim()).filter(Boolean),
+					default: roleConfig.default
+						? roleConfig.default.split(',').map(t => t.trim()).filter(Boolean)
+						: [],
+				};
+			}
+		});
+
+		return toolsByRole;
+	};
+
 	// Fetch askMilo config defaults and send to client on connection.
 	// Spawns askMilo -getDefaults (reads ini, discovers providers, exits).
+	// Includes toolsByRole from [explorerToolsByRole] config section.
 	const sendConfigDefaults = (ws) => {
 		const child = spawn('askMilo', [], { shell: true, env: process.env });
 		let stdout = '';
@@ -30,6 +61,7 @@ const moduleFunction = ({ server }) => {
 		child.on('close', () => {
 			try {
 				const config = JSON.parse(stdout.trim());
+				config.toolsByRole = buildToolsByRole();
 				if (ws.readyState === ws.OPEN) {
 					ws.send(JSON.stringify({ channel: 'config', config }));
 				}

@@ -15,12 +15,13 @@ const router = useRouter();
 const route = useRoute();
 
 // Create store instance for this page's WS endpoint
+// Role-based tool visibility: server sends toolsByRole config, store filters by userRole
 const useGraphStore = createGraphinatorStore({
 	storeId: 'explorerStore',
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
-	defaultTools: ['DataModelExplorer', 'CareerStoryGraph', 'SifSpecGraph'],
+	userRole: LoginStore.loggedInUser.role || null,
 });
 const graphStore = useGraphStore();
 
