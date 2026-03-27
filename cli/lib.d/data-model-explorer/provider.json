@@ -1,6 +1,6 @@
 {
 	"providerName": "DataModelExplorer",
-	"description": "Unified education data standards graph — CEDS v14 + SIF with cross-standard mappings, codeset comparison, and semantic search across all standards",
+	"description": "Unified education data standards + EdMatrix standards directory graph — CEDS v14 + SIF with cross-standard mappings, codeset comparison, and semantic search across all standards",
 	"_note": "No startup needed. Docker --restart unless-stopped keeps containers running. First-time init: indexDataModelExplorer -start --assetsDir=./assets",
 	"startupTimeout": 15,
 	"tools": [
@@ -16,12 +16,16 @@
 							"description": "Natural language search query — concept name, field description, or question about education data elements"
 						}
 					},
-					"required": ["query"]
+					"required": [
+						"query"
+					]
 				}
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -search",
-				"positionalArgs": ["query"],
+				"positionalArgs": [
+					"query"
+				],
 				"flagArgs": {}
 			}
 		},
@@ -43,23 +47,34 @@
 						},
 						"traversalMode": {
 							"type": "string",
-							"enum": ["static", "dynamic"],
+							"enum": [
+								"static",
+								"dynamic"
+							],
 							"description": "static: use pre-defined traversal (fast, free). dynamic: generate traversal Cypher specific to this query (slower, costs one LLM call, potentially richer).",
 							"default": "static"
 						},
 						"searchMode": {
 							"type": "string",
-							"enum": ["hybrid", "vector", "bm25"],
+							"enum": [
+								"hybrid",
+								"vector",
+								"bm25"
+							],
 							"description": "hybrid: BM25 + vector (default when both indexes exist). vector: vector similarity only. bm25: full-text only.",
 							"default": "hybrid"
 						}
 					},
-					"required": ["query"]
+					"required": [
+						"query"
+					]
 				}
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -graphRetriever",
-				"positionalArgs": ["query"],
+				"positionalArgs": [
+					"query"
+				],
 				"flagArgs": {
 					"limit": "--limit",
 					"traversalMode": "--traversalMode",
@@ -79,12 +94,16 @@
 							"description": "SIF field name, XPath, CEDS property name, or CEDS ID (e.g., 'BirthDate', '/StudentPersonals/StudentPersonal/Name/FirstName', 'P600559')"
 						}
 					},
-					"required": ["name"]
+					"required": [
+						"name"
+					]
 				}
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -findMappings",
-				"positionalArgs": ["name"],
+				"positionalArgs": [
+					"name"
+				],
 				"flagArgs": {}
 			}
 		},
@@ -100,12 +119,16 @@
 							"description": "Concept name to compare codesets for (e.g., 'grade', 'sex', 'state')"
 						}
 					},
-					"required": ["name"]
+					"required": [
+						"name"
+					]
 				}
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -compareCodesets",
-				"positionalArgs": ["name"],
+				"positionalArgs": [
+					"name"
+				],
 				"flagArgs": {}
 			}
 		},
@@ -160,11 +183,104 @@
 							"description": "A Cypher query to execute"
 						}
 					},
-					"required": ["query"]
+					"required": [
+						"query"
+					]
 				}
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "edmatrix_search",
+				"description": "Search education data standards directory. Finds standards by name, type, organization, data layer, or use case category. Returns matching standards with their types, layers, formats, and URLs.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query — standard name, organization, data category, or concept"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edmatrixSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edmatrix_explore",
+				"description": "Describe an education standard by name. Shows all properties and relationships — data categories, spec layers, serialization formats, publishing organization, and use cases.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Standard name to explore (e.g., CEDS, Open Badges, SIF Data Model)"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edmatrixSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edmatrix_stats",
+				"description": "Show EdMatrix graph statistics — node counts by type (EdStandard, DataCategory, SpecLayer, Organization, SerializationFormat, UseCaseCategory) and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node edmatrixSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edmatrix_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. EdMatrix labels: :EdStandard, :DataCategory, :SpecLayer, :Organization, :SerializationFormat, :UseCaseCategory (all :ForgedNode). Edges: HAS_TYPE, AT_LAYER, IN_USE_CASE, PUBLISHED_BY, USES_FORMAT. Bridge edges: IS_DESCRIBED_BY, MAPS_CATEGORY_TO (tagged _source starting 'EdMatrix:bridge').",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edmatrixSearch.js -rawCypher",
 				"positionalArgs": [],
 				"flagArgs": {
 					"query": "--query"
