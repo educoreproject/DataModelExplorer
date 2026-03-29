@@ -6,19 +6,458 @@
 
 	if (router?.currentRoute.value.query.logout) {
 		LoginStore.logout();
-	} else if (LoginStore.validUser) {
-		router.push('/dm/explorer');
 	}
+
+	const ghPages = 'https://educoreproject.github.io/';
 </script>
 
 <template>
 	<v-app>
 		<generalNavSub />
-		<v-main>
-			<form_login />
+		<v-main style="padding-top: 65px">
+			<div class="landing-page">
+
+				<div class="hero">
+					<h2>Harmonizing Interoperability Specs for AI</h2>
+					<p>
+						AI is reshaping education and workforce systems, but fragmented data standards hold the ecosystem back. EDUcore is building the shared semantic backbone that makes existing standards easier to understand, implement, and connect — without replacing them.
+					</p>
+				</div>
+
+				<section id="use-cases">
+					<h3>Use Cases</h3>
+					<p class="subtitle">Real-world scenarios driving EduCore's design and priorities.</p>
+					<div class="use-cases">
+
+						<div class="card">
+							<div class="icon">&#129302;</div>
+							<h4>AI Integration with Integrity</h4>
+							<p>
+								Enable AI systems to work with education and workforce data using consistent, governed semantics — ensuring interoperable standards underpin AI-driven tools rather than proprietary data silos. A shared semantic backbone enables portable AI memory: learner context that travels with the individual across institutions, platforms, and life stages with full provenance and human oversight.
+							</p>
+						</div>
+
+						<div class="card">
+							<div class="icon">&#127891;</div>
+							<h4>Adult Learner LER Assembly</h4>
+							<p>
+								Help adult learners assemble a comprehensive Learning and Employment Record from fragmented sources — community colleges, workforce programs, employer training, and professional certifications — into a single, portable, standards-based credential profile.
+							</p>
+						</div>
+
+						<div class="card">
+							<div class="icon">&#128274;</div>
+							<h4>Disability Accommodations-Aware Record Sharing</h4>
+							<p>
+								Support the secure exchange of learner records that include disability accommodation information, with fine-grained privacy controls ensuring sensitive data is only shared with authorized parties on a need-to-know basis.
+							</p>
+						</div>
+
+						<div class="card">
+							<div class="icon">&#127760;</div>
+							<h4>Multilingual Advising &amp; Communication</h4>
+							<p>
+								Enable multilingual academic advising and family communication with full data provenance — ensuring translated records and communications can be traced back to verified, authoritative source documents.
+							</p>
+						</div>
+
+						<div class="card">
+							<div class="icon">&#127979;</div>
+							<h4>Small District Reporting &amp; Interoperability</h4>
+							<p>
+								Enable small and rural districts to meet state and federal reporting requirements using existing systems. EDUcore provides standards-aligned mappings so districts can share and report data without adopting new platforms or infrastructure.
+							</p>
+						</div>
+
+					</div>
+				</section>
+
+				<section id="why">
+					<h3>Why EDUcore?</h3>
+					<p class="subtitle">Education runs on data, but interoperability standards are fragmented.</p>
+					<div class="about-grid">
+						<div>
+							<p>
+								Institutions that need to exchange learner, program, credential, and outcomes data must navigate multiple specifications that do not map cleanly to each other. The result is duplicated integration work, inconsistent meaning, and limited reuse — creating challenges for innovation, implementation, and scalability.
+							</p>
+							<p>
+								EDUcore's mission is to establish an <strong>AI-ready "source of truth" for interoperability</strong> built by aligning existing standards rather than replacing them. Through active participation from standards bodies, combined resources, and a broad coalition of stakeholders, EDUcore provides a shared semantic backbone and a practical mapping layer so organizations can continue using current systems while achieving consistent, governed interoperability.
+							</p>
+							<p>
+								We are not creating "one new standard to rule them all." We are building shared infrastructure that makes the standards already in use easier to understand, implement, and connect across the PK20W+ ecosystem — lifelong learning ranging from early childhood through workforce.
+							</p>
+						</div>
+						<div>
+							<h4 style="margin-bottom: 0.75rem; color: var(--lp-primary);">What We're Working Toward</h4>
+							<ul>
+								<li><strong>A common semantic backbone</strong> — A baseline linked-data model (RDF/JSON-LD) grounded in the CEDS ontology and informed by credential transparency work, with governed extensions where gaps exist.</li>
+								<li><strong>Use-case-driven mappings</strong> — Cross-sector use cases with the highest-value standards mapped to the baseline model. Crosswalks that are explicit, versioned, and auditable so AI tools can assist implementation without inventing meaning.</li>
+								<li><strong>A practical reference library</strong> — Searchable and structured for implementers: canonical definitions, mappings, implementation notes, openness status, and governance metadata. Lowering adoption costs for under-resourced districts, colleges, workforce boards, and employers.</li>
+								<li><strong>Future-proofed, safe-by-design enablement</strong> — Architecture that supports modern AI workflows while embedding guardrails for privacy, provenance, auditability, and human oversight in high-stakes contexts. Targeted universalism: universal interoperability outcomes with targeted adoption pathways.</li>
+							</ul>
+						</div>
+					</div>
+				</section>
+
+				<section id="phase1">
+					<h3>Phase 1 Deliverables</h3>
+					<p class="subtitle">Targeted outputs for the initial project phase.</p>
+					<div class="phase-list">
+						<div class="phase-item">
+							<h4>Outreach &amp; Partnerships</h4>
+							<p>Stakeholder letters, signatories, and engagement with standards bodies and technology partners.</p>
+						</div>
+						<div class="phase-item">
+							<h4>Advisory Council</h4>
+							<p>Vertical-specific demos followed by business alignment sessions with stakeholder leadership.</p>
+						</div>
+						<div class="phase-item">
+							<h4>Reference Library</h4>
+							<p>User's guide, stakeholder registry, use case registry, resource catalog, and standards registry.</p>
+						</div>
+						<div class="phase-item">
+							<h4>CEDS Ontology &amp; RDF</h4>
+							<p>RDF foundation with mappings to all specifications, but starting with CEDS and SIF, Special Education Data Model (SEDM) and other high impact areas.</p>
+						</div>
+					</div>
+				</section>
+
+				<div class="alignment" id="alignment">
+					<h3>Standards Alignment</h3>
+					<p>EduCore seeks alignment with the leading education data standards and initiatives.</p>
+				</div>
+
+				<section id="bakeoff">
+					<h3>EDUcore AI Bakeoff</h3>
+					<p class="subtitle">Community demonstrations showcasing AI-powered tools built on education data standards.</p>
+					<div class="bakeoff-grid">
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/1 - Brandon - Exploring the EduCore Reference Library and AI Search Features 📚.jpg'" alt="EduCore Reference Library demo">
+							<div class="body">
+								<h4>EduCore Reference Library &amp; AI Search</h4>
+								<div class="presenter">Brandon Dorman</div>
+								<p>Demonstrates the EduCore Reference Library with an AI-powered search engine grounded in a CEDS-based RDF/JSON-LD ontology. Users can query natural-language questions and receive standards-aligned implementation roadmaps. Also features a Needs Explorer for tag-based spec discovery without AI.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1mLKKuhzBl3BdV67DMMqmYvkU9xKMaVF3/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/2 - Robert Bajor - 5 Minute Skill Nexus AI Demo - microcredential multiverse.jpg'" alt="Skill Nexus AI demo">
+							<div class="body">
+								<h4>Skill Nexus AI</h4>
+								<div class="presenter">Robert Bajor — Micro Credential Multiverse</div>
+								<p>AI-driven labor market intelligence tool covering 1,016 O*NET occupations. Provides three tailored views — job seekers get portfolio guidance and AI-disruption exposure; hiring managers get assessment rubrics and 30/60/90-day plans; education providers get curriculum alignment and capstone ideas.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1DoXBwQvCg6Ekk2BH_iNqB7O5jIUf0n1F/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/3 - Jackson Smith - LEF_s CEDS-MCP Tool_ Exploring Equity Gaps in Education with AI-Driven Data Analysis.jpg'" alt="CEDS MCP Tool demo">
+							<div class="body">
+								<h4>CEDS-MCP: AI-Driven Equity Gap Analysis</h4>
+								<div class="presenter">Jackson Smith — Learning Economy Foundation</div>
+								<p>An MCP server that connects Claude directly to a CEDS database, letting AI autonomously discover schemas, identify populated tables, and write analytical SQL. Demonstrated on a 50,000-student synthetic dataset, the tool surfaces equity gaps in assessment proficiency across racial and income groups.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1FSh0PeW9YJw7XypU_fGbbKeKkCz4HO9Z/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/4 - David M - Big Vid - KSAWorks Goldcheck.jpg'" alt="KSAWorks GoldCheck demo">
+							<div class="body">
+								<h4>KSAWorks GoldCheck</h4>
+								<div class="presenter">David Martel — Academy One</div>
+								<p>Shows how EDUCORE's semantic backbone transforms static transcripts into actionable, linked data. GoldCheck is a free AI-enabled tool that plugs into institutional web catalogs, revealing transfer credit pathways, remaining coursework, and competency mappings.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/David M - EDUCORE KSWORKS-P.jpg'" alt="KSAWorks Selfie demo">
+							<div class="body">
+								<h4>KSAWorks: From Transcript to Selfie</h4>
+								<div class="presenter">David Martel — Academy One</div>
+								<p>A real implementation of EDUCORE concepts showing how RDF endpoints and CEDS mapping turn static academic records into living competency profiles. Courses map to CIP codes, then to knowledge, skills, and abilities via SOC classifications — creating a continuous thread from learning to career.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/John Lovell - A4L.jpg'" alt="A4L demo">
+							<div class="body">
+								<h4>A4L (Access 4 Learning)</h4>
+								<div class="presenter">John Lovell</div>
+								<p>A visual presentation on Access 4 Learning's role in the EDUCORE ecosystem, highlighting how A4L's data standards and community efforts connect with the broader initiative to improve education data interoperability.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1CsDI_fF9ESHI9KNtWOYey_kOGd5OuQgN/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/TQ_WHITE_II - AI_BAKEOFF.jpg'" alt="Data Model Explorer demo">
+							<div class="body">
+								<h4>SIF &amp; CEDS Data Model Explorer</h4>
+								<div class="presenter">TQ White II</div>
+								<p>Loads both SIF and CEDS data models into a graph database for side-by-side exploration. Features a tree-based data model lookup, AI-powered cross-standard mapping between SIF elements and CEDS definitions, natural-language search, and visual graph diagrams.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1wl_vVaAmUo-cn6WWahFTwH48SSsqJzvW/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+						<div class="bakeoff-card">
+							<img class="thumb" :src="ghPages + 'thumbnails/Vince Paredes - CEDS Assessment Query.jpg'" alt="CEDS Assessment Query demo">
+							<div class="body">
+								<h4>CEDS Assessment Ontology Query</h4>
+								<div class="presenter">Vince Paredes</div>
+								<p>A one-take ChatGPT session demonstrating how AI can read the CEDS assessment ontology web page, construct SPARQL queries, locate the official RDF file on GitHub, and execute queries against real data.</p>
+								<a class="watch-link" href="https://drive.google.com/file/d/1xI6b6K-06SBUxXmX-tM3CATkh1mJWVqW/view?usp=drive_link" target="_blank">Watch on Drive</a>
+							</div>
+						</div>
+
+					</div>
+				</section>
+
+				<footer>
+					&copy; 2026 EduCore Project. Building interoperability for education, together.
+				</footer>
+
+			</div>
 		</v-main>
 	</v-app>
 </template>
 
 <style scoped>
+	.landing-page {
+		--lp-primary: #1a365d;
+		--lp-primary-light: #2b6cb0;
+		--lp-accent: #ed8936;
+		--lp-bg: #f7fafc;
+		--lp-card-bg: #ffffff;
+		--lp-text: #2d3748;
+		--lp-text-light: #718096;
+		--lp-border: #e2e8f0;
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+		color: var(--lp-text);
+		background: var(--lp-bg);
+		line-height: 1.6;
+	}
+
+	/* Hero */
+	.hero {
+		background: linear-gradient(135deg, var(--lp-primary) 0%, var(--lp-primary-light) 100%);
+		color: white;
+		text-align: center;
+		padding: 5rem 2rem 4rem;
+	}
+
+	.hero h2 {
+		font-size: 2.5rem;
+		font-weight: 800;
+		max-width: 800px;
+		margin: 0 auto 1rem;
+		letter-spacing: -0.03em;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.hero p {
+		font-size: 1.15rem;
+		max-width: 640px;
+		margin: 0 auto 2rem;
+		opacity: 0.9;
+	}
+
+	/* Sections */
+	section {
+		max-width: 1100px;
+		margin: 0 auto;
+		padding: 4rem 2rem;
+	}
+
+	section h3 {
+		font-size: 1.75rem;
+		font-weight: 700;
+		margin-bottom: 0.5rem;
+		color: var(--lp-primary);
+	}
+
+	section .subtitle {
+		color: var(--lp-text-light);
+		margin-bottom: 2rem;
+		font-size: 1.05rem;
+	}
+
+	/* Use Case Cards */
+	.use-cases {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.card {
+		background: var(--lp-card-bg);
+		border: 1px solid var(--lp-border);
+		border-radius: 12px;
+		padding: 1.75rem;
+		transition: box-shadow 0.2s;
+	}
+
+	.card:hover {
+		box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+	}
+
+	.card .icon {
+		font-size: 2rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.card h4 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+		color: var(--lp-primary);
+	}
+
+	.card p {
+		color: var(--lp-text-light);
+		font-size: 0.95rem;
+	}
+
+	/* About */
+	.about-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 2.5rem;
+		align-items: start;
+	}
+
+	@media (max-width: 700px) {
+		.about-grid { grid-template-columns: 1fr; }
+	}
+
+	.about-grid p {
+		margin-bottom: 1rem;
+		color: var(--lp-text);
+	}
+
+	.about-grid ul {
+		padding-left: 1.25rem;
+		color: var(--lp-text);
+	}
+
+	.about-grid li {
+		margin-bottom: 0.5rem;
+	}
+
+	/* Phase 1 */
+	.phase-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 1rem;
+	}
+
+	.phase-item {
+		background: var(--lp-card-bg);
+		border: 1px solid var(--lp-border);
+		border-radius: 8px;
+		padding: 1.25rem;
+	}
+
+	.phase-item h4 {
+		font-size: 1rem;
+		font-weight: 600;
+		margin-bottom: 0.4rem;
+		color: var(--lp-primary);
+	}
+
+	.phase-item p {
+		font-size: 0.9rem;
+		color: var(--lp-text-light);
+	}
+
+	/* Alignment banner */
+	.alignment {
+		background: var(--lp-primary);
+		color: white;
+		text-align: center;
+		padding: 3rem 2rem;
+	}
+
+	.alignment h3 {
+		color: white;
+		margin-bottom: 1rem;
+	}
+
+	/* Bakeoff */
+	.bakeoff-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.bakeoff-card {
+		background: var(--lp-card-bg);
+		border: 1px solid var(--lp-border);
+		border-radius: 12px;
+		overflow: hidden;
+		transition: box-shadow 0.2s;
+	}
+
+	.bakeoff-card:hover {
+		box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+	}
+
+	.bakeoff-card .thumb {
+		width: 100%;
+		aspect-ratio: 16/9;
+		object-fit: cover;
+		display: block;
+	}
+
+	.bakeoff-card .body {
+		padding: 1.25rem 1.5rem;
+	}
+
+	.bakeoff-card h4 {
+		font-size: 1.05rem;
+		font-weight: 600;
+		color: var(--lp-primary);
+		margin-bottom: 0.25rem;
+	}
+
+	.bakeoff-card .presenter {
+		font-size: 0.85rem;
+		color: var(--lp-accent);
+		font-weight: 600;
+		margin-bottom: 0.6rem;
+	}
+
+	.bakeoff-card p {
+		color: var(--lp-text-light);
+		font-size: 0.92rem;
+		margin-bottom: 1rem;
+	}
+
+	.bakeoff-card .watch-link {
+		display: inline-block;
+		font-size: 0.88rem;
+		font-weight: 600;
+		color: var(--lp-primary-light);
+		text-decoration: none;
+		border: 1px solid var(--lp-primary-light);
+		padding: 0.35rem 0.9rem;
+		border-radius: 6px;
+		transition: background 0.2s, color 0.2s;
+	}
+
+	.bakeoff-card .watch-link:hover {
+		background: var(--lp-primary-light);
+		color: white;
+	}
+
+	/* Footer */
+	footer {
+		text-align: center;
+		padding: 2rem;
+		color: var(--lp-text-light);
+		font-size: 0.9rem;
+		border-top: 1px solid var(--lp-border);
+	}
 </style>

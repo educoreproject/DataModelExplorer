@@ -1,14 +1,42 @@
 <script setup>
 	import { useLoginStore } from '@/stores/loginStore';
-	import { computed } from 'vue';
+	import { computed, ref } from 'vue';
 	import { useRouter } from 'vue-router';
-	
+
 	const LoginStore = useLoginStore();
 	const router = useRouter();
 
 	if (router?.currentRoute.value.query.logout) {
 		LoginStore.logout();
 	}
+
+	// Inline login state
+	const username = ref('');
+	const password = ref('');
+	const loggingIn = ref(false);
+
+	const handleLogin = async () => {
+		if (!username.value || !password.value) {
+			LoginStore.statusMsg = 'Please enter username and password';
+			return;
+		}
+		loggingIn.value = true;
+		LoginStore.loggedInUser.username = username.value;
+		LoginStore.loggedInUser.password = password.value;
+		try {
+			await LoginStore.login();
+			if (LoginStore.validUser) {
+				const redirect = router.currentRoute.value.query.redirect;
+				if (redirect) {
+					router.push(redirect);
+				}
+			}
+		} catch (err) {
+			LoginStore.statusMsg = err.toString();
+		} finally {
+			loggingIn.value = false;
+		}
+	};
 
 	// Check if we're on the work page
 	const isWorkPage = computed(() => {
@@ -50,7 +78,7 @@
 <template>
 	<!-- Top banner (not an app bar) -->
 	<div class="banner justify-center align-center">
-		<h1 class="banner-title">EDUcore</h1>
+		<h1 class="banner-title" style="cursor: pointer" @click="router.push('/')">EDUcore</h1>
 	</div>
 
 	<!-- Navigation bar -->
@@ -63,78 +91,126 @@
 			<template v-else-if="isUseCasesPage">Use Cases</template>
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isWorkPage">Work</template>
-			<template v-else>EDUcore Tools</template>
+			<template v-else-if="LoginStore.validUser">EDUcore Tools</template>
+			<template v-else>Welcome to EDUcore</template>
 		</v-app-bar-title>
 
-		<v-btn
-			v-if="(LoginStore.loggedInUser.role === 'client') && !isWorkPage"
-			variant="text"
-			prepend-icon="mdi-image"
-			title="Get to Work"
-			:to="{ path: '/work' }"
-		>
-			Open Work.vue
-		</v-btn>
+		<!-- Inline login (when not logged in) -->
+		<template v-if="!LoginStore.validUser">
+			<div class="inline-login d-flex align-center ml-auto mr-4">
+				<v-text-field
+					v-model="username"
+					placeholder="Username"
+					density="compact"
+					variant="outlined"
+					hide-details
+					class="login-field mr-2"
+					@keyup.enter="handleLogin"
+				/>
+				<v-text-field
+					v-model="password"
+					type="password"
+					placeholder="Password"
+					density="compact"
+					variant="outlined"
+					hide-details
+					class="login-field mr-2"
+					@keyup.enter="handleLogin"
+				/>
+				<v-btn
+					color="primary"
+					variant="text"
+					:loading="loggingIn"
+					@click="handleLogin"
+				>
+					LOGIN
+				</v-btn>
+			</div>
+		</template>
 
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-graph"
-			title="Data Models - Cross-Standard Search, Mapping, and Lookup"
-			:to="{ path: '/dm/explorer' }"
-			:disabled="isDataModelsPage"
-		>
-			Data Models
-		</v-btn>
+		<!-- Nav buttons (when logged in) -->
+		<template v-else>
+			<v-btn
+				v-if="(LoginStore.loggedInUser.role === 'client') && !isWorkPage"
+				variant="text"
+				prepend-icon="mdi-image"
+				title="Get to Work"
+				:to="{ path: '/work' }"
+			>
+				Open Work.vue
+			</v-btn>
 
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-lightbulb-on"
-			title="Use Cases - Standards Matrix and Applications"
-			:to="{ path: '/uc/matrix' }"
-			:disabled="isUseCasesPage"
-		>
-			Use Cases
-		</v-btn>
+			<v-btn
+				variant="text"
+				prepend-icon="mdi-graph"
+				title="Data Models - Cross-Standard Search, Mapping, and Lookup"
+				:to="{ path: '/dm/explorer' }"
+				:disabled="isDataModelsPage"
+			>
+				Data Models
+			</v-btn>
 
-		<v-btn
-			v-if="LoginStore.validUser"
-			variant="text"
-			prepend-icon="mdi-bookshelf"
-			title="Document Library"
-			:to="{ path: '/library' }"
-			:disabled="isLibraryPage"
-		>
-			Library
-		</v-btn>
+			<v-btn
+				variant="text"
+				prepend-icon="mdi-lightbulb-on"
+				title="Use Cases - Standards Matrix and Applications"
+				:to="{ path: '/uc/matrix' }"
+				:disabled="isUseCasesPage"
+			>
+				Use Cases
+			</v-btn>
 
-		<v-btn
-			variant="text"
-			prepend-icon="mdi-account"
-			title="Profile"
-			:to="{ path: '/utility', query: { purpose: 'profile' } }"
-		>
-			<span v-if="LoginStore.loggedInUser.last">
-				{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
-			</span>
-			<span v-else>{{ LoginStore.loggedInUser.username }}</span>
-		</v-btn>
+			<v-btn
+				variant="text"
+				prepend-icon="mdi-bookshelf"
+				title="Document Library"
+				:to="{ path: '/library' }"
+				:disabled="isLibraryPage"
+			>
+				Library
+			</v-btn>
 
-		<v-btn
-			v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
-			variant="text"
-			prepend-icon="mdi-shield-account"
-			title="Admin Tools"
-			:to="{ path: '/admin' }"
-		>
-			Admin
-		</v-btn>
+			<v-btn
+				variant="text"
+				prepend-icon="mdi-account"
+				title="Profile"
+				:to="{ path: '/utility', query: { purpose: 'profile' } }"
+			>
+				<span v-if="LoginStore.loggedInUser.last">
+					{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
+				</span>
+				<span v-else>{{ LoginStore.loggedInUser.username }}</span>
+			</v-btn>
 
-		<v-btn variant="text" prepend-icon="mdi-logout" title="Logout" @click="reloadPage">
-			Logout
-		</v-btn>
+			<v-btn
+				v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
+				variant="text"
+				prepend-icon="mdi-shield-account"
+				title="Admin Tools"
+				:to="{ path: '/admin' }"
+			>
+				Admin
+			</v-btn>
+
+			<v-btn variant="text" prepend-icon="mdi-logout" title="Logout" @click="reloadPage">
+				Logout
+			</v-btn>
+		</template>
 	</v-app-bar>
+
+	<!-- Login error snackbar -->
+	<v-snackbar
+		:model-value="!!LoginStore.statusMsg"
+		@update:model-value="LoginStore.statusMsg = ''"
+		:timeout="4000"
+		color="error"
+		location="top"
+	>
+		{{ LoginStore.statusMsg }}
+		<template v-slot:actions>
+			<v-btn variant="text" @click="LoginStore.statusMsg = ''">Close</v-btn>
+		</template>
+	</v-snackbar>
 </template>
 
 <style scoped>
@@ -164,5 +240,10 @@
 	/* Toolbar title alignment fixes */
 	.v-app-bar-title {
 		margin-inline-start: 0 !important;
+	}
+
+	/* Inline login fields */
+	.login-field {
+		width: 150px;
 	}
 </style>

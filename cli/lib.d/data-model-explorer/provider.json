@@ -379,7 +379,7 @@
 		{
 			"definition": {
 				"name": "sif_graph_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. SIF labels: :SifCodeset, :SifComplexType, :SifField, :SifObject, :SifPrimitiveType, :SifRoot, :SifSimpleType, :SifXmlElement (all :ForgedNode). Edge types: ALIGNS_WITH, CHILD_ELEMENT, CONSTRAINED_BY, CONTAINS, HAS_FIELD, HAS_ROOT_ELEMENT, HAS_TYPE, MAPS_TO, MEMBER_OF, REALIZED_BY, REFERENCES, TYPED_AS, USES_COMPLEX_TYPE.",
+				"description": "Execute raw Cypher against the unified graph. SIF labels: :SifCodeset, :SifComplexType, :SifField, :SifObject, :SifPrimitiveType, :SifRoot, :SifSimpleType, :SifXmlElement (all :ForgedNode). Edge types: ALIGNS_WITH, CHILD_ELEMENT, CONSTRAINED_BY, CONTAINS, HAS_FIELD, HAS_ROOT_ELEMENT, HAS_TYPE, MAPS_TO, MEMBER_OF, REALIZED_BY, REFERENCES, STRUCTURALLY_MAPS_TO, TYPED_AS, USES_COMPLEX_TYPE.",
 				"input_schema": {
 					"type": "object",
 					"properties": {

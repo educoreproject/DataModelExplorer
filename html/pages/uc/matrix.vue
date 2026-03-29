@@ -33,7 +33,7 @@ onMounted(() => {
 				:tabs="[{ label: 'Standards Matrix', value: 'matrix', to: '/uc/matrix' }]"
 			/>
 
-			<v-container fluid class="pa-6 pa-md-8" style="max-width: 1400px">
+			<v-container fluid class="pa-6 pa-md-8">
 				<!-- Header -->
 				<div class="d-flex align-center ga-6 mb-8 pb-6" style="border-bottom: 1px solid #f1f5f9">
 					<div style="width: 80px; height: 80px">
@@ -53,9 +53,9 @@ onMounted(() => {
 				</div>
 
 				<!-- Main layout: matrix + card list -->
-				<v-row>
+				<div class="matrix-layout">
 					<!-- Matrix panel -->
-					<v-col cols="12" xl="8">
+					<div class="matrix-panel">
 						<v-card class="pa-8" rounded="xl" elevation="4">
 							<!-- Controls row -->
 							<div class="d-flex justify-space-between align-center flex-wrap ga-4 mb-8">
@@ -139,10 +139,10 @@ onMounted(() => {
 								</svg>
 							</div>
 						</v-card>
-					</v-col>
+					</div>
 
 					<!-- Card list panel -->
-					<v-col cols="12" xl="4">
+					<div class="cards-panel">
 						<!-- Counter card -->
 						<v-card class="pa-6 mb-6 text-white" rounded="xl" elevation="4" color="rgb(7, 42, 108)">
 							<div class="d-flex justify-space-between align-start">
@@ -165,7 +165,7 @@ onMounted(() => {
 						</v-card>
 
 						<!-- Standards list -->
-						<div class="standards-list pr-2" style="max-height: 600px; overflow-y: auto">
+						<div class="standards-list pr-2" style="max-height: calc(100vh - 280px); overflow-y: auto">
 							<v-card
 								v-for="std in matrixStore.filteredStandards"
 								:key="std.name"
@@ -193,14 +193,26 @@ onMounted(() => {
 								No standards match this intersection.
 							</div>
 						</div>
-					</v-col>
-				</v-row>
+					</div>
+				</div>
 			</v-container>
 		</v-main>
 	</v-app>
 </template>
 
 <style scoped>
+.matrix-layout {
+	display: flex;
+	gap: 24px;
+}
+.matrix-panel {
+	flex: 0 0 60vw;
+	max-width: 60vw;
+}
+.cards-panel {
+	flex: 1 1 0;
+	min-width: 0;
+}
 .matrix-cell {
 	transition: all 0.2s ease;
 	cursor: pointer;
