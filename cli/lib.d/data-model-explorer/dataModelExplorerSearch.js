@@ -15,7 +15,6 @@
 
 const os = require('os');
 const path = require('path');
-const https = require('https');
 const neo4j = require('neo4j-driver');
 
 const moduleName = path.basename(__filename).replace(/.js$/, '');
@@ -63,39 +62,14 @@ const withNeo4jSession = async (config, queryFn) => {
 };
 
 // =====================================================================
-// VOYAGE AI QUERY EMBEDDING
+// QUERY EMBEDDING (via embedder object)
 // =====================================================================
 
-const embedQuery = (text, apiKey) => new Promise((resolve, reject) => {
-	const body = JSON.stringify({
-		model: 'voyage-3',
-		input: [text],
-		input_type: 'query'
+const embedQuery = (text, embedder) => new Promise((resolve, reject) => {
+	embedder.embed([text], (err, embeddings) => {
+		if (err) { reject(new Error(`Embedding failed: ${err}`)); return; }
+		resolve(embeddings[0]);
 	});
-
-	const req = https.request({
-		hostname: 'api.voyageai.com',
-		path: '/v1/embeddings',
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${apiKey}`
-		}
-	}, (res) => {
-		let data = '';
-		res.on('data', chunk => data += chunk);
-		res.on('end', () => {
-			if (res.statusCode !== 200) {
-				reject(new Error(`Voyage API ${res.statusCode}: ${data}`));
-				return;
-			}
-			const parsed = JSON.parse(data);
-			resolve(parsed.data[0].embedding);
-		});
-	});
-	req.on('error', reject);
-	req.write(body);
-	req.end();
 });
 
 // =====================================================================
@@ -120,7 +94,7 @@ const hybridSearch = async (session, query, config) => {
 	// BM25 search across CEDS
 	try {
 		const cedsResult = await session.run(`
-			CALL db.index.fulltext.queryNodes('dme_ceds_fulltext', $query)
+			CALL db.index.fulltext.queryNodes('ceds_fulltext', $query)
 			YIELD node, score
 			RETURN node.cedsId AS id, labels(node) AS labels, node.label AS name,
 				node.description AS description, score AS ftScore
@@ -146,7 +120,7 @@ const hybridSearch = async (session, query, config) => {
 	// BM25 search across SIF
 	try {
 		const sifResult = await session.run(`
-			CALL db.index.fulltext.queryNodes('dme_sif_fulltext', $query)
+			CALL db.index.fulltext.queryNodes('sif_fulltext', $query)
 			YIELD node, score
 			WITH node, score, labels(node) AS lbls
 			OPTIONAL MATCH (obj:SifObject)-[:HAS_FIELD]->(node)
@@ -174,14 +148,14 @@ const hybridSearch = async (session, query, config) => {
 	}
 
 	// Vector search across CEDS
-	if (config.voyageApiKey) {
+	if (config.embedder) {
 		try {
-			const queryEmbedding = await embedQuery(query, config.voyageApiKey);
+			const queryEmbedding = await embedQuery(query, config.embedder);
 
 			// CEDS vector search
 			try {
 				const cedsVecResult = await session.run(`
-					CALL db.index.vector.queryNodes('ceds14_vector', $limit, $embedding)
+					CALL db.index.vector.queryNodes('ceds_vector', $limit, $embedding)
 					YIELD node, score
 					WHERE NOT node:CedsOntology
 					RETURN node.cedsId AS id, labels(node) AS labels, node.label AS name,
@@ -211,7 +185,7 @@ const hybridSearch = async (session, query, config) => {
 			// SIF vector search
 			try {
 				const sifVecResult = await session.run(`
-					CALL db.index.vector.queryNodes('sif_field_vector', $limit, $embedding)
+					CALL db.index.vector.queryNodes('sif_vector', $limit, $embedding)
 					YIELD node, score
 					MATCH (obj:SifObject)-[:HAS_FIELD]->(node)
 					RETURN node.xpath AS id, labels(node) AS labels, node.name AS name,
@@ -444,7 +418,7 @@ const rawCypher = async (session, query) => {
 // =====================================================================
 
 const graphRetriever = async (session, query, config, params) => {
-	const { retrieve } = require('/Users/tqwhite/tq_usr_bin/qbookSuperTool/system/code/cli/lib.d/ask-milo-multitool/lib/vectorCypherRetriever');
+	const { retrieve } = require('./lib/vectorCypherRetriever');
 
 	const limit = params.limit ? parseInt(params.limit) : 10;
 	const traversalMode = params.traversalMode || 'static';
@@ -456,7 +430,7 @@ const graphRetriever = async (session, query, config, params) => {
 	return retrieve({
 		neo4jSession: session,
 		queryText: query,
-		voyageApiKey: config.voyageApiKey,
+		embedder: config.embedder,
 		traversalFilePath,
 		schemaFilePath,
 		limit,
@@ -473,6 +447,17 @@ const search = async (queryType, params, callback) => {
 	let config;
 	try {
 		config = loadConfig();
+		// Create provider-agnostic embedder from config
+		if (config.voyageApiKey) {
+			const { embeddingClient } = require('qtools-graph-forge-core');
+			config.embedder = embeddingClient.create({
+				provider: 'voyage',
+				model: 'voyage-4',
+				dimension: 1024,
+				apiKey: config.voyageApiKey,
+				batchSize: 20
+			});
+		}
 	} catch (err) {
 		if (callback) return callback(`Config error: ${err.message}`);
 		throw err;

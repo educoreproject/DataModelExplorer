@@ -313,7 +313,7 @@
 		{
 			"definition": {
 				"name": "sif_graph_search",
-				"description": "Hybrid BM25 + vector search across SIF data. SIF Implementation Specification graph — 159 objects, 15620 fields, 897 complex types. Returns ranked results by relevance.",
+				"description": "Hybrid BM25 + vector search across SIF data. SIF Implementation Specification — objects, fields, complex types, codesets, XML elements. Returns ranked results by relevance.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -379,7 +379,7 @@
 		{
 			"definition": {
 				"name": "sif_graph_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. SIF labels: :SifCodeset, :SifComplexType, :SifField, :SifObject, :SifPrimitiveType, :SifRoot, :SifSimpleType, :SifXmlElement (all :ForgedNode). Edge types: ALIGNS_WITH, CHILD_ELEMENT, CONSTRAINED_BY, CONTAINS, HAS_FIELD, HAS_ROOT_ELEMENT, HAS_TYPE, MAPS_TO, MEMBER_OF, REALIZED_BY, REFERENCES, STRUCTURALLY_MAPS_TO, TYPED_AS, USES_COMPLEX_TYPE.",
+				"description": "Execute raw Cypher against the unified graph. SIF labels: :SifCodeset, :SifComplexType, :SifField, :SifObject, :SifPrimitiveType, :SifRoot, :SifSimpleType, :SifXmlElement (all :ForgedNode). Edge types: ALIGNS_WITH, CHILD_ELEMENT, CONSTRAINED_BY, CONTAINS, HAS_FIELD, HAS_ROOT_ELEMENT, HAS_TYPE, IMPLIED_MAPPING, MAPS_TO, MEMBER_OF, REALIZED_BY, REFERENCES, STRUCTURALLY_MAPS_TO, TYPED_AS, USES_COMPLEX_TYPE.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -418,6 +418,234 @@
 			},
 			"cli": {
 				"command": "node sif_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "jedx_graph_search",
+				"description": "Hybrid BM25 + vector search across JEDx data. JEDx education data — parsed from CSV specification. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for JEDx data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node jedx_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "jedx_graph_explore",
+				"description": "Describe a JEDx node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in JEDx"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node jedx_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "jedx_graph_stats",
+				"description": "Show JEDx graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node jedx_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "jedx_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. JEDx labels: :JedxCodeSet, :JedxEntity, :JedxField, :JedxModel, :JedxRoot (all :ForgedNode). Edge types: CONSTRAINED_BY, HAS_ENTITY, HAS_FIELD, IMPLIED_MAPPING, REFERENCES.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node jedx_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "jedx_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node jedx_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "edfi_graph_search",
+				"description": "Hybrid BM25 + vector search across EdFi data. Ed-Fi Data Standard — entities, fields, descriptors, and descriptor values parsed from CEDS crosswalk CSVs. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for EdFi data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edfi_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edfi_graph_explore",
+				"description": "Describe a EdFi node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in EdFi"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edfi_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edfi_graph_stats",
+				"description": "Show EdFi graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node edfi_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "edfi_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. EdFi labels: :EdfiDescriptor, :EdfiDescriptorValue, :EdfiEntity, :EdfiField, :EdfiModel, :EdfiRoot (all :ForgedNode). Edge types: ALIGNS_WITH, CONSTRAINED_BY, HAS_ENTITY, HAS_FIELD, HAS_VALUE, MAPS_TO, STRUCTURALLY_MAPS_TO.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node edfi_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "edfi_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node edfi_graphSearch.js -history",
 				"positionalArgs": [],
 				"flagArgs": {
 					"limit": "--limit"
@@ -493,7 +721,7 @@
 		{
 			"definition": {
 				"name": "edmatrix_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. EdMatrix labels: :DataCategory, :EdStandard, :Organization, :SerializationFormat, :SpecLayer, :UseCaseCategory (all :ForgedNode). Edge types: AT_LAYER, HAS_TYPE, IN_USE_CASE, IS_DESCRIBED_BY, MAPS_CATEGORY_TO, PUBLISHED_BY, USES_FORMAT.",
+				"description": "Execute raw Cypher against the unified graph. EdMatrix labels: :DataCategory, :EdStandard, :Organization, :SerializationFormat, :SpecLayer, :UseCaseCategory (all :ForgedNode). Edge types: AT_LAYER, HAS_TYPE, IMPLIED_MAPPING, IN_USE_CASE, IS_DESCRIBED_BY, MAPS_CATEGORY_TO, PUBLISHED_BY, USES_FORMAT.",
 				"input_schema": {
 					"type": "object",
 					"properties": {

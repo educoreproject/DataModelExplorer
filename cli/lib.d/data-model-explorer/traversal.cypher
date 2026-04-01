@@ -1,21 +1,21 @@
 // traversal.cypher — DataModelExplorer
-// Vector-indexed: CedsProperty (?), SifField (sif_field_vector)
-// BM25: dme_ceds_fulltext, dme_sif_fulltext
+// Vector-indexed: CedsProperty (?), SifField (sif_vector)
+// BM25: ceds_fulltext, sif_fulltext
 // Generated: 2026-03-24
 // Parameters: $embedding (list<float>), $limit (int), $query (string)
 
 // === Search preamble: hybrid across all indexes ===
 CALL {
-  CALL db.index.vector.queryNodes('ceds14_vector', $limit, $embedding) YIELD node, score
+  CALL db.index.vector.queryNodes('ceds_vector', $limit, $embedding) YIELD node, score
   RETURN node, score AS vecScore, 0.0 AS ftScore
   UNION ALL
-  CALL db.index.vector.queryNodes('sif_field_vector', $limit, $embedding) YIELD node, score
+  CALL db.index.vector.queryNodes('sif_vector', $limit, $embedding) YIELD node, score
   RETURN node, score AS vecScore, 0.0 AS ftScore
   UNION ALL
-  CALL db.index.fulltext.queryNodes('dme_ceds_fulltext', $query) YIELD node, score
+  CALL db.index.fulltext.queryNodes('ceds_fulltext', $query) YIELD node, score
   RETURN node, 0.0 AS vecScore, score AS ftScore
   UNION ALL
-  CALL db.index.fulltext.queryNodes('dme_sif_fulltext', $query) YIELD node, score
+  CALL db.index.fulltext.queryNodes('sif_fulltext', $query) YIELD node, score
   RETURN node, 0.0 AS vecScore, score AS ftScore
 }
 

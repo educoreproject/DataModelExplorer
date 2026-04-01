@@ -11,7 +11,7 @@ const configFileProcessor = require('qtools-config-file-processor');
 const commandLineParser = require('qtools-parse-command-line');
 const commandLineParameters = commandLineParser.getParameters();
 
-const graphSearchTool = require(path.join('/Users/tqwhite/Documents/webdev/graphForge/system/code/cli/lib.d/graph-forge-core/lib', 'graphSearchTool'));
+const { graphSearchTool } = require('qtools-graph-forge-core');
 
 const GRAPH_NAME = 'EdMatrix';
 
@@ -23,25 +23,26 @@ const findProjectRoot = ({ rootFolderName = 'system', closest = true } = {}) =>
 const projectRoot = findProjectRoot({ closest: false });
 const configDirPath = projectRoot + '/configs/' + configName + '/';
 
-let boltUri, neo4jPassword, voyageApiKey;
+let boltUri, neo4jPassword;
 try {
 	const dmeConfig = configFileProcessor.getConfig('dataModelExplorerSearch.ini', configDirPath, { resolve: true });
 	const section = dmeConfig.dataModelExplorerSearch || dmeConfig;
 	boltUri = section.neo4jBoltUri || 'bolt://localhost:7706';
 	neo4jPassword = section.neo4jPassword || '';
-	voyageApiKey = section.voyageApiKey || '';
 } catch (err) {
-	// Fallback to graphForge config
-	try {
-		const gfConfig = configFileProcessor.getConfig('graphForge.ini', '/Users/tqwhite/Documents/webdev/graphForge/configs/instanceSpecific/qbook/', { resolve: true });
-		boltUri = 'bolt://localhost:7706';
-		neo4jPassword = '99d0615d205eead0ea65b3f642ffb3d5';
-		voyageApiKey = (gfConfig.graphForge || {}).voyageApiKey || '';
-	} catch (e) {
-		console.error('Cannot find config. Set connection via --boltUri and --password.');
-		process.exit(1);
-	}
+	console.error('Cannot find dataModelExplorerSearch.ini. Set connection via --boltUri and --password.');
+	process.exit(1);
 }
+
+// Create embedder — config baked in at generation time
+const { embeddingClient } = require('qtools-graph-forge-core');
+const embedder = embeddingClient.create({
+	provider: 'voyage',
+	model: 'voyage-4',
+	dimension: 1024,
+	apiKey: 'pa-3W7FFeGKVZ4xEN9Lh2ceXMATTpbLbK-b2nwg6TbqF3o',
+	batchSize: 20
+});
 
 const switches = commandLineParameters.switches || {};
 const values = commandLineParameters.values || {};
@@ -53,7 +54,7 @@ neo4jPassword = getVal('password') || neo4jPassword;
 
 if (switches.search || getVal('query')) {
 	graphSearchTool.search({
-		boltUri, password: neo4jPassword, voyageApiKey,
+		boltUri, password: neo4jPassword, embedder,
 		query: getVal('query') || fileList[0],
 		graphName: GRAPH_NAME, limit: parseInt(getVal('limit') || '10', 10)
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });

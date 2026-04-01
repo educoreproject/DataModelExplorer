@@ -5,6 +5,7 @@
 	"main": "dataModelExplorerSearch.js",
 	"dependencies": {
 		"neo4j-driver": "^5.27.0",
-		"qtools-config-file-processor": "*"
+		"qtools-config-file-processor": "*",
+		"qtools-graph-forge-core": "^1.4.6"
 	}
 }

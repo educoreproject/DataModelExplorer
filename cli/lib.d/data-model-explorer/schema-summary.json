@@ -3,7 +3,7 @@
   "container": "rag_DataModelExplorer",
   "vectorIndexes": [
     {
-      "name": "ceds14_vector",
+      "name": "ceds_vector",
       "nodeLabel": "CEDS",
       "primaryNodeLabel": "CedsOptionValue",
       "embeddedTypes": [
@@ -28,7 +28,7 @@
       "similarity": "COSINE"
     },
     {
-      "name": "sif_field_vector",
+      "name": "sif_vector",
       "nodeLabel": "SifField",
       "primaryNodeLabel": "SifField",
       "embeddedTypes": [
@@ -43,7 +43,7 @@
   ],
   "fulltextIndexes": [
     {
-      "name": "dme_ceds_fulltext",
+      "name": "ceds_fulltext",
       "nodeLabels": [
         "CedsClass",
         "CedsProperty",
@@ -52,7 +52,7 @@
       ]
     },
     {
-      "name": "dme_sif_fulltext",
+      "name": "sif_fulltext",
       "nodeLabels": [
         "SifObject",
         "SifField",
