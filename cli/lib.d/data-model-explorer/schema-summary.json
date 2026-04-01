@@ -1,41 +1,70 @@
 {
-  "generatedAt": "2026-03-24T16:40:22.138Z",
+  "generatedAt": "2026-04-01T17:26:00.000Z",
   "container": "rag_DataModelExplorer",
   "vectorIndexes": [
     {
       "name": "ceds_vector",
       "nodeLabel": "CEDS",
-      "primaryNodeLabel": "CedsOptionValue",
       "embeddedTypes": [
-        {
-          "label": "CedsOptionValue",
-          "count": 19546
-        },
-        {
-          "label": "CedsProperty",
-          "count": 2324
-        },
-        {
-          "label": "CedsOptionSet",
-          "count": 965
-        },
-        {
-          "label": "CedsClass",
-          "count": 402
-        }
+        { "label": "CedsProperty", "count": 2324 },
+        { "label": "CedsOptionSet", "count": 965 },
+        { "label": "CedsClass", "count": 402 },
+        { "label": "CedsOntology", "count": 1 }
       ],
       "dimensions": 1024,
       "similarity": "COSINE"
     },
     {
       "name": "sif_vector",
-      "nodeLabel": "SifField",
-      "primaryNodeLabel": "SifField",
+      "nodeLabel": "SifModel",
       "embeddedTypes": [
-        {
-          "label": "SifField",
-          "count": 0
-        }
+        { "label": "SifField", "count": 15620 },
+        { "label": "SifXmlElement", "count": 5872 },
+        { "label": "SifComplexType", "count": 897 },
+        { "label": "SifSimpleType", "count": 301 },
+        { "label": "SifObject", "count": 159 },
+        { "label": "SifCodeset", "count": 140 },
+        { "label": "SifPrimitiveType", "count": 15 },
+        { "label": "SifRoot", "count": 1 }
+      ],
+      "dimensions": 1024,
+      "similarity": "COSINE"
+    },
+    {
+      "name": "edfi_vector",
+      "nodeLabel": "EdfiModel",
+      "embeddedTypes": [
+        { "label": "EdfiDescriptorValue", "count": 8310 },
+        { "label": "EdfiField", "count": 1450 },
+        { "label": "EdfiEntity", "count": 201 },
+        { "label": "EdfiDescriptor", "count": 166 },
+        { "label": "EdfiRoot", "count": 1 }
+      ],
+      "dimensions": 1024,
+      "similarity": "COSINE"
+    },
+    {
+      "name": "jedx_vector",
+      "nodeLabel": "JedxModel",
+      "embeddedTypes": [
+        { "label": "JedxField", "count": 139 },
+        { "label": "JedxCodeSet", "count": 11 },
+        { "label": "JedxEntity", "count": 5 },
+        { "label": "JedxRoot", "count": 1 }
+      ],
+      "dimensions": 1024,
+      "similarity": "COSINE"
+    },
+    {
+      "name": "edmatrix_vector",
+      "nodeLabel": "EdMatrix",
+      "embeddedTypes": [
+        { "label": "EdStandard", "count": 35 },
+        { "label": "SerializationFormat", "count": 17 },
+        { "label": "Organization", "count": 16 },
+        { "label": "DataCategory", "count": 9 },
+        { "label": "SpecLayer", "count": 4 },
+        { "label": "UseCaseCategory", "count": 2 }
       ],
       "dimensions": 1024,
       "similarity": "COSINE"
@@ -44,371 +73,54 @@
   "fulltextIndexes": [
     {
       "name": "ceds_fulltext",
-      "nodeLabels": [
-        "CedsClass",
-        "CedsProperty",
-        "CedsOptionSet",
-        "CedsOptionValue"
-      ]
+      "nodeLabels": [ "CEDS" ],
+      "properties": [ "name", "description", "notation", "searchText" ]
     },
     {
       "name": "sif_fulltext",
-      "nodeLabels": [
-        "SifObject",
-        "SifField",
-        "SifComplexType"
-      ]
-    }
-  ],
-  "nodeTypes": [
-    {
-      "label": "CEDS",
-      "count": 23238,
-      "properties": [
-        "name",
-        "version",
-        "importDate",
-        "sourceUri",
-        "classCount",
-        "propertyCount",
-        "optionSetCount",
-        "optionValueCount",
-        "cedsId",
-        "uri",
-        "label",
-        "description",
-        "notation",
-        "embedding",
-        "dataType",
-        "textFormat",
-        "maxLength"
-      ]
+      "nodeLabels": [ "SifModel" ],
+      "properties": [ "name", "description", "searchText" ]
     },
     {
-      "label": "SifModel",
-      "count": 23004,
-      "properties": [
-        "name",
-        "category",
-        "valueCount",
-        "fingerprint",
-        "values",
-        "objectCount",
-        "fieldCount",
-        "tableName",
-        "mandatoryFieldCount",
-        "cedsId",
-        "description",
-        "characteristics",
-        "embedding",
-        "pathSegments",
-        "depth",
-        "isAttribute",
-        "mandatory",
-        "xpath",
-        "isLeaf",
-        "isShared",
-        "path"
-      ]
+      "name": "edfi_fulltext",
+      "nodeLabels": [ "EdfiModel" ],
+      "properties": [ "name", "description" ]
     },
     {
-      "label": "CedsOptionValue",
-      "count": 19546,
-      "properties": [
-        "cedsId",
-        "uri",
-        "label",
-        "description",
-        "notation",
-        "embedding"
-      ]
+      "name": "jedx_fulltext",
+      "nodeLabels": [ "JedxModel" ],
+      "properties": [ "name", "description", "searchText" ]
     },
     {
-      "label": "SifField",
-      "count": 15620,
-      "properties": [
-        "cedsId",
-        "name",
-        "description",
-        "characteristics",
-        "embedding",
-        "pathSegments",
-        "depth",
-        "isAttribute",
-        "mandatory",
-        "xpath"
-      ]
-    },
-    {
-      "label": "SifXmlElement",
-      "count": 5872,
-      "properties": [
-        "name",
-        "isLeaf",
-        "isShared",
-        "path",
-        "depth"
-      ]
-    },
-    {
-      "label": "CedsProperty",
-      "count": 2324,
-      "properties": [
-        "cedsId",
-        "uri",
-        "label",
-        "description",
-        "notation",
-        "dataType",
-        "textFormat",
-        "maxLength",
-        "embedding"
-      ]
-    },
-    {
-      "label": "CedsOptionSet",
-      "count": 965,
-      "properties": [
-        "cedsId",
-        "uri",
-        "label",
-        "description",
-        "notation",
-        "embedding"
-      ]
-    },
-    {
-      "label": "SifComplexType",
-      "count": 897,
-      "properties": [
-        "name",
-        "objectCount",
-        "fieldCount"
-      ]
-    },
-    {
-      "label": "CedsClass",
-      "count": 402,
-      "properties": [
-        "cedsId",
-        "uri",
-        "label",
-        "description",
-        "notation",
-        "embedding"
-      ]
-    },
-    {
-      "label": "SifSimpleType",
-      "count": 301,
-      "properties": [
-        "name",
-        "category"
-      ]
-    },
-    {
-      "label": "SifObject",
-      "count": 159,
-      "properties": [
-        "name",
-        "tableName",
-        "mandatoryFieldCount",
-        "fieldCount"
-      ]
-    },
-    {
-      "label": "SifCodeset",
-      "count": 140,
-      "properties": [
-        "valueCount",
-        "fingerprint",
-        "values"
-      ]
-    },
-    {
-      "label": "SifPrimitiveType",
-      "count": 15,
-      "properties": [
-        "name",
-        "category"
-      ]
-    },
-    {
-      "label": "CedsOntology",
-      "count": 1,
-      "properties": [
-        "name",
-        "version",
-        "importDate",
-        "sourceUri",
-        "classCount",
-        "propertyCount",
-        "optionSetCount",
-        "optionValueCount"
-      ]
+      "name": "edmatrix_fulltext",
+      "nodeLabels": [ "EdMatrix" ],
+      "properties": [ "name", "description", "searchText" ]
     }
   ],
   "relationships": [
-    {
-      "type": "MAPS_TO",
-      "from": "SifField",
-      "to": "CedsProperty",
-      "count": 35969,
-      "avgCardinality": 2.4
-    },
-    {
-      "type": "HAS_VALUE",
-      "from": "CedsOptionSet",
-      "to": "CedsOptionValue",
-      "count": 19546,
-      "avgCardinality": 20.3
-    },
-    {
-      "type": "PART_OF",
-      "from": "CedsOptionValue",
-      "to": "CedsOntology",
-      "count": 19546,
-      "avgCardinality": 1
-    },
-    {
-      "type": "HAS_FIELD",
-      "from": "SifObject",
-      "to": "SifField",
-      "count": 15620,
-      "avgCardinality": 98.2
-    },
-    {
-      "type": "MEMBER_OF",
-      "from": "SifField",
-      "to": "SifComplexType",
-      "count": 14431,
-      "avgCardinality": 1
-    },
-    {
-      "type": "HAS_TYPE",
-      "from": "SifField",
-      "to": "SifPrimitiveType",
-      "count": 13518,
-      "avgCardinality": 1
-    },
-    {
-      "type": "REALIZED_BY",
-      "from": "SifXmlElement",
-      "to": "SifField",
-      "count": 12936,
-      "avgCardinality": 3.3
-    },
-    {
-      "type": "USES_COMPLEX_TYPE",
-      "from": "SifObject",
-      "to": "SifComplexType",
-      "count": 6954,
-      "avgCardinality": 43.7
-    },
-    {
-      "type": "CHILD_ELEMENT",
-      "from": "SifXmlElement",
-      "to": "SifXmlElement",
-      "count": 4977,
-      "avgCardinality": 2.5
-    },
-    {
-      "type": "HAS_PROPERTY",
-      "from": "CedsClass",
-      "to": "CedsProperty",
-      "count": 2750,
-      "avgCardinality": 7.3
-    },
-    {
-      "type": "PART_OF",
-      "from": "CedsProperty",
-      "to": "CedsOntology",
-      "count": 2324,
-      "avgCardinality": 1
-    },
-    {
-      "type": "HAS_TYPE",
-      "from": "SifField",
-      "to": "SifSimpleType",
-      "count": 2102,
-      "avgCardinality": 1
-    },
-    {
-      "type": "TYPED_AS",
-      "from": "SifXmlElement",
-      "to": "SifComplexType",
-      "count": 2006,
-      "avgCardinality": 1
-    },
-    {
-      "type": "HAS_ROOT_ELEMENT",
-      "from": "SifObject",
-      "to": "SifXmlElement",
-      "count": 1888,
-      "avgCardinality": 11.9
-    },
-    {
-      "type": "CONSTRAINED_BY",
-      "from": "SifField",
-      "to": "SifCodeset",
-      "count": 1745,
-      "avgCardinality": 1
-    },
-    {
-      "type": "HAS_OPTION_SET",
-      "from": "CedsProperty",
-      "to": "CedsOptionSet",
-      "count": 994,
-      "avgCardinality": 1
-    },
-    {
-      "type": "PART_OF",
-      "from": "CedsOptionSet",
-      "to": "CedsOntology",
-      "count": 965,
-      "avgCardinality": 1
-    },
-    {
-      "type": "CONTAINS",
-      "from": "SifComplexType",
-      "to": "SifComplexType",
-      "count": 854,
-      "avgCardinality": 1.9
-    },
-    {
-      "type": "STRUCTURALLY_MAPS_TO",
-      "from": "SifComplexType",
-      "to": "CedsClass",
-      "count": 482,
-      "avgCardinality": 1
-    },
-    {
-      "type": "REFERENCES",
-      "from": "SifObject",
-      "to": "SifObject",
-      "count": 427,
-      "avgCardinality": 2.7
-    },
-    {
-      "type": "PART_OF",
-      "from": "CedsClass",
-      "to": "CedsOntology",
-      "count": 402,
-      "avgCardinality": 1
-    },
-    {
-      "type": "SUBCLASS_OF",
-      "from": "CedsClass",
-      "to": "CedsClass",
-      "count": 398,
-      "avgCardinality": 1
-    },
-    {
-      "type": "ALIGNS_WITH",
-      "from": "SifCodeset",
-      "to": "CedsOptionSet",
-      "count": 135,
-      "avgCardinality": 1.3
-    }
+    { "type": "IMPLIED_MAPPING", "from": "SIF", "to": "CEDS", "count": 219726 },
+    { "type": "HAS_VALUE", "from": "EdFi", "to": "EdFi", "count": 48434 },
+    { "type": "HAS_VALUE", "from": "CEDS", "to": "CEDS", "count": 19546 },
+    { "type": "HAS_FIELD", "from": "SIF", "to": "SIF", "count": 15620 },
+    { "type": "HAS_TYPE", "from": "SIF", "to": "SIF", "count": 15620 },
+    { "type": "MEMBER_OF", "from": "SIF", "to": "SIF", "count": 14431 },
+    { "type": "REALIZED_BY", "from": "SIF", "to": "SIF", "count": 12936 },
+    { "type": "USES_COMPLEX_TYPE", "from": "SIF", "to": "SIF", "count": 6954 },
+    { "type": "CHILD_ELEMENT", "from": "SIF", "to": "SIF", "count": 4977 },
+    { "type": "HAS_PROPERTY", "from": "CEDS", "to": "CEDS", "count": 2750 },
+    { "type": "MAPS_TO", "from": "SIF", "to": "CEDS", "count": 2168 },
+    { "type": "MAPS_TO", "from": "EdFi", "to": "CEDS", "count": 2126 },
+    { "type": "TYPED_AS", "from": "SIF", "to": "SIF", "count": 2006 },
+    { "type": "HAS_ROOT_ELEMENT", "from": "SIF", "to": "SIF", "count": 1888 },
+    { "type": "IMPLIED_MAPPING", "from": "JEDx", "to": "CEDS", "count": 1886 },
+    { "type": "CONSTRAINED_BY", "from": "SIF", "to": "SIF", "count": 1745 },
+    { "type": "HAS_FIELD", "from": "EdFi", "to": "EdFi", "count": 1450 },
+    { "type": "HAS_OPTION_SET", "from": "CEDS", "to": "CEDS", "count": 994 },
+    { "type": "STRUCTURALLY_MAPS_TO", "from": "EdFi", "to": "CEDS", "count": 492 },
+    { "type": "SUBCLASS_OF", "from": "CEDS", "to": "CEDS", "count": 398 },
+    { "type": "IMPLIED_MAPPING", "from": "EdMatrix", "to": "CEDS", "count": 306 },
+    { "type": "CONSTRAINED_BY", "from": "EdFi", "to": "EdFi", "count": 257 },
+    { "type": "STRUCTURALLY_MAPS_TO", "from": "SIF", "to": "CEDS", "count": 202 },
+    { "type": "HAS_ENTITY", "from": "EdFi", "to": "EdFi", "count": 201 }
   ]
 }
