@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[DynamicModuleLoading]]
+// @concept: [[SecurityFirstPattern]]
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, ''); //this just seems to come in handy a lot
 
 const path = require('path');

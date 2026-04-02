@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[ActivityTracking]]
+// @concept: [[MapperPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 

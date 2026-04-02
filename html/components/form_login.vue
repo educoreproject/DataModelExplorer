@@ -1,4 +1,6 @@
 <script setup>
+	// @concept: [[JwtTokenManagement]]
+	// @concept: [[ReactiveFormValidation]]
 	import { useLoginStore } from '@/stores/loginStore';
 	const LoginStore = useLoginStore();
 	const { gitCommitHash } = useRuntimeConfig().public;

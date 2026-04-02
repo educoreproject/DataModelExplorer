@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[StandardsIntegration]]
+// @concept: [[SecurityFirstPattern]]
 
 /**
  * ENDPOINT: CEDS ONTOLOGY

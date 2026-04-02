@@ -1,4 +1,6 @@
 'use strict';
+// @concept: [[WebSocketGraphTool]]
+// @concept: [[DataModelExplorer]]
 
 const { WebSocketServer } = require('ws');
 const { spawn } = require('child_process');

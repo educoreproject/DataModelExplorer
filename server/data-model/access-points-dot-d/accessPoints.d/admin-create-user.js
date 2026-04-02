@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[UserCrudAdmin]]
+// @concept: [[PasswordHashing]]
+// @concept: [[AccessPointPattern]]
 
 /**
  * ACCESS POINT: ADMIN USER CREATION

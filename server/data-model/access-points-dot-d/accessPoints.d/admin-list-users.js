@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[UserCrudAdmin]]
+// @concept: [[AccessPointPattern]]
 
 /**
  * ACCESS POINT: ADMIN USER LIST

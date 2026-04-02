@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[DataModelExplorer]]
+// @concept: [[Neo4jAbstraction]]
+// @concept: [[AccessPointPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[DocumentLibrary]]
+// @concept: [[AccessPointPattern]]
 
 /**
  * ACCESS POINT: LIBRARY CATALOG

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[JwtTokenManagement]]
+// @concept: [[AccessPointPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, ''); //this just seems to come in handy a lot
 const qt = require('qtools-functional-library');

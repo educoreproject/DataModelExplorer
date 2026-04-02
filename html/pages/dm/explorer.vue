@@ -1,4 +1,6 @@
 <script setup>
+// @concept: [[DataModelExplorer]]
+// @concept: [[WebSocketGraphTool]]
 // explorer.vue — Data Model Explorer page
 //
 // Site-specific: auth guard, navigation, welcome text, AI filename generation.

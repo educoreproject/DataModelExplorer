@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[DocumentLibrary]]
+// @concept: [[SecurityFirstPattern]]
 
 /**
  * ENDPOINT: GET LIBRARY PAGE

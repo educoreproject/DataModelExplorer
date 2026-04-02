@@ -1,4 +1,5 @@
 <script setup>
+// @concept: [[DocumentLibrary]]
 import { useLoginStore } from '@/stores/loginStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { ref, onMounted } from 'vue';

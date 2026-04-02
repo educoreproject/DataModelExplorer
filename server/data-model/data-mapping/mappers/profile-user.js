@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[MapperPattern]]
+// @concept: [[PasswordHashing]]
+// @concept: [[UserCrudAdmin]]
 
 /**
  * MAPPER EXAMPLE: PROFILE USER DATA TRANSFORMATION

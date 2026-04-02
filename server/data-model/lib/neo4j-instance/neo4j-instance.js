@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[Neo4jAbstraction]]
+// @concept: [[DataModelExplorer]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 

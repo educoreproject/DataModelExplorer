@@ -1,4 +1,5 @@
 <script setup>
+// @concept: [[DataModelExplorer]]
 // dm/lookup.vue — Lookup Browser page under Data Models
 
 import { useLoginStore } from '@/stores/loginStore';

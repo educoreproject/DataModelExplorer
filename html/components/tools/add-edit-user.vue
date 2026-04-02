@@ -1,4 +1,6 @@
 <script setup>
+// @concept: [[UserCrudAdmin]]
+// @concept: [[ReactiveFormValidation]]
 import { ref, computed, watch } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
 import { useLoginStore } from '@/stores/loginStore';

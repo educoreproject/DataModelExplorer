@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[JwtTokenManagement]]
+// @concept: [[PermissionValidation]]
+// @concept: [[SecurityFirstPattern]]
 
 /**
  * ENDPOINT EXAMPLE: USER LOGIN HTTP ENDPOINT

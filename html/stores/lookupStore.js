@@ -1,3 +1,6 @@
+// @concept: [[DataModelExplorer]]
+// @concept: [[PiniaStorePattern]]
+// @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 

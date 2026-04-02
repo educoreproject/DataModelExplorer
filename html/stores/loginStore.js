@@ -1,3 +1,6 @@
+// @concept: [[JwtTokenManagement]]
+// @concept: [[PiniaStorePattern]]
+// @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
 
 // -------------------------------------------------------------------------

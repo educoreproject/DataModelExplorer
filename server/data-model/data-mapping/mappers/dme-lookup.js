@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[DataModelExplorer]]
+// @concept: [[CypherQueryDispatch]]
+// @concept: [[MapperPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 

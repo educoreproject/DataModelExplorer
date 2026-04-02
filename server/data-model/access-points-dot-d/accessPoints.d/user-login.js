@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[JwtTokenManagement]]
+// @concept: [[PasswordHashing]]
+// @concept: [[AccessPointPattern]]
+// @concept: [[MapperPattern]]
 
 /**
  * ACCESS POINT EXAMPLE: USER LOGIN DATA ACCESS

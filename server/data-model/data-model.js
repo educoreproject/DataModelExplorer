@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[PipelinePattern]]
+// @concept: [[DependencyInjection]]
+// @concept: [[SqliteAbstraction]]
+// @concept: [[Neo4jAbstraction]]
 
 /**
  * DATA LAYER INITIALIZATION PIPELINE

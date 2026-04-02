@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[PipelinePattern]]
+// @concept: [[DependencyInjection]]
+// @concept: [[DynamicModuleLoading]]
 
 /**
  * SYSTEM ORCHESTRATION PIPELINE

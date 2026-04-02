@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[SqliteAbstraction]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, ''); // this just seems to come in handy a lot
 // const projectRoot=fs.realpathSync(path.join(__dirname, '..', '..')); // adjust the number of '..' to fit reality

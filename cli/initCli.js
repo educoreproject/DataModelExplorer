@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[CliModuleScaffolding]]
+// @concept: [[DynamicModuleLoading]]
 
 // Suppress punycode deprecation warning
 // process.noDeprecation = true;

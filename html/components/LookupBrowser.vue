@@ -1,4 +1,5 @@
 <script setup>
+// @concept: [[DataModelExplorer]]
 // LookupBrowser.vue — Tree browser component for Data Model Explorer
 //
 // Displays breadcrumbs, item list, and detail view.

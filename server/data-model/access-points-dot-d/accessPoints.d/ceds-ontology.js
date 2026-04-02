@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// @concept: [[StandardsIntegration]]
+// @concept: [[AccessPointPattern]]
 
 /**
  * ACCESS POINT: CEDS ONTOLOGY

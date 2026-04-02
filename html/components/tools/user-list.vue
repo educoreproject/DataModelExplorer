@@ -1,4 +1,5 @@
 <script setup>
+// @concept: [[UserCrudAdmin]]
 import { ref, computed, onMounted } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
 
