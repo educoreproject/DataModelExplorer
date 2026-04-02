@@ -82,7 +82,17 @@ const fallbackPromptOptions = [
 			>
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
-					<p>This tool provides a unified graph of education data standards &mdash; currently <strong>CEDS</strong> and <strong>SIF</strong> &mdash; with cross-standard search, mapping, and comparison. Enter your query in the prompt below to get started.</p>
+					<p>The Data Model Explorer provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/2/26):</p>
+					<ul style="margin: 0.8em 0 0.8em 1.5em;">
+						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
+						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
+						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
+						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
+						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
+						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
+						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
+					</ul>
+					<p>For the most current list, ask: <em>&ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</em></p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
 					<p>The bridge builder creates edges that only exist because both standards are in the same graph. It runs in four phases:</p>

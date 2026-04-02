@@ -765,6 +765,234 @@
 					"limit": "--limit"
 				}
 			}
+		},
+		{
+			"definition": {
+				"name": "sedm_graph_search",
+				"description": "Hybrid BM25 + vector search across SEDM data. IDEA compliance domain model — compliance categories, indicators, event milestones, IEP components, and CEDS element annotations. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for SEDM data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node sedm_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sedm_graph_explore",
+				"description": "Describe a SEDM node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in SEDM"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node sedm_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sedm_graph_stats",
+				"description": "Show SEDM graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node sedm_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sedm_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. SEDM labels: :SedmComplianceCategory, :SedmElement, :SedmEtlTemplate, :SedmEventMilestone, :SedmIepComponent, :SedmIndicator, :SedmModel, :SedmOntologyClass, :SedmOptionSet, :SedmOptionValue, :SedmRoot, :SedmUseCase (all :ForgedNode). Edge types: HAS_CATEGORY, HAS_ETL_TEMPLATE, HAS_IEP_COMPONENT, HAS_MILESTONE, HAS_ONTOLOGY_CLASS, HAS_SUBCOMPONENT, HAS_SUBTYPE, HAS_USE_CASE, HAS_VALUE, IN_ETL, REQUIRES_ELEMENT, TRACKED_BY.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node sedm_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sedm_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node sedm_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "ctdl_graph_search",
+				"description": "Hybrid BM25 + vector search across CTDL data. Credential Engine CTDL schema — classes, properties, concept schemes, and concepts for credentials, organizations, assessments, and learning opportunities. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for CTDL data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node ctdl_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ctdl_graph_explore",
+				"description": "Describe a CTDL node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in CTDL"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node ctdl_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ctdl_graph_stats",
+				"description": "Show CTDL graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node ctdl_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "ctdl_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. CTDL labels: :CtdlClass, :CtdlConcept, :CtdlConceptScheme, :CtdlModel, :CtdlProperty, :CtdlRoot (all :ForgedNode). Edge types: BROADER_THAN, CONSTRAINED_BY, HAS_CLASS, HAS_CONCEPT_SCHEME, HAS_PROPERTY, HAS_VALUE, PART_OF, SUBCLASS_OF.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node ctdl_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "ctdl_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node ctdl_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
 		}
 	]
 }
