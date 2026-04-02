@@ -66,6 +66,11 @@
 		return router.currentRoute.value.path.startsWith('/dm');
 	});
 
+	// Check if we're on any profile page
+	const isProfilePage = computed(() => {
+		return router.currentRoute.value.path.startsWith('/profile');
+	});
+
 
 	const reloadPage = () => {
 		window.location.href = window.location.href.replace(
@@ -90,6 +95,7 @@
 			<template v-else-if="isDataModelsPage">Data Models</template>
 			<template v-else-if="isUseCasesPage">Use Cases</template>
 			<template v-else-if="isLibraryPage">Library</template>
+			<template v-else-if="isProfilePage">Profile</template>
 			<template v-else-if="isWorkPage">Work</template>
 			<template v-else-if="LoginStore.validUser">EDUcore Tools</template>
 			<template v-else>Welcome to EDUcore</template>
@@ -174,7 +180,8 @@
 				variant="text"
 				prepend-icon="mdi-account"
 				title="Profile"
-				:to="{ path: '/utility', query: { purpose: 'profile' } }"
+				:to="{ path: '/profile/edit' }"
+				:disabled="isProfilePage"
 			>
 				<span v-if="LoginStore.loggedInUser.last">
 					{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
