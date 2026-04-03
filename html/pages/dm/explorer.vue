@@ -84,11 +84,15 @@ const fallbackPromptOptions = [
 			>
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
-					<p>The Data Model Explorer provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/2/26):</p>
+					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
+						NEW: Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
+					</p>
+					<p>The Data Model Explorer provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/3/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
 						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
 						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
 						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
+						<li><strong>PESC</strong> &mdash; Postsecondary Electronic Standards Council (XML Schema)</li>
 						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
 						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
 						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
@@ -97,19 +101,19 @@ const fallbackPromptOptions = [
 					<p>For the most current list, ask: <em>&ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</em></p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
-					<p>The bridge builder creates edges that only exist because both standards are in the same graph. It runs in four phases:</p>
+					<p>All standards in the graph are connected to CEDS &mdash; the common semantic backbone &mdash; through a multi-phase bridge-building process. The bridge builder creates cross-standard edges using a combination of authoritative annotations, semantic inference, and structural analysis:</p>
 
 					<h4 style="margin-top: 1em;">Phase 1 &mdash; Spec-Annotation MAPS_TO <span style="color: #888;">(confidence=1.0)</span></h4>
-					<p>The SIF specification already annotates 2,231 fields with CEDS Global IDs. The builder takes each SIF field's cedsId (e.g., 000040), prepends P to get the CEDS Element ID (P000040), and creates a MAPS_TO edge to the matching CedsProperty node. These are authoritative &mdash; the SIF spec committee decided this mapping. 2,168 resolve; 63 reference CEDS IDs absent from the v14 RDF.</p>
+					<p>Some standards include explicit CEDS references in their specifications &mdash; field-level annotations that identify the corresponding CEDS element by Global ID. These are authoritative mappings decided by each standard's governance body. When present, the builder creates high-confidence MAPS_TO edges directly to the matching CEDS property.</p>
 
 					<h4 style="margin-top: 1em;">Phase 2 &mdash; Embedding-Inferred MAPS_TO <span style="color: #888;">(confidence=cosine score)</span></h4>
-					<p>For every SIF field that doesn't already have a spec-annotation link, the builder takes its vector embedding and runs a nearest-neighbor search against the CEDS vector index. If the top CEDS property scores above 0.6 cosine similarity, it creates a MAPS_TO edge with the similarity as the confidence score. Up to 3 candidates per field. This is how the 13,452 unannotated fields get provisional mappings.</p>
+					<p>For fields without explicit annotations, the builder uses vector embeddings to find semantically similar CEDS properties. Each field's description is compared against the CEDS vector index using cosine similarity. Matches above 0.6 create provisional MAPS_TO edges, with up to 3 candidates per field. This is how standards without built-in CEDS references still get connected to the common backbone.</p>
 
 					<h4 style="margin-top: 1em;">Phase 3 &mdash; ALIGNS_WITH <span style="color: #888;">(codeset comparison)</span></h4>
-					<p>For SIF fields that have both a spec-annotation MAPS_TO edge and a codeset (allowed values list), the builder checks whether the corresponding CEDS property also has an option set. When both sides have value lists, it compares them: exact match, subset, superset, partial overlap, or disjoint. The edge records alignment type and coverage percentage. This is how you answer &ldquo;does SIF's grade level codeset match CEDS's?&rdquo;</p>
+					<p>When a mapped field and its corresponding CEDS property both have value lists (codesets or enumerations), the builder compares them: exact match, subset, superset, partial overlap, or disjoint. The edge records alignment type and coverage percentage. This answers questions like &ldquo;does this standard's grade level codeset match CEDS's?&rdquo;</p>
 
 					<h4 style="margin-top: 1em;">Phase 4 &mdash; STRUCTURALLY_MAPS_TO <span style="color: #888;">(class-level inference)</span></h4>
-					<p>SIF has complex types (Address, Demographics, PhoneNumber) that are structural analogs to CEDS classes. The builder looks at all the field-level MAPS_TO edges and asks: &ldquo;If most fields inside SIF complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; Requires at least 2 mapped fields to create the edge. This enables class-level questions like &ldquo;what CEDS class corresponds to SIF's Address structure?&rdquo;</p>
+					<p>Standards often define complex types (Address, Demographics, Person) that are structural analogs to CEDS classes. The builder aggregates field-level MAPS_TO edges and asks: &ldquo;If most fields inside complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; This enables class-level questions like &ldquo;which CEDS class corresponds to this standard's Person structure?&rdquo;</p>
 				</template>
 			</GraphinatorPanel>
 		</v-main>
