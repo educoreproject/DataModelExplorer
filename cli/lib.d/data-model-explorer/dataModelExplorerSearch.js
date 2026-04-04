@@ -87,8 +87,9 @@ const toNumber = (val) => {
 // QUERY HANDLERS
 // =====================================================================
 
-const hybridSearch = async (session, query, config) => {
+const hybridSearch = async (session, query, config, params) => {
 	const limit = 20;
+	const standardFilter = (params && params.standard) ? params.standard : null;
 	const results = new Map();
 
 	// BM25 search across CEDS
@@ -218,15 +219,19 @@ const hybridSearch = async (session, query, config) => {
 	}
 
 	// Rank by combined score
-	const ranked = [...results.values()]
+	let ranked = [...results.values()]
 		.map(r => ({
 			...r,
 			combinedScore: (r.ftScore > 0 ? 0.5 : 0) + (r.vecScore > 0 ? r.vecScore * 0.5 : 0)
 		}))
-		.sort((a, b) => b.combinedScore - a.combinedScore)
-		.slice(0, limit);
+		.sort((a, b) => b.combinedScore - a.combinedScore);
 
-	return ranked;
+	// Apply standard filter if provided
+	if (standardFilter) {
+		ranked = ranked.filter(r => r.standard && r.standard.toUpperCase() === standardFilter.toUpperCase());
+	}
+
+	return ranked.slice(0, limit);
 };
 
 const findMappings = async (session, nameOrXpath) => {
@@ -393,6 +398,86 @@ const getStats = async (session) => {
 	return { ceds: cedsNodes, sif: sifNodes, bridges, coverage };
 };
 
+const exploreNode = async (session, params) => {
+	const name = params.name;
+	const standard = params.standard || null;
+
+	// Get outgoing relationships
+	const outgoingResult = await session.run(`
+		MATCH (n:ForgedNode)
+		WHERE n.name = $name
+		  AND ($standard IS NULL OR n._source = $standard)
+		WITH n
+		OPTIONAL MATCH (n)-[r]->(m:ForgedNode)
+		RETURN n {.*, _labels: labels(n)} AS node,
+		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
+	`, { name, standard });
+
+	// Get incoming relationships
+	const incomingResult = await session.run(`
+		MATCH (n:ForgedNode)
+		WHERE n.name = $name
+		  AND ($standard IS NULL OR n._source = $standard)
+		WITH n
+		OPTIONAL MATCH (m:ForgedNode)-[r]->(n)
+		RETURN n {.*, _labels: labels(n)} AS node,
+		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStandard: m._source, sourceLabels: labels(m)} ELSE NULL END) AS incoming
+	`, { name, standard });
+
+	const nodes = new Map();
+
+	const cleanNode = (node) => {
+		const cleaned = Object.assign({}, node);
+		delete cleaned.embedding;
+		return cleaned;
+	};
+
+	for (const rec of outgoingResult.records) {
+		const node = rec.get('node');
+		const key = JSON.stringify(node._labels) + ':' + node.name;
+		if (!nodes.has(key)) {
+			nodes.set(key, { node: cleanNode(node), outgoing: [], incoming: [] });
+		}
+		const out = rec.get('outgoing').filter(o => o !== null);
+		nodes.get(key).outgoing = out;
+	}
+
+	for (const rec of incomingResult.records) {
+		const node = rec.get('node');
+		const key = JSON.stringify(node._labels) + ':' + node.name;
+		if (!nodes.has(key)) {
+			nodes.set(key, { node: cleanNode(node), outgoing: [], incoming: [] });
+		}
+		const inc = rec.get('incoming').filter(i => i !== null);
+		nodes.get(key).incoming = inc;
+	}
+
+	return [...nodes.values()];
+};
+
+const historyEvents = async (session, params) => {
+	const standard = params.standard || null;
+	const limit = params.limit ? parseInt(params.limit) : 20;
+
+	const result = await session.run(`
+		MATCH (h:GraphHistory)-[:HAS_EVENT]->(e:GraphHistoryEvent)
+		WHERE $standard IS NULL OR e.source = $standard
+		RETURN e.action AS action, e.source AS source,
+		  toString(e.datetime) AS datetime,
+		  e.nodeCount AS nodeCount, e.edgeCount AS edgeCount
+		ORDER BY e.datetime DESC
+		LIMIT toInteger($limit)
+	`, { standard, limit: neo4j.int(limit) });
+
+	return result.records.map(rec => ({
+		action: rec.get('action'),
+		source: rec.get('source'),
+		datetime: rec.get('datetime'),
+		nodeCount: toNumber(rec.get('nodeCount')),
+		edgeCount: toNumber(rec.get('edgeCount')),
+	}));
+};
+
 const rawCypher = async (session, query) => {
 	const result = await session.run(query);
 	return result.records.map(rec => {
@@ -466,13 +551,15 @@ const search = async (queryType, params, callback) => {
 	try {
 		const result = await withNeo4jSession(config, async (session) => {
 			switch (queryType) {
-				case 'search': return hybridSearch(session, params.query, config);
+				case 'search': return hybridSearch(session, params.query, config, params);
 				case 'graphRetriever': return graphRetriever(session, params.query, config, params);
 				case 'findMappings': return findMappings(session, params.name);
 				case 'compareCodesets': return compareCodesets(session, params.name);
 				case 'unmappedFields': return unmappedFields(session, params);
 				case 'stats': return getStats(session);
 				case 'rawCypher': return rawCypher(session, params.query);
+				case 'explore': return exploreNode(session, params);
+				case 'history': return historyEvents(session, params);
 				default: return { error: `Unknown query type: ${queryType}` };
 			}
 		});
@@ -511,6 +598,15 @@ if (require.main === module) {
 	if (flags.search) {
 		queryType = 'search';
 		params.query = positionalArgs[0] || '';
+		if (flags.standard) params.standard = flags.standard;
+	} else if (flags.explore) {
+		queryType = 'explore';
+		params.name = flags.name || positionalArgs[0] || '';
+		if (flags.standard) params.standard = flags.standard;
+	} else if (flags.history) {
+		queryType = 'history';
+		params.limit = flags.limit || '20';
+		if (flags.standard) params.standard = flags.standard;
 	} else if (flags.findMappings) {
 		queryType = 'findMappings';
 		params.name = positionalArgs[0] || '';
@@ -533,8 +629,10 @@ if (require.main === module) {
 		params.query = flags.query || positionalArgs[0] || '';
 	} else if (flags.help) {
 		process.stderr.write(`Usage:
-  ${moduleName} -search "query text"
+  ${moduleName} -search "query text" [--standard=PESC]
   ${moduleName} -graphRetriever "query text" [--limit=10] [--traversalMode=static] [--searchMode=hybrid]
+  ${moduleName} -explore --name="NodeName" [--standard=PESC]
+  ${moduleName} -history [--standard=PESC] [--limit=20]
   ${moduleName} -findMappings "field name or xpath"
   ${moduleName} -compareCodesets "concept name"
   ${moduleName} -unmappedFields [--limit=50]
