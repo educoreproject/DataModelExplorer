@@ -84,6 +84,34 @@ const toNumber = (val) => {
 };
 
 // =====================================================================
+// GRAPH SOURCE REGISTRY (cached after first query)
+// =====================================================================
+
+let graphSourceRegistry = null;
+
+const getGraphSourceRegistry = async (session) => {
+	if (graphSourceRegistry) return graphSourceRegistry;
+
+	const result = await session.run(`
+		MATCH (gs:GraphSource)
+		WHERE gs.fulltextIndex IS NOT NULL AND gs.vectorIndex IS NOT NULL
+		RETURN gs.name AS name, gs.fulltextIndex AS fulltextIndex,
+		       gs.vectorIndex AS vectorIndex, gs.superLabel AS superLabel
+		ORDER BY gs.name
+	`);
+
+	graphSourceRegistry = result.records.map(rec => ({
+		name: rec.get('name'),
+		fulltextIndex: rec.get('fulltextIndex'),
+		vectorIndex: rec.get('vectorIndex'),
+		superLabel: rec.get('superLabel'),
+	}));
+
+	process.stderr.write(`${moduleName}: Loaded ${graphSourceRegistry.length} standards from GraphSource registry\n`);
+	return graphSourceRegistry;
+};
+
+// =====================================================================
 // QUERY HANDLERS
 // =====================================================================
 
@@ -92,126 +120,79 @@ const hybridSearch = async (session, query, config, params) => {
 	const standardFilter = (params && params.standard) ? params.standard : null;
 	const results = new Map();
 
-	// BM25 search across CEDS
-	try {
-		const cedsResult = await session.run(`
-			CALL db.index.fulltext.queryNodes('ceds_fulltext', $query)
-			YIELD node, score
-			RETURN node.cedsId AS id, labels(node) AS labels, node.label AS name,
-				node.description AS description, score AS ftScore
-			LIMIT $limit
-		`, { query, limit: neo4j.int(limit) });
+	// Load search registry from GraphSource nodes
+	const registry = await getGraphSourceRegistry(session);
 
-		for (const rec of cedsResult.records) {
-			const id = rec.get('id');
-			results.set('ceds:' + id, {
-				standard: 'CEDS',
-				id,
-				labels: rec.get('labels').filter(l => l !== 'CEDS'),
-				name: rec.get('name'),
-				description: rec.get('description'),
-				ftScore: rec.get('ftScore'),
-				vecScore: 0,
-			});
+	// Apply standard filter early — skip standards that don't match
+	const activeStandards = standardFilter
+		? registry.filter(s => s.name.toUpperCase() === standardFilter.toUpperCase())
+		: registry;
+
+	// BM25 fulltext search across all active standards
+	for (const standard of activeStandards) {
+		try {
+			const ftResult = await session.run(`
+				CALL db.index.fulltext.queryNodes($indexName, $query)
+				YIELD node, score
+				RETURN node._id AS id, labels(node) AS labels, node.name AS name,
+					node.description AS description, node._source AS standard, score AS ftScore
+				LIMIT $limit
+			`, { indexName: standard.fulltextIndex, query, limit: neo4j.int(limit) });
+
+			for (const rec of ftResult.records) {
+				const id = rec.get('id');
+				const stdName = rec.get('standard') || standard.name;
+				const key = stdName.toLowerCase() + ':' + id;
+				results.set(key, {
+					standard: stdName,
+					id,
+					labels: rec.get('labels').filter(l => l !== 'ForgedNode'),
+					name: rec.get('name'),
+					description: rec.get('description'),
+					ftScore: rec.get('ftScore'),
+					vecScore: 0,
+				});
+			}
+		} catch (err) {
+			process.stderr.write(`${moduleName}: ${standard.name} full-text search error: ${err.message}\n`);
 		}
-	} catch (err) {
-		process.stderr.write(`${moduleName}: CEDS full-text search error: ${err.message}\n`);
 	}
 
-	// BM25 search across SIF
-	try {
-		const sifResult = await session.run(`
-			CALL db.index.fulltext.queryNodes('sif_fulltext', $query)
-			YIELD node, score
-			WITH node, score, labels(node) AS lbls
-			OPTIONAL MATCH (obj:SifObject)-[:HAS_FIELD]->(node)
-			RETURN COALESCE(node.xpath, node.name) AS id, lbls AS labels,
-				node.name AS name, node.description AS description,
-				COALESCE(obj.name, '') AS parentObject, score AS ftScore
-			LIMIT $limit
-		`, { query, limit: neo4j.int(limit) });
-
-		for (const rec of sifResult.records) {
-			const id = rec.get('id');
-			results.set('sif:' + id, {
-				standard: 'SIF',
-				id,
-				labels: rec.get('labels').filter(l => l !== 'SifModel'),
-				name: rec.get('name'),
-				description: rec.get('description'),
-				parentObject: rec.get('parentObject'),
-				ftScore: rec.get('ftScore'),
-				vecScore: 0,
-			});
-		}
-	} catch (err) {
-		process.stderr.write(`${moduleName}: SIF full-text search error: ${err.message}\n`);
-	}
-
-	// Vector search across CEDS
+	// Vector search across all active standards (single embedding for all)
 	if (config.embedder) {
 		try {
 			const queryEmbedding = await embedQuery(query, config.embedder);
 
-			// CEDS vector search
-			try {
-				const cedsVecResult = await session.run(`
-					CALL db.index.vector.queryNodes('ceds_vector', $limit, $embedding)
-					YIELD node, score
-					WHERE NOT node:CedsOntology
-					RETURN node.cedsId AS id, labels(node) AS labels, node.label AS name,
-						node.description AS description, score AS vecScore
-				`, { limit: neo4j.int(limit), embedding: queryEmbedding });
+			for (const standard of activeStandards) {
+				try {
+					const vecResult = await session.run(`
+						CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
+						YIELD node, score
+						RETURN node._id AS id, labels(node) AS labels, node.name AS name,
+							node.description AS description, node._source AS standard, score AS vecScore
+					`, { indexName: standard.vectorIndex, limit: neo4j.int(limit), embedding: queryEmbedding });
 
-				for (const rec of cedsVecResult.records) {
-					const key = 'ceds:' + rec.get('id');
-					if (results.has(key)) {
-						results.get(key).vecScore = rec.get('vecScore');
-					} else {
-						results.set(key, {
-							standard: 'CEDS',
-							id: rec.get('id'),
-							labels: rec.get('labels').filter(l => l !== 'CEDS'),
-							name: rec.get('name'),
-							description: rec.get('description'),
-							ftScore: 0,
-							vecScore: rec.get('vecScore'),
-						});
+					for (const rec of vecResult.records) {
+						const id = rec.get('id');
+						const stdName = rec.get('standard') || standard.name;
+						const key = stdName.toLowerCase() + ':' + id;
+						if (results.has(key)) {
+							results.get(key).vecScore = rec.get('vecScore');
+						} else {
+							results.set(key, {
+								standard: stdName,
+								id,
+								labels: rec.get('labels').filter(l => l !== 'ForgedNode'),
+								name: rec.get('name'),
+								description: rec.get('description'),
+								ftScore: 0,
+								vecScore: rec.get('vecScore'),
+							});
+						}
 					}
+				} catch (err) {
+					process.stderr.write(`${moduleName}: ${standard.name} vector search error: ${err.message}\n`);
 				}
-			} catch (err) {
-				process.stderr.write(`${moduleName}: CEDS vector search error: ${err.message}\n`);
-			}
-
-			// SIF vector search
-			try {
-				const sifVecResult = await session.run(`
-					CALL db.index.vector.queryNodes('sif_vector', $limit, $embedding)
-					YIELD node, score
-					MATCH (obj:SifObject)-[:HAS_FIELD]->(node)
-					RETURN node.xpath AS id, labels(node) AS labels, node.name AS name,
-						node.description AS description, obj.name AS parentObject, score AS vecScore
-				`, { limit: neo4j.int(limit), embedding: queryEmbedding });
-
-				for (const rec of sifVecResult.records) {
-					const key = 'sif:' + rec.get('id');
-					if (results.has(key)) {
-						results.get(key).vecScore = rec.get('vecScore');
-					} else {
-						results.set(key, {
-							standard: 'SIF',
-							id: rec.get('id'),
-							labels: rec.get('labels').filter(l => l !== 'SifModel'),
-							name: rec.get('name'),
-							description: rec.get('description'),
-							parentObject: rec.get('parentObject'),
-							ftScore: 0,
-							vecScore: rec.get('vecScore'),
-						});
-					}
-				}
-			} catch (err) {
-				process.stderr.write(`${moduleName}: SIF vector search error: ${err.message}\n`);
 			}
 		} catch (err) {
 			process.stderr.write(`${moduleName}: Embedding error: ${err.message}\n`);
@@ -219,17 +200,16 @@ const hybridSearch = async (session, query, config, params) => {
 	}
 
 	// Rank by combined score
-	let ranked = [...results.values()]
-		.map(r => ({
-			...r,
-			combinedScore: (r.ftScore > 0 ? 0.5 : 0) + (r.vecScore > 0 ? r.vecScore * 0.5 : 0)
-		}))
+	const ranked = [...results.values()]
+		.map(r => {
+			// Strip embedding from results if present
+			const { embedding, ...clean } = r;
+			return {
+				...clean,
+				combinedScore: (r.ftScore > 0 ? 0.5 : 0) + (r.vecScore > 0 ? r.vecScore * 0.5 : 0)
+			};
+		})
 		.sort((a, b) => b.combinedScore - a.combinedScore);
-
-	// Apply standard filter if provided
-	if (standardFilter) {
-		ranked = ranked.filter(r => r.standard && r.standard.toUpperCase() === standardFilter.toUpperCase());
-	}
 
 	return ranked.slice(0, limit);
 };
@@ -597,7 +577,7 @@ if (require.main === module) {
 
 	if (flags.search) {
 		queryType = 'search';
-		params.query = positionalArgs[0] || '';
+		params.query = flags.query || positionalArgs[0] || '';
 		if (flags.standard) params.standard = flags.standard;
 	} else if (flags.explore) {
 		queryType = 'explore';
