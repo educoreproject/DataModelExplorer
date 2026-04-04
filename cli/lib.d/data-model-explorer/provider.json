@@ -1107,6 +1107,120 @@
 					"limit": "--limit"
 				}
 			}
+		},
+		{
+			"definition": {
+				"name": "cip_graph_search",
+				"description": "Hybrid BM25 + vector search across CIP data. NCES CIP 2020 — Classification of Instructional Programs taxonomy. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for CIP data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node cip_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "cip_graph_explore",
+				"description": "Describe a CIP node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in CIP"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node cip_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "cip_graph_stats",
+				"description": "Show CIP graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node cip_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "cip_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. CIP labels: :CipDomain, :CipModel, :CipProgram, :CipRoot, :CipSubdomain (all :ForgedNode). Edge types: CROSS_REFERENCES, HAS_DOMAIN, HAS_PROGRAM, HAS_SUBDOMAIN.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node cip_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "cip_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node cip_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
 		}
 	]
 }
