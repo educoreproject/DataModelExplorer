@@ -251,36 +251,55 @@ const startContainer = ({ voyageApiKey, providerProjectRoot, providerDir, assets
 	// Resolve assets directory for tarball-based cold start
 	// -----------------------------------------------------------------
 
+	// Resolve assets directory for tarball-based cold start.
+	//
+	// Default: providerProjectRoot/dataStores/initializationData/{INSTANCE_DIR_NAME}/
+	// This is the canonical location for seed tarballs — separated from code/ so the
+	// code repo stays lean enough for github (the 778 MB DME tarball exceeded github's
+	// 100 MB per-file limit when it lived under code/cli/lib.d/.../assets/).
+	//
+	// Override via --assetsDir=<path>. Relative paths resolve against providerDir.
 	let assetManifest = null;
 	const resolvedAssetsDir = assetsDir
 		? (path.isAbsolute(assetsDir) ? assetsDir : path.join(providerDir, assetsDir))
-		: null;
-	const manifestPath = resolvedAssetsDir ? path.join(resolvedAssetsDir, 'manifest.json') : null;
-	const assetTarball = resolvedAssetsDir ? path.join(resolvedAssetsDir, 'neo4j-data.tar.gz') : null;
+		: path.join(providerProjectRoot, 'dataStores', 'initializationData', INSTANCE_DIR_NAME);
+	const manifestPath = path.join(resolvedAssetsDir, 'manifest.json');
+	const assetTarball = path.join(resolvedAssetsDir, 'neo4j-data.tar.gz');
 
-	if (manifestPath && fs.existsSync(manifestPath)) {
+	if (fs.existsSync(manifestPath)) {
 		assetManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 	}
 
-	// Case 2: Search .ini already exists — container previously set up
-	const searchIniPath = getSearchIniPath(providerProjectRoot);
-	if (fs.existsSync(searchIniPath)) {
-		xLog.status(`[containerManager] Search config already exists: ${searchIniPath}`);
-		xLog.status('[containerManager] Skipping initialization — existing database may contain additional data.');
-		try {
-			const existingSearchConfig = configFileProcessor.getConfig(
-				`${SEARCH_MODULE_NAME}.ini`,
-				getConfigDir(providerProjectRoot) + '/',
-				{ resolve: false }
-			);
-			const searchSection = existingSearchConfig[SEARCH_MODULE_NAME] || {};
-			const boltUri = searchSection.neo4jBoltUri || 'bolt://localhost:7687';
-			const portMatch = boltUri.match(/:(\d+)$/);
-			const boltPort = portMatch ? portMatch[1] : '7687';
-			callback('', { containerName: 'external', boltPort, httpPort: 'unknown' });
-		} catch (err) {
-			callback('', { containerName: 'external', boltPort: 'unknown', httpPort: 'unknown' });
+	// Case 2: Neo4j data directory already populated (no instanceConfig, but real data) —
+	// preserve it as externally-managed. Tarball extraction would wipe the existing data.
+	//
+	// This check was previously gated on the presence of configs/dataModelExplorerSearch.ini,
+	// which is ALWAYS present after any `deployPrograms --actions=configs` deploy. That made
+	// Case 2 fire on every automated deploy and silently blocked every cold bootstrap,
+	// rendering the tarball mechanism effectively unreachable in production.
+	// Gating on actual data-dir population is the principled check — tarball wins on cold
+	// bootstraps (empty data dir), external mode preserves manually-loaded data when present.
+	const dataDirPath = path.join(dataStoreBase, 'neo4j-DataModelExplorer', 'data');
+	const dataDirPopulated = fs.existsSync(path.join(dataDirPath, 'databases'));
+	if (dataDirPopulated) {
+		xLog.status(`[containerManager] Data directory already populated: ${dataDirPath}`);
+		xLog.status('[containerManager] Preserving existing data — skipping tarball extraction');
+		const searchIniPath = getSearchIniPath(providerProjectRoot);
+		let boltPort = '7687';
+		if (fs.existsSync(searchIniPath)) {
+			try {
+				const existingSearchConfig = configFileProcessor.getConfig(
+					`${SEARCH_MODULE_NAME}.ini`,
+					getConfigDir(providerProjectRoot) + '/',
+					{ resolve: false }
+				);
+				const searchSection = existingSearchConfig[SEARCH_MODULE_NAME] || {};
+				const boltUri = searchSection.neo4jBoltUri || 'bolt://localhost:7687';
+				const portMatch = boltUri.match(/:(\d+)$/);
+				if (portMatch) { boltPort = portMatch[1]; }
+			} catch (err) { /* fall through with default */ }
 		}
+		callback('', { containerName: 'external', boltPort, httpPort: 'unknown' });
 		return;
 	}
 

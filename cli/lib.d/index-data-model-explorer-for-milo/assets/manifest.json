@@ -1,8 +1,0 @@
-{
-	"providerName": "DataModelExplorer",
-	"containerName": "rag_DataModelExplorer",
-	"password": "99d0615d205eead0ea65b3f642ffb3d5",
-	"searchModuleName": "dataModelExplorerSearch",
-	"embeddingModel": "voyage-3",
-	"embeddingDimensions": 1024
-}
