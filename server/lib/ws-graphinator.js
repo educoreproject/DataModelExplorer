@@ -4,11 +4,20 @@
 
 const { WebSocketServer } = require('ws');
 const { spawn } = require('child_process');
+const path = require('path');
 
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const moduleFunction = ({ server }) => {
 	const { xLog, getConfig } = process.global;
+
+	// Derive askMilo config directory from the server's own config file path.
+	// process.global.configurationSourceFilePath is set in startApiServer.js
+	// from _meta.configurationSourceFilePath — ensures askMilo reads the same
+	// config directory as the server, regardless of where the symlink resolves.
+	const askMiloConfigPath = process.global.configurationSourceFilePath
+		? path.dirname(process.global.configurationSourceFilePath)
+		: undefined;
 
 	// noServer: true — upgrade routing handled centrally in startApiServer.js
 	// to avoid conflicts when multiple WebSocketServer instances share one HTTP server.
@@ -57,7 +66,9 @@ const moduleFunction = ({ server }) => {
 	const sendConfigDefaults = (ws) => {
 		const child = spawn('askMilo', [], { shell: true, env: process.env });
 		let stdout = '';
-		child.stdin.write(JSON.stringify({ switches: { getDefaults: true }, values: {}, fileList: [] }));
+		const defaultsInput = { switches: { getDefaults: true }, values: {}, fileList: [] };
+		if (askMiloConfigPath) { defaultsInput.values.configPath = [askMiloConfigPath]; }
+		child.stdin.write(JSON.stringify(defaultsInput));
 		child.stdin.end();
 		child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
 		child.on('close', () => {
@@ -161,6 +172,8 @@ const moduleFunction = ({ server }) => {
 				if (!settings.newSession && settings.resumeSessionName) {
 					values.resumeSession = [settings.resumeSessionName];
 				}
+
+				if (askMiloConfigPath) { values.configPath = [askMiloConfigPath]; }
 
 				const askMiloInput = JSON.stringify({
 					switches,

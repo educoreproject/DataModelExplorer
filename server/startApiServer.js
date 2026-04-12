@@ -59,6 +59,7 @@ const moduleFunction =
 		process.global.getConfig = getConfig;
 		process.global.commandLineParameters = commandLineParameters;
 		process.global.rawConfig = rawConfig; //this should only be used for debugging, use getConfig(moduleName)
+		process.global.configurationSourceFilePath=getConfig('_meta').configurationSourceFilePath
 
 		const { xLog } = process.global;
 
@@ -292,6 +293,8 @@ ${err.toString()}
 			xLog.status(endpointsDotD.qtdProcessLog()); //console.dir(xpressApp._router.stack) for the real details
 
 			xLog.status(accessPointsDotD.toString());
+			
+			xLog.status(`askMilo is called as a CLI\n    It deployed by rsync following a symLink .../system/code/server/data-model/lib/ask-milo-multitool\n    deployPrograms installs it in the PATH`)
 
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 

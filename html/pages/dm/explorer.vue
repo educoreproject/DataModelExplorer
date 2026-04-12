@@ -85,9 +85,12 @@ const fallbackPromptOptions = [
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						NEW: Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
+						NEW: Click the info icon in the bottom right for example prompts to get you started.
 					</p>
-					<p>The Data Model Explorer provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/3/26):</p>
+					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
+						Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
+					</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/3/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
 						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
 						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
@@ -97,8 +100,10 @@ const fallbackPromptOptions = [
 						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
 						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
 						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
+							<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
 					</ul>
-					<p>For the most current list, ask: <em>&ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</em></p>
+					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
+					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
 					<p>All standards in the graph are connected to CEDS &mdash; the common semantic backbone &mdash; through a multi-phase bridge-building process. The bridge builder creates cross-standard edges using a combination of authoritative annotations, semantic inference, and structural analysis:</p>

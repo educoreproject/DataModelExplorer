@@ -256,6 +256,120 @@
 					"limit": "--limit"
 				}
 			}
+		},
+		{
+			"definition": {
+				"name": "usecase_graph_search",
+				"description": "Hybrid BM25 + vector search across UseCases data. Use cases from educoreproject/educore_use_cases GitHub issues, parsed into actors, steps, categories, and CEDS references. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for UseCases data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node usecase_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "usecase_graph_explore",
+				"description": "Describe a UseCases node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in UseCases"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node usecase_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "usecase_graph_stats",
+				"description": "Show UseCases graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node usecase_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "usecase_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. UseCases labels: :DataReference, :ExternalReference, :UseCase, :UseCaseActor, :UseCaseCategory, :UseCaseModel, :UseCaseStep (all :ForgedNode). Edge types: CATEGORIZED_AS, HAS_DATA_REFERENCE, HAS_REFERENCE, HAS_STEP, INVOLVES_ACTOR, PERFORMED_BY, REFERENCES_DATA.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node usecase_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "usecase_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node usecase_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
 		}
 	]
 }
