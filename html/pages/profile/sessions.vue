@@ -1,18 +1,12 @@
 <script setup>
+definePageMeta({ middleware: 'auth' });
+
 import { ref, onMounted } from 'vue';
-import { useLoginStore } from '@/stores/loginStore';
 import { useSessionStore } from '@/stores/sessionStore';
 
-const LoginStore = useLoginStore();
 const sessionStore = useSessionStore();
-const router = useRouter();
 
-// Auth guard
 onMounted(() => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: '/profile/sessions' } });
-		return;
-	}
 	sessionStore.fetchSessions();
 });
 
@@ -49,10 +43,8 @@ const formatDate = (dateStr) => {
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
-			<SubPageNav
+	<div>
+		<SubPageNav
 				:model-value="'sessions'"
 				:tabs="[
 					{ label: 'Profile', value: 'edit', to: '/profile/edit' },
@@ -113,6 +105,5 @@ const formatDate = (dateStr) => {
 					</v-card-actions>
 				</v-card>
 			</v-dialog>
-		</v-main>
-	</v-app>
+	</div>
 </template>

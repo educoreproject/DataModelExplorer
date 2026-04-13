@@ -266,6 +266,8 @@ const handleKeydown = (event) => {
 
 const stdoutPanel = ref(null);
 const stderrPanel = ref(null);
+const stderrExpanded = ref(false);
+const fullscreenPanel = ref(null); // null | 'response' | 'visualization'
 const controlPanel = ref(null);
 const controlPanelRef = ref(null);
 const outputRow = ref(null);
@@ -536,9 +538,14 @@ defineExpose({ submitPrompt, promptText });
 	<v-container fluid class="pa-4 graphinator-container">
 		<!-- Top row: left column (stdout + stderr) | divider | right panel -->
 		<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
-			<div class="left-column" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
+			<!-- ── Response (left) column ── -->
+			<div
+				class="left-column"
+				:style="{ flex: fullscreenPanel === 'response' ? '1 1 100%' : `0 0 calc(${leftPanelPct}% - 4px)` }"
+				v-show="fullscreenPanel !== 'visualization'"
+			>
 				<div class="output-panel" :class="{ 'panel-loading': showLoadingIndicator }" style="flex: 1; min-height: 0; position: relative;">
-					<!-- Left chevron: inside STDOUT panel, left edge -->
+					<!-- Left chevron: inside Response panel, left edge -->
 					<div
 						v-if="graphStore.canNavigatePrev"
 						class="nav-chevron nav-chevron-left"
@@ -547,7 +554,7 @@ defineExpose({ submitPrompt, promptText });
 						<v-icon size="28">mdi-chevron-left</v-icon>
 					</div>
 					<div class="panel-header">
-						STDOUT
+						Response
 						<span v-if="graphStore.responseCount > 1" class="response-counter">
 							{{ graphStore.displayIndex }} / {{ graphStore.responseCount }}
 						</span>
@@ -570,8 +577,18 @@ defineExpose({ submitPrompt, promptText });
 						>
 							<v-icon size="small">mdi-folder-download</v-icon>
 						</v-btn>
+						<v-btn
+							icon
+							variant="text"
+							size="x-small"
+							class="save-all-button"
+							:title="fullscreenPanel === 'response' ? 'Exit fullscreen' : 'Fullscreen'"
+							@click="fullscreenPanel = fullscreenPanel === 'response' ? null : 'response'"
+						>
+							<v-icon size="small">{{ fullscreenPanel === 'response' ? 'mdi-fullscreen-exit' : 'mdi-fullscreen' }}</v-icon>
+						</v-btn>
 						<span v-if="showLoadingIndicator" class="loading-indicator" :class="{ 'loading-stale': heartbeatStale }">
-							Still working. Don't give up. ({{ heartbeatStatus }})
+							Thinking... ({{ heartbeatStatus }})
 						</span>
 						<v-tooltip
 							v-if="!showLoadingIndicator && graphStore.currentResponse?.prompt"
@@ -599,17 +616,27 @@ defineExpose({ submitPrompt, promptText });
 						</div>
 					</div>
 				</div>
-				<div class="output-panel stderr-panel">
-					<div class="panel-header">STDERR</div>
-					<div ref="stderrPanel" class="panel-content">
+				<div v-if="!fullscreenPanel" class="output-panel stderr-panel" :class="{ 'stderr-collapsed': !stderrExpanded }">
+					<div class="panel-header" style="cursor: pointer;" @click="stderrExpanded = !stderrExpanded">
+						Activity
+						<v-icon size="14" class="ml-1" style="vertical-align: middle;">{{ stderrExpanded ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+					</div>
+					<div v-show="stderrExpanded" ref="stderrPanel" class="panel-content">
 						<pre v-if="currentStderr" v-html="currentStderr"></pre>
-						<span v-else class="text-medium-emphasis">Diagnostics...</span>
+						<span v-else class="text-medium-emphasis">Process activity will appear here...</span>
 					</div>
 				</div>
 			</div>
-			<div class="column-divider" @mousedown="startDrag"></div>
-			<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }" style="position: relative;">
-				<!-- Right chevron: inside CONTROL panel, right edge -->
+			<!-- ── Divider ── -->
+			<div v-if="!fullscreenPanel" class="column-divider" @mousedown="startDrag"></div>
+			<!-- ── Visualization (right) column ── -->
+			<div
+				class="output-panel"
+				:style="{ flex: fullscreenPanel === 'visualization' ? '1 1 100%' : `0 0 calc(${100 - leftPanelPct}% - 4px)` }"
+				style="position: relative;"
+				v-show="fullscreenPanel !== 'response'"
+			>
+				<!-- Right chevron: inside Visualization panel, right edge -->
 				<div
 					v-if="graphStore.canNavigateNext"
 					class="nav-chevron nav-chevron-right"
@@ -618,7 +645,7 @@ defineExpose({ submitPrompt, promptText });
 					<v-icon size="28">mdi-chevron-right</v-icon>
 				</div>
 				<div class="panel-header">
-					{{ currentControlHtml ? 'CONTROL' : '' }}
+					{{ currentControlHtml ? 'Visualization' : '' }}
 					<DownloadButton
 						v-if="currentControlHtml"
 						:content="currentControlHtml"
@@ -627,6 +654,16 @@ defineExpose({ submitPrompt, promptText });
 						file-type="html"
 						title="Download as HTML"
 					/>
+					<v-btn
+						icon
+						variant="text"
+						size="x-small"
+						class="save-all-button"
+						:title="fullscreenPanel === 'visualization' ? 'Exit fullscreen' : 'Fullscreen'"
+						@click="fullscreenPanel = fullscreenPanel === 'visualization' ? null : 'visualization'"
+					>
+						<v-icon size="small">{{ fullscreenPanel === 'visualization' ? 'mdi-fullscreen-exit' : 'mdi-fullscreen' }}</v-icon>
+					</v-btn>
 				</div>
 				<div ref="controlPanel" class="panel-content control-content">
 					<div v-if="vizLoading" style="text-align: center; padding: 12px; color: #888;">
@@ -637,7 +674,10 @@ defineExpose({ submitPrompt, promptText });
 					</div>
 					<div ref="controlPanelRef" v-show="multipartMode"></div>
 					<div v-if="!multipartMode && !controlPending && currentControlHtml" v-html="currentControlHtml"></div>
-					<span v-if="!multipartMode && !controlPending && !currentControlHtml" class="text-medium-emphasis">No control content</span>
+					<div v-if="!multipartMode && !controlPending && !currentControlHtml" class="empty-visualization">
+						<v-icon size="40" color="grey-lighten-2" class="mb-2">mdi-chart-box-outline</v-icon>
+						<div class="text-caption text-medium-emphasis">Diagrams and visual output will appear here</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -647,7 +687,7 @@ defineExpose({ submitPrompt, promptText });
 			<v-textarea
 				ref="promptInput"
 				v-model="promptText"
-				placeholder="Enter your prompt... (Shift+Enter for newline)"
+				placeholder="Ask about education data standards, cross-standard mappings, or implementation guidance..."
 				variant="outlined"
 				rows="3"
 				auto-grow
@@ -904,9 +944,10 @@ defineExpose({ submitPrompt, promptText });
 		<div class="connection-status">
 			<v-chip
 				:color="graphStore.connected ? 'success' : 'error'"
-				size="small"
-				variant="flat"
+				size="x-small"
+				variant="tonal"
 			>
+				<v-icon start size="10">{{ graphStore.connected ? 'mdi-circle' : 'mdi-circle-outline' }}</v-icon>
 				{{ graphStore.connected ? 'Connected' : 'Disconnected' }}
 			</v-chip>
 		</div>
@@ -917,7 +958,9 @@ defineExpose({ submitPrompt, promptText });
 .graphinator-container {
 	display: flex;
 	flex-direction: column;
-	height: calc(100vh - 130px);
+	height: calc(100vh - 140px);
+	max-height: calc(100vh - 140px);
+	overflow: hidden;
 }
 
 .output-row {
@@ -941,15 +984,25 @@ defineExpose({ submitPrompt, promptText });
 .output-panel {
 	display: flex;
 	flex-direction: column;
-	border: 1px solid rgba(0, 0, 0, 0.12);
-	border-radius: 4px;
+	border: 1px solid var(--edu-gray-100, #EEF1F7);
+	border-radius: var(--edu-radius-md, 12px);
 	overflow: hidden;
 	min-width: 0;
+	background: var(--edu-surface, #fff);
 }
 
 .stderr-panel {
 	flex: 0 0 auto;
 	max-height: 110px;
+}
+
+.stderr-collapsed {
+	max-height: none;
+	flex: 0 0 auto;
+}
+
+.stderr-collapsed .panel-content {
+	display: none;
 }
 
 /* Bright red errors in stderr — used by ws-error class and Pipeline error prefix */
@@ -964,20 +1017,16 @@ defineExpose({ submitPrompt, promptText });
 }
 
 .panel-loading {
-	border-color: #1976d2;
-	animation: pulse-border 2s ease-in-out infinite;
-}
-
-@keyframes pulse-border {
-	0%, 100% { border-color: #1976d2; }
-	50% { border-color: #64b5f6; }
+	border-color: var(--edu-teal, #00B5B8);
+	border-width: 1.5px;
 }
 
 .loading-indicator {
 	float: right;
-	color: #d27619;
-	font-weight: 400;
-	font-style: italic;
+	color: var(--edu-teal, #00B5B8);
+	font-weight: 600;
+	font-style: normal;
+	font-size: 0.7rem;
 	animation: pulse-text 2s ease-in-out infinite;
 }
 
@@ -1006,40 +1055,36 @@ defineExpose({ submitPrompt, promptText });
 	bottom: 0;
 	left: 3px;
 	width: 2px;
-	background: rgba(0, 0, 0, 0.12);
+	background: var(--edu-gray-100, #EEF1F7);
 	transition: background 0.15s;
 }
 
 .column-divider:hover::after,
 .is-dragging .column-divider::after {
-	background: rgba(0, 0, 0, 0.4);
+	background: var(--edu-teal, #00B5B8);
 }
 
 .panel-header {
-	background: #f5f5f5;
-	padding: 6px 12px;
-	font-weight: 600;
-	font-size: 0.8rem;
+	background: var(--edu-gray-50, #F8F9FC);
+	padding: 8px 14px;
+	font-family: 'Open Sans', sans-serif;
+	font-weight: 700;
+	font-size: 0.7rem;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: #666;
-	border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+	letter-spacing: 0.1em;
+	color: var(--edu-gray-500, #7A8499);
+	border-bottom: 1px solid var(--edu-gray-100, #EEF1F7);
 }
 
 .panel-loading > .panel-header {
-	animation: pulse-header-bg 2s ease-in-out infinite;
-}
-
-@keyframes pulse-header-bg {
-	0%, 100% { background: #f5f5f5; }
-	50% { background: #bbdefb; }
+	background: rgba(0, 181, 184, 0.06);
 }
 
 .panel-content {
 	flex: 1;
 	overflow-y: auto;
-	padding: 12px;
-	background: #f9f9f6;
+	padding: 16px 18px;
+	background: #fff;
 	min-height: 0;
 }
 
@@ -1107,7 +1152,7 @@ defineExpose({ submitPrompt, promptText });
 	margin: 0.8em 0;
 }
 .prose :deep(strong) { font-weight: 600; }
-.prose :deep(a) { color: #1976d2; text-decoration: none; }
+.prose :deep(a) { color: var(--edu-teal, #00B5B8); text-decoration: none; }
 .prose :deep(a:hover) { text-decoration: underline; }
 
 /* Control panel: style injected HTML form elements */
@@ -1226,6 +1271,17 @@ defineExpose({ submitPrompt, promptText });
 
 .control-content :deep(.cid-render-error) {
 	margin: 8px 0;
+}
+
+.empty-visualization {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	min-height: 120px;
+	text-align: center;
+	padding: 24px;
 }
 
 .welcome-text {

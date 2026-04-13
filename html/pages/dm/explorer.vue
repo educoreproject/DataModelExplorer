@@ -6,15 +6,16 @@
 // Site-specific: auth guard, navigation, welcome text, AI filename generation.
 // All UI logic lives in GraphinatorPanel.vue (shared component).
 
+definePageMeta({ middleware: 'auth' });
+
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { personas } from '@/data/personas';
 import axios from 'axios';
 
 const LoginStore = useLoginStore();
-const router = useRouter();
 const route = useRoute();
+const router = useRouter();
 
 // Create store instance for this page's WS endpoint
 // Role-based tool visibility: server sends toolsByRole config, store filters by userRole
@@ -28,11 +29,28 @@ const useGraphStore = createGraphinatorStore({
 const graphStore = useGraphStore();
 
 const activeTab = 'explore';
+const graphinatorRef = ref(null);
 
-// Auth guard
-onMounted(() => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
+// Auto-send prompt from query params (from implementation plan flow)
+const pendingPrompt = ref(route.query.prompt ? decodeURIComponent(route.query.prompt) : '');
+const pendingPersona = ref(route.query.persona || '');
+
+// Watch for WebSocket connection, then auto-send
+watch(() => graphStore.connected, (connected) => {
+	if (connected && pendingPrompt.value) {
+		const personaInfo = personas.find((p) => p.id === pendingPersona.value);
+		const personaPrefix = personaInfo
+			? `[PERSONA: ${personaInfo.title} — ${personaInfo.description}]\n\n`
+			: '';
+		const fullPrompt = personaPrefix + pendingPrompt.value;
+
+		// Small delay to let the config message arrive first
+		setTimeout(() => {
+			graphStore.sendPrompt(fullPrompt);
+			pendingPrompt.value = '';
+			// Clean URL
+			router.replace({ path: '/dm/explorer' });
+		}, 500);
 	}
 });
 
@@ -63,10 +81,8 @@ const fallbackPromptOptions = [
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
-			<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
+	<div>
+		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
 
 			<v-alert
 					v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"
@@ -121,6 +137,5 @@ const fallbackPromptOptions = [
 					<p>Standards often define complex types (Address, Demographics, Person) that are structural analogs to CEDS classes. The builder aggregates field-level MAPS_TO edges and asks: &ldquo;If most fields inside complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; This enables class-level questions like &ldquo;which CEDS class corresponds to this standard's Person structure?&rdquo;</p>
 				</template>
 			</GraphinatorPanel>
-		</v-main>
-	</v-app>
+	</div>
 </template>

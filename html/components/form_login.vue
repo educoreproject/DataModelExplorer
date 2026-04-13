@@ -33,7 +33,7 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					const redirect = route.query.redirect || '/';
+					const redirect = route.query.redirect || '/dm/personas';
 					router.push(redirect);
 				}
 			})

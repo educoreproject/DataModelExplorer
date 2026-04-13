@@ -107,24 +107,10 @@ export function createGraphinatorStore({
 			connect() {
 				if (wsInstances[storeId] && wsInstances[storeId].readyState <= 1) return;
 
-				const protocol =
-					window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-				// DEV vs PRODUCTION WebSocket routing:
-				//
-				// PROBLEM: In Nuxt 3 SPA mode (ssr:false), Nitro's catch-all route serves
-				// index.html for ANY unrecognized path — including /ws/* paths. This
-				// returns HTTP 200 instead of allowing the WebSocket upgrade handshake.
-				// Neither nitro.devProxy nor vite.server.proxy can intercept the request
-				// before Nitro's catch-all does.
-				//
-				// DEV SOLUTION: Connect directly to the API server, bypassing the Nuxt
-				// dev server entirely for WebSocket connections.
-				//
-				// PRODUCTION: nginx handles the upgrade correctly via the /ws/ location
-				// block. The client uses window.location.host, and nginx forwards the
-				// upgrade to the API server port.
-				//
-				const wsHost = import.meta.dev ? `localhost:${devPort}` : window.location.host;
+				// DEV: Connect to production server (no local backend).
+				// PROD: nginx handles the upgrade via /ws/ location block.
+				const wsHost = import.meta.dev ? 'educore.tqtmp.org' : window.location.host;
+				const protocol = import.meta.dev ? 'wss:' : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
 				const url = `${protocol}//${wsHost}${wsPath}`;
 
 				console.log(`[${storeId}] Connecting to ${url}`);

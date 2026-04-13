@@ -1,11 +1,11 @@
 <script setup>
 // @concept: [[DocumentLibrary]]
-import { useLoginStore } from '@/stores/loginStore';
+definePageMeta({ middleware: 'auth' });
+
 import { useLibraryStore } from '@/stores/libraryStore';
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
-const LoginStore = useLoginStore();
 const libraryStore = useLibraryStore();
 const router = useRouter();
 const route = useRoute();
@@ -13,12 +13,8 @@ const route = useRoute();
 const newWindowDocName = ref('');
 const openInNewWindow = ref(false);
 
-// Auth guard + deep-link support
+// Deep-link support
 onMounted(async () => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
-		return;
-	}
 	await libraryStore.fetchCatalog();
 
 	// Auto-open document from ?doc= query parameter
@@ -47,9 +43,7 @@ const handleDocClick = (doc) => {
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px;">
+	<div>
 			<v-container fluid class="fill-height pa-0">
 				<v-row no-gutters class="fill-height">
 					<!-- Left sidebar: catalog -->
@@ -100,8 +94,7 @@ const handleDocClick = (doc) => {
 					</v-col>
 				</v-row>
 			</v-container>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>
