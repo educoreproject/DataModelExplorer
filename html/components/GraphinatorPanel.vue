@@ -535,7 +535,7 @@ defineExpose({ submitPrompt, promptText });
 </script>
 
 <template>
-	<v-container fluid class="pa-4 graphinator-container">
+	<v-container fluid class="px-4 py-2 graphinator-container">
 		<!-- Top row: left column (stdout + stderr) | divider | right panel -->
 		<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
 			<!-- ── Response (left) column ── -->
@@ -958,8 +958,8 @@ defineExpose({ submitPrompt, promptText });
 .graphinator-container {
 	display: flex;
 	flex-direction: column;
-	height: calc(100vh - 140px);
-	max-height: calc(100vh - 140px);
+	flex: 1;
+	min-height: 0;
 	overflow: hidden;
 }
 

@@ -1,7 +1,14 @@
 <script setup>
 import { getUseCaseById, getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
 import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
+import { useLoginStore } from '@/stores/loginStore';
+import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
+import { personas } from '@/data/personas';
+import { marked } from 'marked';
 
+marked.setOptions({ breaks: true, gfm: true });
+
+const LoginStore = useLoginStore();
 const route = useRoute();
 const ucId = route.params.id;
 
@@ -22,12 +29,18 @@ const siblingStories = computed(() => {
 });
 
 const activeTab = ref('overview');
-const tabs = [
-	{ id: 'overview', label: 'Overview' },
-	{ id: 'tchart', label: 'T-Chart' },
-	{ id: 'swimlane', label: 'Swimlane' },
-	{ id: 'standards', label: 'Standards Map' },
-];
+const tabs = computed(() => {
+	const base = [
+		{ id: 'overview', label: 'Overview' },
+		{ id: 'tchart', label: 'T-Chart' },
+		{ id: 'swimlane', label: 'Swimlane' },
+		{ id: 'standards', label: 'Standards Map' },
+	];
+	if (planResponse.value || planLoading.value) {
+		base.push({ id: 'plan', label: 'Implementation Plan' });
+	}
+	return base;
+});
 
 // Standards multi-select
 const selectedStandardIds = ref([]);
@@ -45,24 +58,88 @@ function isSelected(id) {
 	return selectedStandardIds.value.includes(id);
 }
 
+// ── Inline implementation plan generation ──
+const showPersonaPicker = ref(false);
+const planResponse = ref('');
+const planLoading = ref(false);
+const planError = ref('');
+const planStore = ref(null);
+const responsePanel = ref(null);
+
+const renderedPlan = computed(() => {
+	if (!planResponse.value) return '';
+	// Strip <control> tags (same as GraphinatorPanel)
+	const stripped = planResponse.value.replace(/<control[^>]*>[\s\S]*?<\/control>/g, '');
+	return marked.parse(stripped);
+});
+
 function createImplementationPlan() {
+	if (!LoginStore.validUser) {
+		navigateTo({ path: '/login', query: { redirect: route.fullPath } });
+		return;
+	}
+	showPersonaPicker.value = true;
+}
+
+function selectPersonaAndGenerate(persona) {
+	showPersonaPicker.value = false;
+
 	const uc = useCase.value;
 	const selectedSpecs = standards.value
 		.filter((s) => selectedStandardIds.value.includes(s.entry.id))
 		.map((s) => s.entry.title);
 
-	const prompt = encodeURIComponent(
+	const prompt =
+		`[PERSONA: ${persona.title} — ${persona.description}]\n\n` +
 		`Create an implementation plan for the "${uc.label}" use case (under ${uc.subcategoryLabel} / ${uc.categoryLabel}). ` +
 		`CEDS domains involved: ${uc.cedsDomains.map(getDomainLabel).join(', ')}. ` +
-		`The selected interoperability standards to include are: ${selectedSpecs.join('; ')}. ` +
-		`For each standard, describe what role it plays in this use case, what data elements are needed, ` +
-		`implementation steps, dependencies between standards, and a recommended phased approach.`
-	);
+		`IMPORTANT: The user has specifically selected ONLY these ${selectedSpecs.length} standards: ${selectedSpecs.join('; ')}. ` +
+		`Limit your plan strictly to these selected standards — do NOT introduce or recommend other standards that were not selected. ` +
+		`For each selected standard, describe what role it plays in this use case, what data elements are needed, ` +
+		`implementation steps, dependencies between the selected standards, and a recommended phased approach.`;
 
-	navigateTo({
-		path: '/dm/personas',
-		query: { prompt, useCase: uc.label },
+	// Create store, connect, send
+	planResponse.value = '';
+	planLoading.value = true;
+	planError.value = '';
+	activeTab.value = 'plan';
+
+	const useStore = createGraphinatorStore({
+		storeId: 'ucPlanStore',
+		wsPath: '/ws/explorer',
+		defaultPromptName: 'DataModelExplorer',
+		getUserRole: () => LoginStore.loggedInUser.role || null,
 	});
+	const store = useStore();
+	planStore.value = store;
+
+	// Watch for connection then send
+	const stopWatch = watch(() => store.connected, (connected) => {
+		if (connected) {
+			setTimeout(() => {
+				store.sendPrompt(prompt);
+				stopWatch();
+			}, 500);
+		}
+	});
+
+	// Stream response text into our local ref
+	watch(() => store.currentResponse?.stdout, (text) => {
+		if (text) {
+			planResponse.value = text;
+			nextTick(() => {
+				if (responsePanel.value) {
+					responsePanel.value.scrollTop = responsePanel.value.scrollHeight;
+				}
+			});
+		}
+	});
+
+	watch(() => store.loading, (loading) => {
+		planLoading.value = loading;
+	});
+
+	store.connect();
 }
 
 function burdenColor(burden) {
@@ -451,6 +528,87 @@ const swimlaneSteps = computed(() => {
 				No standards mapped to this use case's CEDS domains yet.
 			</v-alert>
 		</div>
+
+		<!-- ═══════════════════════════════════════════════════════════ -->
+		<!-- IMPLEMENTATION PLAN TAB (appears after generation starts) -->
+		<!-- ═══════════════════════════════════════════════════════════ -->
+		<div v-if="activeTab === 'plan'">
+			<div class="d-flex align-center justify-space-between mb-4">
+				<h2 class="text-h5 font-weight-bold">Implementation Plan</h2>
+				<v-btn
+					variant="text"
+					size="small"
+					prepend-icon="mdi-open-in-new"
+					:to="{ path: '/dm/explorer' }"
+				>
+					Open in Explorer
+				</v-btn>
+			</div>
+
+			<!-- Loading state -->
+			<div v-if="planLoading && !planResponse" class="text-center py-12">
+				<v-progress-circular indeterminate color="secondary" size="48" class="mb-4" />
+				<div class="text-body-2 text-medium-emphasis">Connecting to AI Explorer...</div>
+			</div>
+
+			<!-- Streaming response -->
+			<v-card v-if="planResponse || planLoading" variant="outlined" class="plan-response-card">
+				<div v-if="planLoading" class="plan-status-bar">
+					<v-progress-linear indeterminate color="secondary" height="3" />
+				</div>
+				<div ref="responsePanel" class="plan-response-body prose" v-html="renderedPlan"></div>
+			</v-card>
+
+			<!-- Error -->
+			<v-alert v-if="planError" type="error" variant="tonal" class="mt-4">
+				{{ planError }}
+			</v-alert>
+
+			<!-- Follow-up actions -->
+			<div v-if="!planLoading && planResponse" class="mt-4 d-flex ga-3">
+				<v-btn
+					color="primary"
+					prepend-icon="mdi-open-in-new"
+					:to="{ path: '/dm/explorer' }"
+				>
+					Continue in Explorer
+				</v-btn>
+				<v-btn
+					variant="outlined"
+					prepend-icon="mdi-arrow-left"
+					@click="activeTab = 'standards'"
+				>
+					Back to Standards
+				</v-btn>
+			</div>
+		</div>
+
+		<!-- Persona picker dialog -->
+		<v-dialog v-model="showPersonaPicker" max-width="680" scrollable>
+			<v-card class="pa-6">
+				<v-card-title class="text-h6 font-weight-bold pb-1">Select your role</v-card-title>
+				<v-card-subtitle class="pb-4">This helps the AI tailor the implementation plan to your perspective.</v-card-subtitle>
+				<v-row dense>
+					<v-col
+						v-for="persona in personas"
+						:key="persona.id"
+						cols="12"
+						sm="6"
+					>
+						<v-card
+							variant="outlined"
+							class="pa-4 text-center persona-pick-card"
+							hover
+							@click="selectPersonaAndGenerate(persona)"
+						>
+							<v-icon size="32" color="primary" class="mb-2">{{ persona.icon }}</v-icon>
+							<div class="text-subtitle-2 font-weight-bold">{{ persona.title }}</div>
+							<div class="text-caption text-medium-emphasis">{{ persona.description }}</div>
+						</v-card>
+					</v-col>
+				</v-row>
+			</v-card>
+		</v-dialog>
 	</v-container>
 
 	<!-- Not found -->
@@ -505,5 +663,48 @@ const swimlaneSteps = computed(() => {
 
 .standard-selected {
 	border: 2px solid rgb(var(--v-theme-primary));
+}
+
+.plan-response-card {
+	overflow: hidden;
+}
+
+.plan-status-bar {
+	flex-shrink: 0;
+}
+
+.plan-response-body {
+	padding: 24px 28px;
+	max-height: 60vh;
+	overflow-y: auto;
+	font-family: 'Open Sans', sans-serif;
+	font-size: 15px;
+	line-height: 1.7;
+	color: var(--edu-gray-900, #111827);
+}
+
+.plan-response-body :deep(h1) { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--edu-blue, #072A6C); margin: 1em 0 0.4em; }
+.plan-response-body :deep(h2) { font-size: 1.15rem; font-weight: 700; color: var(--edu-blue, #072A6C); margin: 0.8em 0 0.3em; }
+.plan-response-body :deep(h3) { font-size: 1rem; font-weight: 700; color: var(--edu-blue, #072A6C); margin: 0.6em 0 0.3em; }
+.plan-response-body :deep(p) { margin: 0.4em 0; }
+.plan-response-body :deep(ul), .plan-response-body :deep(ol) { margin: 0.4em 0; padding-left: 1.5em; }
+.plan-response-body :deep(li) { margin: 0.2em 0; }
+.plan-response-body :deep(code) { font-size: 0.85em; background: rgba(7,42,108,0.06); padding: 0.15em 0.3em; border-radius: 3px; }
+.plan-response-body :deep(pre) { background: #1e293b; color: #f8fafc; padding: 1em; border-radius: 8px; overflow-x: auto; margin: 0.5em 0; }
+.plan-response-body :deep(pre code) { background: none; padding: 0; color: inherit; }
+.plan-response-body :deep(table) { border-collapse: collapse; margin: 0.5em 0; width: 100%; }
+.plan-response-body :deep(th), .plan-response-body :deep(td) { border: 1px solid var(--edu-gray-100, #EEF1F7); padding: 0.4em 0.6em; text-align: left; }
+.plan-response-body :deep(th) { background: var(--edu-gray-50, #F8F9FC); font-weight: 700; }
+.plan-response-body :deep(strong) { font-weight: 700; }
+.plan-response-body :deep(a) { color: var(--edu-teal, #00B5B8); }
+.plan-response-body :deep(blockquote) { border-left: 3px solid var(--edu-teal, #00B5B8); margin: 0.5em 0; padding: 0.3em 0.8em; color: var(--edu-gray-500, #7A8499); }
+
+.persona-pick-card {
+	cursor: pointer;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.persona-pick-card:hover {
+	border-color: rgb(var(--v-theme-primary));
 }
 </style>

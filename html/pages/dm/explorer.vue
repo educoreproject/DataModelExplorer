@@ -81,7 +81,7 @@ const fallbackPromptOptions = [
 </script>
 
 <template>
-	<div>
+	<div class="explorer-page">
 		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
 
 			<v-alert
@@ -139,3 +139,12 @@ const fallbackPromptOptions = [
 			</GraphinatorPanel>
 	</div>
 </template>
+
+<style scoped>
+.explorer-page {
+	display: flex;
+	flex-direction: column;
+	height: calc(100vh - 64px);
+	overflow: hidden;
+}
+</style>
