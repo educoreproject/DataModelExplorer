@@ -11,6 +11,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { marked } from 'marked';
 import { parseMultipartContent, resolveCidReferences } from '~/composables/useMultipartContent.js';
 import { vizLoading } from '~/composables/useVizRenderer.js';
+import { buildZip } from './buildZip.js';
 
 // Configure marked for streaming-friendly rendering
 marked.setOptions({
@@ -73,7 +74,8 @@ const graphStore = computed(() => props.store);
 // During streaming, an unclosed <control> tag is buffered until it closes.
 
 const splitContent = computed(() => {
-	const raw = graphStore.value.stdout;
+	const current = graphStore.value.currentResponse;
+	const raw = current ? current.stdout : '';
 	if (!raw) return { response: '', control: '' };
 
 	let response = '';
@@ -85,7 +87,7 @@ const splitContent = computed(() => {
 
 	while ((match = controlTagRegex.exec(raw)) !== null) {
 		response += raw.slice(lastIndex, match.index);
-		control += match[1];
+		control += '\x00' + match[1];
 		lastIndex = match.index + match[0].length;
 	}
 
@@ -108,41 +110,78 @@ const renderedStdout = computed(() => {
 	return marked.parse(splitContent.value.response);
 });
 
-// Persist control HTML in store so it survives across turns.
-// Detects multipart JSON and resolves CID references for embedded diagrams.
-watch(
-	() => splitContent.value.control,
-	async (newControl) => {
-		if (!newControl) return;
+// Render control panel content when response completes (not during streaming).
+// During streaming, splitContent.control accumulates raw block contents but
+// the panel shows "Rendering..." until done. On done, we process all blocks
+// in one pass — multipart JSON gets CID-resolved, plain HTML appended as-is.
+const renderControlBlocks = async (controlString) => {
+	if (!controlString) return;
 
-		const multipart = parseMultipartContent(newControl);
+	const blocks = controlString.split('\x00').filter(Boolean);
+	const resp = graphStore.value.currentResponse;
+	let accumulatedHtml = '';
+
+	// Always use the DOM ref panel for consistent mixed-content rendering
+	multipartMode.value = true;
+	await nextTick();
+
+	if (!controlPanelRef.value) return;
+	controlPanelRef.value.innerHTML = '';
+
+	for (const block of blocks) {
+		const multipart = parseMultipartContent(block);
 
 		if (multipart) {
-			// Multipart JSON: inject HTML then resolve CID references
-			multipartMode.value = true;
-
-			await nextTick(); // Ensure DOM is ready
-
-			if (controlPanelRef.value) {
-				controlPanelRef.value.innerHTML = multipart.html;
-				const errors = await resolveCidReferences(
-					controlPanelRef.value,
-					multipart.attachments
-				);
-				if (errors.length > 0) {
-					console.warn('[GraphinatorPanel] CID resolution errors:', errors);
-				}
+			const wrapper = document.createElement('div');
+			wrapper.innerHTML = multipart.html;
+			controlPanelRef.value.appendChild(wrapper);
+			const errors = await resolveCidReferences(wrapper, multipart.attachments);
+			if (errors.length > 0) {
+				console.warn('[GraphinatorPanel] CID resolution errors:', errors);
 			}
-
-			// Also store the raw for form scraping compatibility
-			graphStore.value.controlHtml = multipart.html;
+			accumulatedHtml += multipart.html;
 		} else {
-			// Legacy raw HTML
-			multipartMode.value = false;
-			graphStore.value.controlHtml = newControl;
+			const wrapper = document.createElement('div');
+			wrapper.innerHTML = block;
+			controlPanelRef.value.appendChild(wrapper);
+			accumulatedHtml += block;
 		}
 	}
-);
+
+	// Serialize the rendered DOM (with SVG diagrams) back into controlHtml.
+	// This replaces <img src="cid:..."> with inline data URIs so downloads
+	// include the rendered diagrams as self-contained images.
+	if (resp && controlPanelRef.value) {
+		const rendered = controlPanelRef.value.cloneNode(true);
+		rendered.querySelectorAll('svg').forEach((svg) => {
+			const svgString = new XMLSerializer().serializeToString(svg);
+			const dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+			const img = document.createElement('img');
+			img.src = dataUri;
+			img.style.maxWidth = '100%';
+			svg.parentNode.replaceChild(img, svg);
+		});
+		resp.controlHtml = rendered.innerHTML;
+	}
+};
+
+// Trigger rendering when response finishes streaming
+watch(() => graphStore.value.loading, (loading, wasLoading) => {
+	if (wasLoading && !loading && splitContent.value.control) {
+		renderControlBlocks(splitContent.value.control);
+	}
+});
+
+// Re-render when navigating to a previously completed response
+watch(() => graphStore.value.currentIndex, () => {
+	multipartMode.value = false;
+	if (controlPanelRef.value) controlPanelRef.value.innerHTML = '';
+	// If navigating to a response that has controlHtml already rendered, show it
+	const resp = graphStore.value.currentResponse;
+	if (resp && resp.controlHtml && !graphStore.value.loading) {
+		renderControlBlocks(splitContent.value.control);
+	}
+});
 
 // -------------------------------------------------------------------------
 // Prompt options: prefer server-provided, fall back to prop
@@ -166,6 +205,37 @@ const promptInput = ref(null);
 // Settings panel
 
 const showSettings = ref(false);
+const showSessionSelector = ref(false);
+
+const showExamplePrompts = ref(false);
+const copiedPromptIndex = ref(null);
+
+const examplePrompts = [
+	"Which educore use cases reference the CEDS property 'Has Credential Definition Criteria Definition'",
+	"I'm looking at the CEDS property 'Has Credential Definition Criteria Definition'. Show me which educore use cases depend on it, and for each one, tell me what the use case is about and which step in that use case involves this criterion.",
+	"For the LER Issuance use case (issue #2), list every CEDS data model element it references \u2014 classes and properties. I expect to see seven classes plus one property.",
+];
+
+const copyPromptToClipboard = async (text, index) => {
+	try {
+		await navigator.clipboard.writeText(text);
+		copiedPromptIndex.value = index;
+		setTimeout(() => {
+			if (copiedPromptIndex.value === index) copiedPromptIndex.value = null;
+		}, 1500);
+	} catch (err) {
+		console.error('Clipboard write failed:', err);
+	}
+};
+
+const formatSessionDate = (dateStr) => {
+	if (!dateStr) return '';
+	const d = new Date(dateStr);
+	return d.toLocaleDateString('en-US', {
+		month: 'short', day: 'numeric', year: 'numeric',
+		hour: 'numeric', minute: '2-digit',
+	});
+};
 
 // -------------------------------------------------------------------------
 // Keyboard handling
@@ -227,7 +297,7 @@ const stopDrag = () => {
 	document.removeEventListener('mouseup', stopDrag);
 };
 
-watch(() => graphStore.value.stdout, () => {
+watch(() => graphStore.value.currentResponse?.stdout, () => {
 	nextTick(() => {
 		if (stdoutPanel.value) {
 			stdoutPanel.value.scrollTop = stdoutPanel.value.scrollHeight;
@@ -235,7 +305,7 @@ watch(() => graphStore.value.stdout, () => {
 	});
 });
 
-watch(() => graphStore.value.stderr, () => {
+watch(() => graphStore.value.currentResponse?.stderr, () => {
 	nextTick(() => {
 		if (stderrPanel.value) {
 			stderrPanel.value.scrollTop = stderrPanel.value.scrollHeight;
@@ -243,7 +313,7 @@ watch(() => graphStore.value.stderr, () => {
 	});
 });
 
-watch(() => graphStore.value.controlHtml, () => {
+watch(() => graphStore.value.currentResponse?.controlHtml, () => {
 	nextTick(() => {
 		if (controlPanel.value) {
 			controlPanel.value.scrollTop = controlPanel.value.scrollHeight;
@@ -340,13 +410,22 @@ const submitPrompt = () => {
 	if (!text) return;
 	promptHistory.value.unshift(text);
 	historyIndex.value = -1;
-	promptText.value = '';
 	const controlData = scrapeControlData();
 	const prompt = controlData
 		? `[CONTROL_STATE: ${JSON.stringify(controlData)}]\n\n${text}`
 		: text;
 	graphStore.value.sendPrompt(prompt);
 };
+
+// Clear prompt text when response completes
+watch(() => graphStore.value.loading, (loading, wasLoading) => {
+	if (wasLoading && !loading) {
+		promptText.value = '';
+		nextTick(() => {
+			if (promptInput.value) promptInput.value.focus();
+		});
+	}
+}, { flush: 'post' });
 
 const onNewSessionToggle = (checked) => {
 	if (checked) {
@@ -355,6 +434,97 @@ const onNewSessionToggle = (checked) => {
 		if (controlPanelRef.value) {
 			controlPanelRef.value.innerHTML = '';
 		}
+	}
+};
+
+// Computed helpers for template readability
+const currentControlHtml = computed(() => graphStore.value.currentResponse?.controlHtml ?? '');
+const currentStderr = computed(() => graphStore.value.currentResponse?.stderr ?? '');
+const showLoadingIndicator = computed(() => graphStore.value.loading && graphStore.value.isViewingLatest);
+const controlPending = computed(() => graphStore.value.loading && splitContent.value.control.length > 0);
+
+// Shared filename: first download (either panel) generates via AI, caches on the response entry.
+// Second download reuses the cached name. Both panels get the same base name, different extensions.
+const sharedGenerateFilename = props.generateFilename ? async (snippet) => {
+	const resp = graphStore.value.currentResponse;
+	if (resp && resp.generatedFilename) return resp.generatedFilename;
+	const name = await props.generateFilename(snippet);
+	if (name && resp) resp.generatedFilename = name;
+	return name;
+} : null;
+
+// Save All: build a ZIP with numbered file pairs + prompts index
+const savingAll = ref(false);
+
+const saveAll = async () => {
+	const responses = graphStore.value.responses;
+	if (!responses || responses.length === 0) return;
+
+	savingAll.value = true;
+	try {
+		const files = [];
+		const promptLines = [];
+
+		for (let i = 0; i < responses.length; i++) {
+			const resp = responses[i];
+			const num = String(i + 1).padStart(2, '0');
+
+			// Generate or reuse filename for this response
+			let baseName = resp.generatedFilename;
+			if (!baseName && props.generateFilename && resp.stdout) {
+				try {
+					const snippet = resp.stdout.slice(0, 500);
+					baseName = await props.generateFilename(snippet);
+					if (baseName) {
+						baseName = baseName.replace(/['"`.]/g, '').trim();
+						resp.generatedFilename = baseName;
+					}
+				} catch (_) { /* use fallback */ }
+			}
+			baseName = baseName || `${props.downloadPrefix}-${num}`;
+
+			const fileName = `${num}-${baseName}`;
+
+			// Extract stdout text (strip <control> tags for the .md file)
+			const stdoutText = (resp.stdout || '').replace(/<control[^>]*>[\s\S]*?<\/control>/g, '').trim();
+
+			if (stdoutText) {
+				files.push({ name: `${fileName}.md`, content: stdoutText });
+			}
+			if (resp.controlHtml) {
+				files.push({ name: `${fileName}.html`, content: resp.controlHtml });
+			}
+
+			promptLines.push(`${num}. ${(resp.prompt || '').slice(0, 200)}`);
+		}
+
+		// Add prompts index
+		files.unshift({
+			name: '00-prompts.txt',
+			content: `Graphinator Session — ${new Date().toLocaleString()}\n\n${promptLines.join('\n')}\n`,
+		});
+
+		const blob = await buildZip(files);
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+
+		// Generate a topic-sensitive ZIP filename via AI
+		let zipName = `graphinator-session-${Date.now()}`;
+		if (props.generateFilename) {
+			try {
+				const allPrompts = responses.map(r => (r.prompt || '').slice(0, 100)).join('; ');
+				const aiName = await props.generateFilename(allPrompts);
+				if (aiName) {
+					zipName = aiName.replace(/['"`.]/g, '').replace(/\.zip$/i, '').trim();
+				}
+			} catch (_) { /* use fallback */ }
+		}
+		anchor.download = `${zipName}.zip`;
+		anchor.click();
+		URL.revokeObjectURL(url);
+	} finally {
+		savingAll.value = false;
 	}
 };
 
@@ -367,23 +537,62 @@ defineExpose({ submitPrompt, promptText });
 		<!-- Top row: left column (stdout + stderr) | divider | right panel -->
 		<div ref="outputRow" class="output-row" :class="{ 'is-dragging': dragging }">
 			<div class="left-column" :style="{ flex: `0 0 calc(${leftPanelPct}% - 4px)` }">
-				<div class="output-panel" :class="{ 'panel-loading': graphStore.loading }" style="flex: 1; min-height: 0;">
+				<div class="output-panel" :class="{ 'panel-loading': showLoadingIndicator }" style="flex: 1; min-height: 0; position: relative;">
+					<!-- Left chevron: inside STDOUT panel, left edge -->
+					<div
+						v-if="graphStore.canNavigatePrev"
+						class="nav-chevron nav-chevron-left"
+						@click="graphStore.navigatePrev()"
+					>
+						<v-icon size="28">mdi-chevron-left</v-icon>
+					</div>
 					<div class="panel-header">
 						STDOUT
+						<span v-if="graphStore.responseCount > 1" class="response-counter">
+							{{ graphStore.displayIndex }} / {{ graphStore.responseCount }}
+						</span>
 						<DownloadButton
 							:content="splitContent.response"
-							:generate-filename="generateFilename"
+							:generate-filename="sharedGenerateFilename"
 							:fallback-name="downloadPrefix"
 							file-type="md"
 							title="Download as Markdown"
 						/>
-						<span v-if="graphStore.loading" class="loading-indicator" :class="{ 'loading-stale': heartbeatStale }">
+						<v-btn
+							v-if="graphStore.hasResponses"
+							icon
+							variant="text"
+							size="x-small"
+							class="save-all-button"
+							title="Save All Responses (ZIP)"
+							:loading="savingAll"
+							@click="saveAll"
+						>
+							<v-icon size="small">mdi-folder-download</v-icon>
+						</v-btn>
+						<span v-if="showLoadingIndicator" class="loading-indicator" :class="{ 'loading-stale': heartbeatStale }">
 							Still working. Don't give up. ({{ heartbeatStatus }})
 						</span>
+						<v-tooltip
+							v-if="!showLoadingIndicator && graphStore.currentResponse?.prompt"
+							:text="graphStore.currentResponse.prompt"
+							location="bottom"
+							max-width="500"
+							content-class="big-tooltip"
+						>
+							<template v-slot:activator="{ props: tipProps }">
+								<span v-bind="tipProps" class="prompt-display">
+									{{ graphStore.currentResponse.prompt }}
+								</span>
+							</template>
+						</v-tooltip>
 					</div>
 					<div ref="stdoutPanel" class="panel-content prose">
-						<div v-if="splitContent.response" v-html="renderedStdout"></div>
-						<div v-else class="welcome-text">
+						<div v-if="graphStore.hasResponses && splitContent.response" v-html="renderedStdout"></div>
+						<div v-else-if="graphStore.hasResponses && showLoadingIndicator" class="welcome-text">
+							<p>Waiting for response...</p>
+						</div>
+						<div v-else-if="!graphStore.hasResponses" class="welcome-text">
 							<slot name="welcome">
 								<p>Enter a prompt to begin.</p>
 							</slot>
@@ -393,18 +602,27 @@ defineExpose({ submitPrompt, promptText });
 				<div class="output-panel stderr-panel">
 					<div class="panel-header">STDERR</div>
 					<div ref="stderrPanel" class="panel-content">
-						<pre v-if="graphStore.stderr" v-html="graphStore.stderr"></pre>
+						<pre v-if="currentStderr" v-html="currentStderr"></pre>
 						<span v-else class="text-medium-emphasis">Diagnostics...</span>
 					</div>
 				</div>
 			</div>
 			<div class="column-divider" @mousedown="startDrag"></div>
-			<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }">
+			<div class="output-panel" :style="{ flex: `0 0 calc(${100 - leftPanelPct}% - 4px)` }" style="position: relative;">
+				<!-- Right chevron: inside CONTROL panel, right edge -->
+				<div
+					v-if="graphStore.canNavigateNext"
+					class="nav-chevron nav-chevron-right"
+					@click="graphStore.navigateNext()"
+				>
+					<v-icon size="28">mdi-chevron-right</v-icon>
+				</div>
 				<div class="panel-header">
-					{{ graphStore.controlHtml ? 'CONTROL' : '' }}
+					{{ currentControlHtml ? 'CONTROL' : '' }}
 					<DownloadButton
-						v-if="graphStore.controlHtml"
-						:content="graphStore.controlHtml"
+						v-if="currentControlHtml"
+						:content="currentControlHtml"
+						:generate-filename="sharedGenerateFilename"
 						:fallback-name="`${downloadPrefix}-control`"
 						file-type="html"
 						title="Download as HTML"
@@ -414,9 +632,12 @@ defineExpose({ submitPrompt, promptText });
 					<div v-if="vizLoading" style="text-align: center; padding: 12px; color: #888;">
 						Loading diagram renderer...
 					</div>
+					<div v-if="controlPending && !multipartMode" style="text-align: center; padding: 24px; color: #888; font-style: italic;">
+						Rendering control content...
+					</div>
 					<div ref="controlPanelRef" v-show="multipartMode"></div>
-					<div v-if="!multipartMode && graphStore.controlHtml" v-html="graphStore.controlHtml"></div>
-					<span v-if="!multipartMode && !graphStore.controlHtml" class="text-medium-emphasis">No control content</span>
+					<div v-if="!multipartMode && !controlPending && currentControlHtml" v-html="currentControlHtml"></div>
+					<span v-if="!multipartMode && !controlPending && !currentControlHtml" class="text-medium-emphasis">No control content</span>
 				</div>
 			</div>
 		</div>
@@ -431,8 +652,10 @@ defineExpose({ submitPrompt, promptText });
 				rows="3"
 				auto-grow
 				hide-details
+				:disabled="graphStore.loading"
 				@keydown="handleKeydown"
 				class="input-field"
+				:class="{ 'prompt-ready': !showLoadingIndicator, 'prompt-waiting': showLoadingIndicator }"
 			/>
 			<div class="input-controls">
 				<div class="controls-row">
@@ -447,19 +670,52 @@ defineExpose({ submitPrompt, promptText });
 					/>
 				</div>
 				<div class="controls-row">
-					<v-menu v-model="showSettings" :close-on-content-click="false" location="top">
-						<template v-slot:activator="{ props: menuProps }">
-							<v-btn
-								icon
-								v-bind="menuProps"
-								variant="text"
-								size="small"
-								class="settings-btn"
-								:color="showSettings ? 'primary' : undefined"
-							>
-								<v-icon>mdi-cog</v-icon>
-							</v-btn>
-						</template>
+					<div class="icon-stack">
+						<v-tooltip text="Example Prompts" location="top" content-class="big-tooltip">
+							<template v-slot:activator="{ props: tipProps }">
+								<v-btn
+									icon
+									v-bind="tipProps"
+									variant="text"
+									size="small"
+									class="settings-btn"
+									@click="showExamplePrompts = true"
+								>
+									<v-icon>mdi-information-outline</v-icon>
+								</v-btn>
+							</template>
+						</v-tooltip>
+						<v-tooltip text="Saved Sessions" location="top" content-class="big-tooltip">
+							<template v-slot:activator="{ props: tipProps }">
+								<v-btn
+									icon
+									v-bind="tipProps"
+									variant="text"
+									size="small"
+									class="settings-btn"
+									@click="showSessionSelector = true; graphStore.fetchSessionList()"
+								>
+									<v-icon>mdi-history</v-icon>
+								</v-btn>
+							</template>
+						</v-tooltip>
+						<v-menu v-model="showSettings" :close-on-content-click="false" location="top">
+							<template v-slot:activator="{ props: menuProps }">
+								<v-tooltip text="Pipeline Settings" location="top" content-class="big-tooltip">
+									<template v-slot:activator="{ props: tipProps }">
+										<v-btn
+											icon
+											v-bind="{ ...menuProps, ...tipProps }"
+											variant="text"
+											size="small"
+											class="settings-btn"
+											:color="showSettings ? 'primary' : undefined"
+										>
+											<v-icon>mdi-cog</v-icon>
+										</v-btn>
+									</template>
+								</v-tooltip>
+							</template>
 						<v-card min-width="340" max-width="420" class="settings-card">
 							<v-card-title class="text-subtitle-1 font-weight-bold pb-1">
 								Pipeline Settings
@@ -538,6 +794,7 @@ defineExpose({ submitPrompt, promptText });
 							</v-card-text>
 						</v-card>
 					</v-menu>
+					</div>
 					<v-btn
 						color="primary"
 						@click="submitPrompt"
@@ -563,6 +820,85 @@ defineExpose({ submitPrompt, promptText });
 		>
 			{{ graphStore.statusMsg }}
 		</v-alert>
+
+		<!-- Session selector overlay -->
+		<v-dialog
+			v-model="showSessionSelector"
+			max-width="500"
+			scrollable
+		>
+			<v-card>
+				<v-card-title class="d-flex align-center justify-space-between">
+					<span>Saved Sessions</span>
+					<v-btn icon variant="text" size="small" @click="showSessionSelector = false">
+						<v-icon>mdi-close</v-icon>
+					</v-btn>
+				</v-card-title>
+				<v-divider />
+				<v-card-text style="max-height: 400px; padding: 0;">
+					<v-list-item
+						@click="graphStore.startNewSession(); showSessionSelector = false"
+						class="session-new-item"
+					>
+						<template v-slot:prepend>
+							<v-icon color="primary">mdi-plus-circle</v-icon>
+						</template>
+						<v-list-item-title class="font-weight-medium text-primary">New Session</v-list-item-title>
+					</v-list-item>
+					<v-divider />
+
+					<v-list v-if="graphStore.sessionList.length > 0" density="compact">
+						<v-list-item
+							v-for="session in graphStore.sessionList"
+							:key="session.refId"
+							@click="graphStore.loadSession(session.refId); showSessionSelector = false"
+							:class="{ 'session-active': session.refId === graphStore._activeSessionRefId }"
+						>
+							<v-list-item-title>{{ session.sessionName || 'Untitled Session' }}</v-list-item-title>
+							<v-list-item-subtitle>{{ formatSessionDate(session.updatedAt) }}</v-list-item-subtitle>
+						</v-list-item>
+					</v-list>
+					<div v-else class="text-center pa-6 text-medium-emphasis">
+						No saved sessions yet
+					</div>
+				</v-card-text>
+			</v-card>
+		</v-dialog>
+
+		<!-- Example prompts panel -->
+		<v-dialog v-model="showExamplePrompts" max-width="720" scrollable>
+			<v-card class="example-prompts-card">
+				<v-card-title class="d-flex align-center justify-space-between">
+					<span>Example Prompts</span>
+					<v-btn icon variant="text" size="small" @click="showExamplePrompts = false">
+						<v-icon>mdi-close</v-icon>
+					</v-btn>
+				</v-card-title>
+				<v-divider />
+				<v-card-text class="example-prompts-body">
+					<div class="example-prompts-intro">
+						Click any prompt to copy it, then paste into the input field.
+					</div>
+					<div
+						v-for="(prompt, index) in examplePrompts"
+						:key="index"
+						class="example-prompt-card"
+					>
+						<div class="example-prompt-text">{{ prompt }}</div>
+						<v-btn
+							size="small"
+							variant="tonal"
+							:color="copiedPromptIndex === index ? 'success' : 'primary'"
+							class="example-prompt-copy"
+							@click="copyPromptToClipboard(prompt, index)"
+						>
+							<v-icon start>{{ copiedPromptIndex === index ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>
+							{{ copiedPromptIndex === index ? 'Copied' : 'Copy' }}
+						</v-btn>
+					</div>
+				</v-card-text>
+			</v-card>
+		</v-dialog>
 
 		<!-- Connection indicator -->
 		<div class="connection-status">
@@ -614,6 +950,17 @@ defineExpose({ submitPrompt, promptText });
 .stderr-panel {
 	flex: 0 0 auto;
 	max-height: 110px;
+}
+
+/* Bright red errors in stderr — used by ws-error class and Pipeline error prefix */
+.stderr-panel :deep(.ws-error) {
+	color: #ff1744;
+	font-weight: bold;
+}
+
+.stderr-panel :deep(pre) {
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
 .panel-loading {
@@ -812,6 +1159,19 @@ defineExpose({ submitPrompt, promptText });
 	flex: 1;
 }
 
+.prompt-ready :deep(.v-field__outline) {
+	--v-field-border-opacity: 1;
+	--v-field-border-width: 2px;
+	color: rgb(var(--v-theme-primary));
+	transition: all 0.3s ease;
+}
+
+.prompt-waiting :deep(.v-field__outline) {
+	--v-field-border-opacity: 0.3;
+	--v-field-border-width: 1px;
+	transition: all 0.3s ease;
+}
+
 .input-controls {
 	display: flex;
 	flex-direction: column;
@@ -917,5 +1277,147 @@ defineExpose({ submitPrompt, promptText });
 .control-content :deep(.cid-fullscreen svg) {
 	max-width: 90vw;
 	max-height: 90vh;
+}
+
+/* Response history navigation chevrons */
+.nav-chevron {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	z-index: 10;
+	width: 36px;
+	height: 64px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.06);
+	border-radius: 4px;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.2s, background 0.15s;
+	color: #555;
+}
+
+.output-panel:hover .nav-chevron,
+.left-column:hover .nav-chevron {
+	opacity: 1;
+}
+
+.nav-chevron:hover {
+	background: rgba(0, 0, 0, 0.15);
+	color: #222;
+}
+
+.nav-chevron-left {
+	left: 4px;
+}
+
+.nav-chevron-right {
+	right: 4px;
+}
+
+/* Save All button */
+.save-all-button {
+	opacity: 0.6;
+}
+.save-all-button:hover {
+	opacity: 1;
+}
+
+/* Response counter in header */
+.response-counter {
+	font-weight: 400;
+	font-size: 0.75rem;
+	color: #999;
+	margin-left: 8px;
+}
+
+/* Vertically stacked icon buttons */
+.icon-stack {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0;
+}
+
+/* Session selector styles */
+.session-active {
+	background: rgba(25, 118, 210, 0.08);
+}
+
+.session-new-item {
+	cursor: pointer;
+}
+
+.session-new-item:hover {
+	background: rgba(25, 118, 210, 0.04);
+}
+
+/* Prompt display in STDOUT header */
+.prompt-display {
+	display: inline-block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: calc(100% - 220px);
+	vertical-align: middle;
+	font-weight: 400;
+	font-style: italic;
+	color: #888;
+	font-size: 0.75rem;
+	margin-left: 8px;
+}
+</style>
+
+<style>
+/* Unscoped: Vuetify tooltips render in a teleported overlay outside the component */
+.big-tooltip {
+	font-size: 1rem !important;
+	padding: 8px 14px !important;
+	line-height: 1.4 !important;
+}
+
+.example-prompts-card {
+	font-family: Georgia, 'Times New Roman', serif;
+}
+
+.example-prompts-body {
+	padding-top: 16px !important;
+	padding-bottom: 16px !important;
+}
+
+.example-prompts-intro {
+	font-size: 0.85rem;
+	color: #666;
+	margin-bottom: 14px;
+	font-style: italic;
+}
+
+.example-prompt-card {
+	position: relative;
+	padding: 14px 16px;
+	margin-bottom: 12px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 6px;
+	background: #fafafa;
+	transition: background 0.15s ease;
+}
+
+.example-prompt-card:hover {
+	background: #f0f4f8;
+}
+
+.example-prompt-text {
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: #222;
+	user-select: text;
+	-webkit-user-select: text;
+	margin-bottom: 10px;
+	white-space: pre-wrap;
+}
+
+.example-prompt-copy {
+	align-self: flex-end;
 }
 </style>

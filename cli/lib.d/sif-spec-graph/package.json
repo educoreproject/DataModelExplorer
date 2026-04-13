@@ -1,0 +1,8 @@
+{
+	"name": "sif-spec-graph",
+	"version": "1.0.0",
+	"description": "SIF Implementation Specification as a queryable Neo4j graph",
+	"dependencies": {
+		"neo4j-driver": "^5.27.0"
+	}
+}

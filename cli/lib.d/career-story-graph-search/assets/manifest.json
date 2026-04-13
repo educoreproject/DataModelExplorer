@@ -1,0 +1,8 @@
+{
+	"providerName": "CareerStoryGraph",
+	"neo4jPassword": "f5a886165c4f0811d8f96eba1e00d6bf",
+	"embeddingModel": "voyage-4",
+	"embeddingDimensions": 1024,
+	"topK": 10,
+	"searchModuleName": "careerStoryGraphSearch"
+}

@@ -1,0 +1,5 @@
+{
+	"providerName": "SifSpecGraph",
+	"neo4jPassword": "3ee0279409d591548e22107450a9b88a",
+	"searchModuleName": "sifSpecGraphSearch"
+}

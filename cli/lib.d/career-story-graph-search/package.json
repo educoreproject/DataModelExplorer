@@ -1,0 +1,13 @@
+{
+	"name": "career-story-graph-search",
+	"version": "1.0.0",
+	"description": "Neo4j-backed RAG search over CareerStoryGraph documents",
+	"main": "careerStoryGraphSearch.js",
+	"author": "TQ White II",
+	"license": "ISC",
+	"dependencies": {
+		"neo4j-driver": "^5.27.0",
+		"qtools-config-file-processor": "^1.0.18",
+		"qtools-parse-command-line": "^1.0.9"
+	}
+}

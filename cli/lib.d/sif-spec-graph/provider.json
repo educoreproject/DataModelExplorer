@@ -1,0 +1,345 @@
+{
+	"providerName": "SifSpecGraph",
+	"description": "SIF Implementation Specification as a rich Neo4j graph — 159 object types, 15,620 fields, complex types, codesets, data types, and XML element tree. All nodes carry :SifModel label for multi-standard graph compatibility.",
+	"_note": "No startup needed. Docker --restart unless-stopped keeps containers running. First-time init: sifSpecGraphManager -start --assetsDir=./assets",
+	"startupTimeout": 30,
+	"tools": [
+		{
+			"definition": {
+				"name": "sif_spec_list_objects",
+				"description": "List all 159 SIF object types. Returns name, tableName, field count for each.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=listObjects",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_describe_object",
+				"description": "Describe a SIF object type: shows all fields with name, mandatory flag, data type, description, XPath, CEDS ID, and nesting depth. Fields are first-class graph nodes connected via HAS_FIELD.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "SIF object name (e.g., StudentPersonal, AssessmentRegistration). Case-insensitive."
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=describeObject",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_describe_field",
+				"description": "Get full detail for a specific field by its XPath (the canonical SIF identifier). Returns type, codeset values, complex type membership, CEDS mapping.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"xpath": {
+							"type": "string",
+							"description": "Full XPath of the field (e.g., /StudentPersonals/StudentPersonal/Name/FirstName)"
+						}
+					},
+					"required": ["xpath"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=describeField",
+				"positionalArgs": ["xpath"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_search_fields",
+				"description": "Search SIF fields by name or description substring across all objects. Useful for finding where a concept appears (e.g., 'birthDate', 'grade', 'ethnicity').",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"pattern": {
+							"type": "string",
+							"description": "Substring to match against field names or descriptions (case-insensitive)"
+						},
+						"limit": {
+							"type": "string",
+							"description": "Max results (default 50)"
+						}
+					},
+					"required": ["pattern"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=searchFields",
+				"positionalArgs": ["pattern"],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_fields_by_ceds_id",
+				"description": "Find all SIF fields that map to a specific CEDS Global ID. The bridge between SIF and CEDS standards.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"cedsId": {
+							"type": "string",
+							"description": "CEDS Global ID (e.g., 000040 for City, 000267 for StateProvince)"
+						}
+					},
+					"required": ["cedsId"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=fieldsByCedsId",
+				"positionalArgs": ["cedsId"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_inbound_references",
+				"description": "Find which SIF objects reference a given object via RefId foreign keys. Answers: 'What objects point to StudentPersonal?'",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Target SIF object name (case-insensitive)"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=inboundReferences",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_outbound_references",
+				"description": "Find which SIF objects a given object references via RefId foreign keys. Answers: 'What does AssessmentRegistration point to?'",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Source SIF object name (case-insensitive)"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=outboundReferences",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_find_path",
+				"description": "Find the shortest referential path between two SIF objects. Shows the chain of objects and RefId properties connecting them.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"source": {
+							"type": "string",
+							"description": "Starting SIF object name"
+						},
+						"target": {
+							"type": "string",
+							"description": "Ending SIF object name"
+						}
+					},
+					"required": ["source", "target"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=findPath",
+				"positionalArgs": ["source"],
+				"flagArgs": {
+					"target": "--target"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_search_by_name",
+				"description": "Search SIF object names by substring match. Use when you don't know the exact object name.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"pattern": {
+							"type": "string",
+							"description": "Substring to match against SIF object names (e.g., 'student', 'assessment')"
+						}
+					},
+					"required": ["pattern"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=searchByName",
+				"positionalArgs": ["pattern"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_describe_complex_type",
+				"description": "Describe a SIF complex type (shared structure like Address, SIF_Metadata, Demographics). Shows which objects use it, child types, and sample fields.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Complex type name (e.g., Address, SIF_Metadata, Demographics, PhoneNumber)"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=describeComplexType",
+				"positionalArgs": ["name"],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_list_complex_types",
+				"description": "List SIF complex types sorted by how many objects use them. Shows shared structures like Address (used by many objects) vs specialized ones.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=listComplexTypes",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_describe_codeset",
+				"description": "Show the allowed values (codeset) for a field. Lookup by XPath or field name.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"xpath": {
+							"type": "string",
+							"description": "Full XPath of the field"
+						},
+						"name": {
+							"type": "string",
+							"description": "Field name (returns first 10 matches if multiple fields share the name)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=describeCodeset",
+				"positionalArgs": ["xpath"],
+				"flagArgs": {
+					"name": "--name"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_xml_tree",
+				"description": "Show the XML element tree structure for a SIF object. Navigable hierarchy showing how fields nest within the XML schema. Control depth with --depth parameter.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "SIF object name (e.g., StudentPersonal)"
+						},
+						"depth": {
+							"type": "string",
+							"description": "Max tree depth to traverse (default 3)"
+						}
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=xmlTree",
+				"positionalArgs": ["name"],
+				"flagArgs": {
+					"depth": "--depth"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_semantic_search",
+				"description": "Semantic search across all 15,620 SIF fields using vector embeddings. Finds fields by meaning, not just name match. Example queries: 'student birth date', 'school grade level', 'ethnic background'.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Natural language search query describing the field concept you're looking for"
+						},
+						"limit": {
+							"type": "string",
+							"description": "Max results (default 20)"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=semanticSearch",
+				"positionalArgs": ["query"],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "sif_spec_raw_cypher",
+				"description": "Execute a raw Cypher query against the SIF graph. Node types: :SifObject, :SifField, :SifComplexType, :SifSimpleType, :SifPrimitiveType, :SifCodeset, :SifXmlElement (all also labeled :SifModel). Relationships: HAS_FIELD, REFERENCES, HAS_TYPE, CONSTRAINED_BY, MEMBER_OF, CONTAINS, USES_COMPLEX_TYPE, CHILD_ELEMENT, HAS_ROOT_ELEMENT, REALIZED_BY, TYPED_AS.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node sifSpecGraphSearch.js --queryType=rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		}
+	]
+}

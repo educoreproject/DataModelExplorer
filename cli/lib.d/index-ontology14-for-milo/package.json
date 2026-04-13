@@ -1,0 +1,14 @@
+{
+	"name": "index-ontology14-for-milo",
+	"version": "1.0.0",
+	"description": "Container management and data loading for CEDS Ontology v14 Neo4j graph tools",
+	"main": "indexOntology14ForMilo.js",
+	"author": "TQ White II",
+	"license": "ISC",
+	"dependencies": {
+		"neo4j-driver": "^5.27.0",
+		"qtools-config-file-processor": "^1.0.18",
+		"qtools-parse-command-line": "^1.0.9",
+		"xml2js": "^0.6.2"
+	}
+}
