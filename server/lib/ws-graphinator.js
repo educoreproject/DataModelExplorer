@@ -159,7 +159,7 @@ const moduleFunction = ({ server }) => {
 
 				// AI tool providers to suppress (exclude from loading)
 				if (settings.aiToolsSuppressed && settings.aiToolsSuppressed.length > 0) {
-					values.aiTools = [settings.aiToolsSuppressed.join(',')];
+					values.aiToolsSuppressed = [settings.aiToolsSuppressed.join(',')];
 				}
 
 				// Prompt name (maps to singleCallPromptName in askMilo config)

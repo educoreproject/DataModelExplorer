@@ -296,6 +296,9 @@ ${err.toString()}
 			
 			xLog.status(`askMilo is called as a CLI\n    It deployed by rsync following a symLink .../system/code/server/data-model/lib/ask-milo-multitool\n    deployPrograms installs it in the PATH`)
 
+			// MCP server for AI agent access to the knowledge graph
+			require('./lib/mcp-server/mcp-server')({ expressApp, accessPointsDotD });
+
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
 			//callback(err, {localResult1Value, localResult2});
