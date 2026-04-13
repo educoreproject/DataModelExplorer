@@ -68,7 +68,7 @@ export default defineNuxtConfig({
   nitro: {
     devProxy: {
       '/api': {
-        target: 'http://localhost:7790/api/',
+        target: 'https://educore.tqtmp.org/api/',
         changeOrigin: true,
         prependPath: true,
       },
