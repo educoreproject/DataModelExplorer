@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Ensure every dev-time symlink is materialized into real files before
+# the commit snapshot is taken. The committed state must be self-contained
+# so fresh clones (including Brandon's) work without external paths.
+set -e
+HOOKS_DIR="$(git rev-parse --show-toplevel)/.githooks"
+"$HOOKS_DIR/swap-graphinator.sh" materialize
+"$HOOKS_DIR/swap-askmilo.sh"     materialize

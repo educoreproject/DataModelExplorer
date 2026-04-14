@@ -81,19 +81,13 @@ Remove any stale search `.ini` files that may have been deployed from an old ser
 ssh educore 'rm -f /home/educore/system/configs/*Search.ini'
 ```
 
-Then run each indexer's `-start` command:
+Then run the unified DME indexer's `-start` command:
 
 ```bash
-ssh educore 'cd /home/educore/system/code/cli/lib.d/index-ontology14-for-milo && node indexOntology14ForMilo.js -start --assetsDir=./assets'
-ssh educore 'cd /home/educore/system/code/cli/lib.d/index-text-graph-for-milo && node indexTextGraphForMilo.js -start --assetsDir=./assets'
 ssh educore 'cd /home/educore/system/code/cli/lib.d/index-data-model-explorer-for-milo && node indexDataModelExplorer.js -start --assetsDir=./assets'
 ```
 
-SifSpecGraph is initialized via its manager from its own provider directory:
-
-```bash
-ssh educore 'cd /home/educore/system/code/cli/lib.d/sif-spec-graph && node sifSpecGraphManager.js -start --assetsDir=./assets'
-```
+All education data standards (CEDS, SIF, Ed-Fi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP) are loaded into the single unified DME Neo4j container via graphForge. The per-standard indexers and their containers (CedsOntology14, SifSpecGraph, etc.) have been retired.
 
 ### Resetting a container to a fresh distribution database
 
@@ -125,9 +119,6 @@ ssh educore 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
 Expected containers:
 | Container | Bolt Port | HTTP Port |
 |-----------|-----------|-----------|
-| rag_CedsOntology14 | 7700 | 7701 |
-| rag_SifSpecGraph | 7702 | 7703 |
-| rag_CareerStoryGraph | 7704+ | 7705+ |
 | rag_DataModelExplorer | 7706+ | 7707+ |
 
 Ports are dynamically assigned starting from 7700 in pairs.
@@ -145,11 +136,9 @@ ssh educore 'systemctl status com.tqwhite.educore'  # should show "Magic happens
 
 The containerManager uses `net.createServer()` to check if a port is free. When multiple providers start sequentially during askMilo cold-start, `docker run -d` returns before Docker fully binds the port. The next provider's port scan can see the port as free and try to use it, causing a port conflict.
 
-**Fix applied:** `getDockerBoundPorts()` function added to all three `containerManager.js` files. It queries `docker ps --format '{{.Ports}}'` to collect Docker-claimed ports before scanning, preventing the race.
+**Fix applied:** `getDockerBoundPorts()` function added to `containerManager.js`. It queries `docker ps --format '{{.Ports}}'` to collect Docker-claimed ports before scanning, preventing the race.
 
 Files changed:
-- `cli/lib.d/index-ontology14-for-milo/lib/containerManager.js`
-- `cli/lib.d/index-text-graph-for-milo/lib/containerManager.js`
 - `cli/lib.d/index-data-model-explorer-for-milo/lib/containerManager.js`
 
 ### Neo4j driver encryption mismatch
@@ -159,11 +148,9 @@ Neo4j 5 community edition does not support TLS on the bolt connector. Some neo4j
 Files that needed this fix:
 - `cli/lib.d/ceds-ontology14/cedsOntology14Search.js`
 - `cli/lib.d/ceds-ontology14/parseRdf.js` (3 instances)
-- `cli/lib.d/career-story-graph-search/careerStoryGraphSearch.js`
 
 Files that already had it:
 - `cli/lib.d/data-model-explorer/dataModelExplorerSearch.js`
-- `cli/lib.d/sif-spec-graph/sifSpecGraphSearch.js`
 
 ### Memory requirements
 

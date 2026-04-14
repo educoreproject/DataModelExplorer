@@ -10,7 +10,8 @@ definePageMeta({ middleware: 'auth' });
 
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { personas } from '@/data/personas';
+import { onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 const LoginStore = useLoginStore();
