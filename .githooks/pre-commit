@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Ensure layers/graphinator is committed as real files, not a symlink.
+# The committed snapshot must be self-contained so fresh clones work.
+exec "$(git rev-parse --show-toplevel)/.githooks/swap-graphinator.sh" materialize

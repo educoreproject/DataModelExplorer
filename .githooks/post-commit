@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# After a commit completes, restore the dev-time symlink so subsequent
+# edits flow through qbookInternal's canonical layer.
+exec "$(git rev-parse --show-toplevel)/.githooks/swap-graphinator.sh" symlink

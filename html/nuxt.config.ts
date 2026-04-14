@@ -50,6 +50,17 @@ export default defineNuxtConfig({
     transpile: ['vuetify'],
   },
 
+  vite: {
+    resolve: {
+      // The layers/graphinator directory is a symlink to qbookInternal's
+      // canonical layer during development. Without preserveSymlinks, Vite
+      // follows the link to qbookInternal's real path and tries to resolve
+      // vue/pinia/marked from that project's node_modules, causing
+      // dual-instance errors.
+      preserveSymlinks: true,
+    },
+  },
+
   devServer: {
     port: 7791, // Set dev server port
     open: true, // Automatically open browser on start

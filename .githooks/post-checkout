@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# After a branch checkout (or initial clone checkout), restore the
+# dev-time symlink if qbookInternal is available. Silent no-op on a
+# machine without qbookInternal (leaves real files in place).
+#
+# Args: <prev-HEAD> <new-HEAD> <is-branch-checkout (0|1)>
+IS_BRANCH="${3:-0}"
+if [[ "$IS_BRANCH" == "1" ]]; then
+    exec "$(git rev-parse --show-toplevel)/.githooks/swap-graphinator.sh" symlink
+fi
