@@ -1,4 +1,7 @@
 <script setup>
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+const specStore = useSpecificationMetadataStore();
+
 // ── Rubric Definition ──────────────────────────────────────────────────
 // The assessment framework: what we evaluate and what each level means.
 
@@ -140,137 +143,8 @@ const overallBurdenDefinition = {
   },
 };
 
-// ── Spec Assessments (rubric applied) ──────────────────────────────────
-const specs = [
-  {
-    id: 'ieee-p1484-2',
-    short: 'IEEE P1484.2',
-    title: 'IEEE P1484.2 LER',
-    burden: 'medium',
-    rationale: 'Architectural blueprint, not a wire protocol. Burden depends on which ecosystem role(s) your system fulfills. Leverages W3C VC and DID. Potentially 1EdTech and HROpen specifications like CASE, CLR, as well as PESC for transcript sharing and HROpen schemas.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Aligning an existing system requires moderate effort. Higher if building W3C VC from scratch.' },
-      infrastructure: { level: 'moderate', note: 'Requires W3C VC-compatible credential infrastructure. Digital wallet integration needed for Holder role.' },
-      legal: { level: 'low', note: 'IEEE standard is publicly referenced. No licensing fees. Data sharing agreements needed for multi-party ecosystems.' },
-    },
-    capabilities: ['W3C Verifiable Credentials support', 'W3C DID infrastructure', 'Digital wallet integration (for Holder role)', 'Credential registry access (recommended)'],
-    guidance: 'Start by identifying which LER ecosystem role(s) your system will fulfill: Awarder, Holder, Reviewer, or Registry. Implement W3C VC and DID support. Use OB3 or CLR as the credential format.',
-  },
-  {
-    id: 'case-v1',
-    short: 'CASE v1.1',
-    title: 'CASE v1.1',
-    burden: 'medium',
-    rationale: 'Well-defined REST API with JSON responses. Moderate effort for consumer-side; higher for publisher-side.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Consumer integration is straightforward; publishing frameworks via API requires more modeling effort.' },
-      infrastructure: { level: 'low', note: 'Standard REST API endpoints. No specialized infrastructure required.' },
-      legal: { level: 'low', note: 'Open standard. 1EdTech membership recommended but not required.' },
-    },
-    capabilities: ['REST API client', 'JSON parser', 'Competency data model (for publishers)'],
-    guidance: 'Start as a CASE consumer: query existing published frameworks via the REST API. Build a local cache of competency trees. Phase 2: publish your own frameworks.',
-  },
-  {
-    id: 'ctdl',
-    short: 'CTDL',
-    title: 'CTDL',
-    burden: 'medium',
-    rationale: 'JSON-LD/RDF requires familiarity with linked data concepts. Credential Engine provides tools that reduce the burden.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Modeling credentials in CTDL requires moderate effort. Consumer/search via Registry API is lighter.' },
-      infrastructure: { level: 'low', note: 'Credential Engine hosts the Registry. Publishers need minimal infrastructure.' },
-      legal: { level: 'low', note: 'Open vocabulary. No licensing. Publishing agreement with Credential Engine is straightforward.' },
-    },
-    capabilities: ['JSON-LD understanding', 'Credential data modeling', 'REST API client (for Registry integration)'],
-    guidance: 'Begin by exploring the Credential Registry search. Map your credentials to CTDL terms using the CTDL Handbook. Use the Credential Engine publisher tool for initial data entry.',
-  },
-  {
-    id: 'open-badges-v3',
-    short: 'Open Badges 3.0',
-    title: 'Open Badges 3.0',
-    burden: 'medium',
-    rationale: 'Well-documented with robust tooling. W3C VC alignment adds cryptographic complexity but managed services exist.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Issuer implementation requires moderate effort; verifier/displayer is lighter.' },
-      infrastructure: { level: 'moderate', note: 'Issuers need key management for VC signing. Managed badge platforms handle infrastructure.' },
-      legal: { level: 'low', note: 'Open standard. 1EdTech certification available but not required.' },
-    },
-    capabilities: ['JSON-LD processing', 'Cryptographic signing (for issuers)', 'Badge display/rendering UI', 'REST API client'],
-    guidance: 'Start as a badge verifier/displayer. Use a managed badge platform (Badgr, Credly, Accredible) for initial issuance. Custom issuance requires W3C VC signing infrastructure.',
-  },
-  {
-    id: 'clr-v2',
-    short: 'CLR 2.0',
-    title: 'CLR 2.0',
-    burden: 'high',
-    rationale: 'Builds on OB3 and W3C VC, requiring familiarity with both. Aggregating multiple credential types adds data modeling complexity.',
-    rubric: {
-      engineering: { level: 'high', note: 'Full issuer implementation is significant. Consumer/viewer is more moderate. Managed platforms reduce effort.' },
-      infrastructure: { level: 'high', note: 'Requires credential aggregation pipeline, W3C VC signing, and learner consent management.' },
-      legal: { level: 'moderate', note: 'Learner data aggregation requires consent management. FERPA compliance for educational institutions.' },
-    },
-    capabilities: ['JSON-LD processing', 'W3C VC signing infrastructure', 'Credential aggregation pipeline', 'Learner consent UI', 'Open Badges 3.0 compatibility'],
-    guidance: 'Begin by implementing Open Badges 3.0 support first \u2014 CLR extends OB3. Start as a CLR consumer. Phase 2: aggregate your own badges/achievements. Phase 3: full issuance with consent management.',
-  },
-  {
-    id: 'ceds',
-    short: 'CEDS',
-    title: 'CEDS',
-    burden: 'low',
-    rationale: 'Voluntary data dictionary and reference model. Implementation involves mapping your existing data elements to CEDS definitions.',
-    rubric: {
-      engineering: { level: 'low', note: 'Reference vocabulary, not wire protocol. Main effort is data element mapping.' },
-      infrastructure: { level: 'low', note: 'No infrastructure changes required. CEDS provides the common language.' },
-      legal: { level: 'low', note: 'Open, publicly funded standard. No licensing fees.' },
-    },
-    capabilities: ['Data element mapping capability', 'Understanding of P-20W data domains'],
-    guidance: 'Start with the CEDS Data Model to identify relevant domains and elements. Use CEDS Align to map your local data dictionary. Focus on domains most critical to your needs.',
-    graphStats: { classes: 402, properties: 2324, sifMappedProperties: 354 },
-  },
-  {
-    id: 'sif-3-7',
-    short: 'SIF 3.7',
-    title: 'SIF 3.7',
-    burden: 'medium',
-    rationale: 'Requires implementing REST endpoints conforming to SIF Infrastructure spec and adopting SIF data objects. Middleware may be needed.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Implementing SIF REST consumers/providers requires conformance to SIF Infrastructure spec.' },
-      infrastructure: { level: 'moderate', note: 'Zone Integration Server (ZIS) or equivalent middleware may be needed.' },
-      legal: { level: 'low', note: 'Open specification. A4L membership recommended but not required.' },
-    },
-    capabilities: ['REST API implementation', 'SIF data object modeling', 'Zone Integration Server (for multi-system deployments)', 'CEDS-aligned data dictionary mapping'],
-    guidance: 'Start with SIF 3.7 Infrastructure specification. Identify which SIF data objects your system needs. For multi-vendor environments, deploy a Zone Integration Server.',
-    graphStats: { objects: 159, fields: 15620, cedsMappedFields: 2231 },
-  },
-  {
-    id: 'ed-fi',
-    short: 'Ed-Fi',
-    title: 'Ed-Fi Data Standard',
-    burden: 'medium',
-    rationale: 'Complete open-source platform (ODS/API) reduces build effort, but deploying and maintaining requires infrastructure.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Implementing Ed-Fi API clients is straightforward with Swagger docs. ODS/API requires .NET and SQL Server.' },
-      infrastructure: { level: 'moderate', note: 'ODS/API requires hosted application server, database (SQL Server or PostgreSQL), and API gateway.' },
-      legal: { level: 'low', note: 'Fully open-source under Apache 2.0. No licensing fees.' },
-    },
-    capabilities: ['REST API implementation', 'SQL Server or PostgreSQL database', '.NET runtime (for ODS/API hosting)', 'Ed-Fi Unifying Data Model understanding'],
-    guidance: 'Start with the Ed-Fi ODS/API platform as your data integration hub. Deploy using installer or Docker. Use Swagger UI to explore API resources.',
-  },
-  {
-    id: 'lif-2-0',
-    short: 'LIF 2.0',
-    title: 'LIF 2.0',
-    burden: 'medium',
-    rationale: 'Data model specification, not a wire protocol. JSON-based payloads. Comprehensive (290+ fields) but well-structured into 8 entities.',
-    rubric: {
-      engineering: { level: 'moderate', note: 'Mapping to 8 entities with 290+ fields requires significant data modeling. JSON payloads are straightforward.' },
-      infrastructure: { level: 'low', note: 'Transport-agnostic. No specific infrastructure requirements beyond JSON serialization.' },
-      legal: { level: 'low', note: 'Open specification. No licensing fees. Privacy use_recommendations help with compliance.' },
-    },
-    capabilities: ['JSON data serialization', 'Data element mapping to LIF entities', 'Privacy/equity review process for use_recommendations', 'CEDS alignment'],
-    guidance: 'Start by identifying which LIF entities your system touches. Map existing data fields to LIF fields. Review use_recommendations for each field.',
-  },
-];
+// ── Specs from store ─────────────────────────────────────────────────
+const specs = computed(() => specStore.specs);
 
 // EDUcore graph stats (CEDS <-> SIF mapping data from knowledge graph)
 const graphOverlap = {
@@ -447,7 +321,7 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
     <!-- ═══ Section 4: Rubric Applied ═══ -->
     <h2 class="text-h5 font-weight-bold text-primary mb-2">Rubric Applied to Specifications</h2>
     <p class="text-body-2 text-medium-emphasis mb-4">
-      The following table shows the rubric applied to {{ specs.length }} education data specifications currently
+      The following table shows the rubric applied to {{ specStore.specCount }} education data specifications currently
       tracked in the EDUcore Reference Library. Click any row to see the full assessment rationale.
     </p>
 
@@ -465,25 +339,25 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
         </thead>
         <tbody>
           <tr v-for="spec in specs" :key="spec.id">
-            <td class="font-weight-medium">{{ spec.short }}</td>
+            <td class="font-weight-medium">{{ spec.title }}</td>
             <td class="text-center">
-              <v-chip :color="burdenColor(spec.burden)" variant="tonal" size="small" :prepend-icon="burdenIcon(spec.burden)">
-                {{ spec.burden }}
+              <v-chip :color="burdenColor(spec.implementationBurden)" variant="tonal" size="small" :prepend-icon="burdenIcon(spec.implementationBurden)">
+                {{ spec.implementationBurden }}
               </v-chip>
             </td>
             <td class="text-center">
-              <v-chip :color="burdenColor(spec.rubric.engineering.level)" variant="flat" size="x-small">
-                {{ spec.rubric.engineering.level }}
+              <v-chip :color="burdenColor(spec.burdenRubric.engineering.level)" variant="flat" size="x-small">
+                {{ spec.burdenRubric.engineering.level }}
               </v-chip>
             </td>
             <td class="text-center">
-              <v-chip :color="burdenColor(spec.rubric.infrastructure.level)" variant="flat" size="x-small">
-                {{ spec.rubric.infrastructure.level }}
+              <v-chip :color="burdenColor(spec.burdenRubric.infrastructure.level)" variant="flat" size="x-small">
+                {{ spec.burdenRubric.infrastructure.level }}
               </v-chip>
             </td>
             <td class="text-center">
-              <v-chip :color="burdenColor(spec.rubric.legal.level)" variant="flat" size="x-small">
-                {{ spec.rubric.legal.level }}
+              <v-chip :color="burdenColor(spec.burdenRubric.legal.level)" variant="flat" size="x-small">
+                {{ spec.burdenRubric.legal.level }}
               </v-chip>
             </td>
           </tr>
@@ -497,13 +371,13 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
         <v-expansion-panel-title>
           <div class="d-flex align-center ga-3" style="width: 100%;">
             <span class="text-subtitle-2 font-weight-bold">{{ spec.title }}</span>
-            <v-chip :color="burdenColor(spec.burden)" variant="tonal" size="x-small">
-              {{ spec.burden }}
+            <v-chip :color="burdenColor(spec.implementationBurden)" variant="tonal" size="x-small">
+              {{ spec.implementationBurden }}
             </v-chip>
           </div>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <p class="text-body-2 mb-4">{{ spec.rationale }}</p>
+          <p class="text-body-2 mb-4">{{ spec.implementationBurdenRationale }}</p>
 
           <!-- Graph stats if available -->
           <v-alert v-if="spec.graphStats" type="info" variant="tonal" density="compact" class="mb-4">
@@ -516,6 +390,18 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
               <strong>{{ spec.graphStats.classes }}</strong> classes &middot;
               <strong>{{ spec.graphStats.properties?.toLocaleString() }}</strong> properties &middot;
               <strong>{{ spec.graphStats.sifMappedProperties }}</strong> mapped from SIF
+            </div>
+            <div class="text-caption" v-if="spec.graphStats.entities">
+              <strong>{{ spec.graphStats.entities }}</strong> entities &middot;
+              <strong>{{ spec.graphStats.fields?.toLocaleString() }}</strong> fields
+            </div>
+            <div class="text-caption" v-if="spec.graphStats.elements">
+              <strong>{{ spec.graphStats.elements?.toLocaleString() }}</strong> elements &middot;
+              <strong>{{ spec.graphStats.complexTypes }}</strong> complex types &middot;
+              <strong>{{ spec.graphStats.simpleTypes }}</strong> simple types
+            </div>
+            <div class="text-caption" v-if="spec.graphStats.programs">
+              <strong>{{ spec.graphStats.programs?.toLocaleString() }}</strong> program codes
             </div>
           </v-alert>
 
@@ -532,11 +418,11 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
               <tr v-for="dim in dimensions" :key="dim">
                 <td class="text-capitalize font-weight-medium">{{ dim }}</td>
                 <td>
-                  <v-chip :color="burdenColor(spec.rubric[dim].level)" variant="flat" size="x-small">
-                    {{ spec.rubric[dim].level }}
+                  <v-chip :color="burdenColor(spec.burdenRubric[dim].level)" variant="flat" size="x-small">
+                    {{ spec.burdenRubric[dim].level }}
                   </v-chip>
                 </td>
-                <td class="text-body-2">{{ spec.rubric[dim].note }}</td>
+                <td class="text-body-2">{{ spec.burdenRubric[dim].note }}</td>
               </tr>
             </tbody>
           </v-table>
@@ -545,7 +431,7 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
           <h4 class="text-subtitle-2 font-weight-bold mb-2">Required Capabilities</h4>
           <div class="mb-4">
             <v-chip
-              v-for="cap in spec.capabilities"
+              v-for="cap in spec.requiredCapabilities"
               :key="cap"
               size="small"
               variant="outlined"
@@ -557,7 +443,7 @@ const dimensions = ['engineering', 'infrastructure', 'legal'];
 
           <!-- Guidance -->
           <h4 class="text-subtitle-2 font-weight-bold mb-1">Getting Started</h4>
-          <p class="text-body-2">{{ spec.guidance }}</p>
+          <p class="text-body-2">{{ spec.implementationGuidance }}</p>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

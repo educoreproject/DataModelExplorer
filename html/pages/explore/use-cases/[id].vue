@@ -1,6 +1,6 @@
 <script setup>
-import { getUseCaseById, getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
-import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
+import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
+import { useUseCaseStore } from '@/stores/useCaseStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { personas } from '@/data/personas';
@@ -8,20 +8,52 @@ import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
 
+const ucStore = useUseCaseStore();
 const LoginStore = useLoginStore();
 const route = useRoute();
 const ucId = route.params.id;
 
-const useCase = computed(() => getUseCaseById(ucId));
+// Resolve use case from store, enriching with taxonomy labels
+const useCase = computed(() => {
+	const uc = ucStore.useCaseById(ucId);
+	if (!uc) return null;
+	// Find taxonomy labels
+	let categoryLabel = '', categoryIcon = '', categoryColor = '', subcategoryLabel = '';
+	for (const topic of ucStore.taxonomy) {
+		for (const driver of topic.children) {
+			if (driver.children.includes(uc.id)) {
+				categoryLabel = topic.label;
+				categoryIcon = topic.icon;
+				categoryColor = topic.color;
+				subcategoryLabel = driver.label;
+				break;
+			}
+		}
+	}
+	return {
+		...uc,
+		label: uc.title,
+		categoryLabel,
+		categoryIcon,
+		categoryColor,
+		subcategoryLabel,
+		cedsDomains: uc.cedsDomains || [],
+	};
+});
+
 const standards = computed(() => getStandardsForUseCase(ucId));
 
 // Sibling stories in same driver/subcategory
 const siblingStories = computed(() => {
 	if (!useCase.value) return [];
-	for (const cat of useCaseTaxonomy) {
-		for (const sub of cat.children) {
-			if (sub.id === useCase.value.subcategoryId) {
-				return sub.children.filter((uc) => uc.id !== ucId && uc.githubIssue);
+	for (const topic of ucStore.taxonomy) {
+		for (const driver of topic.children) {
+			if (driver.children.includes(ucId)) {
+				return driver.children
+					.filter((id) => id !== ucId)
+					.map((id) => ucStore.useCaseById(id))
+					.filter((uc) => uc && uc.githubIssue)
+					.map((uc) => ({ ...uc, label: uc.title }));
 			}
 		}
 	}

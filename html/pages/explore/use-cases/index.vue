@@ -1,5 +1,6 @@
 <script setup>
-import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
+import { useUseCaseStore } from '@/stores/useCaseStore';
+const ucStore = useUseCaseStore();
 
 const route = useRoute();
 
@@ -9,17 +10,15 @@ const expandedPanels = ref([]);
 onMounted(() => {
 	const topicId = route.query.topic;
 	if (topicId) {
-		const idx = useCaseTaxonomy.findIndex((t) => t.id === topicId);
+		const idx = ucStore.taxonomy.findIndex((t) => t.id === topicId);
 		if (idx >= 0) expandedPanels.value = [idx];
 	}
 });
 
-const totalUseCases = computed(() =>
-	useCaseTaxonomy.reduce(
-		(sum, cat) => sum + cat.children.reduce((s, sub) => s + sub.children.length, 0),
-		0,
-	),
-);
+const totalUseCases = computed(() => ucStore.useCaseCount);
+
+// Resolve a use case ID to its full object from the store
+const resolveUc = (ucId) => ucStore.useCaseById(ucId);
 
 const labelColor = (tag) => {
 	const map = {
@@ -30,10 +29,6 @@ const labelColor = (tag) => {
 		'Human Services': 'pink',
 	};
 	return map[tag] || 'grey';
-};
-
-const cedsDomainsFor = (ucId) => {
-	return useCaseCedsDomains[ucId] || [];
 };
 </script>
 
@@ -46,7 +41,7 @@ const cedsDomainsFor = (ucId) => {
 
 		<v-expansion-panels v-model="expandedPanels" variant="accordion" multiple>
 			<v-expansion-panel
-				v-for="topic in useCaseTaxonomy"
+				v-for="topic in ucStore.taxonomy"
 				:key="topic.id"
 			>
 				<v-expansion-panel-title>
@@ -74,31 +69,31 @@ const cedsDomainsFor = (ucId) => {
 						</h4>
 						<v-list density="compact" class="py-0">
 							<v-list-item
-								v-for="uc in driver.children"
-								:key="uc.id"
+								v-for="ucId in driver.children"
+								:key="ucId"
 								class="px-0"
-								:to="`/explore/use-cases/${uc.id}`"
+								:to="`/explore/use-cases/${ucId}`"
 							>
 								<template #prepend>
 									<a
-										v-if="uc.githubIssue"
-										:href="`https://github.com/educoreproject/educore_use_cases/issues/${uc.githubIssue}`"
+										v-if="resolveUc(ucId)?.githubIssue"
+										:href="`https://github.com/educoreproject/educore_use_cases/issues/${resolveUc(ucId).githubIssue}`"
 										target="_blank"
 										class="text-caption text-primary mr-2"
 										style="text-decoration: none;"
 										@click.stop
 									>
-										#{{ uc.githubIssue }}
+										#{{ resolveUc(ucId).githubIssue }}
 									</a>
 								</template>
-								<v-list-item-title class="text-body-2">{{ uc.label }}</v-list-item-title>
-								<v-list-item-subtitle v-if="cedsDomainsFor(uc.id).length" class="text-caption">
-									CEDS: {{ cedsDomainsFor(uc.id).join(', ') }}
+								<v-list-item-title class="text-body-2">{{ resolveUc(ucId)?.title || ucId }}</v-list-item-title>
+								<v-list-item-subtitle v-if="resolveUc(ucId)?.cedsDomains?.length" class="text-caption">
+									CEDS: {{ resolveUc(ucId).cedsDomains.join(', ') }}
 								</v-list-item-subtitle>
 								<template #append>
 									<div class="d-flex ga-1">
 										<v-chip
-											v-for="tag in (uc.tags || [])"
+											v-for="tag in (resolveUc(ucId)?.tags || [])"
 											:key="tag"
 											size="x-small"
 											:color="labelColor(tag)"

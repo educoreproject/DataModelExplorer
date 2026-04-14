@@ -1,11 +1,12 @@
 <script setup>
-import { useCaseTaxonomy, countUseCases } from '@/data/use-case-taxonomy';
+import { useUseCaseStore } from '@/stores/useCaseStore';
+const ucStore = useUseCaseStore();
 
 const topicCards = computed(() =>
-	useCaseTaxonomy.map((topic) => ({
+	ucStore.taxonomy.map((topic) => ({
 		...topic,
 		driverCount: topic.children.length,
-		useCaseCount: countUseCases(topic.id),
+		useCaseCount: topic.children.reduce((sum, driver) => sum + driver.children.length, 0),
 	})),
 );
 </script>
