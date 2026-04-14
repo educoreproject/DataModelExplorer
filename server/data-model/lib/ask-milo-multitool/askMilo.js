@@ -1015,7 +1015,7 @@ Examples:
 		if (name == 'allConfigs') { return config; }
 		return config[name];
 	};
-console.log('HELLO FROM TQ ASK MILO');
+
 	process.global = Object.freeze({
 		xLog: Object.freeze({ status: console.error, error: console.error, result: console.log }),
 		getConfig,
