@@ -21,7 +21,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { neo4jDb } = passThroughParameters;
 
 	const validateReadOnly = require('../../../lib/cypher-validator');
-	const getSchemaDescription = require('../../../lib/schema-provider');
+	const getSchemaDescription = require('../../../lib/schema-provider')({
+		neo4jDb,
+	});
 
 	const mcpConfig = getConfig('mcp-server') || {};
 	const maxResultRecords = parseInt(mcpConfig.maxResultRecords, 10) || 100;
@@ -51,8 +53,16 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const { action } = queryData;
 
 			if (action === 'schema') {
-				const schemaText = getSchemaDescription();
-				next('skipRestOfPipe', { ...args, result: [{ schema: schemaText }] });
+				getSchemaDescription((err, schemaText) => {
+					if (err) {
+						next(err, args);
+						return;
+					}
+					next('skipRestOfPipe', {
+						...args,
+						result: [{ schema: schemaText }],
+					});
+				});
 				return;
 			}
 
