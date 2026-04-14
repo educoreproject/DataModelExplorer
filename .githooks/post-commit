@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
-# After a commit completes, restore the dev-time symlink so subsequent
-# edits flow through qbookInternal's canonical layer.
-exec "$(git rev-parse --show-toplevel)/.githooks/swap-graphinator.sh" symlink
+# After commit, restore dev-time symlinks for all managed paths.
+# Each swap script silently no-ops if its canonical target isn't present.
+set -e
+HOOKS_DIR="$(git rev-parse --show-toplevel)/.githooks"
+"$HOOKS_DIR/swap-graphinator.sh" symlink
+"$HOOKS_DIR/swap-askmilo.sh"     symlink
