@@ -549,7 +549,7 @@ defineExpose({ submitPrompt, promptText });
 						<v-icon size="28">mdi-chevron-left</v-icon>
 					</div>
 					<div class="panel-header">
-						STDOUT
+						STDOUT HELLO FROM TQ
 						<span v-if="graphStore.responseCount > 1" class="response-counter">
 							{{ graphStore.displayIndex }} / {{ graphStore.responseCount }}
 						</span>
