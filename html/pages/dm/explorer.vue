@@ -7,7 +7,7 @@
 // All UI logic lives in GraphinatorPanel.vue (shared component).
 
 import { useLoginStore } from '@/stores/loginStore';
-import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
+import { createGraphinatorStore } from '~/layers/graphinator/stores/createGraphinatorStore';
 import { onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
