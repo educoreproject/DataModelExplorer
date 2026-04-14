@@ -10,7 +10,8 @@ definePageMeta({ middleware: 'auth' });
 
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { onMounted } from 'vue';
+import { personas } from '@/data/personas';
+import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -30,7 +31,6 @@ const useGraphStore = createGraphinatorStore({
 const graphStore = useGraphStore();
 
 const activeTab = 'explore';
-const graphinatorRef = ref(null);
 
 // Auto-send prompt from query params (from implementation plan flow)
 const pendingPrompt = ref(route.query.prompt ? decodeURIComponent(route.query.prompt) : '');
