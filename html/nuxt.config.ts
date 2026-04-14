@@ -12,6 +12,11 @@ const gitCommitHash = (() => {
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
 
+  // Graphinator UI (GraphinatorPanel, DownloadButton, composables, store)
+  // lives in its own Nuxt layer. Files there are auto-imported across
+  // components/, composables/, and stores/ directories.
+  extends: ['./layers/graphinator'],
+
   ssr: false, // Disable server-side rendering for an SPA
   target: 'static', // Set target to 'static' for static site generation
 
@@ -43,16 +48,6 @@ export default defineNuxtConfig({
 
   build: {
     transpile: ['vuetify'],
-  },
-
-  vite: {
-    resolve: {
-      // Symlinked shared files (GraphinatorPanel, etc.) live in qbookSuperTool
-      // but must resolve their imports (pinia, vue, marked) from THIS project's
-      // node_modules. Without this, Vite follows the symlink and looks for
-      // dependencies relative to the real file path, causing dual-instance errors.
-      preserveSymlinks: true,
-    },
   },
 
   devServer: {
