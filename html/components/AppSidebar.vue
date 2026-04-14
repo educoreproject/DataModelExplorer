@@ -66,6 +66,11 @@ const isAdmin = computed(() =>
 				prepend-icon="mdi-certificate-outline"
 				title="Standards"
 			/>
+			<v-list-item
+				to="/explore/access-guide"
+				prepend-icon="mdi-compass-outline"
+				title="Access Guide"
+			/>
 		</v-list>
 
 		<v-divider />

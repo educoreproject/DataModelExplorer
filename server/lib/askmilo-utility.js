@@ -38,6 +38,13 @@ const moduleFunction = ({ expressApp }) => {
 
 		try {
 			const maxTokens = xReq.body.maxTokens || 4096;
+
+			console.log('\n[askmilo-utility] ===== API REQUEST =====');
+			console.log('[askmilo-utility] Model:', resolvedModel);
+			console.log('[askmilo-utility] Max tokens:', maxTokens);
+			console.log('[askmilo-utility] Prompt:\n', prompt);
+			console.log('[askmilo-utility] ===== END REQUEST =====\n');
+
 			const message = await anthropic.messages.create({
 				model: resolvedModel,
 				max_tokens: maxTokens,
@@ -49,8 +56,18 @@ const moduleFunction = ({ expressApp }) => {
 				.map((block) => block.text)
 				.join('');
 
+			console.log('[askmilo-utility] ===== API RESPONSE =====');
+			console.log('[askmilo-utility] Input tokens:', message.usage.input_tokens, '| Output tokens:', message.usage.output_tokens);
+			console.log('[askmilo-utility] Response length:', responseText.length, 'chars');
+			console.log('[askmilo-utility] ===== END RESPONSE =====\n');
+
 			xRes.json({ response: responseText });
 		} catch (err) {
+			console.error('[askmilo-utility] ===== API ERROR =====');
+			console.error('[askmilo-utility] Model:', resolvedModel);
+			console.error('[askmilo-utility] Error:', err.message);
+			console.error('[askmilo-utility] Stack:', err.stack);
+			console.error('[askmilo-utility] ===== END ERROR =====\n');
 			xLog.error(`askmilo-utility error: ${err.message}`);
 			xRes.status(500).send(`AI request failed: ${err.message}`);
 		}
