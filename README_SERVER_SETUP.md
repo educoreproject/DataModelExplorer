@@ -127,7 +127,6 @@ Expected containers:
 |-----------|-----------|-----------|
 | rag_CedsOntology14 | 7700 | 7701 |
 | rag_SifSpecGraph | 7702 | 7703 |
-| rag_CareerStoryGraph | 7704+ | 7705+ |
 | rag_DataModelExplorer | 7706+ | 7707+ |
 
 Ports are dynamically assigned starting from 7700 in pairs.
@@ -159,7 +158,6 @@ Neo4j 5 community edition does not support TLS on the bolt connector. Some neo4j
 Files that needed this fix:
 - `cli/lib.d/ceds-ontology14/cedsOntology14Search.js`
 - `cli/lib.d/ceds-ontology14/parseRdf.js` (3 instances)
-- `cli/lib.d/career-story-graph-search/careerStoryGraphSearch.js`
 
 Files that already had it:
 - `cli/lib.d/data-model-explorer/dataModelExplorerSearch.js`
