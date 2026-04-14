@@ -1,98 +1,181 @@
-/* EDUcore Global Styles — Editorial Typography
-   Inspired by the business plan document aesthetic.
-   Applied globally via nuxt.config.ts css[] array. */
+/* EDUcore OpenPath Design System — Global Styles
+   Based on EDUcore/OpenPath Brand + UI System v1.0
+   Colors: Blue #072A6C, Teal #00B5B8, Orange #FFAB40, Violet #5B3FD3
+   Fonts: Open Sans (body), DM Serif Display (display) */
 
-/* Base typography */
+/* ── CSS Custom Properties ── */
+:root {
+  --edu-blue:    #072A6C;
+  --edu-teal:    #00B5B8;
+  --edu-orange:  #FFAB40;
+  --edu-violet:  #5B3FD3;
+  --edu-yellow:  #F4F38C;
+  --edu-bg:      #F8F9FC;
+  --edu-surface: #FFFFFF;
+  --edu-gray-50: #F8F9FC;
+  --edu-gray-100:#EEF1F7;
+  --edu-gray-300:#C4CBDA;
+  --edu-gray-500:#7A8499;
+  --edu-gray-900:#111827;
+  --edu-shadow-card: 0 2px 12px rgba(7,42,108,.08), 0 0 0 1px rgba(7,42,108,.06);
+  --edu-shadow-hover: 0 8px 32px rgba(7,42,108,.14);
+  --edu-radius-sm: 6px;
+  --edu-radius-md: 12px;
+  --edu-radius-lg: 20px;
+}
+
+/* ── Base Typography ── */
 body {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 17px;
-  line-height: 1.7;
-  color: #333;
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--edu-gray-900);
+  background: var(--edu-bg);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Override Vuetify's default Roboto on key elements */
 .v-application {
-  font-family: Georgia, 'Times New Roman', serif !important;
-  line-height: 1.7;
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  line-height: 1.6;
 }
 
-/* Headings */
-h1, h2, h3, h4, h5, h6,
+/* ── Headings — DM Serif Display for display, Open Sans bold for UI ── */
+h1, .text-h3, .text-h4 {
+  font-family: 'DM Serif Display', Georgia, serif !important;
+  color: var(--edu-blue);
+}
+
+h2, h3, h4, h5, h6,
 .v-toolbar-title,
 .v-list-item-title,
 .v-card-title,
-.text-h1, .text-h2, .text-h3, .text-h4, .text-h5, .text-h6 {
-  font-family: Georgia, 'Times New Roman', serif !important;
-  color: #2c5f8a;
+.text-h5, .text-h6 {
+  font-family: 'Open Sans', sans-serif !important;
+  color: var(--edu-blue);
 }
 
-/* Buttons get a clean sans-serif for UI crispness */
+/* ── Buttons ── */
 .v-btn {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Open Sans', sans-serif !important;
   text-transform: none !important;
-  letter-spacing: 0.02em !important;
-  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  font-weight: 600 !important;
+  border-radius: var(--edu-radius-sm) !important;
 }
 
-/* Text fields */
+/* ── Text fields ── */
 .v-field__input,
 .v-label {
-  font-family: Georgia, 'Times New Roman', serif !important;
+  font-family: 'Open Sans', sans-serif !important;
 }
 
-/* App bar nav title */
+.v-field--focused .v-field__outline {
+  border-color: var(--edu-teal) !important;
+}
+
+/* ── App bar ── */
+.v-app-bar {
+  border-bottom: 1px solid var(--edu-gray-100) !important;
+}
+
 .v-app-bar-title {
-  font-family: Georgia, 'Times New Roman', serif !important;
+  font-family: 'Open Sans', sans-serif !important;
+  font-weight: 700 !important;
+  color: var(--edu-blue) !important;
 }
 
-/* Tables (for any future data tables) */
+/* ── Tables ── */
 .v-table thead th {
-  background: #2c5f8a !important;
+  background: var(--edu-blue) !important;
   color: #fff !important;
-  font-weight: bold;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
 }
 
 .v-table tbody tr:nth-child(even) {
-  background: #f5f5f0;
+  background: var(--edu-gray-50);
 }
 
 .v-table tbody tr:hover {
-  background: #eef3f9 !important;
+  background: rgba(0, 181, 184, 0.04) !important;
 }
 
-/* Lists — sidebar style */
+/* ── Lists — sidebar active state ── */
 .v-list-item--active {
-  border-left: 3px solid #2c5f8a;
+  border-left: 3px solid var(--edu-teal) !important;
+  background: rgba(0, 181, 184, 0.06) !important;
 }
 
-/* Cards — subtle editorial feel */
+/* ── Cards ── */
 .v-card {
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: none;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
-/* Alerts — match the editorial palette */
-.v-alert {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  font-size: 14px;
+.v-card:hover {
+  box-shadow: var(--edu-shadow-hover);
 }
 
-/* Chips */
+/* ── Chips ── */
 .v-chip {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Open Sans', sans-serif !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-/* Scrollbar styling */
+/* ── Alerts ── */
+.v-alert {
+  font-family: 'Open Sans', sans-serif !important;
+  font-size: 14px;
+  border-radius: var(--edu-radius-md);
+}
+
+/* ── Navigation drawer ── */
+.v-navigation-drawer {
+  border-right: 1px solid var(--edu-gray-100) !important;
+}
+
+.v-list-subheader {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--edu-teal) !important;
+}
+
+/* ── Expansion panels ── */
+.v-expansion-panel-title {
+  font-family: 'Open Sans', sans-serif !important;
+  font-weight: 600;
+}
+
+/* ── Overline helper ── */
+.text-overline {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  color: var(--edu-teal) !important;
+}
+
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--edu-gray-300);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+  background: var(--edu-gray-500);
+}
+
+/* ── Tabs ── */
+.v-tab {
+  font-family: 'Open Sans', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
 }

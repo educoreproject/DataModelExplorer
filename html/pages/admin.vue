@@ -1,19 +1,11 @@
 <script setup>
 // @concept: [[UserCrudAdmin]]
-import { useLoginStore } from '@/stores/loginStore';
+definePageMeta({ middleware: 'auth' });
+
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
-
-const LoginStore = useLoginStore();
-const router = useRouter();
-
-// Handle logout if needed
-if (router?.currentRoute.value.query.logout) {
-	LoginStore.logout();
-}
 
 // Selected tool - default to add-edit-user
 const selectedTool = ref('add-edit-user');
@@ -25,9 +17,7 @@ const selectTool = (toolName) => {
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px;">
+	<div>
 			<v-container fluid class="fill-height">
 				<v-row no-gutters class="fill-height">
 					<!-- Main content area -->
@@ -58,8 +48,7 @@ const selectTool = (toolName) => {
 					</v-col>
 				</v-row>
 			</v-container>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>

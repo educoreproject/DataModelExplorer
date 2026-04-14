@@ -1,32 +1,11 @@
 <script setup>
-	import { useLoginStore } from '@/stores/loginStore';
-	const LoginStore = useLoginStore();
-	import { useRouter } from 'vue-router';
-	const router = useRouter();
+definePageMeta({ middleware: 'auth' });
 
-	if (router?.currentRoute.value.query.logout) {
-		LoginStore.logout();
-	}
-
-	const message = 'hello from work.vue';
-
-	import { ref, computed } from 'vue';
-
+const message = 'hello from work.vue';
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main>
-		<v-container>
-		
-{{message}}
-
-		</v-container>
-		</v-main>
-	</v-app>
+	<v-container>
+		{{ message }}
+	</v-container>
 </template>
-
-<style scoped>
-
-</style>

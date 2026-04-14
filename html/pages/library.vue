@@ -1,125 +1,203 @@
 <script setup>
-// @concept: [[DocumentLibrary]]
-import { useLoginStore } from '@/stores/loginStore';
-import { useLibraryStore } from '@/stores/libraryStore';
-import { ref, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+// @concept: [[UserLibrary]]
+// @concept: [[SessionHistory]]
+definePageMeta({ middleware: 'auth' });
 
-const LoginStore = useLoginStore();
-const libraryStore = useLibraryStore();
+import { ref, onMounted, computed } from 'vue';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useRouter } from 'vue-router';
+
+const sessionStore = useSessionStore();
 const router = useRouter();
-const route = useRoute();
 
-const newWindowDocName = ref('');
-const openInNewWindow = ref(false);
+const searchQuery = ref('');
 
-// Auth guard + deep-link support
-onMounted(async () => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
-		return;
-	}
-	await libraryStore.fetchCatalog();
-
-	// Auto-open document from ?doc= query parameter
-	const docParam = route.query.doc;
-	if (docParam && libraryStore.catalog.length) {
-		const match = libraryStore.catalog.find(d => d.filename === docParam);
-		if (match) {
-			handleDocClick(match);
-		}
-	}
+onMounted(() => {
+	sessionStore.fetchSessions();
 });
 
-const handleDocClick = (doc) => {
-	// Update URL with ?doc= for bookmarkability
-	router.replace({ query: { doc: doc.filename } });
+// Delete confirmation
+const confirmDeleteDialog = ref(false);
+const sessionToDelete = ref(null);
 
-	if (openInNewWindow.value) {
-		newWindowDocName.value = doc.displayName;
-		libraryStore.currentPage = null;
-		libraryStore.openInNewWindow(doc.filename);
-	} else {
-		newWindowDocName.value = '';
-		libraryStore.fetchPage(doc.filename);
+const promptDelete = (session) => {
+	sessionToDelete.value = session;
+	confirmDeleteDialog.value = true;
+};
+
+const confirmDelete = async () => {
+	if (sessionToDelete.value) {
+		await sessionStore.deleteSession(sessionToDelete.value.refId);
 	}
+	confirmDeleteDialog.value = false;
+	sessionToDelete.value = null;
+};
+
+const cancelDelete = () => {
+	confirmDeleteDialog.value = false;
+	sessionToDelete.value = null;
+};
+
+const formatDate = (dateStr) => {
+	if (!dateStr) return '';
+	const d = new Date(dateStr);
+	return d.toLocaleDateString('en-US', {
+		month: 'short', day: 'numeric', year: 'numeric',
+		hour: 'numeric', minute: '2-digit',
+	});
+};
+
+const relativeDate = (dateStr) => {
+	if (!dateStr) return '';
+	const now = new Date();
+	const d = new Date(dateStr);
+	const diffMs = now - d;
+	const diffMin = Math.floor(diffMs / 60000);
+	const diffHr = Math.floor(diffMs / 3600000);
+	const diffDay = Math.floor(diffMs / 86400000);
+
+	if (diffMin < 1) return 'just now';
+	if (diffMin < 60) return `${diffMin}m ago`;
+	if (diffHr < 24) return `${diffHr}h ago`;
+	if (diffDay < 7) return `${diffDay}d ago`;
+	return formatDate(dateStr);
+};
+
+const filteredSessions = computed(() => {
+	if (!searchQuery.value.trim()) return sessionStore.sessions;
+	const q = searchQuery.value.toLowerCase();
+	return sessionStore.sessions.filter(s =>
+		(s.sessionName || '').toLowerCase().includes(q)
+	);
+});
+
+const openSession = (session) => {
+	router.push({
+		path: '/dm/explorer',
+		query: { resume: session.refId },
+	});
 };
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px;">
-			<v-container fluid class="fill-height pa-0">
-				<v-row no-gutters class="fill-height">
-					<!-- Left sidebar: catalog -->
-					<v-col cols="3" class="sidebar">
-						<v-list density="compact" nav>
-							<v-list-item @click="openInNewWindow = !openInNewWindow">
-								<v-list-item-title>
-									Open in new window
-									<v-icon size="small" class="ml-1">
-										{{ openInNewWindow ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline' }}
-									</v-icon>
-								</v-list-item-title>
-							</v-list-item>
-							<v-divider />
-							<v-list-item
-								v-for="doc in libraryStore.sortedCatalog"
-								:key="doc.anchor"
-								:active="doc.filename === libraryStore.currentFilename"
-								@click="handleDocClick(doc)"
-							>
-								<v-list-item-title>{{ doc.displayName }}</v-list-item-title>
-								<v-tooltip v-if="doc.tooltip" activator="parent">
-									{{ doc.tooltip }}
-								</v-tooltip>
-							</v-list-item>
-						</v-list>
-					</v-col>
+	<v-container class="py-8" style="max-width: 900px;">
+		<div class="d-flex align-center justify-space-between mb-2">
+			<h1 class="text-h4 font-weight-bold text-primary">My Library</h1>
+			<v-btn
+				color="primary"
+				prepend-icon="mdi-plus"
+				to="/dm/personas"
+			>
+				New Chat
+			</v-btn>
+		</div>
+		<p class="text-body-1 text-medium-emphasis mb-6">
+			Your saved AI Explorer conversations. Click a session to resume where you left off.
+		</p>
 
-					<!-- Right panel: content -->
-					<v-col cols="9" class="content-panel">
-						<v-progress-linear
-							v-if="libraryStore.loading"
-							indeterminate
-							color="primary"
-						/>
-						<iframe
-							v-else-if="libraryStore.currentPage && !newWindowDocName"
-							:srcdoc="libraryStore.currentPage.content"
-							class="document-iframe"
-							frameborder="0"
-						/>
-						<div v-else-if="newWindowDocName" class="placeholder text-medium-emphasis text-subtitle-1 d-flex justify-center align-center fill-height">
-							Document '{{ newWindowDocName }}' opened in new window
+		<!-- Search -->
+		<v-text-field
+			v-if="sessionStore.sessions.length > 3"
+			v-model="searchQuery"
+			prepend-inner-icon="mdi-magnify"
+			placeholder="Search sessions..."
+			variant="outlined"
+			density="compact"
+			hide-details
+			clearable
+			class="mb-5"
+		/>
+
+		<!-- Loading -->
+		<v-progress-linear v-if="sessionStore.loading" indeterminate color="primary" class="mb-4" />
+
+		<!-- Error -->
+		<v-alert
+			v-if="sessionStore.statusMsg"
+			type="error"
+			density="compact"
+			class="mb-4"
+			closable
+			@click:close="sessionStore.statusMsg = ''"
+		>
+			{{ sessionStore.statusMsg }}
+		</v-alert>
+
+		<!-- Session list -->
+		<div v-if="filteredSessions.length > 0">
+			<v-card
+				v-for="session in filteredSessions"
+				:key="session.refId"
+				variant="outlined"
+				class="mb-3 session-card"
+				@click="openSession(session)"
+			>
+				<v-card-text class="d-flex align-center pa-4">
+					<v-icon color="primary" class="mr-4" size="24">mdi-chat-outline</v-icon>
+					<div class="flex-grow-1" style="min-width: 0;">
+						<div class="text-subtitle-2 font-weight-bold text-truncate">
+							{{ session.sessionName || 'Untitled Session' }}
 						</div>
-						<div v-else class="placeholder text-medium-emphasis text-subtitle-1 d-flex justify-center align-center fill-height">
-							Select a document from the sidebar
+						<div class="text-caption text-medium-emphasis">
+							{{ relativeDate(session.updatedAt) }}
 						</div>
-					</v-col>
-				</v-row>
-			</v-container>
-		</v-main>
-	</v-app>
+					</div>
+					<v-btn
+						icon
+						variant="text"
+						size="small"
+						color="error"
+						title="Delete session"
+						@click.stop="promptDelete(session)"
+					>
+						<v-icon>mdi-delete-outline</v-icon>
+					</v-btn>
+				</v-card-text>
+			</v-card>
+		</div>
+
+		<!-- Empty state -->
+		<v-card v-else-if="!sessionStore.loading && !searchQuery" variant="flat" color="grey-lighten-4" class="pa-12 text-center" rounded="lg">
+			<v-icon size="48" color="grey" class="mb-4">mdi-chat-plus-outline</v-icon>
+			<h3 class="text-h6 font-weight-bold mb-2">No saved conversations yet</h3>
+			<p class="text-body-2 text-medium-emphasis mb-4">
+				Start a new chat in the AI Explorer. Your conversations save automatically.
+			</p>
+			<v-btn color="primary" prepend-icon="mdi-robot-outline" to="/dm/personas">
+				Open AI Explorer
+			</v-btn>
+		</v-card>
+
+		<!-- No search results -->
+		<div v-else-if="!sessionStore.loading && searchQuery" class="text-center pa-8 text-medium-emphasis">
+			No sessions matching "{{ searchQuery }}"
+		</div>
+
+		<!-- Delete confirmation dialog -->
+		<v-dialog v-model="confirmDeleteDialog" max-width="400">
+			<v-card>
+				<v-card-title>Delete Session?</v-card-title>
+				<v-card-text>
+					Are you sure you want to delete "{{ sessionToDelete?.sessionName || 'Untitled Session' }}"? This cannot be undone.
+				</v-card-text>
+				<v-card-actions>
+					<v-spacer />
+					<v-btn variant="text" @click="cancelDelete">Cancel</v-btn>
+					<v-btn color="error" variant="flat" @click="confirmDelete">Delete</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+	</v-container>
 </template>
 
 <style scoped>
-.sidebar {
-	border-right: 1px solid rgba(0, 0, 0, 0.12);
-	background-color: #f9f9f6;
-	overflow-y: auto;
-	max-height: calc(100vh - 120px);
+.session-card {
+	cursor: pointer;
+	transition: all 0.15s ease;
 }
-.content-panel {
-	overflow: hidden;
-}
-.document-iframe {
-	width: 100%;
-	height: calc(100vh - 120px);
-	border: none;
-}
-.placeholder {
-	min-height: calc(100vh - 120px);
+
+.session-card:hover {
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+	border-color: rgb(var(--v-theme-primary));
 }
 </style>

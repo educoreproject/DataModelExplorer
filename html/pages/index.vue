@@ -1,22 +1,9 @@
 <script setup>
-	import { useLoginStore } from '@/stores/loginStore';
-	const LoginStore = useLoginStore();
-	import { useRouter } from 'vue-router';
-	const router = useRouter();
-
-	if (router?.currentRoute.value.query.logout) {
-		LoginStore.logout();
-	}
-
 	const ghPages = 'https://educoreproject.github.io/';
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
-			<div class="landing-page">
-
+	<div class="landing-page">
 				<div class="hero">
 					<h2>Harmonizing Interoperability Specs for AI</h2>
 					<p>
@@ -219,9 +206,7 @@
 					&copy; 2026 EduCore Project. Building interoperability for education, together.
 				</footer>
 
-			</div>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>

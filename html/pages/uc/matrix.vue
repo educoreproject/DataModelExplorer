@@ -4,30 +4,17 @@
 // Interactive directory of education data standards displayed as a clickable
 // SVG matrix (rows x layer columns) with a filterable card list.
 
-import { useLoginStore } from '@/stores/loginStore';
-import { useEdMatrixStore } from '@/stores/edMatrixStore';
-import { onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+definePageMeta({ middleware: 'auth' });
 
-const LoginStore = useLoginStore();
+import { useEdMatrixStore } from '@/stores/edMatrixStore';
+
 const matrixStore = useEdMatrixStore();
-const router = useRouter();
-const route = useRoute();
 
 const activeTab = 'matrix';
-
-// Auth guard
-onMounted(() => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
-	}
-});
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
+	<div>
 			<SubPageNav
 				:model-value="activeTab"
 				:tabs="[{ label: 'Standards Matrix', value: 'matrix', to: '/uc/matrix' }]"
@@ -196,8 +183,7 @@ onMounted(() => {
 					</div>
 				</div>
 			</v-container>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>

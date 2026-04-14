@@ -4,15 +4,12 @@
 // Displays a filterable data table of education data standards
 // from the EdMatrix graph database with expandable detail rows.
 
-import { useLoginStore } from '@/stores/loginStore';
+definePageMeta({ middleware: 'auth' });
+
 import { useUtilityStore } from '@/stores/utilityStore';
 import { ref, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 
-const LoginStore = useLoginStore();
 const utilityStore = useUtilityStore();
-const router = useRouter();
-const route = useRoute();
 
 const activeTab = 'edmatrix';
 
@@ -33,14 +30,8 @@ const headers = [
 // Expanded rows tracking
 const expanded = ref([]);
 
-// Auth guard and data loading
+// Data loading
 onMounted(() => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
-		return;
-	}
-
-	// Load standards + organizations in parallel
 	utilityStore.fetchEdmatrixStandards();
 	utilityStore.fetchEdmatrixOrganizations();
 });
@@ -52,9 +43,7 @@ watch(selectedOrg, (newOrg) => {
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
+	<div>
 			<SubPageNav
 				:model-value="activeTab"
 				:tabs="[{ label: 'EdMatrix Report', value: 'edmatrix', to: '/util/edmatrix' }]"
@@ -199,8 +188,7 @@ watch(selectedOrg, (newOrg) => {
 					</template>
 				</v-data-table>
 			</v-container>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>
