@@ -76,6 +76,14 @@ const tabs = computed(() => {
 
 // Standards multi-select
 const selectedStandardIds = ref([]);
+const showAllStandards = ref(false);
+
+// Split standards into relevant (score >= 2, i.e. at least one full domain match) and additional
+const relevantStandards = computed(() => standards.value.filter(s => s.score >= 2));
+const additionalStandards = computed(() => standards.value.filter(s => s.score < 2));
+const visibleStandards = computed(() =>
+	showAllStandards.value ? standards.value : relevantStandards.value,
+);
 
 function toggleStandard(id) {
 	const idx = selectedStandardIds.value.indexOf(id);
@@ -567,10 +575,10 @@ const swimlaneSteps = computed(() => {
 				Create my implementation plan ({{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }})
 			</v-btn>
 
-			<!-- Standard cards (selectable) -->
-			<v-row v-if="standards.length">
+			<!-- Relevant standard cards (selectable) -->
+			<v-row v-if="visibleStandards.length">
 				<v-col
-					v-for="(std, idx) in standards"
+					v-for="(std, idx) in visibleStandards"
 					:key="std.entry.id"
 					cols="12"
 					sm="6"
@@ -613,6 +621,21 @@ const swimlaneSteps = computed(() => {
 					</v-card>
 				</v-col>
 			</v-row>
+
+			<!-- Show more / fewer toggle -->
+			<div v-if="additionalStandards.length && relevantStandards.length" class="mt-4 text-center">
+				<v-btn
+					variant="text"
+					size="small"
+					:prepend-icon="showAllStandards ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+					@click="showAllStandards = !showAllStandards"
+				>
+					{{ showAllStandards
+						? 'Show relevant only'
+						: `Show ${additionalStandards.length} more standard${additionalStandards.length > 1 ? 's' : ''} with partial alignment`
+					}}
+				</v-btn>
+			</div>
 
 			<!-- Bottom CTA (visible when scrolled past cards) -->
 			<div v-if="selectedStandardIds.length" class="mt-6 text-center">
