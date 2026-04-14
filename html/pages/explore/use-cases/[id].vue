@@ -180,27 +180,46 @@ function burdenColor(burden) {
 	return 'error';
 }
 
-// Swimlane steps (procedural from use case context)
+// Swimlane colors for actors
+const actorColors = ['#1e40af', '#7c3aed', '#15803d', '#b45309', '#be185d', '#0f766e', '#6d28d9', '#dc2626'];
+
+// Swimlane actors — derived from actual use case data
 const swimlaneActors = computed(() => {
 	if (!useCase.value) return [];
+	const uc = useCase.value;
+	// Use real actors from the store if available
+	if (uc.actors && uc.actors.length > 0) {
+		return uc.actors.map((a, idx) => ({
+			label: a.name,
+			desc: a.role || '',
+			color: actorColors[idx % actorColors.length],
+		}));
+	}
+	// Fallback for use cases without actor data
 	return [
-		{ label: useCase.value.subcategoryLabel, desc: 'Primary actor driving this use case', color: '#1e40af' },
-		{ label: 'System', desc: 'Automated processing and validation', color: '#7c3aed' },
-		{ label: 'Verifier', desc: 'Credential verification and trust', color: '#15803d' },
+		{ label: uc.subcategoryLabel || 'User', desc: 'Primary actor', color: actorColors[0] },
 	];
 });
 
+// Swimlane steps — derived from actual use case step data
 const swimlaneSteps = computed(() => {
 	if (!useCase.value) return [];
 	const uc = useCase.value;
+	// Use real steps from the store if available
+	if (uc.steps && uc.steps.length > 0) {
+		return uc.steps.map((step) => {
+			const actorIdx = swimlaneActors.value.findIndex((a) => a.label === step.actor);
+			return {
+				actorIdx: actorIdx >= 0 ? actorIdx : 0,
+				action: step.action,
+			};
+		});
+	}
+	// Fallback for use cases without step data
 	const domains = uc.cedsDomains || [];
 	return [
 		{ actorIdx: 0, action: `Initiate ${uc.label}`, dataIn: 'Request or trigger event' },
-		{ actorIdx: 1, action: 'Validate inputs against CEDS domains', dataOut: domains.slice(0, 2).map(getDomainLabel).join(', ') || 'Validation result' },
-		{ actorIdx: 0, action: 'Provide required credentials and documentation', dataIn: 'Source documents' },
-		{ actorIdx: 1, action: 'Process and map to interoperability standards', dataIn: 'Raw data', dataOut: 'Structured records' },
-		{ actorIdx: 2, action: 'Verify credential authenticity and claims', dataIn: 'Structured records', dataOut: 'Verification result' },
-		{ actorIdx: 1, action: 'Update records and generate output', dataOut: 'Final LER / credential artifact' },
+		{ actorIdx: 0, action: 'Provide required credentials and documentation' },
 		{ actorIdx: 0, action: 'Receive and review results' },
 	];
 });
@@ -229,8 +248,11 @@ const swimlaneSteps = computed(() => {
 			<v-card variant="flat" color="grey-lighten-4" class="pa-6 mb-6" rounded="lg">
 				<v-chip size="small" color="primary" variant="flat" class="mb-3">SYSTEMATIC FRAMEWORK</v-chip>
 				<h2 class="text-h5 font-weight-bold mb-2">{{ useCase.label }}</h2>
-				<p class="text-body-1 text-medium-emphasis mb-3">
-					Use case under <strong>{{ useCase.subcategoryLabel }}</strong> within the {{ useCase.categoryLabel }} topic, linking stakeholder needs to interoperable ecosystem nodes.
+				<p v-if="useCase.description" class="text-body-1 text-medium-emphasis mb-3">
+					{{ useCase.description }}
+				</p>
+				<p v-else class="text-body-1 text-medium-emphasis mb-3">
+					Use case under <strong>{{ useCase.subcategoryLabel }}</strong> within the {{ useCase.categoryLabel }} topic.
 				</p>
 				<div>
 					<v-chip
@@ -254,10 +276,27 @@ const swimlaneSteps = computed(() => {
 				</div>
 			</v-card>
 
-			<!-- Actor + CEDS Domains row -->
+			<!-- Actors + CEDS Domains row -->
 			<v-row class="mb-6">
-				<v-col cols="12" md="4">
-					<v-card variant="outlined" class="pa-5 h-100">
+				<v-col cols="12" :md="useCase.actors?.length > 0 ? 5 : 4">
+					<div class="text-overline text-medium-emphasis mb-2">ACTORS</div>
+					<template v-if="useCase.actors?.length > 0">
+						<v-card
+							v-for="(actor, idx) in useCase.actors"
+							:key="actor.name"
+							variant="outlined"
+							class="pa-4 mb-2"
+						>
+							<div class="d-flex align-center ga-2 mb-1">
+								<div
+									:style="{ width: '10px', height: '10px', borderRadius: '50%', background: actorColors[idx % actorColors.length], flexShrink: 0 }"
+								/>
+								<div class="font-weight-bold text-body-2">{{ actor.name }}</div>
+							</div>
+							<div v-if="actor.role" class="text-caption text-medium-emphasis pl-5">{{ actor.role }}</div>
+						</v-card>
+					</template>
+					<v-card v-else variant="outlined" class="pa-5">
 						<div class="d-flex align-center mb-2">
 							<v-icon class="mr-2" color="primary">mdi-account-circle-outline</v-icon>
 							<div>
@@ -265,13 +304,10 @@ const swimlaneSteps = computed(() => {
 								<div class="text-caption text-medium-emphasis">Primary Actor</div>
 							</div>
 						</div>
-						<p class="text-body-2 text-medium-emphasis mb-3">
-							Responsible for initiating and managing use cases in this domain.
-						</p>
 						<v-chip size="small" variant="tonal" color="primary">{{ useCase.categoryLabel }}</v-chip>
 					</v-card>
 				</v-col>
-				<v-col cols="12" md="8">
+				<v-col cols="12" :md="useCase.actors?.length > 0 ? 7 : 8">
 					<div class="text-overline text-medium-emphasis mb-2">CEDS DOMAINS</div>
 					<v-row dense>
 						<v-col
@@ -285,6 +321,22 @@ const swimlaneSteps = computed(() => {
 							</v-card>
 						</v-col>
 					</v-row>
+				</v-col>
+			</v-row>
+
+			<!-- Outcomes & Dependencies -->
+			<v-row v-if="useCase.outcomes?.length || useCase.dependencies?.length" class="mb-6">
+				<v-col v-if="useCase.outcomes?.length" cols="12" sm="6">
+					<div class="text-overline text-medium-emphasis mb-2">EXPECTED OUTCOMES</div>
+					<ul class="text-body-2 pl-4">
+						<li v-for="outcome in useCase.outcomes" :key="outcome">{{ outcome }}</li>
+					</ul>
+				</v-col>
+				<v-col v-if="useCase.dependencies?.length" cols="12" sm="6">
+					<div class="text-overline text-medium-emphasis mb-2">DEPENDENCIES</div>
+					<ul class="text-body-2 pl-4">
+						<li v-for="dep in useCase.dependencies" :key="dep">{{ dep }}</li>
+					</ul>
 				</v-col>
 			</v-row>
 
@@ -376,6 +428,27 @@ const swimlaneSteps = computed(() => {
 								{{ getDomainLabel(domain) }}
 							</v-chip>
 						</div>
+					</div>
+
+					<!-- Actors -->
+					<div v-if="useCase.actors?.length" class="mb-6">
+						<div class="text-overline text-medium-emphasis mb-2">ACTORS</div>
+						<v-row dense>
+							<v-col
+								v-for="(actor, idx) in useCase.actors"
+								:key="actor.name"
+								cols="12"
+								sm="6"
+							>
+								<v-card variant="outlined" class="pa-3">
+									<div class="d-flex align-center ga-2 mb-1">
+										<div :style="{ width: '8px', height: '8px', borderRadius: '50%', background: actorColors[idx % actorColors.length], flexShrink: 0 }" />
+										<span class="text-body-2 font-weight-bold">{{ actor.name }}</span>
+									</div>
+									<div v-if="actor.role" class="text-caption text-medium-emphasis pl-4">{{ actor.role }}</div>
+								</v-card>
+							</v-col>
+						</v-row>
 					</div>
 
 					<!-- Hierarchy Context -->
