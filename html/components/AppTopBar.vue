@@ -13,9 +13,9 @@ const pageTitle = computed(() => {
 	if (path.startsWith('/dm')) return 'Data Models';
 	if (path.startsWith('/uc')) return 'Use Cases';
 	if (path.startsWith('/util')) return 'Utilities';
-	if (path.startsWith('/library')) return 'Library';
+	if (path.startsWith('/library')) return 'My Library';
 	if (path.startsWith('/profile')) return 'Profile';
-	if (path.startsWith('/ontology')) return 'Ontology';
+	if (path.startsWith('/ontology')) return 'Data Miner';
 	if (path.startsWith('/explore')) return 'Explore';
 	if (path.startsWith('/work')) return 'Work';
 	return 'EDUcore';

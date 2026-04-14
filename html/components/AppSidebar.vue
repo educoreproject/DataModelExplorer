@@ -86,12 +86,12 @@ const isAdmin = computed(() =>
 			<v-list-item
 				to="/dm/lookup"
 				prepend-icon="mdi-swap-horizontal"
-				title="Crosswalk"
+				title="Ontology"
 			/>
 			<v-list-item
 				to="/ontology"
-				prepend-icon="mdi-graph"
-				title="Ontology"
+				prepend-icon="mdi-pickaxe"
+				title="Data Miner"
 			/>
 			<v-list-item
 				to="/dm/personas"
