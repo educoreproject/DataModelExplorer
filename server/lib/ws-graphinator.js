@@ -181,6 +181,18 @@ const moduleFunction = ({ server }) => {
 					fileList: [msg.text],
 				});
 
+				const queryPreview = msg.text.length > 400
+					? `${msg.text.slice(0, 400)}… [${msg.text.length} chars total]`
+					: msg.text;
+				const modelInfo = settings.model || '(default)';
+				const promptInfo = settings.promptName || '(default)';
+				const perspectivesInfo = settings.perspectives || 0;
+				const sessionInfo = (!settings.newSession && settings.resumeSessionName)
+					? `resume=${settings.resumeSessionName}`
+					: 'newSession';
+				xLog.status(`[ws-graphinator] QUERY model=${modelInfo} prompt=${promptInfo} perspectives=${perspectivesInfo} ${sessionInfo}`);
+				xLog.status(`[ws-graphinator] QUERY text: ${queryPreview}`);
+
 				const child = spawn('askMilo', [], {
 					shell: true,
 					env: process.env,

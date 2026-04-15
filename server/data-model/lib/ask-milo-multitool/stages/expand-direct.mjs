@@ -63,13 +63,6 @@ const expand = async ({ originalPrompt, config, sessionContext }) => {
 		requestParams.thinking = { type: "adaptive" };
 	}
 
-	console.log('\n[Expand] ===== API REQUEST =====');
-	console.log('[Expand] Model:', config.expandModel);
-	console.log('[Expand] System prompt:\n', systemPrompt);
-	console.log('[Expand] User message:\n', userContent);
-	console.log('[Expand] Thinking:', JSON.stringify(requestParams.thinking || 'off'));
-	console.log('[Expand] ===== END REQUEST =====\n');
-
 	const stream = client.messages.stream(requestParams);
 	const response = await stream.finalMessage();
 
@@ -99,8 +92,8 @@ const expand = async ({ originalPrompt, config, sessionContext }) => {
 	try {
 		data = JSON.parse(jsonText);
 	} catch (parseErr) {
-		console.error('[Expand] ERROR: JSON parse failed. Raw text (first 500 chars):');
-		console.error(jsonText.slice(0, 500));
+		xLog.error('[Expand] ERROR: JSON parse failed. Raw text (first 500 chars):');
+		xLog.error(jsonText.slice(0, 500));
 		throw new Error(`Expansion JSON parse failed: ${parseErr.message}`);
 	}
 
@@ -116,10 +109,10 @@ const expand = async ({ originalPrompt, config, sessionContext }) => {
 		usd: estimateCost(config.expandModel, response.usage),
 	};
 
-	console.log('[Expand] ===== API RESPONSE =====');
-	console.log('[Expand] Instructions generated:', instructions.length);
-	console.log('[Expand] Input tokens:', expandCost.inputTokens, '| Output tokens:', expandCost.outputTokens, '| Cost: $' + expandCost.usd.toFixed(4));
-	console.log('[Expand] ===== END RESPONSE =====\n');
+	if (verbose) {
+		xLog.status(`[Expand] Instructions generated: ${instructions.length}`);
+		xLog.status(`[Expand] Input tokens: ${expandCost.inputTokens} | Output tokens: ${expandCost.outputTokens} | Cost: $${expandCost.usd.toFixed(4)}`);
+	}
 
 	return { instructions, expandCost };
 };
