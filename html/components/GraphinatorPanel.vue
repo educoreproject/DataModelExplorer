@@ -967,6 +967,9 @@ defineExpose({ submitPrompt, promptText });
 	display: flex;
 	flex: 1;
 	min-height: 0;
+	min-width: 0;       /* allow the row to shrink below intrinsic content width */
+	max-width: 100%;    /* never let a long unbreakable child push the row past the viewport */
+	overflow: hidden;   /* clip children that still try — keeps the drag-bar math sane */
 }
 
 .output-row.is-dragging {
@@ -978,6 +981,7 @@ defineExpose({ submitPrompt, promptText });
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	min-width: 0;       /* same reason as .output-row — shrink below intrinsic child width */
 	gap: 6px;
 }
 
@@ -1083,9 +1087,33 @@ defineExpose({ submitPrompt, promptText });
 .panel-content {
 	flex: 1;
 	overflow-y: auto;
+	overflow-x: auto;      /* long unbreakable content scrolls within the panel */
 	padding: 16px 18px;
 	background: #fff;
 	min-height: 0;
+	min-width: 0;          /* allow shrinking below intrinsic child width */
+	overflow-wrap: anywhere; /* prose/markdown text breaks at arbitrary points if needed */
+	word-break: break-word;
+}
+
+/* Injected HTML inside the control panel must not force the panel wider.
+   Tables, code blocks, and pre elements with long unbreakable lines scroll
+   within themselves instead of pushing the layout. */
+.control-content :deep(pre),
+.control-content :deep(code) {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+.control-content :deep(table) {
+	max-width: 100%;
+	display: block;
+	overflow-x: auto;
+}
+.control-content :deep(img),
+.control-content :deep(svg) {
+	max-width: 100%;
+	height: auto;
 }
 
 /* STDERR keeps raw pre styling */
