@@ -22,6 +22,8 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const schemas = require('../../schemas/useCase');
+// Note: `pipeRunner` / `taskListPlus` / `forwardArgs` required by serviceFunction below
+// (defined via the qtools-asynchronous-pipe-plus import at module top).
 
 //START OF moduleFunction() ============================================================
 
@@ -163,8 +165,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
-	// Phase 3: root-scalar save only. Children/categories/counts are left untouched.
-	// Payload shape: { id, properties }.
+	// Phase 5: full transactional save — root scalars, steps, actors, dataRefs,
+	// externalRefs, categories, and derived counts, all in one Neo4j transaction.
+	// Payload shape: { id, properties, steps?, actors?, dataRefs?, externalRefs?, categories? }
+	//
+	// If a collection key is omitted from the payload, it is left untouched. If a
+	// collection is present (even if empty), it is treated as the authoritative new
+	// set and missing rows are removed (edges for shared children; full DETACH
+	// DELETE for UseCase-owned steps).
 	const doSave = (xQuery, callback) => {
 		const id = xQuery.id;
 		const issueNumber = uceMapper.parseIssueNumberFromId(id);
@@ -173,23 +181,264 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			return;
 		}
 
-		const props = xQuery.properties || {};
-		const violation = uceMapper.validateRootSavePayload(props);
+		const violation = uceMapper.validateSaveAggregate(xQuery);
 		if (violation) {
 			callback(`validation: ${violation.message}`, []);
 			return;
 		}
 
-		runNamed('saveUseCaseRoot', { issueNumber, props }, (err, records) => {
-			if (err) { callback(err, []); return; }
-			if (records.length === 0) {
-				callback(`No UseCase with issueNumber ${issueNumber}`, []);
-				return;
+		// Project incoming collections onto what Cypher needs. Undefined === no change.
+		const incomingSteps = Array.isArray(xQuery.steps) ? xQuery.steps.map((row) => {
+			const filtered = uceMapper.filterWritableProps(row.properties || {}, schemas.useCaseStep);
+			return {
+				stepNumber: filtered.stepNumber,
+				props: filtered
+			};
+		}) : null;
+
+		const incomingActors = Array.isArray(xQuery.actors) ? xQuery.actors.map((row) => ({
+			slug: uceMapper.deriveActorSlug(row),
+			props: uceMapper.filterWritableProps(row.properties || {}, schemas.useCaseActor)
+		})).filter((r) => r.slug && r.slug.length > 0) : null;
+
+		const incomingDataRefs = Array.isArray(xQuery.dataRefs) ? xQuery.dataRefs.map((row) => ({
+			slug: uceMapper.deriveRefSlug(row, 'data'),
+			props: uceMapper.filterWritableProps(row.properties || {}, schemas.dataReference)
+		})).filter((r) => r.slug && r.slug.length > 0) : null;
+
+		const incomingExternalRefs = Array.isArray(xQuery.externalRefs) ? xQuery.externalRefs.map((row) => ({
+			slug: uceMapper.deriveRefSlug(row, 'external'),
+			props: uceMapper.filterWritableProps(row.properties || {}, schemas.externalReference)
+		})).filter((r) => r.slug && r.slug.length > 0) : null;
+
+		const incomingCategories = Array.isArray(xQuery.categories) ? xQuery.categories.map((row) => ({
+			name: String(row.name || '').trim(),
+			isPrimary: row.isPrimary === true
+		})).filter((r) => r.name.length > 0) : null;
+
+		const rootProps = uceMapper.filterWritableProps(xQuery.properties || {}, schemas.useCase);
+
+		neo4jDb.runTransaction((tx, done) => {
+			const saveTasks = new taskListPlus();
+
+			// --- Stage 1: ensure the UseCase exists.
+			saveTasks.push((args, next) => {
+				tx.run(
+					`MATCH (u:UseCase { issueNumber: $issueNumber }) RETURN u.issueNumber AS n`,
+					{ issueNumber },
+					(err, recs) => {
+						if (err) { next(err, args); return; }
+						if (recs.length === 0) { next(`No UseCase with issueNumber ${issueNumber}`, args); return; }
+						next('', args);
+					},
+				);
+			});
+
+			// --- Stage 2: root props + searchText + updatedAt (single statement).
+			saveTasks.push((args, next) => {
+				tx.run(
+					`MATCH (u:UseCase { issueNumber: $issueNumber })
+					 SET u += $props
+					 SET u.searchText =
+					     coalesce(u.name,'') + ': ' +
+					     coalesce(u.introduction,'') + ' ' +
+					     coalesce(u.objectives,'')
+					 SET u.updatedAt = toString(datetime())
+					 RETURN u.updatedAt AS updatedAt`,
+					{ issueNumber, props: rootProps },
+					(err, recs) => {
+						if (err) { next(err, args); return; }
+						next('', { ...args, updatedAt: recs[0] && recs[0].updatedAt });
+					},
+				);
+			});
+
+			// --- Stage 3: steps diff (UseCase-owned; DETACH DELETE missing rows).
+			if (incomingSteps) {
+				// Upsert via stepNumber; SET declared writable props.
+				saveTasks.push((args, next) => {
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })
+						 UNWIND $steps AS s
+						 MERGE (u)-[:HAS_STEP]->(node:UseCaseStep { stepNumber: s.stepNumber })
+						 SET node += s.props
+						 RETURN count(node) AS n`,
+						{ issueNumber, steps: incomingSteps },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+				// Delete any existing step whose stepNumber is not in the incoming set.
+				saveTasks.push((args, next) => {
+					const keep = incomingSteps.map((s) => s.stepNumber).filter((n) => n != null);
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })-[:HAS_STEP]->(s:UseCaseStep)
+						 WHERE NOT s.stepNumber IN $keep
+						 DETACH DELETE s
+						 RETURN 1 AS ok`,
+						{ issueNumber, keep },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
 			}
+
+			// --- Stage 4: actors. MERGE by slug (graph-wide); property updates
+			// are propagated to the shared node. Edges removed for actors not in the payload.
+			if (incomingActors) {
+				saveTasks.push((args, next) => {
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })
+						 UNWIND $rows AS row
+						 MERGE (a:UseCaseActor { slug: row.slug })
+						 ON CREATE SET a._source = 'UseCaseEditor', a.slug = row.slug
+						 SET a += row.props
+						 SET a.slug = row.slug
+						 MERGE (u)-[:INVOLVES_ACTOR]->(a)
+						 RETURN count(a) AS n`,
+						{ issueNumber, rows: incomingActors },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+				saveTasks.push((args, next) => {
+					const keep = incomingActors.map((r) => r.slug);
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })-[r:INVOLVES_ACTOR]->(a:UseCaseActor)
+						 WHERE NOT a.slug IN $keep
+						 DELETE r
+						 RETURN 1 AS ok`,
+						{ issueNumber, keep },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+			}
+
+			// --- Stage 5: dataRefs — same pattern.
+			if (incomingDataRefs) {
+				saveTasks.push((args, next) => {
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })
+						 UNWIND $rows AS row
+						 MERGE (d:DataReference { slug: row.slug })
+						 ON CREATE SET d._source = 'UseCaseEditor', d.slug = row.slug
+						 SET d += row.props
+						 SET d.slug = row.slug
+						 MERGE (u)-[:HAS_DATA_REFERENCE]->(d)
+						 RETURN count(d) AS n`,
+						{ issueNumber, rows: incomingDataRefs },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+				saveTasks.push((args, next) => {
+					const keep = incomingDataRefs.map((r) => r.slug);
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })-[r:HAS_DATA_REFERENCE]->(d:DataReference)
+						 WHERE NOT d.slug IN $keep
+						 DELETE r
+						 RETURN 1 AS ok`,
+						{ issueNumber, keep },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+			}
+
+			// --- Stage 6: externalRefs — same pattern.
+			if (incomingExternalRefs) {
+				saveTasks.push((args, next) => {
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })
+						 UNWIND $rows AS row
+						 MERGE (e:ExternalReference { slug: row.slug })
+						 ON CREATE SET e._source = 'UseCaseEditor', e.slug = row.slug
+						 SET e += row.props
+						 SET e.slug = row.slug
+						 MERGE (u)-[:HAS_REFERENCE]->(e)
+						 RETURN count(e) AS n`,
+						{ issueNumber, rows: incomingExternalRefs },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+				saveTasks.push((args, next) => {
+					const keep = incomingExternalRefs.map((r) => r.slug);
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })-[r:HAS_REFERENCE]->(e:ExternalReference)
+						 WHERE NOT e.slug IN $keep
+						 DELETE r
+						 RETURN 1 AS ok`,
+						{ issueNumber, keep },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+			}
+
+			// --- Stage 7: categories. MERGE by name (categories are stored with name only).
+			if (incomingCategories) {
+				saveTasks.push((args, next) => {
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })
+						 UNWIND $rows AS row
+						 MERGE (c:UseCaseCategory { name: row.name })
+						 MERGE (u)-[e:CATEGORIZED_AS]->(c)
+						 SET e.isPrimary = row.isPrimary
+						 RETURN count(c) AS n`,
+						{ issueNumber, rows: incomingCategories },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+				saveTasks.push((args, next) => {
+					const keep = incomingCategories.map((r) => r.name);
+					tx.run(
+						`MATCH (u:UseCase { issueNumber: $issueNumber })-[r:CATEGORIZED_AS]->(c:UseCaseCategory)
+						 WHERE NOT c.name IN $keep
+						 DELETE r
+						 RETURN 1 AS ok`,
+						{ issueNumber, keep },
+						(err) => { if (err) { next(err, args); return; } next('', args); },
+					);
+				});
+			}
+
+			// --- Stage 8: recompute derived counts on the root (stepCount/actorCount/etc).
+			saveTasks.push((args, next) => {
+				tx.run(
+					`MATCH (u:UseCase { issueNumber: $issueNumber })
+					 OPTIONAL MATCH (u)-[:HAS_STEP]->(s:UseCaseStep)
+					 WITH u, count(DISTINCT s) AS stepCount
+					 OPTIONAL MATCH (u)-[:INVOLVES_ACTOR]->(a:UseCaseActor)
+					 WITH u, stepCount, count(DISTINCT a) AS actorCount
+					 OPTIONAL MATCH (u)-[:HAS_DATA_REFERENCE]->(d:DataReference)
+					 WITH u, stepCount, actorCount, count(DISTINCT d) AS dataReferenceCount
+					 OPTIONAL MATCH (u)-[:HAS_REFERENCE]->(e:ExternalReference)
+					 WITH u, stepCount, actorCount, dataReferenceCount, count(DISTINCT e) AS referenceCount
+					 SET u.stepCount = stepCount,
+					     u.actorCount = actorCount,
+					     u.dataReferenceCount = dataReferenceCount,
+					     u.referenceCount = referenceCount,
+					     u.cedsReferenceCount = coalesce(size(u.cedsIds), 0)
+					 RETURN stepCount, actorCount, dataReferenceCount, referenceCount, u.cedsReferenceCount AS cedsReferenceCount`,
+					{ issueNumber },
+					(err, recs) => {
+						if (err) { next(err, args); return; }
+						next('', { ...args, counts: recs[0] || {} });
+					},
+				);
+			});
+
+			pipeRunner(saveTasks.getList(), {}, (err, args) => {
+				if (err) { done(err); return; }
+				done('', args);
+			});
+		}, (err, result) => {
+			if (err) { callback(err, []); return; }
 			callback('', [{
-				id: `usecase-${records[0].issueNumber}`,
-				savedAt: records[0].updatedAt,
-				savedFields: Object.keys(props)
+				id: `usecase-${issueNumber}`,
+				savedAt: (result && result.updatedAt) || null,
+				counts: (result && result.counts) || {},
+				savedCollections: [
+					incomingSteps != null ? 'steps' : null,
+					incomingActors != null ? 'actors' : null,
+					incomingDataRefs != null ? 'dataRefs' : null,
+					incomingExternalRefs != null ? 'externalRefs' : null,
+					incomingCategories != null ? 'categories' : null
+				].filter(Boolean)
 			}]);
 		});
 	};

@@ -157,9 +157,155 @@ const moduleFunction = ({ moduleName }) => (deps) => {
 	};
 
 	// ================================================================================
+	// CHILD SLUG DERIVATION — mirrors nodeBuilder.js rules so that editor-created
+	// children MERGE onto the same nodes the forge would have produced.
+
+	// slugFromCanonicalUrl — trimmed subset of the forge's rule; full canonicalize
+	// work is handled on the node as-is, we just need a slug shape matching what
+	// nodeBuilder.js already stored.
+	const SLUG_MAX = 80;
+	const slugFromUrlLike = (raw) => {
+		if (!raw) { return ''; }
+		let u = String(raw).trim().toLowerCase();
+		u = u.replace(/#:~:text=.*$/, '');
+		u = u.replace(/\s+/g, '');
+		let s = u
+			.replace(/^https?:\/\//, '')
+			.replace(/^www\./, '')
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '');
+		if (s.length > SLUG_MAX) {
+			s = s.substring(0, SLUG_MAX).replace(/-+$/, '');
+		}
+		return s;
+	};
+
+	const deriveActorSlug = (row) => {
+		const existing = row && row.properties && row.properties.slug;
+		if (existing) { return existing; }
+		const name = row && row.properties && row.properties.name;
+		return slugify(name);
+	};
+
+	const deriveRefSlug = (row, kind) => {
+		const existing = row && row.properties && row.properties.slug;
+		if (existing) { return existing; }
+		const url = row && row.properties && row.properties.url;
+		let s = slugFromUrlLike(url);
+		if (s.length > 0) { return s; }
+		const fallbackSource = kind === 'data'
+			? (row && row.properties && row.properties.name)
+			: (row && row.properties && row.properties.name);
+		return slugify(fallbackSource);
+	};
+
+	// ================================================================================
 	// VALIDATION — strict allow-list driven by the manifest. Returns null on pass,
 	// otherwise { code, message } describing the first violation. The access point
 	// maps the code to the appropriate HTTP status.
+
+	const validateChildProps = (props, manifest, labelForMessage) => {
+		if (props == null) { return null; }
+		if (typeof props !== 'object' || Array.isArray(props)) {
+			return { code: 'invalid', message: `${labelForMessage} properties must be a plain object` };
+		}
+		const declared = new Map();
+		for (const p of manifest.properties) { declared.set(p.name, p); }
+		for (const key of Object.keys(props)) {
+			const spec = declared.get(key);
+			if (!spec) {
+				return { code: 'undeclared', message: `${labelForMessage}: undeclared property "${key}"` };
+			}
+			if (spec.system) {
+				return { code: 'system', message: `${labelForMessage}: property "${key}" is system-managed` };
+			}
+		}
+		for (const p of manifest.properties) {
+			if (!p.required) { continue; }
+			if (!(p.name in props)) {
+				return { code: 'required', message: `${labelForMessage}: property "${p.name}" is required` };
+			}
+			const v = props[p.name];
+			if (v == null || (typeof v === 'string' && v.trim().length === 0)) {
+				return { code: 'required', message: `${labelForMessage}: property "${p.name}" is required and cannot be empty` };
+			}
+		}
+		return null;
+	};
+
+	const validateSaveAggregate = (payload) => {
+		if (!payload || typeof payload !== 'object') {
+			return { code: 'invalid', message: 'save payload must be an object' };
+		}
+
+		const rootViolation = validateRootSavePayload(payload.properties || {});
+		if (rootViolation) { return rootViolation; }
+
+		// Steps — allow whatever is declared on the step manifest. Require stepNumber.
+		if (payload.steps != null) {
+			if (!Array.isArray(payload.steps)) {
+				return { code: 'invalid', message: 'steps must be an array' };
+			}
+			for (let i = 0; i < payload.steps.length; i++) {
+				const row = payload.steps[i];
+				const v = validateChildProps(row.properties || {}, schemas.useCaseStep, `steps[${i}]`);
+				if (v) { return v; }
+			}
+		}
+
+		const validateCollection = (rows, manifest, labelForMessage) => {
+			if (rows == null) { return null; }
+			if (!Array.isArray(rows)) {
+				return { code: 'invalid', message: `${labelForMessage} must be an array` };
+			}
+			for (let i = 0; i < rows.length; i++) {
+				const v = validateChildProps(rows[i].properties || {}, manifest, `${labelForMessage}[${i}]`);
+				if (v) { return v; }
+			}
+			return null;
+		};
+
+		let v;
+		v = validateCollection(payload.actors,       schemas.useCaseActor,      'actors');       if (v) { return v; }
+		v = validateCollection(payload.dataRefs,     schemas.dataReference,     'dataRefs');     if (v) { return v; }
+		v = validateCollection(payload.externalRefs, schemas.externalReference, 'externalRefs'); if (v) { return v; }
+
+		if (payload.categories != null) {
+			if (!Array.isArray(payload.categories)) {
+				return { code: 'invalid', message: 'categories must be an array' };
+			}
+			for (let i = 0; i < payload.categories.length; i++) {
+				const row = payload.categories[i];
+				if (!row || typeof row !== 'object' || typeof row.name !== 'string' || row.name.trim().length === 0) {
+					return { code: 'invalid', message: `categories[${i}] must have a non-empty "name"` };
+				}
+			}
+		}
+
+		return null;
+	};
+
+	// ================================================================================
+	// PROPERTY FILTER — given an incoming row and its manifest, return the subset of
+	// properties that are writable (declared, not system, not readOnly). Used at
+	// save time to prevent accidental overwrites of system fields or read-only ones.
+	// (validate...SavePayload has already rejected illegal keys; this filters the
+	// silently-allowed-but-not-writable ones like readOnly in case they are included
+	// as round-trip display values from the frontend.)
+
+	const filterWritableProps = (props, manifest) => {
+		const out = {};
+		if (!props) { return out; }
+		const declared = new Map();
+		for (const p of manifest.properties) { declared.set(p.name, p); }
+		for (const key of Object.keys(props)) {
+			const spec = declared.get(key);
+			if (!spec) { continue; }
+			if (spec.system || spec.readOnly || spec.derived) { continue; }
+			out[key] = props[key];
+		}
+		return out;
+	};
 
 	const validateRootSavePayload = (props) => {
 		if (!props || typeof props !== 'object' || Array.isArray(props)) {
@@ -342,7 +488,12 @@ const moduleFunction = ({ moduleName }) => (deps) => {
 		deriveLogicalId,
 		parseIssueNumberFromId,
 		slugify,
+		slugFromUrlLike,
+		deriveActorSlug,
+		deriveRefSlug,
 		validateRootSavePayload,
+		validateSaveAggregate,
+		filterWritableProps,
 		mapUseCaseRoot,
 		mapUseCaseStep,
 		mapUseCaseActor,
