@@ -112,8 +112,7 @@ const { response } = await res.json();`;
 					</p>
 					<p class="text-body-2 text-medium-emphasis mb-3">
 						Select the standards you want to work with, then click <strong>"Create my implementation plan"</strong>
-						to generate a tailored plan via the AI Explorer. You'll pick a persona (School Admin, Developer, Vendor, etc.)
-						so the plan speaks to your role.
+						to generate a tailored plan via the AI Explorer.
 					</p>
 				</v-card-text>
 			</v-card>

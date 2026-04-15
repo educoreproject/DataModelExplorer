@@ -94,11 +94,6 @@ const isAdmin = computed(() =>
 				title="Ontology"
 			/>
 			<v-list-item
-				to="/ontology"
-				prepend-icon="mdi-pickaxe"
-				title="Data Miner"
-			/>
-			<v-list-item
 				to="/dm/explorer"
 				prepend-icon="mdi-robot-outline"
 				title="AI Explorer"
