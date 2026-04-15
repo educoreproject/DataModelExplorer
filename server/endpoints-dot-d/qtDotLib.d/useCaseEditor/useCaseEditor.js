@@ -73,7 +73,7 @@ const moduleFunction = function ({
 			if (err) {
 				const errorId = `Q${Math.floor(Math.random() * 1e19)}`;
 				const status = err.toString().match(/permission|authclaim|unauth/i) ? 401
-					: err.toString().match(/not yet implemented|unknown action|invalid|required|undeclared/i) ? 400
+					: err.toString().match(/not yet implemented|unknown action|invalid|requires|required|undeclared|read-only|system-managed|validation|No UseCase/i) ? 400
 					: 500;
 				xRes.status(status).send(`${err.toString()} (${errorId})`);
 				return;

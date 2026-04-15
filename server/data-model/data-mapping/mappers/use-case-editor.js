@@ -136,7 +136,64 @@ const moduleFunction = ({ moduleName }) => (deps) => {
 				ORDER BY coalesce(c.name, '')
 			`,
 			params: {}
+		}),
+
+		// Phase 3: single-statement root-scalar save. Props are merged with += so
+		// any absent properties are preserved. searchText and updatedAt are
+		// recomputed in the same statement for atomicity.
+		saveUseCaseRoot: ({ issueNumber, props }) => ({
+			query: `
+				MATCH (u:UseCase { issueNumber: $issueNumber })
+				SET u += $props
+				SET u.searchText =
+					coalesce(u.name,'') + ': ' +
+					coalesce(u.introduction,'') + ' ' +
+					coalesce(u.objectives,'')
+				SET u.updatedAt = toString(datetime())
+				RETURN u.issueNumber AS issueNumber, u.updatedAt AS updatedAt
+			`,
+			params: { issueNumber, props }
 		})
+	};
+
+	// ================================================================================
+	// VALIDATION — strict allow-list driven by the manifest. Returns null on pass,
+	// otherwise { code, message } describing the first violation. The access point
+	// maps the code to the appropriate HTTP status.
+
+	const validateRootSavePayload = (props) => {
+		if (!props || typeof props !== 'object' || Array.isArray(props)) {
+			return { code: 'invalid', message: 'properties must be a plain object' };
+		}
+
+		const declared = new Map();
+		for (const p of schemas.useCase.properties) {
+			declared.set(p.name, p);
+		}
+
+		for (const key of Object.keys(props)) {
+			const spec = declared.get(key);
+			if (!spec) {
+				return { code: 'undeclared', message: `Undeclared property "${key}" cannot be saved` };
+			}
+			if (spec.readOnly) {
+				return { code: 'readOnly', message: `Property "${key}" is read-only` };
+			}
+			if (spec.system) {
+				return { code: 'system', message: `Property "${key}" is system-managed and cannot be set via the editor` };
+			}
+		}
+
+		for (const p of schemas.useCase.properties) {
+			if (!p.required) { continue; }
+			if (!(p.name in props)) { continue; }
+			const v = props[p.name];
+			if (v == null || (typeof v === 'string' && v.trim().length === 0)) {
+				return { code: 'required', message: `Property "${p.name}" is required and cannot be empty` };
+			}
+		}
+
+		return null;
 	};
 
 	const getCypher = (queryName, params = {}) => {
@@ -285,6 +342,7 @@ const moduleFunction = ({ moduleName }) => (deps) => {
 		deriveLogicalId,
 		parseIssueNumberFromId,
 		slugify,
+		validateRootSavePayload,
 		mapUseCaseRoot,
 		mapUseCaseStep,
 		mapUseCaseActor,

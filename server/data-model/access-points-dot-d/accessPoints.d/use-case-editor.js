@@ -163,8 +163,35 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
+	// Phase 3: root-scalar save only. Children/categories/counts are left untouched.
+	// Payload shape: { id, properties }.
 	const doSave = (xQuery, callback) => {
-		callback('save action not yet implemented (Phase 3)', []);
+		const id = xQuery.id;
+		const issueNumber = uceMapper.parseIssueNumberFromId(id);
+		if (issueNumber == null) {
+			callback('save requires a valid UseCase id like "usecase-<issueNumber>"', []);
+			return;
+		}
+
+		const props = xQuery.properties || {};
+		const violation = uceMapper.validateRootSavePayload(props);
+		if (violation) {
+			callback(`validation: ${violation.message}`, []);
+			return;
+		}
+
+		runNamed('saveUseCaseRoot', { issueNumber, props }, (err, records) => {
+			if (err) { callback(err, []); return; }
+			if (records.length === 0) {
+				callback(`No UseCase with issueNumber ${issueNumber}`, []);
+				return;
+			}
+			callback('', [{
+				id: `usecase-${records[0].issueNumber}`,
+				savedAt: records[0].updatedAt,
+				savedFields: Object.keys(props)
+			}]);
+		});
 	};
 
 	// ================================================================================
