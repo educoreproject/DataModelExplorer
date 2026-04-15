@@ -53,9 +53,10 @@ const selectTab = (value) => {
 <style scoped>
 .sub-page-nav {
 	padding: 4px 16px;
-	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-	background: #fafafa;
+	border-bottom: 1px solid var(--edu-gray-100, #EEF1F7);
+	background: var(--edu-gray-50, #F8F9FC);
 	display: flex;
 	justify-content: flex-end;
+	flex-shrink: 0;
 }
 </style>

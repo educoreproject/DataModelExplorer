@@ -1,13 +1,10 @@
 <script setup>
-import { useLoginStore } from '@/stores/loginStore';
+definePageMeta({ middleware: 'auth' });
+
 import { useCedsOntologyStore } from '@/stores/cedsOntologyStore';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
 
-const LoginStore = useLoginStore();
 const cedsStore = useCedsOntologyStore();
-const router = useRouter();
-const route = useRoute();
 
 // -------------------------------------------------------------------------
 // Tab configuration
@@ -136,13 +133,7 @@ const useExploreAutocomplete = computed(() => {
 });
 
 // -------------------------------------------------------------------------
-// Auth guard
-
 onMounted(async () => {
-	if (!LoginStore.validUser) {
-		router.push({ path: '/', query: { redirect: route.fullPath } });
-		return;
-	}
 	// Auto-run stats on first visit only — preserve previous results on return
 	if (!cedsStore.output) {
 		cedsStore.currentAction = selectedAction.value;
@@ -273,10 +264,8 @@ const onExploreAutocompleteSelect = (value) => {
 </script>
 
 <template>
-	<v-app>
-		<generalNavSub />
-		<v-main style="padding-top: 65px">
-			<SubPageNav v-model="activeTab" :tabs="ontologyTabs" />
+	<div>
+		<SubPageNav v-model="activeTab" :tabs="ontologyTabs" />
 
 			<!-- ============================================================ -->
 			<!-- LOOKUP TAB -->
@@ -469,8 +458,7 @@ const onExploreAutocompleteSelect = (value) => {
 					Select an analysis type to explore structural patterns in the CEDS v13 ontology.
 				</div>
 			</v-container>
-		</v-main>
-	</v-app>
+	</div>
 </template>
 
 <style scoped>

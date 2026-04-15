@@ -74,7 +74,7 @@ export default defineNuxtConfig({
   nitro: {
     devProxy: {
       '/api': {
-        target: 'http://localhost:7790/api/',
+        target: 'https://educore.tqtmp.org/api/',
         changeOrigin: true,
         prependPath: true,
       },
@@ -105,9 +105,13 @@ export default defineNuxtConfig({
           name: 'viewport',
           content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no',
         },
-        // Add other meta tags as needed
       ],
-      // Add other app-level configurations here if needed
+      link: [
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&display=swap',
+        },
+      ],
     },
   },
 
