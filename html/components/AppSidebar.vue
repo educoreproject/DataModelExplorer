@@ -99,7 +99,7 @@ const isAdmin = computed(() =>
 				title="Data Miner"
 			/>
 			<v-list-item
-				to="/dm/personas"
+				to="/dm/explorer"
 				prepend-icon="mdi-robot-outline"
 				title="AI Explorer"
 			/>

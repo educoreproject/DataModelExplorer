@@ -364,7 +364,7 @@ const { response } = await res.json();`;
 					<tr>
 						<td class="text-body-2">Ask an AI about cross-standard mappings</td>
 						<td>
-							<v-btn variant="text" size="small" to="/dm/personas" prepend-icon="mdi-robot-outline">
+							<v-btn variant="text" size="small" to="/dm/explorer" prepend-icon="mdi-robot-outline">
 								AI Explorer
 							</v-btn>
 						</td>

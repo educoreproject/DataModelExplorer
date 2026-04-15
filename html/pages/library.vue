@@ -86,7 +86,7 @@ const openSession = (session) => {
 			<v-btn
 				color="primary"
 				prepend-icon="mdi-plus"
-				to="/dm/personas"
+				to="/dm/explorer"
 			>
 				New Chat
 			</v-btn>
@@ -163,7 +163,7 @@ const openSession = (session) => {
 			<p class="text-body-2 text-medium-emphasis mb-4">
 				Start a new chat in the AI Explorer. Your conversations save automatically.
 			</p>
-			<v-btn color="primary" prepend-icon="mdi-robot-outline" to="/dm/personas">
+			<v-btn color="primary" prepend-icon="mdi-robot-outline" to="/dm/explorer">
 				Open AI Explorer
 			</v-btn>
 		</v-card>
