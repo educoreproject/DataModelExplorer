@@ -7,7 +7,17 @@ definePageMeta({ middleware: 'auth' });
 
 import UseCaseSelector from '@/components/UseCaseSelector.vue';
 import UseCaseForm from '@/components/UseCaseForm.vue';
+import UseCaseExplorer from '@/components/UseCaseExplorer.vue';
 import { useUseCaseEditorStore } from '@/stores/useCaseEditorStore';
+import { useLoginStore } from '@/stores/loginStore';
+
+const loginStore = useLoginStore();
+const canEdit = computed(() => {
+	const roles = (loginStore.loggedInUser?.role || '').split(',').map((r) => r.trim());
+	return roles.includes('admin') || roles.includes('super');
+});
+
+const mode = ref('explore'); // 'edit' | 'explore' — default to the gentler view
 
 // The child schemas are not separately fetched in Phase 6 — the root manifest
 // carries the children list, and each child schema is known by filename on the
@@ -104,8 +114,8 @@ onBeforeRouteLeave((_to, _from, next) => {
 
 <template>
 	<v-container fluid class="pa-6">
-		<!-- Banner -->
-		<v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+		<!-- Banner (edit-mode only) -->
+		<v-alert v-if="mode === 'edit'" type="warning" variant="tonal" density="compact" class="mb-4">
 			Edits here are not pushed back to GitHub. Running the forge will overwrite them.
 			After significant edits, re-run the forge's re-embed step or vector search will go stale.
 		</v-alert>
@@ -113,15 +123,6 @@ onBeforeRouteLeave((_to, _from, next) => {
 		<div class="d-flex align-center ga-4 mb-4">
 			<h1 class="text-h5 font-weight-bold">Use Case Editor</h1>
 			<v-chip v-if="store.dirty" color="orange" variant="tonal" size="small">Unsaved changes</v-chip>
-			<v-spacer />
-			<v-btn
-				color="primary"
-				:disabled="!store.dirty || store.saving"
-				:loading="store.saving"
-				@click="confirmOpen = true"
-			>
-				Save
-			</v-btn>
 		</div>
 
 		<v-alert v-if="store.error" type="error" variant="tonal" density="compact" closable class="mb-4"
@@ -141,6 +142,30 @@ onBeforeRouteLeave((_to, _from, next) => {
 				/>
 			</div>
 			<div class="uce-right">
+				<!-- Mode controls sit directly above the content so they are impossible to miss.
+				Admin/super only — plain users see no toggle and only the Explore view. -->
+				<div v-if="store.current && canEdit" class="uce-mode-row">
+					<v-btn-toggle
+						v-model="mode"
+						mandatory
+						density="comfortable"
+						color="primary"
+						variant="outlined"
+					>
+						<v-btn value="edit" size="small">Edit</v-btn>
+						<v-btn value="explore" size="small">Explore</v-btn>
+					</v-btn-toggle>
+					<v-btn
+						v-if="mode === 'edit'"
+						color="primary"
+						size="small"
+						:disabled="!store.dirty || store.saving"
+						:loading="store.saving"
+						@click="confirmOpen = true"
+					>
+						Save
+					</v-btn>
+				</div>
 				<div v-if="store.loading && !store.current" class="pa-4 text-center text-grey">
 					<v-progress-circular indeterminate />
 					<div class="mt-2">Loading…</div>
@@ -148,8 +173,12 @@ onBeforeRouteLeave((_to, _from, next) => {
 				<div v-else-if="!store.current" class="pa-4 text-center text-grey">
 					Pick a use case on the left to begin editing.
 				</div>
+				<UseCaseExplorer
+					v-else-if="mode === 'explore' || !canEdit"
+					:current="store.current"
+				/>
 				<UseCaseForm
-					v-else-if="store.schema"
+					v-else-if="store.schema && canEdit"
 					:schema="store.schema"
 					:current="store.current"
 					:editable-specs="store.editableRootProperties"
@@ -211,5 +240,15 @@ onBeforeRouteLeave((_to, _from, next) => {
 }
 .uce-right {
 	min-width: 0;
+}
+.uce-mode-row {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 10px;
+	/* Match the UseCaseExplorer/UseCaseForm content width so the controls sit
+	   directly above the top-right corner of the card, not way off to the side. */
+	max-width: 920px;
 }
 </style>

@@ -1,8 +1,20 @@
 <script setup>
 import { useUseCaseStore } from '@/stores/useCaseStore';
+import { useLoginStore } from '@/stores/loginStore';
 const ucStore = useUseCaseStore();
+const loginStore = useLoginStore();
 
 const route = useRoute();
+
+const userRoles = computed(() =>
+	(loginStore.loggedInUser?.role || '').split(',').map((r) => r.trim()).filter(Boolean)
+);
+const canEditUseCases = computed(() =>
+	userRoles.value.includes('admin') || userRoles.value.includes('super')
+);
+const showUseCaseButton = computed(() => loginStore.validUser);
+const useCaseButtonLabel = computed(() => (canEditUseCases.value ? 'View / Edit' : 'View All'));
+const useCaseButtonIcon = computed(() => (canEditUseCases.value ? 'mdi-pencil' : 'mdi-eye-outline'));
 
 // Pre-expand the topic from query param (e.g., /explore/use-cases?topic=all-learning-counts)
 const expandedPanels = ref([]);
@@ -34,7 +46,19 @@ const labelColor = (tag) => {
 
 <template>
 	<v-container class="py-8" style="max-width: 1000px;">
-		<h1 class="text-h4 font-weight-bold text-primary mb-2">Use Cases</h1>
+		<div class="d-flex align-center ga-3 mb-2">
+			<h1 class="text-h4 font-weight-bold text-primary">Use Cases</h1>
+			<v-btn
+				v-if="showUseCaseButton"
+				color="primary"
+				variant="outlined"
+				size="small"
+				:prepend-icon="useCaseButtonIcon"
+				to="/uc/editor"
+			>
+				{{ useCaseButtonLabel }}
+			</v-btn>
+		</div>
 		<p class="text-body-1 text-medium-emphasis mb-6">
 			{{ totalUseCases }} use cases organized by topic and value driver, mapped to GitHub issues.
 		</p>
