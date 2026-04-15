@@ -10,11 +10,12 @@ module.exports = {
 	dedup: 'graphWide',
 
 	properties: [
-		{ name: 'name', type: 'string', required: true, label: 'Actor Name' },
-		{ name: 'role', type: 'string',                 label: 'Role' },
+		{ name: 'name',        type: 'string',  required: true, label: 'Actor Name' },
+		{ name: 'description', type: 'markdown',                label: 'Description' },
 
-		{ name: 'slug',       type: 'string', system: true },
-		{ name: 'searchText', type: 'string', system: true },
-		{ name: 'embedding',  type: 'vector', system: true }
+		{ name: 'slug',         type: 'string',  system: true },
+		{ name: 'useCaseCount', type: 'integer', system: true, derived: true },
+		{ name: 'searchText',   type: 'string',  system: true },
+		{ name: 'embedding',    type: 'vector',  system: true }
 	]
 };

@@ -10,13 +10,15 @@ module.exports = {
 	dedup: 'graphWide',
 
 	properties: [
-		{ name: 'name',       type: 'string',                   label: 'Name' },
-		{ name: 'definition', type: 'markdown',                 label: 'Definition' },
-		{ name: 'url',        type: 'url',                      label: 'URL' },
+		{ name: 'name',        type: 'string',                   label: 'Name' },
+		{ name: 'description', type: 'markdown',                 label: 'Description' },
+		{ name: 'url',         type: 'url',                      label: 'URL' },
 
-		{ name: 'slug',         type: 'string', system: true },
-		{ name: 'canonicalUrl', type: 'string', system: true },
-		{ name: 'searchText',   type: 'string', system: true },
-		{ name: 'embedding',    type: 'vector', system: true }
+		{ name: 'slug',         type: 'string',  system: true },
+		{ name: 'canonicalUrl', type: 'string',  system: true },
+		{ name: 'hadCedsCode',  type: 'boolean', system: true },
+		{ name: 'useCaseCount', type: 'integer', system: true, derived: true },
+		{ name: 'searchText',   type: 'string',  system: true },
+		{ name: 'embedding',    type: 'vector',  system: true }
 	]
 };
