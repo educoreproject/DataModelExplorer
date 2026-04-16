@@ -13,6 +13,7 @@
 							<img src="/educore-logo.png" alt="EDUcore" class="nav-logo" />
 						</NuxtLink>
 						<div class="nav-links">
+							<NuxtLink to="/who-we-are" class="nav-link">Who We Are</NuxtLink>
 							<div class="nav-dropdown">
 								<button class="nav-link">
 									Documents

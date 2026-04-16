@@ -25,7 +25,11 @@ const devDeploymentMap: Record<string, { deployment: string; wsHost: string; api
     wsHost: 'localhost:7790',
     apiBase: 'http://localhost:7790',
   },
-  // Add additional dev hostnames here (e.g., Brandon's machine) as needed.
+  'Brandons-MacBook-Pro-3.local': {
+    deployment: 'brandon-remote',
+    wsHost: 'educore.tqtmp.org',
+    apiBase: 'https://educore.tqtmp.org',
+  },
 };
 
 const deploymentProfile = isProdBuild
