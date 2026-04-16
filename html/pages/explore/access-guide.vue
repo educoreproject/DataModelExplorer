@@ -8,6 +8,20 @@ const mcpConfigExample = `{
   }
 }`;
 
+const claudeCodeAddCommand = `claude mcp add educore-standards \\
+  --transport http \\
+  --url https://your-server.example.com/mcp`;
+
+const claudeCodeSettingsExample = `// ~/.claude/settings.json (or .claude/settings.json in your project)
+{
+  "mcpServers": {
+    "educore-standards": {
+      "type": "url",
+      "url": "https://your-server.example.com/mcp"
+    }
+  }
+}`;
+
 const cypherExample = `// Find all SIF objects that map to CEDS properties
 MATCH (s:SifObject)-[r:MAPS_TO]->(c:CedsProperty)
 RETURN s.name, c.name, r.confidence
@@ -104,16 +118,16 @@ const { response } = await res.json();`;
 			<v-card variant="outlined" class="mb-4">
 				<v-card-text class="pa-5">
 					<div class="text-overline text-medium-emphasis mb-2">STEP 3</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Review the Standards Map</h3>
+					<h3 class="text-subtitle-1 font-weight-bold mb-2">Generate an Implementation Roadmap</h3>
 					<p class="text-body-2 text-medium-emphasis mb-3">
-						Inside each use case, the <strong>Standards Map</strong> tab shows which interoperability specifications
-						are relevant, scored by how well they align with the use case's CEDS domains. Standards with full alignment
-						are ranked higher than partial matches, and lower-burden specs surface first among ties.
+						Inside each use case, the <strong>Implementation Roadmap</strong> tab automatically identifies
+						which interoperability specifications are relevant, scored by CEDS domain alignment.
+						Standards with full alignment and manageable implementation burden are pre-selected for you.
 					</p>
 					<p class="text-body-2 text-medium-emphasis mb-3">
-						Select the standards you want to work with, then click <strong>"Create my implementation plan"</strong>
-						to generate a tailored plan via the AI Explorer. You'll pick a persona (School Admin, Developer, Vendor, etc.)
-						so the plan speaks to your role.
+						Click <strong>"Generate Implementation Roadmap"</strong> to create a tailored plan via the AI Explorer.
+						You'll pick a persona (School Admin, Developer, Vendor, etc.) so the plan speaks to your role.
+						You can add or remove standards from the selection before generating.
 					</p>
 				</v-card-text>
 			</v-card>
@@ -226,17 +240,57 @@ const { response } = await res.json();`;
 			</v-card>
 
 			<!-- Configuration example -->
-			<h3 class="text-subtitle-1 font-weight-bold mb-3">Configuration</h3>
-			<p class="text-body-2 text-medium-emphasis mb-3">
-				Add the EDUcore MCP server to your client's configuration. For Claude Desktop or Claude Code,
-				add this to your MCP settings:
+			<h3 class="text-subtitle-1 font-weight-bold mb-3">Setup</h3>
+			<p class="text-body-2 text-medium-emphasis mb-4">
+				Add the EDUcore MCP server to your client. Replace the URL below with your server's address.
+				Once connected, the AI agent can call <code>getSchema</code> to learn the graph structure,
+				then use <code>cypherQuery</code> to answer questions about education data standards,
+				cross-standard mappings, and CEDS alignment.
 			</p>
-			<pre class="code-block mb-3">{{ mcpConfigExample }}</pre>
-			<p class="text-body-2 text-medium-emphasis mb-0">
-				Replace the URL with your server's address. Once connected, the AI agent can call
-				<code>getSchema</code> to learn the graph structure, then use <code>cypherQuery</code>
-				to answer questions about education data standards, cross-standard mappings, and CEDS alignment.
-			</p>
+
+			<!-- Claude Code -->
+			<v-card variant="outlined" class="mb-4">
+				<v-card-text class="pa-5">
+					<div class="d-flex align-center mb-3">
+						<v-icon class="mr-2" size="20">mdi-console</v-icon>
+						<span class="text-subtitle-2 font-weight-bold">Claude Code (CLI)</span>
+					</div>
+					<p class="text-body-2 text-medium-emphasis mb-3">
+						The fastest way. Run this from your terminal:
+					</p>
+					<pre class="code-block mb-4">{{ claudeCodeAddCommand }}</pre>
+					<p class="text-body-2 text-medium-emphasis mb-3">
+						This adds the server to your user-level config at <code>~/.claude/settings.json</code>.
+						To scope it to a specific project instead, run the command from the project directory
+						and add the <code>--project</code> flag, which writes to <code>.claude/settings.json</code>
+						in your project root.
+					</p>
+					<p class="text-body-2 text-medium-emphasis mb-3">
+						You can also add it by editing the settings file directly:
+					</p>
+					<pre class="code-block mb-3">{{ claudeCodeSettingsExample }}</pre>
+					<p class="text-body-2 text-medium-emphasis mb-0">
+						After adding the server, start a new Claude Code session. You'll see the
+						<code>educore-standards</code> tools listed when you type <code>/mcp</code>.
+						Try asking: <em>"What standards are in the EDUcore graph?"</em>
+					</p>
+				</v-card-text>
+			</v-card>
+
+			<!-- Claude Desktop / Other clients -->
+			<v-card variant="outlined" class="mb-4">
+				<v-card-text class="pa-5">
+					<div class="d-flex align-center mb-3">
+						<v-icon class="mr-2" size="20">mdi-application-outline</v-icon>
+						<span class="text-subtitle-2 font-weight-bold">Claude Desktop &amp; Other MCP Clients</span>
+					</div>
+					<p class="text-body-2 text-medium-emphasis mb-3">
+						Add the server to your client's MCP configuration file
+						(e.g. <code>claude_desktop_config.json</code> for Claude Desktop):
+					</p>
+					<pre class="code-block mb-0">{{ mcpConfigExample }}</pre>
+				</v-card-text>
+			</v-card>
 		</div>
 
 		<!-- ═══════════════════════════════════════════════════════════ -->

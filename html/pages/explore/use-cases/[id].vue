@@ -29,21 +29,21 @@ const siblingStories = computed(() => {
 });
 
 const activeTab = ref('overview');
-const tabs = computed(() => {
-	const base = [
-		{ id: 'overview', label: 'Overview' },
-		{ id: 'tchart', label: 'T-Chart' },
-		{ id: 'swimlane', label: 'Swimlane' },
-		{ id: 'standards', label: 'Standards Map' },
-	];
-	if (planResponse.value || planLoading.value) {
-		base.push({ id: 'plan', label: 'Implementation Plan' });
-	}
-	return base;
-});
+const tabs = [
+	{ id: 'overview', label: 'Overview' },
+	{ id: 'tchart', label: 'T-Chart' },
+	{ id: 'swimlane', label: 'Swimlane' },
+	{ id: 'roadmap', label: 'Implementation Roadmap' },
+];
 
-// Standards multi-select
+// Standards multi-select — auto-select standards with full domain matches and manageable burden
 const selectedStandardIds = ref([]);
+watch(standards, (list) => {
+	if (selectedStandardIds.value.length) return; // don't override manual selections
+	selectedStandardIds.value = list
+		.filter(s => s.fullCount > 0 && s.entry.implementationBurden !== 'high')
+		.map(s => s.entry.id);
+}, { immediate: true });
 
 function toggleStandard(id) {
 	const idx = selectedStandardIds.value.indexOf(id);
@@ -102,7 +102,7 @@ function selectPersonaAndGenerate(persona) {
 	planResponse.value = '';
 	planLoading.value = true;
 	planError.value = '';
-	activeTab.value = 'plan';
+	activeTab.value = 'roadmap';
 
 	const useStore = createGraphinatorStore({
 		storeId: 'ucPlanStore',
@@ -140,12 +140,6 @@ function selectPersonaAndGenerate(persona) {
 	});
 
 	store.connect();
-}
-
-function burdenColor(burden) {
-	if (burden === 'low') return 'success';
-	if (burden === 'medium') return 'warning';
-	return 'error';
 }
 
 // Swimlane steps (procedural from use case context)
@@ -439,103 +433,13 @@ const swimlaneSteps = computed(() => {
 		</div>
 
 		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- STANDARDS MAP TAB -->
+		<!-- IMPLEMENTATION ROADMAP TAB -->
 		<!-- ═══════════════════════════════════════════════════════════ -->
-		<div v-if="activeTab === 'standards'">
+		<div v-if="activeTab === 'roadmap'">
 			<div class="d-flex align-center justify-space-between mb-2">
-				<h2 class="text-h5 font-weight-bold">Standards & Data Mappings</h2>
-				<v-btn variant="text" size="small" to="/explore/standards">VIEW ALL SPECS</v-btn>
-			</div>
-			<p class="text-body-2 text-medium-emphasis mb-4">
-				Select the standards you want to include, then generate an implementation plan with the AI Explorer.
-			</p>
-
-			<!-- CTA button -->
-			<v-btn
-				v-if="selectedStandardIds.length"
-				color="primary"
-				size="large"
-				prepend-icon="mdi-rocket-launch"
-				class="mb-6"
-				@click="createImplementationPlan"
-			>
-				Create my implementation plan ({{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }})
-			</v-btn>
-
-			<!-- Standard cards (selectable) -->
-			<v-row v-if="standards.length">
-				<v-col
-					v-for="(std, idx) in standards"
-					:key="std.entry.id"
-					cols="12"
-					sm="6"
-				>
-					<v-card
-						:variant="isSelected(std.entry.id) ? 'flat' : 'outlined'"
-						:color="isSelected(std.entry.id) ? 'primary' : undefined"
-						:class="['pa-5 h-100 standard-card', { 'standard-selected': isSelected(std.entry.id) }]"
-						@click="toggleStandard(std.entry.id)"
-						style="cursor: pointer;"
-					>
-						<div class="d-flex align-center justify-space-between mb-1">
-							<div class="text-h4 font-weight-light" :class="isSelected(std.entry.id) ? '' : 'text-medium-emphasis'" style="opacity: 0.3;">
-								{{ String(idx + 1).padStart(2, '0') }}
-							</div>
-							<v-icon v-if="isSelected(std.entry.id)" color="white">mdi-check-circle</v-icon>
-							<v-icon v-else color="grey-lighten-1">mdi-checkbox-blank-circle-outline</v-icon>
-						</div>
-						<h3 class="text-subtitle-1 font-weight-bold mt-1 mb-2">{{ std.entry.title }}</h3>
-						<div class="d-flex ga-1 flex-wrap mb-2">
-							<v-chip
-								v-for="md in std.matchedDomains.slice(0, 3)"
-								:key="md.domain"
-								size="x-small"
-								:variant="isSelected(std.entry.id) ? 'flat' : 'tonal'"
-							>
-								{{ getDomainLabel(md.domain) }}
-							</v-chip>
-							<v-chip
-								size="x-small"
-								:color="isSelected(std.entry.id) ? 'white' : burdenColor(std.entry.implementationBurden)"
-								:variant="isSelected(std.entry.id) ? 'outlined' : 'flat'"
-							>
-								{{ std.entry.implementationBurden }} burden
-							</v-chip>
-						</div>
-						<p class="text-caption" :class="isSelected(std.entry.id) ? '' : 'text-medium-emphasis'">
-							{{ std.entry.owner }}
-						</p>
-					</v-card>
-				</v-col>
-			</v-row>
-
-			<!-- Bottom CTA (visible when scrolled past cards) -->
-			<div v-if="selectedStandardIds.length" class="mt-6 text-center">
+				<h2 class="text-h5 font-weight-bold">Implementation Roadmap</h2>
 				<v-btn
-					color="primary"
-					size="large"
-					prepend-icon="mdi-rocket-launch"
-					@click="createImplementationPlan"
-				>
-					Create my implementation plan
-				</v-btn>
-				<div class="text-caption text-medium-emphasis mt-2">
-					{{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }} selected
-				</div>
-			</div>
-
-			<v-alert v-else-if="!standards.length" type="info" variant="tonal" class="mt-4">
-				No standards mapped to this use case's CEDS domains yet.
-			</v-alert>
-		</div>
-
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- IMPLEMENTATION PLAN TAB (appears after generation starts) -->
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<div v-if="activeTab === 'plan'">
-			<div class="d-flex align-center justify-space-between mb-4">
-				<h2 class="text-h5 font-weight-bold">Implementation Plan</h2>
-				<v-btn
+					v-if="planResponse && !planLoading"
 					variant="text"
 					size="small"
 					prepend-icon="mdi-open-in-new"
@@ -543,6 +447,50 @@ const swimlaneSteps = computed(() => {
 				>
 					Open in Explorer
 				</v-btn>
+			</div>
+
+			<p class="text-body-2 text-medium-emphasis mb-4">
+				{{ selectedStandardIds.length }} standard{{ selectedStandardIds.length !== 1 ? 's' : '' }} identified for this use case based on CEDS domain alignment.
+			</p>
+
+			<!-- Pre-selected standards as removable chips -->
+			<div v-if="selectedStandardIds.length" class="d-flex ga-2 flex-wrap mb-5">
+				<v-chip
+					v-for="std in standards.filter(s => isSelected(s.entry.id))"
+					:key="std.entry.id"
+					size="small"
+					variant="tonal"
+					color="primary"
+					closable
+					@click:close="toggleStandard(std.entry.id)"
+				>
+					{{ std.entry.title }}
+				</v-chip>
+				<v-chip
+					v-for="std in standards.filter(s => !isSelected(s.entry.id))"
+					:key="std.entry.id"
+					size="small"
+					variant="outlined"
+					@click="toggleStandard(std.entry.id)"
+				>
+					+ {{ std.entry.title }}
+				</v-chip>
+			</div>
+
+			<!-- CTA when no plan generated yet -->
+			<div v-if="!planResponse && !planLoading" class="text-center py-8">
+				<v-btn
+					v-if="selectedStandardIds.length"
+					color="primary"
+					size="large"
+					prepend-icon="mdi-rocket-launch"
+					@click="createImplementationPlan"
+				>
+					Generate Implementation Roadmap
+				</v-btn>
+				<v-alert v-else type="info" variant="tonal" class="mt-2" style="max-width: 500px; margin: 0 auto;">
+					No standards mapped to this use case's CEDS domains yet.
+				</v-alert>
 			</div>
 
 			<!-- Loading state -->
@@ -575,10 +523,10 @@ const swimlaneSteps = computed(() => {
 				</v-btn>
 				<v-btn
 					variant="outlined"
-					prepend-icon="mdi-arrow-left"
-					@click="activeTab = 'standards'"
+					prepend-icon="mdi-refresh"
+					@click="createImplementationPlan"
 				>
-					Back to Standards
+					Regenerate
 				</v-btn>
 			</div>
 		</div>
@@ -651,18 +599,6 @@ const swimlaneSteps = computed(() => {
 
 .swimlane-active {
 	min-width: 180px;
-}
-
-.standard-card {
-	transition: all 0.15s ease;
-}
-
-.standard-card:hover {
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.standard-selected {
-	border: 2px solid rgb(var(--v-theme-primary));
 }
 
 .plan-response-card {
