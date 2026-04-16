@@ -4,7 +4,8 @@
 // @concept: [[PermissionValidation]]
 
 // Use Case Editor HTTP endpoint. Dispatches on ?action= to the `use-case-editor`
-// access point. Permission: ['admin'] — a power tool.
+// access point. Reads (schema/list/get) open to any authenticated user; save
+// requires admin/super.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -26,21 +27,11 @@ const moduleFunction = function ({
 		routingPrefix,
 	} = passThroughParameters;
 
-	const serviceFunction = (permissionValidator) => (xReq, xRes, next) => {
+	const serviceFunction = ({ readValidator, writeValidator }) => (xReq, xRes, next) => {
 		const taskList = new taskListPlus();
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 1: PERMISSION VALIDATION
-
-		taskList.push((args, next) =>
-			args.permissionValidator(
-				xReq.appValueGetter('authclaims'),
-				forwardArgs({ next, args }),
-			),
-		);
-
-		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 2: EXTRACT REQUEST PAYLOAD
+		// PIPELINE STAGE 1: EXTRACT REQUEST PAYLOAD
 		// GET: action + id in query string
 		// POST: action in query string, body carries the save payload
 
@@ -50,6 +41,20 @@ const moduleFunction = function ({
 				...xReq.qtGetSurePath('body', {})
 			};
 			next('', { ...args, xQuery });
+		});
+
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 2: ACTION-AWARE PERMISSION VALIDATION
+		// Reads (schema, list, get) are open to any authenticated user so the
+		// Explore view works for role=user. Writes (save) stay admin/super.
+
+		taskList.push((args, next) => {
+			const { xQuery } = args;
+			const validator = xQuery.action === 'save' ? writeValidator : readValidator;
+			validator(
+				xReq.appValueGetter('authclaims'),
+				forwardArgs({ next, args }),
+			);
 		});
 
 		// --------------------------------------------------------------------------------
@@ -66,7 +71,7 @@ const moduleFunction = function ({
 		// --------------------------------------------------------------------------------
 		// PIPELINE EXECUTION
 
-		const initialData = { accessPointsDotD, permissionValidator };
+		const initialData = { accessPointsDotD };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			const { result } = args;
 
@@ -93,9 +98,9 @@ const moduleFunction = function ({
 		serviceFunction,
 		expressApp,
 		endpointsDotD,
-		permissionValidator,
+		validators,
 	}) => {
-		expressApp[method](routePath, serviceFunction(permissionValidator));
+		expressApp[method](routePath, serviceFunction(validators));
 		endpointsDotD.logList.push(name);
 	};
 
@@ -104,7 +109,10 @@ const moduleFunction = function ({
 	const routePath = `${routingPrefix}${thisEndpointName}`;
 	const name = routePath;
 
-	const permissionValidator = accessTokenHeaderTools.getValidator(['admin', 'super']);
+	const validators = {
+		readValidator: accessTokenHeaderTools.getValidator(['user', 'admin', 'super']),
+		writeValidator: accessTokenHeaderTools.getValidator(['admin', 'super']),
+	};
 	addEndpoint({
 		name,
 		method,
@@ -112,11 +120,11 @@ const moduleFunction = function ({
 		serviceFunction,
 		expressApp,
 		endpointsDotD,
-		permissionValidator,
+		validators,
 	});
 
 	// POST variant for save payloads (Phase 3+).
-	expressApp.post(routePath, serviceFunction(permissionValidator));
+	expressApp.post(routePath, serviceFunction(validators));
 
 	return {};
 };
