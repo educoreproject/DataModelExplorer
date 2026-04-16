@@ -846,13 +846,13 @@ export const libraryEntries = [
   // ─── LIF ───────────────────────────────────────────────────────────────────
   {
     id: 'lif',
-    title: 'Learning & Employment Record Interoperability Framework (LIF) 2.0',
+    title: 'Learner Information Framework (LIF) 2.0',
     type: 'Standard',
     category: 'Learner Records',
     targetCanonicalEntity: 'Person / Credential / Assessment / CompetencyFramework / Course / Program / Organization / Position',
     fieldMappingDescription: 'JSON-based data model with 8 core entities: Person, Credential, Assessment, CompetencyFramework, Course, Program, Organization, Position. Each entity has detailed fields with privacy use_recommendations. LIF fields map to CEDS elements — e.g., Assessment.identifier → CEDS AssessmentIdentifier, Person.Name → CEDS PersonName, Credential.name → CEDS CredentialDefinition.',
     transformationNotes: 'LIF is designed as the comprehensive interoperability layer across education and workforce. Covers territory of multiple specs: Assessment (like CEDS Assessment domain), CompetencyFramework (like CASE), Credential (like OB3/CLR), Position (workforce). Every field includes use_recommendations for equity and privacy. Missing: no specific wire protocol defined (transport-agnostic). Unique: includes Person entity with consent model and demographic sensitivity guidance.',
-    description: 'The Learning & Employment Record Interoperability Framework (LIF) 2.0 is a comprehensive data model for representing learning and employment records across the full P-20W lifecycle. LIF defines 8 core entities (Person, Credential, Assessment, CompetencyFramework, Course, Program, Organization, Position) with over 290 fields, each annotated with privacy and equity use recommendations. Designed to bridge education and workforce data systems with built-in sensitivity guidance.',
+    description: 'The Learner Information Framework (LIF) 2.0 is a comprehensive data model for representing learning and employment records across the full P-20W lifecycle. LIF defines 8 core entities (Person, Credential, Assessment, CompetencyFramework, Course, Program, Organization, Position) with over 290 fields, each annotated with privacy and equity use recommendations. Designed to bridge education and workforce data systems with built-in sensitivity guidance.',
     owner: 'A4L Community (Access 4 Learning)',
     governanceBody: 'A4L Community / LIF Work Group',
     lastUpdated: '2025-01-01',

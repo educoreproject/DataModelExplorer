@@ -3,7 +3,6 @@ import { getUseCaseById, getStandardsForUseCase, getDomainLabel, getDomainIcon }
 import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { personas } from '@/data/personas';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -59,7 +58,6 @@ function isSelected(id) {
 }
 
 // ── Inline implementation plan generation ──
-const showPersonaPicker = ref(false);
 const planResponse = ref('');
 const planLoading = ref(false);
 const planError = ref('');
@@ -68,7 +66,6 @@ const responsePanel = ref(null);
 
 const renderedPlan = computed(() => {
 	if (!planResponse.value) return '';
-	// Strip <control> tags (same as GraphinatorPanel)
 	const stripped = planResponse.value.replace(/<control[^>]*>[\s\S]*?<\/control>/g, '');
 	return marked.parse(stripped);
 });
@@ -78,11 +75,6 @@ function createImplementationPlan() {
 		navigateTo({ path: '/login', query: { redirect: route.fullPath } });
 		return;
 	}
-	showPersonaPicker.value = true;
-}
-
-function selectPersonaAndGenerate(persona) {
-	showPersonaPicker.value = false;
 
 	const uc = useCase.value;
 	const selectedSpecs = standards.value
@@ -90,19 +82,16 @@ function selectPersonaAndGenerate(persona) {
 		.map((s) => s.entry.title);
 
 	const prompt =
-		`[PERSONA: ${persona.title} — ${persona.description}]\n\n` +
-		`Create an implementation plan for the "${uc.label}" use case (under ${uc.subcategoryLabel} / ${uc.categoryLabel}). ` +
+		`Create an implementation roadmap for the "${uc.label}" use case (under ${uc.subcategoryLabel} / ${uc.categoryLabel}). ` +
 		`CEDS domains involved: ${uc.cedsDomains.map(getDomainLabel).join(', ')}. ` +
-		`IMPORTANT: The user has specifically selected ONLY these ${selectedSpecs.length} standards: ${selectedSpecs.join('; ')}. ` +
-		`Limit your plan strictly to these selected standards — do NOT introduce or recommend other standards that were not selected. ` +
-		`For each selected standard, describe what role it plays in this use case, what data elements are needed, ` +
-		`implementation steps, dependencies between the selected standards, and a recommended phased approach.`;
+		`The following ${selectedSpecs.length} standards have been identified for this use case: ${selectedSpecs.join('; ')}. ` +
+		`Limit the roadmap strictly to these standards — do NOT introduce or recommend other standards. ` +
+		`For each standard, describe what role it plays in this use case, what data elements are needed, ` +
+		`implementation steps, dependencies between the standards, and a recommended phased approach.`;
 
-	// Create store, connect, send
 	planResponse.value = '';
 	planLoading.value = true;
 	planError.value = '';
-	activeTab.value = 'roadmap';
 
 	const useStore = createGraphinatorStore({
 		storeId: 'ucPlanStore',
@@ -113,7 +102,6 @@ function selectPersonaAndGenerate(persona) {
 	const store = useStore();
 	planStore.value = store;
 
-	// Watch for connection then send
 	const stopWatch = watch(() => store.connected, (connected) => {
 		if (connected) {
 			setTimeout(() => {
@@ -123,7 +111,6 @@ function selectPersonaAndGenerate(persona) {
 		}
 	});
 
-	// Stream response text into our local ref
 	watch(() => store.currentResponse?.stdout, (text) => {
 		if (text) {
 			planResponse.value = text;
@@ -531,32 +518,6 @@ const swimlaneSteps = computed(() => {
 			</div>
 		</div>
 
-		<!-- Persona picker dialog -->
-		<v-dialog v-model="showPersonaPicker" max-width="680" scrollable>
-			<v-card class="pa-6">
-				<v-card-title class="text-h6 font-weight-bold pb-1">Select your role</v-card-title>
-				<v-card-subtitle class="pb-4">This helps the AI tailor the implementation plan to your perspective.</v-card-subtitle>
-				<v-row dense>
-					<v-col
-						v-for="persona in personas"
-						:key="persona.id"
-						cols="12"
-						sm="6"
-					>
-						<v-card
-							variant="outlined"
-							class="pa-4 text-center persona-pick-card"
-							hover
-							@click="selectPersonaAndGenerate(persona)"
-						>
-							<v-icon size="32" color="primary" class="mb-2">{{ persona.icon }}</v-icon>
-							<div class="text-subtitle-2 font-weight-bold">{{ persona.title }}</div>
-							<div class="text-caption text-medium-emphasis">{{ persona.description }}</div>
-						</v-card>
-					</v-col>
-				</v-row>
-			</v-card>
-		</v-dialog>
 	</v-container>
 
 	<!-- Not found -->
@@ -635,12 +596,4 @@ const swimlaneSteps = computed(() => {
 .plan-response-body :deep(a) { color: var(--edu-teal, #00B5B8); }
 .plan-response-body :deep(blockquote) { border-left: 3px solid var(--edu-teal, #00B5B8); margin: 0.5em 0; padding: 0.3em 0.8em; color: var(--edu-gray-500, #7A8499); }
 
-.persona-pick-card {
-	cursor: pointer;
-	transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.persona-pick-card:hover {
-	border-color: rgb(var(--v-theme-primary));
-}
 </style>
