@@ -66,6 +66,11 @@ const isAdmin = computed(() =>
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"
 			/>
+			<v-list-item
+				to="/explore/implementation-burden"
+				prepend-icon="mdi-speedometer-medium"
+				title="Impl. Burden"
+			/>
 		</v-list>
 
 		<v-divider />
@@ -84,12 +89,7 @@ const isAdmin = computed(() =>
 				title="Ontology"
 			/>
 			<v-list-item
-				to="/ontology"
-				prepend-icon="mdi-pickaxe"
-				title="Data Miner"
-			/>
-			<v-list-item
-				to="/dm/personas"
+				to="/dm/explorer"
 				prepend-icon="mdi-robot-outline"
 				title="AI Explorer"
 			/>

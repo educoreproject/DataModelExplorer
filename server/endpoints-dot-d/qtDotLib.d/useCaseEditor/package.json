@@ -1,0 +1,8 @@
+{
+  "name": "useCaseEditor",
+  "version": "1.0.0",
+  "description": "Use Case Editor HTTP endpoint",
+  "main": "useCaseEditor.js",
+  "author": "TQ White II",
+  "license": "ISC"
+}

@@ -1,27 +1,58 @@
 <script setup>
-import { getUseCaseById, getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
-import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
+import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
+import { useUseCaseStore } from '@/stores/useCaseStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { personas } from '@/data/personas';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
 
+const ucStore = useUseCaseStore();
 const LoginStore = useLoginStore();
 const route = useRoute();
 const ucId = route.params.id;
 
-const useCase = computed(() => getUseCaseById(ucId));
+// Resolve use case from store, enriching with taxonomy labels
+const useCase = computed(() => {
+	const uc = ucStore.useCaseById(ucId);
+	if (!uc) return null;
+	// Find taxonomy labels
+	let categoryLabel = '', categoryIcon = '', categoryColor = '', subcategoryLabel = '';
+	for (const topic of ucStore.taxonomy) {
+		for (const driver of topic.children) {
+			if (driver.children.includes(uc.id)) {
+				categoryLabel = topic.label;
+				categoryIcon = topic.icon;
+				categoryColor = topic.color;
+				subcategoryLabel = driver.label;
+				break;
+			}
+		}
+	}
+	return {
+		...uc,
+		label: uc.title,
+		categoryLabel,
+		categoryIcon,
+		categoryColor,
+		subcategoryLabel,
+		cedsDomains: uc.cedsDomains || [],
+	};
+});
+
 const standards = computed(() => getStandardsForUseCase(ucId));
 
 // Sibling stories in same driver/subcategory
 const siblingStories = computed(() => {
 	if (!useCase.value) return [];
-	for (const cat of useCaseTaxonomy) {
-		for (const sub of cat.children) {
-			if (sub.id === useCase.value.subcategoryId) {
-				return sub.children.filter((uc) => uc.id !== ucId && uc.githubIssue);
+	for (const topic of ucStore.taxonomy) {
+		for (const driver of topic.children) {
+			if (driver.children.includes(ucId)) {
+				return driver.children
+					.filter((id) => id !== ucId)
+					.map((id) => ucStore.useCaseById(id))
+					.filter((uc) => uc && uc.githubIssue)
+					.map((uc) => ({ ...uc, label: uc.title }));
 			}
 		}
 	}
@@ -44,6 +75,14 @@ const tabs = computed(() => {
 
 // Standards multi-select
 const selectedStandardIds = ref([]);
+const showAllStandards = ref(false);
+
+// Split standards into relevant (score >= 2, i.e. at least one full domain match) and additional
+const relevantStandards = computed(() => standards.value.filter(s => s.score >= 2));
+const additionalStandards = computed(() => standards.value.filter(s => s.score < 2));
+const visibleStandards = computed(() =>
+	showAllStandards.value ? standards.value : relevantStandards.value,
+);
 
 function toggleStandard(id) {
 	const idx = selectedStandardIds.value.indexOf(id);
@@ -59,7 +98,6 @@ function isSelected(id) {
 }
 
 // ── Inline implementation plan generation ──
-const showPersonaPicker = ref(false);
 const planResponse = ref('');
 const planLoading = ref(false);
 const planError = ref('');
@@ -78,11 +116,6 @@ function createImplementationPlan() {
 		navigateTo({ path: '/login', query: { redirect: route.fullPath } });
 		return;
 	}
-	showPersonaPicker.value = true;
-}
-
-function selectPersonaAndGenerate(persona) {
-	showPersonaPicker.value = false;
 
 	const uc = useCase.value;
 	const selectedSpecs = standards.value
@@ -90,7 +123,6 @@ function selectPersonaAndGenerate(persona) {
 		.map((s) => s.entry.title);
 
 	const prompt =
-		`[PERSONA: ${persona.title} — ${persona.description}]\n\n` +
 		`Create an implementation plan for the "${uc.label}" use case (under ${uc.subcategoryLabel} / ${uc.categoryLabel}). ` +
 		`CEDS domains involved: ${uc.cedsDomains.map(getDomainLabel).join(', ')}. ` +
 		`IMPORTANT: The user has specifically selected ONLY these ${selectedSpecs.length} standards: ${selectedSpecs.join('; ')}. ` +
@@ -148,27 +180,46 @@ function burdenColor(burden) {
 	return 'error';
 }
 
-// Swimlane steps (procedural from use case context)
+// Swimlane colors for actors
+const actorColors = ['#1e40af', '#7c3aed', '#15803d', '#b45309', '#be185d', '#0f766e', '#6d28d9', '#dc2626'];
+
+// Swimlane actors — derived from actual use case data
 const swimlaneActors = computed(() => {
 	if (!useCase.value) return [];
+	const uc = useCase.value;
+	// Use real actors from the store if available
+	if (uc.actors && uc.actors.length > 0) {
+		return uc.actors.map((a, idx) => ({
+			label: a.name,
+			desc: a.role || '',
+			color: actorColors[idx % actorColors.length],
+		}));
+	}
+	// Fallback for use cases without actor data
 	return [
-		{ label: useCase.value.subcategoryLabel, desc: 'Primary actor driving this use case', color: '#1e40af' },
-		{ label: 'System', desc: 'Automated processing and validation', color: '#7c3aed' },
-		{ label: 'Verifier', desc: 'Credential verification and trust', color: '#15803d' },
+		{ label: uc.subcategoryLabel || 'User', desc: 'Primary actor', color: actorColors[0] },
 	];
 });
 
+// Swimlane steps — derived from actual use case step data
 const swimlaneSteps = computed(() => {
 	if (!useCase.value) return [];
 	const uc = useCase.value;
+	// Use real steps from the store if available
+	if (uc.steps && uc.steps.length > 0) {
+		return uc.steps.map((step) => {
+			const actorIdx = swimlaneActors.value.findIndex((a) => a.label === step.actor);
+			return {
+				actorIdx: actorIdx >= 0 ? actorIdx : 0,
+				action: step.action,
+			};
+		});
+	}
+	// Fallback for use cases without step data
 	const domains = uc.cedsDomains || [];
 	return [
 		{ actorIdx: 0, action: `Initiate ${uc.label}`, dataIn: 'Request or trigger event' },
-		{ actorIdx: 1, action: 'Validate inputs against CEDS domains', dataOut: domains.slice(0, 2).map(getDomainLabel).join(', ') || 'Validation result' },
-		{ actorIdx: 0, action: 'Provide required credentials and documentation', dataIn: 'Source documents' },
-		{ actorIdx: 1, action: 'Process and map to interoperability standards', dataIn: 'Raw data', dataOut: 'Structured records' },
-		{ actorIdx: 2, action: 'Verify credential authenticity and claims', dataIn: 'Structured records', dataOut: 'Verification result' },
-		{ actorIdx: 1, action: 'Update records and generate output', dataOut: 'Final LER / credential artifact' },
+		{ actorIdx: 0, action: 'Provide required credentials and documentation' },
 		{ actorIdx: 0, action: 'Receive and review results' },
 	];
 });
@@ -197,8 +248,11 @@ const swimlaneSteps = computed(() => {
 			<v-card variant="flat" color="grey-lighten-4" class="pa-6 mb-6" rounded="lg">
 				<v-chip size="small" color="primary" variant="flat" class="mb-3">SYSTEMATIC FRAMEWORK</v-chip>
 				<h2 class="text-h5 font-weight-bold mb-2">{{ useCase.label }}</h2>
-				<p class="text-body-1 text-medium-emphasis mb-3">
-					Use case under <strong>{{ useCase.subcategoryLabel }}</strong> within the {{ useCase.categoryLabel }} topic, linking stakeholder needs to interoperable ecosystem nodes.
+				<p v-if="useCase.description" class="text-body-1 text-medium-emphasis mb-3">
+					{{ useCase.description }}
+				</p>
+				<p v-else class="text-body-1 text-medium-emphasis mb-3">
+					Use case under <strong>{{ useCase.subcategoryLabel }}</strong> within the {{ useCase.categoryLabel }} topic.
 				</p>
 				<div>
 					<v-chip
@@ -222,10 +276,27 @@ const swimlaneSteps = computed(() => {
 				</div>
 			</v-card>
 
-			<!-- Actor + CEDS Domains row -->
+			<!-- Actors + CEDS Domains row -->
 			<v-row class="mb-6">
-				<v-col cols="12" md="4">
-					<v-card variant="outlined" class="pa-5 h-100">
+				<v-col cols="12" :md="useCase.actors?.length > 0 ? 5 : 4">
+					<div class="text-overline text-medium-emphasis mb-2">ACTORS</div>
+					<template v-if="useCase.actors?.length > 0">
+						<v-card
+							v-for="(actor, idx) in useCase.actors"
+							:key="actor.name"
+							variant="outlined"
+							class="pa-4 mb-2"
+						>
+							<div class="d-flex align-center ga-2 mb-1">
+								<div
+									:style="{ width: '10px', height: '10px', borderRadius: '50%', background: actorColors[idx % actorColors.length], flexShrink: 0 }"
+								/>
+								<div class="font-weight-bold text-body-2">{{ actor.name }}</div>
+							</div>
+							<div v-if="actor.role" class="text-caption text-medium-emphasis pl-5">{{ actor.role }}</div>
+						</v-card>
+					</template>
+					<v-card v-else variant="outlined" class="pa-5">
 						<div class="d-flex align-center mb-2">
 							<v-icon class="mr-2" color="primary">mdi-account-circle-outline</v-icon>
 							<div>
@@ -233,13 +304,10 @@ const swimlaneSteps = computed(() => {
 								<div class="text-caption text-medium-emphasis">Primary Actor</div>
 							</div>
 						</div>
-						<p class="text-body-2 text-medium-emphasis mb-3">
-							Responsible for initiating and managing use cases in this domain.
-						</p>
 						<v-chip size="small" variant="tonal" color="primary">{{ useCase.categoryLabel }}</v-chip>
 					</v-card>
 				</v-col>
-				<v-col cols="12" md="8">
+				<v-col cols="12" :md="useCase.actors?.length > 0 ? 7 : 8">
 					<div class="text-overline text-medium-emphasis mb-2">CEDS DOMAINS</div>
 					<v-row dense>
 						<v-col
@@ -253,6 +321,22 @@ const swimlaneSteps = computed(() => {
 							</v-card>
 						</v-col>
 					</v-row>
+				</v-col>
+			</v-row>
+
+			<!-- Outcomes & Dependencies -->
+			<v-row v-if="useCase.outcomes?.length || useCase.dependencies?.length" class="mb-6">
+				<v-col v-if="useCase.outcomes?.length" cols="12" sm="6">
+					<div class="text-overline text-medium-emphasis mb-2">EXPECTED OUTCOMES</div>
+					<ul class="text-body-2 pl-4">
+						<li v-for="outcome in useCase.outcomes" :key="outcome">{{ outcome }}</li>
+					</ul>
+				</v-col>
+				<v-col v-if="useCase.dependencies?.length" cols="12" sm="6">
+					<div class="text-overline text-medium-emphasis mb-2">DEPENDENCIES</div>
+					<ul class="text-body-2 pl-4">
+						<li v-for="dep in useCase.dependencies" :key="dep">{{ dep }}</li>
+					</ul>
 				</v-col>
 			</v-row>
 
@@ -344,6 +428,27 @@ const swimlaneSteps = computed(() => {
 								{{ getDomainLabel(domain) }}
 							</v-chip>
 						</div>
+					</div>
+
+					<!-- Actors -->
+					<div v-if="useCase.actors?.length" class="mb-6">
+						<div class="text-overline text-medium-emphasis mb-2">ACTORS</div>
+						<v-row dense>
+							<v-col
+								v-for="(actor, idx) in useCase.actors"
+								:key="actor.name"
+								cols="12"
+								sm="6"
+							>
+								<v-card variant="outlined" class="pa-3">
+									<div class="d-flex align-center ga-2 mb-1">
+										<div :style="{ width: '8px', height: '8px', borderRadius: '50%', background: actorColors[idx % actorColors.length], flexShrink: 0 }" />
+										<span class="text-body-2 font-weight-bold">{{ actor.name }}</span>
+									</div>
+									<div v-if="actor.role" class="text-caption text-medium-emphasis pl-4">{{ actor.role }}</div>
+								</v-card>
+							</v-col>
+						</v-row>
 					</div>
 
 					<!-- Hierarchy Context -->
@@ -462,10 +567,10 @@ const swimlaneSteps = computed(() => {
 				Create my implementation plan ({{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }})
 			</v-btn>
 
-			<!-- Standard cards (selectable) -->
-			<v-row v-if="standards.length">
+			<!-- Relevant standard cards (selectable) -->
+			<v-row v-if="visibleStandards.length">
 				<v-col
-					v-for="(std, idx) in standards"
+					v-for="(std, idx) in visibleStandards"
 					:key="std.entry.id"
 					cols="12"
 					sm="6"
@@ -508,6 +613,21 @@ const swimlaneSteps = computed(() => {
 					</v-card>
 				</v-col>
 			</v-row>
+
+			<!-- Show more / fewer toggle -->
+			<div v-if="additionalStandards.length && relevantStandards.length" class="mt-4 text-center">
+				<v-btn
+					variant="text"
+					size="small"
+					:prepend-icon="showAllStandards ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+					@click="showAllStandards = !showAllStandards"
+				>
+					{{ showAllStandards
+						? 'Show relevant only'
+						: `Show ${additionalStandards.length} more standard${additionalStandards.length > 1 ? 's' : ''} with partial alignment`
+					}}
+				</v-btn>
+			</div>
 
 			<!-- Bottom CTA (visible when scrolled past cards) -->
 			<div v-if="selectedStandardIds.length" class="mt-6 text-center">
@@ -583,32 +703,6 @@ const swimlaneSteps = computed(() => {
 			</div>
 		</div>
 
-		<!-- Persona picker dialog -->
-		<v-dialog v-model="showPersonaPicker" max-width="680" scrollable>
-			<v-card class="pa-6">
-				<v-card-title class="text-h6 font-weight-bold pb-1">Select your role</v-card-title>
-				<v-card-subtitle class="pb-4">This helps the AI tailor the implementation plan to your perspective.</v-card-subtitle>
-				<v-row dense>
-					<v-col
-						v-for="persona in personas"
-						:key="persona.id"
-						cols="12"
-						sm="6"
-					>
-						<v-card
-							variant="outlined"
-							class="pa-4 text-center persona-pick-card"
-							hover
-							@click="selectPersonaAndGenerate(persona)"
-						>
-							<v-icon size="32" color="primary" class="mb-2">{{ persona.icon }}</v-icon>
-							<div class="text-subtitle-2 font-weight-bold">{{ persona.title }}</div>
-							<div class="text-caption text-medium-emphasis">{{ persona.description }}</div>
-						</v-card>
-					</v-col>
-				</v-row>
-			</v-card>
-		</v-dialog>
 	</v-container>
 
 	<!-- Not found -->
@@ -699,12 +793,4 @@ const swimlaneSteps = computed(() => {
 .plan-response-body :deep(a) { color: var(--edu-teal, #00B5B8); }
 .plan-response-body :deep(blockquote) { border-left: 3px solid var(--edu-teal, #00B5B8); margin: 0.5em 0; padding: 0.3em 0.8em; color: var(--edu-gray-500, #7A8499); }
 
-.persona-pick-card {
-	cursor: pointer;
-	transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.persona-pick-card:hover {
-	border-color: rgb(var(--v-theme-primary));
-}
 </style>

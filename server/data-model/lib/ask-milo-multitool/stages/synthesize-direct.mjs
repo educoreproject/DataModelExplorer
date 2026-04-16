@@ -57,13 +57,6 @@ const synthesize = async ({ originalPrompt, instructions, results, config }) => 
 		requestParams.thinking = { type: "adaptive" };
 	}
 
-	console.log('\n[Synthesize] ===== API REQUEST =====');
-	console.log('[Synthesize] Model:', config.expandModel);
-	console.log('[Synthesize] System prompt:\n', systemPrompt);
-	console.log('[Synthesize] User message:\n', userMessage);
-	console.log('[Synthesize] Thinking:', JSON.stringify(requestParams.thinking || 'off'));
-	console.log('[Synthesize] ===== END REQUEST =====\n');
-
 	const stream = client.messages.stream(requestParams);
 	const response = await stream.finalMessage();
 
@@ -87,10 +80,10 @@ const synthesize = async ({ originalPrompt, instructions, results, config }) => 
 		usd: estimateCost(config.expandModel, response.usage),
 	};
 
-	console.log('[Synthesize] ===== API RESPONSE =====');
-	console.log('[Synthesize] Input tokens:', synthesisCost.inputTokens, '| Output tokens:', synthesisCost.outputTokens, '| Cost: $' + synthesisCost.usd.toFixed(4));
-	console.log('[Synthesize] Synthesis length:', synthesis.length, 'chars');
-	console.log('[Synthesize] ===== END RESPONSE =====\n');
+	if (verbose) {
+		xLog.status(`[Synthesize] Input tokens: ${synthesisCost.inputTokens} | Output tokens: ${synthesisCost.outputTokens} | Cost: $${synthesisCost.usd.toFixed(4)}`);
+		xLog.status(`[Synthesize] Synthesis length: ${synthesis.length} chars`);
+	}
 
 	return { synthesis, synthesisCost };
 };

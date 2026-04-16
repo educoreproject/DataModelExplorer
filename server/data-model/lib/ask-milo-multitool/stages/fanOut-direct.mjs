@@ -55,13 +55,6 @@ const runOneAgent = async ({ instruction, config }) => {
 		xLog.status(`${tag} Note: tools [${config.tools.join(', ')}] ignored in direct mode`);
 	}
 
-	console.log(`\n${tag} ===== API REQUEST =====`);
-	console.log(`${tag} Model:`, config.agentModel);
-	console.log(`${tag} System prompt:\n`, config.agentPromptText);
-	console.log(`${tag} User message:\n`, instruction.instruction);
-	console.log(`${tag} Thinking:`, JSON.stringify(requestParams.thinking || 'off'));
-	console.log(`${tag} ===== END REQUEST =====\n`);
-
 	const stream = client.messages.stream(requestParams);
 	const response = await stream.finalMessage();
 
@@ -79,10 +72,10 @@ const runOneAgent = async ({ instruction, config }) => {
 		usd: estimateCost(config.agentModel, response.usage),
 	};
 
-	console.log(`${tag} ===== API RESPONSE =====`);
-	console.log(`${tag} Input tokens:`, cost.inputTokens, '| Output tokens:', cost.outputTokens, '| Cost: $' + cost.usd.toFixed(4));
-	console.log(`${tag} Findings length:`, findings.length, 'chars');
-	console.log(`${tag} ===== END RESPONSE =====\n`);
+	if (verbose) {
+		xLog.status(`${tag} Input tokens: ${cost.inputTokens} | Output tokens: ${cost.outputTokens} | Cost: $${cost.usd.toFixed(4)}`);
+		xLog.status(`${tag} Findings length: ${findings.length} chars`);
+	}
 
 	if (verbose) {
 		const elapsed = ((Date.now() - agentStart) / 1000).toFixed(1);
