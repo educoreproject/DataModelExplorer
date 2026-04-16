@@ -12,10 +12,22 @@
 						<NuxtLink to="/" class="nav-brand">
 							<img src="/educore-logo.png" alt="EDUcore" class="nav-logo" />
 						</NuxtLink>
-						<NuxtLink to="/explore/standards" class="nav-cta">
-							Reference Library
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-						</NuxtLink>
+						<div class="nav-links">
+							<div class="nav-dropdown">
+								<button class="nav-link">
+									Documents
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+								</button>
+								<div class="nav-dropdown-menu">
+									<a href="https://docs.google.com/document/d/1294YyH4CirN1EJzlzxUL_L_mGpw37cNvRFFT3NVT9p0/edit?tab=t.0#heading=h.uu1k3rs46xdz" target="_blank" class="nav-dropdown-item">Standards Development Organizations</a>
+									<a href="https://docs.google.com/document/d/1JpnHjt6EeOp0kWZD8h0LMEvLQ_1Z4e4Knko5H-3d8oo/edit?tab=t.0" target="_blank" class="nav-dropdown-item">EDUcore One Page Document</a>
+								</div>
+							</div>
+							<NuxtLink to="/explore/standards" class="nav-cta">
+								Reference Library
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+							</NuxtLink>
+						</div>
 					</div>
 				</nav>
 
@@ -253,6 +265,72 @@
 	.nav-logo {
 		height: 36px;
 		width: auto;
+	}
+
+	.nav-links {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+	}
+
+	.nav-dropdown {
+		position: relative;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.5rem 0.75rem;
+		background: none;
+		border: none;
+		color: var(--lp-primary);
+		font-weight: 600;
+		font-size: 0.9rem;
+		font-family: inherit;
+		cursor: pointer;
+		border-radius: 6px;
+		transition: background 0.15s;
+	}
+
+	.nav-link:hover {
+		background: rgba(7, 42, 108, 0.06);
+	}
+
+	.nav-dropdown-menu {
+		display: none;
+		position: absolute;
+		top: 100%;
+		right: 0;
+		margin-top: 0.25rem;
+		background: #fff;
+		border: 1px solid var(--lp-border);
+		border-radius: 10px;
+		box-shadow: 0 8px 32px rgba(7, 42, 108, 0.12);
+		min-width: 260px;
+		padding: 0.4rem;
+		z-index: 200;
+	}
+
+	.nav-dropdown:hover .nav-dropdown-menu,
+	.nav-dropdown:focus-within .nav-dropdown-menu {
+		display: block;
+	}
+
+	.nav-dropdown-item {
+		display: block;
+		padding: 0.6rem 0.9rem;
+		color: var(--lp-text);
+		text-decoration: none;
+		font-size: 0.88rem;
+		font-weight: 500;
+		border-radius: 6px;
+		transition: background 0.15s;
+	}
+
+	.nav-dropdown-item:hover {
+		background: rgba(7, 42, 108, 0.05);
+		color: var(--lp-primary);
 	}
 
 	.nav-cta {
