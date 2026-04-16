@@ -182,9 +182,10 @@
 						<div class="bakeoff-card">
 							<img class="thumb" :src="ghPages + 'thumbnails/TQ_WHITE_II - AI_BAKEOFF.jpg'" alt="Data Model Explorer demo">
 							<div class="body">
-								<h4>SIF &amp; CEDS Data Model Explorer</h4>
+								<h4>Multi-Standard Data Model Explorer</h4>
 								<div class="presenter">TQ White II</div>
-								<p>Loads both SIF and CEDS data models into a graph database for side-by-side exploration. Features a tree-based data model lookup, AI-powered cross-standard mapping between SIF elements and CEDS definitions, natural-language search, and visual graph diagrams.</p>
+								<p>
+								TLive knowledge graph integrating nine education and workforce data standards at full field depth — CEDS, SIF, Ed-Fi, PESC, CTDL, SEDM, JEDx, EdMatrix, and CIP — with cross-standard mappings anchored to CEDS throughout. Features tree-based data model navigation, AI-powered cross-standard mapping, natural-language search, and visual graph diagrams. The only implementation in the ecosystem to include SEDM, linking IDEA special education data to the broader PK20W interoperability stack.</p>
 								<a class="watch-link" href="https://drive.google.com/file/d/1wl_vVaAmUo-cn6WWahFTwH48SSsqJzvW/view?usp=drive_link" target="_blank">Watch on Drive</a>
 							</div>
 						</div>
