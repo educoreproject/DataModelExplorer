@@ -68,6 +68,21 @@
 			photo: '/team/joshua-marks.jpeg',
 			bio: '',
 		},
+		{
+			name: 'David Clarkson',
+			photo: null,
+			bio: 'Stakeholder Outreach.',
+		},
+		{
+			name: 'Kayla Smith',
+			photo: null,
+			bio: 'Stakeholder Outreach.',
+		},
+		{
+			name: 'Jim Kelly',
+			photo: null,
+			bio: 'Use Cases. Owner of Jim Kelly Technology Consulting.',
+		},
 	];
 
 	const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase();
