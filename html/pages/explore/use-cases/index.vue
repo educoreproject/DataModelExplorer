@@ -3,18 +3,40 @@ import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
 
 const route = useRoute();
 
-// Pre-expand the topic from query param (e.g., /explore/use-cases?topic=all-learning-counts)
+// Pre-expand the topic from query param (e.g., /explore/use-cases?topic=sedm)
 const expandedPanels = ref([]);
 
 onMounted(() => {
 	const topicId = route.query.topic;
 	if (topicId) {
-		const idx = useCaseTaxonomy.findIndex((t) => t.id === topicId);
+		const idx = filteredTaxonomy.value.findIndex((t) => t.id === topicId);
 		if (idx >= 0) expandedPanels.value = [idx];
 	}
 });
 
-const totalUseCases = computed(() =>
+// Only show topics/drivers/use-cases that have at least one complete item
+const filteredTaxonomy = computed(() => {
+	return useCaseTaxonomy
+		.map(topic => {
+			const filteredChildren = topic.children
+				.map(driver => ({
+					...driver,
+					children: driver.children.filter(uc => uc.complete),
+				}))
+				.filter(driver => driver.children.length > 0);
+			return { ...topic, children: filteredChildren };
+		})
+		.filter(topic => topic.children.length > 0);
+});
+
+const totalComplete = computed(() =>
+	filteredTaxonomy.value.reduce(
+		(sum, cat) => sum + cat.children.reduce((s, sub) => s + sub.children.length, 0),
+		0,
+	),
+);
+
+const totalAll = computed(() =>
 	useCaseTaxonomy.reduce(
 		(sum, cat) => sum + cat.children.reduce((s, sub) => s + sub.children.length, 0),
 		0,
@@ -24,6 +46,8 @@ const totalUseCases = computed(() =>
 const labelColor = (tag) => {
 	const map = {
 		LER: 'purple',
+		'P20W+LER': 'indigo',
+		SEDM: 'orange',
 		Workforce: 'blue',
 		'Administration / Operations': 'orange',
 		Military: 'green',
@@ -41,12 +65,12 @@ const cedsDomainsFor = (ucId) => {
 	<v-container class="py-8" style="max-width: 1000px;">
 		<h1 class="text-h4 font-weight-bold text-primary mb-2">Use Cases</h1>
 		<p class="text-body-1 text-medium-emphasis mb-6">
-			{{ totalUseCases }} use cases organized by topic and value driver, mapped to GitHub issues.
+			{{ totalComplete }} completed use cases out of {{ totalAll }} total, organized by topic and value driver.
 		</p>
 
 		<v-expansion-panels v-model="expandedPanels" variant="accordion" multiple>
 			<v-expansion-panel
-				v-for="topic in useCaseTaxonomy"
+				v-for="topic in filteredTaxonomy"
 				:key="topic.id"
 			>
 				<v-expansion-panel-title>
@@ -56,8 +80,8 @@ const cedsDomainsFor = (ucId) => {
 							<span class="font-weight-bold">{{ topic.label }}</span>
 							<div class="text-caption text-medium-emphasis">{{ topic.subtitle }}</div>
 						</div>
-						<v-chip size="x-small" variant="tonal" class="ml-auto">
-							{{ topic.children.reduce((s, sub) => s + sub.children.length, 0) }}
+						<v-chip size="x-small" color="success" variant="tonal" class="ml-auto">
+							{{ topic.children.reduce((s, sub) => s + sub.children.length, 0) }} complete
 						</v-chip>
 					</div>
 				</v-expansion-panel-title>
@@ -70,7 +94,6 @@ const cedsDomainsFor = (ucId) => {
 					>
 						<h4 class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-2" style="border-bottom: 1px solid #eee; padding-bottom: 4px;">
 							{{ driver.label }}
-							<v-chip size="x-small" variant="text" class="ml-1">{{ driver.children.length }}</v-chip>
 						</h4>
 						<v-list density="compact" class="py-0">
 							<v-list-item
@@ -80,6 +103,7 @@ const cedsDomainsFor = (ucId) => {
 								:to="`/explore/use-cases/${uc.id}`"
 							>
 								<template #prepend>
+									<v-icon size="small" color="success" class="mr-2">mdi-check-circle</v-icon>
 									<a
 										v-if="uc.githubIssue"
 										:href="`https://github.com/educoreproject/educore_use_cases/issues/${uc.githubIssue}`"

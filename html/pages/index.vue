@@ -1,9 +1,24 @@
 <script setup>
+	definePageMeta({ layout: 'blank' });
+
 	const ghPages = 'https://educoreproject.github.io/';
 </script>
 
 <template>
 	<div class="landing-page">
+				<!-- Top Nav -->
+				<nav class="top-nav">
+					<div class="nav-inner">
+						<NuxtLink to="/" class="nav-brand">
+							<img src="/educore-logo.png" alt="EDUcore" class="nav-logo" />
+						</NuxtLink>
+						<NuxtLink to="/explore/standards" class="nav-cta">
+							Reference Library
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+						</NuxtLink>
+					</div>
+				</nav>
+
 				<div class="hero">
 					<h2>Harmonizing Interoperability Specs for AI</h2>
 					<p>
@@ -210,6 +225,55 @@
 </template>
 
 <style scoped>
+	/* ── Top Nav ── */
+	.top-nav {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		background: rgba(255, 255, 255, 0.95);
+		backdrop-filter: blur(12px);
+		border-bottom: 1px solid var(--lp-border);
+	}
+
+	.nav-inner {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0.75rem 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.nav-brand {
+		display: flex;
+		align-items: center;
+		text-decoration: none;
+	}
+
+	.nav-logo {
+		height: 36px;
+		width: auto;
+	}
+
+	.nav-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem 1.25rem;
+		background: var(--lp-primary);
+		color: #fff;
+		border-radius: 8px;
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.9rem;
+		transition: background 0.2s, transform 0.15s;
+	}
+
+	.nav-cta:hover {
+		background: var(--lp-primary-light);
+		transform: translateY(-1px);
+	}
+
 	.landing-page {
 		--lp-primary: #1a365d;
 		--lp-primary-light: #2b6cb0;
