@@ -24,7 +24,7 @@
 									<a href="https://docs.google.com/document/d/1JpnHjt6EeOp0kWZD8h0LMEvLQ_1Z4e4Knko5H-3d8oo/edit?tab=t.0" target="_blank" class="nav-dropdown-item">EDUcore One Page Document</a>
 								</div>
 							</div>
-							<NuxtLink to="/explore/standards" class="nav-cta">
+							<NuxtLink to="/explore/use-cases" class="nav-cta">
 								Reference Library
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
 							</NuxtLink>

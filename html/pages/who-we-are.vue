@@ -20,15 +20,14 @@
 			photo: '/team/brandon-dorman.jpg',
 			bio: 'Brandon was a math teacher for 9 years before jumping into education technology in 2014 to help make technology work for everyone. He\'s been involved in 1EdTech and HROpen Skills related workgroups for a handful of years as well as building products from Early Education through Workforce to make learning visible. Past positions include Director of Skills, Senior Product Manager, Interoperability Expert, AI consultant and now Solution Architect.',
 		},
-		{
-			name: 'TQ White II',
-			title: 'AI Developer',
-			photo: '/team/tq-white.jpg',
-			bio: '',
-		},
 	];
 
 	const team = [
+		{
+			name: 'TQ White II',
+			photo: '/team/tq-white.jpg',
+			bio: '',
+		},
 		{
 			name: 'Jim Goodell',
 			photo: '/team/jim-goodell.jpg',
@@ -62,26 +61,11 @@
 		{
 			name: 'David Moldoff',
 			photo: '/team/david-moldoff.jpg',
-			bio: '',
+			bio: 'Founder and CEO of AcademyOne Inc.',
 		},
 		{
 			name: 'Joshua Marks',
 			photo: '/team/joshua-marks.jpeg',
-			bio: '',
-		},
-		{
-			name: 'Joerg Huber',
-			photo: '/team/joerg-huber.png',
-			bio: '',
-		},
-		{
-			name: 'Aziz Eila',
-			photo: '/team/aziz-eila.jpg',
-			bio: '',
-		},
-		{
-			name: 'Jack Setzer',
-			photo: '/team/jack-setzer.jpg',
 			bio: '',
 		},
 	];
