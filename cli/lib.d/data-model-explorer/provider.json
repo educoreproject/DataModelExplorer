@@ -598,6 +598,120 @@
 					"limit": "--limit"
 				}
 			}
+		},
+		{
+			"definition": {
+				"name": "case_graph_search",
+				"description": "Hybrid BM25 + vector search across CASE data. IMS Global Competencies and Academic Standards Exchange Service v1.1 — classes, properties, and cross-class references describing competency frameworks, academic standards documents, items, associations, rubrics, subjects, and concepts in the 1EdTech / educational-standards ecosystem. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for CASE data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node case_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "case_graph_explore",
+				"description": "Describe a CASE node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in CASE"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node case_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "case_graph_stats",
+				"description": "Show CASE graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node case_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "case_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. CASE labels: :CaseClass, :CaseModel, :CaseOptionSet, :CaseOptionValue, :CaseProperty, :CaseRoot (all :ForgedNode). Edge types: HAS_CLASS, HAS_OPTION_SET, HAS_PROPERTY, HAS_VALUE, MAPS_TO, REFERENCES, STRUCTURALLY_MAPS_TO.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node case_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "case_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node case_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
 		}
 	]
 }
