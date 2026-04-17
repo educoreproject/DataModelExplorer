@@ -1,10 +1,16 @@
 <script setup>
 import { libraryEntries } from '@/data/library-entries';
+import { ref, computed, onMounted, nextTick } from 'vue';
 
-// Group by category
+const route = useRoute();
+const router = useRouter();
+const filterTitle = ref('');
+
+// Group by category, filtering to matched entry when highlight param is set
 const categories = computed(() => {
 	const grouped = {};
 	libraryEntries.forEach((entry) => {
+		if (filterTitle.value && entry.title !== filterTitle.value) return;
 		if (!grouped[entry.category]) grouped[entry.category] = [];
 		grouped[entry.category].push(entry);
 	});
@@ -18,14 +24,33 @@ const burdenColor = (burden) => {
 };
 
 const expandedCards = ref([]);
+
+const clearFilter = () => {
+	filterTitle.value = '';
+	router.replace({ path: '/explore/standards' });
+};
+
+onMounted(() => {
+	const h = route.query.highlight;
+	if (h) {
+		filterTitle.value = h;
+	}
+});
 </script>
 
 <template>
 	<v-container class="py-8" style="max-width: 1100px;">
 		<h1 class="text-h4 font-weight-bold text-primary mb-2">Interoperability Specifications</h1>
-		<p class="text-body-1 text-medium-emphasis mb-8">
+		<p v-if="!filterTitle" class="text-body-1 text-medium-emphasis mb-8">
 			{{ libraryEntries.length }} education data specifications with implementation guidance, equity considerations, and cross-spec relationships.
 		</p>
+
+		<v-alert v-if="filterTitle" type="info" variant="tonal" class="mb-6" closable @click:close="clearFilter">
+			Showing results matching "{{ filterTitle }}"
+			<template #append>
+				<v-btn variant="text" size="small" @click="clearFilter">Show all specifications</v-btn>
+			</template>
+		</v-alert>
 
 		<div v-for="group in categories" :key="group.category" class="mb-10">
 			<h2 class="text-h6 font-weight-bold mb-4">{{ group.category }}</h2>
@@ -198,3 +223,4 @@ const expandedCards = ref([]);
 		</div>
 	</v-container>
 </template>
+

@@ -18,6 +18,7 @@ const pageTitle = computed(() => {
 	if (path.startsWith('/ontology')) return 'Data Miner';
 	if (path.startsWith('/explore')) return 'Explore';
 	if (path.startsWith('/work')) return 'Work';
+	if (path.startsWith('/search')) return 'Search';
 	return 'EDUcore';
 });
 </script>
