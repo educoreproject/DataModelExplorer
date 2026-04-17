@@ -1,12 +1,49 @@
 <script setup>
 	definePageMeta({ layout: 'blank' });
 
-	const leadership = [
+	// Sorted alphabetically by last name.
+	const people = [
+		{
+			name: 'Duane Brown',
+			photo: '/team/duane-brown.jpg',
+			bio: 'Duane Brown is a Senior Business Analyst at AEM Corporation with 18 years of experience in education data standards, interoperability, and state longitudinal data systems. He serves as Open Source Community Lead for the Common Education Data Standards (CEDS), facilitating collaboration among federal, state, and local education stakeholders to advance standards evolution and community engagement nationwide.',
+		},
+		{
+			name: 'David Clarkson',
+			photo: null,
+			bio: 'Stakeholder Outreach.',
+		},
+		{
+			name: 'Brandon Dorman',
+			title: 'Lead Solution Architect',
+			photo: '/team/brandon-dorman.jpg',
+			bio: 'Brandon was a math teacher for 9 years before jumping into education technology in 2014 to help make technology work for everyone. He\'s been involved in 1EdTech and HROpen Skills related workgroups for a handful of years as well as building products from Early Education through Workforce to make learning visible. Past positions include Director of Skills, Senior Product Manager, Interoperability Expert, AI consultant and now Solution Architect.',
+		},
+		{
+			name: 'Jim Goodell',
+			photo: '/team/jim-goodell.jpg',
+			bio: 'Jim Goodell is founder of INFERable, a Public Benefit Corporation democratizing access to learning analytics to support adaptive learning on any platform. He is editor and co-author of Learning Engineering Toolkit, Chair of the IEEE Learning Technology Standards Committee, and Secretary of the Board of Directors of the Institute for Infrastructure and Interoperable Data in Learning. He is a consultant to the U.S. Chamber of Commerce Foundation\'s T3 Innovation Network and leads Architecture and Development for the Jobs and Employment Data Exchange (JEDx). He co-led development of the Learning and Employment Record (LER) Wrapper Specification.',
+		},
 		{
 			name: 'Alex Jackl',
 			title: 'Project Director',
 			photo: '/team/alex-jackl.png',
 			bio: 'Alex Jackl, CEO and Chief Technology Officer of Landmark Worldwide, has volunteered for decades leading education standards bodies, councils, and consortiums nationwide. He is on the Board of Directors for the Post Secondary Standards Council (PESC), Co-Chair of the PESC Micro-Credentials Task Force, Co-Chair of the North American Technical Board of Access For Learning (A4L), Co-Chair of 1434.3 IEEE Working Group, and Chair of the Data and Technology Standards Network (DTSN) for the T3 Innovation Network (U.S. Chamber of Commerce Foundation). Alex is a technology strategist, futurist, and data scientist who specializes in developing ecosystems that support learners and educators.',
+		},
+		{
+			name: 'Jim Kelly',
+			photo: null,
+			bio: 'Use Cases. Owner of Jim Kelly Technology Consulting.',
+		},
+		{
+			name: 'John Lovell',
+			photo: '/team/john-lovell.png',
+			bio: 'John Lovell is a technology leader focused on education data interoperability, privacy, and standards-based innovation. He works at the intersection of K\u201312 data systems, technical architecture, and community-driven standards efforts, helping organizations turn complex data challenges into practical, scalable solutions. His work has included advancing interoperability initiatives, supporting privacy-focused data practices, and exploring how emerging technologies such as AI and semantic data models can strengthen the future of education technology.',
+		},
+		{
+			name: 'Joshua Marks',
+			photo: '/team/joshua-marks.jpeg',
+			bio: '',
 		},
 		{
 			name: 'Elizabeth Murphy',
@@ -15,63 +52,15 @@
 			bio: '',
 		},
 		{
-			name: 'Brandon Dorman',
-			title: 'Lead Solution Architect',
-			photo: '/team/brandon-dorman.jpg',
-			bio: 'Brandon was a math teacher for 9 years before jumping into education technology in 2014 to help make technology work for everyone. He\'s been involved in 1EdTech and HROpen Skills related workgroups for a handful of years as well as building products from Early Education through Workforce to make learning visible. Past positions include Director of Skills, Senior Product Manager, Interoperability Expert, AI consultant and now Solution Architect.',
-		},
-	];
-
-	const team = [
-		{
-			name: 'TQ White II',
-			photo: '/team/tq-white.jpg',
-			bio: '',
-		},
-		{
-			name: 'Jim Goodell',
-			photo: '/team/jim-goodell.jpg',
-			bio: 'Jim Goodell is founder of INFERable, a Public Benefit Corporation democratizing access to learning analytics to support adaptive learning on any platform. He is editor and co-author of Learning Engineering Toolkit, Chair of the IEEE Learning Technology Standards Committee, and Secretary of the Board of Directors of the Institute for Infrastructure and Interoperable Data in Learning. He is a consultant to the U.S. Chamber of Commerce Foundation\'s T3 Innovation Network and leads Architecture and Development for the Jobs and Employment Data Exchange (JEDx). He co-led development of the Learning and Employment Record (LER) Wrapper Specification.',
-		},
-		{
 			name: 'Greg Nadeau',
 			photo: '/team/greg-nadeau.png',
 			bio: 'For 30+ years, Greg has been leading innovative education and workforce data systems projects and standards at the local, state, and national levels. As CIO of the MA DOE and then as a consultant, Greg has directed successful statewide education data projects in 11 states. He led the team that created the CEDS data model, co-chaired the development of CASE and CLR standards at IMS Global, and led the workgroup that published IEEE 1484.2, the LER Ecosystem Standard. Greg is the convenor of Ed3.',
 		},
 		{
-			name: 'John Lovell',
-			photo: '/team/john-lovell.png',
-			bio: 'John Lovell is a technology leader focused on education data interoperability, privacy, and standards-based innovation. He works at the intersection of K\u201312 data systems, technical architecture, and community-driven standards efforts, helping organizations turn complex data challenges into practical, scalable solutions. His work has included advancing interoperability initiatives, supporting privacy-focused data practices, and exploring how emerging technologies such as AI and semantic data models can strengthen the future of education technology.',
-		},
-		{
-			name: 'Duane Brown',
-			photo: '/team/duane-brown.jpg',
-			bio: 'Duane Brown is a Senior Business Analyst at AEM Corporation with 18 years of experience in education data standards, interoperability, and state longitudinal data systems. He serves as Open Source Community Lead for the Common Education Data Standards (CEDS), facilitating collaboration among federal, state, and local education stakeholders to advance standards evolution and community engagement nationwide.',
-		},
-		{
-			name: 'Mike Reynolds',
-			photo: '/team/mike-reynolds.png',
-			bio: 'Mike Reynolds serves as an Engineer and Open Standards Evangelist at Level Data, where he architected the first SIF3 Certified Broker. Since the start of the SIF 3 transition, Mike has co-led the Global Infrastructure Team and currently serves on the North American Technical Board of Access For Learning (A4L). He also lends his expertise to the SIF Unity Adoption Task Force, the CCSSO Community of Innovation\u2019s Reference Architecture Working Group, and the Student Data Privacy Consortium Technical Team.',
-		},
-		{
-			name: 'Steve Setzer',
-			photo: '/team/steve-setzer.png',
-			bio: 'Steve Setzer is the CEO of Loop Data and has been implementing district and state SIF projects since 2004. He currently works with the SIF Infrastructure team as well as the North American Interoperability and Unity Adoption teams.',
-		},
-		{
-			name: 'David Moldoff',
-			photo: '/team/david-moldoff.jpg',
-			bio: 'Founder and CEO of AcademyOne Inc.',
-		},
-		{
-			name: 'Joshua Marks',
-			photo: '/team/joshua-marks.jpeg',
-			bio: '',
-		},
-		{
-			name: 'David Clarkson',
+			name: 'Vince Paredes',
+			title: 'Developer and JEDx Liason',
 			photo: null,
-			bio: 'Stakeholder Outreach.',
+			bio: '',
 		},
 		{
 			name: 'Kayla Smith',
@@ -79,9 +68,9 @@
 			bio: 'Stakeholder Outreach.',
 		},
 		{
-			name: 'Jim Kelly',
-			photo: null,
-			bio: 'Use Cases. Owner of Jim Kelly Technology Consulting.',
+			name: 'TQ White II',
+			photo: '/team/tq-white.jpg',
+			bio: '',
 		},
 	];
 
@@ -112,35 +101,16 @@
 			<p>The people building the shared semantic backbone for education and workforce data interoperability.</p>
 		</div>
 
-		<!-- Leadership -->
-		<section class="section-leadership">
-			<div class="section-inner">
-				<h2>Leadership</h2>
-				<div class="leadership-grid">
-					<div v-for="person in leadership" :key="person.name" class="leader-card">
-						<div class="leader-photo-wrap">
-							<img v-if="person.photo" :src="person.photo" :alt="person.name" class="leader-photo" />
-							<div v-else class="leader-photo-placeholder">{{ initials(person.name) }}</div>
-						</div>
-						<div class="leader-info">
-							<h3>{{ person.name }}</h3>
-							<div class="leader-title">{{ person.title }}</div>
-							<p v-if="person.bio">{{ person.bio }}</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<!-- Team -->
+		<!-- Team (unified grid) -->
 		<section class="section-team">
 			<div class="section-inner">
 				<h2>Team</h2>
 				<div class="team-grid">
-					<div v-for="person in team" :key="person.name" class="team-card">
+					<div v-for="person in people" :key="person.name" class="team-card">
 						<img v-if="person.photo" :src="person.photo" :alt="person.name" class="team-photo" />
 						<div v-else class="team-photo-placeholder">{{ initials(person.name) }}</div>
 						<h4>{{ person.name }}</h4>
+						<div v-if="person.title" class="team-title">{{ person.title }}</div>
 						<p v-if="person.bio">{{ person.bio }}</p>
 					</div>
 				</div>
@@ -279,74 +249,6 @@ section h2 {
 	margin-bottom: 2rem;
 }
 
-.section-leadership {
-	background: #fff;
-}
-
-/* ── Leadership Cards ── */
-.leadership-grid {
-	display: flex;
-	flex-direction: column;
-	gap: 2rem;
-}
-
-.leader-card {
-	display: flex;
-	gap: 2rem;
-	align-items: flex-start;
-	background: var(--lp-bg);
-	border: 1px solid var(--lp-border);
-	border-radius: 14px;
-	padding: 2rem;
-}
-
-.leader-photo-wrap {
-	flex-shrink: 0;
-}
-
-.leader-photo {
-	width: 140px;
-	height: 140px;
-	border-radius: 12px;
-	object-fit: cover;
-	display: block;
-}
-
-.leader-photo-placeholder {
-	width: 140px;
-	height: 140px;
-	border-radius: 12px;
-	background: linear-gradient(135deg, var(--lp-primary), var(--lp-primary-light));
-	color: #fff;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 2rem;
-	font-weight: 700;
-}
-
-.leader-info h3 {
-	font-size: 1.25rem;
-	font-weight: 700;
-	color: var(--lp-primary);
-	margin-bottom: 0.15rem;
-}
-
-.leader-title {
-	font-size: 0.88rem;
-	font-weight: 600;
-	color: var(--lp-teal);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	margin-bottom: 0.75rem;
-}
-
-.leader-info p {
-	font-size: 0.92rem;
-	color: var(--lp-text-light);
-	line-height: 1.7;
-}
-
 /* ── Team Grid ── */
 .team-grid {
 	display: grid;
@@ -367,24 +269,24 @@ section h2 {
 }
 
 .team-photo {
-	width: 80px;
-	height: 80px;
-	border-radius: 10px;
+	width: 140px;
+	height: 140px;
+	border-radius: 12px;
 	object-fit: cover;
 	display: block;
 	margin-bottom: 1rem;
 }
 
 .team-photo-placeholder {
-	width: 80px;
-	height: 80px;
-	border-radius: 10px;
+	width: 140px;
+	height: 140px;
+	border-radius: 12px;
 	background: linear-gradient(135deg, var(--lp-primary), var(--lp-primary-light));
 	color: #fff;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 1.25rem;
+	font-size: 2rem;
 	font-weight: 700;
 	margin-bottom: 1rem;
 }
@@ -393,7 +295,16 @@ section h2 {
 	font-size: 1.05rem;
 	font-weight: 700;
 	color: var(--lp-primary);
-	margin-bottom: 0.5rem;
+	margin-bottom: 0.25rem;
+}
+
+.team-title {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--lp-teal);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: 0.6rem;
 }
 
 .team-card p {
@@ -414,11 +325,6 @@ footer {
 
 /* ── Responsive ── */
 @media (max-width: 700px) {
-	.leader-card {
-		flex-direction: column;
-		align-items: center;
-		text-align: center;
-	}
 	.team-grid {
 		grid-template-columns: 1fr;
 	}

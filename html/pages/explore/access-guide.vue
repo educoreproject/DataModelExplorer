@@ -113,15 +113,15 @@ const { response } = await res.json();`;
 			<v-card variant="outlined" class="mb-4">
 				<v-card-text class="pa-5">
 					<div class="text-overline text-medium-emphasis mb-2">STEP 3</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Review the Standards Map</h3>
+					<h3 class="text-subtitle-1 font-weight-bold mb-2">Review the Implementation Guide</h3>
 					<p class="text-body-2 text-medium-emphasis mb-3">
-						Inside each use case, the <strong>Standards Map</strong> tab shows which interoperability specifications
+						Inside each use case, the <strong>Implementation Guide</strong> tab shows which interoperability specifications
 						are relevant, scored by how well they align with the use case's CEDS domains. Standards with full alignment
-						are ranked higher than partial matches, and lower-burden specs surface first among ties.
+						are pre-selected as chips; lower-alignment options surface alongside them as opt-in additions.
 					</p>
 					<p class="text-body-2 text-medium-emphasis mb-3">
-						Select the standards you want to work with, then click <strong>"Create my implementation plan"</strong>
-						to generate a tailored plan via the AI Explorer.
+						Adjust which standards you want to work with, then click <strong>"Generate Implementation Roadmap"</strong>
+						to produce a tailored plan via the AI Explorer.
 					</p>
 				</v-card-text>
 			</v-card>

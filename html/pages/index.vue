@@ -181,7 +181,7 @@
 							<img class="thumb" :src="ghPages + 'thumbnails/4 - David M - Big Vid - KSAWorks Goldcheck.jpg'" alt="KSAWorks GoldCheck demo">
 							<div class="body">
 								<h4>KSAWorks GoldCheck</h4>
-								<div class="presenter">David Martel — Academy One</div>
+								<div class="presenter">David Moldoff — Academy One</div>
 								<p>Shows how EDUCORE's semantic backbone transforms static transcripts into actionable, linked data. GoldCheck is a free AI-enabled tool that plugs into institutional web catalogs, revealing transfer credit pathways, remaining coursework, and competency mappings.</p>
 								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
 							</div>
@@ -191,7 +191,7 @@
 							<img class="thumb" :src="ghPages + 'thumbnails/David M - EDUCORE KSWORKS-P.jpg'" alt="KSAWorks Selfie demo">
 							<div class="body">
 								<h4>KSAWorks: From Transcript to Selfie</h4>
-								<div class="presenter">David Martel — Academy One</div>
+								<div class="presenter">David Moldoff — Academy One</div>
 								<p>A real implementation of EDUCORE concepts showing how RDF endpoints and CEDS mapping turn static academic records into living competency profiles. Courses map to CIP codes, then to knowledge, skills, and abilities via SOC classifications — creating a continuous thread from learning to career.</p>
 								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
 							</div>

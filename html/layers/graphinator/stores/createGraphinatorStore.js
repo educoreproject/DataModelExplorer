@@ -107,8 +107,6 @@ export function createGraphinatorStore({
 			connect() {
 				if (wsInstances[storeId] && wsInstances[storeId].readyState <= 1) return;
 
-				const protocol =
-					window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 				// DEV vs PRODUCTION WebSocket routing:
 				//
 				// PROBLEM: In Nuxt 3 SPA mode (ssr:false), Nitro's catch-all route serves
@@ -118,13 +116,21 @@ export function createGraphinatorStore({
 				// before Nitro's catch-all does.
 				//
 				// DEV SOLUTION: Connect directly to the API server, bypassing the Nuxt
-				// dev server entirely for WebSocket connections.
+				// dev server entirely. Host is read from runtimeConfig.public.wsHost
+				// (set by nuxt.config.ts per hostname). Falls back to localhost:<devPort>.
 				//
 				// PRODUCTION: nginx handles the upgrade correctly via the /ws/ location
-				// block. The client uses window.location.host, and nginx forwards the
-				// upgrade to the API server port.
-				//
-				const wsHost = import.meta.dev ? `localhost:${devPort}` : window.location.host;
+				// block. Client uses window.location.host; nginx forwards the upgrade to
+				// the API server port.
+				const runtimeConfig = useRuntimeConfig();
+				const configuredHost = runtimeConfig?.public?.wsHost || '';
+				const wsHost = import.meta.dev
+					? (configuredHost || `localhost:${devPort}`)
+					: (configuredHost || window.location.host);
+				// Choose ws:// for localhost, wss:// for remote hosts. In production the
+				// page is already https, so wss is correct there too.
+				const isLocal = /^(localhost|127\.|0\.0\.0\.0)/.test(wsHost);
+				const protocol = isLocal ? 'ws:' : 'wss:';
 				const url = `${protocol}//${wsHost}${wsPath}`;
 
 				console.log(`[${storeId}] Connecting to ${url}`);
