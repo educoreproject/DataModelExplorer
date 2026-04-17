@@ -1,88 +1,105 @@
 <script setup>
-import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
-import { useUseCaseStore } from '@/stores/useCaseStore';
+import { getDomainLabel, getDomainIcon } from '@/data/resolvers';
+import { useCaseById, subcategoryOfUseCase, standardLabel } from '@/data/github-use-cases';
 import { useLoginStore } from '@/stores/loginStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
 
-const ucStore = useUseCaseStore();
 const LoginStore = useLoginStore();
 const route = useRoute();
 const ucId = route.params.id;
 
-// Resolve use case from store, enriching with taxonomy labels
+// Split a prose paragraph on newlines or semicolons so we can render bullets.
+function proseToList(s) {
+	if (!s) return [];
+	return s
+		.split(/\r?\n+|;\s*/)
+		.map((line) => line.trim())
+		.filter((line) => line && line !== '---');
+}
+
+// Resolve use case from the GitHub-sourced data file, enriching with taxonomy labels.
 const useCase = computed(() => {
-	const uc = ucStore.useCaseById(ucId);
+	const uc = useCaseById(ucId);
 	if (!uc) return null;
-	// Find taxonomy labels
-	let categoryLabel = '', categoryIcon = '', categoryColor = '', subcategoryLabel = '';
-	for (const topic of ucStore.taxonomy) {
-		for (const driver of topic.children) {
-			if (driver.children.includes(uc.id)) {
-				categoryLabel = topic.label;
-				categoryIcon = topic.icon;
-				categoryColor = topic.color;
-				subcategoryLabel = driver.label;
-				break;
-			}
-		}
-	}
+	const loc = subcategoryOfUseCase(ucId);
 	return {
 		...uc,
 		label: uc.title,
-		categoryLabel,
-		categoryIcon,
-		categoryColor,
-		subcategoryLabel,
-		cedsDomains: uc.cedsDomains || [],
+		categoryLabel: loc?.topic.label || '',
+		categoryIcon: loc?.topic.icon || '',
+		categoryColor: 'primary',
+		subcategoryLabel: loc?.subcategory.label || '',
+		// Normalize prose sections to arrays for list rendering.
+		outcomes: proseToList(uc.outcomes),
+		dependencies: proseToList(uc.dependencies),
+		references: proseToList(uc.references),
+		// Tags: pull from GitHub labels, stripping status labels.
+		tags: (uc.labels || []).filter(
+			(l) => !['Vetted', 'Partially Vetted', 'Unvetted', 'under review'].includes(l),
+		),
 	};
 });
 
-const standards = computed(() => getStandardsForUseCase(ucId));
+// Standards for the Implementation Guide tab come straight from the MCP-derived
+// mapping data baked into github-use-cases.ts. Each connected standard is shaped
+// like {entry: {id, title}, matchedDomains: [], score} so the existing chip logic
+// (relevant vs additional; pre-selection) keeps working without a rewrite.
+// "Relevant" = implicit CEDS + top-4 remaining by MAPS_TO count.
+const standards = computed(() => {
+	const list = useCase.value?.connectedStandards || [];
+	return list.map((s, idx) => ({
+		entry: {
+			id: s.standard,
+			title: standardLabel(s.standard),
+			standardCode: s.standard,
+			mapCount: s.count,
+			implicit: !!s.implicit,
+		},
+		matchedDomains: [],
+		// Score threshold for chip pre-selection: implicit (CEDS) and top 4 others.
+		score: s.implicit ? 10 : idx <= 4 ? 2 : 1,
+	}));
+});
 
-// Sibling stories in same driver/subcategory
+// Sibling stories in the same subcategory
 const siblingStories = computed(() => {
 	if (!useCase.value) return [];
-	for (const topic of ucStore.taxonomy) {
-		for (const driver of topic.children) {
-			if (driver.children.includes(ucId)) {
-				return driver.children
-					.filter((id) => id !== ucId)
-					.map((id) => ucStore.useCaseById(id))
-					.filter((uc) => uc && uc.githubIssue)
-					.map((uc) => ({ ...uc, label: uc.title }));
-			}
-		}
-	}
-	return [];
+	const loc = subcategoryOfUseCase(ucId);
+	if (!loc) return [];
+	return loc.subcategory.children
+		.filter((id) => id !== ucId)
+		.map((id) => useCaseById(id))
+		.filter((uc) => uc && uc.githubIssue)
+		.map((uc) => ({ ...uc, label: uc.title }));
 });
 
 const activeTab = ref('overview');
-const tabs = computed(() => {
-	const base = [
-		{ id: 'overview', label: 'Overview' },
-		{ id: 'tchart', label: 'T-Chart' },
-		{ id: 'swimlane', label: 'Swimlane' },
-		{ id: 'standards', label: 'Standards Map' },
-	];
-	if (planResponse.value || planLoading.value) {
-		base.push({ id: 'plan', label: 'Implementation Plan' });
-	}
-	return base;
-});
+const tabs = computed(() => [
+	{ id: 'overview', label: 'Overview' },
+	{ id: 'tchart', label: 'T-Chart' },
+	{ id: 'swimlane', label: 'Swimlane' },
+	{ id: 'standards', label: 'Implementation Guide' },
+]);
 
 // Standards multi-select
 const selectedStandardIds = ref([]);
-const showAllStandards = ref(false);
 
-// Split standards into relevant (score >= 2, i.e. at least one full domain match) and additional
+// Relevant = score >= 2 (at least one full domain match); additional = score < 2.
+// All standards render as chips; relevant are pre-selected and sorted first.
 const relevantStandards = computed(() => standards.value.filter(s => s.score >= 2));
 const additionalStandards = computed(() => standards.value.filter(s => s.score < 2));
-const visibleStandards = computed(() =>
-	showAllStandards.value ? standards.value : relevantStandards.value,
-);
+const sortedStandards = computed(() => [...relevantStandards.value, ...additionalStandards.value]);
+
+// Pre-select the relevant standards once when the list first loads.
+let preselected = false;
+watch(standards, (list) => {
+	if (preselected || !list.length) return;
+	selectedStandardIds.value = list.filter(s => s.score >= 2).map(s => s.entry.id);
+	preselected = true;
+}, { immediate: true });
 
 function toggleStandard(id) {
 	const idx = selectedStandardIds.value.indexOf(id);
@@ -134,7 +151,7 @@ function createImplementationPlan() {
 	planResponse.value = '';
 	planLoading.value = true;
 	planError.value = '';
-	activeTab.value = 'plan';
+	// Plan renders inline below the chips — no tab switch.
 
 	const useStore = createGraphinatorStore({
 		storeId: 'ucPlanStore',
@@ -544,162 +561,131 @@ const swimlaneSteps = computed(() => {
 		</div>
 
 		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- STANDARDS MAP TAB -->
+		<!-- IMPLEMENTATION GUIDE TAB -->
 		<!-- ═══════════════════════════════════════════════════════════ -->
 		<div v-if="activeTab === 'standards'">
 			<div class="d-flex align-center justify-space-between mb-2">
-				<h2 class="text-h5 font-weight-bold">Standards & Data Mappings</h2>
+				<h2 class="text-h5 font-weight-bold">Implementation Roadmap</h2>
 				<v-btn variant="text" size="small" to="/explore/standards">VIEW ALL SPECS</v-btn>
 			</div>
 			<p class="text-body-2 text-medium-emphasis mb-4">
-				Select the standards you want to include, then generate an implementation plan with the AI Explorer.
+				{{ standards.length }} standard{{ standards.length === 1 ? '' : 's' }} connected to this use case through the CEDS elements it references.
 			</p>
 
-			<!-- CTA button -->
-			<v-btn
-				v-if="selectedStandardIds.length"
-				color="primary"
-				size="large"
-				prepend-icon="mdi-rocket-launch"
-				class="mb-6"
-				@click="createImplementationPlan"
-			>
-				Create my implementation plan ({{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }})
-			</v-btn>
-
-			<!-- Relevant standard cards (selectable) -->
-			<v-row v-if="visibleStandards.length">
-				<v-col
-					v-for="(std, idx) in visibleStandards"
+			<!-- Standards as toggleable chips (relevant pre-selected; additional opt-in with "+") -->
+			<div v-if="sortedStandards.length" class="d-flex flex-wrap ga-2 mb-6">
+				<v-chip
+					v-for="std in sortedStandards"
 					:key="std.entry.id"
-					cols="12"
-					sm="6"
+					:variant="isSelected(std.entry.id) ? 'flat' : 'outlined'"
+					:color="isSelected(std.entry.id) ? 'primary' : undefined"
+					:closable="isSelected(std.entry.id)"
+					close-icon="mdi-close-circle"
+					@click="toggleStandard(std.entry.id)"
+					@click:close="toggleStandard(std.entry.id)"
 				>
-					<v-card
-						:variant="isSelected(std.entry.id) ? 'flat' : 'outlined'"
-						:color="isSelected(std.entry.id) ? 'primary' : undefined"
-						:class="['pa-5 h-100 standard-card', { 'standard-selected': isSelected(std.entry.id) }]"
-						@click="toggleStandard(std.entry.id)"
-						style="cursor: pointer;"
-					>
-						<div class="d-flex align-center justify-space-between mb-1">
-							<div class="text-h4 font-weight-light" :class="isSelected(std.entry.id) ? '' : 'text-medium-emphasis'" style="opacity: 0.3;">
-								{{ String(idx + 1).padStart(2, '0') }}
-							</div>
-							<v-icon v-if="isSelected(std.entry.id)" color="white">mdi-check-circle</v-icon>
-							<v-icon v-else color="grey-lighten-1">mdi-checkbox-blank-circle-outline</v-icon>
-						</div>
-						<h3 class="text-subtitle-1 font-weight-bold mt-1 mb-2">{{ std.entry.title }}</h3>
-						<div class="d-flex ga-1 flex-wrap mb-2">
-							<v-chip
-								v-for="md in std.matchedDomains.slice(0, 3)"
-								:key="md.domain"
-								size="x-small"
-								:variant="isSelected(std.entry.id) ? 'flat' : 'tonal'"
-							>
-								{{ getDomainLabel(md.domain) }}
-							</v-chip>
-							<v-chip
-								size="x-small"
-								:color="isSelected(std.entry.id) ? 'white' : burdenColor(std.entry.implementationBurden)"
-								:variant="isSelected(std.entry.id) ? 'outlined' : 'flat'"
-							>
-								{{ std.entry.implementationBurden }} burden
-							</v-chip>
-						</div>
-						<p class="text-caption" :class="isSelected(std.entry.id) ? '' : 'text-medium-emphasis'">
-							{{ std.entry.owner }}
-						</p>
-					</v-card>
-				</v-col>
-			</v-row>
-
-			<!-- Show more / fewer toggle -->
-			<div v-if="additionalStandards.length && relevantStandards.length" class="mt-4 text-center">
-				<v-btn
-					variant="text"
-					size="small"
-					:prepend-icon="showAllStandards ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-					@click="showAllStandards = !showAllStandards"
-				>
-					{{ showAllStandards
-						? 'Show relevant only'
-						: `Show ${additionalStandards.length} more standard${additionalStandards.length > 1 ? 's' : ''} with partial alignment`
-					}}
-				</v-btn>
+					<template v-if="!isSelected(std.entry.id)">+&nbsp;</template>{{ std.entry.title }}
+				</v-chip>
 			</div>
 
-			<!-- Bottom CTA (visible when scrolled past cards) -->
-			<div v-if="selectedStandardIds.length" class="mt-6 text-center">
+			<!-- CEDS elements (source of truth for the chips above) -->
+			<v-expansion-panels v-if="useCase.data && useCase.data.length" variant="accordion" class="mb-6">
+				<v-expansion-panel>
+					<v-expansion-panel-title>
+						<div class="d-flex align-center ga-2">
+							<v-icon size="small" color="primary">mdi-database-outline</v-icon>
+							<span class="font-weight-bold">CEDS elements referenced by this use case</span>
+							<v-chip size="x-small" variant="tonal" class="ml-2">{{ useCase.data.length }}</v-chip>
+						</div>
+					</v-expansion-panel-title>
+					<v-expansion-panel-text>
+						<p class="text-caption text-medium-emphasis mb-3">
+							Pulled from Section 8 of the GitHub issue. The connected-standards chips above
+							are derived from these via the EDUcore knowledge graph (MAPS_TO edges on each
+							CEDS class's properties).
+						</p>
+						<v-list density="compact" class="py-0">
+							<v-list-item
+								v-for="row in useCase.data"
+								:key="row.url || row.name"
+								:href="row.url || undefined"
+								target="_blank"
+								rel="noopener"
+								class="px-0"
+							>
+								<v-list-item-title class="text-body-2 font-weight-medium">
+									{{ row.name }}
+								</v-list-item-title>
+								<v-list-item-subtitle v-if="row.def" class="text-caption">
+									{{ row.def }}
+								</v-list-item-subtitle>
+								<template v-if="row.url" #append>
+									<v-icon size="x-small" color="grey">mdi-open-in-new</v-icon>
+								</template>
+							</v-list-item>
+						</v-list>
+					</v-expansion-panel-text>
+				</v-expansion-panel>
+			</v-expansion-panels>
+
+			<!-- Primary CTA: generate the roadmap -->
+			<div v-if="selectedStandardIds.length" class="text-center my-6">
 				<v-btn
 					color="primary"
 					size="large"
 					prepend-icon="mdi-rocket-launch"
 					@click="createImplementationPlan"
 				>
-					Create my implementation plan
+					Generate Implementation Roadmap
 				</v-btn>
 				<div class="text-caption text-medium-emphasis mt-2">
 					{{ selectedStandardIds.length }} standard{{ selectedStandardIds.length > 1 ? 's' : '' }} selected
 				</div>
 			</div>
 
-			<v-alert v-else-if="!standards.length" type="info" variant="tonal" class="mt-4">
-				No standards mapped to this use case's CEDS domains yet.
+			<v-alert v-if="!standards.length" type="info" variant="tonal" class="mt-4">
+				No CEDS elements have been attached to this use case yet, so we can't derive connected standards. Add CEDS class rows in Section 8 of the GitHub issue to populate this tab.
 			</v-alert>
-		</div>
 
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- IMPLEMENTATION PLAN TAB (appears after generation starts) -->
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<div v-if="activeTab === 'plan'">
-			<div class="d-flex align-center justify-space-between mb-4">
-				<h2 class="text-h5 font-weight-bold">Implementation Plan</h2>
-				<v-btn
-					variant="text"
-					size="small"
-					prepend-icon="mdi-open-in-new"
-					:to="{ path: '/dm/explorer' }"
-				>
-					Open in Explorer
-				</v-btn>
-			</div>
-
-			<!-- Loading state -->
-			<div v-if="planLoading && !planResponse" class="text-center py-12">
-				<v-progress-circular indeterminate color="secondary" size="48" class="mb-4" />
-				<div class="text-body-2 text-medium-emphasis">Connecting to AI Explorer...</div>
-			</div>
-
-			<!-- Streaming response -->
-			<v-card v-if="planResponse || planLoading" variant="outlined" class="plan-response-card">
-				<div v-if="planLoading" class="plan-status-bar">
-					<v-progress-linear indeterminate color="secondary" height="3" />
+			<!-- Inline plan output (no tab switch) -->
+			<div v-if="planResponse || planLoading || planError" class="mt-8">
+				<div class="d-flex align-center justify-space-between mb-3">
+					<h3 class="text-h6 font-weight-bold">Implementation Plan</h3>
+					<v-btn
+						variant="text"
+						size="small"
+						prepend-icon="mdi-open-in-new"
+						:to="{ path: '/dm/explorer' }"
+					>
+						Open in Explorer
+					</v-btn>
 				</div>
-				<div ref="responsePanel" class="plan-response-body prose" v-html="renderedPlan"></div>
-			</v-card>
 
-			<!-- Error -->
-			<v-alert v-if="planError" type="error" variant="tonal" class="mt-4">
-				{{ planError }}
-			</v-alert>
+				<div v-if="planLoading && !planResponse" class="text-center py-8">
+					<v-progress-circular indeterminate color="secondary" size="40" class="mb-3" />
+					<div class="text-body-2 text-medium-emphasis">Connecting to AI Explorer...</div>
+				</div>
 
-			<!-- Follow-up actions -->
-			<div v-if="!planLoading && planResponse" class="mt-4 d-flex ga-3">
-				<v-btn
-					color="primary"
-					prepend-icon="mdi-open-in-new"
-					:to="{ path: '/dm/explorer' }"
-				>
-					Continue in Explorer
-				</v-btn>
-				<v-btn
-					variant="outlined"
-					prepend-icon="mdi-arrow-left"
-					@click="activeTab = 'standards'"
-				>
-					Back to Standards
-				</v-btn>
+				<v-card v-if="planResponse || planLoading" variant="outlined" class="plan-response-card">
+					<div v-if="planLoading" class="plan-status-bar">
+						<v-progress-linear indeterminate color="secondary" height="3" />
+					</div>
+					<div ref="responsePanel" class="plan-response-body prose" v-html="renderedPlan"></div>
+				</v-card>
+
+				<v-alert v-if="planError" type="error" variant="tonal" class="mt-3">
+					{{ planError }}
+				</v-alert>
+
+				<div v-if="!planLoading && planResponse" class="mt-3">
+					<v-btn
+						color="primary"
+						prepend-icon="mdi-open-in-new"
+						:to="{ path: '/dm/explorer' }"
+					>
+						Continue in Explorer
+					</v-btn>
+				</div>
 			</div>
 		</div>
 

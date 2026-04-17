@@ -1,9 +1,37 @@
 <script setup>
+	definePageMeta({ layout: 'blank' });
+
 	const ghPages = 'https://educoreproject.github.io/';
 </script>
 
 <template>
 	<div class="landing-page">
+				<!-- Top Nav -->
+				<nav class="top-nav">
+					<div class="nav-inner">
+						<NuxtLink to="/" class="nav-brand">
+							<img src="/educore-logo.png" alt="EDUcore" class="nav-logo" />
+						</NuxtLink>
+						<div class="nav-links">
+							<NuxtLink to="/who-we-are" class="nav-link">Who We Are</NuxtLink>
+							<div class="nav-dropdown">
+								<button class="nav-link">
+									Documents
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+								</button>
+								<div class="nav-dropdown-menu">
+									<a href="https://docs.google.com/document/d/1294YyH4CirN1EJzlzxUL_L_mGpw37cNvRFFT3NVT9p0/edit?tab=t.0#heading=h.uu1k3rs46xdz" target="_blank" class="nav-dropdown-item">Standards Development Organizations</a>
+									<a href="https://docs.google.com/document/d/1JpnHjt6EeOp0kWZD8h0LMEvLQ_1Z4e4Knko5H-3d8oo/edit?tab=t.0" target="_blank" class="nav-dropdown-item">EDUcore One Page Document</a>
+								</div>
+							</div>
+							<NuxtLink to="/explore/use-cases" class="nav-cta">
+								Reference Library
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+							</NuxtLink>
+						</div>
+					</div>
+				</nav>
+
 				<div class="hero">
 					<h2>Harmonizing Interoperability Specs for AI</h2>
 					<p>
@@ -153,7 +181,7 @@
 							<img class="thumb" :src="ghPages + 'thumbnails/4 - David M - Big Vid - KSAWorks Goldcheck.jpg'" alt="KSAWorks GoldCheck demo">
 							<div class="body">
 								<h4>KSAWorks GoldCheck</h4>
-								<div class="presenter">David Martel — Academy One</div>
+								<div class="presenter">David Moldoff — Academy One</div>
 								<p>Shows how EDUCORE's semantic backbone transforms static transcripts into actionable, linked data. GoldCheck is a free AI-enabled tool that plugs into institutional web catalogs, revealing transfer credit pathways, remaining coursework, and competency mappings.</p>
 								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
 							</div>
@@ -163,7 +191,7 @@
 							<img class="thumb" :src="ghPages + 'thumbnails/David M - EDUCORE KSWORKS-P.jpg'" alt="KSAWorks Selfie demo">
 							<div class="body">
 								<h4>KSAWorks: From Transcript to Selfie</h4>
-								<div class="presenter">David Martel — Academy One</div>
+								<div class="presenter">David Moldoff — Academy One</div>
 								<p>A real implementation of EDUCORE concepts showing how RDF endpoints and CEDS mapping turn static academic records into living competency profiles. Courses map to CIP codes, then to knowledge, skills, and abilities via SOC classifications — creating a continuous thread from learning to career.</p>
 								<a class="watch-link" href="https://drive.google.com/file/d/152Jj07PxSrsK8BIA_pgEBO4UoZB2gUIf/view?usp=drive_link" target="_blank">Watch on Drive</a>
 							</div>
@@ -211,6 +239,121 @@
 </template>
 
 <style scoped>
+	/* ── Top Nav ── */
+	.top-nav {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		background: rgba(255, 255, 255, 0.95);
+		backdrop-filter: blur(12px);
+		border-bottom: 1px solid var(--lp-border);
+	}
+
+	.nav-inner {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0.75rem 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.nav-brand {
+		display: flex;
+		align-items: center;
+		text-decoration: none;
+	}
+
+	.nav-logo {
+		height: 36px;
+		width: auto;
+	}
+
+	.nav-links {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+	}
+
+	.nav-dropdown {
+		position: relative;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.5rem 0.75rem;
+		background: none;
+		border: none;
+		color: var(--lp-primary);
+		font-weight: 600;
+		font-size: 0.9rem;
+		font-family: inherit;
+		cursor: pointer;
+		border-radius: 6px;
+		transition: background 0.15s;
+	}
+
+	.nav-link:hover {
+		background: rgba(7, 42, 108, 0.06);
+	}
+
+	.nav-dropdown-menu {
+		display: none;
+		position: absolute;
+		top: 100%;
+		right: 0;
+		margin-top: 0.25rem;
+		background: #fff;
+		border: 1px solid var(--lp-border);
+		border-radius: 10px;
+		box-shadow: 0 8px 32px rgba(7, 42, 108, 0.12);
+		min-width: 260px;
+		padding: 0.4rem;
+		z-index: 200;
+	}
+
+	.nav-dropdown:hover .nav-dropdown-menu,
+	.nav-dropdown:focus-within .nav-dropdown-menu {
+		display: block;
+	}
+
+	.nav-dropdown-item {
+		display: block;
+		padding: 0.6rem 0.9rem;
+		color: var(--lp-text);
+		text-decoration: none;
+		font-size: 0.88rem;
+		font-weight: 500;
+		border-radius: 6px;
+		transition: background 0.15s;
+	}
+
+	.nav-dropdown-item:hover {
+		background: rgba(7, 42, 108, 0.05);
+		color: var(--lp-primary);
+	}
+
+	.nav-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem 1.25rem;
+		background: var(--lp-primary);
+		color: #fff;
+		border-radius: 8px;
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.9rem;
+		transition: background 0.2s, transform 0.15s;
+	}
+
+	.nav-cta:hover {
+		background: var(--lp-primary-light);
+		transform: translateY(-1px);
+	}
+
 	.landing-page {
 		--lp-primary: #1a365d;
 		--lp-primary-light: #2b6cb0;

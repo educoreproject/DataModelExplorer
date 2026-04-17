@@ -1,12 +1,12 @@
 <script setup>
-import { useUseCaseStore } from '@/stores/useCaseStore';
-const ucStore = useUseCaseStore();
+import { useCaseTaxonomy, countUseCases, countCompleteUseCases } from '@/data/use-case-taxonomy';
 
 const topicCards = computed(() =>
-	ucStore.taxonomy.map((topic) => ({
+	useCaseTaxonomy.map((topic) => ({
 		...topic,
 		driverCount: topic.children.length,
-		useCaseCount: topic.children.reduce((sum, driver) => sum + driver.children.length, 0),
+		useCaseCount: countUseCases(topic.id),
+		completeCount: countCompleteUseCases(topic.id),
 	})),
 );
 </script>
@@ -38,7 +38,7 @@ const topicCards = computed(() =>
 					<p class="text-body-2 text-medium-emphasis mb-4">{{ topic.subtitle }}</p>
 					<div class="d-flex ga-4 text-caption text-medium-emphasis mb-3">
 						<span><strong>{{ topic.driverCount }}</strong> value drivers</span>
-						<span><strong>{{ topic.useCaseCount }}</strong> use cases</span>
+						<span><strong>{{ topic.completeCount }}</strong> / {{ topic.useCaseCount }} complete</span>
 					</div>
 					<div>
 						<v-chip

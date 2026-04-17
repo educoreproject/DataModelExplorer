@@ -52,11 +52,6 @@ const isAdmin = computed(() =>
 		<v-list density="compact" nav>
 			<v-list-subheader>Explore</v-list-subheader>
 			<v-list-item
-				to="/explore/topics"
-				prepend-icon="mdi-book-open-variant"
-				title="Topics"
-			/>
-			<v-list-item
 				to="/explore/use-cases"
 				prepend-icon="mdi-lightbulb-on-outline"
 				title="Use Cases"

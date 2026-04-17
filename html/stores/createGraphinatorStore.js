@@ -107,15 +107,18 @@ export function createGraphinatorStore({
 			connect() {
 				if (wsInstances[storeId] && wsInstances[storeId].readyState <= 1) return;
 
-				const protocol =
-					window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 				// WebSocket host is driven by the deployment profile resolved in
-				// nuxt.config.ts from the Nuxt machine's hostname. In dev this points
-				// to the local API server (default localhost:7790); in production it
+				// nuxt.config.ts from the Nuxt machine's hostname. In dev this may
+				// point to a remote host (e.g., educore.tqtmp.org); in production it
 				// is empty, and we fall back to window.location.host (nginx routes
 				// the /ws/ upgrade to the API server port).
 				const rc = useRuntimeConfig().public;
 				const wsHost = rc.wsHost || window.location.host;
+				// Protocol depends on the target host, not the page. Loopback = ws://,
+				// remote host = wss://. In prod the page is https so wss is also right
+				// when wsHost falls back to window.location.host.
+				const isLocal = /^(localhost|127\.|0\.0\.0\.0)/.test(wsHost);
+				const protocol = isLocal ? 'ws:' : 'wss:';
 				const url = `${protocol}//${wsHost}${wsPath}`;
 
 				console.log(`[${storeId}] Connecting to ${url}`);
