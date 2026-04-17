@@ -22,22 +22,18 @@ const isProdBuild = process.env.NODE_ENV === 'production';
 const devDeploymentMap: Record<string, { deployment: string; wsHost: string; apiBase: string }> = {
   'qMini.local': {
     deployment: 'tq-local',
-    wsHost: 'localhost:7790',
-    apiBase: 'http://localhost:7790',
-  },
-  'Brandons-MacBook-Pro-3.local': {
-    deployment: 'brandon-remote',
     wsHost: 'educore.tqtmp.org',
-    apiBase: 'https://educore.tqtmp.org',
+    apiBase: 'https://educore.tqtmp.org/api',
   },
+  // Add additional dev hostnames here (e.g., Brandon's machine) as needed.
 };
 
 const deploymentProfile = isProdBuild
   ? { deployment: 'production', wsHost: '', apiBase: '' }
   : devDeploymentMap[hostname] || {
       deployment: `dev-${hostname}`,
-      wsHost: 'localhost:7790',
-      apiBase: 'http://localhost:7790',
+      wsHost: 'educore.tqtmp.org',
+      apiBase: 'https://educore.tqtmp.org/api',
     };
 
 export default defineNuxtConfig({
@@ -105,7 +101,7 @@ export default defineNuxtConfig({
   nitro: {
     devProxy: {
       '/api': {
-        target: `${deploymentProfile.apiBase || 'https://educore.tqtmp.org'}/api/`,
+        target: `${deploymentProfile.apiBase || 'https://educore.tqtmp.org/api'}/`,
         changeOrigin: true,
         prependPath: true,
       },
