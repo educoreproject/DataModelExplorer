@@ -54,7 +54,7 @@
 		{
 			name: 'Greg Nadeau',
 			photo: '/team/greg-nadeau.png',
-			bio: 'For 30+ years, Greg has been leading innovative education and workforce data systems projects and standards at the local, state, and national levels. As CIO of the MA DOE and then as a consultant, Greg has directed successful statewide education data projects in 11 states. He led the team that created the CEDS data model, co-chaired the development of CASE and CLR standards at IMS Global, and led the workgroup that published IEEE 1484.2, the LER Ecosystem Standard. Greg is the convenor of Ed3.',
+			bio: 'For 30+ years, Greg has been leading innovative education and workforce data systems projects and standards at the local, state, and national levels. As CIO of the MA DOE and then as a consultant, Greg has directed successful statewide education data projects in 11 states. He led the team that created the CEDS data model, co-chaired the development of CASE and CLR standards at 1EdTech (formerly IMS Global), and led the workgroup that published IEEE 1484.2, the LER Ecosystem Standard. Greg is the convenor of Ed3.',
 		},
 		{
 			name: 'Vince Paredes',

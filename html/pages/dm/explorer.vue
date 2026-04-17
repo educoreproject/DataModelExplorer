@@ -119,7 +119,7 @@ const fallbackPromptOptions = [
 						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
 						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
 						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
-						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
+						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (1EdTech v2.0)</li>
 					</ul>
 					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
 					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
