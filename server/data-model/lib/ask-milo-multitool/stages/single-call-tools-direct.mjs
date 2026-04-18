@@ -96,14 +96,6 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 			xLog.status(`[SingleCallTools] Iteration ${iteration + 1}: sending ${messages.length} messages...`);
 		}
 
-		console.log(`\n[SingleCallTools] ===== API REQUEST (iteration ${iteration + 1}) =====`);
-		console.log('[SingleCallTools] Model:', model);
-		console.log('[SingleCallTools] System prompt:\n', systemPrompt);
-		console.log('[SingleCallTools] Messages:', JSON.stringify(messages, null, 2));
-		console.log('[SingleCallTools] Tools:', (tools || []).map(t => t.name).join(', ') || '(none)');
-		console.log('[SingleCallTools] Thinking:', JSON.stringify(requestParams.thinking || 'off'));
-		console.log(`[SingleCallTools] ===== END REQUEST =====\n`);
-
 		tm.mark('singleCallTools', 'iteration_stream_start', { iteration: iteration + 1, messageCount: messages.length });
 		const stream = client.messages.stream(requestParams);
 
@@ -126,16 +118,10 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 		// Accumulate cost
 		totalCost = accumulateCost(totalCost, response.usage, model);
 
-		console.log(`[SingleCallTools] ===== API RESPONSE (iteration ${iteration + 1}) =====`);
-		console.log('[SingleCallTools] Stop reason:', response.stop_reason);
-		console.log('[SingleCallTools] Blocks:', response.content.map(b => b.type).join(', '));
-		console.log('[SingleCallTools] Tokens — input:', response.usage.input_tokens, '| output:', response.usage.output_tokens);
-		console.log('[SingleCallTools] Running cost: $' + totalCost.usd.toFixed(4));
-		console.log(`[SingleCallTools] ===== END RESPONSE =====\n`);
-
 		if (verbose) {
 			const blockTypes = response.content.map(b => b.type).join(', ');
 			xLog.status(`[SingleCallTools] Iteration ${iteration + 1}: stop_reason=${response.stop_reason}, blocks=[${blockTypes}]`);
+			xLog.status(`[SingleCallTools] Tokens — input: ${response.usage.input_tokens} | output: ${response.usage.output_tokens} | running cost: $${totalCost.usd.toFixed(4)}`);
 		}
 
 		// If stop_reason is NOT tool_use, this is the final response
@@ -178,7 +164,9 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 			const toolDurationMs = Date.now() - toolStart;
 			tm.mark('singleCallTools', 'tool_exec_one', { tool: block.name, durationMs: toolDurationMs });
 
-			console.log(`[SingleCallTools] Tool ${block.name} returned (${toolDurationMs}ms):`, result.is_error ? 'ERROR:' : '', (result.content || '').slice(0, 300));
+			if (verbose) {
+				xLog.status(`[SingleCallTools] Tool ${block.name} returned (${toolDurationMs}ms)${result.is_error ? ' ERROR:' : ''} ${(result.content || '').slice(0, 300)}`);
+			}
 
 			emitEvent({
 				type: 'tool_result',

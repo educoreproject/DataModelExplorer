@@ -52,11 +52,6 @@ const isAdmin = computed(() =>
 		<v-list density="compact" nav>
 			<v-list-subheader>Explore</v-list-subheader>
 			<v-list-item
-				to="/explore/topics"
-				prepend-icon="mdi-book-open-variant"
-				title="Topics"
-			/>
-			<v-list-item
 				to="/explore/use-cases"
 				prepend-icon="mdi-lightbulb-on-outline"
 				title="Use Cases"
@@ -70,6 +65,11 @@ const isAdmin = computed(() =>
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"
+			/>
+			<v-list-item
+				to="/explore/implementation-burden"
+				prepend-icon="mdi-speedometer-medium"
+				title="Impl. Burden"
 			/>
 		</v-list>
 
@@ -94,12 +94,7 @@ const isAdmin = computed(() =>
 				title="Ontology"
 			/>
 			<v-list-item
-				to="/ontology"
-				prepend-icon="mdi-pickaxe"
-				title="Data Miner"
-			/>
-			<v-list-item
-				to="/dm/personas"
+				to="/dm/explorer"
 				prepend-icon="mdi-robot-outline"
 				title="AI Explorer"
 			/>

@@ -1,9 +1,9 @@
 // resolvers.ts — Cross-data-source join functions for the EDU Reference Library.
-// These extract scoring/linking logic that was previously scattered across components.
+// These read spec/use-case data from Pinia stores and join with CEDS alignment data.
 
-import { libraryEntries } from './library-entries';
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+import { useUseCaseStore } from '@/stores/useCaseStore';
 import { cedsAlignmentMatrix, cedsDomains } from './ceds-alignment';
-import { useCaseTaxonomy, useCaseCedsDomains } from './use-case-taxonomy';
 import { stakeholderTaxonomy, useCasesCedsRdf } from './taxonomies';
 import { fieldMappings } from './field-mappings';
 
@@ -12,7 +12,7 @@ import { fieldMappings } from './field-mappings';
 export type AlignmentStatus = 'full' | 'partial' | 'gap';
 
 export interface ScoredStandard {
-  entry: (typeof libraryEntries)[number];
+  entry: any;
   score: number;
   fullCount: number;
   partialCount: number;
@@ -45,30 +45,26 @@ export function getDomainIcon(domainId: string): string {
   return domainIconMap[domainId] || '';
 }
 
-// ─── Standard lookups ───────────────────────────────────────────────────────
+// ─── Standard lookups (from store) ──────────────────────────────────────────
 
 export function getStandardById(standardId: string) {
-  return libraryEntries.find(e => e.id === standardId) || null;
+  return useSpecificationMetadataStore().specById(standardId) || null;
 }
 
 export function getAllStandards() {
-  return libraryEntries;
+  return useSpecificationMetadataStore().specs;
 }
 
 export function getStandardsByCategory() {
-  const grouped: Record<string, typeof libraryEntries> = {};
-  for (const entry of libraryEntries) {
-    const cat = entry.category || 'Other';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(entry);
-  }
-  return grouped;
+  return useSpecificationMetadataStore().specsByCategory;
 }
 
 // ─── Standards scored for a use case ────────────────────────────────────────
 
 export function getStandardsForUseCase(useCaseId: string): ScoredStandard[] {
-  const domains = useCaseCedsDomains[useCaseId];
+  const ucStore = useUseCaseStore();
+  const uc = ucStore.useCaseById(useCaseId);
+  const domains = uc?.cedsDomains;
   if (!domains || domains.length === 0) return [];
   return scoreStandardsByDomains(new Set(domains));
 }
@@ -78,9 +74,10 @@ export function getStandardsForDomains(domainIds: string[]): ScoredStandard[] {
 }
 
 function scoreStandardsByDomains(relevantDomains: Set<string>): ScoredStandard[] {
+  const specStore = useSpecificationMetadataStore();
   const scored: ScoredStandard[] = [];
 
-  for (const entry of libraryEntries) {
+  for (const entry of specStore.specs) {
     const alignment = cedsAlignmentMatrix.find(a => a.entryId === entry.id);
     if (!alignment) continue;
 
@@ -115,62 +112,60 @@ function scoreStandardsByDomains(relevantDomains: Set<string>): ScoredStandard[]
   return scored;
 }
 
-// ─── Use case lookups ───────────────────────────────────────────────────────
+// ─── Use case lookups (from store) ──────────────────────────────────────────
 
 export function getUseCaseById(useCaseId: string) {
-  for (const cat of useCaseTaxonomy) {
-    for (const sub of cat.children) {
-      for (const uc of sub.children) {
-        if (uc.id === useCaseId) {
+  const ucStore = useUseCaseStore();
+  const uc = ucStore.useCaseById(useCaseId);
+  if (!uc) return null;
+  // Enrich with taxonomy labels
+  for (const topic of ucStore.taxonomy) {
+    for (const driver of topic.children) {
+      if (driver.children.includes(uc.id)) {
+        return {
+          ...uc,
+          label: uc.title,
+          categoryId: topic.id,
+          categoryLabel: topic.label,
+          categoryIcon: topic.icon,
+          categoryColor: topic.color,
+          subcategoryId: driver.id,
+          subcategoryLabel: driver.label,
+          cedsDomains: uc.cedsDomains || [],
+        };
+      }
+    }
+  }
+  return { ...uc, label: uc.title, cedsDomains: uc.cedsDomains || [] };
+}
+
+export function getAllUseCasesFlat() {
+  const ucStore = useUseCaseStore();
+  return ucStore.useCases.map(uc => {
+    // Find taxonomy context
+    for (const topic of ucStore.taxonomy) {
+      for (const driver of topic.children) {
+        if (driver.children.includes(uc.id)) {
           return {
             ...uc,
-            categoryId: cat.id,
-            categoryLabel: cat.label,
-            categoryIcon: cat.icon,
-            categoryColor: cat.color,
-            subcategoryId: sub.id,
-            subcategoryLabel: sub.label,
-            cedsDomains: useCaseCedsDomains[uc.id] || [],
+            label: uc.title,
+            categoryId: topic.id,
+            categoryLabel: topic.label,
+            categoryIcon: topic.icon,
+            categoryColor: topic.color,
+            subcategoryId: driver.id,
+            subcategoryLabel: driver.label,
           };
         }
       }
     }
-  }
-  return null;
-}
-
-export function getAllUseCasesFlat() {
-  const cases: Array<{
-    id: string;
-    label: string;
-    categoryId: string;
-    categoryLabel: string;
-    categoryIcon: string;
-    categoryColor: string;
-    subcategoryId: string;
-    subcategoryLabel: string;
-    githubIssue?: number;
-  }> = [];
-
-  for (const cat of useCaseTaxonomy) {
-    for (const sub of cat.children) {
-      for (const uc of sub.children) {
-        cases.push({
-          ...uc,
-          categoryId: cat.id,
-          categoryLabel: cat.label,
-          categoryIcon: cat.icon,
-          categoryColor: cat.color,
-          subcategoryId: sub.id,
-          subcategoryLabel: sub.label,
-        });
-      }
-    }
-  }
-  return cases;
+    return { ...uc, label: uc.title };
+  });
 }
 
 export function getUseCasesForStandard(standardId: string) {
+  const ucStore = useUseCaseStore();
+
   // Find use cases where the standard's aligned CEDS domains overlap
   const alignment = cedsAlignmentMatrix.find(a => a.entryId === standardId);
   if (!alignment) return [];
@@ -192,12 +187,10 @@ export function getUseCasesForStandard(standardId: string) {
       description: uc.description,
     }));
 
-  // From taxonomy: use cases whose CEDS domains overlap with this standard
-  const allCases = getAllUseCasesFlat();
-  const fromTaxonomy = allCases.filter(uc => {
-    const ucDomains = useCaseCedsDomains[uc.id];
-    if (!ucDomains) return false;
-    return ucDomains.some(d => standardDomains.has(d));
+  // From store: use cases whose CEDS domains overlap with this standard
+  const fromStore = ucStore.useCases.filter(uc => {
+    if (!uc.cedsDomains?.length) return false;
+    return uc.cedsDomains.some(d => standardDomains.has(d));
   });
 
   // Merge and deduplicate
@@ -210,10 +203,10 @@ export function getUseCasesForStandard(standardId: string) {
       result.push({ ...uc, source: 'rdf' });
     }
   }
-  for (const uc of fromTaxonomy) {
+  for (const uc of fromStore) {
     if (!seen.has(uc.id)) {
       seen.add(uc.id);
-      result.push({ id: uc.id, label: uc.label, source: 'taxonomy' });
+      result.push({ id: uc.id, label: uc.title, source: 'store' });
     }
   }
 
@@ -327,13 +320,14 @@ export function getObjectDetail(standardId: string, objectId: string) {
   });
 
   // Find other standards that also reference this element
+  const specStore = useSpecificationMetadataStore();
   const otherStandards: Array<{ standardId: string; standardName: string; domain: string; status: string }> = [];
   for (const a of cedsAlignmentMatrix) {
     if (a.entryId === standardId) continue;
     for (const [domainId, data] of Object.entries(a.domains)) {
       const d = data as { status: string; cedsElements: string[] };
       if (d.cedsElements?.includes(objectId)) {
-        const entry = libraryEntries.find(e => e.id === a.entryId);
+        const entry = specStore.specById(a.entryId);
         otherStandards.push({
           standardId: a.entryId,
           standardName: entry?.title || a.entryShortName,
@@ -360,10 +354,11 @@ export function getAllDomains() {
 }
 
 export function getAlignmentForDomain(domainId: string) {
+  const specStore = useSpecificationMetadataStore();
   return cedsAlignmentMatrix.map(a => {
     const domainData = (a.domains as Record<string, { status: string; cedsElements: string[]; notes: string; gapNotes: string | null }>)[domainId];
     if (!domainData) return null;
-    const entry = libraryEntries.find(e => e.id === a.entryId);
+    const entry = specStore.specById(a.entryId);
     return {
       entryId: a.entryId,
       entryName: entry?.title || a.entryShortName,

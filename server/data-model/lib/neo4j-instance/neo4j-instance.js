@@ -98,6 +98,92 @@ const moduleFunction = function ({ unused }) {
 	};
 
 	// ================================================================================
+	// TRANSACTIONAL WRITES
+	//
+	// runTransaction(userFn, callback):
+	//   userFn is called with (tx, done) where
+	//     tx.run(cypher, params, cb)  — a callback-style wrapper around the driver's
+	//                                    tx.run that participates in the same transaction.
+	//                                    Records go through neo4jValueToJs just like runQuery.
+	//     done(err, result)           — call with a truthy err to roll back, or '' + result
+	//                                    to commit. Exactly one invocation expected.
+	//   callback(err, result)          — fires after commit or rollback completes.
+	//
+	// This sits alongside runQuery; existing callers of runQuery are unaffected.
+	// Used by the Use Case Editor save path for atomic root+children updates.
+
+	const runTransactionActual = (driver) => (userFn, callback) => {
+		const session = driver.session();
+		let tx;
+		try {
+			tx = session.beginTransaction();
+		} catch (err) {
+			session.close();
+			callback(`runTransaction: beginTransaction failed: ${err.toString()}`);
+			return;
+		}
+
+		const txRun = (cypher, params, cb) => {
+			if (typeof params === 'function') {
+				cb = params;
+				params = {};
+			}
+			tx.run(cypher, params || {})
+				.then((result) => {
+					const records = result.records.map((record) => {
+						const obj = {};
+						record.keys.forEach((key) => {
+							obj[key] = neo4jValueToJs(record.get(key));
+						});
+						return obj;
+					});
+					cb('', records);
+				})
+				.catch((err) => {
+					xLog.error(
+						`${''.padEnd(50, '-')}\nNeo4j tx.run Error: ${err.toString()}\nBad Cypher:\n\t${cypher}\n${''.padEnd(50, '-')}\n`,
+					);
+					cb(err.toString(), []);
+				});
+		};
+
+		let finished = false;
+		const done = (err, result) => {
+			if (finished) { return; }
+			finished = true;
+
+			if (err) {
+				tx.rollback()
+					.catch((rbErr) => {
+						xLog.error(`runTransaction: rollback failed: ${rbErr.toString()}`);
+					})
+					.finally(() => {
+						session.close();
+						callback(err, result);
+					});
+				return;
+			}
+
+			tx.commit()
+				.then(() => {
+					session.close();
+					callback('', result);
+				})
+				.catch((commitErr) => {
+					xLog.error(`runTransaction: commit failed: ${commitErr.toString()}`);
+					session.close();
+					callback(`runTransaction: commit failed: ${commitErr.toString()}`, result);
+				});
+		};
+
+		try {
+			userFn({ run: txRun }, done);
+		} catch (userErr) {
+			done(`runTransaction: user function threw: ${userErr.toString()}`);
+		}
+	};
+
+	// ================================================================================
 	// CLOSE CONNECTION
 
 	const closeActual = (driver) => () => {
@@ -122,6 +208,7 @@ const moduleFunction = function ({ unused }) {
 		);
 
 		const runQuery = runQueryActual(driver);
+		const runTransaction = runTransactionActual(driver);
 		const close = closeActual(driver);
 
 		const localCallback = (err) => {
@@ -131,7 +218,7 @@ const moduleFunction = function ({ unused }) {
 				return;
 			}
 			xLog.status(`neo4j-instance: connected to ${neo4jBoltUri}`);
-			callback('', { runQuery, close });
+			callback('', { runQuery, runTransaction, close });
 		};
 
 		runQuery('RETURN 1 AS ping', {}, (err, records) => {

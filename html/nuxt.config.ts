@@ -1,5 +1,6 @@
 import vuetify from 'vite-plugin-vuetify';
 import { execSync } from 'child_process';
+import os from 'node:os';
 
 const gitCommitHash = (() => {
   try {
@@ -8,6 +9,32 @@ const gitCommitHash = (() => {
     return 'unknown';
   }
 })();
+
+// Hostname-driven deployment profile.
+// Mirrors the server's instanceSpecific/<hostname>/ pattern: the machine running
+// Nuxt picks which wsUrl + apiBase the browser should talk to. In production
+// (nuxt build), we leave host fields null so the client falls back to
+// window.location.host — nginx does the routing. In dev, each developer's
+// hostname maps to their local API server port (default 7790).
+const hostname = os.hostname();
+const isProdBuild = process.env.NODE_ENV === 'production';
+
+const devDeploymentMap: Record<string, { deployment: string; wsHost: string; apiBase: string }> = {
+  'qMini.local': {
+    deployment: 'tq-local',
+    wsHost: 'educore.tqtmp.org',
+    apiBase: 'https://educore.tqtmp.org/api',
+  },
+  // Add additional dev hostnames here (e.g., Brandon's machine) as needed.
+};
+
+const deploymentProfile = isProdBuild
+  ? { deployment: 'production', wsHost: '', apiBase: '' }
+  : devDeploymentMap[hostname] || {
+      deployment: `dev-${hostname}`,
+      wsHost: 'educore.tqtmp.org',
+      apiBase: 'https://educore.tqtmp.org/api',
+    };
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -74,7 +101,7 @@ export default defineNuxtConfig({
   nitro: {
     devProxy: {
       '/api': {
-        target: 'https://educore.tqtmp.org/api/',
+        target: `${deploymentProfile.apiBase || 'https://educore.tqtmp.org/api'}/`,
         changeOrigin: true,
         prependPath: true,
       },
@@ -95,6 +122,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       gitCommitHash,
+      deployment: deploymentProfile.deployment,
+      wsHost: deploymentProfile.wsHost,    // empty string in prod → store falls back to window.location.host
+      apiBase: deploymentProfile.apiBase,  // empty string in prod → store uses relative URLs
     },
   },
 

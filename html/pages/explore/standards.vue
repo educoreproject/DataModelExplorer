@@ -1,6 +1,9 @@
 <script setup>
+
 import { libraryEntries } from '@/data/library-entries';
 import { ref, computed, onMounted, nextTick } from 'vue';
+//import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+//const specStore = useSpecificationMetadataStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -8,12 +11,15 @@ const filterTitle = ref('');
 
 // Group by category, filtering to matched entry when highlight param is set
 const categories = computed(() => {
+
 	const grouped = {};
 	libraryEntries.forEach((entry) => {
 		if (filterTitle.value && entry.title !== filterTitle.value) return;
 		if (!grouped[entry.category]) grouped[entry.category] = [];
 		grouped[entry.category].push(entry);
 	});
+	//const grouped = specStore.specsByCategory;
+	
 	return Object.entries(grouped).map(([category, items]) => ({ category, items }));
 });
 
@@ -41,8 +47,13 @@ onMounted(() => {
 <template>
 	<v-container class="py-8" style="max-width: 1100px;">
 		<h1 class="text-h4 font-weight-bold text-primary mb-2">Interoperability Specifications</h1>
+
 		<p v-if="!filterTitle" class="text-body-1 text-medium-emphasis mb-8">
 			{{ libraryEntries.length }} education data specifications with implementation guidance, equity considerations, and cross-spec relationships.
+
+<!--	<p class="text-body-1 text-medium-emphasis mb-8">
+			{{ specStore.specCount }} education data specifications with implementation guidance, equity considerations, and cross-spec relationships.
+ -->
 		</p>
 
 		<v-alert v-if="filterTitle" type="info" variant="tonal" class="mb-6" closable @click:close="clearFilter">
@@ -133,12 +144,17 @@ onMounted(() => {
 										<!-- Commonly Paired With -->
 										<div v-if="spec.commonlyPairedWith?.length" class="mb-4">
 											<h4 class="text-caption font-weight-bold mb-1">Commonly Paired With</h4>
-											<v-list density="compact" class="py-0">
-												<v-list-item v-for="paired in spec.commonlyPairedWith" :key="paired.id" class="px-0">
-													<v-list-item-title class="text-body-2 font-weight-medium">{{ paired.id }}</v-list-item-title>
-													<v-list-item-subtitle class="text-caption">{{ paired.rationale }}</v-list-item-subtitle>
-												</v-list-item>
-											</v-list>
+											<div>
+												<v-chip
+													v-for="pairedId in spec.commonlyPairedWith"
+													:key="pairedId"
+													size="x-small"
+													variant="outlined"
+													class="mr-1 mb-1"
+												>
+													{{ specStore.specById(pairedId)?.title || pairedId }}
+												</v-chip>
+											</div>
 										</div>
 
 										<!-- Known Adopters -->

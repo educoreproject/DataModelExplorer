@@ -68,13 +68,6 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, timing
 		requestParams.thinking = { type: "adaptive" };
 	}
 
-	console.log('\n[SingleCall] ===== API REQUEST =====');
-	console.log('[SingleCall] Model:', model);
-	console.log('[SingleCall] System prompt:\n', systemPrompt);
-	console.log('[SingleCall] User message:\n', userMessage);
-	console.log('[SingleCall] Thinking:', JSON.stringify(requestParams.thinking || 'off'));
-	console.log('[SingleCall] ===== END REQUEST =====\n');
-
 	tm.mark('singleCall-direct', 'stream_start', { model });
 	const stream = client.messages.stream(requestParams);
 
@@ -107,11 +100,6 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, timing
 		outputTokens: response.usage.output_tokens,
 		usd: estimateCost(model, response.usage),
 	};
-
-	console.log('[SingleCall] ===== API RESPONSE =====');
-	console.log('[SingleCall] Input tokens:', cost.inputTokens, '| Output tokens:', cost.outputTokens, '| Cost: $' + cost.usd.toFixed(4));
-	console.log('[SingleCall] Response length:', responseText.length, 'chars');
-	console.log('[SingleCall] ===== END RESPONSE =====\n');
 
 	return { responseText, cost };
 };

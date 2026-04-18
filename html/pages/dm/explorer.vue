@@ -107,17 +107,19 @@ const fallbackPromptOptions = [
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
-					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/3/26):</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/16/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
 						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
 						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
+						<li><strong>LIF</strong> &mdash; Learner Information Framework (OpenAPI)</li>
 						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
 						<li><strong>PESC</strong> &mdash; Postsecondary Electronic Standards Council (XML Schema)</li>
 						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
 						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
 						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
 						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
-							<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
+						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
+						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
 					</ul>
 					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
 					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>

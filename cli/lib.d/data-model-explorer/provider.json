@@ -370,6 +370,234 @@
 					"limit": "--limit"
 				}
 			}
+		},
+		{
+			"definition": {
+				"name": "lif_graph_search",
+				"description": "Hybrid BM25 + vector search across LIF data. Learner Information Framework OpenAPI schema — entities, properties, cross-entity references, option sets, and option values describing learners, credentials, competencies, programs, and positions. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for LIF data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node lif_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "lif_graph_explore",
+				"description": "Describe a LIF node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in LIF"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node lif_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "lif_graph_stats",
+				"description": "Show LIF graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node lif_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "lif_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. LIF labels: :LifComposite, :LifEntity, :LifModel, :LifOptionSet, :LifOptionValue, :LifProperty, :LifRoot (all :ForgedNode). Edge types: HAS_COMPOSITE, HAS_ENTITY, HAS_OPTION_SET, HAS_PROPERTY, HAS_VALUE, MAPS_TO, REFERENCES, STRUCTURALLY_MAPS_TO.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node lif_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "lif_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node lif_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "clr_graph_search",
+				"description": "Hybrid BM25 + vector search across CLR data. IMS Global Comprehensive Learner Record Standard v2.0 — classes, properties, and cross-class references describing verifiable credentials, achievements, endorsements, and learner profiles in the W3C VC / 1EdTech ecosystem. Returns ranked results by relevance.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "Search query for CLR data"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node clr_graphSearch.js -search",
+				"positionalArgs": [
+					"query"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "clr_graph_explore",
+				"description": "Describe a CLR node by name. Shows all properties and relationships.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "Node name to explore in CLR"
+						}
+					},
+					"required": [
+						"name"
+					]
+				}
+			},
+			"cli": {
+				"command": "node clr_graphSearch.js -explore",
+				"positionalArgs": [
+					"name"
+				],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "clr_graph_stats",
+				"description": "Show CLR graph statistics — node counts by type and edge counts by relationship type.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node clr_graphSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "clr_graph_raw_cypher",
+				"description": "Execute raw Cypher against the unified graph. CLR labels: :ClrClass, :ClrModel, :ClrOptionSet, :ClrOptionValue, :ClrProperty, :ClrRoot (all :ForgedNode). Edge types: HAS_CLASS, HAS_OPTION_SET, HAS_PROPERTY, HAS_VALUE, MAPS_TO, REFERENCES, STRUCTURALLY_MAPS_TO.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A Cypher query to execute"
+						}
+					},
+					"required": [
+						"query"
+					]
+				}
+			},
+			"cli": {
+				"command": "node clr_graphSearch.js -rawCypher",
+				"positionalArgs": [],
+				"flagArgs": {
+					"query": "--query"
+				}
+			}
+		},
+		{
+			"definition": {
+				"name": "clr_graph_history",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Max events to return (default 50)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node clr_graphSearch.js -history",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
 		}
 	]
 }

@@ -3,6 +3,7 @@
 // Processes <control> content: detects multipart JSON format,
 // resolves cid: references against typed attachments.
 
+import JSON5 from 'json5';
 import { renderDot } from './useVizRenderer.js';
 
 /**
@@ -36,8 +37,12 @@ export function parseMultipartContent(raw) {
 	// Quick heuristic: multipart content starts with {
 	if (!trimmed.startsWith('{')) return null;
 
+	// Use JSON5: accepts strict JSON plus single-quoted strings, unquoted keys,
+	// trailing commas, and comments. This tolerates the pseudo-JSON form the
+	// prompt spec has historically shown the model. Anything still unparseable
+	// is treated as legacy plain-HTML control content.
 	try {
-		const parsed = JSON.parse(trimmed);
+		const parsed = JSON5.parse(trimmed);
 		if (parsed.html && typeof parsed.html === 'string') {
 			return {
 				html: parsed.html,
@@ -45,7 +50,7 @@ export function parseMultipartContent(raw) {
 			};
 		}
 	} catch (e) {
-		// Not valid JSON — treat as legacy HTML
+		// Not parseable — treat as legacy HTML
 	}
 
 	return null;
