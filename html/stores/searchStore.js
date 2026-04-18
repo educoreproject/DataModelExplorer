@@ -1,10 +1,12 @@
+import axios from 'axios';
+import { useLoginStore } from '@/stores/loginStore';
 import { standards } from '@/data/standards';
 import { topics } from '@/data/topics';
 import { useCases } from '@/data/useCases';
 import { libraryEntries } from '@/data/library-entries';
 import { fieldMappings, specLabels } from '@/data/field-mappings';
 import { stakeholderTaxonomy, technicalResourcesTaxonomy, useCasesCedsRdf } from '@/data/taxonomies';
-import { useCaseTaxonomy } from '@/data/use-case-taxonomy';
+import { useCaseTaxonomy, useCaseCedsDomains } from '@/data/use-case-taxonomy';
 
 // Map useCases (from useCases.ts) issueNumber → taxonomy id for deep linking
 const ucTaxonomyIdLookup = (() => {
@@ -70,7 +72,7 @@ const buildIndex = () => {
 		}
 	}
 
-	// ── Use Cases → detail page exists ──
+	// ── Use Cases from useCases.ts (descriptions) ──
 	for (const uc of useCases) {
 		const lookup = ucTaxonomyIdLookup[uc.issueNumber];
 		const link = lookup
@@ -90,8 +92,109 @@ const buildIndex = () => {
 		});
 	}
 
+	// ── Use Case Taxonomy — index topics, drivers, and every leaf use case ──
+	// Track which leaf use cases were already indexed from useCases.ts (by githubIssue)
+	const indexedIssues = new Set(useCases.map(uc => uc.issueNumber));
+
+	for (const topic of useCaseTaxonomy) {
+		// Topic level
+		index.push({
+			type: 'uc-topic',
+			icon: 'mdi-folder-open-outline',
+			color: '#EA580C',
+			label: topic.label,
+			category: 'Use Case Topic',
+			description: topic.subtitle || '',
+			detail: {
+				driverCount: topic.children.length,
+				useCaseCount: topic.children.reduce((s, d) => s + d.children.length, 0),
+				drivers: topic.children.map(d => d.label),
+			},
+			haystack: [topic.label, topic.subtitle].join(' '),
+			link: { path: '/explore/use-cases', query: { topic: topic.id } },
+		});
+
+		for (const driver of topic.children) {
+			// Driver level
+			index.push({
+				type: 'uc-driver',
+				icon: 'mdi-arrow-right-circle-outline',
+				color: '#EA580C',
+				label: driver.label,
+				category: topic.label,
+				description: `${driver.children.length} use case${driver.children.length === 1 ? '' : 's'} under ${topic.label}`,
+				detail: { useCases: driver.children.map(uc => uc.label) },
+				haystack: [driver.label, topic.label, ...driver.children.map(uc => uc.label)].join(' '),
+				link: { path: '/explore/use-cases', query: { topic: topic.id } },
+			});
+
+			// Individual use case level
+			for (const uc of driver.children) {
+				// Skip if already indexed from useCases.ts (has richer description there)
+				if (indexedIssues.has(uc.githubIssue)) continue;
+
+				const cedsDomains = useCaseCedsDomains[uc.id] || [];
+
+				index.push({
+					type: 'use-case',
+					icon: 'mdi-lightbulb-on-outline',
+					color: '#EA580C',
+					label: uc.label,
+					category: driver.label,
+					description: `${topic.label} → ${driver.label}` + (cedsDomains.length ? ` | CEDS: ${cedsDomains.join(', ')}` : ''),
+					detail: {
+						issueNumber: uc.githubIssue,
+						topicId: topic.id,
+						labels: uc.tags || [],
+						cedsDomains,
+					},
+					haystack: [uc.label, uc.id, driver.label, topic.label, ...(uc.tags || []), ...cedsDomains].join(' '),
+					link: { path: `/explore/use-cases/${uc.id}` },
+				});
+			}
+		}
+	}
+
 	// ── Library entries → rendered on /explore/standards ──
 	for (const entry of libraryEntries) {
+		// Build a comprehensive haystack that includes implementation details
+		const haystackParts = [
+			entry.title, entry.description, entry.category, entry.type,
+			entry.owner, entry.governanceBody, entry.aiSummary, entry.aiUnlocksSummary,
+			entry.implementationBurden, entry.implementationBurdenRationale,
+			entry.implementationGuidance,
+			entry.fieldMappingDescription, entry.transformationNotes, entry.compatibilityNotes,
+			entry.targetCanonicalEntity,
+			...(entry.tags || []),
+			...(entry.requiredCapabilities || []),
+			...(entry.knownAdopters || []),
+		];
+
+		// Burden rubric notes
+		if (entry.burdenRubric) {
+			for (const val of Object.values(entry.burdenRubric)) {
+				haystackParts.push(val.level, val.note);
+			}
+		}
+
+		// Commonly paired with
+		for (const paired of entry.commonlyPairedWith || []) {
+			haystackParts.push(paired.id, paired.rationale);
+		}
+
+		// Privacy considerations
+		if (entry.privacyConsiderations) {
+			haystackParts.push(entry.privacyConsiderations.notes);
+			for (const reg of entry.privacyConsiderations.regulations || []) {
+				haystackParts.push(reg);
+			}
+		}
+
+		// Equity considerations
+		if (entry.equityConsiderations) {
+			haystackParts.push(entry.equityConsiderations.notes);
+		}
+
 		index.push({
 			type: 'library',
 			icon: 'mdi-bookshelf',
@@ -100,7 +203,7 @@ const buildIndex = () => {
 			category: entry.category || entry.type,
 			description: entry.description,
 			detail: { owner: entry.owner, version: entry.version, burden: entry.implementationBurden, access: entry.accessLevel, tags: entry.tags },
-			haystack: [entry.title, entry.description, entry.category, entry.type, entry.owner, entry.aiSummary, ...(entry.tags || [])].join(' '),
+			haystack: haystackParts.filter(Boolean).join(' '),
 			link: { path: '/explore/standards', query: { highlight: entry.title } },
 		});
 	}
@@ -257,38 +360,95 @@ const buildIndex = () => {
 
 const searchIndex = buildIndex();
 
+// Node type display helpers for backend results
+const nodeTypeColors = {
+	SifObject: '#4a9d8f', SifXmlElement: '#6bb5a6', SifField: '#4a9d8f',
+	CedsClass: '#c17b3a', CedsProperty: '#d4994d', CedsOptionValue: '#e6b366',
+};
+const nodeTypeIcons = {
+	SifObject: 'mdi-cube-outline', SifXmlElement: 'mdi-xml', SifField: 'mdi-text-box-outline',
+	CedsClass: 'mdi-shape-outline', CedsProperty: 'mdi-tag-outline', CedsOptionValue: 'mdi-format-list-bulleted',
+};
+
 export const useSearchStore = defineStore('searchStore', {
 	state: () => ({
 		query: '',
-		results: [],
+		localResults: [],
+		backendResults: [],
+		backendLoading: false,
+		backendError: '',
 	}),
 
 	actions: {
 		search(query) {
 			const raw = (query || '').trim().toLowerCase();
 			this.query = query;
+			this.backendError = '';
 
 			if (!raw) {
-				this.results = [];
+				this.localResults = [];
+				this.backendResults = [];
 				return;
 			}
 
+			// Instant local search
 			const words = raw.split(/\s+/);
-
-			this.results = searchIndex.filter(item => {
+			this.localResults = searchIndex.filter(item => {
 				const haystack = item.haystack.toLowerCase();
 				return words.every(word => haystack.includes(word));
+			});
+
+			// Backend search (async, loads after)
+			this.backendLoading = true;
+			this.backendResults = [];
+
+			const loginStore = useLoginStore();
+			if (!loginStore.validUser) {
+				this.backendLoading = false;
+				this.backendError = 'Login required for data model search';
+				return;
+			}
+
+			axios.get('/api/lookupNodes', {
+				params: { model: 'ai', query },
+				headers: { ...loginStore.getAuthTokenProperty },
+			}).then(response => {
+				this.backendResults = (response.data || []).map(item => ({
+					type: 'data-model',
+					icon: nodeTypeIcons[item.nodeType] || 'mdi-database',
+					color: nodeTypeColors[item.nodeType] || '#666',
+					label: item.label || item.id,
+					category: (item.standard || '').toUpperCase() + ' ' + (item.nodeType || ''),
+					description: item.description || '',
+					detail: {
+						id: item.id,
+						nodeType: item.nodeType,
+						standard: item.standard,
+						hasChildren: item.hasChildren,
+						path: item.path,
+					},
+					haystack: '',
+					link: null,
+				}));
+			}).catch(err => {
+				this.backendError = err.response?.data || err.message || 'Data model search failed';
+			}).finally(() => {
+				this.backendLoading = false;
 			});
 		},
 
 		reset() {
 			this.query = '';
-			this.results = [];
+			this.localResults = [];
+			this.backendResults = [];
+			this.backendError = '';
+			this.backendLoading = false;
 		},
 	},
 
 	getters: {
-		hasResults: (state) => state.results.length > 0,
-		resultCount: (state) => state.results.length,
+		results: (state) => [...state.localResults, ...state.backendResults],
+		hasResults: (state) => state.localResults.length > 0 || state.backendResults.length > 0,
+		resultCount: (state) => state.localResults.length + state.backendResults.length,
 	},
 });

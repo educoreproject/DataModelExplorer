@@ -42,6 +42,8 @@ const typeLabel = (type) => {
 		'topic': 'Topic',
 		'topic-driver': 'Driver',
 		'use-case': 'Use Case',
+		'uc-topic': 'Use Case Topic',
+		'uc-driver': 'Use Case Driver',
 		'library': 'Specification',
 		'field-mapping': 'Field Mapping',
 		'field-mapping-spec': 'Spec Mapping',
@@ -53,6 +55,7 @@ const typeLabel = (type) => {
 		'ceds-use-case': 'CEDS Use Case',
 		'ceds-element': 'CEDS Element',
 		'ceds-business-need': 'CEDS Need',
+		'data-model': 'Data Model',
 	};
 	return labels[type] || type;
 };
@@ -99,14 +102,14 @@ watch(() => route.query.q, runFromQueryParam);
 			</div>
 		</v-card>
 
-		<!-- Results count -->
-		<div v-if="searchStore.query" class="text-body-2 text-medium-emphasis mb-3">
-			{{ searchStore.resultCount }} result{{ searchStore.resultCount === 1 ? '' : 's' }} found
+		<!-- Local results count -->
+		<div v-if="searchStore.query && searchStore.localResults.length" class="text-body-2 text-medium-emphasis mb-3">
+			{{ searchStore.localResults.length }} result{{ searchStore.localResults.length === 1 ? '' : 's' }} found
 			for "{{ searchStore.query }}"
 		</div>
 
-		<!-- Results list -->
-		<div v-if="searchStore.hasResults">
+		<!-- Local results -->
+		<div v-if="searchStore.localResults.length">
 			<v-card
 				v-for="(item, idx) in searchStore.results"
 				:key="idx"
@@ -185,8 +188,33 @@ watch(() => route.query.q, runFromQueryParam);
 								<div v-if="item.detail.issueNumber"><span class="detail-label">Issue:</span> #{{ item.detail.issueNumber }}</div>
 								<div v-if="item.detail.topicId"><span class="detail-label">Topic:</span> {{ item.detail.topicId }}</div>
 							</div>
+							<div v-if="item.detail.cedsDomains?.length" class="mt-2">
+								<span class="detail-label">CEDS domains:</span>
+								<v-chip v-for="d in item.detail.cedsDomains" :key="d" size="x-small" variant="tonal" class="mr-1 mt-1">{{ d }}</v-chip>
+							</div>
 							<div v-if="item.detail.labels?.length" class="mt-1">
 								<v-chip v-for="l in item.detail.labels" :key="l" size="x-small" variant="tonal" class="mr-1">{{ l }}</v-chip>
+							</div>
+						</template>
+
+						<!-- Use case topic detail -->
+						<template v-if="item.type === 'uc-topic' && item.detail">
+							<div class="detail-grid mb-2">
+								<div><span class="detail-label">Drivers:</span> {{ item.detail.driverCount }}</div>
+								<div><span class="detail-label">Use cases:</span> {{ item.detail.useCaseCount }}</div>
+							</div>
+							<div v-if="item.detail.drivers?.length">
+								<v-chip v-for="d in item.detail.drivers" :key="d" size="x-small" variant="tonal" class="mr-1 mt-1">{{ d }}</v-chip>
+							</div>
+						</template>
+
+						<!-- Use case driver detail -->
+						<template v-if="item.type === 'uc-driver' && item.detail">
+							<div v-if="item.detail.useCases?.length">
+								<span class="detail-label">Use cases:</span>
+								<ul class="text-caption pl-4 mt-1">
+									<li v-for="uc in item.detail.useCases" :key="uc">{{ uc }}</li>
+								</ul>
 							</div>
 						</template>
 
@@ -296,11 +324,94 @@ watch(() => route.query.q, runFromQueryParam);
 			</v-card>
 		</div>
 
-		<!-- Empty state -->
+		<!-- Data Model results (backend) -->
+		<div v-if="searchStore.query" class="mt-6">
+			<h3 class="text-subtitle-1 font-weight-bold mb-2">
+				<v-icon size="small" class="mr-1">mdi-database</v-icon>
+				Data Model Search
+			</h3>
+
+			<!-- Loading -->
+			<v-card v-if="searchStore.backendLoading" variant="flat" class="mb-4 pa-5" style="background: linear-gradient(135deg, #f3e8ff 0%, #e8f0fe 100%); border-left: 3px solid #7b1fa2;">
+				<div class="d-flex align-center">
+					<v-progress-circular indeterminate color="#7b1fa2" size="28" width="3" class="mr-4" />
+					<div>
+						<div class="text-body-2" style="color: #4a3660;">Searching CEDS and SIF data models...</div>
+						<div class="text-caption" style="color: #8a7a9a;">This uses AI and can take a minute or two.</div>
+					</div>
+				</div>
+			</v-card>
+
+			<!-- Error -->
+			<v-alert v-if="searchStore.backendError" type="warning" variant="tonal" density="compact" class="mb-3">
+				{{ searchStore.backendError }}
+			</v-alert>
+
+			<!-- Backend results count -->
+			<div v-if="!searchStore.backendLoading && searchStore.backendResults.length" class="text-body-2 text-medium-emphasis mb-3">
+				{{ searchStore.backendResults.length }} data model result{{ searchStore.backendResults.length === 1 ? '' : 's' }}
+			</div>
+
+			<!-- Backend result cards -->
+			<div v-if="searchStore.backendResults.length">
+				<v-card
+					v-for="(item, idx) in searchStore.backendResults"
+					:key="'be-' + idx"
+					variant="outlined"
+					class="mb-2 search-result-card"
+					@click="expandedIdx = expandedIdx === 'be-' + idx ? null : 'be-' + idx"
+				>
+					<v-card-text class="py-3">
+						<div class="d-flex align-center">
+							<v-icon :color="item.color" size="small" class="mr-3">{{ item.icon }}</v-icon>
+							<div class="flex-grow-1" style="min-width: 0;">
+								<div class="d-flex align-center flex-wrap ga-1">
+									<span class="text-body-2 font-weight-bold">{{ item.label }}</span>
+									<v-chip size="x-small" variant="outlined" :color="item.color">
+										{{ item.detail?.nodeType || 'Node' }}
+									</v-chip>
+									<v-chip v-if="item.detail?.standard" size="x-small" variant="flat"
+										:color="item.detail.standard === 'ceds' ? 'orange' : 'teal'">
+										{{ item.detail.standard.toUpperCase() }}
+									</v-chip>
+								</div>
+								<div v-if="item.description" class="text-caption text-medium-emphasis mt-1">
+									{{ item.description.length > 200 ? item.description.slice(0, 200) + '...' : item.description }}
+								</div>
+							</div>
+							<v-icon size="small" color="grey" class="ml-2">
+								{{ expandedIdx === 'be-' + idx ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+							</v-icon>
+						</div>
+
+						<div v-if="expandedIdx === 'be-' + idx && item.detail" class="mt-3 pt-3" style="border-top: 1px solid #eee;">
+							<div class="detail-grid">
+								<div v-if="item.detail.id"><span class="detail-label">ID:</span> <code>{{ item.detail.id }}</code></div>
+								<div v-if="item.detail.nodeType"><span class="detail-label">Type:</span> {{ item.detail.nodeType }}</div>
+								<div v-if="item.detail.standard"><span class="detail-label">Standard:</span> {{ item.detail.standard.toUpperCase() }}</div>
+								<div v-if="item.detail.path"><span class="detail-label">Path:</span> <code>{{ item.detail.path }}</code></div>
+								<div><span class="detail-label">Has children:</span> {{ item.detail.hasChildren ? 'Yes' : 'No' }}</div>
+							</div>
+							<div v-if="item.description" class="mt-2">
+								<span class="detail-label">Description:</span>
+								<div class="text-body-2 mt-1">{{ item.description }}</div>
+							</div>
+						</div>
+					</v-card-text>
+				</v-card>
+			</div>
+
+			<!-- No backend results -->
+			<div v-if="!searchStore.backendLoading && !searchStore.backendError && !searchStore.backendResults.length" class="text-body-2 text-medium-emphasis">
+				No data model results found.
+			</div>
+		</div>
+
+		<!-- Empty state (both local and backend empty) -->
 		<v-card
-			v-if="searchStore.query && !searchStore.hasResults"
+			v-if="searchStore.query && !searchStore.localResults.length && !searchStore.backendResults.length && !searchStore.backendLoading"
 			variant="outlined"
-			class="pa-6 text-center"
+			class="pa-6 text-center mt-4"
 		>
 			<v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-magnify-close</v-icon>
 			<div class="text-body-1 text-medium-emphasis">
