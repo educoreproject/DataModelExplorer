@@ -1,9 +1,9 @@
 <script setup>
-import { useUseCaseStore } from '@/stores/useCaseStore';
-const ucStore = useUseCaseStore();
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
+const knowledgeStore = useKnowledgeStore();
 
 const topicCards = computed(() =>
-	ucStore.taxonomy.map((topic) => ({
+	knowledgeStore.taxonomy.map((topic) => ({
 		...topic,
 		driverCount: topic.children.length,
 		useCaseCount: topic.children.reduce((sum, driver) => sum + driver.children.length, 0),

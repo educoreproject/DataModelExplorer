@@ -1,7 +1,7 @@
 <script setup>
-import { useUseCaseStore } from '@/stores/useCaseStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-const ucStore = useUseCaseStore();
+const knowledgeStore = useKnowledgeStore();
 const userDataStore = useUserDataStore();
 
 const route = useRoute();
@@ -22,15 +22,15 @@ const expandedPanels = ref([]);
 onMounted(() => {
 	const topicId = route.query.topic;
 	if (topicId) {
-		const idx = ucStore.taxonomy.findIndex((t) => t.id === topicId);
+		const idx = knowledgeStore.taxonomy.findIndex((t) => t.id === topicId);
 		if (idx >= 0) expandedPanels.value = [idx];
 	}
 });
 
-const totalUseCases = computed(() => ucStore.useCaseCount);
+const totalUseCases = computed(() => knowledgeStore.useCaseCount);
 
 // Resolve a use case ID to its full object from the store
-const resolveUc = (ucId) => ucStore.useCaseById(ucId);
+const resolveUc = (ucId) => knowledgeStore.useCaseById(ucId);
 
 const labelColor = (tag) => {
 	const map = {
@@ -65,7 +65,7 @@ const labelColor = (tag) => {
 
 		<v-expansion-panels v-model="expandedPanels" variant="accordion" multiple>
 			<v-expansion-panel
-				v-for="topic in ucStore.taxonomy"
+				v-for="topic in knowledgeStore.taxonomy"
 				:key="topic.id"
 			>
 				<v-expansion-panel-title>

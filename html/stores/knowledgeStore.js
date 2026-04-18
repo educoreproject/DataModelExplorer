@@ -16,6 +16,7 @@
 
 import axios from 'axios';
 import { useUserDataStore } from '@/stores/userDataStore';
+import { useCaseTaxonomy as staticUseCaseTaxonomy, useCaseList as staticUseCaseList } from '@/stores/_useCaseData';
 
 // -------------------------------------------------------------------------
 // Static constants co-located with the store (exposed via the rubricDefinition
@@ -126,6 +127,14 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 		organizations: [],
 		categories: [],
 		selectedStandard: null,
+
+		// Use cases (spec §2.1). See _useCaseData.js header for the Phase D
+		// deviation note: slice is seeded from the inline snapshot today; the
+		// graph-driven /api/useCases path remains a planned follow-up.
+		useCases: staticUseCaseList,
+		useCaseTaxonomy: staticUseCaseTaxonomy,
+		useCasesLoading: false,
+		useCasesLoaded: true,
 
 		// Matrix UI state (absorbed from edMatrixStore)
 		viewMode: 'dataCategory',
@@ -246,6 +255,27 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			this.selectedStandard = null;
 		},
 
+		// Use cases: load and invalidation hooks (placeholder plumbing for the
+		// future /api/useCases integration — see knowledgeStore header note).
+		async loadUseCases({ force = false } = {}) {
+			if (this.useCasesLoaded && !force) return true;
+			this.useCasesLoading = true;
+			// TODO: when /api/useCases returns graph-sourced data matching the
+			// static shape (slug ids + subcategory mapping), fetch here.
+			this.useCases = staticUseCaseList;
+			this.useCaseTaxonomy = staticUseCaseTaxonomy;
+			this.useCasesLoaded = true;
+			this.useCasesLoading = false;
+			return true;
+		},
+
+		// Called by editorStore.save() after a successful use-case edit.
+		// Today this flips the loaded flag so the next loadUseCases reseeds;
+		// once the live fetch lands, it will trigger a real refetch.
+		invalidateUseCases() {
+			this.useCasesLoaded = false;
+		},
+
 		async loadEverything() {
 			const results = await Promise.allSettled([
 				this.loadStandards(),
@@ -329,6 +359,49 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 
 		// Back-compat alias for pages that still read `specs`
 		specs: (state) => state.dossiers,
+
+		// Use case lookups (absorbed from the prior useCaseStore)
+		useCaseById: (state) => (id) => state.useCases.find((uc) => uc.id === id),
+		useCasesByCategory: (state) => {
+			return state.useCases.reduce((groups, uc) => {
+				const cat = uc.categoryId || 'uncategorized';
+				if (!groups[cat]) groups[cat] = [];
+				groups[cat].push(uc);
+				return groups;
+			}, {});
+		},
+		useCasesByTag: (state) => {
+			return state.useCases.reduce((groups, uc) => {
+				(uc.tags || []).forEach((tag) => {
+					if (!groups[tag]) groups[tag] = [];
+					groups[tag].push(uc);
+				});
+				return groups;
+			}, {});
+		},
+		useCasesForCedsDomain: (state) => (domainId) =>
+			state.useCases.filter((uc) => (uc.cedsDomains || []).includes(domainId)),
+		useCaseCount: (state) => state.useCases.length,
+		allLabels: (state) => {
+			const tagSet = new Set();
+			state.useCases.forEach((uc) => (uc.tags || []).forEach((t) => tagSet.add(t)));
+			return [...tagSet].sort();
+		},
+		taxonomyFlat: (state) => {
+			const flat = [];
+			state.useCaseTaxonomy.forEach((topic) => {
+				flat.push({ id: topic.id, label: topic.label, type: 'topic', parentId: null });
+				(topic.children || []).forEach((driver) => {
+					flat.push({ id: driver.id, label: driver.label, type: 'driver', parentId: topic.id });
+					(driver.children || []).forEach((ucId) => {
+						flat.push({ id: ucId, label: ucId, type: 'useCase', parentId: driver.id });
+					});
+				});
+			});
+			return flat;
+		},
+		// Back-compat alias: useCaseStore exposed a `taxonomy` prop directly.
+		taxonomy: (state) => state.useCaseTaxonomy,
 
 		// Convenience
 		specCount: (state) => state.dossiers.length,

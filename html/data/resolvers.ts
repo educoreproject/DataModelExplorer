@@ -2,7 +2,6 @@
 // These read spec/use-case data from Pinia stores and join with CEDS alignment data.
 
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
-import { useUseCaseStore } from '@/stores/useCaseStore';
 import { cedsAlignmentMatrix, cedsDomains } from './ceds-alignment';
 import { stakeholderTaxonomy, useCasesCedsRdf } from './taxonomies';
 import { fieldMappings } from './field-mappings';
@@ -62,7 +61,7 @@ export function getStandardsByCategory() {
 // ─── Standards scored for a use case ────────────────────────────────────────
 
 export function getStandardsForUseCase(useCaseId: string): ScoredStandard[] {
-  const ucStore = useUseCaseStore();
+  const ucStore = useKnowledgeStore();
   const uc = ucStore.useCaseById(useCaseId);
   const domains = uc?.cedsDomains;
   if (!domains || domains.length === 0) return [];
@@ -115,7 +114,7 @@ function scoreStandardsByDomains(relevantDomains: Set<string>): ScoredStandard[]
 // ─── Use case lookups (from store) ──────────────────────────────────────────
 
 export function getUseCaseById(useCaseId: string) {
-  const ucStore = useUseCaseStore();
+  const ucStore = useKnowledgeStore();
   const uc = ucStore.useCaseById(useCaseId);
   if (!uc) return null;
   // Enrich with taxonomy labels
@@ -140,7 +139,7 @@ export function getUseCaseById(useCaseId: string) {
 }
 
 export function getAllUseCasesFlat() {
-  const ucStore = useUseCaseStore();
+  const ucStore = useKnowledgeStore();
   return ucStore.useCases.map(uc => {
     // Find taxonomy context
     for (const topic of ucStore.taxonomy) {
@@ -164,7 +163,7 @@ export function getAllUseCasesFlat() {
 }
 
 export function getUseCasesForStandard(standardId: string) {
-  const ucStore = useUseCaseStore();
+  const ucStore = useKnowledgeStore();
 
   // Find use cases where the standard's aligned CEDS domains overlap
   const alignment = cedsAlignmentMatrix.find(a => a.entryId === standardId);

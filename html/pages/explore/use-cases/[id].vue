@@ -1,31 +1,32 @@
 <script setup>
 import { onMounted } from 'vue';
 import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
-import { useUseCaseStore } from '@/stores/useCaseStore';
-import { useUserDataStore } from '@/stores/userDataStore';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { marked } from 'marked';
 
 // Hydrate dossiers so resolvers (getStandardsForUseCase, etc.) return data.
 onMounted(() => {
-	useKnowledgeStore().loadDossiers();
+	const ks = useKnowledgeStore();
+	ks.loadDossiers();
+	ks.loadUseCases();
 });
 
 marked.setOptions({ breaks: true, gfm: true });
 
-const ucStore = useUseCaseStore();
+const knowledgeStore = useKnowledgeStore();
 const userDataStore = useUserDataStore();
 const route = useRoute();
 const ucId = route.params.id;
 
 // Resolve use case from store, enriching with taxonomy labels
 const useCase = computed(() => {
-	const uc = ucStore.useCaseById(ucId);
+	const uc = knowledgeStore.useCaseById(ucId);
 	if (!uc) return null;
 	// Find taxonomy labels
 	let categoryLabel = '', categoryIcon = '', categoryColor = '', subcategoryLabel = '';
-	for (const topic of ucStore.taxonomy) {
+	for (const topic of knowledgeStore.taxonomy) {
 		for (const driver of topic.children) {
 			if (driver.children.includes(uc.id)) {
 				categoryLabel = topic.label;
@@ -52,12 +53,12 @@ const standards = computed(() => getStandardsForUseCase(ucId));
 // Sibling stories in same driver/subcategory
 const siblingStories = computed(() => {
 	if (!useCase.value) return [];
-	for (const topic of ucStore.taxonomy) {
+	for (const topic of knowledgeStore.taxonomy) {
 		for (const driver of topic.children) {
 			if (driver.children.includes(ucId)) {
 				return driver.children
 					.filter((id) => id !== ucId)
-					.map((id) => ucStore.useCaseById(id))
+					.map((id) => knowledgeStore.useCaseById(id))
 					.filter((uc) => uc && uc.githubIssue)
 					.map((uc) => ({ ...uc, label: uc.title }));
 			}

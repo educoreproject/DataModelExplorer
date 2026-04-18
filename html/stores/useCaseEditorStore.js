@@ -182,6 +182,11 @@ export const useUseCaseEditorStore = defineStore('useCaseEditorStore', {
 				const result = response.data[0];
 				this.lastSavedAt = result.savedAt;
 				this.statusMsg = `Saved. ${this.schema.label} updated at ${result.savedAt}.`;
+				// Cross-store coherence: invalidate knowledgeStore's use cases so
+				// /explore/topics, /explore/use-cases, /explore/use-cases/[id]
+				// re-read on next mount without a page reload.
+				const { useKnowledgeStore } = await import('@/stores/knowledgeStore');
+				useKnowledgeStore().invalidateUseCases();
 				// Reload from server so we see recomputed counts and server-normalized values.
 				await this.loadUseCase(this.current.id);
 				return true;
