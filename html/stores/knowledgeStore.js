@@ -18,6 +18,13 @@ import axios from 'axios';
 import { useUserDataStore } from '@/stores/userDataStore';
 import { useCaseTaxonomy as staticUseCaseTaxonomy, useCaseList as staticUseCaseList } from '@/stores/_useCaseData';
 
+// Phase E: fold resolvers.ts into the store. The ambient data files are still
+// imported from html/data/ for this phase; Phase F replaces them with live API
+// loads (loadAlignment, loadTaxonomies) seeded from SQLite.
+import { cedsDomains as staticCedsDomains, cedsAlignmentMatrix as staticAlignmentMatrix } from '@/data/ceds-alignment';
+import { stakeholderTaxonomy as staticStakeholderTaxonomy, useCasesCedsRdf as staticUseCasesCedsRdf } from '@/data/taxonomies';
+import { fieldMappings as staticFieldMappings } from '@/data/field-mappings';
+
 // -------------------------------------------------------------------------
 // Static constants co-located with the store (exposed via the rubricDefinition
 // getter for uniform access per spec §2.1 "Founding principle").
@@ -148,6 +155,29 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			{ id: 'standards-body', title: 'Standards Body', description: 'I work on education data standards, governance, or alignment', icon: 'mdi-gavel' },
 		],
 
+		// Resolver slices (absorbed from html/data/resolvers.ts in Phase E).
+		// These slices hold the ambient data used by the cross-slice join
+		// computations. In Phase E they are seeded from the ts files; in Phase F
+		// they move to API-backed loads with invalidation semantics.
+		cedsDomains: staticCedsDomains,
+		alignmentMatrix: staticAlignmentMatrix,
+		stakeholderTaxonomy: staticStakeholderTaxonomy,
+		useCasesCedsRdf: staticUseCasesCedsRdf,
+		fieldMappings: staticFieldMappings,
+		alignmentLoaded: true,
+		taxonomiesLoaded: true,
+
+		// Compute-action caches (Phase E). Each expensive join caches its
+		// result by a stringified input key. Cleared whenever an upstream
+		// slice reloads (loadStandards/loadDossiers/loadUseCases/loadAlignment).
+		_standardsForUseCaseCache: {},
+		_standardsForDomainsCache: {},
+		_objectsForStandardCache: {},
+		_objectDetailCache: {},
+		_alignmentForDomainCache: {},
+		_useCasesForStandardCache: {},
+		_useCasesFlatCache: null,
+
 		// Matrix UI state (absorbed from edMatrixStore)
 		viewMode: 'dataCategory',
 		activeFilter: { type: null, layer: null },
@@ -172,6 +202,21 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 		},
 
 		// -----------------------------------------------------------------
+		// Compute-cache invalidation. Called whenever an upstream slice
+		// reloads (standards, dossiers, useCases, alignment). Keeping it in
+		// one place means each load action has a single line to call.
+
+		_invalidateComputeCaches() {
+			this._standardsForUseCaseCache = {};
+			this._standardsForDomainsCache = {};
+			this._objectsForStandardCache = {};
+			this._objectDetailCache = {};
+			this._alignmentForDomainCache = {};
+			this._useCasesForStandardCache = {};
+			this._useCasesFlatCache = null;
+		},
+
+		// -----------------------------------------------------------------
 		// Hydration actions
 
 		async loadStandards({ force = false } = {}) {
@@ -188,6 +233,7 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 					return acc;
 				}, {});
 				this.standardsLoaded = true;
+				this._invalidateComputeCaches();
 				return true;
 			} catch (err) {
 				this.statusMsg = err?.response?.data || err?.message || 'Failed to load standards';
@@ -212,6 +258,7 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 					return acc;
 				}, {});
 				this.dossiersLoaded = true;
+				this._invalidateComputeCaches();
 				return true;
 			} catch (err) {
 				this.statusMsg = err?.response?.data || err?.message || 'Failed to load dossiers';
@@ -278,6 +325,7 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			this.useCaseTaxonomy = staticUseCaseTaxonomy;
 			this.useCasesLoaded = true;
 			this.useCasesLoading = false;
+			this._invalidateComputeCaches();
 			return true;
 		},
 
@@ -286,6 +334,7 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 		// once the live fetch lands, it will trigger a real refetch.
 		invalidateUseCases() {
 			this.useCasesLoaded = false;
+			this._invalidateComputeCaches();
 		},
 
 		async loadEverything() {
@@ -297,6 +346,279 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 				.map((r, i) => (r.status === 'rejected' ? ['standards', 'dossiers'][i] : null))
 				.filter(Boolean);
 			if (failed.length) this.statusMsg = `Failed slices: ${failed.join(', ')}`;
+		},
+
+		// -----------------------------------------------------------------
+		// Resolver-derived compute actions (absorbed from html/data/resolvers.ts
+		// in Phase E). Each action returns synchronously, caching by input
+		// key into an internal state slice so repeated calls are O(1). Caches
+		// are cleared whenever any upstream slice reloads.
+
+		computeStandardsForUseCase(useCaseId) {
+			if (this._standardsForUseCaseCache[useCaseId]) {
+				return this._standardsForUseCaseCache[useCaseId];
+			}
+			const uc = this.useCaseById(useCaseId);
+			const domains = uc?.cedsDomains;
+			if (!domains || domains.length === 0) {
+				this._standardsForUseCaseCache[useCaseId] = [];
+				return [];
+			}
+			const scored = this.computeStandardsForDomains(domains);
+			this._standardsForUseCaseCache[useCaseId] = scored;
+			return scored;
+		},
+
+		computeStandardsForDomains(domainIds) {
+			const key = [...domainIds].sort().join('|');
+			if (this._standardsForDomainsCache[key]) {
+				return this._standardsForDomainsCache[key];
+			}
+			const relevantDomains = new Set(domainIds);
+			const burdenOrder = { low: 0, medium: 1, high: 2 };
+			const scored = [];
+
+			for (const entry of this.specs) {
+				const alignment = this.alignmentMatrix.find((a) => a.entryId === entry.id);
+				if (!alignment) continue;
+
+				let fullCount = 0;
+				let partialCount = 0;
+				const matchedDomains = [];
+
+				for (const domain of relevantDomains) {
+					const domainData = alignment.domains[domain];
+					if (domainData) {
+						if (domainData.status === 'full') {
+							fullCount++;
+							matchedDomains.push({ domain, status: 'full' });
+						} else if (domainData.status === 'partial') {
+							partialCount++;
+							matchedDomains.push({ domain, status: 'partial' });
+						}
+					}
+				}
+
+				const score = fullCount * 2 + partialCount;
+				if (score === 0) continue;
+
+				scored.push({ entry, score, fullCount, partialCount, matchedDomains });
+			}
+
+			scored.sort((a, b) => {
+				if (b.score !== a.score) return b.score - a.score;
+				return (burdenOrder[a.entry.implementationBurden] || 0) - (burdenOrder[b.entry.implementationBurden] || 0);
+			});
+
+			this._standardsForDomainsCache[key] = scored;
+			return scored;
+		},
+
+		computeObjectsForStandard(standardId) {
+			if (this._objectsForStandardCache[standardId]) {
+				return this._objectsForStandardCache[standardId];
+			}
+			const alignment = this.alignmentMatrix.find((a) => a.entryId === standardId);
+			if (!alignment) {
+				this._objectsForStandardCache[standardId] = [];
+				return [];
+			}
+
+			const objects = [];
+			const seen = new Set();
+			for (const [domainId, data] of Object.entries(alignment.domains)) {
+				if (data.status === 'gap') continue;
+				for (const element of data.cedsElements || []) {
+					if (!seen.has(element)) {
+						seen.add(element);
+						objects.push({
+							element,
+							domain: domainId,
+							domainLabel: this.getDomainLabel(domainId),
+							status: data.status,
+							notes: data.notes,
+							gapNotes: data.gapNotes,
+						});
+					}
+				}
+			}
+			const sorted = objects.sort((a, b) => a.element.localeCompare(b.element));
+			this._objectsForStandardCache[standardId] = sorted;
+			return sorted;
+		},
+
+		computeObjectDetail(standardId, objectId) {
+			const key = `${standardId}||${objectId}`;
+			if (this._objectDetailCache[key]) {
+				return this._objectDetailCache[key];
+			}
+			const alignment = this.alignmentMatrix.find((a) => a.entryId === standardId);
+			if (!alignment) {
+				this._objectDetailCache[key] = null;
+				return null;
+			}
+
+			const appearances = [];
+			for (const [domainId, data] of Object.entries(alignment.domains)) {
+				if (data.cedsElements?.includes(objectId)) {
+					appearances.push({
+						domain: domainId,
+						domainLabel: this.getDomainLabel(domainId),
+						status: data.status,
+						notes: data.notes,
+						gapNotes: data.gapNotes,
+					});
+				}
+			}
+
+			if (appearances.length === 0) {
+				this._objectDetailCache[key] = null;
+				return null;
+			}
+
+			let rdfDetail = null;
+			for (const uc of this.useCasesCedsRdf) {
+				const el = uc.cedsRdfElements?.find((e) => e.element === objectId);
+				if (el) {
+					rdfDetail = el;
+					break;
+				}
+			}
+
+			const relatedMappings = this.fieldMappings.filter((fm) => {
+				const conceptLower = fm.concept.toLowerCase();
+				const objectLower = objectId.toLowerCase().replace(/([A-Z])/g, ' $1').trim().toLowerCase();
+				return conceptLower.includes(objectLower) || objectLower.includes(conceptLower);
+			});
+
+			const otherStandards = [];
+			for (const a of this.alignmentMatrix) {
+				if (a.entryId === standardId) continue;
+				for (const [domainId, data] of Object.entries(a.domains)) {
+					if (data.cedsElements?.includes(objectId)) {
+						const entry = this.specById(a.entryId);
+						otherStandards.push({
+							standardId: a.entryId,
+							standardName: entry?.title || a.entryShortName,
+							domain: domainId,
+							status: data.status,
+						});
+					}
+				}
+			}
+
+			const result = {
+				element: objectId,
+				rdfDetail,
+				appearances,
+				relatedMappings,
+				otherStandards,
+			};
+			this._objectDetailCache[key] = result;
+			return result;
+		},
+
+		computeAlignmentForDomain(domainId) {
+			if (this._alignmentForDomainCache[domainId]) {
+				return this._alignmentForDomainCache[domainId];
+			}
+			const result = this.alignmentMatrix
+				.map((a) => {
+					const domainData = a.domains[domainId];
+					if (!domainData) return null;
+					const entry = this.specById(a.entryId);
+					return {
+						entryId: a.entryId,
+						entryName: entry?.title || a.entryShortName,
+						...domainData,
+					};
+				})
+				.filter(Boolean);
+			this._alignmentForDomainCache[domainId] = result;
+			return result;
+		},
+
+		computeUseCasesForStandard(standardId) {
+			if (this._useCasesForStandardCache[standardId]) {
+				return this._useCasesForStandardCache[standardId];
+			}
+			const alignment = this.alignmentMatrix.find((a) => a.entryId === standardId);
+			if (!alignment) {
+				this._useCasesForStandardCache[standardId] = [];
+				return [];
+			}
+
+			const standardDomains = new Set();
+			for (const [domainId, data] of Object.entries(alignment.domains)) {
+				if (data.status === 'full' || data.status === 'partial') {
+					standardDomains.add(domainId);
+				}
+			}
+
+			const fromRdf = this.useCasesCedsRdf
+				.filter((uc) =>
+					uc.relatedStandards?.includes(
+						standardId
+							.replace('lrw-competency-framework', 'ler-framework')
+							.replace('case-v1', 'case-framework')
+							.replace('open-badges-v3', 'open-badges')
+							.replace('clr-v2', 'clr'),
+					),
+				)
+				.map((uc) => ({
+					id: uc.id,
+					label: uc.label,
+					icon: uc.icon,
+					description: uc.description,
+				}));
+
+			const fromStore = this.useCases.filter((uc) => {
+				if (!uc.cedsDomains?.length) return false;
+				return uc.cedsDomains.some((d) => standardDomains.has(d));
+			});
+
+			const seen = new Set();
+			const result = [];
+			for (const uc of fromRdf) {
+				if (!seen.has(uc.id)) {
+					seen.add(uc.id);
+					result.push({ ...uc, source: 'rdf' });
+				}
+			}
+			for (const uc of fromStore) {
+				if (!seen.has(uc.id)) {
+					seen.add(uc.id);
+					result.push({ id: uc.id, label: uc.title, source: 'store' });
+				}
+			}
+
+			this._useCasesForStandardCache[standardId] = result;
+			return result;
+		},
+
+		computeAllUseCasesFlat() {
+			if (this._useCasesFlatCache) return this._useCasesFlatCache;
+			const out = this.useCases.map((uc) => {
+				for (const topic of this.useCaseTaxonomy) {
+					for (const driver of topic.children) {
+						if (driver.children.includes(uc.id)) {
+							return {
+								...uc,
+								label: uc.title,
+								categoryId: topic.id,
+								categoryLabel: topic.label,
+								categoryIcon: topic.icon,
+								categoryColor: topic.color,
+								subcategoryId: driver.id,
+								subcategoryLabel: driver.label,
+							};
+						}
+					}
+				}
+				return { ...uc, label: uc.title };
+			});
+			this._useCasesFlatCache = out;
+			return out;
 		},
 
 		// -----------------------------------------------------------------
@@ -440,6 +762,67 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 						: (s.useCaseCategories || []).includes(state.activeFilter.type);
 				return typeMatch && (s.layers || []).includes(state.activeFilter.layer);
 			});
+		},
+
+		// Resolver-derived cheap lookups (absorbed from html/data/resolvers.ts
+		// in Phase E). These are pure indexed reads against the loaded slices.
+		getDomainLabel: (state) => (domainId) => {
+			const d = state.cedsDomains.find((x) => x.id === domainId);
+			return d ? d.label : domainId;
+		},
+		getDomainIcon: (state) => (domainId) => {
+			const d = state.cedsDomains.find((x) => x.id === domainId);
+			return d ? d.icon : '';
+		},
+		getAllDomains: (state) => state.cedsDomains,
+
+		getDriverById: (state) => (driverId) =>
+			state.stakeholderTaxonomy.find((g) => g.id === driverId) || null,
+
+		getStakeholderById: (state) => (stakeholderId) => {
+			for (const group of state.stakeholderTaxonomy) {
+				for (const child of group.children) {
+					if (child.id === stakeholderId) {
+						return { ...child, groupId: group.id, groupLabel: group.label, groupIcon: group.icon };
+					}
+				}
+			}
+			return null;
+		},
+
+		getUseCasesForDriver: (state) => (driverId) => {
+			const group = state.stakeholderTaxonomy.find((g) => g.id === driverId);
+			if (!group) return [];
+			const stakeholderIds = group.children.map((c) => c.id);
+			return state.useCasesCedsRdf.filter((uc) =>
+				uc.stakeholders.some((s) => stakeholderIds.includes(s)),
+			);
+		},
+
+		// Taxonomy-enriched use-case lookup. Replaces resolvers.getUseCaseById.
+		useCaseByIdEnriched() {
+			return (useCaseId) => {
+				const uc = this.useCaseById(useCaseId);
+				if (!uc) return null;
+				for (const topic of this.useCaseTaxonomy) {
+					for (const driver of topic.children) {
+						if (driver.children.includes(uc.id)) {
+							return {
+								...uc,
+								label: uc.title,
+								categoryId: topic.id,
+								categoryLabel: topic.label,
+								categoryIcon: topic.icon,
+								categoryColor: topic.color,
+								subcategoryId: driver.id,
+								subcategoryLabel: driver.label,
+								cedsDomains: uc.cedsDomains || [],
+							};
+						}
+					}
+				}
+				return { ...uc, label: uc.title, cedsDomains: uc.cedsDomains || [] };
+			};
 		},
 	},
 });

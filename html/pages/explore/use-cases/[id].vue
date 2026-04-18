@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted } from 'vue';
-import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
@@ -48,7 +47,8 @@ const useCase = computed(() => {
 	};
 });
 
-const standards = computed(() => getStandardsForUseCase(ucId));
+const standards = computed(() => knowledgeStore.computeStandardsForUseCase(ucId));
+const getDomainLabel = (id) => knowledgeStore.getDomainLabel(id);
 
 // Sibling stories in same driver/subcategory
 const siblingStories = computed(() => {
