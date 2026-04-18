@@ -1,9 +1,16 @@
 <script setup>
+import { onMounted } from 'vue';
 import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
 import { useUseCaseStore } from '@/stores/useCaseStore';
 import { useUserDataStore } from '@/stores/userDataStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { marked } from 'marked';
+
+// Hydrate dossiers so resolvers (getStandardsForUseCase, etc.) return data.
+onMounted(() => {
+	useKnowledgeStore().loadDossiers();
+});
 
 marked.setOptions({ breaks: true, gfm: true });
 

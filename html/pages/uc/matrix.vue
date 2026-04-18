@@ -6,9 +6,14 @@
 
 definePageMeta({ middleware: 'auth' });
 
-import { useEdMatrixStore } from '@/stores/edMatrixStore';
+import { onMounted } from 'vue';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 
-const matrixStore = useEdMatrixStore();
+const matrixStore = useKnowledgeStore();
+
+onMounted(() => {
+	matrixStore.loadStandards();
+});
 
 const activeTab = 'matrix';
 </script>
@@ -17,7 +22,7 @@ const activeTab = 'matrix';
 	<div>
 			<SubPageNav
 				:model-value="activeTab"
-				:tabs="[{ label: 'Standards Matrix', value: 'matrix', to: '/uc/matrix' }]"
+				:tabs="[{ label: 'Standards', value: 'matrix', to: '/uc/matrix' }]"
 			/>
 
 			<v-container fluid class="pa-6 pa-md-8">
@@ -34,7 +39,7 @@ const activeTab = 'matrix';
 						</svg>
 					</div>
 					<div>
-						<h1 class="text-h4 font-weight-bold" style="color: rgb(7, 42, 108); letter-spacing: -0.5px">EduCore EdMatrix</h1>
+						<h1 class="text-h4 font-weight-bold" style="color: rgb(7, 42, 108); letter-spacing: -0.5px">Educore Standards</h1>
 						<p class="text-subtitle-1 text-grey-darken-1 mt-1">Interactive Directory of Learning Data and Content Standards</p>
 					</div>
 				</div>

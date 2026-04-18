@@ -1,7 +1,7 @@
 // resolvers.ts — Cross-data-source join functions for the EDU Reference Library.
 // These read spec/use-case data from Pinia stores and join with CEDS alignment data.
 
-import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { useUseCaseStore } from '@/stores/useCaseStore';
 import { cedsAlignmentMatrix, cedsDomains } from './ceds-alignment';
 import { stakeholderTaxonomy, useCasesCedsRdf } from './taxonomies';
@@ -48,15 +48,15 @@ export function getDomainIcon(domainId: string): string {
 // ─── Standard lookups (from store) ──────────────────────────────────────────
 
 export function getStandardById(standardId: string) {
-  return useSpecificationMetadataStore().specById(standardId) || null;
+  return useKnowledgeStore().specById(standardId) || null;
 }
 
 export function getAllStandards() {
-  return useSpecificationMetadataStore().specs;
+  return useKnowledgeStore().specs;
 }
 
 export function getStandardsByCategory() {
-  return useSpecificationMetadataStore().specsByCategory;
+  return useKnowledgeStore().specsByCategory;
 }
 
 // ─── Standards scored for a use case ────────────────────────────────────────
@@ -74,7 +74,7 @@ export function getStandardsForDomains(domainIds: string[]): ScoredStandard[] {
 }
 
 function scoreStandardsByDomains(relevantDomains: Set<string>): ScoredStandard[] {
-  const specStore = useSpecificationMetadataStore();
+  const specStore = useKnowledgeStore();
   const scored: ScoredStandard[] = [];
 
   for (const entry of specStore.specs) {
@@ -320,7 +320,7 @@ export function getObjectDetail(standardId: string, objectId: string) {
   });
 
   // Find other standards that also reference this element
-  const specStore = useSpecificationMetadataStore();
+  const specStore = useKnowledgeStore();
   const otherStandards: Array<{ standardId: string; standardName: string; domain: string; status: string }> = [];
   for (const a of cedsAlignmentMatrix) {
     if (a.entryId === standardId) continue;
@@ -354,7 +354,7 @@ export function getAllDomains() {
 }
 
 export function getAlignmentForDomain(domainId: string) {
-  const specStore = useSpecificationMetadataStore();
+  const specStore = useKnowledgeStore();
   return cedsAlignmentMatrix.map(a => {
     const domainData = (a.domains as Record<string, { status: string; cedsElements: string[]; notes: string; gapNotes: string | null }>)[domainId];
     if (!domainData) return null;
