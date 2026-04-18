@@ -9,13 +9,14 @@
 definePageMeta({ middleware: 'auth' });
 
 import { useUserDataStore } from '@/stores/userDataStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { personas } from '@/data/personas';
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 const userDataStore = useUserDataStore();
+const knowledgeStore = useKnowledgeStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -39,7 +40,7 @@ const pendingPersona = ref(route.query.persona || '');
 // Watch for WebSocket connection, then auto-send
 watch(() => graphStore.connected, (connected) => {
 	if (connected && pendingPrompt.value) {
-		const personaInfo = personas.find((p) => p.id === pendingPersona.value);
+		const personaInfo = knowledgeStore.personaById(pendingPersona.value);
 		const personaPrefix = personaInfo
 			? `[PERSONA: ${personaInfo.title} — ${personaInfo.description}]\n\n`
 			: '';
