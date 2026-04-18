@@ -18,12 +18,10 @@ import axios from 'axios';
 import { useUserDataStore } from '@/stores/userDataStore';
 import { useCaseTaxonomy as staticUseCaseTaxonomy, useCaseList as staticUseCaseList } from '@/stores/_useCaseData';
 
-// Phase E: fold resolvers.ts into the store. The ambient data files are still
-// imported from html/data/ for this phase; Phase F replaces them with live API
-// loads (loadAlignment, loadTaxonomies) seeded from SQLite.
-import { cedsDomains as staticCedsDomains, cedsAlignmentMatrix as staticAlignmentMatrix } from '@/data/ceds-alignment';
-import { stakeholderTaxonomy as staticStakeholderTaxonomy, useCasesCedsRdf as staticUseCasesCedsRdf } from '@/data/taxonomies';
-import { fieldMappings as staticFieldMappings } from '@/data/field-mappings';
+// Phase F: the ambient ts files (ceds-alignment, taxonomies, field-mappings)
+// were migrated to SQLite and served by /api/standards/alignment,
+// /api/taxonomies, /api/fieldMappings. The store hydrates them on demand via
+// the load* actions defined below.
 
 // -------------------------------------------------------------------------
 // Static constants co-located with the store (exposed via the rubricDefinition
@@ -155,17 +153,22 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			{ id: 'standards-body', title: 'Standards Body', description: 'I work on education data standards, governance, or alignment', icon: 'mdi-gavel' },
 		],
 
-		// Resolver slices (absorbed from html/data/resolvers.ts in Phase E).
-		// These slices hold the ambient data used by the cross-slice join
-		// computations. In Phase E they are seeded from the ts files; in Phase F
-		// they move to API-backed loads with invalidation semantics.
-		cedsDomains: staticCedsDomains,
-		alignmentMatrix: staticAlignmentMatrix,
-		stakeholderTaxonomy: staticStakeholderTaxonomy,
-		useCasesCedsRdf: staticUseCasesCedsRdf,
-		fieldMappings: staticFieldMappings,
-		alignmentLoaded: true,
-		taxonomiesLoaded: true,
+		// Resolver-derived slices. These hold the cross-slice join inputs.
+		// Phase F moved the data into SQLite; slices start empty and hydrate
+		// via loadAlignment / loadTaxonomies / loadFieldMappings. Consumers
+		// must call them in onMounted.
+		cedsDomains: [],
+		alignmentMatrix: [],
+		stakeholderTaxonomy: [],
+		useCasesCedsRdf: [],
+		fieldMappings: [],
+		specLabels: {},
+		alignmentLoading: false,
+		alignmentLoaded: false,
+		taxonomiesLoading: false,
+		taxonomiesLoaded: false,
+		fieldMappingsLoading: false,
+		fieldMappingsLoaded: false,
 
 		// Compute-action caches (Phase E). Each expensive join caches its
 		// result by a stringified input key. Cleared whenever an upstream
@@ -337,13 +340,80 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			this._invalidateComputeCaches();
 		},
 
+		async loadAlignment({ force = false } = {}) {
+			if (this.alignmentLoaded && !force) return true;
+			this.alignmentLoading = true;
+			try {
+				const response = await axios.get('/api/standards/alignment', {
+					headers: this._authHeaders(),
+				});
+				const payload = response.data?.[0] || {};
+				this.cedsDomains = payload.cedsDomains || [];
+				this.alignmentMatrix = payload.alignmentMatrix || [];
+				this.alignmentLoaded = true;
+				this._invalidateComputeCaches();
+				return true;
+			} catch (err) {
+				this.statusMsg = err?.response?.data || err?.message || 'Failed to load alignment';
+				return false;
+			} finally {
+				this.alignmentLoading = false;
+			}
+		},
+
+		async loadTaxonomies({ force = false } = {}) {
+			if (this.taxonomiesLoaded && !force) return true;
+			this.taxonomiesLoading = true;
+			try {
+				const response = await axios.get('/api/taxonomies', {
+					headers: this._authHeaders(),
+				});
+				const payload = response.data?.[0] || {};
+				this.stakeholderTaxonomy = payload.stakeholderTaxonomy || [];
+				this.useCasesCedsRdf = payload.useCasesCedsRdf || [];
+				this.taxonomiesLoaded = true;
+				this._invalidateComputeCaches();
+				return true;
+			} catch (err) {
+				this.statusMsg = err?.response?.data || err?.message || 'Failed to load taxonomies';
+				return false;
+			} finally {
+				this.taxonomiesLoading = false;
+			}
+		},
+
+		async loadFieldMappings({ force = false } = {}) {
+			if (this.fieldMappingsLoaded && !force) return true;
+			this.fieldMappingsLoading = true;
+			try {
+				const response = await axios.get('/api/fieldMappings', {
+					headers: this._authHeaders(),
+				});
+				const payload = response.data?.[0] || {};
+				this.fieldMappings = payload.fieldMappings || [];
+				this.specLabels = payload.specLabels || {};
+				this.fieldMappingsLoaded = true;
+				this._invalidateComputeCaches();
+				return true;
+			} catch (err) {
+				this.statusMsg = err?.response?.data || err?.message || 'Failed to load field mappings';
+				return false;
+			} finally {
+				this.fieldMappingsLoading = false;
+			}
+		},
+
 		async loadEverything() {
 			const results = await Promise.allSettled([
 				this.loadStandards(),
 				this.loadDossiers(),
+				this.loadAlignment(),
+				this.loadTaxonomies(),
+				this.loadFieldMappings(),
 			]);
+			const labels = ['standards', 'dossiers', 'alignment', 'taxonomies', 'fieldMappings'];
 			const failed = results
-				.map((r, i) => (r.status === 'rejected' ? ['standards', 'dossiers'][i] : null))
+				.map((r, i) => (r.status === 'rejected' ? labels[i] : null))
 				.filter(Boolean);
 			if (failed.length) this.statusMsg = `Failed slices: ${failed.join(', ')}`;
 		},

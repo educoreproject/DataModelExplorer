@@ -5,11 +5,14 @@ import { useUserDataStore } from '@/stores/userDataStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { marked } from 'marked';
 
-// Hydrate dossiers so resolvers (getStandardsForUseCase, etc.) return data.
+// Hydrate the slices the store's compute actions need before they run.
 onMounted(() => {
 	const ks = useKnowledgeStore();
 	ks.loadDossiers();
 	ks.loadUseCases();
+	ks.loadAlignment();
+	ks.loadTaxonomies();
+	ks.loadFieldMappings();
 });
 
 marked.setOptions({ breaks: true, gfm: true });
