@@ -181,6 +181,26 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 		_useCasesForStandardCache: {},
 		_useCasesFlatCache: null,
 
+		// Lookup tree browser (absorbed from lookupStore in Phase G).
+		// Drives /dm/lookup — breadcrumbs, current children list, leaf detail,
+		// and AI search overlay. Transient per page visit.
+		lookupPath: [],
+		lookupChildren: [],
+		lookupLeafDetail: null,
+		lookupLoading: false,
+		lookupAiMode: false,
+		lookupAiQuery: '',
+		lookupAiResults: [],
+
+		// CEDS ontology query engine (absorbed from cedsOntologyStore in Phase G).
+		// Drives /ontology — action dropdown, argument inputs, output panel.
+		ontologyOutput: '',
+		ontologyAction: 'lookup',
+		ontologyLoading: false,
+		ontologyClassSuggestions: [],
+		ontologyOptionSetSuggestions: [],
+		ontologyPropertySuggestions: [],
+
 		// Matrix UI state (absorbed from edMatrixStore)
 		viewMode: 'dataCategory',
 		activeFilter: { type: null, layer: null },
@@ -722,6 +742,292 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			}
 			return this.countMatches(rowLabel, layer) > 0 ? 'has-data' : 'empty-cell';
 		},
+
+		// -----------------------------------------------------------------
+		// Lookup tree actions (absorbed from lookupStore in Phase G). Backs
+		// /dm/lookup and the LookupBrowser component. The breadcrumb path +
+		// children + leafDetail live in state here; the browser component
+		// reads them reactively and pushes its own click handlers through
+		// these actions.
+
+		async fetchLookupChildren({ model, nodeId, level }) {
+			this.lookupLoading = true;
+			this.lookupLeafDetail = null;
+			this.statusMsg = '';
+
+			if (level === 'standards') {
+				model = 'standards';
+			}
+
+			if (model === 'standards') {
+				this.lookupChildren = [
+					{ id: 'sif', label: 'SIF', nodeType: 'standard', hasChildren: true, childCount: 0 },
+					{ id: 'ceds', label: 'CEDS v14', nodeType: 'standard', hasChildren: true, childCount: 0 },
+					{ id: 'ai', label: 'AI Search', nodeType: 'ai', hasChildren: true, childCount: 0 },
+				];
+				this.lookupLoading = false;
+				return true;
+			}
+
+			const params = {};
+			if (model) params.model = model;
+			if (nodeId) params.nodeId = nodeId;
+
+			try {
+				const response = await axios.get('/api/lookupNodes', {
+					params,
+					headers: this._authHeaders(),
+				});
+
+				if (response.data.length === 1 && response.data[0].isDetail) {
+					this.lookupLeafDetail = response.data[0];
+					return true;
+				}
+
+				this.lookupChildren = response.data;
+				return true;
+			} catch (error) {
+				this.statusMsg = error?.response?.data || error?.message || 'Failed to load data';
+				this.lookupChildren = [];
+				return false;
+			} finally {
+				this.lookupLoading = false;
+			}
+		},
+
+		async fetchLookupLeafDetail({ nodeId }) {
+			this.lookupLoading = true;
+			this.statusMsg = '';
+			try {
+				const response = await axios.get('/api/lookupNodes', {
+					params: { nodeId },
+					headers: this._authHeaders(),
+				});
+				this.lookupLeafDetail = response.data[0] || null;
+				if (!this.lookupLeafDetail) {
+					this.statusMsg = 'No matching element found in the graph. The AI may have suggested a non-existent element.';
+					this.lookupPath.pop();
+				}
+				return !!this.lookupLeafDetail;
+			} catch (error) {
+				this.statusMsg = error?.response?.data || error?.message || 'Failed to load detail';
+				this.lookupLeafDetail = null;
+				return false;
+			} finally {
+				this.lookupLoading = false;
+			}
+		},
+
+		lookupNavigateTo(pathIndex) {
+			if (pathIndex < 0) {
+				this.lookupPath = [];
+				this.lookupChildren = [];
+				this.lookupLeafDetail = null;
+				this.lookupAiMode = false;
+				this.lookupAiQuery = '';
+				this.fetchLookupChildren({ model: 'standards' });
+				return;
+			}
+
+			this.lookupPath = this.lookupPath.slice(0, pathIndex + 1);
+			const current = this.lookupPath[pathIndex];
+
+			if (current.level === 'standards') {
+				this.fetchLookupChildren({ model: 'standards' });
+			} else if (current.level === 'topLevel') {
+				this.fetchLookupChildren({ model: current.standard });
+			} else {
+				this.fetchLookupChildren({ nodeId: current.nodeId });
+			}
+		},
+
+		lookupSelectItem(item) {
+			const itemKey = item.path || item.id;
+			if (this.lookupPath.some((seg) => (seg.nodeId || seg.id) === itemKey && seg.nodeType === item.nodeType)) {
+				return;
+			}
+
+			const currentStandard = this.lookupPath.length > 0
+				? this.lookupPath[this.lookupPath.length - 1].standard || item.standard || item.id
+				: null;
+
+			if (this.lookupPath.length === 0) {
+				if (item.id === 'ai') {
+					this.lookupEnterAiMode();
+					return;
+				}
+				this.lookupPath.push({
+					id: item.id,
+					label: item.label,
+					level: 'topLevel',
+					standard: item.id,
+					nodeType: item.nodeType,
+				});
+				this.fetchLookupChildren({ model: item.id });
+				return;
+			}
+
+			if (!item.hasChildren) {
+				this.lookupPath.push({
+					id: item.id,
+					label: item.label,
+					level: 'detail',
+					standard: currentStandard,
+					nodeType: item.nodeType,
+					nodeId: item.path || item.id,
+				});
+				this.fetchLookupLeafDetail({ nodeId: item.path || item.id });
+				return;
+			}
+
+			this.lookupPath.push({
+				id: item.id,
+				label: item.label,
+				level: 'children',
+				standard: currentStandard,
+				nodeType: item.nodeType,
+				nodeId: item.path || item.id,
+			});
+			this.fetchLookupChildren({ nodeId: item.path || item.id });
+		},
+
+		lookupEnterAiMode() {
+			this.lookupPath = [{ id: 'ai', label: 'AI Search', level: 'ai', standard: null, nodeType: 'ai' }];
+			this.lookupChildren = [];
+			this.lookupLeafDetail = null;
+			this.lookupAiMode = true;
+			this.lookupAiQuery = '';
+		},
+
+		async lookupAiSearch(query) {
+			if (!query.trim()) return;
+			this.lookupLoading = true;
+			this.statusMsg = '';
+			this.lookupAiQuery = query;
+			try {
+				const response = await axios.get('/api/lookupNodes', {
+					params: { model: 'ai', query },
+					headers: this._authHeaders(),
+				});
+				this.lookupChildren = response.data;
+				this.lookupAiResults = response.data;
+				return true;
+			} catch (error) {
+				this.statusMsg = error?.response?.data || error?.message || 'AI search failed';
+				this.lookupChildren = [];
+				return false;
+			} finally {
+				this.lookupLoading = false;
+			}
+		},
+
+		lookupReset() {
+			this.lookupPath = [];
+			this.lookupChildren = [];
+			this.lookupLeafDetail = null;
+			this.statusMsg = '';
+			this.lookupAiMode = false;
+			this.lookupAiQuery = '';
+			this.lookupAiResults = [];
+			this.fetchLookupChildren({ model: 'standards' });
+		},
+
+		// -----------------------------------------------------------------
+		// CEDS ontology actions (absorbed from cedsOntologyStore in Phase G).
+		// Backs /ontology. Sends action/args/options to /api/cedsOntology
+		// and puts the text output in ontologyOutput.
+
+		async runOntologyAction(action, args, options) {
+			this.ontologyLoading = true;
+			this.statusMsg = '';
+			try {
+				const response = await axios.post(
+					'/api/cedsOntology',
+					{
+						action,
+						args: args || [],
+						options: options || {},
+					},
+					{
+						headers: {
+							'Content-Type': 'application/json',
+							...this._authHeaders(),
+						},
+					},
+				);
+				const resultData = response.data;
+				if (Array.isArray(resultData) && resultData.length > 0) {
+					this.ontologyOutput = resultData[0].output || '';
+				} else {
+					this.ontologyOutput = '';
+				}
+				return true;
+			} catch (error) {
+				if (error.response?.data) {
+					this.statusMsg = typeof error.response.data === 'string'
+						? error.response.data
+						: JSON.stringify(error.response.data);
+				} else {
+					this.statusMsg = error?.message || 'Failed to run ontology query';
+				}
+				this.ontologyOutput = '';
+				return false;
+			} finally {
+				this.ontologyLoading = false;
+			}
+		},
+
+		async fetchOntologySuggestions(action) {
+			const actionSuggestionMap = {
+				explore: 'listClasses',
+				optionSet: 'listOptionSets',
+				property: 'listProperties',
+				path: 'listClasses',
+				compare: 'listClasses',
+				dataSpec: 'listClasses',
+			};
+			const listAction = actionSuggestionMap[action];
+			if (!listAction) return;
+
+			const cacheMap = {
+				listClasses: 'ontologyClassSuggestions',
+				listOptionSets: 'ontologyOptionSetSuggestions',
+				listProperties: 'ontologyPropertySuggestions',
+			};
+			const cacheKey = cacheMap[listAction];
+			if (!cacheKey) return;
+			if (this[cacheKey].length > 0) return;
+
+			try {
+				const response = await axios.post(
+					'/api/cedsOntology',
+					{ action: listAction, args: [], options: {} },
+					{
+						headers: {
+							'Content-Type': 'application/json',
+							...this._authHeaders(),
+						},
+					},
+				);
+				const resultData = response.data;
+				if (Array.isArray(resultData) && resultData.length > 0) {
+					const outputString = resultData[0].output || '[]';
+					const items = JSON.parse(outputString);
+					this[cacheKey] = items.map((i) => i.label);
+				}
+			} catch (error) {
+				console.warn(`Failed to fetch suggestions for ${listAction}:`, error.message);
+			}
+		},
+
+		async fetchOntologyHelp() {
+			return await this.runOntologyAction('help', []);
+		},
+
+		clearOntologyOutput() {
+			this.ontologyOutput = '';
+			this.statusMsg = '';
+		},
 	},
 
 	getters: {
@@ -867,6 +1173,40 @@ export const useKnowledgeStore = defineStore('knowledgeStore', {
 			return state.useCasesCedsRdf.filter((uc) =>
 				uc.stakeholders.some((s) => stakeholderIds.includes(s)),
 			);
+		},
+
+		// Lookup-tree getters (absorbed from lookupStore).
+		isAtLookupRoot: (state) => state.lookupPath.length === 0,
+		currentLookupStandard: (state) => {
+			if (state.lookupPath.length === 0) return null;
+			return state.lookupPath[0].standard || null;
+		},
+		isShowingLookupDetail: (state) => state.lookupLeafDetail !== null,
+
+		// Ontology getters (absorbed from cedsOntologyStore). currentOntology*
+		// track the selected action so the lookup-tab autocomplete knows which
+		// suggestion list to bind.
+		currentOntologySuggestions: (state) => {
+			const map = {
+				explore: state.ontologyClassSuggestions,
+				optionSet: state.ontologyOptionSetSuggestions,
+				property: state.ontologyPropertySuggestions,
+				path: state.ontologyClassSuggestions,
+				compare: state.ontologyClassSuggestions,
+				dataSpec: state.ontologyClassSuggestions,
+			};
+			return map[state.ontologyAction] || [];
+		},
+		hasOntologySuggestions: (state) => {
+			const actionSuggestionMap = {
+				explore: 'listClasses',
+				optionSet: 'listOptionSets',
+				property: 'listProperties',
+				path: 'listClasses',
+				compare: 'listClasses',
+				dataSpec: 'listClasses',
+			};
+			return !!actionSuggestionMap[state.ontologyAction];
 		},
 
 		// Taxonomy-enriched use-case lookup. Replaces resolvers.getUseCaseById.
