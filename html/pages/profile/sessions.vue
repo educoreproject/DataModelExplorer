@@ -2,12 +2,12 @@
 definePageMeta({ middleware: 'auth' });
 
 import { ref, onMounted } from 'vue';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
-const sessionStore = useSessionStore();
+const userDataStore = useUserDataStore();
 
 onMounted(() => {
-	sessionStore.fetchSessions();
+	userDataStore.fetchSavedConversations();
 });
 
 // Delete confirmation
@@ -21,7 +21,7 @@ const promptDelete = (session) => {
 
 const confirmDelete = async () => {
 	if (sessionToDelete.value) {
-		await sessionStore.deleteSession(sessionToDelete.value.refId);
+		await userDataStore.deleteSavedConversation(sessionToDelete.value.refId);
 	}
 	confirmDeleteDialog.value = false;
 	sessionToDelete.value = null;
@@ -56,15 +56,15 @@ const formatDate = (dateStr) => {
 				<v-sheet class="mx-auto pa-6" max-width="700" :elevation="2" rounded="lg">
 					<h2 class="text-h6 mb-4">Saved Explorer Sessions</h2>
 
-					<v-progress-linear v-if="sessionStore.loading" indeterminate class="mb-4" />
+					<v-progress-linear v-if="userDataStore.savedConversationsLoading" indeterminate class="mb-4" />
 
-					<v-alert v-if="sessionStore.statusMsg" type="error" density="compact" class="mb-4" closable @click:close="sessionStore.statusMsg = ''">
-						{{ sessionStore.statusMsg }}
+					<v-alert v-if="userDataStore.savedConversationsStatusMsg" type="error" density="compact" class="mb-4" closable @click:close="userDataStore.savedConversationsStatusMsg = ''">
+						{{ userDataStore.savedConversationsStatusMsg }}
 					</v-alert>
 
-					<v-list v-if="sessionStore.sessions.length > 0" lines="two">
+					<v-list v-if="userDataStore.savedConversations.length > 0" lines="two">
 						<v-list-item
-							v-for="session in sessionStore.sessions"
+							v-for="session in userDataStore.savedConversations"
 							:key="session.refId"
 						>
 							<v-list-item-title>{{ session.sessionName || 'Untitled Session' }}</v-list-item-title>
@@ -85,7 +85,7 @@ const formatDate = (dateStr) => {
 						</v-list-item>
 					</v-list>
 
-					<div v-else-if="!sessionStore.loading" class="text-center pa-8 text-medium-emphasis">
+					<div v-else-if="!userDataStore.savedConversationsLoading" class="text-center pa-8 text-medium-emphasis">
 						No saved sessions yet. Use the Data Model Explorer to create sessions — they save automatically.
 					</div>
 				</v-sheet>

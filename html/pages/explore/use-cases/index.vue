@@ -1,18 +1,18 @@
 <script setup>
 import { useUseCaseStore } from '@/stores/useCaseStore';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 const ucStore = useUseCaseStore();
-const loginStore = useLoginStore();
+const userDataStore = useUserDataStore();
 
 const route = useRoute();
 
 const userRoles = computed(() =>
-	(loginStore.loggedInUser?.role || '').split(',').map((r) => r.trim()).filter(Boolean)
+	(userDataStore.loggedInUser?.role || '').split(',').map((r) => r.trim()).filter(Boolean)
 );
 const canEditUseCases = computed(() =>
 	userRoles.value.includes('admin') || userRoles.value.includes('super')
 );
-const showUseCaseButton = computed(() => loginStore.validUser);
+const showUseCaseButton = computed(() => userDataStore.validUser);
 const useCaseButtonLabel = computed(() => (canEditUseCases.value ? 'View / Edit' : 'View All'));
 const useCaseButtonIcon = computed(() => (canEditUseCases.value ? 'mdi-pencil' : 'mdi-eye-outline'));
 

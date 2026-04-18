@@ -1,20 +1,20 @@
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 export default defineNuxtPlugin((nuxtApp) => {
 	const router = useRouter();
 
 	router.afterEach((to) => {
-		const loginStore = useLoginStore();
-		if (!loginStore.validUser) return;
+		const userDataStore = useUserDataStore();
+		if (!userDataStore.validUser) return;
 
 		axios.post('/api/pageActivity', {
 			pagePath: to.fullPath,
-			userRefId: loginStore.loggedInUser.refId,
+			userRefId: userDataStore.loggedInUser.refId,
 		}, {
 			headers: {
 				'Content-Type': 'application/json',
-				...loginStore.getAuthTokenProperty,
+				...userDataStore.getAuthTokenProperty,
 			},
 		}).catch(() => {});
 	});

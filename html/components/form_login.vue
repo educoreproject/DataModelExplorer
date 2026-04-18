@@ -1,8 +1,8 @@
 <script setup>
 	// @concept: [[JwtTokenManagement]]
 	// @concept: [[ReactiveFormValidation]]
-	import { useLoginStore } from '@/stores/loginStore';
-	const LoginStore = useLoginStore();
+	import { useUserDataStore } from '@/stores/userDataStore';
+	const userDataStore = useUserDataStore();
 	const { gitCommitHash } = useRuntimeConfig().public;
 
 	const router = useRouter();
@@ -27,18 +27,18 @@
 	];
 
 	const submitButton = async () => {
-		LoginStore.loggedInUser.username = username.value;
-		LoginStore.loggedInUser.password = password.value;
+		userDataStore.loggedInUser.username = username.value;
+		userDataStore.loggedInUser.password = password.value;
 
-		const tmp = await LoginStore.login()
+		const tmp = await userDataStore.login()
 			.then((validLogin) => {
-				if (LoginStore.validUser) {
+				if (userDataStore.validUser) {
 					const redirect = route.query.redirect || '/';
 					router.push(redirect);
 				}
 			})
 			.catch((err) => {
-				LoginStore.statusMsg = err.toString();
+				userDataStore.statusMsg = err.toString();
 			});
 	};
 </script>
@@ -53,12 +53,12 @@
 				rounded="lg"
 			>
 				<v-alert
-					v-if="LoginStore.statusMsg"
+					v-if="userDataStore.statusMsg"
 					type="error"
 					density="compact"
 					class="mb-4"
 				>
-					{{ LoginStore.statusMsg }}
+					{{ userDataStore.statusMsg }}
 				</v-alert>
 				<v-form fast-fail @submit.prevent>
 					<v-text-field

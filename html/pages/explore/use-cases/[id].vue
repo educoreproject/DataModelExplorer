@@ -1,14 +1,14 @@
 <script setup>
 import { getStandardsForUseCase, getDomainLabel, getDomainIcon } from '@/data/resolvers';
 import { useUseCaseStore } from '@/stores/useCaseStore';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
 
 const ucStore = useUseCaseStore();
-const LoginStore = useLoginStore();
+const userDataStore = useUserDataStore();
 const route = useRoute();
 const ucId = route.params.id;
 
@@ -112,7 +112,7 @@ const renderedPlan = computed(() => {
 });
 
 function createImplementationPlan() {
-	if (!LoginStore.validUser) {
+	if (!userDataStore.validUser) {
 		navigateTo({ path: '/login', query: { redirect: route.fullPath } });
 		return;
 	}
@@ -140,7 +140,7 @@ function createImplementationPlan() {
 		storeId: 'ucPlanStore',
 		wsPath: '/ws/explorer',
 		defaultPromptName: 'DataModelExplorer',
-		getUserRole: () => LoginStore.loggedInUser.role || null,
+		getUserRole: () => userDataStore.loggedInUser.role || null,
 	});
 	const store = useStore();
 	planStore.value = store;

@@ -2,7 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 // =========================================================================
 // UTILITY STORE — Utilities section state management
@@ -41,9 +41,9 @@ export const useUtilityStore = defineStore('utilityStore', {
 
 		_getHeaders() {
 			const headers = {};
-			const loginStore = useLoginStore();
-			if (loginStore.validUser) {
-				Object.assign(headers, loginStore.getAuthTokenProperty);
+			const userDataStore = useUserDataStore();
+			if (userDataStore.validUser) {
+				Object.assign(headers, userDataStore.getAuthTokenProperty);
 			}
 			return headers;
 		},

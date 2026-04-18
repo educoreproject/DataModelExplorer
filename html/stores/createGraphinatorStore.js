@@ -59,6 +59,7 @@
 //   const graphStore = useGraphStore();
 
 import { defineStore } from 'pinia';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -85,7 +86,6 @@ export function createGraphinatorStore({
 			roleResolved: false, // True once role-based tool filtering has completed
 			_activeSessionRefId: null,
 			_activeSessionName: '',
-			sessionList: [],
 			_saveInFlight: false,
 			settings: {
 				model: defaultModel,
@@ -113,6 +113,13 @@ export function createGraphinatorStore({
 			responseCount: (state) => state.responses.length,
 			displayIndex: (state) => state.currentIndex + 1,
 			isViewingLatest: (state) => state.currentIndex === state.responses.length - 1,
+
+			// Saved conversations live in userDataStore; expose a read-through
+			// getter so existing GraphinatorPanel template references to
+			// graphStore.sessionList keep working.
+			sessionList() {
+				return useUserDataStore().savedConversations;
+			},
 		},
 
 		actions: {
@@ -308,109 +315,55 @@ export function createGraphinatorStore({
 				if (this.currentIndex < this.responses.length - 1) this.currentIndex++;
 			},
 
-			// Auto-save session to server (fire-and-forget)
+			// Auto-save session to server (fire-and-forget).
+			// Delegates persistence to userDataStore; keeps local active-session meta.
 			async _saveSession() {
 				if (this._saveInFlight) return;
 				if (this.responses.length === 0) return;
 
 				this._saveInFlight = true;
 
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					const payload = {
-						sessionData: this.responses,
-					};
-					if (this._activeSessionRefId) {
-						payload.refId = this._activeSessionRefId;
-					}
-
-					const response = await fetch('/api/dmeSessionSave', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							...loginStore.getAuthTokenProperty,
-						},
-						body: JSON.stringify(payload),
-					});
-
-					const result = await response.json();
-					if (result && result[0]) {
-						this._activeSessionRefId = result[0].refId;
-						this._activeSessionName = result[0].sessionName || '';
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session save failed:`, err);
-				} finally {
-					this._saveInFlight = false;
+				const payload = { sessionData: this.responses };
+				if (this._activeSessionRefId) {
+					payload.refId = this._activeSessionRefId;
 				}
+
+				const saved = await useUserDataStore().saveSavedConversation(payload);
+				if (saved) {
+					this._activeSessionRefId = saved.refId;
+					this._activeSessionName = saved.sessionName || '';
+				}
+				this._saveInFlight = false;
 			},
 
-			// List user's sessions
+			// Populate userDataStore.savedConversations (sessionList getter reads from there).
 			async fetchSessionList() {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					const response = await fetch('/api/dmeSessionList', {
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
-
-					this.sessionList = await response.json();
-				} catch (err) {
-					console.error(`[${storeId}] Session list failed:`, err);
-					this.sessionList = [];
-				}
+				await useUserDataStore().fetchSavedConversations();
 			},
 
-			// Load a saved session
+			// Load a saved conversation and apply its data to the local graph panel.
 			async loadSession(refId) {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
+				const session = await useUserDataStore().loadSavedConversation(refId);
+				if (!session) return;
 
-					const response = await fetch(`/api/dmeSessionLoad?refId=${encodeURIComponent(refId)}`, {
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
+				const sessionData = typeof session.sessionData === 'string'
+					? JSON.parse(session.sessionData)
+					: session.sessionData;
 
-					const result = await response.json();
-					if (result && result[0]) {
-						const session = result[0];
-						const sessionData = typeof session.sessionData === 'string'
-							? JSON.parse(session.sessionData)
-							: session.sessionData;
-
-						this.responses = sessionData;
-						this.currentIndex = sessionData.length - 1;
-						this._activeSessionRefId = session.refId;
-						this._activeSessionName = session.sessionName || '';
-						this.settings.newSession = false;
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session load failed:`, err);
-				}
+				this.responses = sessionData;
+				this.currentIndex = sessionData.length - 1;
+				this._activeSessionRefId = session.refId;
+				this._activeSessionName = session.sessionName || '';
+				this.settings.newSession = false;
 			},
 
-			// Delete a session
+			// Delete via userDataStore; clear local active-session meta if it was the active one.
 			async deleteSession(refId) {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					await fetch(`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`, {
-						method: 'DELETE',
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
-
-					await this.fetchSessionList();
-
-					if (this._activeSessionRefId === refId) {
-						this._activeSessionRefId = null;
-						this._activeSessionName = '';
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session delete failed:`, err);
+				const ok = await useUserDataStore().deleteSavedConversation(refId);
+				if (!ok) return;
+				if (this._activeSessionRefId === refId) {
+					this._activeSessionRefId = null;
+					this._activeSessionName = '';
 				}
 			},
 

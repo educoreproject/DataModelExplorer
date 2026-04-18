@@ -5,7 +5,7 @@
 // edits one UseCase aggregate at a time. Dirty state is per-session.
 
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 const API_BASE = '/api/useCaseEditor';
 
@@ -26,7 +26,7 @@ export const useUseCaseEditorStore = defineStore('useCaseEditorStore', {
 	actions: {
 		// ------------------------------------------------------------
 		_auth() {
-			return useLoginStore().getAuthTokenProperty;
+			return useUserDataStore().getAuthTokenProperty;
 		},
 
 		_clearError() {

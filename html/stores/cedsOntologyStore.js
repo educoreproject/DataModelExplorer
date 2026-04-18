@@ -2,7 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 // -------------------------------------------------------------------------
 // Action-to-suggestion list mapping: which list action provides suggestions
@@ -87,7 +87,7 @@ export const useCedsOntologyStore = defineStore('cedsOntologyStore', {
 					{
 						headers: {
 							'Content-Type': 'application/json',
-							...useLoginStore().getAuthTokenProperty,
+							...useUserDataStore().getAuthTokenProperty,
 						},
 					},
 				);
@@ -150,7 +150,7 @@ export const useCedsOntologyStore = defineStore('cedsOntologyStore', {
 					{
 						headers: {
 							'Content-Type': 'application/json',
-							...useLoginStore().getAuthTokenProperty,
+							...useUserDataStore().getAuthTokenProperty,
 						},
 					},
 				);

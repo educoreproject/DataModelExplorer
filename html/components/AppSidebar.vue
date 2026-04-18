@@ -1,8 +1,8 @@
 <script setup>
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 import { useRouter } from 'vue-router';
 
-const LoginStore = useLoginStore();
+const userDataStore = useUserDataStore();
 const router = useRouter();
 
 const props = defineProps({
@@ -12,12 +12,12 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const handleLogout = () => {
-	LoginStore.logout();
+	userDataStore.logout();
 	router.push('/');
 };
 
 const isAdmin = computed(() =>
-	['admin', 'super'].includes(LoginStore.loggedInUser?.role),
+	['admin', 'super'].includes(userDataStore.loggedInUser?.role),
 );
 </script>
 
@@ -81,7 +81,7 @@ const isAdmin = computed(() =>
 		<v-divider />
 
 		<!-- Tools (auth-gated) -->
-		<v-list v-if="LoginStore.validUser" density="compact" nav>
+		<v-list v-if="userDataStore.validUser" density="compact" nav>
 			<v-list-subheader>Tools</v-list-subheader>
 			<v-list-item
 				to="/uc/matrix"
@@ -100,10 +100,10 @@ const isAdmin = computed(() =>
 			/>
 		</v-list>
 
-		<v-divider v-if="LoginStore.validUser" />
+		<v-divider v-if="userDataStore.validUser" />
 
 		<!-- Account (auth-gated) -->
-		<v-list v-if="LoginStore.validUser" density="compact" nav>
+		<v-list v-if="userDataStore.validUser" density="compact" nav>
 			<v-list-subheader>Account</v-list-subheader>
 			<v-list-item
 				to="/profile/edit"
@@ -127,13 +127,13 @@ const isAdmin = computed(() =>
 			<v-divider />
 			<v-list density="compact" nav>
 				<v-list-item
-					v-if="LoginStore.validUser"
+					v-if="userDataStore.validUser"
 					to="/library"
 					prepend-icon="mdi-bookshelf"
 					title="Library"
 				/>
 				<v-list-item
-					v-if="LoginStore.validUser"
+					v-if="userDataStore.validUser"
 					prepend-icon="mdi-logout"
 					title="Logout"
 					@click="handleLogout"

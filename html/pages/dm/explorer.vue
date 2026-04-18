@@ -8,14 +8,14 @@
 
 definePageMeta({ middleware: 'auth' });
 
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
 import { personas } from '@/data/personas';
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
-const LoginStore = useLoginStore();
+const userDataStore = useUserDataStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -26,7 +26,7 @@ const useGraphStore = createGraphinatorStore({
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
-	getUserRole: () => LoginStore.loggedInUser.role || null,
+	getUserRole: () => userDataStore.loggedInUser.role || null,
 });
 const graphStore = useGraphStore();
 
@@ -62,7 +62,7 @@ const generateAiFilename = async (snippet) => {
 		const response = await axios.post(
 			'/api/askmilo-utility',
 			{ prompt, model: 'haiku' },
-			{ headers: { ...LoginStore.getAuthTokenProperty } },
+			{ headers: { ...userDataStore.getAuthTokenProperty } },
 		);
 		return response.data.response;
 	} catch (err) {
@@ -90,7 +90,7 @@ const fallbackPromptOptions = [
 					type="warning"
 					class="mx-4 mt-4"
 				>
-					No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
+					No tools are configured for your role ({{ userDataStore.loggedInUser.role }}). Contact an administrator.
 				</v-alert>
 
 				<GraphinatorPanel

@@ -2,7 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 // =========================================================================
 // LOOKUP STORE — Data Model Explorer tree browser state
@@ -62,7 +62,7 @@ export const useLookupStore = defineStore('lookupStore', {
 				return true;
 			}
 
-			const loginStore = useLoginStore();
+			const userDataStore = useUserDataStore();
 
 			const params = {};
 			if (model) params.model = model;
@@ -72,7 +72,7 @@ export const useLookupStore = defineStore('lookupStore', {
 				const response = await axios.get('/api/lookupNodes', {
 					params,
 					headers: {
-						...loginStore.getAuthTokenProperty,
+						...userDataStore.getAuthTokenProperty,
 					},
 				});
 
@@ -106,13 +106,13 @@ export const useLookupStore = defineStore('lookupStore', {
 			this.loading = true;
 			this.statusMsg = '';
 
-			const loginStore = useLoginStore();
+			const userDataStore = useUserDataStore();
 
 			try {
 				const response = await axios.get('/api/lookupNodes', {
 					params: { nodeId },
 					headers: {
-						...loginStore.getAuthTokenProperty,
+						...userDataStore.getAuthTokenProperty,
 					},
 				});
 
@@ -245,13 +245,13 @@ export const useLookupStore = defineStore('lookupStore', {
 			this.statusMsg = '';
 			this.aiQuery = query;
 
-			const loginStore = useLoginStore();
+			const userDataStore = useUserDataStore();
 
 			try {
 				const response = await axios.get('/api/lookupNodes', {
 					params: { model: 'ai', query },
 					headers: {
-						...loginStore.getAuthTokenProperty,
+						...userDataStore.getAuthTokenProperty,
 					},
 				});
 
