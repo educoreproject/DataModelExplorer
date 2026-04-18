@@ -3,6 +3,52 @@
 // @concept: [[PiniaStorePattern]]
 // createGraphinatorStore.js
 //
+// -------------------------------------------------------------------------
+// Phase 0 decision (liveDataStores branch, 2026-04-17):
+//
+// This top-level file is the AUTHORITATIVE copy. The stale copy at
+// html/layers/graphinator/stores/createGraphinatorStore.js (and the sibling
+// GraphinatorPanel.vue, DownloadButton.vue, buildZip.js, and composables/
+// inside the layer) were deleted along with the layer itself. The
+// `extends: ['./layers/graphinator']` line in html/nuxt.config.ts and the
+// associated `preserveSymlinks: true` vite setting were removed at the same
+// time.
+//
+// Rationale:
+//   - The layer was introduced in commit a644d77 ("Move Graphinator UI into
+//     a self-contained Nuxt layer") to enable sharing with qbookInternal as
+//     a symlinked upstream. That symlink was replaced with real files in
+//     commit fdc11b6, at which point the layer became a duplicate rather
+//     than an upstream.
+//   - After a644d77, both sides were edited independently. Top-level files
+//     were updated in commits 1cae736 ("Fix prompt/message debug leakage,
+//     hostname-driven client config") and 35212f6 ("Fix cid rendering and
+//     panel overflow in Graphinator UI"). The layer copies received no
+//     corresponding updates.
+//   - The only pages that consume the store (`html/pages/dm/explorer.vue`
+//     and `html/pages/explore/use-cases/[id].vue`) import directly from
+//     `@/stores/createGraphinatorStore`, resolving to this top-level file.
+//     GraphinatorPanel is auto-imported; Nuxt resolves top-level over layer.
+//     The layer copies were dead code.
+//
+// WebSocket-host diff between the two copies (this file vs layer):
+//   TOP-LEVEL (this file, authoritative):
+//     const rc = useRuntimeConfig().public;
+//     const wsHost = rc.wsHost || window.location.host;
+//   LAYER (deleted):
+//     const wsHost = import.meta.dev ? `localhost:${devPort}` : window.location.host;
+// The top-level approach is what the hostname-driven deployment profile in
+// nuxt.config.ts is designed around; the layer's import.meta.dev branch was
+// the pre-hostname-profile pattern.
+//
+// GraphinatorPanel.vue diff summary: top-level has the current edu-theme
+// UI (fullscreen toggle, Response/Activity/Visualization labels, teal
+// palette, CSS variables). Layer copy had the older STDOUT/STDERR/CONTROL
+// labels and hardcoded blue palette. See git log html/components/
+// GraphinatorPanel.vue — 35212f6 and 1cae736 are the updates that did not
+// propagate to the layer.
+// -------------------------------------------------------------------------
+//
 // Factory function that creates a Pinia store for the Graphinator panel.
 // Parameterized so each consuming project can configure WS endpoint,
 // dev port, and defaults without duplicating the store code.
