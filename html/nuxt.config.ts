@@ -40,13 +40,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
 
   // Graphinator UI (GraphinatorPanel, DownloadButton, composables, store)
-  // lives directly in the main project under components/, composables/,
-  // and stores/. The self-contained Nuxt layer at layers/graphinator was
-  // removed on the liveDataStores branch (Phase 0, 2026-04-17): its copies
-  // of those files had diverged from the top-level originals and were
-  // unreachable in practice (Nuxt auto-imports resolve top-level over
-  // layer; the consuming pages imported the store via `@/stores/...`
-  // directly). See createGraphinatorStore.js header for full rationale.
+  // lives in its own Nuxt layer. Files there are auto-imported across
+  // components/, composables/, and stores/ directories.
+  extends: ['./layers/graphinator'],
 
   ssr: false, // Disable server-side rendering for an SPA
   target: 'static', // Set target to 'static' for static site generation
@@ -79,6 +75,17 @@ export default defineNuxtConfig({
 
   build: {
     transpile: ['vuetify'],
+  },
+
+  vite: {
+    resolve: {
+      // The layers/graphinator directory is a symlink to qbookInternal's
+      // canonical layer during development. Without preserveSymlinks, Vite
+      // follows the link to qbookInternal's real path and tries to resolve
+      // vue/pinia/marked from that project's node_modules, causing
+      // dual-instance errors.
+      preserveSymlinks: true,
+    },
   },
 
   devServer: {

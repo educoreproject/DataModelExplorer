@@ -9,11 +9,11 @@ import UseCaseSelector from '@/components/UseCaseSelector.vue';
 import UseCaseForm from '@/components/UseCaseForm.vue';
 import UseCaseExplorer from '@/components/UseCaseExplorer.vue';
 import { useUseCaseEditorStore } from '@/stores/useCaseEditorStore';
-import { useUserDataStore } from '@/stores/userDataStore';
+import { useLoginStore } from '@/stores/loginStore';
 
-const userDataStore = useUserDataStore();
+const loginStore = useLoginStore();
 const canEdit = computed(() => {
-	const roles = (userDataStore.loggedInUser?.role || '').split(',').map((r) => r.trim());
+	const roles = (loginStore.loggedInUser?.role || '').split(',').map((r) => r.trim());
 	return roles.includes('admin') || roles.includes('super');
 });
 

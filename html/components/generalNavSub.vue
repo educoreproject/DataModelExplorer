@@ -1,13 +1,13 @@
 <script setup>
-	import { useUserDataStore } from '@/stores/userDataStore';
+	import { useLoginStore } from '@/stores/loginStore';
 	import { computed, ref } from 'vue';
 	import { useRouter } from 'vue-router';
 
-	const userDataStore = useUserDataStore();
+	const LoginStore = useLoginStore();
 	const router = useRouter();
 
 	if (router?.currentRoute.value.query.logout) {
-		userDataStore.logout();
+		LoginStore.logout();
 	}
 
 	// Inline login state
@@ -17,22 +17,22 @@
 
 	const handleLogin = async () => {
 		if (!username.value || !password.value) {
-			userDataStore.statusMsg = 'Please enter username and password';
+			LoginStore.statusMsg = 'Please enter username and password';
 			return;
 		}
 		loggingIn.value = true;
-		userDataStore.loggedInUser.username = username.value;
-		userDataStore.loggedInUser.password = password.value;
+		LoginStore.loggedInUser.username = username.value;
+		LoginStore.loggedInUser.password = password.value;
 		try {
-			await userDataStore.login();
-			if (userDataStore.validUser) {
+			await LoginStore.login();
+			if (LoginStore.validUser) {
 				const redirect = router.currentRoute.value.query.redirect;
 				if (redirect) {
 					router.push(redirect);
 				}
 			}
 		} catch (err) {
-			userDataStore.statusMsg = err.toString();
+			LoginStore.statusMsg = err.toString();
 		} finally {
 			loggingIn.value = false;
 		}
@@ -93,7 +93,7 @@
 
 	<!-- Navigation bar -->
 	<v-app-bar app elevation="0" class="border-bottom border-1"
-		v-if="true || userDataStore.validUser"
+		v-if="true || LoginStore.validUser"
 	>
 		<v-app-bar-title class="titleOrange">
 			<template v-if="isAdminPage">Admin Tools</template>
@@ -103,12 +103,12 @@
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isProfilePage">Profile</template>
 			<template v-else-if="isWorkPage">Work</template>
-			<template v-else-if="userDataStore.validUser">EDUcore Tools</template>
+			<template v-else-if="LoginStore.validUser">EDUcore Tools</template>
 			<template v-else>Welcome to EDUcore</template>
 		</v-app-bar-title>
 
 		<!-- Inline login (when not logged in) -->
-		<template v-if="!userDataStore.validUser">
+		<template v-if="!LoginStore.validUser">
 			<div class="inline-login d-flex align-center ml-auto mr-4">
 				<v-text-field
 					v-model="username"
@@ -143,7 +143,7 @@
 		<!-- Nav buttons (when logged in) -->
 		<template v-else>
 			<v-btn
-				v-if="(userDataStore.loggedInUser.role === 'client') && !isWorkPage"
+				v-if="(LoginStore.loggedInUser.role === 'client') && !isWorkPage"
 				variant="text"
 				prepend-icon="mdi-image"
 				title="Get to Work"
@@ -199,14 +199,14 @@
 				:to="{ path: '/profile/edit' }"
 				:disabled="isProfilePage"
 			>
-				<span v-if="userDataStore.loggedInUser.last">
-					{{ userDataStore.loggedInUser.first }} {{ userDataStore.loggedInUser.last }}
+				<span v-if="LoginStore.loggedInUser.last">
+					{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
 				</span>
-				<span v-else>{{ userDataStore.loggedInUser.username }}</span>
+				<span v-else>{{ LoginStore.loggedInUser.username }}</span>
 			</v-btn>
 
 			<v-btn
-				v-if="!isAdminPage && ['admin', 'super'].includes(userDataStore.loggedInUser.role)"
+				v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
 				variant="text"
 				prepend-icon="mdi-shield-account"
 				title="Admin Tools"
@@ -223,15 +223,15 @@
 
 	<!-- Login error snackbar -->
 	<v-snackbar
-		:model-value="!!userDataStore.statusMsg"
-		@update:model-value="userDataStore.statusMsg = ''"
+		:model-value="!!LoginStore.statusMsg"
+		@update:model-value="LoginStore.statusMsg = ''"
 		:timeout="4000"
 		color="error"
 		location="top"
 	>
-		{{ userDataStore.statusMsg }}
+		{{ LoginStore.statusMsg }}
 		<template v-slot:actions>
-			<v-btn variant="text" @click="userDataStore.statusMsg = ''">Close</v-btn>
+			<v-btn variant="text" @click="LoginStore.statusMsg = ''">Close</v-btn>
 		</template>
 	</v-snackbar>
 </template>

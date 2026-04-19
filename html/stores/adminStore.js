@@ -2,7 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
-import { useUserDataStore } from '@/stores/userDataStore';
+import { useLoginStore } from '@/stores/loginStore';
 
 /**
  * ADMIN STORE: Administrative User Management
@@ -56,7 +56,7 @@ export const useAdminStore = defineStore('adminStore', {
 			this.statusMsg = '';
 
 			try {
-				const userDataStore = useUserDataStore();
+				const loginStore = useLoginStore();
 				
 				// Validate required fields
 				const requiredFields = ['username', 'password', 'first', 'last', 'emailAdr'];
@@ -77,7 +77,7 @@ export const useAdminStore = defineStore('adminStore', {
 				const response = await axios.post('/api/adminCreateUser', userData, {
 					headers: {
 						'Content-Type': 'application/json',
-						...userDataStore.getAuthTokenProperty,
+						...loginStore.getAuthTokenProperty,
 					},
 				});
 
@@ -136,7 +136,7 @@ export const useAdminStore = defineStore('adminStore', {
 			this.statusMsg = '';
 
 			try {
-				const userDataStore = useUserDataStore();
+				const loginStore = useLoginStore();
 				
 				// Validate required fields for update
 				const requiredFields = ['username', 'first', 'last', 'emailAdr'];
@@ -157,7 +157,7 @@ export const useAdminStore = defineStore('adminStore', {
 				const response = await axios.post('/api/adminUpdateUser', userData, {
 					headers: {
 						'Content-Type': 'application/json',
-						...userDataStore.getAuthTokenProperty,
+						...loginStore.getAuthTokenProperty,
 					},
 				});
 
@@ -217,12 +217,12 @@ export const useAdminStore = defineStore('adminStore', {
 			this.statusMsg = '';
 
 			try {
-				const userDataStore = useUserDataStore();
+				const loginStore = useLoginStore();
 				
 				// Get user list from admin endpoint
 				const response = await axios.get('/api/adminListUsers', {
 					headers: {
-						...userDataStore.getAuthTokenProperty,
+						...loginStore.getAuthTokenProperty,
 					},
 				});
 				

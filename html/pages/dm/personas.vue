@@ -1,11 +1,7 @@
 <script setup>
 definePageMeta({ middleware: 'auth' });
 
-import { computed } from 'vue';
-import { useKnowledgeStore } from '@/stores/knowledgeStore';
-
-const knowledgeStore = useKnowledgeStore();
-const personas = computed(() => knowledgeStore.personas);
+import { personas } from '@/data/personas';
 
 const route = useRoute();
 

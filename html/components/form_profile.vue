@@ -1,16 +1,16 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { useUserDataStore } from '@/stores/userDataStore';
-const userDataStore = useUserDataStore();
+import { useLoginStore } from '@/stores/loginStore';
+const LoginStore = useLoginStore();
 
 const router = useRouter();
 
 if (router?.currentRoute.value.query.logout) {
-	userDataStore.logout();
+	LoginStore.logout();
 }
 
-const userEditObject = ref(userDataStore.userDataForEdit);
-userDataStore.statusMsg=''; //clear this in case it was used previously;
+const userEditObject = ref(LoginStore.userDataForEdit);
+LoginStore.statusMsg=''; //clear this in case it was used previously;
 
 // Reactive error messages for each field
 const firstError = ref('');
@@ -139,7 +139,7 @@ const submitButton = () => {
 		isPasswordValid &&
 		isConfirmPasswordValid
 	) {
-		userDataStore.updateUserInfo(userEditObject);
+		LoginStore.updateUserInfo(userEditObject);
 	} else {
 		console.log('Form validation failed.');
 	}
@@ -188,15 +188,15 @@ watch(
 				rounded="lg"
 			>
 
-				<v-alert type="info" class="annotation" v-if="userDataStore.legacy">
+				<v-alert type="info" class="annotation" v-if="LoginStore.legacy">
 					Welcome to the new Enviromatic Work Picture Website.
 					Please confirm your information and click Save.
 					Thank you.
 				</v-alert>
 				 <v-alert
 				 
-				  v-if="userDataStore.statusMsg"
-					:title="userDataStore.statusMsg"
+				  v-if="LoginStore.statusMsg"
+					:title="LoginStore.statusMsg"
 					type="success"
 				  ></v-alert>
 				<v-form fast-fail @submit.prevent>
@@ -330,7 +330,7 @@ watch(
 					</div>
 					<v-btn class="mt-2" @click="submitButton" block>Save</v-btn>
 					<div style="color: #ddd; text-align: center">
-						{{userDataStore.refId}}
+						{{LoginStore.refId}}
 					</div>
 				</v-form>
 			</v-sheet>

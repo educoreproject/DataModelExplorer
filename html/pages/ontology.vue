@@ -1,10 +1,10 @@
 <script setup>
 definePageMeta({ middleware: 'auth' });
 
-import { useKnowledgeStore } from '@/stores/knowledgeStore';
+import { useCedsOntologyStore } from '@/stores/cedsOntologyStore';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 
-const cedsStore = useKnowledgeStore();
+const cedsStore = useCedsOntologyStore();
 
 // -------------------------------------------------------------------------
 // Tab configuration
@@ -110,7 +110,7 @@ const showSecondInput = computed(() => {
 });
 
 const useAutocomplete = computed(() => {
-	return cedsStore.hasOntologySuggestions;
+	return cedsStore.hasSuggestions;
 });
 
 // -------------------------------------------------------------------------
@@ -135,14 +135,14 @@ const useExploreAutocomplete = computed(() => {
 // -------------------------------------------------------------------------
 onMounted(async () => {
 	// Auto-run stats on first visit only — preserve previous results on return
-	if (!cedsStore.ontologyOutput) {
-		cedsStore.ontologyAction = selectedAction.value;
-		cedsStore.runOntologyAction('stats', []);
+	if (!cedsStore.output) {
+		cedsStore.currentAction = selectedAction.value;
+		cedsStore.runAction('stats', []);
 	} else {
 		// Restore the action that produced the current output
 		// Suppress the watcher so it doesn't clear the preserved output
 		restoringState.value = true;
-		selectedAction.value = cedsStore.ontologyAction || 'stats';
+		selectedAction.value = cedsStore.currentAction || 'stats';
 		await nextTick();
 		restoringState.value = false;
 	}
@@ -153,15 +153,15 @@ onMounted(async () => {
 
 watch(selectedAction, (newAction) => {
 	if (restoringState.value) return;
-	cedsStore.clearOntologyOutput();
+	cedsStore.clearOutput();
 	inputText.value = '';
 	inputTextB.value = '';
 
 	// Update the store's currentAction so getters work correctly
-	cedsStore.ontologyAction = newAction;
+	cedsStore.currentAction = newAction;
 
 	// Fetch suggestions for actions that have autocomplete
-	cedsStore.fetchOntologySuggestions(newAction);
+	cedsStore.fetchSuggestions(newAction);
 
 	// Auto-run stats on selection (no input needed)
 	if (newAction === 'stats') {
@@ -171,9 +171,9 @@ watch(selectedAction, (newAction) => {
 
 watch(showHelp, (newVal) => {
 	if (newVal) {
-		cedsStore.fetchOntologyHelp();
+		cedsStore.fetchHelp();
 	} else {
-		cedsStore.clearOntologyOutput();
+		cedsStore.clearOutput();
 	}
 });
 
@@ -181,10 +181,10 @@ watch(showHelp, (newVal) => {
 // EXPLORE TAB: Watchers
 
 watch(selectedExploreAction, (newAction) => {
-	cedsStore.clearOntologyOutput();
+	cedsStore.clearOutput();
 	exploreInput.value = '';
-	cedsStore.ontologyAction = newAction;
-	cedsStore.fetchOntologySuggestions(newAction);
+	cedsStore.currentAction = newAction;
+	cedsStore.fetchSuggestions(newAction);
 	if (newAction === 'shared') {
 		runExploreAction();
 	}
@@ -217,7 +217,7 @@ const runAction = () => {
 		args = [inputText.value.trim()];
 	}
 
-	cedsStore.runOntologyAction(action, args);
+	cedsStore.runAction(action, args);
 };
 
 // Handle autocomplete selection: auto-submit when user picks from dropdown
@@ -253,7 +253,7 @@ const runExploreAction = () => {
 		}
 		args = [exploreInput.value.trim()];
 	}
-	cedsStore.runOntologyAction(action, args);
+	cedsStore.runAction(action, args);
 };
 
 const onExploreAutocompleteSelect = (value) => {
@@ -292,7 +292,7 @@ const onExploreAutocompleteSelect = (value) => {
 						<v-autocomplete
 							v-if="useAutocomplete"
 							v-model="inputText"
-							:items="cedsStore.currentOntologySuggestions"
+							:items="cedsStore.currentSuggestions"
 							:placeholder="placeholderText"
 							variant="outlined"
 							density="compact"
@@ -319,7 +319,7 @@ const onExploreAutocompleteSelect = (value) => {
 						<!-- Path/Compare: second input with class suggestions -->
 						<v-autocomplete
 							v-model="inputTextB"
-							:items="cedsStore.currentOntologySuggestions"
+							:items="cedsStore.currentSuggestions"
 							:placeholder="placeholderTextB"
 							variant="outlined"
 							density="compact"
@@ -356,18 +356,18 @@ const onExploreAutocompleteSelect = (value) => {
 
 				<!-- Loading indicator -->
 				<v-progress-linear
-					v-if="cedsStore.ontologyLoading"
+					v-if="cedsStore.loading"
 					indeterminate
 					color="primary"
 					class="mb-3"
 				/>
 
 				<!-- Output area -->
-				<div v-if="cedsStore.ontologyOutput" class="output-area">
-					<pre>{{ cedsStore.ontologyOutput }}</pre>
+				<div v-if="cedsStore.output" class="output-area">
+					<pre>{{ cedsStore.output }}</pre>
 				</div>
 				<div
-					v-else-if="!cedsStore.ontologyLoading"
+					v-else-if="!cedsStore.loading"
 					class="placeholder-text text-medium-emphasis"
 				>
 					Select an action and enter a search term to explore the CEDS
@@ -396,7 +396,7 @@ const onExploreAutocompleteSelect = (value) => {
 						<v-autocomplete
 							v-if="useExploreAutocomplete"
 							v-model="exploreInput"
-							:items="cedsStore.ontologyClassSuggestions"
+							:items="cedsStore.classSuggestions"
 							:placeholder="explorePlaceholder"
 							variant="outlined"
 							density="compact"
@@ -419,7 +419,7 @@ const onExploreAutocompleteSelect = (value) => {
 						<v-btn
 							color="primary"
 							@click="runExploreAction"
-							:loading="cedsStore.ontologyLoading"
+							:loading="cedsStore.loading"
 							block
 						>
 							Analyze
@@ -441,18 +441,18 @@ const onExploreAutocompleteSelect = (value) => {
 
 				<!-- Loading indicator -->
 				<v-progress-linear
-					v-if="cedsStore.ontologyLoading"
+					v-if="cedsStore.loading"
 					indeterminate
 					color="primary"
 					class="mb-3"
 				/>
 
 				<!-- Output area -->
-				<div v-if="cedsStore.ontologyOutput" class="output-area">
-					<pre>{{ cedsStore.ontologyOutput }}</pre>
+				<div v-if="cedsStore.output" class="output-area">
+					<pre>{{ cedsStore.output }}</pre>
 				</div>
 				<div
-					v-else-if="!cedsStore.ontologyLoading"
+					v-else-if="!cedsStore.loading"
 					class="placeholder-text text-medium-emphasis"
 				>
 					Select an analysis type to explore structural patterns in the CEDS v13 ontology.

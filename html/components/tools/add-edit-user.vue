@@ -3,14 +3,14 @@
 // @concept: [[ReactiveFormValidation]]
 import { ref, computed, watch } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
-import { useUserDataStore } from '@/stores/userDataStore';
+import { useLoginStore } from '@/stores/loginStore';
 import { useRouter } from 'vue-router';
 
 // Import user list component
 import UserList from '@/components/tools/user-list.vue';
 
 const adminStore = useAdminStore();
-const userDataStore = useUserDataStore();
+const loginStore = useLoginStore();
 const router = useRouter();
 
 // Selected user for editing

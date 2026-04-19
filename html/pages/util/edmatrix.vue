@@ -6,10 +6,10 @@
 
 definePageMeta({ middleware: 'auth' });
 
-import { useKnowledgeStore } from '@/stores/knowledgeStore';
-import { ref, computed, onMounted } from 'vue';
+import { useUtilityStore } from '@/stores/utilityStore';
+import { ref, onMounted, watch } from 'vue';
 
-const knowledgeStore = useKnowledgeStore();
+const utilityStore = useUtilityStore();
 
 const activeTab = 'edmatrix';
 
@@ -32,14 +32,13 @@ const expanded = ref([]);
 
 // Data loading
 onMounted(() => {
-	knowledgeStore.loadStandards();
-	knowledgeStore.loadOrganizations();
+	utilityStore.fetchEdmatrixStandards();
+	utilityStore.fetchEdmatrixOrganizations();
 });
 
-// Filter standards client-side by selected org (the full list comes from one fetch).
-const visibleStandards = computed(() => {
-	if (!selectedOrg.value) return knowledgeStore.standards;
-	return knowledgeStore.standards.filter((s) => s.organization === selectedOrg.value);
+// Watch organization filter
+watch(selectedOrg, (newOrg) => {
+	utilityStore.fetchEdmatrixStandards(newOrg || undefined);
 });
 </script>
 
@@ -47,7 +46,7 @@ const visibleStandards = computed(() => {
 	<div>
 			<SubPageNav
 				:model-value="activeTab"
-				:tabs="[{ label: 'Standards', value: 'edmatrix', to: '/util/edmatrix' }]"
+				:tabs="[{ label: 'EdMatrix Report', value: 'edmatrix', to: '/util/edmatrix' }]"
 			/>
 
 			<v-container fluid class="pa-6 pa-md-8">
@@ -62,28 +61,28 @@ const visibleStandards = computed(() => {
 						</svg>
 					</div>
 					<div>
-						<h1 class="text-h5 font-weight-bold" style="color: rgb(7, 42, 108); letter-spacing: -0.3px">Educore Standards</h1>
-						<p class="text-subtitle-2 text-grey-darken-1 mt-1">{{ knowledgeStore.standardCount }} interoperability standards</p>
+						<h1 class="text-h5 font-weight-bold" style="color: rgb(7, 42, 108); letter-spacing: -0.3px">EdMatrix Standards Report</h1>
+						<p class="text-subtitle-2 text-grey-darken-1 mt-1">Database report from the EdMatrix graph — {{ utilityStore.standardCount }} standards</p>
 					</div>
 				</div>
 
 				<!-- Error alert -->
 				<v-alert
-					v-if="knowledgeStore.statusMsg"
+					v-if="utilityStore.statusMsg"
 					type="error"
 					variant="tonal"
 					closable
 					class="mb-4"
-					@click:close="knowledgeStore.statusMsg = ''"
+					@click:close="utilityStore.statusMsg = ''"
 				>
-					{{ knowledgeStore.statusMsg }}
+					{{ utilityStore.statusMsg }}
 				</v-alert>
 
 				<!-- Filter controls -->
 				<div class="d-flex align-center ga-4 mb-4">
 					<v-select
 						v-model="selectedOrg"
-						:items="knowledgeStore.organizationNames"
+						:items="utilityStore.organizationNames"
 						label="Filter by Organization"
 						clearable
 						density="compact"
@@ -95,7 +94,7 @@ const visibleStandards = computed(() => {
 
 				<!-- Loading indicator -->
 				<v-progress-linear
-					v-if="knowledgeStore.standardsLoading"
+					v-if="utilityStore.loading"
 					indeterminate
 					color="primary"
 					class="mb-4"
@@ -105,8 +104,8 @@ const visibleStandards = computed(() => {
 				<v-data-table
 					v-model:expanded="expanded"
 					:headers="headers"
-					:items="visibleStandards"
-					:loading="knowledgeStore.standardsLoading"
+					:items="utilityStore.edmatrixStandards"
+					:loading="utilityStore.loading"
 					item-value="name"
 					show-expand
 					density="comfortable"

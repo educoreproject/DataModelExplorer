@@ -2,7 +2,7 @@
 // Source: https://github.com/fibonacciskills/skills_api_translation/blob/main/field_mapping.csv
 // Extended with Open Badges 3.0 and CLR 2.0 field mappings.
 
-module.exports.specLabels = {
+export const specLabels = {
   'case-1.1': 'CASE 1.1 (1EdTech)',
   'ieee-scd': 'IEEE 1484.20.3 SCD',
   'asn-ctdl': 'ASN / CE CTDL-ASN',
@@ -13,7 +13,7 @@ module.exports.specLabels = {
 
 // Each entry maps a conceptual field across specs.
 // matchStrength: 'equivalent' | 'close' | 'related'
-module.exports.fieldMappings = [
+export const fieldMappings = [
   // ──────────────────────────────────────────────────────────
   // CFDocument / Framework-level fields
   // ──────────────────────────────────────────────────────────

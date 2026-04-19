@@ -1,11 +1,6 @@
 <script setup>
-import { onMounted } from 'vue';
-import { useKnowledgeStore } from '@/stores/knowledgeStore';
-const specStore = useKnowledgeStore();
-
-onMounted(() => {
-	specStore.loadDossiers();
-});
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+const specStore = useSpecificationMetadataStore();
 
 // Group by category
 const categories = computed(() => {

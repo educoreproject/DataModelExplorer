@@ -5,10 +5,10 @@
 // Displays breadcrumbs, item list, and detail view.
 // Navigation is direct — click handlers call store then update display.
 
-import { useKnowledgeStore } from '@/stores/knowledgeStore';
+import { useLookupStore } from '@/stores/lookupStore';
 import { ref, computed, onMounted } from 'vue';
 
-const store = useKnowledgeStore();
+const store = useLookupStore();
 const aiSearchText = ref('');
 const filterText = ref('');
 const filterDescriptions = ref(false);
@@ -16,10 +16,10 @@ const filterDescriptions = ref(false);
 // Fuzzy filter: split query into words, every word must appear somewhere in searchable fields
 const filteredChildren = computed(() => {
 	const raw = (filterText.value || '').trim().toLowerCase();
-	if (!raw) return store.lookupChildren;
+	if (!raw) return store.children;
 
 	const words = raw.split(/\s+/);
-	return store.lookupChildren.filter(item => {
+	return store.children.filter(item => {
 		const fields = [item.label, item.id, item.nodeType, item.standard];
 		if (filterDescriptions.value) fields.push(item.description);
 		const haystack = fields.filter(Boolean).join(' ').toLowerCase();
@@ -29,8 +29,8 @@ const filteredChildren = computed(() => {
 
 // Load root level on mount
 onMounted(() => {
-	if (store.lookupChildren.length === 0 && !store.lookupLoading) {
-		store.fetchLookupChildren({ level: 'standards' });
+	if (store.children.length === 0 && !store.loading) {
+		store.fetchChildren({ level: 'standards' });
 	}
 });
 
@@ -38,32 +38,32 @@ onMounted(() => {
 
 const handleItemClick = (item) => {
 	filterText.value = '';
-	store.lookupSelectItem(item);
+	store.selectItem(item);
 };
 
 const handleBreadcrumbClick = (index) => {
 	filterText.value = '';
 	// If navigating back to AI Search breadcrumb, restore cached AI results
-	if (store.lookupPath[index] && store.lookupPath[index].level === 'ai') {
-		store.lookupPath = store.lookupPath.slice(0, index + 1);
-		store.lookupLeafDetail = null;
-		store.lookupChildren = [...store.lookupAiResults];
+	if (store.path[index] && store.path[index].level === 'ai') {
+		store.path = store.path.slice(0, index + 1);
+		store.leafDetail = null;
+		store.children = [...store.aiResults];
 		return;
 	}
-	store.lookupNavigateTo(index);
+	store.navigateTo(index);
 };
 
 const handleRootClick = () => {
-	store.lookupNavigateTo(-1);
+	store.navigateTo(-1);
 };
 
 const handleAiSearchClick = () => {
-	store.lookupEnterAiMode();
+	store.enterAiMode();
 };
 
 const handleAiGo = () => {
 	if (aiSearchText.value.trim()) {
-		store.lookupAiSearch(aiSearchText.value);
+		store.aiSearch(aiSearchText.value);
 	}
 };
 
@@ -136,13 +136,13 @@ const getNodeTypeIcon = (nodeType) => {
 							Data Models
 						</v-breadcrumbs-item>
 
-						<template v-for="(segment, index) in store.lookupPath" :key="index">
+						<template v-for="(segment, index) in store.path" :key="index">
 							<v-breadcrumbs-divider>
 								<v-icon>mdi-chevron-right</v-icon>
 							</v-breadcrumbs-divider>
 							<v-breadcrumbs-item
-								:class="{ 'breadcrumb-link': index < store.lookupPath.length - 1, 'breadcrumb-current': index === store.lookupPath.length - 1 }"
-								@click="index < store.lookupPath.length - 1 ? handleBreadcrumbClick(index) : null"
+								:class="{ 'breadcrumb-link': index < store.path.length - 1, 'breadcrumb-current': index === store.path.length - 1 }"
+								@click="index < store.path.length - 1 ? handleBreadcrumbClick(index) : null"
 							>
 								{{ segment.label }}
 							</v-breadcrumbs-item>
@@ -153,8 +153,8 @@ const getNodeTypeIcon = (nodeType) => {
 		</v-card>
 
 		<!-- AI Search input — reserve space always, show content only in AI mode -->
-		<div class="ai-search-slot" :class="{ 'ai-search-active': store.lookupAiMode && !store.isShowingLookupDetail }">
-			<v-card v-if="store.lookupAiMode && !store.isShowingLookupDetail" class="mb-0" variant="outlined">
+		<div class="ai-search-slot" :class="{ 'ai-search-active': store.aiMode && !store.isShowingDetail }">
+			<v-card v-if="store.aiMode && !store.isShowingDetail" class="mb-0" variant="outlined">
 				<v-card-text class="py-2 px-4 d-flex align-center ga-3">
 					<v-icon color="#7b1fa2" size="small">mdi-brain</v-icon>
 					<v-text-field
@@ -171,7 +171,7 @@ const getNodeTypeIcon = (nodeType) => {
 						variant="text"
 						size="small"
 						color="#7b1fa2"
-						:loading="store.lookupLoading"
+						:loading="store.loading"
 						:disabled="!aiSearchText.trim()"
 						@click="handleAiGo"
 					>
@@ -182,7 +182,7 @@ const getNodeTypeIcon = (nodeType) => {
 		</div>
 
 		<!-- Filter input — shown when a list is visible -->
-		<div v-if="!store.isShowingLookupDetail && !store.lookupLoading && store.lookupChildren.length > 0 && store.lookupPath.length > 0" class="d-flex align-center ga-3 mb-3">
+		<div v-if="!store.isShowingDetail && !store.loading && store.children.length > 0 && store.path.length > 0" class="d-flex align-center ga-3 mb-3">
 			<v-text-field
 				v-model="filterText"
 				placeholder="Filter this list..."
@@ -205,7 +205,7 @@ const getNodeTypeIcon = (nodeType) => {
 
 		<!-- AI search patience panel -->
 		<v-card
-			v-if="store.lookupLoading && store.lookupAiMode"
+			v-if="store.loading && store.aiMode"
 			class="mb-4 ai-patience-panel"
 			variant="flat"
 		>
@@ -231,104 +231,104 @@ const getNodeTypeIcon = (nodeType) => {
 
 		<!-- Loading indicator (non-AI) -->
 		<v-progress-linear
-			v-if="store.lookupLoading && !store.lookupAiMode"
+			v-if="store.loading && !store.aiMode"
 			indeterminate
 			color="primary"
 			class="mb-4"
 		/>
 
 		<!-- Detail view -->
-		<v-card v-if="store.isShowingLookupDetail && !store.lookupLoading" class="mb-4">
+		<v-card v-if="store.isShowingDetail && !store.loading" class="mb-4">
 			<v-card-title class="d-flex align-center">
 				<v-icon
-					:color="getNodeTypeColor(store.lookupLeafDetail.nodeType)"
+					:color="getNodeTypeColor(store.leafDetail.nodeType)"
 					class="mr-2"
 				>
-					{{ getNodeTypeIcon(store.lookupLeafDetail.nodeType) }}
+					{{ getNodeTypeIcon(store.leafDetail.nodeType) }}
 				</v-icon>
-				{{ store.lookupLeafDetail.label }}
-				<span v-if="store.lookupLeafDetail.cedsId || store.lookupLeafDetail.xpath" class="item-id-hint">({{ store.lookupLeafDetail.cedsId || store.lookupLeafDetail.xpath }})</span>
+				{{ store.leafDetail.label }}
+				<span v-if="store.leafDetail.cedsId || store.leafDetail.xpath" class="item-id-hint">({{ store.leafDetail.cedsId || store.leafDetail.xpath }})</span>
 				<v-chip size="small" class="ml-2" variant="outlined">
-					{{ store.lookupLeafDetail.nodeType }}
+					{{ store.leafDetail.nodeType }}
 				</v-chip>
 			</v-card-title>
 
 			<v-card-text>
 				<!-- Description -->
-				<div v-if="store.lookupLeafDetail.description" class="mb-4">
+				<div v-if="store.leafDetail.description" class="mb-4">
 					<div class="text-subtitle-2 text-grey">Description</div>
-					<div>{{ store.lookupLeafDetail.description }}</div>
+					<div>{{ store.leafDetail.description }}</div>
 				</div>
 
 				<!-- Properties grid -->
 				<v-table density="compact" class="mb-4">
 					<tbody>
-						<tr v-if="store.lookupLeafDetail.xpath">
+						<tr v-if="store.leafDetail.xpath">
 							<td class="text-grey" style="width: 150px">XPath</td>
-							<td><code>{{ store.lookupLeafDetail.xpath }}</code></td>
+							<td><code>{{ store.leafDetail.xpath }}</code></td>
 						</tr>
-						<tr v-if="store.lookupLeafDetail.cedsId">
+						<tr v-if="store.leafDetail.cedsId">
 							<td class="text-grey">CEDS ID</td>
-							<td><code>{{ store.lookupLeafDetail.cedsId }}</code></td>
+							<td><code>{{ store.leafDetail.cedsId }}</code></td>
 						</tr>
-						<tr v-if="store.lookupLeafDetail.notation">
+						<tr v-if="store.leafDetail.notation">
 							<td class="text-grey">Notation</td>
-							<td>{{ store.lookupLeafDetail.notation }}</td>
+							<td>{{ store.leafDetail.notation }}</td>
 						</tr>
-						<tr v-if="store.lookupLeafDetail.type">
+						<tr v-if="store.leafDetail.type">
 							<td class="text-grey">Type</td>
-							<td>{{ store.lookupLeafDetail.type }}</td>
+							<td>{{ store.leafDetail.type }}</td>
 						</tr>
-						<tr v-if="store.lookupLeafDetail.mandatory !== undefined">
+						<tr v-if="store.leafDetail.mandatory !== undefined">
 							<td class="text-grey">Mandatory</td>
-							<td>{{ store.lookupLeafDetail.mandatory ? 'Yes' : 'No' }}</td>
+							<td>{{ store.leafDetail.mandatory ? 'Yes' : 'No' }}</td>
 						</tr>
-						<tr v-if="store.lookupLeafDetail.depth !== undefined">
+						<tr v-if="store.leafDetail.depth !== undefined">
 							<td class="text-grey">Depth</td>
-							<td>{{ store.lookupLeafDetail.depth }}</td>
+							<td>{{ store.leafDetail.depth }}</td>
 						</tr>
 					</tbody>
 				</v-table>
 
 				<!-- Cross-standard mappings -->
-				<div v-if="store.lookupLeafDetail.mappings && store.lookupLeafDetail.mappings.length > 0" class="mb-4">
+				<div v-if="store.leafDetail.mappings && store.leafDetail.mappings.length > 0" class="mb-4">
 					<div class="text-subtitle-2 text-grey mb-2">
 						<v-icon size="small" class="mr-1">mdi-link-variant</v-icon>
-						Cross-Standard Mappings ({{ store.lookupLeafDetail.mappings.length }})
+						Cross-Standard Mappings ({{ store.leafDetail.mappings.length }})
 					</div>
 					<v-table density="compact">
 						<thead>
 							<tr>
 								<th>Standard</th>
 								<th>Target</th>
-								<th v-if="store.lookupLeafDetail.mappings[0].targetId">ID</th>
-								<th v-if="store.lookupLeafDetail.mappings[0].targetClass">Class</th>
-								<th v-if="store.lookupLeafDetail.mappings[0].targetObject">Object</th>
-								<th v-if="store.lookupLeafDetail.mappings[0].targetXpath">XPath</th>
-								<th v-if="store.lookupLeafDetail.mappings[0].source">Source</th>
+								<th v-if="store.leafDetail.mappings[0].targetId">ID</th>
+								<th v-if="store.leafDetail.mappings[0].targetClass">Class</th>
+								<th v-if="store.leafDetail.mappings[0].targetObject">Object</th>
+								<th v-if="store.leafDetail.mappings[0].targetXpath">XPath</th>
+								<th v-if="store.leafDetail.mappings[0].source">Source</th>
 							</tr>
 						</thead>
 						<tbody>
-							<tr v-for="(mapping, mIdx) in store.lookupLeafDetail.mappings" :key="mIdx">
+							<tr v-for="(mapping, mIdx) in store.leafDetail.mappings" :key="mIdx">
 								<td>
 									<v-chip size="x-small" :color="mapping.standard === 'CEDS' ? 'orange' : 'teal'" variant="outlined">
 										{{ mapping.standard }}
 									</v-chip>
 								</td>
 								<td>{{ mapping.target }}</td>
-								<td v-if="store.lookupLeafDetail.mappings[0].targetId">
+								<td v-if="store.leafDetail.mappings[0].targetId">
 									<code v-if="mapping.targetId">{{ mapping.targetId }}</code>
 								</td>
-								<td v-if="store.lookupLeafDetail.mappings[0].targetClass">
+								<td v-if="store.leafDetail.mappings[0].targetClass">
 									{{ mapping.targetClass }}
 								</td>
-								<td v-if="store.lookupLeafDetail.mappings[0].targetObject">
+								<td v-if="store.leafDetail.mappings[0].targetObject">
 									{{ mapping.targetObject }}
 								</td>
-								<td v-if="store.lookupLeafDetail.mappings[0].targetXpath">
+								<td v-if="store.leafDetail.mappings[0].targetXpath">
 									<code v-if="mapping.targetXpath" style="font-size: 0.85em">{{ mapping.targetXpath }}</code>
 								</td>
-								<td v-if="store.lookupLeafDetail.mappings[0].source">
+								<td v-if="store.leafDetail.mappings[0].source">
 									<v-chip size="x-small" variant="flat" color="grey-lighten-2">
 										{{ mapping.source }}
 									</v-chip>
@@ -339,10 +339,10 @@ const getNodeTypeIcon = (nodeType) => {
 				</div>
 
 				<!-- Option values (CEDS) -->
-				<div v-if="store.lookupLeafDetail.optionValues && store.lookupLeafDetail.optionValues.length > 0" class="mb-4">
+				<div v-if="store.leafDetail.optionValues && store.leafDetail.optionValues.length > 0" class="mb-4">
 					<div class="text-subtitle-2 text-grey mb-2">
 						<v-icon size="small" class="mr-1">mdi-format-list-bulleted</v-icon>
-						Option Values ({{ store.lookupLeafDetail.optionValues.length }})
+						Option Values ({{ store.leafDetail.optionValues.length }})
 					</div>
 					<v-table density="compact">
 						<thead>
@@ -353,7 +353,7 @@ const getNodeTypeIcon = (nodeType) => {
 							</tr>
 						</thead>
 						<tbody>
-							<tr v-for="(ov, ovIdx) in store.lookupLeafDetail.optionValues" :key="ovIdx">
+							<tr v-for="(ov, ovIdx) in store.leafDetail.optionValues" :key="ovIdx">
 								<td><code>{{ ov.cedsId }}</code></td>
 								<td>{{ ov.label }}</td>
 								<td class="text-grey">{{ ov.description }}</td>
@@ -363,23 +363,23 @@ const getNodeTypeIcon = (nodeType) => {
 				</div>
 
 				<!-- Codeset values (SIF) -->
-				<div v-if="store.lookupLeafDetail.codeset" class="mb-4">
+				<div v-if="store.leafDetail.codeset" class="mb-4">
 					<div class="text-subtitle-2 text-grey mb-2">
 						<v-icon size="small" class="mr-1">mdi-code-braces</v-icon>
-						Codeset ({{ store.lookupLeafDetail.codeset.valueCount }} values)
+						Codeset ({{ store.leafDetail.codeset.valueCount }} values)
 					</div>
 					<v-card variant="outlined" class="pa-3">
-						<code style="white-space: pre-wrap; font-size: 0.85em">{{ store.lookupLeafDetail.codeset.values }}</code>
+						<code style="white-space: pre-wrap; font-size: 0.85em">{{ store.leafDetail.codeset.values }}</code>
 					</v-card>
 				</div>
 			</v-card-text>
 		</v-card>
 
 		<!-- Item list -->
-		<v-card v-if="!store.isShowingLookupDetail && !store.lookupLoading" variant="outlined">
+		<v-card v-if="!store.isShowingDetail && !store.loading" variant="outlined">
 			<v-list density="compact">
 				<v-list-item
-					v-for="item in filteredChildren.filter(i => !store.lookupPath.some(seg => (seg.nodeId || seg.id) === (i.path || i.id) && seg.nodeType === i.nodeType))"
+					v-for="item in filteredChildren.filter(i => !store.path.some(seg => (seg.nodeId || seg.id) === (i.path || i.id) && seg.nodeType === i.nodeType))"
 					:key="item.id"
 					@click="handleItemClick(item)"
 					class="lookup-item"
@@ -420,7 +420,7 @@ const getNodeTypeIcon = (nodeType) => {
 					</template>
 				</v-list-item>
 
-				<v-list-item v-if="store.lookupChildren.length === 0 && !store.lookupLoading">
+				<v-list-item v-if="store.children.length === 0 && !store.loading">
 					<v-list-item-title class="text-grey text-center">
 						No items found
 					</v-list-item-title>

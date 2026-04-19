@@ -19,7 +19,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 
 	const { neo4jDb, dataMapping } = passThroughParameters;
-	const mapper = dataMapping['standards'];
+	const mapper = dataMapping['edmatrix-report'];
 
 	// ================================================================================
 	// SERVICE FUNCTION
@@ -36,7 +36,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			if (!mapper) {
-				next('standards mapper not loaded.', args);
+				next('EdMatrix report mapper not loaded.', args);
 				return;
 			}
 			next('', args);
@@ -101,44 +101,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			};
 
 			neo4jDb.runQuery(querySpec.cypher, querySpec.params, localCallback);
-		});
-
-		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 4: GRAPH STATS (list responses only)
-		//
-		// Fetch per-source label counts plus MAPS_TO counts to CEDS; mapper shapes them
-		// into the heterogeneous graphStats object per standard and merges into the list.
-		// Detail responses skip this — they already carry useCases, and a single-standard
-		// detail fetch doesn't justify two whole-graph aggregation queries.
-
-		taskList.push((args, next) => {
-			const { transformType, result } = args;
-			if (transformType === 'detail') {
-				next('', args);
-				return;
-			}
-
-			const labelsSpec = mapper.getCypher('graphStatsLabelsBySource');
-			neo4jDb.runQuery(labelsSpec.cypher, labelsSpec.params, (labelsErr, labelsRecords) => {
-				if (labelsErr) {
-					xLog.error(`standards: graphStatsLabelsBySource failed: ${labelsErr}`);
-					next('', args);
-					return;
-				}
-
-				const mapsToSpec = mapper.getCypher('mapsToCountsBySource');
-				neo4jDb.runQuery(mapsToSpec.cypher, mapsToSpec.params, (mapsToErr, mapsToRecords) => {
-					if (mapsToErr) {
-						xLog.error(`standards: mapsToCountsBySource failed: ${mapsToErr}`);
-						next('', args);
-						return;
-					}
-
-					const graphStatsBySource = mapper.shapeGraphStats(labelsRecords, mapsToRecords);
-					const enriched = mapper.mergeGraphStats(result, graphStatsBySource);
-					next('', { ...args, result: enriched });
-				});
-			});
 		});
 
 		// --------------------------------------------------------------------------------

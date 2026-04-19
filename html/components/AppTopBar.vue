@@ -1,8 +1,8 @@
 <script setup>
-import { useUserDataStore } from '@/stores/userDataStore';
+import { useLoginStore } from '@/stores/loginStore';
 import { useRoute } from 'vue-router';
 
-const userDataStore = useUserDataStore();
+const LoginStore = useLoginStore();
 const route = useRoute();
 
 defineEmits(['toggle-drawer']);
@@ -34,12 +34,12 @@ const pageTitle = computed(() => {
 		</v-app-bar-title>
 
 		<template #append>
-			<template v-if="userDataStore.validUser">
+			<template v-if="LoginStore.validUser">
 				<span class="text-body-2 text-medium-emphasis mr-2 d-none d-sm-inline">
-					<span v-if="userDataStore.loggedInUser.last">
-						{{ userDataStore.loggedInUser.first }} {{ userDataStore.loggedInUser.last }}
+					<span v-if="LoginStore.loggedInUser.last">
+						{{ LoginStore.loggedInUser.first }} {{ LoginStore.loggedInUser.last }}
 					</span>
-					<span v-else>{{ userDataStore.loggedInUser.username }}</span>
+					<span v-else>{{ LoginStore.loggedInUser.username }}</span>
 				</span>
 			</template>
 			<v-btn
@@ -57,15 +57,15 @@ const pageTitle = computed(() => {
 
 	<!-- Login error snackbar -->
 	<v-snackbar
-		:model-value="!!userDataStore.statusMsg"
-		@update:model-value="userDataStore.statusMsg = ''"
+		:model-value="!!LoginStore.statusMsg"
+		@update:model-value="LoginStore.statusMsg = ''"
 		:timeout="4000"
 		color="error"
 		location="top"
 	>
-		{{ userDataStore.statusMsg }}
+		{{ LoginStore.statusMsg }}
 		<template #actions>
-			<v-btn variant="text" @click="userDataStore.statusMsg = ''">Close</v-btn>
+			<v-btn variant="text" @click="LoginStore.statusMsg = ''">Close</v-btn>
 		</template>
 	</v-snackbar>
 </template>

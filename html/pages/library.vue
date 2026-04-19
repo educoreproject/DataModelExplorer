@@ -4,16 +4,16 @@
 definePageMeta({ middleware: 'auth' });
 
 import { ref, onMounted, computed } from 'vue';
-import { useUserDataStore } from '@/stores/userDataStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { useRouter } from 'vue-router';
 
-const userDataStore = useUserDataStore();
+const sessionStore = useSessionStore();
 const router = useRouter();
 
 const searchQuery = ref('');
 
 onMounted(() => {
-	userDataStore.fetchSavedConversations();
+	sessionStore.fetchSessions();
 });
 
 // Delete confirmation
@@ -27,7 +27,7 @@ const promptDelete = (session) => {
 
 const confirmDelete = async () => {
 	if (sessionToDelete.value) {
-		await userDataStore.deleteSavedConversation(sessionToDelete.value.refId);
+		await sessionStore.deleteSession(sessionToDelete.value.refId);
 	}
 	confirmDeleteDialog.value = false;
 	sessionToDelete.value = null;
@@ -64,9 +64,9 @@ const relativeDate = (dateStr) => {
 };
 
 const filteredSessions = computed(() => {
-	if (!searchQuery.value.trim()) return userDataStore.savedConversations;
+	if (!searchQuery.value.trim()) return sessionStore.sessions;
 	const q = searchQuery.value.toLowerCase();
-	return userDataStore.savedConversations.filter(s =>
+	return sessionStore.sessions.filter(s =>
 		(s.sessionName || '').toLowerCase().includes(q)
 	);
 });
@@ -97,7 +97,7 @@ const openSession = (session) => {
 
 		<!-- Search -->
 		<v-text-field
-			v-if="userDataStore.savedConversations.length > 3"
+			v-if="sessionStore.sessions.length > 3"
 			v-model="searchQuery"
 			prepend-inner-icon="mdi-magnify"
 			placeholder="Search sessions..."
@@ -109,18 +109,18 @@ const openSession = (session) => {
 		/>
 
 		<!-- Loading -->
-		<v-progress-linear v-if="userDataStore.savedConversationsLoading" indeterminate color="primary" class="mb-4" />
+		<v-progress-linear v-if="sessionStore.loading" indeterminate color="primary" class="mb-4" />
 
 		<!-- Error -->
 		<v-alert
-			v-if="userDataStore.savedConversationsStatusMsg"
+			v-if="sessionStore.statusMsg"
 			type="error"
 			density="compact"
 			class="mb-4"
 			closable
-			@click:close="userDataStore.savedConversationsStatusMsg = ''"
+			@click:close="sessionStore.statusMsg = ''"
 		>
-			{{ userDataStore.savedConversationsStatusMsg }}
+			{{ sessionStore.statusMsg }}
 		</v-alert>
 
 		<!-- Session list -->
@@ -157,7 +157,7 @@ const openSession = (session) => {
 		</div>
 
 		<!-- Empty state -->
-		<v-card v-else-if="!userDataStore.savedConversationsLoading && !searchQuery" variant="flat" color="grey-lighten-4" class="pa-12 text-center" rounded="lg">
+		<v-card v-else-if="!sessionStore.loading && !searchQuery" variant="flat" color="grey-lighten-4" class="pa-12 text-center" rounded="lg">
 			<v-icon size="48" color="grey" class="mb-4">mdi-chat-plus-outline</v-icon>
 			<h3 class="text-h6 font-weight-bold mb-2">No saved conversations yet</h3>
 			<p class="text-body-2 text-medium-emphasis mb-4">
@@ -169,7 +169,7 @@ const openSession = (session) => {
 		</v-card>
 
 		<!-- No search results -->
-		<div v-else-if="!userDataStore.savedConversationsLoading && searchQuery" class="text-center pa-8 text-medium-emphasis">
+		<div v-else-if="!sessionStore.loading && searchQuery" class="text-center pa-8 text-medium-emphasis">
 			No sessions matching "{{ searchQuery }}"
 		</div>
 

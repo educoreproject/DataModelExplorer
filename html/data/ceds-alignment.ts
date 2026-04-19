@@ -18,7 +18,7 @@
 //   cedsElements: CEDS ontology class/property notation names that align
 //   gapNotes: what CEDS covers that this standard does NOT address
 
-module.exports.cedsDomains = [
+export const cedsDomains = [
   { id: 'credentials',         label: 'Credentials',                    icon: '🎓' },
   { id: 'competencies',        label: 'Competencies',                   icon: '🧠' },
   { id: 'workforce',           label: 'Workforce',                      icon: '💼' },
@@ -39,7 +39,7 @@ module.exports.cedsDomains = [
 //   'partial' — some overlap but the standard is scoped more narrowly or broadly
 //   'gap'     — the library standard does not cover this CEDS domain at all
 
-module.exports.cedsAlignmentMatrix = [
+export const cedsAlignmentMatrix = [
   {
     entryId: 'lrw-competency-framework',
     entryShortName: 'IEEE P1484.2 LER Ecosystem Standard',
@@ -549,3 +549,17 @@ module.exports.cedsAlignmentMatrix = [
 ];
 
 // Derived: per-domain summary across all entries
+export function getDomainSummary() {
+  return cedsDomains.map(domain => {
+    const statuses = cedsAlignmentMatrix.map(e => (e.domains as Record<string, { status: string }>)[domain.id]?.status ?? 'gap');
+    return {
+      domainId: domain.id,
+      label: domain.label,
+      icon: domain.icon,
+      full: statuses.filter(s => s === 'full').length,
+      partial: statuses.filter(s => s === 'partial').length,
+      gap: statuses.filter(s => s === 'gap').length,
+      total: statuses.length,
+    };
+  });
+}
