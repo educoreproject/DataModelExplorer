@@ -54,13 +54,13 @@
 		{
 			name: 'Greg Nadeau',
 			photo: '/team/greg-nadeau.png',
-			bio: 'For 30+ years, Greg has been leading innovative education and workforce data systems projects and standards at the local, state, and national levels. As CIO of the MA DOE and then as a consultant, Greg has directed successful statewide education data projects in 11 states. He led the team that created the CEDS data model, co-chaired the development of CASE and CLR standards at IMS Global, and led the workgroup that published IEEE 1484.2, the LER Ecosystem Standard. Greg is the convenor of Ed3.',
+			bio: 'For 30+ years, Greg has been leading innovative education and workforce data systems projects and standards at the local, state, and national levels. As CIO of the MA DOE and then as a consultant, Greg has directed successful statewide education data projects in 11 states. He led the team that created the CEDS data model, co-chaired the development of CASE and CLR standards at 1EdTech (formerly IMS Global), and led the workgroup that published IEEE 1484.2, the LER Ecosystem Standard. Greg is the convenor of Ed3.',
 		},
 		{
 			name: 'Vince Paredes',
-			title: 'Developer and JEDx Liason',
-			photo: null,
-			bio: '',
+			title: 'Chief Data Architect',
+			photo: '/team/vince-paredes.png',
+			bio: 'Vince Paredes is a Chief Data Architect who\u2019s spent his career helping complex education data actually make sense\u2014and work together. With over 20 years in data standards and more than a decade contributing to SIF, he\u2019s been deeply involved in shaping how education systems share and use information. He\u2019s led major initiatives, including the development of a national education data model and ontology using semantic web technologies like OWL and RDF. With a background that spans software development, statistics, and research into how people learn, Vince brings both technical depth and real-world perspective to building systems that drive better outcomes.',
 		},
 		{
 			name: 'Kayla Smith',
