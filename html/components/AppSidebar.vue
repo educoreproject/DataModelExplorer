@@ -90,8 +90,8 @@ const isAdmin = computed(() =>
 			/>
 			<v-list-item
 				to="/dm/explorer"
-				prepend-icon="mdi-robot-outline"
-				title="AI Explorer"
+				prepend-icon="mdi-graph-outline"
+				title="Data Model Explorer"
 			/>
 		</v-list>
 
