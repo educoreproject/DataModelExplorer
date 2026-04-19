@@ -1,12 +1,12 @@
 <script setup>
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
-const LoginStore = useLoginStore();
+const userDataStore = useUserDataStore();
 const route = useRoute();
 
 // Handle ?logout query param from any page
 if (route.query.logout !== undefined) {
-	LoginStore.logout();
+	userDataStore.logout();
 }
 </script>
 

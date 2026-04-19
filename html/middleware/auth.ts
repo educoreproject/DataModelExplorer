@@ -1,8 +1,8 @@
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 export default defineNuxtRouteMiddleware((to) => {
-	const loginStore = useLoginStore();
-	if (!loginStore.validUser) {
+	const userDataStore = useUserDataStore();
+	if (!userDataStore.validUser) {
 		return navigateTo({ path: '/login', query: { redirect: to.fullPath } });
 	}
 });

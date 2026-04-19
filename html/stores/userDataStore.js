@@ -1,6 +1,15 @@
 // @concept: [[JwtTokenManagement]]
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
+// @concept: [[SessionPersistence]]
+//
+// userDataStore — everything about the logged-in user.
+// Consolidates the prior loginStore (identity, auth tokens, profile edits) with
+// the prior sessionStore (saved explorer conversations — renamed from
+// "sessions" to "savedConversations"). See SPEC-dataStoreArchitecture-041826.md
+// §2.3 for the design.
+//
+// Endpoints /api/dmeSession* keep their legacy names (see spec §6 non-changes).
 import axios from 'axios';
 
 // -------------------------------------------------------------------------
@@ -17,44 +26,43 @@ const userFields = {
 };
 
 // -------------------------------------------------------------------------
-// Define initial state for the login store
+// Define initial state
 
-const loginStoreInitObject = {
+const userDataStoreInitObject = {
 	loggedInUser: userFields,
+	authtoken: '',
+	authclaims: '',
+	authsecondsexpirationseconds: '',
 	statusMsg: '',
 	validUser: false,
+
+	// Saved explorer conversations (absorbed from prior sessionStore)
+	savedConversations: [],
+	savedConversationsLoading: false,
+	savedConversationsStatusMsg: '',
 };
 
 // -------------------------------------------------------------------------
 // Function to reset user state on logout
 
 const logoutUser = (store) => {
-	Object.keys(loginStoreInitObject).forEach((name) => (store[name] = ''));
+	Object.keys(userDataStoreInitObject).forEach((name) => (store[name] = ''));
 	store.validUser = false;
-};
-
-// -------------------------------------------------------------------------
-// Function to log state details (for debugging)
-
-const logDetails = (store) => {
-	Object.keys(loginStoreInitObject).forEach(
-		(name) => name != 'password' && console.log(`${name}=${store[name]}`),
-	);
+	store.savedConversations = [];
 };
 
 // =========================================================================
-// Define the login store using Pinia
+// Define the userData store using Pinia
 
-export const useLoginStore = defineStore('loginStore', {
+export const useUserDataStore = defineStore('userDataStore', {
 	// =========================================================================
 	// STATE
 
-	state: () => ({ ...loginStoreInitObject }),
+	state: () => ({ ...userDataStoreInitObject }),
 
 	// =========================================================================
 	// ACTIONS
 
-	// Actions (methods) of the store
 	actions: {
 		// Placeholder function (currently empty)
 		setByDate: function () {},
@@ -63,7 +71,6 @@ export const useLoginStore = defineStore('loginStore', {
 		// Logout action
 
 		logout: function () {
-			// Note: Using console.log temporarily - should be replaced with proper logging
 			console.log('Logging out');
 			logoutUser(this);
 		},
@@ -75,7 +82,6 @@ export const useLoginStore = defineStore('loginStore', {
 			const url = '/api/login';
 
 			try {
-				// Send GET request to the login API with username and password
 				const response = await axios.get(url, {
 					params: {
 						username: this.loggedInUser.username,
@@ -83,22 +89,19 @@ export const useLoginStore = defineStore('loginStore', {
 					},
 				});
 
-				// Get user data from response
-				const userObject = response.data[0]; // API returns a list
+				const userObject = response.data[0];
 
-				// Store authentication tokens from headers
 				this.authtoken = response.headers?.authtoken;
 				this.authclaims = response.headers?.authclaims;
 				this.authsecondsexpirationseconds =
 					response.headers?.authsecondsexpirationseconds;
-				// Check if user is inactive
+
 				if (userObject.inactive) {
 					logoutUser(this);
 					this.statusMsg = 'Invalid login request';
 					return false;
 				}
 
-				// Update state with user data
 				Object.keys(userObject).forEach((name) => {
 					this.loggedInUser[name] = userObject[name];
 				});
@@ -106,7 +109,6 @@ export const useLoginStore = defineStore('loginStore', {
 				this.validUser = true;
 				return true;
 			} catch (error) {
-				// Improved error handling with fallback
 				if (error.response?.data) {
 					this.statusMsg = error.response.data;
 				} else if (error.message) {
@@ -132,39 +134,33 @@ export const useLoginStore = defineStore('loginStore', {
 			// If you add fields here, you need to add them in the mapper/profile-user
 			// -------------------------------------------------------------
 
-			// Combine current user data with edited user data
 			const saveData = { ...this.userSimpleObject, ...userEditObject.value };
 
-			// If legacy user, adjust roles
 			if (saveData.legacy === true) {
 				saveData.role = saveData.role || '';
 				const tmp = saveData.role.split(',');
-				tmp.push('client'); //someday I will move this to the server
+				tmp.push('client');
 				saveData.role = tmp.join(',').replace(/^,/, '');
 			}
 
-			// Prepare API request to save user data
 			const url = '/api/saveUserData';
 			const axiosParms = {
 				method: 'post',
 				url,
 				data: saveData,
 				headers: {
-					from: 'loginStore.updateUserInfo',
+					from: 'userDataStore.updateUserInfo',
 					...this.getAuthTokenProperty,
 				},
 			};
 
-			// Send API request
 			try {
 				response = await axios(axiosParms);
 			} catch (err) {
 				error = err;
 			}
 
-			// Handle errors
 			if (error) {
-				// Improved error handling with fallback
 				if (error.response?.data) {
 					this.statusMsg = error.response.data;
 				} else if (error.message) {
@@ -178,7 +174,6 @@ export const useLoginStore = defineStore('loginStore', {
 			const saveReplyRefId = response.data[0].refID;
 
 			if (saveReplyRefId == this.loggedInUser.refId) {
-				// Update state with response data
 				Object.keys(userFields).forEach((name) => {
 					if (name !== 'legacy') {
 						this.loggedInUser[name] = saveData[name];
@@ -189,17 +184,90 @@ export const useLoginStore = defineStore('loginStore', {
 
 			return true;
 		},
+
+		// ------------------------------------------------------------
+		// Saved explorer conversations (absorbed from prior sessionStore)
+
+		async fetchSavedConversations() {
+			this.savedConversationsLoading = true;
+			this.savedConversationsStatusMsg = '';
+			try {
+				const response = await fetch('/api/dmeSessionList', {
+					headers: { ...this.getAuthTokenProperty },
+				});
+				if (!response.ok) {
+					this.savedConversationsStatusMsg = `Failed to load saved conversations (${response.status})`;
+					this.savedConversations = [];
+					return;
+				}
+				this.savedConversations = await response.json();
+			} catch (err) {
+				this.savedConversationsStatusMsg = err.message || 'Failed to load saved conversations';
+				this.savedConversations = [];
+			} finally {
+				this.savedConversationsLoading = false;
+			}
+		},
+
+		async deleteSavedConversation(refId) {
+			try {
+				const response = await fetch(
+					`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`,
+					{
+						method: 'DELETE',
+						headers: { ...this.getAuthTokenProperty },
+					},
+				);
+				if (!response.ok) {
+					this.savedConversationsStatusMsg = `Delete failed (${response.status})`;
+					return false;
+				}
+				await this.fetchSavedConversations();
+				return true;
+			} catch (err) {
+				this.savedConversationsStatusMsg = err.message || 'Delete failed';
+				return false;
+			}
+		},
+
+		async saveSavedConversation(payload) {
+			try {
+				const response = await fetch('/api/dmeSessionSave', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						...this.getAuthTokenProperty,
+					},
+					body: JSON.stringify(payload),
+				});
+				const result = await response.json();
+				return (result && result[0]) ? result[0] : null;
+			} catch (err) {
+				this.savedConversationsStatusMsg = err.message || 'Save failed';
+				return null;
+			}
+		},
+
+		async loadSavedConversation(refId) {
+			try {
+				const response = await fetch(
+					`/api/dmeSessionLoad?refId=${encodeURIComponent(refId)}`,
+					{ headers: { ...this.getAuthTokenProperty } },
+				);
+				const result = await response.json();
+				return (result && result[0]) ? result[0] : null;
+			} catch (err) {
+				this.savedConversationsStatusMsg = err.message || 'Load failed';
+				return null;
+			}
+		},
 	},
 
 	// =========================================================================
 	// GETTERS
 
 	getters: {
-		// Test getter (appends 'HELLO' to username)
 		testing: (state) => state.loggedInUser.username + 'HELLO',
-
-		// ------------------------------------------------------------
-		// Returns a simplified user object with fields from userFields
 
 		userDataForEdit: (state) => {
 			return Object.keys(userFields).reduce((result, name) => {
@@ -208,11 +276,10 @@ export const useLoginStore = defineStore('loginStore', {
 			}, {});
 		},
 
-		// ------------------------------------------------------------
-		// Getter for authentication token property
-
 		getAuthTokenProperty: (state) => {
 			return { Authorization: `Bearer ${state.authtoken}` };
 		},
+
+		savedConversationCount: (state) => state.savedConversations.length,
 	},
 });

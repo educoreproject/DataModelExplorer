@@ -1,6 +1,11 @@
 <script setup>
-import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-const specStore = useSpecificationMetadataStore();
+import { onMounted } from 'vue';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
+const specStore = useKnowledgeStore();
+
+onMounted(() => {
+	specStore.loadDossiers();
+});
 
 // ── Rubric Definition ──────────────────────────────────────────────────
 // The assessment framework: what we evaluate and what each level means.

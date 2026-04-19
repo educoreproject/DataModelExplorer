@@ -6,7 +6,7 @@
 
 // ─── Stakeholders Taxonomy ───────────────────────────────────────────────────
 
-export const stakeholderTaxonomy = [
+module.exports.stakeholderTaxonomy = [
   {
     id: 'education-institutions',
     label: 'Education Institutions',
@@ -270,7 +270,7 @@ export const stakeholderTaxonomy = [
 
 // ─── Shared Technical Resources & Standards Taxonomy ─────────────────────────
 
-export const technicalResourcesTaxonomy = [
+module.exports.technicalResourcesTaxonomy = [
   {
     id: 'data-standards',
     label: 'Data Standards & Schemas',
@@ -403,7 +403,7 @@ export const technicalResourcesTaxonomy = [
 // Each use case maps to one or more CEDS RDF domains with specific element URIs.
 // CEDS RDF namespace: https://ceds.ed.gov/element/
 
-export const useCasesCedsRdf = [
+module.exports.useCasesCedsRdf = [
   {
     id: 'uc-credential-verification',
     label: 'Credential Verification & Trust',
@@ -590,35 +590,3 @@ export const useCasesCedsRdf = [
 
 // ─── Helper: collect all searchable business needs ───────────────────────────
 
-export function getAllBusinessNeeds() {
-  const needs: Array<Record<string, string>> = [];
-
-  // From stakeholders
-  stakeholderTaxonomy.forEach(group => {
-    group.children.forEach(child => {
-      child.businessNeeds.forEach(need => {
-        needs.push({
-          need,
-          source: 'stakeholder',
-          stakeholder: child.label,
-          stakeholderGroup: group.label,
-          stakeholderId: child.id,
-        });
-      });
-    });
-  });
-
-  // From use cases
-  useCasesCedsRdf.forEach(uc => {
-    uc.businessNeeds.forEach(need => {
-      needs.push({
-        need,
-        source: 'useCase',
-        useCase: uc.label,
-        useCaseId: uc.id,
-      });
-    });
-  });
-
-  return needs;
-}

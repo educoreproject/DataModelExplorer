@@ -127,6 +127,30 @@ const moduleFunction =
 					`,
 					params: { categoryName: queryParams.categoryName },
 				},
+
+				// ----- graphStatsLabelsBySource - per-source label counts for graphStats shaping.
+				// Returns one row per (source, label) pair. The mapper's shapeGraphStats() uses
+				// this to build the heterogeneous per-standard stats object (per spec §2.1).
+				'graphStatsLabelsBySource': {
+					cypher: `
+						MATCH (n)
+						WHERE n._source IS NOT NULL
+						UNWIND labels(n) AS label
+						RETURN n._source AS source, label, count(*) AS count
+					`,
+					params: {},
+				},
+
+				// ----- mapsToCountsBySource - per-source count of MAPS_TO relationships to CEDS.
+				// Used for sif-mapped-fields and ceds-sif-mapped-properties counts.
+				'mapsToCountsBySource': {
+					cypher: `
+						MATCH (src)-[:MAPS_TO]->(tgt)
+						WHERE src._source IS NOT NULL AND tgt._source = 'CEDS'
+						RETURN src._source AS source, count(*) AS mapsToCount
+					`,
+					params: {},
+				},
 			};
 
 			if (!queries[queryName]) {
@@ -182,12 +206,129 @@ const moduleFunction =
 		};
 
 		// ================================================================================
+		// GRAPH-STATS SHAPING
+		//
+		// Per spec §2.1 graphStats is heterogeneous per standard. The access point runs
+		// the graphStatsLabelsBySource and mapsToCountsBySource queries, then calls
+		// shapeGraphStats() to build a { [standardName]: statsObject } lookup.
+		// mergeGraphStats() then attaches graphStats per standard response item, using
+		// the standard's name to look up the shape (null for standards not in the graph).
+
+		// Maps EdMatrix standard names (what /api/standards returns) to the graph's
+		// _source tag. Left column is what clients see; right column is the subgraph key.
+		const standardNameToSource = {
+			'CEDS': 'CEDS',
+			'SIF Data Model': 'SIF',
+			'SIF Infrastructure': 'SIF',
+			'Ed-Fi Data Standard': 'EdFi',
+			'CTDL': 'CTDL',
+			'CLR': 'CLR',
+			'CASE': 'CASE',
+			// Phase C additions (forge names as-of 2026-04-18; refine after rebuild)
+			'CIP': 'CIP',
+			'JEDx': 'JEDx',
+			'LIF': 'LIF',
+			'IEEE P1484.2': 'LIF',
+			'PESC': 'PESC',
+			'SEDM': 'SEDM',
+		};
+
+		// Per-source shape builder. Given a labels→count dict for one source and the
+		// MAPS_TO count (standard→CEDS) for that source, return the heterogeneous
+		// graphStats object from spec §2.1.
+		const shapeOneSource = (source, labelCounts, mapsToCount) => {
+			const c = (label) => labelCounts[label] || 0;
+			switch (source) {
+				case 'CTDL':
+					return { classes: c('CtdlClass'), properties: c('CtdlProperty') };
+				case 'SIF':
+					return {
+						objects: c('SifObject'),
+						fields: c('SifField'),
+						cedsMappedFields: mapsToCount || 0,
+					};
+				case 'EdFi':
+					return { entities: c('EdfiEntity'), fields: c('EdfiField') };
+				case 'CEDS':
+					return {
+						classes: c('CedsClass'),
+						properties: c('CedsProperty'),
+						sifMappedProperties: 0, // computed below via reverse lookup
+					};
+				case 'CIP':
+					return { programs: c('CipProgram') };
+				case 'PESC':
+					return {
+						elements: c('PescElement'),
+						complexTypes: c('PescComplexType'),
+						simpleTypes: c('PescSimpleType'),
+					};
+				case 'JEDx':
+					return { entities: c('JedxEntity'), fields: c('JedxField') };
+				case 'CLR':
+					return { classes: c('ClrClass'), properties: c('ClrProperty') };
+				case 'CASE':
+					return { classes: c('CaseClass'), properties: c('CaseProperty') };
+				case 'LIF':
+					return { entities: c('LifEntity'), properties: c('LifProperty') };
+				case 'SEDM':
+					return { elements: c('SedmElement') };
+				default:
+					return null;
+			}
+		};
+
+		// labelBySourceRecords: [{ source, label, count }, ...]
+		// mapsToBySourceRecords: [{ source, mapsToCount }, ...]
+		// Returns a map keyed by _source → shaped graphStats object.
+		const shapeGraphStats = (labelBySourceRecords, mapsToBySourceRecords) => {
+			const perSourceLabels = {};
+			(labelBySourceRecords || []).forEach((rec) => {
+				const src = rec.source;
+				if (!src) return;
+				perSourceLabels[src] = perSourceLabels[src] || {};
+				perSourceLabels[src][rec.label] = rec.count || 0;
+			});
+
+			const mapsToBySource = {};
+			(mapsToBySourceRecords || []).forEach((rec) => {
+				if (rec.source) mapsToBySource[rec.source] = rec.mapsToCount || 0;
+			});
+
+			const bySource = {};
+			Object.keys(perSourceLabels).forEach((src) => {
+				const shaped = shapeOneSource(src, perSourceLabels[src], mapsToBySource[src]);
+				if (shaped) bySource[src] = shaped;
+			});
+
+			// CEDS.sifMappedProperties is the count of MAPS_TO edges from SIF to CEDS.
+			// That's already captured as mapsToBySource['SIF'] for the SIF entry; mirror it
+			// onto CEDS so the CEDS card can display it directly.
+			if (bySource.CEDS && mapsToBySource.SIF !== undefined) {
+				bySource.CEDS.sifMappedProperties = mapsToBySource.SIF;
+			}
+
+			return bySource;
+		};
+
+		// Attach graphStats to each standard in a list response.
+		const mergeGraphStats = (standardsList, graphStatsBySource) => {
+			return standardsList.map((s) => {
+				const src = standardNameToSource[s.name];
+				const stats = src && graphStatsBySource[src] ? graphStatsBySource[src] : null;
+				return { ...s, graphStats: stats };
+			});
+		};
+
+		// ================================================================================
 		// MAPPER API EXPORT
 
 		return {
 			getCypher,
 			mapList: mapListResult,
 			mapDetail: mapDetailResult,
+			shapeGraphStats,
+			mergeGraphStats,
 		};
 	};
 

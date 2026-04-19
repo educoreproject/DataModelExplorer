@@ -3,6 +3,52 @@
 // @concept: [[PiniaStorePattern]]
 // createGraphinatorStore.js
 //
+// -------------------------------------------------------------------------
+// Phase 0 decision (liveDataStores branch, 2026-04-17):
+//
+// This top-level file is the AUTHORITATIVE copy. The stale copy at
+// html/layers/graphinator/stores/createGraphinatorStore.js (and the sibling
+// GraphinatorPanel.vue, DownloadButton.vue, buildZip.js, and composables/
+// inside the layer) were deleted along with the layer itself. The
+// `extends: ['./layers/graphinator']` line in html/nuxt.config.ts and the
+// associated `preserveSymlinks: true` vite setting were removed at the same
+// time.
+//
+// Rationale:
+//   - The layer was introduced in commit a644d77 ("Move Graphinator UI into
+//     a self-contained Nuxt layer") to enable sharing with qbookInternal as
+//     a symlinked upstream. That symlink was replaced with real files in
+//     commit fdc11b6, at which point the layer became a duplicate rather
+//     than an upstream.
+//   - After a644d77, both sides were edited independently. Top-level files
+//     were updated in commits 1cae736 ("Fix prompt/message debug leakage,
+//     hostname-driven client config") and 35212f6 ("Fix cid rendering and
+//     panel overflow in Graphinator UI"). The layer copies received no
+//     corresponding updates.
+//   - The only pages that consume the store (`html/pages/dm/explorer.vue`
+//     and `html/pages/explore/use-cases/[id].vue`) import directly from
+//     `@/stores/createGraphinatorStore`, resolving to this top-level file.
+//     GraphinatorPanel is auto-imported; Nuxt resolves top-level over layer.
+//     The layer copies were dead code.
+//
+// WebSocket-host diff between the two copies (this file vs layer):
+//   TOP-LEVEL (this file, authoritative):
+//     const rc = useRuntimeConfig().public;
+//     const wsHost = rc.wsHost || window.location.host;
+//   LAYER (deleted):
+//     const wsHost = import.meta.dev ? `localhost:${devPort}` : window.location.host;
+// The top-level approach is what the hostname-driven deployment profile in
+// nuxt.config.ts is designed around; the layer's import.meta.dev branch was
+// the pre-hostname-profile pattern.
+//
+// GraphinatorPanel.vue diff summary: top-level has the current edu-theme
+// UI (fullscreen toggle, Response/Activity/Visualization labels, teal
+// palette, CSS variables). Layer copy had the older STDOUT/STDERR/CONTROL
+// labels and hardcoded blue palette. See git log html/components/
+// GraphinatorPanel.vue — 35212f6 and 1cae736 are the updates that did not
+// propagate to the layer.
+// -------------------------------------------------------------------------
+//
 // Factory function that creates a Pinia store for the Graphinator panel.
 // Parameterized so each consuming project can configure WS endpoint,
 // dev port, and defaults without duplicating the store code.
@@ -13,6 +59,7 @@
 //   const graphStore = useGraphStore();
 
 import { defineStore } from 'pinia';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -39,7 +86,6 @@ export function createGraphinatorStore({
 			roleResolved: false, // True once role-based tool filtering has completed
 			_activeSessionRefId: null,
 			_activeSessionName: '',
-			sessionList: [],
 			_saveInFlight: false,
 			settings: {
 				model: defaultModel,
@@ -67,6 +113,13 @@ export function createGraphinatorStore({
 			responseCount: (state) => state.responses.length,
 			displayIndex: (state) => state.currentIndex + 1,
 			isViewingLatest: (state) => state.currentIndex === state.responses.length - 1,
+
+			// Saved conversations live in userDataStore; expose a read-through
+			// getter so existing GraphinatorPanel template references to
+			// graphStore.sessionList keep working.
+			sessionList() {
+				return useUserDataStore().savedConversations;
+			},
 		},
 
 		actions: {
@@ -265,109 +318,55 @@ export function createGraphinatorStore({
 				if (this.currentIndex < this.responses.length - 1) this.currentIndex++;
 			},
 
-			// Auto-save session to server (fire-and-forget)
+			// Auto-save session to server (fire-and-forget).
+			// Delegates persistence to userDataStore; keeps local active-session meta.
 			async _saveSession() {
 				if (this._saveInFlight) return;
 				if (this.responses.length === 0) return;
 
 				this._saveInFlight = true;
 
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					const payload = {
-						sessionData: this.responses,
-					};
-					if (this._activeSessionRefId) {
-						payload.refId = this._activeSessionRefId;
-					}
-
-					const response = await fetch('/api/dmeSessionSave', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							...loginStore.getAuthTokenProperty,
-						},
-						body: JSON.stringify(payload),
-					});
-
-					const result = await response.json();
-					if (result && result[0]) {
-						this._activeSessionRefId = result[0].refId;
-						this._activeSessionName = result[0].sessionName || '';
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session save failed:`, err);
-				} finally {
-					this._saveInFlight = false;
+				const payload = { sessionData: this.responses };
+				if (this._activeSessionRefId) {
+					payload.refId = this._activeSessionRefId;
 				}
+
+				const saved = await useUserDataStore().saveSavedConversation(payload);
+				if (saved) {
+					this._activeSessionRefId = saved.refId;
+					this._activeSessionName = saved.sessionName || '';
+				}
+				this._saveInFlight = false;
 			},
 
-			// List user's sessions
+			// Populate userDataStore.savedConversations (sessionList getter reads from there).
 			async fetchSessionList() {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					const response = await fetch('/api/dmeSessionList', {
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
-
-					this.sessionList = await response.json();
-				} catch (err) {
-					console.error(`[${storeId}] Session list failed:`, err);
-					this.sessionList = [];
-				}
+				await useUserDataStore().fetchSavedConversations();
 			},
 
-			// Load a saved session
+			// Load a saved conversation and apply its data to the local graph panel.
 			async loadSession(refId) {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
+				const session = await useUserDataStore().loadSavedConversation(refId);
+				if (!session) return;
 
-					const response = await fetch(`/api/dmeSessionLoad?refId=${encodeURIComponent(refId)}`, {
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
+				const sessionData = typeof session.sessionData === 'string'
+					? JSON.parse(session.sessionData)
+					: session.sessionData;
 
-					const result = await response.json();
-					if (result && result[0]) {
-						const session = result[0];
-						const sessionData = typeof session.sessionData === 'string'
-							? JSON.parse(session.sessionData)
-							: session.sessionData;
-
-						this.responses = sessionData;
-						this.currentIndex = sessionData.length - 1;
-						this._activeSessionRefId = session.refId;
-						this._activeSessionName = session.sessionName || '';
-						this.settings.newSession = false;
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session load failed:`, err);
-				}
+				this.responses = sessionData;
+				this.currentIndex = sessionData.length - 1;
+				this._activeSessionRefId = session.refId;
+				this._activeSessionName = session.sessionName || '';
+				this.settings.newSession = false;
 			},
 
-			// Delete a session
+			// Delete via userDataStore; clear local active-session meta if it was the active one.
 			async deleteSession(refId) {
-				try {
-					const { useLoginStore } = await import('@/stores/loginStore');
-					const loginStore = useLoginStore();
-
-					await fetch(`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`, {
-						method: 'DELETE',
-						headers: { ...loginStore.getAuthTokenProperty },
-					});
-
-					await this.fetchSessionList();
-
-					if (this._activeSessionRefId === refId) {
-						this._activeSessionRefId = null;
-						this._activeSessionName = '';
-					}
-				} catch (err) {
-					console.error(`[${storeId}] Session delete failed:`, err);
+				const ok = await useUserDataStore().deleteSavedConversation(refId);
+				if (!ok) return;
+				if (this._activeSessionRefId === refId) {
+					this._activeSessionRefId = null;
+					this._activeSessionName = '';
 				}
 			},
 

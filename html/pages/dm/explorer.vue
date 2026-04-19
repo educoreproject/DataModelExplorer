@@ -8,14 +8,15 @@
 
 definePageMeta({ middleware: 'auth' });
 
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
+import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-import { personas } from '@/data/personas';
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
-const LoginStore = useLoginStore();
+const userDataStore = useUserDataStore();
+const knowledgeStore = useKnowledgeStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -26,7 +27,7 @@ const useGraphStore = createGraphinatorStore({
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
-	getUserRole: () => LoginStore.loggedInUser.role || null,
+	getUserRole: () => userDataStore.loggedInUser.role || null,
 });
 const graphStore = useGraphStore();
 
@@ -39,7 +40,7 @@ const pendingPersona = ref(route.query.persona || '');
 // Watch for WebSocket connection, then auto-send
 watch(() => graphStore.connected, (connected) => {
 	if (connected && pendingPrompt.value) {
-		const personaInfo = personas.find((p) => p.id === pendingPersona.value);
+		const personaInfo = knowledgeStore.personaById(pendingPersona.value);
 		const personaPrefix = personaInfo
 			? `[PERSONA: ${personaInfo.title} — ${personaInfo.description}]\n\n`
 			: '';
@@ -62,7 +63,7 @@ const generateAiFilename = async (snippet) => {
 		const response = await axios.post(
 			'/api/askmilo-utility',
 			{ prompt, model: 'haiku' },
-			{ headers: { ...LoginStore.getAuthTokenProperty } },
+			{ headers: { ...userDataStore.getAuthTokenProperty } },
 		);
 		return response.data.response;
 	} catch (err) {
@@ -90,7 +91,7 @@ const fallbackPromptOptions = [
 					type="warning"
 					class="mx-4 mt-4"
 				>
-					No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
+					No tools are configured for your role ({{ userDataStore.loggedInUser.role }}). Contact an administrator.
 				</v-alert>
 
 				<GraphinatorPanel
@@ -107,7 +108,7 @@ const fallbackPromptOptions = [
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
-					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/16/26):</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/17/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
 						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
 						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
@@ -120,6 +121,7 @@ const fallbackPromptOptions = [
 						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
 						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
 						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
+						<li><strong>CASE</strong> &mdash; Competencies and Academic Standards Exchange (IMS Global v1.1)</li>
 					</ul>
 					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
 					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>

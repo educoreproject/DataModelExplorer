@@ -5,7 +5,7 @@
 // edits one UseCase aggregate at a time. Dirty state is per-session.
 
 import axios from 'axios';
-import { useLoginStore } from '@/stores/loginStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 const API_BASE = '/api/useCaseEditor';
 
@@ -26,7 +26,7 @@ export const useUseCaseEditorStore = defineStore('useCaseEditorStore', {
 	actions: {
 		// ------------------------------------------------------------
 		_auth() {
-			return useLoginStore().getAuthTokenProperty;
+			return useUserDataStore().getAuthTokenProperty;
 		},
 
 		_clearError() {
@@ -182,6 +182,11 @@ export const useUseCaseEditorStore = defineStore('useCaseEditorStore', {
 				const result = response.data[0];
 				this.lastSavedAt = result.savedAt;
 				this.statusMsg = `Saved. ${this.schema.label} updated at ${result.savedAt}.`;
+				// Cross-store coherence: invalidate knowledgeStore's use cases so
+				// /explore/topics, /explore/use-cases, /explore/use-cases/[id]
+				// re-read on next mount without a page reload.
+				const { useKnowledgeStore } = await import('@/stores/knowledgeStore');
+				useKnowledgeStore().invalidateUseCases();
 				// Reload from server so we see recomputed counts and server-normalized values.
 				await this.loadUseCase(this.current.id);
 				return true;

@@ -120,8 +120,6 @@ const moduleFunction =
 			next();
 		});
 
-		console.log(`staticDirectoryPath=${staticDirectoryPath}`);
-
 		xLog.status(`using image directory ${staticDirectoryPath}`);
 		expressApp.use(staticPathPrefix, express.static(staticDirectoryPath));
 
