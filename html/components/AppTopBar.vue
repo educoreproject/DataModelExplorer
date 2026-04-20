@@ -44,7 +44,7 @@ const pageTitle = computed(() => {
 			</template>
 			<v-btn
 				v-else
-				to="/login"
+				:to="{ path: '/login', query: { redirect: route.fullPath } }"
 				variant="tonal"
 				color="secondary"
 				size="small"
