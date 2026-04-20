@@ -107,13 +107,14 @@ export function createGraphinatorStore({
 			connect() {
 				if (wsInstances[storeId] && wsInstances[storeId].readyState <= 1) return;
 
-				// WebSocket host is driven by the deployment profile resolved in
-				// nuxt.config.ts from the Nuxt machine's hostname. In dev this may
-				// point to a remote host (e.g., educore.tqtmp.org); in production it
-				// is empty, and we fall back to window.location.host (nginx routes
-				// the /ws/ upgrade to the API server port).
-				const rc = useRuntimeConfig().public;
-				const wsHost = rc.wsHost || window.location.host;
+				// WebSocket host comes from useBackendProfile(), which layers a
+				// runtime cookie override on top of the build-time default from
+				// nuxt.config.ts. Default: the hostname-driven profile (remote in
+				// dev, window.location.host in prod). Cookie override: one of the
+				// registered profiles in html/config/backendProfiles.js. On the
+				// prod domain the cookie is ignored regardless of its value.
+				const profile = useBackendProfile();
+				const wsHost = profile.wsHost || window.location.host;
 				// Protocol depends on the target host, not the page. Loopback = ws://,
 				// remote host = wss://. In prod the page is https so wss is also right
 				// when wsHost falls back to window.location.host.

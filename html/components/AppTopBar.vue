@@ -1,9 +1,11 @@
 <script setup>
 import { useLoginStore } from '@/stores/loginStore';
+import { useBackendProfile } from '@/composables/useBackendProfile';
 import { useRoute } from 'vue-router';
 
 const LoginStore = useLoginStore();
 const route = useRoute();
+const backendProfile = useBackendProfile();
 
 defineEmits(['toggle-drawer']);
 
@@ -34,6 +36,15 @@ const pageTitle = computed(() => {
 		</v-app-bar-title>
 
 		<template #append>
+			<v-chip
+				v-if="backendProfile.source === 'cookie'"
+				color="warning"
+				size="small"
+				prepend-icon="mdi-server-network"
+				class="mr-2"
+			>
+				Dev backend: {{ backendProfile.name }}
+			</v-chip>
 			<template v-if="LoginStore.validUser">
 				<span class="text-body-2 text-medium-emphasis mr-2 d-none d-sm-inline">
 					<span v-if="LoginStore.loggedInUser.last">
