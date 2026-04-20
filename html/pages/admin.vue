@@ -14,7 +14,9 @@ import {
 	setBackendProfile,
 	clearBackendProfile,
 } from '@/composables/useBackendProfile';
+import { useLoginStore } from '@/stores/loginStore';
 
+const LoginStore = useLoginStore();
 const profile = useBackendProfile();
 const selectedProfile = ref(profile.source === 'cookie' ? profile.name : '');
 const profileOptions = Object.entries(backendProfiles).map(([value, p]) => ({
@@ -22,15 +24,23 @@ const profileOptions = Object.entries(backendProfiles).map(([value, p]) => ({
 	title: `${value} — ${p.label}`,
 }));
 
+// Switching backends invalidates the current auth token — the token was
+// signed by the previous backend's JWT secret and the new backend will
+// reject it as malformed. Log out, then send the user to /login so they
+// re-authenticate against the newly-selected backend.
+const switchBackend = (mutateCookie) => {
+	LoginStore.logout();
+	mutateCookie();
+	window.location.href = '/login';
+};
+
 const applyProfile = () => {
 	if (!selectedProfile.value) return;
-	setBackendProfile(selectedProfile.value);
-	window.location.reload();
+	switchBackend(() => setBackendProfile(selectedProfile.value));
 };
 
 const clearProfile = () => {
-	clearBackendProfile();
-	window.location.reload();
+	switchBackend(() => clearBackendProfile());
 };
 
 // Selected tool - default to add-edit-user

@@ -1,6 +1,7 @@
 // @concept: [[SessionPersistence]]
 // @concept: [[PiniaStorePattern]]
 import { defineStore } from 'pinia';
+import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 
 export const useSessionStore = defineStore('sessionStore', {
@@ -16,17 +17,15 @@ export const useSessionStore = defineStore('sessionStore', {
 			this.statusMsg = '';
 			try {
 				const loginStore = useLoginStore();
-				const response = await fetch('/api/dmeSessionList', {
+				const response = await axios.get('/api/dmeSessionList', {
 					headers: { ...loginStore.getAuthTokenProperty },
 				});
-				if (!response.ok) {
-					this.statusMsg = `Failed to load sessions (${response.status})`;
-					this.sessions = [];
-					return;
-				}
-				this.sessions = await response.json();
+				this.sessions = response.data;
 			} catch (err) {
-				this.statusMsg = err.message || 'Failed to load sessions';
+				const status = err.response?.status;
+				this.statusMsg = status
+					? `Failed to load sessions (${status})`
+					: (err.message || 'Failed to load sessions');
 				this.sessions = [];
 			} finally {
 				this.loading = false;
@@ -36,22 +35,20 @@ export const useSessionStore = defineStore('sessionStore', {
 		async deleteSession(refId) {
 			try {
 				const loginStore = useLoginStore();
-				const response = await fetch(
+				await axios.delete(
 					`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`,
 					{
-						method: 'DELETE',
 						headers: { ...loginStore.getAuthTokenProperty },
 					},
 				);
-				if (!response.ok) {
-					this.statusMsg = `Delete failed (${response.status})`;
-					return false;
-				}
 				// Refresh the list
 				await this.fetchSessions();
 				return true;
 			} catch (err) {
-				this.statusMsg = err.message || 'Delete failed';
+				const status = err.response?.status;
+				this.statusMsg = status
+					? `Delete failed (${status})`
+					: (err.message || 'Delete failed');
 				return false;
 			}
 		},

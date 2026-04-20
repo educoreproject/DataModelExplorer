@@ -35,6 +35,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 
 const os = require('os');
 const express = require('express');
+const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
@@ -109,6 +110,26 @@ const moduleFunction =
 			);
 			next();
 		});
+
+		// CORS for local dev cross-origin: the Nuxt UI on :7791 calls the API on :7790
+		// when the educoreDevServer cookie is active. Bearer tokens, not cookies, carry
+		// auth, so credentials is false. In production nginx serves UI and API from the
+		// same origin, so this middleware is harmless — no prod origin is allowed.
+		expressApp.use(cors({
+			origin: [
+				'http://localhost:7791',
+				'http://localhost:7790',
+			],
+			credentials: false,
+			allowedHeaders: ['Authorization', 'Content-Type', 'from'],
+			// Custom response headers carry auth state back to the client (see
+			// loginStore.login reading response.headers.authtoken). Without
+			// exposedHeaders, the browser silently hides them cross-origin, the
+			// store captures undefined, and every subsequent call sends
+			// "Authorization: Bearer undefined".
+			exposedHeaders: ['authtoken', 'authclaims', 'authsecondsexpirationseconds'],
+			methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		}));
 
 		expressApp.use(bodyParser.json({ extended: true })); //https://stackabuse.com/get-http-post-body-in-express-js/
 

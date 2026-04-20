@@ -13,6 +13,7 @@
 //   const graphStore = useGraphStore();
 
 import { defineStore } from 'pinia';
+import axios from 'axios';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -295,16 +296,14 @@ export function createGraphinatorStore({
 						payload.refId = this._activeSessionRefId;
 					}
 
-					const response = await fetch('/api/dmeSessionSave', {
-						method: 'POST',
+					const response = await axios.post('/api/dmeSessionSave', payload, {
 						headers: {
 							'Content-Type': 'application/json',
 							...loginStore.getAuthTokenProperty,
 						},
-						body: JSON.stringify(payload),
 					});
 
-					const result = await response.json();
+					const result = response.data;
 					if (result && result[0]) {
 						this._activeSessionRefId = result[0].refId;
 						this._activeSessionName = result[0].sessionName || '';
@@ -322,11 +321,11 @@ export function createGraphinatorStore({
 					const { useLoginStore } = await import('@/stores/loginStore');
 					const loginStore = useLoginStore();
 
-					const response = await fetch('/api/dmeSessionList', {
+					const response = await axios.get('/api/dmeSessionList', {
 						headers: { ...loginStore.getAuthTokenProperty },
 					});
 
-					this.sessionList = await response.json();
+					this.sessionList = response.data;
 				} catch (err) {
 					console.error(`[${storeId}] Session list failed:`, err);
 					this.sessionList = [];
@@ -339,11 +338,11 @@ export function createGraphinatorStore({
 					const { useLoginStore } = await import('@/stores/loginStore');
 					const loginStore = useLoginStore();
 
-					const response = await fetch(`/api/dmeSessionLoad?refId=${encodeURIComponent(refId)}`, {
+					const response = await axios.get(`/api/dmeSessionLoad?refId=${encodeURIComponent(refId)}`, {
 						headers: { ...loginStore.getAuthTokenProperty },
 					});
 
-					const result = await response.json();
+					const result = response.data;
 					if (result && result[0]) {
 						const session = result[0];
 						const sessionData = typeof session.sessionData === 'string'
@@ -367,8 +366,7 @@ export function createGraphinatorStore({
 					const { useLoginStore } = await import('@/stores/loginStore');
 					const loginStore = useLoginStore();
 
-					await fetch(`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`, {
-						method: 'DELETE',
+					await axios.delete(`/api/dmeSessionDelete?refId=${encodeURIComponent(refId)}`, {
 						headers: { ...loginStore.getAuthTokenProperty },
 					});
 
