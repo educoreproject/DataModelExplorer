@@ -266,7 +266,7 @@ const handleKeydown = (event) => {
 
 const stdoutPanel = ref(null);
 const stderrPanel = ref(null);
-const stderrExpanded = ref(false);
+const stderrExpanded = ref(true);
 const fullscreenPanel = ref(null); // null | 'response' | 'visualization'
 const controlPanel = ref(null);
 const controlPanelRef = ref(null);

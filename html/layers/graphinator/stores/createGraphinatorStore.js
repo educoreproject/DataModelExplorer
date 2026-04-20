@@ -13,6 +13,7 @@
 //   const graphStore = useGraphStore();
 
 import { defineStore } from 'pinia';
+import { nextTick } from 'vue';
 import axios from 'axios';
 
 // WebSocket reference kept outside reactive state (one per store instance)
@@ -153,7 +154,7 @@ export function createGraphinatorStore({
 					this.statusMsg = '';
 				};
 
-				ws.onmessage = (event) => {
+				ws.onmessage = async (event) => {
 					const msg = JSON.parse(event.data);
 
 					if (msg.channel === 'config') {
@@ -190,7 +191,12 @@ export function createGraphinatorStore({
 					} else if (msg.channel === 'done') {
 						this.loading = false;
 						this.lastHeartbeat = null;
-						// Auto-save session
+						// GraphinatorPanel's watcher on `loading` fires on the next
+						// tick and serializes the rendered DOM (with SVG diagrams)
+						// back into resp.controlHtml. Auto-save must wait for that,
+						// otherwise the saved sessionData has controlHtml='' and
+						// reopening the session shows an empty right-side panel.
+						await nextTick();
 						this._saveSession();
 					}
 				};
@@ -325,7 +331,15 @@ export function createGraphinatorStore({
 						headers: { ...loginStore.getAuthTokenProperty },
 					});
 
-					this.sessionList = response.data;
+					// Defensive client-side sort: recent first by updatedAt,
+					// falling back to createdAt when updatedAt is equal or missing.
+					const rows = Array.isArray(response.data) ? [...response.data] : [];
+					rows.sort((a, b) => {
+						const aKey = a.updatedAt || a.createdAt || 0;
+						const bKey = b.updatedAt || b.createdAt || 0;
+						return bKey > aKey ? 1 : bKey < aKey ? -1 : 0;
+					});
+					this.sessionList = rows;
 				} catch (err) {
 					console.error(`[${storeId}] Session list failed:`, err);
 					this.sessionList = [];

@@ -421,7 +421,7 @@ const moduleFunction = function ({ unused }) {
 				AFTER UPDATE ON <!tableName!>
 				FOR EACH ROW
 				BEGIN
-				  UPDATE <!tableName!> SET [updatedAt] = CURRENT_TIMESTAMP;
+				  UPDATE <!tableName!> SET [updatedAt] = CURRENT_TIMESTAMP WHERE [refId] = NEW.[refId];
 				END;
 			/* CREATE UNIQUE INDEX IF NOT EXISTS idx_<!tableName!>_refId ON <!tableName!>(refId)*/ /* instance */;`;
 xLog.error(`HACKED: SQL statement in [${moduleName}]`);
