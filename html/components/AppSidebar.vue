@@ -79,6 +79,11 @@ const isAdmin = computed(() =>
 		<v-list v-if="LoginStore.validUser" density="compact" nav>
 			<v-list-subheader>Tools</v-list-subheader>
 			<v-list-item
+				to="/search"
+				prepend-icon="mdi-magnify"
+				title="Search"
+			/>
+			<v-list-item
 				to="/uc/matrix"
 				prepend-icon="mdi-grid"
 				title="Alignment"
