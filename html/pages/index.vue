@@ -28,6 +28,7 @@
 								Reference Library
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
 							</NuxtLink>
+							<NuxtLink to="/login?redirect=/explore/use-cases" class="nav-login">Login</NuxtLink>
 						</div>
 					</div>
 				</nav>
@@ -65,14 +66,6 @@
 							<h4>Disability Accommodations-Aware Record Sharing</h4>
 							<p>
 								Support the secure exchange of learner records that include disability accommodation information, with fine-grained privacy controls ensuring sensitive data is only shared with authorized parties on a need-to-know basis.
-							</p>
-						</div>
-
-						<div class="card">
-							<div class="icon">&#127760;</div>
-							<h4>Multilingual Advising &amp; Communication</h4>
-							<p>
-								Enable multilingual academic advising and family communication with full data provenance — ensuring translated records and communications can be traced back to verified, authoritative source documents.
 							</p>
 						</div>
 
@@ -354,6 +347,25 @@
 		transform: translateY(-1px);
 	}
 
+	.nav-login {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.5rem 1rem;
+		background: transparent;
+		color: var(--lp-primary);
+		border: 1px solid var(--lp-primary);
+		border-radius: 8px;
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.9rem;
+		transition: background 0.2s, color 0.2s;
+	}
+
+	.nav-login:hover {
+		background: var(--lp-primary);
+		color: #fff;
+	}
+
 	.landing-page {
 		--lp-primary: #1a365d;
 		--lp-primary-light: #2b6cb0;
@@ -416,8 +428,16 @@
 	/* Use Case Cards */
 	.use-cases {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-		gap: 1.5rem;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1.25rem;
+	}
+
+	@media (max-width: 900px) {
+		.use-cases { grid-template-columns: repeat(2, 1fr); }
+	}
+
+	@media (max-width: 560px) {
+		.use-cases { grid-template-columns: 1fr; }
 	}
 
 	.card {
