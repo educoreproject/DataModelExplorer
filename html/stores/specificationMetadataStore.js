@@ -739,7 +739,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 				title: 'Learner Information Framework (LIF) 2.0',
 				type: 'Standard',
 				category: 'Learner Records',
-				description: 'The Learning & Employment Record Interoperability Framework (LIF) 2.0 is a comprehensive data model for representing learning and employment records across the full P-20W lifecycle. LIF defines 8 core entities with over 290 fields, each annotated with privacy and equity use recommendations.',
+				description: 'The Learner Information Framework (LIF) 2.0 is a comprehensive data model for representing learning and employment records across the full P-20W lifecycle. LIF defines 8 core entities with over 290 fields, each annotated with privacy and equity use recommendations.',
 				owner: 'LIF',
 				governanceBody: 'LIF',
 				lastUpdated: '2025-01-01',
