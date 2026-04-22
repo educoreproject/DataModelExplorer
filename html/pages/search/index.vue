@@ -35,7 +35,7 @@ watch(localQuery, (val) => {
 });
 
 const goToStandard = (specId) => router.push({ path: '/search/standard', query: { id: specId } });
-const goToUseCase = (ucId) => router.push(`/explore/use-cases/${ucId}`);
+const goToUseCase = (ucId) => router.push({ path: '/search/use-case', query: { id: ucId } });
 const goToBurden = (specId, dim) => router.push({ path: '/search/standard', query: { id: specId, tab: 'burden', dim } });
 
 const burdenScoreColor = (score) => {
