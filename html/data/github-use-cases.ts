@@ -487,39 +487,48 @@ export const githubUseCaseData =
         {
           "standard": "CEDS",
           "count": 3,
-          "implicit": true
+          "implicit": true,
+          "selected": true
         },
         {
           "standard": "CTDL",
-          "count": 292
+          "count": 292,
+          "selected": false
         },
         {
           "standard": "LIF",
-          "count": 250
+          "count": 250,
+          "selected": true
         },
         {
           "standard": "CIP",
-          "count": 212
+          "count": 212,
+          "selected": false
         },
         {
           "standard": "CLR",
-          "count": 82
+          "count": 82,
+          "selected": true
         },
         {
           "standard": "CASE",
-          "count": 79
+          "count": 79,
+          "selected": true
         },
         {
           "standard": "Ed-Fi",
-          "count": 64
+          "count": 64,
+          "selected": true
         },
         {
           "standard": "SIF",
-          "count": 12
+          "count": 12,
+          "selected": false
         },
         {
           "standard": "SEDM",
-          "count": 2
+          "count": 2,
+          "selected": false
         }
       ],
       "dependencies": "* The learner / worker as Holder must have a digital wallet or passport application to receive the LER.",
@@ -1110,7 +1119,34 @@ export const githubUseCaseData =
         }
       ],
       "cedsClassIds": [],
-      "connectedStandards": [],
+      "connectedStandards": [
+        {
+          "standard": "CEDS",
+          "count": 0,
+          "implicit": true,
+          "selected": true
+        },
+        {
+          "standard": "CASE",
+          "count": 0,
+          "selected": true
+        },
+        {
+          "standard": "CLR",
+          "count": 0,
+          "selected": true
+        },
+        {
+          "standard": "CTDL",
+          "count": 0,
+          "selected": true
+        },
+        {
+          "standard": "LIF",
+          "count": 0,
+          "selected": true
+        }
+      ],
       "dependencies": "* The learner / worker as Holder must have a digital wallet or passport application to receive the LER.",
       "outcomes": "* A learner worker is empowered with their data as verifiable credentials.",
       "references": "### **12. Open Comments**\n| Comment Link | Comment Text |\n| :--- | :--- |"
@@ -1206,39 +1242,48 @@ export const githubUseCaseData =
         {
           "standard": "CEDS",
           "count": 3,
-          "implicit": true
+          "implicit": true,
+          "selected": true
         },
         {
           "standard": "CTDL",
-          "count": 292
+          "count": 292,
+          "selected": false
         },
         {
           "standard": "LIF",
-          "count": 250
+          "count": 250,
+          "selected": true
         },
         {
           "standard": "CIP",
-          "count": 212
+          "count": 212,
+          "selected": true
         },
         {
           "standard": "CLR",
-          "count": 82
+          "count": 82,
+          "selected": true
         },
         {
           "standard": "CASE",
-          "count": 79
+          "count": 79,
+          "selected": false
         },
         {
           "standard": "Ed-Fi",
-          "count": 64
+          "count": 64,
+          "selected": true
         },
         {
           "standard": "SIF",
-          "count": 12
+          "count": 12,
+          "selected": true
         },
         {
           "standard": "SEDM",
-          "count": 2
+          "count": 2,
+          "selected": true
         }
       ],
       "dependencies": "State (SEA) systems to collected, validate, and process data from local education agencies (LEA)s.",

@@ -59,8 +59,14 @@ const standards = computed(() => {
 			implicit: !!s.implicit,
 		},
 		matchedDomains: [],
-		// Score threshold for chip pre-selection: implicit (CEDS) and top 4 others.
-		score: s.implicit ? 10 : idx <= 4 ? 2 : 1,
+		// Chip pre-selection: per-entry `selected` overrides default.
+		// Default: implicit (CEDS) always selected; top-4 non-implicit entries selected by MAPS_TO order.
+		score:
+			s.selected === true ? 10
+			: s.selected === false ? 1
+			: s.implicit ? 10
+			: idx <= 4 ? 2
+			: 1,
 	}));
 });
 
