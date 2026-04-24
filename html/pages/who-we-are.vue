@@ -32,8 +32,9 @@
 		},
 		{
 			name: 'Jim Kelly',
-			photo: null,
-			bio: 'Use Cases. Owner of Jim Kelly Technology Consulting.',
+			title: 'Use Cases',
+			photo: '/team/jim-kelly.jpg',
+			bio: 'Jim Kelly is a subject matter expert in educational and workforce data interoperability with over two decades of leadership experience. He served 20 years as Chief Technology and Information Officer for Educational Credential Evaluators (ECE), where he implemented the PESC XML Transcript in ECE’s Evaluation Reports. His consulting work spans major public education systems, including multiple California Community Colleges Chancellor’s Office initiatives and four SUNY data projects totaling $40M. He co-authored the seminal LER definition document and contributed to IEEE 1484.2-2024. Active with PESC since 2015—serving as Board Chair, helping found the PESC GEO Code, and contributing to the PESC JSON-LD Transcript standard—he currently leads use case development for the EDUcore project.',
 		},
 		{
 			name: 'John Lovell',
@@ -59,8 +60,8 @@
 		{
 			name: 'Vince Paredes',
 			title: 'Developer and JEDx Liason',
-			photo: null,
-			bio: '',
+			photo: '/team/vince-paredes.png',
+			bio: 'Vince Paredes is Chief Data Architect at Bardic Systems with over 20 years in education data standards, including more than a decade contributing to SIF. He has led major initiatives, including the development of a national education data model and ontology using semantic web technologies like OWL and RDF. With a background spanning software development, statistics, and research into how people learn, Vince brings both technical depth and real-world perspective to building systems that drive better outcomes.',
 		},
 		{
 			name: 'Kayla Smith',
@@ -69,8 +70,9 @@
 		},
 		{
 			name: 'TQ White II',
+			title: 'AI Genius',
 			photo: '/team/tq-white.jpg',
-			bio: '',
+			bio: 'TQ White II is a visionary architect of digital solutions and master programmer with a 72-year legacy of technological mastery. At Databright Management Systems, he operates at the intersection of high-level strategy and hands-on engineering—specializing in advanced API design, database schema, and server administration. A true polymath, TQ combines deep expertise in JavaScript, MongoDB, and BASH with a creative flair for UI design and single-page applications. He blends the rigorous discipline of a veteran developer with the adventurous spirit of a "bon vivant," making him not just a coder, but a craftsman of digital joy and efficiency.',
 		},
 	];
 
