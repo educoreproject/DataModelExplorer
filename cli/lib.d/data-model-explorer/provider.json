@@ -193,7 +193,7 @@
 		{
 			"definition": {
 				"name": "dme_stats",
-				"description": "Database statistics: node counts by standard and type, bridge edge counts (MAPS_TO, ALIGNS_WITH, STRUCTURALLY_MAPS_TO), and mapping coverage (annotated vs inferred vs unmapped).",
+				"description": "Partial database statistics covering CEDS and SIF only: node counts and mapping coverage. Does NOT enumerate all loaded standards. For the authoritative list of every registered standard, use dme_list_standards instead.",
 				"input_schema": {
 					"type": "object",
 					"properties": {},
@@ -202,6 +202,22 @@
 			},
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -stats",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_list_standards",
+				"description": "Authoritative inventory of every registered standard in the unified graph. Returns each standard's displayName, graphName, tier, tierName, description, toolPrefix, cliName, superLabel, and live nodeCount. Use this for any 'what standards are loaded?' or 'list all standards' question — it reads the :DmeStandard registry directly and never goes stale as new standards are added.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -listStandards",
 				"positionalArgs": [],
 				"flagArgs": {}
 			}

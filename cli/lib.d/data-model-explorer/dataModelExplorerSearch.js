@@ -378,6 +378,51 @@ const getStats = async (session) => {
 	return { ceds: cedsNodes, sif: sifNodes, bridges, coverage };
 };
 
+// =====================================================================
+// LIST STANDARDS
+// =====================================================================
+//
+// The authoritative inventory of every registered standard in the unified
+// graph, joined live against ForgedNode counts. Use this — not getStats —
+// to answer "what standards are loaded?" or "list all standards." getStats
+// only covers CEDS and SIF; this query reads :DmeStandard, the registry
+// emitted by every forge during -export.
+
+const getListStandards = async (session) => {
+	const result = await session.run(`
+		MATCH (s:DmeStandard)
+		CALL {
+			WITH s
+			MATCH (n:ForgedNode) WHERE s.superLabel IN labels(n)
+			RETURN count(n) AS nodeCount
+		}
+		RETURN s.displayName AS displayName,
+		       s.graphName AS graphName,
+		       s.tier AS tier,
+		       s.tierName AS tierName,
+		       s.description AS description,
+		       s.toolPrefix AS toolPrefix,
+		       s.cliName AS cliName,
+		       s.superLabel AS superLabel,
+		       nodeCount
+		ORDER BY tier, graphName
+	`);
+
+	const standards = result.records.map(rec => ({
+		displayName: rec.get('displayName'),
+		graphName: rec.get('graphName'),
+		tier: toNumber(rec.get('tier')),
+		tierName: rec.get('tierName'),
+		description: rec.get('description'),
+		toolPrefix: rec.get('toolPrefix'),
+		cliName: rec.get('cliName'),
+		superLabel: rec.get('superLabel'),
+		nodeCount: toNumber(rec.get('nodeCount'))
+	}));
+
+	return { standards, count: standards.length };
+};
+
 const exploreNode = async (session, params) => {
 	const name = params.name;
 	const standard = params.standard || null;
@@ -537,6 +582,7 @@ const search = async (queryType, params, callback) => {
 				case 'compareCodesets': return compareCodesets(session, params.name);
 				case 'unmappedFields': return unmappedFields(session, params);
 				case 'stats': return getStats(session);
+				case 'listStandards': return getListStandards(session);
 				case 'rawCypher': return rawCypher(session, params.query);
 				case 'explore': return exploreNode(session, params);
 				case 'history': return historyEvents(session, params);
@@ -598,6 +644,8 @@ if (require.main === module) {
 		params.limit = flags.limit || '50';
 	} else if (flags.stats) {
 		queryType = 'stats';
+	} else if (flags.listStandards) {
+		queryType = 'listStandards';
 	} else if (flags.graphRetriever) {
 		queryType = 'graphRetriever';
 		params.query = positionalArgs[0] || '';
@@ -617,6 +665,7 @@ if (require.main === module) {
   ${moduleName} -compareCodesets "concept name"
   ${moduleName} -unmappedFields [--limit=50]
   ${moduleName} -stats
+  ${moduleName} -listStandards
   ${moduleName} -rawCypher --query="CYPHER"
 `);
 		process.exit(0);

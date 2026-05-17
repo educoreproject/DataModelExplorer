@@ -120,6 +120,9 @@ const fallbackPromptOptions = [
 						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
 						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
 						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
+						<li><strong>CASE</strong> &mdash; Competencies and Academic Standards Exchange (1EdTech)</li>
+						<li><strong>SOC</strong> &mdash; Standard Occupational Classification (BLS)</li>
+						<li><strong>DCTAP</strong> &mdash; Dublin Core Tabular Application Profile (meta-vocabulary for application profiles)</li>
 					</ul>
 					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
 					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
