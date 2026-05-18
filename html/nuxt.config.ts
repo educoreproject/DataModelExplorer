@@ -40,9 +40,14 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
 
   // Graphinator UI (GraphinatorPanel, DownloadButton, composables, store)
-  // lives in its own Nuxt layer. Files there are auto-imported across
-  // components/, composables/, and stores/ directories.
-  extends: ['./layers/graphinator'],
+  // lives in the canonical Nuxt layer at qbookSuperTool. Files there are
+  // auto-imported across components/, composables/, and stores/.
+  // Educore's own composables/useBackendProfile.js takes precedence over
+  // the canonical's stub via Nuxt's extends: layering rules.
+  extends: [
+    process.env.GRAPHINATOR_CANONICAL_PATH
+      || '/Users/tqwhite/tq_usr_bin/qbookSuperTool/system/code/html/shared/graphinator',
+  ],
 
   ssr: false, // Disable server-side rendering for an SPA
   target: 'static', // Set target to 'static' for static site generation
