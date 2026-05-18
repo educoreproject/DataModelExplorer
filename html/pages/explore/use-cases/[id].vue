@@ -164,6 +164,9 @@ function createImplementationPlan() {
 		wsPath: '/ws/explorer',
 		defaultPromptName: 'DataModelExplorer',
 		getUserRole: () => LoginStore.loggedInUser.role || null,
+		// Canonical layer no longer auto-imports loginStore; supply auth explicitly.
+		// This page never invokes the session-* actions, but the helper is harmless.
+		getAuthHeaders: async () => ({ ...LoginStore.getAuthTokenProperty }),
 	});
 	const store = useStore();
 	planStore.value = store;

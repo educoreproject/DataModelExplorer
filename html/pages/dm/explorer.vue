@@ -19,16 +19,34 @@ const LoginStore = useLoginStore();
 const route = useRoute();
 const router = useRouter();
 
-// Create store instance for this page's WS endpoint
-// Role-based tool visibility: server sends toolsByRole config, store filters by userRole
+// Create store instance for this page's WS endpoint.
+// Role-based tool visibility: server sends toolsByRole config, store filters by userRole.
+// sessionEndpoints preserve educore's existing dmeSession* URLs (and the underlying
+// dme_sessions SQLite table) so persisted sessions keep working through the migration.
+// getAuthHeaders is required now that the canonical layer no longer imports loginStore.
 const useGraphStore = createGraphinatorStore({
 	storeId: 'explorerStore',
 	wsPath: '/ws/explorer',
 	devPort: 7790,
 	defaultPromptName: 'DataModelExplorer',
 	getUserRole: () => LoginStore.loggedInUser.role || null,
+	sessionEndpoints: {
+		save:   '/api/dmeSessionSave',
+		list:   '/api/dmeSessionList',
+		load:   '/api/dmeSessionLoad',
+		delete: '/api/dmeSessionDelete',
+	},
+	getAuthHeaders: async () => ({ ...LoginStore.getAuthTokenProperty }),
 });
 const graphStore = useGraphStore();
+
+// The CEDS-flavored example prompts that previously lived hardcoded inside
+// GraphinatorPanel.vue. The canonical component now takes them via prop.
+const cedsExamplePrompts = [
+	"Which educore use cases reference the CEDS property 'Has Credential Definition Criteria Definition'",
+	"I'm looking at the CEDS property 'Has Credential Definition Criteria Definition'. Show me which educore use cases depend on it, and for each one, tell me what the use case is about and which step in that use case involves this criterion.",
+	"For the LER Issuance use case (issue #2), list every CEDS data model element it references — classes and properties. I expect to see seven classes plus one property.",
+];
 
 const activeTab = 'explore';
 
@@ -97,6 +115,7 @@ const fallbackPromptOptions = [
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
+				:example-prompts="cedsExamplePrompts"
 				download-prefix="explorer-output"
 			>
 				<template #welcome>
