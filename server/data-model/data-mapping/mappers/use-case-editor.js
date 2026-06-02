@@ -27,7 +27,7 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const schemas = require('../../schemas/useCase');
 
-// Mirrors graphForge/cli/lib.d/forge-usecases/lib/nodeBuilder.js slugify().
+// Mirrors educoreForge/cli/lib.d/forge-usecases/lib/nodeBuilder.js slugify().
 // Kept in sync by convention; if the forge rule changes, update here too.
 const slugify = (raw) => {
 	if (!raw) { return ''; }

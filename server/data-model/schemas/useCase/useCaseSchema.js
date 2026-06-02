@@ -2,7 +2,7 @@
 // Schema manifest for the UseCase root node.
 // Drives the Use Case Editor's DynamicForm: which properties are editable,
 // which are read-only-for-display, and which are system-managed (hidden).
-// Property list derived from graphForge/system/code/cli/lib.d/forge-usecases/lib/nodeBuilder.js.
+// Property list derived from educoreForge/system/code/cli/lib.d/forge-usecases/lib/nodeBuilder.js.
 
 module.exports = {
 	label: 'UseCase',
