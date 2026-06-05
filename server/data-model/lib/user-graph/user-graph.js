@@ -192,6 +192,9 @@ const getUserGraph = (
 				lockToken,
 				openedAt: nowIso,
 				lastHeartbeatAt: nowIso,
+				// Fresh provision (or owner-reclaim re-provision) means the clone matches
+				// the durable stateScript after replay: not dirty (doc 12).
+				liveDirty: 0,
 			},
 		}, (err) => {
 			if (err) { next(`setLive failed: ${err}`, args); return; }
@@ -263,6 +266,7 @@ const releaseUserGraph = (handle, deps, callback) => {
 			const clearedFields = {
 				liveBoltUri: '', liveBoltPassword: '', liveContainerName: '',
 				livePort: '', lockToken: '', openedAt: '', lastHeartbeatAt: '',
+				liveDirty: 0, // no live clone, nothing unsaved (doc 12)
 			};
 			if (!sqlDb) {
 				cb(tearErr || '', { released: true, versionRefId });
@@ -275,9 +279,28 @@ const releaseUserGraph = (handle, deps, callback) => {
 	);
 };
 
+// ---------------------------------------------------------------------------
+// setLiveDirty — flip the authoritative "unsaved live writes" flag on the version
+// row (doc 12). A successful user write sets dirty=1; Save clears it to 0. Open
+// (setLive) and Close (clearLive) already set liveDirty=0 with the rest of the live
+// block, so this helper only carries the write/save transitions. Column knowledge for
+// the live block stays in this one seam file.
+const setLiveDirty = ({ sqlDb, versionRefId, dirty }, callback) => {
+	const cb = typeof callback === 'function' ? callback : () => {};
+	if (!sqlDb || !versionRefId) {
+		cb('setLiveDirty: sqlDb and versionRefId are required');
+		return;
+	}
+	writeLiveBlock(
+		{ sqlDb, versionRefId, fields: { liveDirty: dirty ? 1 : 0 } },
+		(err) => cb(err || ''),
+	);
+};
+
 module.exports = {
 	getUserGraph,
 	releaseUserGraph,
 	buildGraphConnection,
 	readVersionRow,
+	setLiveDirty,
 };

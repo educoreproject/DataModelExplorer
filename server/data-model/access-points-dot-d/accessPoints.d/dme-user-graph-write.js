@@ -25,7 +25,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const path = require('path');
 	const configFileProcessor = require('qtools-config-file-processor');
-	const { readVersionRow } = require('../../lib/user-graph/user-graph');
+	const { readVersionRow, setLiveDirty } = require('../../lib/user-graph/user-graph');
 	const { executeWrite } = require('../../lib/user-graph/write-executor');
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({ unused: true });
 
@@ -85,6 +85,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			executeWrite({ userGraphDb, voyageApiKey, action, params }, (err, result) => {
 				if (err) { next(err, args); return; }
 				next('', { ...args, writeResult: result });
+			});
+		});
+
+		// STAGE 4: a successful write means the live clone now diverges from the durable
+		// stateScript — mark the version dirty (doc 12). The status endpoint reads this
+		// authoritative flag; the client mirrors it for the unsaved-changes guards.
+		taskList.push((args, next) => {
+			const { sqlDb, versionRefId } = args;
+			setLiveDirty({ sqlDb, versionRefId, dirty: 1 }, (err) => {
+				if (err) { next(err, args); return; }
+				next('', args);
 			});
 		});
 

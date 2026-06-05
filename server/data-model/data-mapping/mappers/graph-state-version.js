@@ -47,6 +47,9 @@ const moduleFunction =
 			['lockToken']: 'lockToken',
 			['openedAt']: 'openedAt',
 			['lastHeartbeatAt']: 'lastHeartbeatAt',
+			// authoritative "unsaved live writes" flag (doc 12): 0/1, set on open/save/close
+			// to 0 and on a successful write to 1.
+			['liveDirty']: 'liveDirty',
 		};
 
 		// ================================================================================
@@ -104,7 +107,7 @@ const moduleFunction =
 				// expired (lastHeartbeatAt older than the cutoff). Durable columns
 				// (stateScript etc.) are untouched. Empty string === "not live"
 				// (saveObject drops nulls, so the store uses '' as the cleared marker).
-				'clearStaleLocks': `UPDATE <!tableName!> SET liveBoltUri='', liveBoltPassword='', liveContainerName='', livePort='', lockToken='', openedAt='', lastHeartbeatAt='' WHERE lastHeartbeatAt != '' AND lastHeartbeatAt < <!cutoff!>`,
+				'clearStaleLocks': `UPDATE <!tableName!> SET liveBoltUri='', liveBoltPassword='', liveContainerName='', livePort='', lockToken='', openedAt='', lastHeartbeatAt='', liveDirty='0' WHERE lastHeartbeatAt != '' AND lastHeartbeatAt < <!cutoff!>`,
 			};
 
 			if (!queries[queryName]) {

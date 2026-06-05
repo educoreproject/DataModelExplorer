@@ -23,7 +23,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping, accessPointsDotD } = passThroughParameters;
 
-	const { readVersionRow } = require('../../lib/user-graph/user-graph');
+	const { readVersionRow, setLiveDirty } = require('../../lib/user-graph/user-graph');
 	const { EMBEDDING_MODEL } = require('../../lib/user-graph/write-executor');
 	const { reEmit } = require('../../lib/user-graph/re-emit');
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({ unused: true });
@@ -86,6 +86,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					next('', { ...args, saveResult: result });
 				},
 			);
+		});
+
+		// STAGE 4: the durable stateScript now matches the live clone again — clear the
+		// dirty flag (doc 12). Best-effort wrt the saved result already being durable: a
+		// flag-clear miss is logged, not fatal (the row's durable truth is the save above).
+		taskList.push((args, next) => {
+			const { sqlDb, versionRefId } = args;
+			setLiveDirty({ sqlDb, versionRefId, dirty: 0 }, (err) => {
+				if (err) { xLog.error(`dme-user-graph-save: liveDirty clear reported '${err}' (save itself succeeded)`); }
+				next('', args);
+			});
 		});
 
 		const initialData = {
