@@ -3,6 +3,7 @@
 // @concept: [[DataModelExplorer]]
 // @concept: [[MultiTenant]]
 // @concept: [[AccessPointPattern]]
+// @concept: [[UserGraphSeam]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -18,12 +19,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 
-	const { neo4jDb } = passThroughParameters;
+	const { sqlDb, dataMapping } = passThroughParameters;
 
 	const validateReadOnly = require('../../../lib/cypher-validator');
-	const getSchemaDescription = require('../../../lib/schema-provider')({
-		neo4jDb,
+	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({
+		unused: true,
 	});
+	const { getUserGraph, releaseUserGraph } = require('../../lib/user-graph/user-graph');
 
 	const mcpConfig = getConfig('mcp-server') || {};
 	const maxResultRecords = parseInt(mcpConfig.maxResultRecords, 10) || 100;
@@ -31,39 +33,71 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// ================================================================================
 	// SERVICE FUNCTION
 	//
-	// Phase 2: a genuinely separate user leg — its OWN read path, no longer a proxy to
-	// the standard access point. It still reads the standard graph (the injected
-	// neo4jDb) and still enforces read-only THIS phase. Later: Phase 5 points this leg
-	// at a per-user isolated clone (resolved server-side from the version record), and
-	// Phase 6 relaxes the read-only guard on that isolated path. userRefId is resolved
-	// from the JWT by the endpoint and arrives on queryData (it scopes the version
-	// record in later phases; carried and logged now to prove resolution).
+	// Phase 3: the user leg now runs THROUGH the seam (doc 03). It acquires a
+	// UserGraphHandle via getUserGraph, opens a per-request connection from
+	// handle.graphConnection (NOT the injected global neo4jDb — the seam's connection
+	// is the load-bearing one), runs the read-only query there, then closes the
+	// connection and releases the handle. At the stub, handle.graphConnection is the
+	// standard DME connection, so results match Standard mode; Phase 5 swaps in a real
+	// per-user isolated clone with zero change here. The handle's identityMarker is
+	// returned alongside the result so the endpoint can surface it (no secret leaves).
 
 	const serviceFunction = (queryData, callback) => {
 		const taskList = new taskListPlus();
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 1: VALIDATE NEO4J AVAILABILITY
+		// STAGE 1: ACQUIRE THE USER GRAPH VIA THE SEAM
 
 		taskList.push((args, next) => {
-			if (!neo4jDb) {
-				next(
-					'Neo4j database is not available. Check dataModelExplorerSearch configuration.',
-					args,
-				);
-				return;
-			}
-			next('', args);
+			const { userRefId, versionRefId, username } = args.queryData;
+
+			getUserGraph(
+				{ userRefId, versionRefId, username, sqlDb, dataMapping },
+				(err, handle) => {
+					if (err) {
+						next(`getUserGraph failed: ${err}`, args);
+						return;
+					}
+					next('', { ...args, handle });
+				},
+			);
 		});
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 2: DISPATCH ON ACTION (read-only enforced)
+		// STAGE 2: OPEN A PER-REQUEST CONNECTION FROM handle.graphConnection
 
 		taskList.push((args, next) => {
-			const { queryData } = args;
+			const { graphConnection } = args.handle;
+
+			const perRequestConfig = {
+				neo4jBoltUri: graphConnection.boltUri,
+				neo4jUser: graphConnection.user,
+				neo4jPassword: graphConnection.password,
+			};
+
+			neo4jInstanceGen.initDatabaseInstance(
+				perRequestConfig,
+				(err, userGraphDb) => {
+					if (err) {
+						next(`user graph connection failed: ${err}`, args);
+						return;
+					}
+					next('', { ...args, userGraphDb });
+				},
+			);
+		});
+
+		// --------------------------------------------------------------------------------
+		// STAGE 3: DISPATCH ON ACTION (read-only enforced this phase)
+
+		taskList.push((args, next) => {
+			const { queryData, userGraphDb } = args;
 			const { action } = queryData;
 
 			if (action === 'schema') {
+				const getSchemaDescription = require('../../../lib/schema-provider')({
+					neo4jDb: userGraphDb,
+				});
 				getSchemaDescription((err, schemaText) => {
 					if (err) {
 						next(err, args);
@@ -99,10 +133,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 3: EXECUTE CYPHER QUERY
+		// STAGE 4: EXECUTE CYPHER QUERY ON THE USER GRAPH CONNECTION
 
 		taskList.push((args, next) => {
-			const { query, queryParams } = args;
+			const { query, queryParams, userGraphDb } = args;
 
 			const localCallback = (err, records) => {
 				if (err) {
@@ -125,19 +159,35 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', { ...args, result });
 			};
 
-			neo4jDb.runQuery(query, queryParams, localCallback);
+			userGraphDb.runQuery(query, queryParams, localCallback);
 		});
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE EXECUTION
+		// PIPELINE EXECUTION + GUARANTEED CLEANUP (close connection, release handle)
 
 		const initialData = { queryData };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
+			const { userGraphDb, handle } = args;
+
+			// Always close the per-request connection and release the seam handle,
+			// on success or error. At the stub releaseUserGraph just frees the lock.
+			if (userGraphDb && typeof userGraphDb.close === 'function') {
+				userGraphDb.close();
+			}
+			if (handle) {
+				releaseUserGraph(handle, () => {});
+			}
+
 			if (err && err !== 'skipRestOfPipe') {
-				callback(err, []);
+				callback(err);
 				return;
 			}
-			callback('', args.result || []);
+
+			callback('', {
+				result: args.result || [],
+				identityMarker: handle ? handle.identityMarker : null,
+				containerName: handle ? handle.containerName : null,
+			});
 		});
 	};
 

@@ -3,6 +3,7 @@
 // @concept: [[DataModelExplorer]]
 // @concept: [[MultiTenant]]
 // @concept: [[SecurityFirstPattern]]
+// @concept: [[UserGraphSeam]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -30,11 +31,20 @@ const moduleFunction = function ({
 	} = passThroughParameters;
 
 	// The User-mode graph leg. Parallel to dme-cypher-query, never a modification of
-	// it — the standard read path stays exactly as it is. Two response headers mark
-	// the user leg so a caller can prove (a) the user endpoint served the request and
-	// (b) userRefId was resolved from the JWT, without altering the response body.
-	const graphModeHeaderName = 'X-DME-Graph-Mode';
-	const userRefIdHeaderName = 'X-DME-User-RefId';
+	// it. The access point now runs through the getUserGraph seam (03) and returns
+	// { result, identityMarker, containerName } alongside the query result. We surface
+	// the (non-secret) identity fields as response headers so a caller can verify the
+	// seam's handle without the body changing and without the bolt secret ever leaving
+	// the server — graphConnection is NOT part of identityMarker.
+	const setHandleHeaders = (xRes, identityMarker, containerName) => {
+		const marker = identityMarker || {};
+		xRes.set('X-DME-Graph-Mode', 'user');
+		xRes.set('X-DME-User-RefId', marker.userRefId || '');
+		xRes.set('X-DME-Username', marker.username || '');
+		xRes.set('X-DME-Version-RefId', marker.versionRefId || '');
+		xRes.set('X-DME-Version-Name', marker.versionName || '');
+		xRes.set('X-DME-Container', containerName || '');
+	};
 
 	// ================================================================================
 	// SERVICE FUNCTION (GET — schema retrieval)
@@ -53,26 +63,29 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT
+		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT (via the seam)
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
 			const authClaims = xReq.appValueGetter('authclaims');
 			const userRefId = authClaims.qtGetSurePath('user.refId', '');
+			const username = authClaims.qtGetSurePath('user.username', '');
 
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const queryData = {
 				action: xQuery.action || 'schema',
+				versionRefId: xQuery.versionRefId,
 				userRefId,
+				username,
 			};
 
-			const localCallback = (err, result) => {
+			const localCallback = (err, payload) => {
 				if (err) {
 					next(err, args);
 					return;
 				}
-				next('', { ...args, result, userRefId });
+				next('', { ...args, payload });
 			};
 
 			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
@@ -94,9 +107,9 @@ const moduleFunction = function ({
 				return;
 			}
 
-			const { result, userRefId } = args;
-			xRes.set(graphModeHeaderName, 'user');
-			xRes.set(userRefIdHeaderName, userRefId || '');
+			const { payload } = args;
+			const { result, identityMarker, containerName } = payload || {};
+			setHandleHeaders(xRes, identityMarker, containerName);
 			xRes.send(Array.isArray(result) ? result : [result]);
 		});
 	};
@@ -118,13 +131,14 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT
+		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT (via the seam)
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
 			const authClaims = xReq.appValueGetter('authclaims');
 			const userRefId = authClaims.qtGetSurePath('user.refId', '');
+			const username = authClaims.qtGetSurePath('user.username', '');
 
 			const body = xReq.body || {};
 			const queryData = {
@@ -133,14 +147,15 @@ const moduleFunction = function ({
 				params: body.params || {},
 				versionRefId: body.versionRefId,
 				userRefId,
+				username,
 			};
 
-			const localCallback = (err, result) => {
+			const localCallback = (err, payload) => {
 				if (err) {
 					next(err, args);
 					return;
 				}
-				next('', { ...args, result, userRefId });
+				next('', { ...args, payload });
 			};
 
 			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
@@ -162,9 +177,9 @@ const moduleFunction = function ({
 				return;
 			}
 
-			const { result, userRefId } = args;
-			xRes.set(graphModeHeaderName, 'user');
-			xRes.set(userRefIdHeaderName, userRefId || '');
+			const { payload } = args;
+			const { result, identityMarker, containerName } = payload || {};
+			setHandleHeaders(xRes, identityMarker, containerName);
 			xRes.send(Array.isArray(result) ? result : [result]);
 		});
 	};
@@ -191,8 +206,8 @@ const moduleFunction = function ({
 	const thisEndpointName = moduleName;
 	const routePath = `${routingPrefix}${thisEndpointName}`;
 
-	// Phase 2: authenticated. A logged-in user is required; the access point receives
-	// the JWT-resolved userRefId. Same role set as the per-user session endpoints.
+	// Authenticated. A logged-in user is required; the access point receives the
+	// JWT-resolved userRefId. Same role set as the per-user session endpoints.
 	const permissionValidator = accessTokenHeaderTools.getValidator([
 		'user',
 		'client',

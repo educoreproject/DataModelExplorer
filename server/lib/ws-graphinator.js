@@ -5,6 +5,7 @@
 const { WebSocketServer } = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
+const { buildGraphConnection } = require('../data-model/lib/user-graph/user-graph');
 
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -174,6 +175,20 @@ const moduleFunction = ({ server }) => {
 				}
 
 				if (askMiloConfigPath) { values.configPath = [askMiloConfigPath]; }
+
+				// Multi-tenant (03): in User mode the server resolves the user graph's
+				// connection and hands it to askMilo in its command input. askMilo uses
+				// graphConnection when present, else its own config (doc 02 — backward
+				// compatible). STUB: buildGraphConnection returns the standard DME
+				// connection, so askMilo answers exactly as it does today; Phase 5 makes
+				// this the live per-user clone's bolt URI/password. The browser never
+				// sends this — the server places it (the bolt secret stays server-side).
+				if (settings.graphMode === 'user') {
+					const graphConnection = buildGraphConnection();
+					if (graphConnection) {
+						values.graphConnection = [JSON.stringify(graphConnection)];
+					}
+				}
 
 				const askMiloInput = JSON.stringify({
 					switches,
