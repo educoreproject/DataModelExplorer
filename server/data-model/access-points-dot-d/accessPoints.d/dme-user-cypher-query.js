@@ -18,37 +18,127 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 
-	// The access-points loader injects the whole library, so this leg can delegate
-	// to the standard read path by name (see access-points-dot-d.js).
-	const { accessPointsDotD } = passThroughParameters;
+	const { neo4jDb } = passThroughParameters;
+
+	const validateReadOnly = require('../../../lib/cypher-validator');
+	const getSchemaDescription = require('../../../lib/schema-provider')({
+		neo4jDb,
+	});
+
+	const mcpConfig = getConfig('mcp-server') || {};
+	const maxResultRecords = parseInt(mcpConfig.maxResultRecords, 10) || 100;
 
 	// ================================================================================
 	// SERVICE FUNCTION
 	//
-	// Phase 1 (mode-aware proxy): the user query leg exists as its own access point
-	// and its own endpoint, but for now it delegates to the standard read path. This
-	// proves the user leg is genuinely on its own code path (its endpoint is hit, this
-	// access point runs) while returning results identical to Standard mode, because
-	// the same graph answers underneath. Phase 2 replaces the delegation below with a
-	// real, authenticated user leg (resolve userRefId; later, a per-user connection).
-	// That delegation line IS the proxy shim Phase 2 removes.
+	// Phase 2: a genuinely separate user leg — its OWN read path, no longer a proxy to
+	// the standard access point. It still reads the standard graph (the injected
+	// neo4jDb) and still enforces read-only THIS phase. Later: Phase 5 points this leg
+	// at a per-user isolated clone (resolved server-side from the version record), and
+	// Phase 6 relaxes the read-only guard on that isolated path. userRefId is resolved
+	// from the JWT by the endpoint and arrives on queryData (it scopes the version
+	// record in later phases; carried and logged now to prove resolution).
 
 	const serviceFunction = (queryData, callback) => {
-		const standardReadPath = accessPointsDotD['dme-cypher-query'];
+		const taskList = new taskListPlus();
 
-		if (typeof standardReadPath !== 'function') {
-			callback(
-				'dme-user-cypher-query: the standard read path (dme-cypher-query) is not available',
-				[],
-			);
-			return;
-		}
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 1: VALIDATE NEO4J AVAILABILITY
 
-		xLog.status(
-			'[graphMode:user] dme-user-cypher-query proxying to standard read path',
-		);
+		taskList.push((args, next) => {
+			if (!neo4jDb) {
+				next(
+					'Neo4j database is not available. Check dataModelExplorerSearch configuration.',
+					args,
+				);
+				return;
+			}
+			next('', args);
+		});
 
-		standardReadPath(queryData, callback);
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 2: DISPATCH ON ACTION (read-only enforced)
+
+		taskList.push((args, next) => {
+			const { queryData } = args;
+			const { action } = queryData;
+
+			if (action === 'schema') {
+				getSchemaDescription((err, schemaText) => {
+					if (err) {
+						next(err, args);
+						return;
+					}
+					next('skipRestOfPipe', {
+						...args,
+						result: [{ schema: schemaText }],
+					});
+				});
+				return;
+			}
+
+			if (action === 'query') {
+				const { query, params } = queryData;
+
+				if (!query || typeof query !== 'string') {
+					next('Query string is required', args);
+					return;
+				}
+
+				const validation = validateReadOnly(query);
+				if (!validation.valid) {
+					next(validation.reason, args);
+					return;
+				}
+
+				next('', { ...args, query, queryParams: params || {} });
+				return;
+			}
+
+			next(`Unknown action: ${action}. Use "schema" or "query".`, args);
+		});
+
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 3: EXECUTE CYPHER QUERY
+
+		taskList.push((args, next) => {
+			const { query, queryParams } = args;
+
+			const localCallback = (err, records) => {
+				if (err) {
+					next(`Neo4j query failed: ${err}`, args);
+					return;
+				}
+
+				let result = records;
+
+				if (records.length > maxResultRecords) {
+					const totalAvailable = records.length;
+					result = records.slice(0, maxResultRecords);
+					result.push({
+						_truncated: true,
+						_totalAvailable: totalAvailable,
+						_returnedCount: maxResultRecords,
+					});
+				}
+
+				next('', { ...args, result });
+			};
+
+			neo4jDb.runQuery(query, queryParams, localCallback);
+		});
+
+		// --------------------------------------------------------------------------------
+		// PIPELINE EXECUTION
+
+		const initialData = { queryData };
+		pipeRunner(taskList.getList(), initialData, (err, args) => {
+			if (err && err !== 'skipRestOfPipe') {
+				callback(err, []);
+				return;
+			}
+			callback('', args.result || []);
+		});
 	};
 
 	// ================================================================================

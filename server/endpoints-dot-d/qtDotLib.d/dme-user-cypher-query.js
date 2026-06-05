@@ -30,10 +30,11 @@ const moduleFunction = function ({
 	} = passThroughParameters;
 
 	// The User-mode graph leg. Parallel to dme-cypher-query, never a modification of
-	// it — the standard read path stays exactly as it is. A response header marks the
-	// user leg so a caller can prove the user endpoint (not the standard one) served
-	// the request, without altering the response body.
+	// it — the standard read path stays exactly as it is. Two response headers mark
+	// the user leg so a caller can prove (a) the user endpoint served the request and
+	// (b) userRefId was resolved from the JWT, without altering the response body.
 	const graphModeHeaderName = 'X-DME-Graph-Mode';
+	const userRefIdHeaderName = 'X-DME-User-RefId';
 
 	// ================================================================================
 	// SERVICE FUNCTION (GET — schema retrieval)
@@ -52,14 +53,18 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: CALL ACCESS POINT
+		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
+			const authClaims = xReq.appValueGetter('authclaims');
+			const userRefId = authClaims.qtGetSurePath('user.refId', '');
+
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const queryData = {
 				action: xQuery.action || 'schema',
+				userRefId,
 			};
 
 			const localCallback = (err, result) => {
@@ -67,7 +72,7 @@ const moduleFunction = function ({
 					next(err, args);
 					return;
 				}
-				next('', { ...args, result });
+				next('', { ...args, result, userRefId });
 			};
 
 			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
@@ -89,8 +94,9 @@ const moduleFunction = function ({
 				return;
 			}
 
-			const { result } = args;
+			const { result, userRefId } = args;
 			xRes.set(graphModeHeaderName, 'user');
+			xRes.set(userRefIdHeaderName, userRefId || '');
 			xRes.send(Array.isArray(result) ? result : [result]);
 		});
 	};
@@ -112,10 +118,13 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: CALL ACCESS POINT
+		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
+
+			const authClaims = xReq.appValueGetter('authclaims');
+			const userRefId = authClaims.qtGetSurePath('user.refId', '');
 
 			const body = xReq.body || {};
 			const queryData = {
@@ -123,6 +132,7 @@ const moduleFunction = function ({
 				query: body.query,
 				params: body.params || {},
 				versionRefId: body.versionRefId,
+				userRefId,
 			};
 
 			const localCallback = (err, result) => {
@@ -130,7 +140,7 @@ const moduleFunction = function ({
 					next(err, args);
 					return;
 				}
-				next('', { ...args, result });
+				next('', { ...args, result, userRefId });
 			};
 
 			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
@@ -152,8 +162,9 @@ const moduleFunction = function ({
 				return;
 			}
 
-			const { result } = args;
+			const { result, userRefId } = args;
 			xRes.set(graphModeHeaderName, 'user');
+			xRes.set(userRefIdHeaderName, userRefId || '');
 			xRes.send(Array.isArray(result) ? result : [result]);
 		});
 	};
@@ -180,9 +191,14 @@ const moduleFunction = function ({
 	const thisEndpointName = moduleName;
 	const routePath = `${routingPrefix}${thisEndpointName}`;
 
-	// Phase 1: public, to smoke-test the proxy against the standard graph without auth.
-	// Phase 2 changes this to an authenticated validator and resolves userRefId.
-	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	// Phase 2: authenticated. A logged-in user is required; the access point receives
+	// the JWT-resolved userRefId. Same role set as the per-user session endpoints.
+	const permissionValidator = accessTokenHeaderTools.getValidator([
+		'user',
+		'client',
+		'admin',
+		'super',
+	]);
 
 	// Register GET route (schema retrieval)
 	addEndpoint({
