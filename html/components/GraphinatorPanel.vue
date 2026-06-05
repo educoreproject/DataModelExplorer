@@ -79,6 +79,11 @@ const emit = defineEmits(['connected', 'disconnected']);
 
 const graphStore = computed(() => props.store);
 
+// Multi-tenant (08): load the user's versions for the selector when they enter User mode.
+watch(() => graphStore.value.settings.graphMode, (mode) => {
+	if (mode === 'user') { graphStore.value.listVersions(); }
+}, { immediate: true });
+
 // -------------------------------------------------------------------------
 // Split stdout into response text and control HTML
 //
@@ -730,6 +735,24 @@ defineExpose({ submitPrompt, promptText });
 							User
 						</v-btn>
 					</v-btn-toggle>
+				</div>
+				<div class="controls-row version-selector-row" v-if="graphStore.settings.graphMode === 'user'" data-testid="version-selector">
+					<v-select
+						:items="graphStore.availableVersions"
+						item-title="versionName"
+						item-value="refId"
+						:model-value="graphStore.activeVersionRefId"
+						@update:modelValue="graphStore.openVersion"
+						label="Version"
+						density="compact"
+						variant="outlined"
+						hide-details
+						style="max-width: 190px"
+						data-testid="version-select"
+					/>
+					<v-btn size="small" variant="text" @click="graphStore.newVersion()" data-testid="version-new">New</v-btn>
+					<v-btn size="small" variant="text" :disabled="!graphStore.activeVersionRefId || graphStore.isReadOnly" @click="graphStore.saveGraph()" data-testid="version-save">Save</v-btn>
+					<v-chip v-if="graphStore.isReadOnly" size="x-small" color="warning" data-testid="version-readonly">Read-only</v-chip>
 				</div>
 				<div class="controls-row">
 					<v-checkbox

@@ -69,6 +69,13 @@ export function createGraphinatorStore({
 			_activeSessionName: '',
 			sessionList: [],
 			_saveInFlight: false,
+			// Multi-tenant version selector (08): the user's graph-state versions, the
+			// active version, and whether the current view is read-only (soft lock).
+			availableVersions: [],
+			activeVersionRefId: null,
+			activeVersionName: '',
+			isReadOnly: false,
+			versionStatusMsg: '',
 			settings: {
 				model: defaultModel,
 				perspectives: 0,
@@ -436,6 +443,84 @@ export function createGraphinatorStore({
 				} catch (err) {
 					console.error(`[${storeId}] Session delete failed:`, err);
 				}
+			},
+
+			// ---- Multi-tenant version lifecycle (08) ----
+			// All call the educore user-graph endpoints; the bolt secret stays server-side.
+
+			async listVersions() {
+				try {
+					const authHeaders = await resolveAuthHeaders();
+					const response = await axios.get('/api/dme-user-graph-list', { headers: { ...authHeaders } });
+					this.availableVersions = Array.isArray(response.data) ? response.data : [];
+				} catch (err) {
+					console.error(`[${storeId}] listVersions failed:`, err);
+					this.availableVersions = [];
+				}
+			},
+
+			async newVersion(versionName = 'Untitled version') {
+				return this._openCall({ new: true, versionName });
+			},
+
+			async openVersion(versionRefId) {
+				return this._openCall({ versionRefId });
+			},
+
+			async _openCall(body) {
+				this.versionStatusMsg = 'Opening…';
+				try {
+					const authHeaders = await resolveAuthHeaders();
+					const response = await axios.post('/api/dme-user-graph-open', body, {
+						headers: { 'Content-Type': 'application/json', ...authHeaders },
+					});
+					const result = response.data && response.data[0];
+					if (result) {
+						this.activeVersionRefId = result.versionRefId;
+						this.activeVersionName = (result.identityMarker && result.identityMarker.versionName) || '';
+						this.isReadOnly = !!result.readOnly;
+						this.versionStatusMsg = result.readOnly ? 'Read-only (open elsewhere)' : '';
+					}
+					await this.listVersions();
+					return result;
+				} catch (err) {
+					console.error(`[${storeId}] open failed:`, err);
+					this.versionStatusMsg = 'Open failed';
+					return null;
+				}
+			},
+
+			async saveGraph() {
+				if (!this.activeVersionRefId || this.isReadOnly) return false;
+				try {
+					const authHeaders = await resolveAuthHeaders();
+					await axios.post('/api/dme-user-graph-save', { versionRefId: this.activeVersionRefId }, {
+						headers: { 'Content-Type': 'application/json', ...authHeaders },
+					});
+					this.versionStatusMsg = `Saved ${new Date().toLocaleTimeString()}`;
+					await this.listVersions();
+					return true;
+				} catch (err) {
+					console.error(`[${storeId}] saveGraph failed:`, err);
+					this.versionStatusMsg = 'Save failed';
+					return false;
+				}
+			},
+
+			async closeGraph() {
+				if (!this.activeVersionRefId) return;
+				try {
+					const authHeaders = await resolveAuthHeaders();
+					await axios.post('/api/dme-user-graph-close', { versionRefId: this.activeVersionRefId }, {
+						headers: { 'Content-Type': 'application/json', ...authHeaders },
+					});
+				} catch (err) {
+					console.error(`[${storeId}] closeGraph failed:`, err);
+				}
+				this.activeVersionRefId = null;
+				this.activeVersionName = '';
+				this.isReadOnly = false;
+				this.versionStatusMsg = '';
 			},
 
 			disconnect() {
