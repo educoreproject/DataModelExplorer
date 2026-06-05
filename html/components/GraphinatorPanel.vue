@@ -365,7 +365,17 @@ const heartbeatStale = computed(() => {
 // -------------------------------------------------------------------------
 // Lifecycle
 
+// Multi-tenant (08): releasing a held user-graph lock on session exit. closeGraph() is a
+// no-op when no version is open, so it is safe to call unconditionally. SPA navigation away
+// unmounts this component synchronously and the axios close completes; a full tab close /
+// refresh fires beforeunload where the same call is best-effort (the server-side reaper is
+// the backstop for whatever does not complete).
+const handleBeforeUnload = () => {
+	graphStore.value.closeGraph();
+};
+
 onMounted(() => {
+	window.addEventListener('beforeunload', handleBeforeUnload);
 	if (props.autoConnect) {
 		setTimeout(() => {
 			graphStore.value.connect();
@@ -378,6 +388,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+	window.removeEventListener('beforeunload', handleBeforeUnload);
+	graphStore.value.closeGraph();
 	graphStore.value.disconnect();
 	emit('disconnected');
 	if (nowTimer) clearInterval(nowTimer);

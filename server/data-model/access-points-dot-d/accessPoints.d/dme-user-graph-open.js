@@ -10,11 +10,15 @@
 // then acquires the isolated clone via the seam (getUserGraph -> provision + marker +
 // replay + setLive) and returns ONLY the non-secret identity fields + any dangling refs.
 //
-// SOFT LOCK (07/09): if the version is already live elsewhere (a held lockToken with a
-// FRESH lastHeartbeatAt within the lease), a second open is offered READ-ONLY — it does
-// NOT re-provision or steal the lock; it reuses the live container for reads, and the UI
-// disables Save + the write tools. A stale lease (heartbeat older than the TTL) is
-// treated as abandoned and the open proceeds normally (the reaper also reclaims it).
+// OWNER RECLAIM (07/09): a version is single-owner (readVersionRow is userRefId-scoped),
+// so a still-live lock (a held lockToken with a FRESH lastHeartbeatAt within the lease)
+// is ALWAYS this same user's own prior, unclosed session — Save does not release the lock
+// and leaving the page Closes only via the client hook, which can miss on a crash. Rather
+// than crippling the owner with a read-only view, the owner RECLAIMS: the prior live
+// container is torn down + the live block cleared, then the open proceeds normally
+// (read-write: fresh provision + replay of the saved stateScript + a new lock). A stale
+// lease is likewise reclaimed; the reaper remains the backstop for sessions that never
+// reopen.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -29,7 +33,8 @@ const LEASE_TTL_SECONDS = 900; // matches the reaper default (08 sets the produc
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping, accessPointsDotD } = passThroughParameters;
-	const { getUserGraph, readVersionRow } = require('../../lib/user-graph/user-graph');
+	const { getUserGraph, readVersionRow, releaseUserGraph } = require('../../lib/user-graph/user-graph');
+	const { cloneDirFor } = require('../../lib/user-graph/clone-manager');
 
 	const isLeaseFresh = (lastHeartbeatAt) => {
 		if (!lastHeartbeatAt) return false;
@@ -52,30 +57,32 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			});
 		});
 
-		// STAGE 2: soft-lock check — second concurrent open is read-only
+		// STAGE 2: owner-reclaim. A live lock here is always this same user's own prior,
+		// unclosed session (single-owner version), so reclaim it: tear down the orphaned
+		// live container + clear the live block, then fall through to the normal read-write
+		// open below (fresh provision + replay of the saved stateScript + a new lock).
 		taskList.push((args, next) => {
-			const { userRefId, username, resolvedVersionRefId } = args;
+			const { userRefId, resolvedVersionRefId } = args;
 			readVersionRow({ sqlDb, dataMapping, userRefId, versionRefId: resolvedVersionRefId }, (err, row) => {
 				if (err) { next(err, args); return; }
 				if (!row) { next('Version not found or not owned by this user', args); return; }
 				const live = !!row.lockToken && isLeaseFresh(row.lastHeartbeatAt);
-				if (live) {
-					// Read-only second view: reuse the live container for reads, no lock steal.
-					next('skipRestOfPipe', {
-						...args,
-						readOnly: true,
-						versionRefId: resolvedVersionRefId,
-						identityMarker: {
-							userRefId,
-							username: username || '',
-							versionRefId: resolvedVersionRefId,
-							versionName: row.versionName || '',
-						},
-						danglingRefs: [],
-					});
-					return;
-				}
-				next('', args);
+				if (!live) { next('', args); return; }
+				const staleHandle = {
+					versionRefId: resolvedVersionRefId,
+					containerName: row.liveContainerName || null,
+					cloneDir: cloneDirFor(userRefId, resolvedVersionRefId),
+					identityMarker: { userRefId, versionRefId: resolvedVersionRefId },
+				};
+				releaseUserGraph(staleHandle, { sqlDb, dataMapping }, (relErr) => {
+					if (relErr) {
+						// releaseUserGraph clears the live block even on a teardown miss, so a
+						// fresh open is still correct. Log and proceed (the reaper reclaims any
+						// leaked container).
+						xLog.error(`dme-user-graph-open reclaim: stale teardown reported '${relErr}'; proceeding with fresh read-write open`);
+					}
+					next('', args);
+				});
 			});
 		});
 
@@ -103,7 +110,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		};
 
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			if (err && err !== 'skipRestOfPipe') { callback(err, {}); return; }
+			if (err) { callback(err, {}); return; }
 			callback('', {
 				versionRefId: args.versionRefId,
 				identityMarker: args.identityMarker,
