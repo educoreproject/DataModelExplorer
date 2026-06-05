@@ -294,10 +294,17 @@ export function createGraphinatorStore({
 					t => !this.settings.tools.includes(t),
 				);
 
+				// Multi-tenant: the active version rides along in User mode so the server
+				// (ws-graphinator) can hand askMilo the versionRefId + internal secret +
+				// executor base URL. Null in Standard mode -> server injects nothing.
 				ws.send(JSON.stringify({
 					type: 'prompt',
 					text,
-					settings: { ...this.settings, aiToolsSuppressed },
+					settings: {
+						...this.settings,
+						aiToolsSuppressed,
+						activeVersionRefId: this.activeVersionRefId,
+					},
 				}));
 			},
 

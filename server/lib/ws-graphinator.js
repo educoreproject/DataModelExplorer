@@ -6,6 +6,7 @@ const { WebSocketServer } = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 const { buildGraphConnection } = require('../data-model/lib/user-graph/user-graph');
+const { buildUserModeAskmiloContext } = require('./dme-usermode-context');
 
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -183,11 +184,28 @@ const moduleFunction = ({ server }) => {
 				// connection, so askMilo answers exactly as it does today; Phase 5 makes
 				// this the live per-user clone's bolt URI/password. The browser never
 				// sends this — the server places it (the bolt secret stays server-side).
+				// User-mode env handed to the askMilo subprocess (Option A internal secret).
+				// Empty in Standard mode — nothing extra is injected.
+				let askmiloUserEnv = {};
+
 				if (settings.graphMode === 'user') {
 					const graphConnection = buildGraphConnection();
 					if (graphConnection) {
 						values.graphConnection = [JSON.stringify(graphConnection)];
 					}
+
+					// Multi-tenant write layer (Phase 2): hand askMilo the live versionRefId +
+					// the executor base URL (command input) and the server-only internal secret
+					// (env only — never command input, so it cannot be echoed to the browser via
+					// piped stdout/stderr). Only when a version is actually open in User mode.
+					const userCtx = buildUserModeAskmiloContext({ settings, getConfig });
+					Object.keys(userCtx.commandValues).forEach((key) => {
+						const value = userCtx.commandValues[key];
+						if (value !== undefined && value !== null) {
+							values[key] = [String(value)];
+						}
+					});
+					askmiloUserEnv = userCtx.env;
 				}
 
 				const askMiloInput = JSON.stringify({
@@ -210,7 +228,7 @@ const moduleFunction = ({ server }) => {
 
 				const child = spawn('askMilo', [], {
 					shell: true,
-					env: process.env,
+					env: { ...process.env, ...askmiloUserEnv },
 				});
 				activeChild = child;
 
