@@ -466,11 +466,18 @@ export function createGraphinatorStore({
 				}
 			},
 
-			async newVersion(versionName = 'Untitled version') {
+			async newVersion(versionName) {
+				// No client-side default name — the server auto-names distinctly (a timestamp
+				// with seconds) when none is given, so the selector never shows duplicate
+				// "Untitled version" rows.
 				return this._openCall({ new: true, versionName });
 			},
 
 			async openVersion(versionRefId) {
+				// Guard against a null/empty selection (e.g. a v-select emitting
+				// update:modelValue with no value). Never round-trip an empty open — that
+				// path previously fell through the server gate and minted a stray version.
+				if (!versionRefId) return null;
 				return this._openCall({ versionRefId });
 			},
 

@@ -46,15 +46,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const serviceFunction = (inputData, callback) => {
 		const taskList = new taskListPlus();
 
-		// STAGE 1: resolve versionRefId (mint for new:true)
+		// STAGE 1: resolve versionRefId. Minting is gated STRICTLY on isNew — only an explicit
+		// New forks a fresh version. A reopen MUST carry a versionRefId; an open with neither
+		// isNew nor a versionRefId is an error, never a silent stray mint (a null v-select
+		// event used to fall through here and mint an empty "Untitled version" duplicate).
 		taskList.push((args, next) => {
 			const { userRefId, versionRefId, isNew, versionName } = args;
 			if (!userRefId) { next('dme-user-graph-open: userRefId is required', args); return; }
-			if (versionRefId && !isNew) { next('', { ...args, resolvedVersionRefId: versionRefId }); return; }
-			accessPointsDotD['graph-state-version-new']({ userRefId, versionName }, (err, result) => {
-				if (err) { next(err, args); return; }
-				next('', { ...args, resolvedVersionRefId: result.refId });
-			});
+			if (isNew) {
+				accessPointsDotD['graph-state-version-new']({ userRefId, versionName }, (err, result) => {
+					if (err) { next(err, args); return; }
+					next('', { ...args, resolvedVersionRefId: result.refId });
+				});
+				return;
+			}
+			if (!versionRefId) { next('dme-user-graph-open: versionRefId is required when not creating a new version', args); return; }
+			next('', { ...args, resolvedVersionRefId: versionRefId });
 		});
 
 		// STAGE 2: owner-reclaim. A live lock here is always this same user's own prior,

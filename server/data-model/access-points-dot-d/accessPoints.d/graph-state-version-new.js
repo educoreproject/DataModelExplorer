@@ -22,6 +22,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping } = passThroughParameters;
 
+	// A distinct default name so the selector never shows indistinguishable duplicates.
+	// Seconds are included so two New versions minted in the same minute don't collide.
+	const autoVersionName = () => {
+		const d = new Date();
+		const p = (n) => String(n).padStart(2, '0');
+		return `Version ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+	};
+
 	const serviceFunction = (inputData, callback) => {
 		const taskList = new taskListPlus();
 
@@ -42,9 +50,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 
+			const resolvedVersionName = (versionName && versionName.trim()) ? versionName : autoVersionName();
+
 			const saveObj = {
 				userRefId,
-				versionName: versionName || '(new version)',
+				versionName: resolvedVersionName,
 				stateScript: '',
 				embeddingModelVersion: '',
 				goldenVersionAuthoredAgainst: '',
@@ -63,7 +73,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					next(err, args);
 					return;
 				}
-				next('', { ...args, savedRefId });
+				next('', { ...args, savedRefId, resolvedVersionName });
 			};
 
 			versionsTable.saveObject(saveObj, { suppressStatementLog: true }, localCallback);
@@ -83,7 +93,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			callback('', {
 				refId: args.savedRefId,
-				versionName: args.versionName || '(new version)',
+				versionName: args.resolvedVersionName,
 			});
 		});
 	};
