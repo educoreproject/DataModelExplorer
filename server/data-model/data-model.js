@@ -265,7 +265,17 @@ const moduleFunction =
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList } = args;
+			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, dataMapping } = args;
+			// Multi-tenant (07): start the orphan-session reaper daemon — periodically
+			// reclaim abandoned per-user containers + clone dirs (lease expired) and clear
+			// their leases; the durable stateScript is untouched. Non-fatal if unavailable.
+			if (!err && sqlDb && dataMapping) {
+				try {
+					require('./lib/user-graph/reaper').startReaperDaemon({ sqlDb, dataMapping });
+				} catch (e) {
+					if (process.global.xLog) process.global.xLog.error(`[reaper] start failed: ${e.message}`);
+				}
+			}
 			callback(err, { accessPointsDotD, dataModelLogInfoList });
 		});
 	};

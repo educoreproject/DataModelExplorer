@@ -88,6 +88,11 @@ const moduleFunction =
 				// name another user's refId and get a row).
 				'getByIdForUser': `SELECT * FROM <!tableName!> WHERE refId = <!refId!> AND userRefId = <!userRefId!>`,
 
+				// Reaper discovery: rows whose lease has expired AND still hold a live
+				// container — these need real teardown (container + clone dir) before the
+				// lock is cleared.
+				'findStaleLive': `SELECT refId, userRefId, liveContainerName FROM <!tableName!> WHERE liveContainerName != '' AND lastHeartbeatAt != '' AND lastHeartbeatAt < <!cutoff!>`,
+
 				// Reaper: clear the transient live block for every row whose lease has
 				// expired (lastHeartbeatAt older than the cutoff). Durable columns
 				// (stateScript etc.) are untouched. Empty string === "not live"
