@@ -8,6 +8,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+const { resolveInternalAuth } = require('../../lib/dme-internal-auth');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -46,33 +47,53 @@ const moduleFunction = function ({
 		xRes.set('X-DME-Container', containerName || '');
 	};
 
+	// The server-only internal auth secret (Option A). Present -> the internal write/read
+	// mode is available; absent -> only the JWT path works. NEVER served to the client.
+	const { internalAuthSecret } = getConfig('dmeUserGraphInternalAuth') || {};
+
 	// ================================================================================
 	// SERVICE FUNCTION (GET — schema retrieval)
 
 	const getServiceFunction = (permissionValidator) => (xReq, xRes, next) => {
 		const taskList = new taskListPlus();
+		const internalAuth = resolveInternalAuth({
+			xReq,
+			configuredSecret: internalAuthSecret,
+		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 1: PERMISSION VALIDATION
+		// STEP 1: AUTHENTICATION — internal (secret + localhost) OR the existing JWT path
 
-		taskList.push((args, next) =>
+		taskList.push((args, next) => {
+			if (internalAuth.internal) {
+				next('', args); // trusted server-internal call; identity asserted in STEP 2
+				return;
+			}
 			args.permissionValidator(
 				xReq.appValueGetter('authclaims'),
 				forwardArgs({ next, args }),
-			),
-		);
+			);
+		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT (via the seam)
+		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
-			const authClaims = xReq.appValueGetter('authclaims');
-			const userRefId = authClaims.qtGetSurePath('user.refId', '');
-			const username = authClaims.qtGetSurePath('user.username', '');
-
 			const xQuery = xReq.qtGetSurePath('query', {});
+
+			let userRefId;
+			let username;
+			if (internalAuth.internal) {
+				userRefId = xQuery.userRefId;
+				username = xQuery.username || '';
+			} else {
+				const authClaims = xReq.appValueGetter('authclaims');
+				userRefId = authClaims.qtGetSurePath('user.refId', '');
+				username = authClaims.qtGetSurePath('user.username', '');
+			}
+
 			const queryData = {
 				action: xQuery.action || 'schema',
 				versionRefId: xQuery.versionRefId,
@@ -119,28 +140,44 @@ const moduleFunction = function ({
 
 	const postServiceFunction = (permissionValidator) => (xReq, xRes, next) => {
 		const taskList = new taskListPlus();
+		const internalAuth = resolveInternalAuth({
+			xReq,
+			configuredSecret: internalAuthSecret,
+		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 1: PERMISSION VALIDATION
+		// STEP 1: AUTHENTICATION — internal (secret + localhost) OR the existing JWT path
 
-		taskList.push((args, next) =>
+		taskList.push((args, next) => {
+			if (internalAuth.internal) {
+				next('', args); // trusted server-internal call; identity asserted in STEP 2
+				return;
+			}
 			args.permissionValidator(
 				xReq.appValueGetter('authclaims'),
 				forwardArgs({ next, args }),
-			),
-		);
+			);
+		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE userRefId FROM JWT + CALL ACCESS POINT (via the seam)
+		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
-			const authClaims = xReq.appValueGetter('authclaims');
-			const userRefId = authClaims.qtGetSurePath('user.refId', '');
-			const username = authClaims.qtGetSurePath('user.username', '');
-
 			const body = xReq.body || {};
+
+			let userRefId;
+			let username;
+			if (internalAuth.internal) {
+				userRefId = body.userRefId;
+				username = body.username || '';
+			} else {
+				const authClaims = xReq.appValueGetter('authclaims');
+				userRefId = authClaims.qtGetSurePath('user.refId', '');
+				username = authClaims.qtGetSurePath('user.username', '');
+			}
+
 			const queryData = {
 				action: body.action || 'query',
 				query: body.query,

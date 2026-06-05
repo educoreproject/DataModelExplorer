@@ -8,6 +8,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+const { resolveInternalAuth } = require('../../lib/dme-internal-auth');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -15,23 +16,39 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters }) {
-	const { xLog } = process.global;
+	const { xLog, getConfig } = process.global;
 	const { expressApp, accessTokenHeaderTools, accessPointsDotD, routingPrefix } =
 		passThroughParameters;
 
+	// The server-only internal auth secret (Option A). Present -> the internal write mode
+	// is available; absent -> only the JWT path works. NEVER served to the client.
+	const { internalAuthSecret } = getConfig('dmeUserGraphInternalAuth') || {};
+
 	const postServiceFunction = (permissionValidator) => (xReq, xRes) => {
 		const taskList = new taskListPlus();
+		const internalAuth = resolveInternalAuth({
+			xReq,
+			configuredSecret: internalAuthSecret,
+		});
 
-		taskList.push((args, next) =>
-			args.permissionValidator(xReq.appValueGetter('authclaims'), forwardArgs({ next, args })),
-		);
+		// STEP 1: AUTHENTICATION — internal (secret + localhost) OR the existing JWT path
+		taskList.push((args, next) => {
+			if (internalAuth.internal) {
+				next('', args); // trusted server-internal call; identity asserted in STEP 2
+				return;
+			}
+			args.permissionValidator(xReq.appValueGetter('authclaims'), forwardArgs({ next, args }));
+		});
 
+		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
-			const authClaims = xReq.appValueGetter('authclaims');
-			const userRefId = authClaims.qtGetSurePath('user.refId', '');
 
 			const body = xReq.body || {};
+			const userRefId = internalAuth.internal
+				? body.userRefId
+				: xReq.appValueGetter('authclaims').qtGetSurePath('user.refId', '');
+
 			accessPointsDotD['dme-user-graph-write'](
 				{ userRefId, versionRefId: body.versionRefId, action: body.action, params: body.params },
 				(err, result) => {
