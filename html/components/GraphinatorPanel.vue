@@ -85,6 +85,69 @@ watch(() => graphStore.value.settings.graphMode, (mode) => {
 }, { immediate: true });
 
 // -------------------------------------------------------------------------
+// Multi-tenant (doc 12): unsaved-changes switch guard.
+//
+// The version selector and the New button route through guarded handlers. On an UNSAVED
+// graph (graphStore.isDirty, server-authoritative) a 3-way dialog opens: Save / Don't Save
+// / Cancel. Cancel reverts the visible selection back to the active version. Because the
+// v-select is one-way bound to a local mirror, reverting needs a forced re-sync (assigning
+// the value it already holds will not dislodge Vuetify's optimistic pick) — so we drop to
+// null and restore on the next tick.
+const versionSelectModel = ref(null);
+watch(() => graphStore.value.activeVersionRefId, (refId) => { versionSelectModel.value = refId; }, { immediate: true });
+
+const unsavedDialogOpen = ref(false);
+let unsavedResolve = null;
+
+// Returns 'proceed' (open the target / New — discard the live writes or they were just
+// saved) or 'cancel' (abort; the caller reverts the selector). Not dirty -> proceed silently.
+const guardUnsaved = async () => {
+	if (!graphStore.value.isDirty) return 'proceed';
+	return new Promise((resolve) => {
+		unsavedResolve = resolve;
+		unsavedDialogOpen.value = true;
+	});
+};
+
+const settleUnsaved = (choice) => {
+	unsavedDialogOpen.value = false;
+	const resolve = unsavedResolve;
+	unsavedResolve = null;
+	if (resolve) resolve(choice);
+};
+
+const onUnsavedSave = async () => {
+	// Save clears isDirty (server + client). Proceed even if the save reports failure — the
+	// user chose to move on; the version status line surfaces "Save failed".
+	await graphStore.value.saveGraph();
+	settleUnsaved('proceed');
+};
+const onUnsavedDontSave = () => settleUnsaved('proceed');
+const onUnsavedCancel = () => settleUnsaved('cancel');
+
+// Force the v-select to show the active version again after a Cancel.
+const revertVersionSelect = async () => {
+	const current = graphStore.value.activeVersionRefId;
+	versionSelectModel.value = null;
+	await nextTick();
+	versionSelectModel.value = current;
+};
+
+const onSelectVersion = async (refId) => {
+	// A null/empty emit or a same-version reselect is a no-op (never round-trips an open).
+	if (!refId || refId === graphStore.value.activeVersionRefId) return;
+	const decision = await guardUnsaved();
+	if (decision === 'cancel') { await revertVersionSelect(); return; }
+	await graphStore.value.openVersion(refId);
+};
+
+const onClickNewVersion = async () => {
+	const decision = await guardUnsaved();
+	if (decision === 'cancel') return; // New has nothing to revert in the selector
+	await graphStore.value.newVersion();
+};
+
+// -------------------------------------------------------------------------
 // Split stdout into response text and control HTML
 //
 // The AI model can embed <control>...</control> tags inline in its output.
@@ -370,7 +433,19 @@ const heartbeatStale = computed(() => {
 // unmounts this component synchronously and the axios close completes; a full tab close /
 // refresh fires beforeunload where the same call is best-effort (the server-side reaper is
 // the backstop for whatever does not complete).
-const handleBeforeUnload = () => {
+const handleBeforeUnload = (event) => {
+	// doc 12 req 2: an UNSAVED graph raises the browser's NATIVE Leave/Stay prompt only.
+	// Custom dialogs and awaited saves are forbidden during beforeunload (platform limit),
+	// so the synchronous preventDefault + returnValue is the whole guard. We deliberately do
+	// NOT closeGraph() here when dirty: closeGraph tears down the live clone (losing the
+	// unsaved writes), which would defeat req 2 if the user then chooses Stay. If the user
+	// does Leave, the server-side reaper reclaims the orphaned clone (the documented backstop).
+	if (graphStore.value.isDirty) {
+		event.preventDefault();
+		event.returnValue = '';
+		return;
+	}
+	// Clean exit: free the clone promptly (best-effort; the reaper covers any miss).
 	graphStore.value.closeGraph();
 };
 
@@ -455,6 +530,10 @@ const submitPrompt = () => {
 watch(() => graphStore.value.loading, (loading, wasLoading) => {
 	if (wasLoading && !loading) {
 		promptText.value = '';
+		// doc 12: an askMilo turn just finished. A User-mode write may have dirtied the live
+		// clone, so refresh the authoritative status -> isDirty mirror, keeping the SYNCHRONOUS
+		// unload check and the switch guard accurate. No-op (server-guarded) outside User mode.
+		graphStore.value.refreshStatus();
 		nextTick(() => {
 			if (promptInput.value) promptInput.value.focus();
 		});
@@ -753,8 +832,8 @@ defineExpose({ submitPrompt, promptText });
 						:items="graphStore.availableVersions"
 						item-title="versionName"
 						item-value="refId"
-						:model-value="graphStore.activeVersionRefId"
-						@update:modelValue="graphStore.openVersion"
+						:model-value="versionSelectModel"
+						@update:modelValue="onSelectVersion"
 						label="Version"
 						density="compact"
 						variant="outlined"
@@ -762,10 +841,25 @@ defineExpose({ submitPrompt, promptText });
 						style="max-width: 190px"
 						data-testid="version-select"
 					/>
-					<v-btn size="small" variant="text" @click="graphStore.newVersion()" data-testid="version-new">New</v-btn>
+					<v-btn size="small" variant="text" @click="onClickNewVersion" data-testid="version-new">New</v-btn>
 					<v-btn size="small" variant="text" :disabled="!graphStore.activeVersionRefId || graphStore.isReadOnly" @click="graphStore.saveGraph()" data-testid="version-save">Save</v-btn>
 					<v-chip v-if="graphStore.isReadOnly" size="x-small" color="warning" data-testid="version-readonly">Read-only</v-chip>
+					<v-chip v-else-if="graphStore.isDirty" size="x-small" color="warning" variant="tonal" data-testid="version-dirty">Unsaved</v-chip>
 				</div>
+
+				<!-- doc 12 req 2: 3-way unsaved-changes guard for version switch / New. -->
+				<v-dialog v-model="unsavedDialogOpen" persistent max-width="440" data-testid="unsaved-dialog">
+					<v-card>
+						<v-card-title>Unsaved changes</v-card-title>
+						<v-card-text>This graph has unsaved changes. Save them before switching?</v-card-text>
+						<v-card-actions>
+							<v-spacer />
+							<v-btn variant="text" @click="onUnsavedCancel" data-testid="unsaved-cancel">Cancel</v-btn>
+							<v-btn variant="text" @click="onUnsavedDontSave" data-testid="unsaved-dontsave">Don't Save</v-btn>
+							<v-btn variant="flat" color="primary" @click="onUnsavedSave" data-testid="unsaved-save">Save</v-btn>
+						</v-card-actions>
+					</v-card>
+				</v-dialog>
 				<div class="controls-row">
 					<v-checkbox
 						v-model="graphStore.settings.newSession"

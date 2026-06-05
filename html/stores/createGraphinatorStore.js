@@ -75,6 +75,10 @@ export function createGraphinatorStore({
 			activeVersionRefId: null,
 			activeVersionName: '',
 			isReadOnly: false,
+			// Authoritative "unsaved live writes" mirror (doc 12). Refreshed from the
+			// server status endpoint; drives the switch + unload guards. Set false on
+			// open/save/close; refreshStatus() pulls the server's truth.
+			isDirty: false,
 			versionStatusMsg: '',
 			settings: {
 				model: defaultModel,
@@ -482,6 +486,15 @@ export function createGraphinatorStore({
 			},
 
 			async _openCall(body) {
+				// Req 1 (doc 12): opening a graph DEALLOCATES the incumbent — the real cure
+				// for "clone cap reached (3 concurrent)". Close a DIFFERENT active version
+				// first (tears down its clone + clears its live block); a same-version reopen
+				// is a no-op switch and must NOT close+reopen itself.
+				const targetRefId = body && body.versionRefId;
+				const reopeningSame = !!targetRefId && targetRefId === this.activeVersionRefId;
+				if (this.activeVersionRefId && !reopeningSame) {
+					await this.closeGraph();
+				}
 				this.versionStatusMsg = 'Opening…';
 				try {
 					const authHeaders = await resolveAuthHeaders();
@@ -494,6 +507,9 @@ export function createGraphinatorStore({
 						this.activeVersionName = (result.identityMarker && result.identityMarker.versionName) || '';
 						this.isReadOnly = !!result.readOnly;
 						this.versionStatusMsg = result.readOnly ? 'Read-only (open elsewhere)' : '';
+						// Fresh provision (or owner-reclaim) replayed the durable stateScript:
+						// the live clone matches the saved state, so nothing is unsaved yet.
+						this.isDirty = false;
 					}
 					await this.listVersions();
 					return result;
@@ -511,6 +527,7 @@ export function createGraphinatorStore({
 					await axios.post('/api/dme-user-graph-save', { versionRefId: this.activeVersionRefId }, {
 						headers: { 'Content-Type': 'application/json', ...authHeaders },
 					});
+					this.isDirty = false;
 					this.versionStatusMsg = `Saved ${new Date().toLocaleTimeString()}`;
 					await this.listVersions();
 					return true;
@@ -534,7 +551,29 @@ export function createGraphinatorStore({
 				this.activeVersionRefId = null;
 				this.activeVersionName = '';
 				this.isReadOnly = false;
+				this.isDirty = false;
 				this.versionStatusMsg = '';
+			},
+
+			// Pull the authoritative open/dirty state for the active version (doc 12).
+			// The panel calls this when an askMilo response finishes streaming, so the
+			// SYNCHRONOUS unload check and the switch guard read an accurate isDirty mirror.
+			async refreshStatus() {
+				if (!this.activeVersionRefId) {
+					this.isDirty = false;
+					return;
+				}
+				try {
+					const authHeaders = await resolveAuthHeaders();
+					const response = await axios.get(
+						`/api/dme-user-graph-status?versionRefId=${encodeURIComponent(this.activeVersionRefId)}`,
+						{ headers: { ...authHeaders } },
+					);
+					const row = Array.isArray(response.data) ? response.data[0] : null;
+					this.isDirty = !!(row && row.dirty);
+				} catch (err) {
+					console.error(`[${storeId}] refreshStatus failed:`, err);
+				}
 			},
 
 			disconnect() {
