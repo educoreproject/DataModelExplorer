@@ -79,6 +79,11 @@ export function createGraphinatorStore({
 				promptName: defaultPromptName,
 				newSession: true,
 				resumeSessionName: '',
+				// Multi-tenant: which graph the user is exploring.
+				// 'standard' = the public 18-standard graph (default, unchanged
+				// behavior); 'user' = the user's own graph leg. Rides along in
+				// the settings broadcast on every prompt (see sendPrompt).
+				graphMode: 'standard',
 			},
 		}),
 
@@ -297,6 +302,14 @@ export function createGraphinatorStore({
 					current.controlHtml = '';
 				}
 				this.statusMsg = '';
+			},
+
+			// Multi-tenant: set which graph the user is exploring.
+			// 'standard' | 'user'. The value rides along in the settings broadcast
+			// (sendPrompt). The toggle in GraphinatorPanel also v-models this field
+			// directly, matching the existing settings-binding pattern.
+			setGraphMode(mode) {
+				this.settings.graphMode = mode === 'user' ? 'user' : 'standard';
 			},
 
 			startNewSession() {

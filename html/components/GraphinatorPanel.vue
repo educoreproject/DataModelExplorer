@@ -713,6 +713,24 @@ defineExpose({ submitPrompt, promptText });
 				:class="{ 'prompt-ready': !showLoadingIndicator, 'prompt-waiting': showLoadingIndicator }"
 			/>
 			<div class="input-controls">
+				<div class="controls-row graph-mode-row">
+					<v-btn-toggle
+						v-model="graphStore.settings.graphMode"
+						mandatory
+						density="compact"
+						variant="outlined"
+						divided
+						class="graph-mode-toggle"
+						data-testid="graph-mode-toggle"
+					>
+						<v-btn value="standard" size="small" data-testid="graph-mode-standard">
+							Standard
+						</v-btn>
+						<v-btn value="user" size="small" data-testid="graph-mode-user">
+							User
+						</v-btn>
+					</v-btn-toggle>
+				</div>
 				<div class="controls-row">
 					<v-checkbox
 						v-model="graphStore.settings.newSession"
@@ -1276,6 +1294,14 @@ defineExpose({ submitPrompt, promptText });
 
 .new-session-checkbox {
 	flex: 0 0 auto;
+}
+
+.graph-mode-row {
+	margin-bottom: 4px;
+}
+
+.graph-mode-toggle {
+	margin-left: auto;
 }
 
 .settings-card {
