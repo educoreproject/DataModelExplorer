@@ -76,40 +76,43 @@ const moduleFunction = function ({
 		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
+		// STEP 2: RESOLVE IDENTITY (internal: derive owner from the version row; else JWT)
+		// + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
 			const xQuery = xReq.qtGetSurePath('query', {});
+			const versionRefId = xQuery.versionRefId;
 
-			let userRefId;
-			let username;
+			const callExecutor = (userRefId, username) => {
+				const queryData = {
+					action: xQuery.action || 'schema',
+					versionRefId,
+					userRefId,
+					username,
+				};
+				accessPointsDotD['dme-user-cypher-query'](queryData, (err, payload) => {
+					if (err) { next(err, args); return; }
+					next('', { ...args, payload });
+				});
+			};
+
 			if (internalAuth.internal) {
-				userRefId = xQuery.userRefId;
-				username = xQuery.username || '';
-			} else {
-				const authClaims = xReq.appValueGetter('authclaims');
-				userRefId = authClaims.qtGetSurePath('user.refId', '');
-				username = authClaims.qtGetSurePath('user.username', '');
+				if (!versionRefId) { next('versionRefId is required', args); return; }
+				accessPointsDotD['graph-state-version-getById']({ versionRefId }, (err, res) => {
+					if (err) { next(err, args); return; }
+					if (!res || !res.found) { next('Version not found', args); return; }
+					callExecutor(res.userRefId, res.versionName || '');
+				});
+				return;
 			}
 
-			const queryData = {
-				action: xQuery.action || 'schema',
-				versionRefId: xQuery.versionRefId,
-				userRefId,
-				username,
-			};
-
-			const localCallback = (err, payload) => {
-				if (err) {
-					next(err, args);
-					return;
-				}
-				next('', { ...args, payload });
-			};
-
-			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
+			const authClaims = xReq.appValueGetter('authclaims');
+			callExecutor(
+				authClaims.qtGetSurePath('user.refId', ''),
+				authClaims.qtGetSurePath('user.username', ''),
+			);
 		});
 
 		// --------------------------------------------------------------------------------
@@ -160,42 +163,48 @@ const moduleFunction = function ({
 		});
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
+		// STEP 2: RESOLVE IDENTITY (internal: derive owner from the version row; else JWT)
+		// + CALL ACCESS POINT
 
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 
 			const body = xReq.body || {};
+			const versionRefId = body.versionRefId;
 
-			let userRefId;
-			let username;
+			const callExecutor = (userRefId, username) => {
+				const queryData = {
+					action: body.action || 'query',
+					query: body.query,
+					params: body.params || {},
+					versionRefId,
+					userRefId,
+					username,
+				};
+				accessPointsDotD['dme-user-cypher-query'](queryData, (err, payload) => {
+					if (err) { next(err, args); return; }
+					next('', { ...args, payload });
+				});
+			};
+
 			if (internalAuth.internal) {
-				userRefId = body.userRefId;
-				username = body.username || '';
-			} else {
-				const authClaims = xReq.appValueGetter('authclaims');
-				userRefId = authClaims.qtGetSurePath('user.refId', '');
-				username = authClaims.qtGetSurePath('user.username', '');
+				// Internal path: the tool holds a versionRefId but no identity. Derive the
+				// owner userRefId server-side from the version row — never trust a
+				// client-supplied userRefId. Ownership is established by the secret gate.
+				if (!versionRefId) { next('versionRefId is required', args); return; }
+				accessPointsDotD['graph-state-version-getById']({ versionRefId }, (err, res) => {
+					if (err) { next(err, args); return; }
+					if (!res || !res.found) { next('Version not found', args); return; }
+					callExecutor(res.userRefId, res.versionName || '');
+				});
+				return;
 			}
 
-			const queryData = {
-				action: body.action || 'query',
-				query: body.query,
-				params: body.params || {},
-				versionRefId: body.versionRefId,
-				userRefId,
-				username,
-			};
-
-			const localCallback = (err, payload) => {
-				if (err) {
-					next(err, args);
-					return;
-				}
-				next('', { ...args, payload });
-			};
-
-			accessPointsDotD['dme-user-cypher-query'](queryData, localCallback);
+			const authClaims = xReq.appValueGetter('authclaims');
+			callExecutor(
+				authClaims.qtGetSurePath('user.refId', ''),
+				authClaims.qtGetSurePath('user.username', ''),
+			);
 		});
 
 		// --------------------------------------------------------------------------------

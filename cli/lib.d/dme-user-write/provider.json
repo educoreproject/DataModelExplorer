@@ -1,0 +1,106 @@
+{
+	"providerName": "DmeUserWrite",
+	"description": "Build the signed-in user's OWN data model: create nodes, link them to the 18 standards by uri, link the user's nodes to each other, set properties on the user's nodes, and delete the user's nodes. Every write is additive and isolated to the user's workspace; golden standard nodes can never be modified or deleted. Nodes are auto-tagged :UserContent and embedded for search.",
+	"_note": "No startup needed. POSTs over HTTP to the educore executor (/api/dme-user-graph-write) using server-internal auth from env (DME_API_BASE, DME_INTERNAL_SECRET, DME_VERSION_REF_ID). User mode only. All invariants enforced server-side.",
+	"startupTimeout": 15,
+	"tools": [
+		{
+			"definition": {
+				"name": "dme_user_create_node",
+				"description": "Create a new node in the user's graph. It is automatically tagged :UserContent, given a stable userNodeId, and embedded (voyage-3). Returns the new userNodeId — keep it to link or edit the node later.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"name": { "type": "string", "description": "The node's name/title (used for the node's name property and its embedding)" },
+						"labels": { "type": "string", "description": "Optional comma-separated labels, e.g. 'Course' or 'Course,Offering'" },
+						"description": { "type": "string", "description": "Optional longer description" }
+					},
+					"required": ["name"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserWriteTool.js -createNode",
+				"positionalArgs": [],
+				"flagArgs": { "name": "--name", "labels": "--labels", "description": "--description" }
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_user_connect_to_standard",
+				"description": "Link one of the user's nodes to a STANDARD element by the element's stable uri. Find the uri first with a dme_user_query (e.g. match the CEDS element by name and RETURN its uri). The target must be a standard element with a uri; linking to a non-existent uri returns a clear error.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"userNodeId": { "type": "string", "description": "The userNodeId of the user's node (the source of the relationship)" },
+						"relType": { "type": "string", "description": "Relationship type, e.g. ALIGNS_WITH or MAPS_TO (UPPER_SNAKE_CASE)" },
+						"standardUri": { "type": "string", "description": "The stable uri of the standard element to link to" }
+					},
+					"required": ["userNodeId", "relType", "standardUri"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserWriteTool.js -connectToStandard",
+				"positionalArgs": [],
+				"flagArgs": { "userNodeId": "--userNodeId", "relType": "--relType", "standardUri": "--standardUri" }
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_user_connect_nodes",
+				"description": "Create a relationship between two of the user's OWN nodes (both identified by userNodeId).",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"fromUserNodeId": { "type": "string", "description": "userNodeId of the source node" },
+						"toUserNodeId": { "type": "string", "description": "userNodeId of the target node" },
+						"relType": { "type": "string", "description": "Relationship type (UPPER_SNAKE_CASE)" }
+					},
+					"required": ["fromUserNodeId", "toUserNodeId", "relType"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserWriteTool.js -connectUserNodes",
+				"positionalArgs": [],
+				"flagArgs": { "fromUserNodeId": "--fromUserNodeId", "toUserNodeId": "--toUserNodeId", "relType": "--relType" }
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_user_set_property",
+				"description": "Set a single property on one of the user's OWN nodes (by userNodeId). Golden standard nodes cannot be modified — that is refused server-side.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"userNodeId": { "type": "string", "description": "userNodeId of the user's node to modify" },
+						"propName": { "type": "string", "description": "Property name to set" },
+						"propValue": { "type": "string", "description": "Property value to set" }
+					},
+					"required": ["userNodeId", "propName", "propValue"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserWriteTool.js -setProperty",
+				"positionalArgs": [],
+				"flagArgs": { "userNodeId": "--userNodeId", "propName": "--propName", "propValue": "--propValue" }
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_user_delete_node",
+				"description": "Delete one of the user's OWN nodes (by userNodeId) and its relationships. Golden standard nodes cannot be deleted — that is refused server-side.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"userNodeId": { "type": "string", "description": "userNodeId of the user's node to delete" }
+					},
+					"required": ["userNodeId"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserWriteTool.js -deleteNode",
+				"positionalArgs": [],
+				"flagArgs": { "userNodeId": "--userNodeId" }
+			}
+		}
+	]
+}

@@ -40,22 +40,36 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			args.permissionValidator(xReq.appValueGetter('authclaims'), forwardArgs({ next, args }));
 		});
 
-		// STEP 2: RESOLVE IDENTITY (internal: server-asserted; else JWT) + CALL ACCESS POINT
+		// STEP 2: RESOLVE IDENTITY (internal: derive owner from the version row; else JWT)
+		// + CALL ACCESS POINT
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
-
 			const body = xReq.body || {};
-			const userRefId = internalAuth.internal
-				? body.userRefId
-				: xReq.appValueGetter('authclaims').qtGetSurePath('user.refId', '');
+			const versionRefId = body.versionRefId;
 
-			accessPointsDotD['dme-user-graph-write'](
-				{ userRefId, versionRefId: body.versionRefId, action: body.action, params: body.params },
-				(err, result) => {
+			const callExecutor = (userRefId) => {
+				accessPointsDotD['dme-user-graph-write'](
+					{ userRefId, versionRefId, action: body.action, params: body.params },
+					(err, result) => {
+						if (err) { next(err, args); return; }
+						next('', { ...args, result });
+					},
+				);
+			};
+
+			if (internalAuth.internal) {
+				// Internal path: derive the owner userRefId from the version row; never trust
+				// a client-supplied identity. Ownership is established by the secret gate.
+				if (!versionRefId) { next('versionRefId is required', args); return; }
+				accessPointsDotD['graph-state-version-getById']({ versionRefId }, (err, res) => {
 					if (err) { next(err, args); return; }
-					next('', { ...args, result });
-				},
-			);
+					if (!res || !res.found) { next('Version not found', args); return; }
+					callExecutor(res.userRefId);
+				});
+				return;
+			}
+
+			callExecutor(xReq.appValueGetter('authclaims').qtGetSurePath('user.refId', ''));
 		});
 
 		const initialData = { accessPointsDotD, permissionValidator };

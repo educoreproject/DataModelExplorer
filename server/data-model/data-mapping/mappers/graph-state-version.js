@@ -88,6 +88,13 @@ const moduleFunction =
 				// name another user's refId and get a row).
 				'getByIdForUser': `SELECT * FROM <!tableName!> WHERE refId = <!refId!> AND userRefId = <!userRefId!>`,
 
+				// Server-internal full row by versionRefId ALONE (no userRefId scoping).
+				// Reachable ONLY on the internal-auth executor path (secret + localhost):
+				// the trusted server caller already holds a versionRefId that was handed to
+				// the authenticated owner at open, so ownership is established by the secret
+				// gate + the unguessable id, and userRefId is derived from the row itself.
+				'getById': `SELECT * FROM <!tableName!> WHERE refId = <!refId!>`,
+
 				// Reaper discovery: rows whose lease has expired AND still hold a live
 				// container — these need real teardown (container + clone dir) before the
 				// lock is cleared.

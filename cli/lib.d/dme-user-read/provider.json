@@ -1,0 +1,45 @@
+{
+	"providerName": "DmeUserRead",
+	"description": "Read the signed-in user's OWN data-model graph — the 18 public standards plus the user's private :UserContent additions, isolated to their workspace. Use these to inspect what the user has built and to find standard elements (by uri) to link new nodes to.",
+	"_note": "No startup needed. POSTs over HTTP to the educore executor (/api/dme-user-cypher-query) using server-internal auth from env (DME_API_BASE, DME_INTERNAL_SECRET, DME_VERSION_REF_ID). User mode only.",
+	"startupTimeout": 15,
+	"tools": [
+		{
+			"definition": {
+				"name": "dme_user_query",
+				"description": "Run a READ-ONLY Cypher query against the user's isolated graph (golden standards + the user's :UserContent nodes). Returns rows. The user's own nodes carry :UserContent and a userNodeId; standard elements carry a stable uri. Example: MATCH (n:UserContent) RETURN n.name, n.userNodeId LIMIT 25",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "A read-only Cypher query (MATCH/RETURN). Writes are rejected; use the write tools to change the graph."
+						}
+					},
+					"required": ["query"]
+				}
+			},
+			"cli": {
+				"command": "node dmeUserReadTool.js -query",
+				"positionalArgs": [],
+				"flagArgs": { "query": "--query" }
+			}
+		},
+		{
+			"definition": {
+				"name": "dme_user_schema",
+				"description": "Return the schema (labels, relationship types, sample properties) of the user's isolated graph — useful before composing a query.",
+				"input_schema": {
+					"type": "object",
+					"properties": {},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node dmeUserReadTool.js -schema",
+				"positionalArgs": [],
+				"flagArgs": {}
+			}
+		}
+	]
+}
