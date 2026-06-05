@@ -45,6 +45,53 @@ const getUserGraphsBase = () => {
 	return path.join(dataStores, 'userGraphs');
 };
 
+// ---------------------------------------------------------------------------
+// Golden snapshot-source + atomic pointer (08). Clones copy from the CURRENT snapshot
+// (a quiesced copy of golden that is never served) rather than quiescing the live
+// golden on every open. Golden refresh = make a new snapshot + flip the pointer
+// atomically; in-flight sessions are undisturbed, the next open lands on new golden.
+
+const snapshotsBase = () => path.join(getUserGraphsBase(), '_snapshots');
+const pointerPath = () => path.join(getUserGraphsBase(), '_currentSnapshot');
+
+const currentSnapshotDir = () => {
+	try {
+		const name = fs.readFileSync(pointerPath(), 'utf8').trim();
+		if (!name) return null;
+		const dir = path.join(snapshotsBase(), name);
+		return fs.existsSync(path.join(dir, 'data', 'databases')) ? dir : null;
+	} catch (e) { return null; }
+};
+
+const flipPointer = (snapName) => {
+	const tmp = pointerPath() + '.tmp';
+	fs.writeFileSync(tmp, snapName);
+	fs.renameSync(tmp, pointerPath()); // atomic on POSIX
+};
+
+// createSnapshot — quiesce golden ONCE, copy its data/+plugins into a new snapshot dir,
+// flip the pointer atomically, restart golden. callback(err, { snapName, snapshotDir })
+const createSnapshot = (callback) => {
+	const { xLog } = process.global;
+	const { dataDir: goldenData, pluginsDir: goldenPlugins } = getGoldenMounts();
+	if (!goldenData) { callback('createSnapshot: could not resolve golden data dir'); return; }
+	const snapName = `snap-${process.pid}-${process.hrtime.bigint().toString()}`;
+	const snapDir = path.join(snapshotsBase(), snapName);
+	['data', 'plugins'].forEach((sub) => fs.mkdirSync(path.join(snapDir, sub), { recursive: true }));
+	const copyFn = () => {
+		execSync(`cp -R "${goldenData}/." "${path.join(snapDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
+		if (goldenPlugins && fs.existsSync(goldenPlugins)) {
+			execSync(`cp -R "${goldenPlugins}/." "${path.join(snapDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
+		}
+	};
+	withQuiescedGolden(copyFn, (err) => {
+		if (err) { try { fs.rmSync(snapDir, { recursive: true, force: true }); } catch (e) {} callback(err); return; }
+		flipPointer(snapName);
+		if (xLog) xLog.status(`[clone-manager] snapshot ${snapName} created + pointer flipped`);
+		callback('', { snapName, snapshotDir: snapDir });
+	});
+};
+
 const cloneDirFor = (userRefId, versionRefId) =>
 	path.join(getUserGraphsBase(), `uid-${userRefId}`, `ver-${versionRefId || 'new'}`);
 
@@ -253,23 +300,27 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 		fs.mkdirSync(path.join(cloneDir, sub), { recursive: true });
 	});
 
-	// Copy golden under quiescence (plain recursive cp — NO reflink on this Mac).
+	// Copy the source (plain recursive cp — NO reflink on this Mac). Prefer the quiesced
+	// SNAPSHOT (no live-golden downtime); quiesce the live golden only when no snapshot
+	// exists yet (the Phase 5 baseline).
+	const snapshotDir = currentSnapshotDir();
+	const sourceData = snapshotDir ? path.join(snapshotDir, 'data') : goldenData;
+	const sourcePlugins = snapshotDir ? path.join(snapshotDir, 'plugins') : goldenPlugins;
 	const copyFn = () => {
-		execSync(`cp -R "${goldenData}/." "${path.join(cloneDir, 'data')}/"`, {
-			encoding: 'utf-8',
-			timeout: 180000,
-		});
-		if (goldenPlugins && fs.existsSync(goldenPlugins)) {
-			execSync(`cp -R "${goldenPlugins}/." "${path.join(cloneDir, 'plugins')}/"`, {
-				encoding: 'utf-8',
-				timeout: 60000,
-			});
+		execSync(`cp -R "${sourceData}/." "${path.join(cloneDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
+		if (sourcePlugins && fs.existsSync(sourcePlugins)) {
+			execSync(`cp -R "${sourcePlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
 		}
 	};
 
-	xLog.status(`[clone-manager] provisioning ${containerName} (clone of golden)`);
+	xLog.status(`[clone-manager] provisioning ${containerName} (from ${snapshotDir ? 'snapshot' : 'quiesced golden'})`);
 
-	withQuiescedGolden(copyFn, (quiesceErr) => {
+	const runCopy = (cb) => {
+		if (snapshotDir) { let e = ''; try { copyFn(); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e); }
+		else { withQuiescedGolden(copyFn, cb); }
+	};
+
+	runCopy((quiesceErr) => {
 		if (quiesceErr) {
 			try { fs.rmSync(cloneDir, { recursive: true, force: true }); } catch (e) {}
 			callback(quiesceErr);
@@ -371,4 +422,9 @@ module.exports = {
 	isContainerRunning,
 	getUserGraphsBase,
 	MAX_CONCURRENT_CLONES,
+	createSnapshot,
+	currentSnapshotDir,
+	flipPointer,
+	findAvailablePortPair,
+	waitForNeo4jReady,
 };

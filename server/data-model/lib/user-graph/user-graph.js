@@ -27,6 +27,7 @@ const { pipeRunner, taskListPlus } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 const cloneManager = require('./clone-manager');
+const warmPool = require('./warm-pool');
 const neo4jInstanceGen = require('../neo4j-instance/neo4j-instance')({ unused: true });
 const { replayStateScript, decodeStateScript } = require('./re-emit');
 
@@ -116,11 +117,19 @@ const getUserGraph = (
 		});
 	});
 
-	// STAGE 2: provision the isolated clone.
+	// STAGE 2: acquire the isolated clone — WARM POOL fast path first (claim a pre-booted
+	// clone, skipping the cold cp + boot), else a cold clone on a spike (08). A refill is
+	// triggered asynchronously toward the pool depth. The claimed clone becomes this
+	// session's container (marker + replay + setLive below); teardown removes it.
 	taskList.push((args, next) => {
+		const warm = warmPool.claimWarm();
+		if (warm) {
+			next('', { ...args, descriptor: warm, warmServed: true });
+			return;
+		}
 		cloneManager.provisionClone({ userRefId, versionRefId }, (err, descriptor) => {
 			if (err) { next(`getUserGraph clone failed: ${err}`, args); return; }
-			next('', { ...args, descriptor });
+			next('', { ...args, descriptor, warmServed: false });
 		});
 	});
 
