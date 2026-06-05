@@ -17,8 +17,6 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 
-const PLACEHOLDER_STATE_SCRIPT = '// stateScript pending re-emit serializer (Phase 7, doc 04)';
-
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
@@ -27,6 +25,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const { readVersionRow } = require('../../lib/user-graph/user-graph');
 	const { EMBEDDING_MODEL } = require('../../lib/user-graph/write-executor');
+	const { reEmit } = require('../../lib/user-graph/re-emit');
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({ unused: true });
 
 	const serviceFunction = (inputData, callback) => {
@@ -47,35 +46,38 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			});
 		});
 
-		// STAGE 2: count the user layer on the live clone (marker excluded)
+		// STAGE 2: re-emit the live user layer into a deterministic state script (doc 04)
 		taskList.push((args, next) => {
 			const { versionRow } = args;
 			neo4jInstanceGen.initDatabaseInstance(
 				{ neo4jBoltUri: versionRow.liveBoltUri, neo4jUser: 'neo4j', neo4jPassword: versionRow.liveBoltPassword },
 				(err, db) => {
 					if (err) { next(`save connect failed: ${err}`, args); return; }
-					db.runQuery(
-						'MATCH (n:UserContent) WHERE NOT n:UserGraphIdentity RETURN count(n) AS c',
-						{},
-						(qErr, rows) => {
+					reEmit(
+						{ userGraphDb: db, embeddingModelVersion: EMBEDDING_MODEL, goldenVersionAuthoredAgainst: '' },
+						(rErr, res) => {
 							db.close();
-							if (qErr) { next(`save count failed: ${qErr}`, args); return; }
-							const userNodeCount = rows && rows[0] ? Number(rows[0].c) : 0;
-							next('', { ...args, userNodeCount });
+							if (rErr) { next(rErr, args); return; }
+							next('', {
+								...args,
+								stateScript: res.stateScript,
+								userNodeCount: res.userNodeCount,
+								relationshipCount: res.relationshipCount,
+							});
 						},
 					);
 				},
 			);
 		});
 
-		// STAGE 3: persist via the Phase 4 store (placeholder stateScript for Phase 6)
+		// STAGE 3: persist the re-emitted script + metadata via the Phase 4 store
 		taskList.push((args, next) => {
-			const { accessPointsDotD, userRefId, versionRefId, userNodeCount } = args;
+			const { accessPointsDotD, userRefId, versionRefId, userNodeCount, stateScript } = args;
 			accessPointsDotD['graph-state-version-save'](
 				{
 					userRefId,
 					refId: versionRefId,
-					stateScript: PLACEHOLDER_STATE_SCRIPT,
+					stateScript,
 					userNodeCount,
 					embeddingModelVersion: EMBEDDING_MODEL,
 				},

@@ -138,7 +138,7 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 		}),
 		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v }, (e, row) => {
 			ok('T6.4 row has userNodeCount=1', row && Number(row.userNodeCount) === 1);
-			ok('T6.4 row stateScript persisted (placeholder)', row && /pending re-emit/i.test(row.stateScript || ''));
+			ok('T6.4 row stateScript persisted (re-emit)', row && /USER GRAPH STATE SCRIPT/.test(row.stateScript || ''));
 			ok('T6.4 row embeddingModelVersion=voyage-3', row && row.embeddingModelVersion === 'voyage-3');
 			cb(e);
 		}),

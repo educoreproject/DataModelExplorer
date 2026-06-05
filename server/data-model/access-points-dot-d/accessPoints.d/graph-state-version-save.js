@@ -21,6 +21,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping } = passThroughParameters;
+	const { encodeStateScript } = require('../../lib/user-graph/re-emit');
 
 	const serviceFunction = (inputData, callback) => {
 		const taskList = new taskListPlus();
@@ -77,7 +78,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 			const saveObj = {
 				refId,
-				stateScript: stateScript || '',
+				stateScript: encodeStateScript(stateScript || ''),
 				userNodeCount: typeof userNodeCount === 'number' ? userNodeCount : 0,
 				embeddingModelVersion: embeddingModelVersion || '',
 				goldenVersionAuthoredAgainst: goldenVersionAuthoredAgainst || '',

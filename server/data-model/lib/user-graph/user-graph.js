@@ -28,6 +28,7 @@ const { pipeRunner, taskListPlus } = new require(
 )();
 const cloneManager = require('./clone-manager');
 const neo4jInstanceGen = require('../neo4j-instance/neo4j-instance')({ unused: true });
+const { replayStateScript, decodeStateScript } = require('./re-emit');
 
 const VERSIONS_TABLE = 'graph_state_versions';
 
@@ -62,7 +63,11 @@ const readVersionRow = ({ sqlDb, dataMapping, userRefId, versionRefId }, callbac
 			{ suppressStatementLog: true, noTableNameOk: true },
 			(getErr, rows = []) => {
 				if (getErr) { callback(getErr); return; }
-				callback('', rows.qtLast() || null);
+				const row = rows.qtLast() || null;
+				if (row && row.stateScript) {
+					row.stateScript = decodeStateScript(row.stateScript);
+				}
+				callback('', row);
 			},
 		);
 	});
@@ -106,6 +111,7 @@ const getUserGraph = (
 				...args,
 				username: username || '',
 				versionName: row.versionName || `version ${versionRefId}`,
+				stateScript: row.stateScript || '',
 			});
 		});
 	});
@@ -142,6 +148,25 @@ const getUserGraph = (
 		);
 	});
 
+	// STAGE 3.5: replay the stored state script into the clone (05). Collect dangling
+	// references (standard endpoints that no longer resolve in the current golden) —
+	// surfaced on the handle, never silently dropped. Skipped for a brand-new version.
+	taskList.push((args, next) => {
+		const { descriptor, stateScript } = args;
+		if (!stateScript) { next('', { ...args, danglingRefs: [] }); return; }
+		neo4jInstanceGen.initDatabaseInstance(
+			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
+			(connErr, db) => {
+				if (connErr) { next(`replay connect failed: ${connErr}`, args); return; }
+				replayStateScript({ userGraphDb: db, stateScript }, (rErr, res) => {
+					db.close();
+					if (rErr) { next(rErr, args); return; }
+					next('', { ...args, danglingRefs: res.danglingRefs });
+				});
+			},
+		);
+	});
+
 	// STAGE 4: record the live session on the version row (06 setLive).
 	taskList.push((args, next) => {
 		const { descriptor } = args;
@@ -167,7 +192,7 @@ const getUserGraph = (
 
 	// STAGE 5: assemble the handle.
 	taskList.push((args, next) => {
-		const { descriptor, username, versionName, lockToken } = args;
+		const { descriptor, username, versionName, lockToken, danglingRefs } = args;
 		const handle = {
 			versionRefId,
 			graphConnection: {
@@ -184,6 +209,7 @@ const getUserGraph = (
 				versionRefId,
 				versionName,
 			},
+			danglingRefs: danglingRefs || [], // surfaced standard refs that no longer resolve (05)
 		};
 		next('', { ...args, handle });
 	});

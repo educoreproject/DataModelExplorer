@@ -21,6 +21,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping } = passThroughParameters;
+	const { decodeStateScript } = require('../../lib/user-graph/re-emit');
 
 	const serviceFunction = (inputData, callback) => {
 		const taskList = new taskListPlus();
@@ -55,7 +56,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 						next(err, args);
 						return;
 					}
-					next('', { ...args, row: resultList.qtLast() || null });
+					const row = resultList.qtLast() || null;
+						if (row && row.stateScript) {
+							row.stateScript = decodeStateScript(row.stateScript);
+						}
+						next('', { ...args, row });
 				},
 			);
 		});
