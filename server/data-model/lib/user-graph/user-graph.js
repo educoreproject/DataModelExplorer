@@ -2,40 +2,39 @@
 // @concept: [[DataModelExplorer]]
 // @concept: [[MultiTenant]]
 // @concept: [[UserGraphSeam]]
+// @concept: [[ColdClone]]
 //
-// user-graph.js — the single stable seam for acquiring and releasing a usable
-// user graph (design doc 03). Callers know only getUserGraph / releaseUserGraph;
-// everything below — clone, identity injection, replay, and later the warm-pool
-// fast path — grows behind this interface with no caller change.
+// user-graph.js — the single stable seam for acquiring and releasing a usable user
+// graph (design doc 03). Callers know only getUserGraph / releaseUserGraph; the clone,
+// identity injection, and (later) the warm-pool fast path grow behind this interface.
 //
-// THIS FILE IS THE STUB (Phase 3): no graph / docker / neo4j / file creation.
-//   - graphConnection = the standard DME connection from dataModelExplorerSearch.ini
-//   - containerName   = null
-//   - lockToken       = a soft-lock held in an in-memory registry
-//   - identityMarker  = returned as DATA (nothing is injected into any graph)
-// Phase 5 replaces buildGraphConnection + getUserGraph's body with a real
-// per-user isolated clone (its own container + bolt URI/password + marker node),
-// and releaseUserGraph gains real teardown. The return CONTRACT never changes.
+// PHASE 5 — the seam's REAL implementation (the cold clone). getUserGraph now:
+//   1. resolves username + the version row's versionName,
+//   2. provisions a genuine per-user isolated clone of the quiesced golden
+//      (clone-manager: plain cp, dedicated container, no NEO4J_AUTH),
+//   3. injects the :UserGraphIdentity marker NODE into the clone,
+//   4. records the live session on the version row (06 setLive), and
+//   5. returns the handle with the clone's real graphConnection + containerName.
+// releaseUserGraph tears the clone down (container + clone dir) and clears the live
+// fields. The return CONTRACT is unchanged from the Phase 3 stub.
+//
+// The serving golden is briefly quiesced per open (the slow cold-boot baseline);
+// Phase 8 hides this behind a snapshot-source + warm pool with no caller change.
 
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../../lib/make-ref-id');
 const { pipeRunner, taskListPlus } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
+const cloneManager = require('./clone-manager');
+const neo4jInstanceGen = require('../neo4j-instance/neo4j-instance')({ unused: true });
 
-// In-memory soft-lock registry (stub). Phase 6 moves the lease to SQL
-// (graph_state_versions) with a periodically-stamped lastHeartbeatAt and a reaper.
-const liveLocks = new Map(); // key `${userRefId}::${versionRefId}` -> lockToken
-
-const lockKey = (userRefId, versionRefId) =>
-	`${userRefId}::${versionRefId || ''}`;
+const VERSIONS_TABLE = 'graph_state_versions';
 
 // ---------------------------------------------------------------------------
-// buildGraphConnection — resolve the user graph's bolt connection.
-//
-// STUB: the standard DME connection (every stub user graph IS the shared graph).
-// Phase 5 returns the live per-user clone's bolt URI + password instead. Exposed
-// so the askMilo wiring (ws-graphinator) and getUserGraph share one resolver.
+// buildGraphConnection — the STANDARD DME connection from config. Still used by the
+// askMilo wiring (ws-graphinator) in User mode until Phase 6 points askMilo at the
+// live clone. getUserGraph itself no longer uses it — it returns the clone's bolt.
 const buildGraphConnection = () => {
 	const { getConfig } = process.global;
 	const cfg = getConfig('dataModelExplorerSearch') || {};
@@ -50,97 +49,155 @@ const buildGraphConnection = () => {
 };
 
 // ---------------------------------------------------------------------------
-// getUserGraph({ userRefId, versionRefId, sqlDb, dataMapping }, callback)
-//   -> callback(err, UserGraphHandle)
-//
-// UserGraphHandle = {
-//   versionRefId,
-//   graphConnection: { boltUri, user, password },   // load-bearing; server-only secret
-//   containerName: string | null,                   // null at the stub
-//   lockToken,
-//   identityMarker: { userRefId, username, versionRefId, versionName },
-// }
+// Internal: read one version row (scoped to the user).
+const readVersionRow = ({ sqlDb, dataMapping, userRefId, versionRefId }, callback) => {
+	sqlDb.getTable(VERSIONS_TABLE, (err, tableRef) => {
+		if (err || !tableRef) { callback(err || 'no versions table'); return; }
+		const query = dataMapping['graph-state-version'].getSql('getByIdForUser', {
+			refId: versionRefId,
+			userRefId,
+		});
+		tableRef.getData(
+			query,
+			{ suppressStatementLog: true, noTableNameOk: true },
+			(getErr, rows = []) => {
+				if (getErr) { callback(getErr); return; }
+				callback('', rows.qtLast() || null);
+			},
+		);
+	});
+};
+
+// Internal: write transient live block (setLive) or clear it (clearLive).
+const writeLiveBlock = ({ sqlDb, versionRefId, fields }, callback) => {
+	sqlDb.getTable(VERSIONS_TABLE, (err, tableRef) => {
+		if (err || !tableRef) { callback(err || 'no versions table'); return; }
+		tableRef.saveObject(
+			{ refId: versionRefId, ...fields },
+			{ suppressStatementLog: true },
+			(saveErr) => callback(saveErr || ''),
+		);
+	});
+};
+
+// ---------------------------------------------------------------------------
+// getUserGraph — the cold clone (doc 03 step 2). callback(err, UserGraphHandle)
 const getUserGraph = (
 	{ userRefId, versionRefId, username, sqlDb, dataMapping } = {},
 	callback,
 ) => {
+	const { xLog } = process.global;
 	const taskList = new taskListPlus();
 
-	// STAGE 1: resolve username. The caller (the endpoint) already holds the
-	// authoritative value in the JWT claims (sourced from the user's profile record),
-	// so when it is supplied we use it directly. The profile_user lookup is the
-	// alternative path for internal callers that have only userRefId. Either way the
-	// stub degrades to '' rather than failing.
+	// STAGE 1: resolve username (caller's JWT value preferred) + the version row.
 	taskList.push((args, next) => {
-		if (username) {
-			next('', { ...args, username });
+		if (!userRefId || !versionRefId) {
+			next('getUserGraph: userRefId and versionRefId are required', args);
 			return;
 		}
-
-		const mapper = dataMapping && dataMapping['profile-user'];
-		if (!sqlDb || !mapper) {
-			next('', { ...args, username: '' });
+		if (!sqlDb || !dataMapping) {
+			next('getUserGraph: sqlDb and dataMapping are required for the cold clone', args);
 			return;
 		}
-
-		sqlDb.getTable('profile_user', (err, tableRef) => {
-			if (err || !tableRef) {
-				next('', { ...args, username: '' });
-				return;
-			}
-
-			const query = mapper.getSql('all');
-			tableRef.getData(
-				query,
-				{ suppressStatementLog: true, noTableNameOk: true },
-				(getErr, rows) => {
-					if (getErr || !Array.isArray(rows)) {
-						next('', { ...args, username: '' });
-						return;
-					}
-					const row = rows.qtGetByProperty('refId', userRefId);
-					next('', { ...args, username: row ? row.username || '' : '' });
-				},
-			);
+		readVersionRow({ sqlDb, dataMapping, userRefId, versionRefId }, (err, row) => {
+			if (err) { next(err, args); return; }
+			if (!row) { next('getUserGraph: version not found or not owned by this user', args); return; }
+			next('', {
+				...args,
+				username: username || '',
+				versionName: row.versionName || `version ${versionRefId}`,
+			});
 		});
 	});
 
-	// STAGE 2: assemble the handle + acquire the soft-lock.
+	// STAGE 2: provision the isolated clone.
 	taskList.push((args, next) => {
-		const graphConnection = buildGraphConnection();
-		if (!graphConnection) {
-			next(
-				'getUserGraph: no dataModelExplorerSearch connection configured',
-				args,
-			);
-			return;
-		}
+		cloneManager.provisionClone({ userRefId, versionRefId }, (err, descriptor) => {
+			if (err) { next(`getUserGraph clone failed: ${err}`, args); return; }
+			next('', { ...args, descriptor });
+		});
+	});
 
+	// STAGE 3: inject the identity marker NODE into the clone.
+	taskList.push((args, next) => {
+		const { descriptor, username, versionName } = args;
+		const markerDb = neo4jInstanceGen.initDatabaseInstance(
+			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
+			(connErr, db) => {
+				if (connErr) { next(`marker connect failed: ${connErr}`, args); return; }
+				const cypher =
+					'CREATE (i:UserGraphIdentity:UserContent {' +
+					'userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
+					'versionName: $versionName, createdAt: toString(datetime())}) RETURN i';
+				db.runQuery(
+					cypher,
+					{ userRefId, username, versionRefId, versionName },
+					(qErr) => {
+						db.close();
+						if (qErr) { next(`marker injection failed: ${qErr}`, args); return; }
+						next('', args);
+					},
+				);
+			},
+		);
+	});
+
+	// STAGE 4: record the live session on the version row (06 setLive).
+	taskList.push((args, next) => {
+		const { descriptor } = args;
 		const lockToken = makeRefId(16);
-		liveLocks.set(lockKey(userRefId, versionRefId), lockToken);
+		const nowIso = new Date().toISOString();
+		writeLiveBlock({
+			sqlDb,
+			versionRefId,
+			fields: {
+				liveBoltUri: descriptor.boltUri,
+				liveBoltPassword: descriptor.password,
+				liveContainerName: descriptor.containerName,
+				livePort: descriptor.boltPort,
+				lockToken,
+				openedAt: nowIso,
+				lastHeartbeatAt: nowIso,
+			},
+		}, (err) => {
+			if (err) { next(`setLive failed: ${err}`, args); return; }
+			next('', { ...args, lockToken });
+		});
+	});
 
+	// STAGE 5: assemble the handle.
+	taskList.push((args, next) => {
+		const { descriptor, username, versionName, lockToken } = args;
 		const handle = {
-			versionRefId: versionRefId || '',
-			graphConnection,
-			containerName: null, // stub: no container exists yet
+			versionRefId,
+			graphConnection: {
+				boltUri: descriptor.boltUri,
+				user: descriptor.user,
+				password: descriptor.password,
+			},
+			containerName: descriptor.containerName,
+			cloneDir: descriptor.cloneDir, // for teardown
 			lockToken,
 			identityMarker: {
-				userRefId: userRefId || '',
-				username: args.username,
-				versionRefId: versionRefId || '',
-				// STUB: the version store (graph_state_versions) arrives in Phase 4,
-				// which resolves the real versionName. Derived placeholder until then.
-				versionName: versionRefId
-					? `version ${versionRefId}`
-					: '(new version)',
+				userRefId,
+				username,
+				versionRefId,
+				versionName,
 			},
 		};
-
 		next('', { ...args, handle });
 	});
 
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
+			// Best-effort cleanup if we provisioned before failing downstream.
+			if (args && args.descriptor) {
+				cloneManager.teardownClone(
+					{ containerName: args.descriptor.containerName, cloneDir: args.descriptor.cloneDir },
+					() => callback(err),
+				);
+				return;
+			}
 			callback(err);
 			return;
 		}
@@ -149,12 +206,14 @@ const getUserGraph = (
 };
 
 // ---------------------------------------------------------------------------
-// releaseUserGraph(handle, callback) -> callback(err, { released, lockWasHeld })
-//
-// STUB: free the soft-lock. Phase 5 adds container stop+remove and clone-dir
-// deletion here. Teardown never persists (Save is the durable path).
-const releaseUserGraph = (handle, callback) => {
-	const cb = typeof callback === 'function' ? callback : () => {};
+// releaseUserGraph(handle, { sqlDb, dataMapping }, callback) — real teardown:
+// stop+remove the container, delete the clone dir, clear the live fields (06).
+// Teardown never persists; Save is the durable path.
+const releaseUserGraph = (handle, deps, callback) => {
+	const cb = typeof callback === 'function'
+		? callback
+		: (typeof deps === 'function' ? deps : () => {});
+	const { sqlDb } = (deps && typeof deps === 'object') ? deps : {};
 
 	if (!handle || !handle.identityMarker) {
 		cb('releaseUserGraph: invalid handle');
@@ -162,21 +221,28 @@ const releaseUserGraph = (handle, callback) => {
 	}
 
 	const { userRefId, versionRefId } = handle.identityMarker;
-	const key = lockKey(userRefId, versionRefId);
-	const lockWasHeld =
-		liveLocks.has(key) && liveLocks.get(key) === handle.lockToken;
-	liveLocks.delete(key);
 
-	cb('', { released: true, lockWasHeld });
+	cloneManager.teardownClone(
+		{ containerName: handle.containerName, cloneDir: handle.cloneDir },
+		(tearErr) => {
+			const clearedFields = {
+				liveBoltUri: '', liveBoltPassword: '', liveContainerName: '',
+				livePort: '', lockToken: '', openedAt: '', lastHeartbeatAt: '',
+			};
+			if (!sqlDb) {
+				cb(tearErr || '', { released: true, versionRefId });
+				return;
+			}
+			writeLiveBlock({ sqlDb, versionRefId, fields: clearedFields }, (clearErr) => {
+				cb(tearErr || clearErr || '', { released: true, versionRefId, userRefId });
+			});
+		},
+	);
 };
-
-// Test/inspection helper — is a soft-lock currently held for this user/version?
-const isLockHeld = (userRefId, versionRefId) =>
-	liveLocks.has(lockKey(userRefId, versionRefId));
 
 module.exports = {
 	getUserGraph,
 	releaseUserGraph,
 	buildGraphConnection,
-	isLockHeld,
+	readVersionRow,
 };

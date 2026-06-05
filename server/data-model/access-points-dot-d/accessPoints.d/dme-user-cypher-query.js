@@ -25,7 +25,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({
 		unused: true,
 	});
-	const { getUserGraph, releaseUserGraph } = require('../../lib/user-graph/user-graph');
+	const { readVersionRow } = require('../../lib/user-graph/user-graph');
 
 	const mcpConfig = getConfig('mcp-server') || {};
 	const maxResultRecords = parseInt(mcpConfig.maxResultRecords, 10) || 100;
@@ -33,50 +33,51 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// ================================================================================
 	// SERVICE FUNCTION
 	//
-	// Phase 3: the user leg now runs THROUGH the seam (doc 03). It acquires a
-	// UserGraphHandle via getUserGraph, opens a per-request connection from
-	// handle.graphConnection (NOT the injected global neo4jDb — the seam's connection
-	// is the load-bearing one), runs the read-only query there, then closes the
-	// connection and releases the handle. At the stub, handle.graphConnection is the
-	// standard DME connection, so results match Standard mode; Phase 5 swaps in a real
-	// per-user isolated clone with zero change here. The handle's identityMarker is
-	// returned alongside the result so the endpoint can surface it (no secret leaves).
+	// Phase 5: the per-query user leg connects to the version's ALREADY-LIVE isolated
+	// clone — it does NOT provision. The clone is materialized once at OPEN
+	// (dme-user-graph-open -> getUserGraph -> setLive); this path resolves the live
+	// graphConnection from the version's SQL row (server-side, scoped to userRefId),
+	// connects per-request, runs the read-only query, and closes. If the version has no
+	// live container, it returns an explicit "not open" error rather than cloning. Phase
+	// 6 relaxes the read-only guard so askMilo can write to the isolated clone.
 
 	const serviceFunction = (queryData, callback) => {
 		const taskList = new taskListPlus();
 
 		// --------------------------------------------------------------------------------
-		// STAGE 1: ACQUIRE THE USER GRAPH VIA THE SEAM
+		// STAGE 1: RESOLVE THE LIVE CLONE CONNECTION FROM SQL (scoped to userRefId)
 
 		taskList.push((args, next) => {
-			const { userRefId, versionRefId, username } = args.queryData;
+			const { userRefId, versionRefId } = args.queryData;
 
-			getUserGraph(
-				{ userRefId, versionRefId, username, sqlDb, dataMapping },
-				(err, handle) => {
-					if (err) {
-						next(`getUserGraph failed: ${err}`, args);
-						return;
-					}
-					next('', { ...args, handle });
-				},
-			);
+			if (!userRefId || !versionRefId) {
+				next('dme-user-cypher-query: an open versionRefId is required', args);
+				return;
+			}
+
+			readVersionRow({ sqlDb, dataMapping, userRefId, versionRefId }, (err, row) => {
+				if (err) { next(err, args); return; }
+				if (!row) { next('Version not found or not owned by this user', args); return; }
+				if (!row.liveBoltUri) {
+					next('Version is not open — open it before querying', args);
+					return;
+				}
+				next('', { ...args, versionRow: row });
+			});
 		});
 
 		// --------------------------------------------------------------------------------
-		// STAGE 2: OPEN A PER-REQUEST CONNECTION FROM handle.graphConnection
+		// STAGE 2: OPEN A PER-REQUEST CONNECTION TO THE LIVE CLONE
 
 		taskList.push((args, next) => {
-			const { graphConnection } = args.handle;
-
-			const perRequestConfig = {
-				neo4jBoltUri: graphConnection.boltUri,
-				neo4jUser: graphConnection.user,
-				neo4jPassword: graphConnection.password,
-			};
+			const { versionRow } = args;
 
 			neo4jInstanceGen.initDatabaseInstance(
-				perRequestConfig,
+				{
+					neo4jBoltUri: versionRow.liveBoltUri,
+					neo4jUser: 'neo4j',
+					neo4jPassword: versionRow.liveBoltPassword,
+				},
 				(err, userGraphDb) => {
 					if (err) {
 						next(`user graph connection failed: ${err}`, args);
@@ -99,32 +100,23 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					neo4jDb: userGraphDb,
 				});
 				getSchemaDescription((err, schemaText) => {
-					if (err) {
-						next(err, args);
-						return;
-					}
-					next('skipRestOfPipe', {
-						...args,
-						result: [{ schema: schemaText }],
-					});
+					if (err) { next(err, args); return; }
+					next('skipRestOfPipe', { ...args, result: [{ schema: schemaText }] });
 				});
 				return;
 			}
 
 			if (action === 'query') {
 				const { query, params } = queryData;
-
 				if (!query || typeof query !== 'string') {
 					next('Query string is required', args);
 					return;
 				}
-
 				const validation = validateReadOnly(query);
 				if (!validation.valid) {
 					next(validation.reason, args);
 					return;
 				}
-
 				next('', { ...args, query, queryParams: params || {} });
 				return;
 			}
@@ -133,19 +125,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		// --------------------------------------------------------------------------------
-		// STAGE 4: EXECUTE CYPHER QUERY ON THE USER GRAPH CONNECTION
+		// STAGE 4: EXECUTE CYPHER QUERY ON THE LIVE CLONE
 
 		taskList.push((args, next) => {
 			const { query, queryParams, userGraphDb } = args;
 
 			const localCallback = (err, records) => {
-				if (err) {
-					next(`Neo4j query failed: ${err}`, args);
-					return;
-				}
+				if (err) { next(`Neo4j query failed: ${err}`, args); return; }
 
 				let result = records;
-
 				if (records.length > maxResultRecords) {
 					const totalAvailable = records.length;
 					result = records.slice(0, maxResultRecords);
@@ -155,7 +143,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 						_returnedCount: maxResultRecords,
 					});
 				}
-
 				next('', { ...args, result });
 			};
 
@@ -163,19 +150,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE EXECUTION + GUARANTEED CLEANUP (close connection, release handle)
+		// PIPELINE EXECUTION + CLEANUP (close the per-request connection only —
+		// the clone PERSISTS for the session; teardown happens at close, not per query).
 
 		const initialData = { queryData };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { userGraphDb, handle } = args;
+			const { userGraphDb, versionRow, queryData: qd } = args;
 
-			// Always close the per-request connection and release the seam handle,
-			// on success or error. At the stub releaseUserGraph just frees the lock.
 			if (userGraphDb && typeof userGraphDb.close === 'function') {
 				userGraphDb.close();
-			}
-			if (handle) {
-				releaseUserGraph(handle, () => {});
 			}
 
 			if (err && err !== 'skipRestOfPipe') {
@@ -183,10 +166,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 
+			const identityMarker = versionRow
+				? {
+						userRefId: qd.userRefId,
+						username: qd.username || '',
+						versionRefId: qd.versionRefId,
+						versionName: versionRow.versionName || '',
+				  }
+				: null;
+
 			callback('', {
 				result: args.result || [],
-				identityMarker: handle ? handle.identityMarker : null,
-				containerName: handle ? handle.containerName : null,
+				identityMarker,
+				containerName: versionRow ? versionRow.liveContainerName || null : null,
 			});
 		});
 	};
