@@ -159,14 +159,44 @@ const moduleFunction = ({ server }) => {
 					switches.serialFanOut = true;
 				}
 
-				// AI tool providers to suppress (exclude from loading)
-				if (settings.aiToolsSuppressed && settings.aiToolsSuppressed.length > 0) {
-					values.aiToolsSuppressed = [settings.aiToolsSuppressed.join(',')];
+				// AI tool providers to suppress + prompt selection, graphMode-aware.
+				// The per-user graph tools (dme-user-read/-write) are offered ONLY in User
+				// mode; in Standard mode they are force-suppressed so they are never offered.
+				// User mode also uses the authoring prompt that explains how to build the
+				// user's model. (CLI askMilo never loads these — they are not in its enabled
+				// list — so this gating only concerns the WS Standard-vs-User split.)
+				const USER_MODE_PROVIDERS = ['DmeUserRead', 'DmeUserWrite'];
+				// Standard providers connect to the GOLDEN bolt; they must NOT be reachable in
+				// User mode (their raw-cypher tool could otherwise touch golden, breaking
+				// isolation). If more standard providers are added to aiToolsLib.enabled, add
+				// them here too.
+				const STANDARD_PROVIDERS = ['DataModelExplorer', 'SifSearch'];
+				let suppressedProviders = Array.isArray(settings.aiToolsSuppressed)
+					? settings.aiToolsSuppressed.slice()
+					: [];
+
+				const suppress = (provider) => {
+					if (!suppressedProviders.includes(provider)) suppressedProviders.push(provider);
+				};
+
+				if (settings.graphMode === 'user') {
+					// User mode: offer ONLY the per-user graph tools; suppress the golden-bolt
+					// standards tools; use the authoring prompt.
+					suppressedProviders = suppressedProviders.filter(
+						(provider) => !USER_MODE_PROVIDERS.includes(provider),
+					);
+					STANDARD_PROVIDERS.forEach(suppress);
+					values.singleCallPromptName = ['DmeUserAuthoring'];
+				} else {
+					// Standard mode: never offer the per-user graph tools.
+					USER_MODE_PROVIDERS.forEach(suppress);
+					if (settings.promptName) {
+						values.singleCallPromptName = [settings.promptName];
+					}
 				}
 
-				// Prompt name (maps to singleCallPromptName in askMilo config)
-				if (settings.promptName) {
-					values.singleCallPromptName = [settings.promptName];
+				if (suppressedProviders.length > 0) {
+					values.aiToolsSuppressed = [suppressedProviders.join(',')];
 				}
 
 				// Resume a previous session (askMilo CLI: --resumeSession=NAME)
