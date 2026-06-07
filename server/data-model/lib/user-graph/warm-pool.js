@@ -85,21 +85,12 @@ const reconcileAndPrime = (depth, callback) => {
 	existing.forEach((d) => {
 		if (!have.has(d.containerName)) { pool.push(d); have.add(d.containerName); adopted += 1; }
 	});
-	if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: reconcile — adopted ${adopted} existing spare(s); pool=${pool.length}, target=${targetDepth}`);
-	const fillOne = () => {
-		if (pool.length >= targetDepth) {
-			if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: primed to depth ${pool.length}`);
-			cb('', { depth: pool.length, adopted });
-			return;
-		}
-		if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: provisioning warm spare ${pool.length + 1}/${targetDepth}...`);
-		provisionWarmClone((err, descriptor) => {
-			if (err) { if (xLog) xLog.error(`[warm-pool] prime failed: ${err}`); cb(err); return; }
-			pool.push(descriptor);
-			fillOne();
-		});
-	};
-	fillOne();
+	if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: reconcile — adopted ${adopted} ready spare(s); pool=${pool.length}, target=${targetDepth}. Topping up via the single serialized refill path.`);
+	// Single fill path: refillAsync is the ONE inflight-tracked loop (shared by claim-triggered
+	// refills too), so a top-up that races a user's claim-refill can't double-provision. Each
+	// provision serializes through clone-manager's provision queue, so the host never stampedes.
+	refillAsync();
+	cb('', { adopted, pool: pool.length, target: targetDepth });
 };
 
 // claimWarm() — synchronously hand back the OLDEST warm clone (or null on a spike).

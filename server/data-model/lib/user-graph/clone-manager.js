@@ -203,15 +203,28 @@ const describeWarmContainers = () => {
 			});
 			const cloneDir = dataSrc ? path.dirname(dataSrc) : null;
 			if (boltPort && cloneDir) {
-				descriptors.push({
-					containerName: name,
-					cloneDir,
-					boltPort,
-					httpPort,
-					boltUri: `bolt://localhost:${boltPort}`,
-					user: 'neo4j',
-					password,
-				});
+				// Verify the orphan is actually query-ready before adopting it. A half-booted
+				// leftover (e.g. from a prior crashed prime) must never be handed to a user;
+				// dead ones are torn down here so they do not accumulate across restarts.
+				let ready = false;
+				try {
+					execSync(`docker exec ${name} cypher-shell -u neo4j -p '${password}' "RETURN 1 AS x" >/dev/null 2>&1`, { timeout: 15000 });
+					ready = true;
+				} catch (rdyErr) { ready = false; }
+				if (ready) {
+					descriptors.push({
+						containerName: name,
+						cloneDir,
+						boltPort,
+						httpPort,
+						boltUri: `bolt://localhost:${boltPort}`,
+						user: 'neo4j',
+						password,
+					});
+				} else {
+					if (process.global.xLog) process.global.xLog.status(`[dmeOpenTrace] clone-manager: orphan warm spare ${name} not query-ready — tearing it down (not adopting)`);
+					teardownClone({ containerName: name, cloneDir }, () => {});
+				}
 			}
 		} catch (e) {
 			// skip an unreadable / half-gone container
@@ -353,7 +366,7 @@ const withQuiescedGolden = (copyFn, callback) => {
 // ---------------------------------------------------------------------------
 // provisionClone — the cold clone (doc 03 step 2). callback(err, descriptor)
 
-const provisionClone = ({ userRefId, versionRefId }, callback) => {
+const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 	const { xLog } = process.global;
 
 	if (!userRefId) { callback('provisionClone: userRefId is required'); return; }
@@ -464,9 +477,9 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 
 				xLog.status(`[dmeOpenTrace] clone-manager: container ${containerName} started; waiting for neo4j TCP+cypher readiness on bolt ${boltPort}`);
 				waitForNeo4jReady(boltPort, 120000, (tcpErr) => {
-					if (tcpErr) { xLog.status(`[dmeOpenTrace] clone-manager: TCP not ready: ${tcpErr}`); callback(tcpErr, descriptor); return; }
+					if (tcpErr) { xLog.status(`[dmeOpenTrace] clone-manager: TCP not ready: ${tcpErr} — tearing down ${containerName} (no leak)`); teardownClone({ containerName, cloneDir }, () => callback(tcpErr, descriptor)); return; }
 					waitForCypherReady(containerName, password, 120000, (cypherErr) => {
-						if (cypherErr) { xLog.status(`[dmeOpenTrace] clone-manager: cypher not ready: ${cypherErr}`); callback(cypherErr, descriptor); return; }
+						if (cypherErr) { xLog.status(`[dmeOpenTrace] clone-manager: cypher not ready: ${cypherErr} — tearing down ${containerName} (no leak)`); teardownClone({ containerName, cloneDir }, () => callback(cypherErr, descriptor)); return; }
 						xLog.status(`[clone-manager] ${containerName} query-ready on bolt ${boltPort}`);
 						callback('', descriptor);
 					});
@@ -474,6 +487,22 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 			});
 		});
 	});
+};
+
+// ---------------------------------------------------------------------------
+// Serialize ALL clone provisioning (warm + user) to concurrency 1 so a modest / shared host
+// never boots multiple neo4j containers at once (the cause of the production load-13 stampede).
+// Each provision waits for the prior one to fully finish (boot + readiness) before starting.
+let provisionQueue = Promise.resolve();
+const provisionClone = (args, callback) => {
+	const cb = typeof callback === 'function' ? callback : () => {};
+	provisionQueue = provisionQueue.then(
+		() => new Promise((resolve) => {
+			provisionCloneImpl(args, (err, descriptor) => {
+				try { cb(err, descriptor); } finally { resolve(); }
+			});
+		}),
+	);
 };
 
 // ---------------------------------------------------------------------------

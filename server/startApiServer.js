@@ -334,7 +334,7 @@ ${err.toString()}
 					xLog.status(`[dmeOpenTrace] startup: priming DME warm pool to depth ${warmDepth} (background)...`);
 					warmPool.reconcileAndPrime(warmDepth, (e, res) => {
 						if (e) { xLog.error(`[dmeOpenTrace] startup: warm pool prime FAILED: ${e}`); return; }
-						xLog.status(`[dmeOpenTrace] startup: warm pool READY at depth ${res.depth} (adopted ${res.adopted})`);
+						xLog.status(`[dmeOpenTrace] startup: warm pool priming started — adopted ${res.adopted}, target ${res.target}; filling in background (serialized, one boot at a time)`);
 					});
 				}
 			} catch (e) {
