@@ -180,7 +180,7 @@ const describeWarmContainers = () => {
 	names.forEach((name) => {
 		try {
 			const portOut = execSync(
-				`docker inspect ${name} --format '{{range $p, $conf := .NetworkSettings.Ports}}{{$p}}={{(index $conf 0).HostPort}};{{end}}'`,
+				`docker inspect ${name} --format '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}={{(index $conf 0).HostPort}};{{end}}{{end}}'`,
 				{ encoding: 'utf-8' },
 			).trim();
 			let boltPort = null;
