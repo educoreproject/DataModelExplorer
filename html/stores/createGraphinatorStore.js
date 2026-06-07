@@ -543,6 +543,15 @@ export function createGraphinatorStore({
 					console.log(`[dmeOpenTrace] store._openCall: RETURNING result=`, result ? JSON.parse(JSON.stringify(result)) : result);
 					this.openInFlight = false;
 					console.log(`[dmeOpenTrace] store._openCall: UI UNLOCKED (openInFlight=false) — open done, activeVersionRefId=${this.activeVersionRefId}`);
+					// On a successful User-mode activation, inject a dedicated, fully-visible
+					// askMilo turn announcing the switch and asking for a brief characterization.
+					// Routed through the normal sendPrompt path so the prompt + reply render as a
+					// real turn, and it rides the SAME conversation session (resume) — no reset.
+					if (result && this.settings.graphMode === 'user') {
+						const switchedName = this.activeVersionName || 'this graph';
+						console.log(`[dmeOpenTrace] store._openCall: injecting graph-switch turn for "${switchedName}"`);
+						this.sendPrompt(`Graph switched to ${switchedName}. Tell me about it briefly.`);
+					}
 					return result;
 				} catch (err) {
 					console.error(`[dmeOpenTrace] store._openCall: open FAILED (catch) — status=${err && err.response && err.response.status} body=`, err && err.response && err.response.data, err);

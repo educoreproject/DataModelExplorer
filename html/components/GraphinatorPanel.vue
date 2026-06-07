@@ -144,10 +144,32 @@ const onSelectVersion = async (refId) => {
 	await graphStore.value.openVersion(refId);
 };
 
+// New-version name prompt: clicking New opens a dialog asking for a name before minting.
+// Resolves to the entered string, or null if the user cancels. Blank -> server auto-names.
+const newNameDialogOpen = ref(false);
+const newNameValue = ref('');
+let newNameResolve = null;
+const promptForVersionName = () => {
+	newNameValue.value = '';
+	newNameDialogOpen.value = true;
+	return new Promise((resolve) => { newNameResolve = resolve; });
+};
+const settleNewName = (value) => {
+	newNameDialogOpen.value = false;
+	const resolve = newNameResolve;
+	newNameResolve = null;
+	if (resolve) resolve(value);
+};
+const onNewNameCreate = () => settleNewName(newNameValue.value);
+const onNewNameCancel = () => settleNewName(null);
+
 const onClickNewVersion = async () => {
 	const decision = await guardUnsaved();
 	if (decision === 'cancel') return; // New has nothing to revert in the selector
-	await graphStore.value.newVersion();
+	const name = await promptForVersionName();
+	if (name === null) return; // user cancelled the name dialog
+	const trimmed = (name || '').trim();
+	await graphStore.value.newVersion(trimmed || undefined);
 };
 
 // -------------------------------------------------------------------------
@@ -705,7 +727,7 @@ defineExpose({ submitPrompt, promptText });
 							Thinking... ({{ heartbeatStatus }})
 						</span>
 						<v-tooltip
-							v-if="!showLoadingIndicator && graphStore.currentResponse?.prompt"
+							v-if="graphStore.currentResponse?.prompt"
 							:text="graphStore.currentResponse.prompt"
 							location="bottom"
 							max-width="500"
@@ -866,6 +888,31 @@ defineExpose({ submitPrompt, promptText });
 							<v-btn variant="text" @click="onUnsavedCancel" data-testid="unsaved-cancel">Cancel</v-btn>
 							<v-btn variant="text" @click="onUnsavedDontSave" data-testid="unsaved-dontsave">Don't Save</v-btn>
 							<v-btn variant="flat" color="primary" @click="onUnsavedSave" data-testid="unsaved-save">Save</v-btn>
+						</v-card-actions>
+					</v-card>
+				</v-dialog>
+				<!-- Name-your-new-graph prompt: appears when the user clicks New. -->
+				<v-dialog v-model="newNameDialogOpen" persistent max-width="440" data-testid="new-version-dialog">
+					<v-card>
+						<v-card-title>Name your new graph</v-card-title>
+						<v-card-text>
+							<v-text-field
+								v-model="newNameValue"
+								label="Graph name"
+								placeholder="e.g. My data model"
+								autofocus
+								hide-details
+								density="comfortable"
+								variant="outlined"
+								@keyup.enter="onNewNameCreate"
+								data-testid="new-version-name-input"
+							/>
+							<div class="text-caption text-medium-emphasis mt-2">Leave blank to auto-name by timestamp.</div>
+						</v-card-text>
+						<v-card-actions>
+							<v-spacer />
+							<v-btn variant="text" @click="onNewNameCancel" data-testid="new-version-cancel">Cancel</v-btn>
+							<v-btn variant="flat" color="primary" @click="onNewNameCreate" data-testid="new-version-create">Create</v-btn>
 						</v-card-actions>
 					</v-card>
 				</v-dialog>
