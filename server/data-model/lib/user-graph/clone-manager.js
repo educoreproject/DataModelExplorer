@@ -139,6 +139,87 @@ const countCloneContainers = () => {
 	}
 };
 
+// Count only LIVE USER clones (usr_<realUser>_*), EXCLUDING idle warm spares (usr__warm_*).
+// This is the number the MAX_CONCURRENT_CLONES user cap governs — warm spares live OUTSIDE
+// it. A claimed warm spare is renamed to usr_<user>_<version>, so it correctly counts here.
+const countUserCloneContainers = () => {
+	try {
+		const out = execSync(`docker ps -a --filter name=usr_ --format '{{.Names}}'`, {
+			encoding: 'utf-8',
+		}).trim();
+		const names = out ? out.split('\n').filter(Boolean) : [];
+		return names.filter((n) => !n.startsWith('usr__warm_')).length;
+	} catch (e) {
+		return 0;
+	}
+};
+
+// docker rename — the warm-pool claim path uses this to turn an idle spare (usr__warm_*)
+// into an owned user clone (usr_<userRefId>_<versionRefId>), so the container name always
+// tells the truth about idle-vs-in-use (prevents re-adopting an in-use container as a spare).
+const renameContainer = (oldName, newName) => {
+	execSync(`docker rename ${oldName} ${newName}`, { encoding: 'utf-8' });
+};
+
+// describeWarmContainers — reconstruct descriptors for every RUNNING idle warm spare
+// (usr__warm_*) from docker, so the warm pool can be ADOPTED across server restarts (the
+// in-memory pool is empty on boot but the containers survive). Safe because a claimed spare
+// is renamed away from usr__warm_*, so this only ever sees genuine idle spares.
+const describeWarmContainers = () => {
+	let names = [];
+	try {
+		const out = execSync(`docker ps --filter name=usr__warm_ --format '{{.Names}}'`, {
+			encoding: 'utf-8',
+		}).trim();
+		names = out ? out.split('\n').filter(Boolean) : [];
+	} catch (e) {
+		return [];
+	}
+	const password = getGoldenPassword();
+	const descriptors = [];
+	names.forEach((name) => {
+		try {
+			const portOut = execSync(
+				`docker inspect ${name} --format '{{range $p, $conf := .NetworkSettings.Ports}}{{$p}}={{(index $conf 0).HostPort}};{{end}}'`,
+				{ encoding: 'utf-8' },
+			).trim();
+			let boltPort = null;
+			let httpPort = null;
+			portOut.split(';').filter(Boolean).forEach((kv) => {
+				const eq = kv.indexOf('=');
+				const cport = kv.slice(0, eq);
+				const hport = parseInt(kv.slice(eq + 1), 10);
+				if (cport.startsWith('7687')) boltPort = hport;
+				if (cport.startsWith('7474')) httpPort = hport;
+			});
+			const mountOut = execSync(
+				`docker inspect ${name} --format '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'`,
+				{ encoding: 'utf-8' },
+			);
+			let dataSrc = null;
+			mountOut.split('\n').filter(Boolean).forEach((line) => {
+				const eq = line.indexOf('=');
+				if (line.slice(0, eq) === '/data') dataSrc = line.slice(eq + 1);
+			});
+			const cloneDir = dataSrc ? path.dirname(dataSrc) : null;
+			if (boltPort && cloneDir) {
+				descriptors.push({
+					containerName: name,
+					cloneDir,
+					boltPort,
+					httpPort,
+					boltUri: `bolt://localhost:${boltPort}`,
+					user: 'neo4j',
+					password,
+				});
+			}
+		} catch (e) {
+			// skip an unreadable / half-gone container
+		}
+	});
+	return descriptors;
+};
+
 const getDockerBoundPorts = () => {
 	try {
 		const output = execSync("docker ps --format '{{.Ports}}' 2>/dev/null", {
@@ -277,7 +358,13 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 
 	if (!userRefId) { callback('provisionClone: userRefId is required'); return; }
 
-	if (countCloneContainers() >= MAX_CONCURRENT_CLONES) {
+	// The user cap governs LIVE USER graphs only; warm spares (userRefId '_warm') provision
+	// outside it so priming the pool is never blocked by the user limit.
+	const isWarmProvision = userRefId === '_warm';
+	const currentUserCount = countUserCloneContainers();
+	xLog.status(`[dmeOpenTrace] clone-manager: provisionClone entry — user clones=${currentUserCount}/${MAX_CONCURRENT_CLONES}${isWarmProvision ? ' (warm spare, outside user cap)' : ''}`);
+	if (!isWarmProvision && currentUserCount >= MAX_CONCURRENT_CLONES) {
+		xLog.status(`[dmeOpenTrace] clone-manager: USER CLONE CAP REACHED (${MAX_CONCURRENT_CLONES}) — refusing to provision`);
 		callback(`clone cap reached (${MAX_CONCURRENT_CLONES} concurrent) — free one first`);
 		return;
 	}
@@ -300,27 +387,35 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 		fs.mkdirSync(path.join(cloneDir, sub), { recursive: true });
 	});
 
-	// Copy the source (plain recursive cp — NO reflink on this Mac). Prefer the quiesced
-	// SNAPSHOT (no live-golden downtime); quiesce the live golden only when no snapshot
-	// exists yet (the Phase 5 baseline).
-	const snapshotDir = currentSnapshotDir();
-	const sourceData = snapshotDir ? path.join(snapshotDir, 'data') : goldenData;
-	const sourcePlugins = snapshotDir ? path.join(snapshotDir, 'plugins') : goldenPlugins;
-	const copyFn = () => {
-		execSync(`cp -R "${sourceData}/." "${path.join(cloneDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
-		if (sourcePlugins && fs.existsSync(sourcePlugins)) {
-			execSync(`cp -R "${sourcePlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
+	// Copy the source (plain recursive cp — NO reflink on this Mac). ALWAYS copy from the
+	// quiesced SNAPSHOT so the live golden is never taken down on an open. If no snapshot
+	// exists yet (first open after startup, or after a deliberate golden refresh), LAZILY
+	// create one — a single one-time quiesce of golden — then copy from it; every later
+	// open reuses the static snapshot and never touches the live golden again.
+	const copyFromSnapshot = (snapDir) => {
+		const sData = path.join(snapDir, 'data');
+		const sPlugins = path.join(snapDir, 'plugins');
+		execSync(`cp -R "${sData}/." "${path.join(cloneDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
+		if (sPlugins && fs.existsSync(sPlugins)) {
+			execSync(`cp -R "${sPlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
 		}
 	};
 
-	xLog.status(`[clone-manager] provisioning ${containerName} (from ${snapshotDir ? 'snapshot' : 'quiesced golden'})`);
-
-	const runCopy = (cb) => {
-		if (snapshotDir) { let e = ''; try { copyFn(); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e); }
-		else { withQuiescedGolden(copyFn, cb); }
+	const ensureSnapshotThenCopy = (cb) => {
+		const existing = currentSnapshotDir();
+		if (existing) {
+			xLog.status(`[dmeOpenTrace] clone-manager: provisioning ${containerName} from EXISTING snapshot (no golden quiesce)`);
+			let e = ''; try { copyFromSnapshot(existing); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e);
+			return;
+		}
+		xLog.status(`[dmeOpenTrace] clone-manager: NO snapshot yet — creating one (one-time golden quiesce) before provisioning ${containerName}`);
+		createSnapshot((snapErr, res) => {
+			if (snapErr) { cb(`snapshot create failed: ${snapErr}`); return; }
+			let e = ''; try { copyFromSnapshot(res.snapshotDir); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e);
+		});
 	};
 
-	runCopy((quiesceErr) => {
+	ensureSnapshotThenCopy((quiesceErr) => {
 		if (quiesceErr) {
 			try { fs.rmSync(cloneDir, { recursive: true, force: true }); } catch (e) {}
 			callback(quiesceErr);
@@ -335,6 +430,7 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 			}
 
 			const { boltPort, httpPort } = ports;
+			xLog.status(`[dmeOpenTrace] clone-manager: port pair found boltPort=${boltPort} httpPort=${httpPort}; issuing docker run for ${containerName}`);
 
 			// GOTCHA: clone carries golden's system DB (and its password). Do NOT pass
 			// NEO4J_AUTH — it reinitializes the system db and wipes the cloned data.
@@ -366,10 +462,11 @@ const provisionClone = ({ userRefId, versionRefId }, callback) => {
 					password,
 				};
 
+				xLog.status(`[dmeOpenTrace] clone-manager: container ${containerName} started; waiting for neo4j TCP+cypher readiness on bolt ${boltPort}`);
 				waitForNeo4jReady(boltPort, 120000, (tcpErr) => {
-					if (tcpErr) { callback(tcpErr, descriptor); return; }
+					if (tcpErr) { xLog.status(`[dmeOpenTrace] clone-manager: TCP not ready: ${tcpErr}`); callback(tcpErr, descriptor); return; }
 					waitForCypherReady(containerName, password, 120000, (cypherErr) => {
-						if (cypherErr) { callback(cypherErr, descriptor); return; }
+						if (cypherErr) { xLog.status(`[dmeOpenTrace] clone-manager: cypher not ready: ${cypherErr}`); callback(cypherErr, descriptor); return; }
 						xLog.status(`[clone-manager] ${containerName} query-ready on bolt ${boltPort}`);
 						callback('', descriptor);
 					});
@@ -418,6 +515,9 @@ module.exports = {
 	cloneDirFor,
 	containerNameFor,
 	countCloneContainers,
+	countUserCloneContainers,
+	describeWarmContainers,
+	renameContainer,
 	containerExists,
 	isContainerRunning,
 	getUserGraphsBase,

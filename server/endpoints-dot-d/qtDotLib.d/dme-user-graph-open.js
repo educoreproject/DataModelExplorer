@@ -44,8 +44,19 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 				versionName: body.versionName,
 			};
 
+			xLog.status(
+				`[dmeOpenTrace] endpoint: POST /api/dme-user-graph-open received — userRefId=${userRefId || '(none)'} username=${username || '(none)'} versionRefId=${body.versionRefId || '(none)'} isNew=${!!body.new} versionName=${body.versionName || '(none)'}`,
+			);
+
 			accessPointsDotD['dme-user-graph-open'](apInput, (err, result) => {
-				if (err) { next(err, args); return; }
+				if (err) {
+					xLog.status(`[dmeOpenTrace] endpoint: access point returned ERROR: ${err}`);
+					next(err, args);
+					return;
+				}
+				xLog.status(
+					`[dmeOpenTrace] endpoint: access point OK — versionRefId=${result && result.versionRefId} readOnly=${result && result.readOnly} danglingRefs=${result && result.danglingRefs ? result.danglingRefs.length : 0}`,
+				);
 				next('', { ...args, result });
 			});
 		});
@@ -59,6 +70,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 				return;
 			}
 			const { result } = args;
+			xLog.status(
+				`[dmeOpenTrace] endpoint: HTTP 200 sent (result is ${Array.isArray(result) ? 'array' : 'object'})`,
+			);
 			xRes.send(Array.isArray(result) ? result : [result]);
 		});
 	};

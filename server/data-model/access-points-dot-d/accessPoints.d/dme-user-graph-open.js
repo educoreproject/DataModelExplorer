@@ -54,13 +54,16 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const { userRefId, versionRefId, isNew, versionName } = args;
 			if (!userRefId) { next('dme-user-graph-open: userRefId is required', args); return; }
 			if (isNew) {
+				xLog.status(`[dmeOpenTrace] accessPoint STAGE1: minting NEW version (versionName=${versionName || '(auto)'})`);
 				accessPointsDotD['graph-state-version-new']({ userRefId, versionName }, (err, result) => {
-					if (err) { next(err, args); return; }
+					if (err) { xLog.status(`[dmeOpenTrace] accessPoint STAGE1: new-version mint ERROR: ${err}`); next(err, args); return; }
+					xLog.status(`[dmeOpenTrace] accessPoint STAGE1: minted resolvedVersionRefId=${result.refId}`);
 					next('', { ...args, resolvedVersionRefId: result.refId });
 				});
 				return;
 			}
 			if (!versionRefId) { next('dme-user-graph-open: versionRefId is required when not creating a new version', args); return; }
+			xLog.status(`[dmeOpenTrace] accessPoint STAGE1: reopen existing resolvedVersionRefId=${versionRefId}`);
 			next('', { ...args, resolvedVersionRefId: versionRefId });
 		});
 
@@ -71,9 +74,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		taskList.push((args, next) => {
 			const { userRefId, resolvedVersionRefId } = args;
 			readVersionRow({ sqlDb, dataMapping, userRefId, versionRefId: resolvedVersionRefId }, (err, row) => {
-				if (err) { next(err, args); return; }
-				if (!row) { next('Version not found or not owned by this user', args); return; }
+				if (err) { xLog.status(`[dmeOpenTrace] accessPoint STAGE2: readVersionRow ERROR: ${err}`); next(err, args); return; }
+				if (!row) { xLog.status(`[dmeOpenTrace] accessPoint STAGE2: version row NOT FOUND for resolvedVersionRefId=${resolvedVersionRefId}`); next('Version not found or not owned by this user', args); return; }
 				const live = !!row.lockToken && isLeaseFresh(row.lastHeartbeatAt);
+				xLog.status(`[dmeOpenTrace] accessPoint STAGE2: row found, lockToken=${row.lockToken ? 'present' : 'none'} leaseFresh=${isLeaseFresh(row.lastHeartbeatAt)} -> live=${live}${live ? ' (RECLAIMING own stale session)' : ''}`);
 				if (!live) { next('', args); return; }
 				const staleHandle = {
 					versionRefId: resolvedVersionRefId,
@@ -96,8 +100,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// STAGE 3: acquire the isolated clone via the seam (read-write open)
 		taskList.push((args, next) => {
 			const { userRefId, username, resolvedVersionRefId } = args;
+			xLog.status(`[dmeOpenTrace] accessPoint STAGE3: calling getUserGraph (read-write) for resolvedVersionRefId=${resolvedVersionRefId}`);
 			getUserGraph({ userRefId, versionRefId: resolvedVersionRefId, username, sqlDb, dataMapping }, (err, handle) => {
-				if (err) { next(`open failed: ${err}`, args); return; }
+				if (err) { xLog.status(`[dmeOpenTrace] accessPoint STAGE3: getUserGraph FAILED: ${err}`); next(`open failed: ${err}`, args); return; }
+				xLog.status(`[dmeOpenTrace] accessPoint STAGE3: getUserGraph OK — handle.versionRefId=${handle.versionRefId} container=${handle.containerName} danglingRefs=${(handle.danglingRefs || []).length}`);
 				next('', {
 					...args,
 					readOnly: false,
@@ -117,7 +123,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		};
 
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			if (err) { callback(err, {}); return; }
+			if (err) { xLog.status(`[dmeOpenTrace] accessPoint: pipeline FAILED: ${err}`); callback(err, {}); return; }
+			xLog.status(`[dmeOpenTrace] accessPoint: returning versionRefId=${args.versionRefId} readOnly=${!!args.readOnly}`);
 			callback('', {
 				versionRefId: args.versionRefId,
 				identityMarker: args.identityMarker,

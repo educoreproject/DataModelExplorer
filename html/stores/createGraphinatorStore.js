@@ -80,6 +80,10 @@ export function createGraphinatorStore({
 			// open/save/close; refreshStatus() pulls the server's truth.
 			isDirty: false,
 			versionStatusMsg: '',
+			// True from the moment a version open starts until it resolves. While true the
+			// live clone is still provisioning, so User-mode querying is blocked (sendPrompt
+			// guard) and the input box is replaced by a loading overlay.
+			openInFlight: false,
 			settings: {
 				model: defaultModel,
 				perspectives: 0,
@@ -275,6 +279,17 @@ export function createGraphinatorStore({
 			},
 
 			sendPrompt(text) {
+				// Race guard: in User mode the live clone is provisioned asynchronously and
+				// takes several seconds. Until the open resolves (openInFlight) and a version
+				// is active, the server has no graph to query — block the send rather than
+				// fire a prompt that rides out with activeVersionRefId=null.
+				if (this.settings.graphMode === 'user' && (this.openInFlight || !this.activeVersionRefId)) {
+					this.statusMsg = this.openInFlight
+						? 'Graph still opening — please wait...'
+						: 'No graph open — choose a version first';
+					console.warn(`[dmeOpenTrace] store.sendPrompt: BLOCKED — graphMode=user openInFlight=${this.openInFlight} activeVersionRefId=${this.activeVersionRefId}`);
+					return;
+				}
 				const ws = wsInstances[storeId];
 				if (!ws || ws.readyState !== 1) {
 					this.statusMsg = 'Not connected';
@@ -301,6 +316,7 @@ export function createGraphinatorStore({
 				// Multi-tenant: the active version rides along in User mode so the server
 				// (ws-graphinator) can hand askMilo the versionRefId + internal secret +
 				// executor base URL. Null in Standard mode -> server injects nothing.
+				console.log(`[dmeOpenTrace] store.sendPrompt: sending prompt — graphMode='${this.settings.graphMode}' activeVersionRefId=${this.activeVersionRefId}${this.settings.graphMode === 'user' && !this.activeVersionRefId ? ' <<< USER MODE WITH NO ACTIVE VERSION — server will report no graph' : ''}`);
 				ws.send(JSON.stringify({
 					type: 'prompt',
 					text,
@@ -328,6 +344,7 @@ export function createGraphinatorStore({
 			// directly, matching the existing settings-binding pattern.
 			setGraphMode(mode) {
 				this.settings.graphMode = mode === 'user' ? 'user' : 'standard';
+				console.log(`[dmeOpenTrace] store.setGraphMode: graphMode now '${this.settings.graphMode}' (activeVersionRefId=${this.activeVersionRefId})`);
 			},
 
 			startNewSession() {
@@ -464,8 +481,9 @@ export function createGraphinatorStore({
 					const authHeaders = await resolveAuthHeaders();
 					const response = await axios.get('/api/dme-user-graph-list', { headers: { ...authHeaders } });
 					this.availableVersions = Array.isArray(response.data) ? response.data : [];
+					console.log(`[dmeOpenTrace] store.listVersions: loaded ${this.availableVersions.length} versions`, this.availableVersions.map(v => ({ refId: v.refId, name: v.versionName, userNodeCount: v.userNodeCount })));
 				} catch (err) {
-					console.error(`[${storeId}] listVersions failed:`, err);
+					console.error(`[dmeOpenTrace] store.listVersions: FAILED`, err);
 					this.availableVersions = [];
 				}
 			},
@@ -481,7 +499,8 @@ export function createGraphinatorStore({
 				// Guard against a null/empty selection (e.g. a v-select emitting
 				// update:modelValue with no value). Never round-trip an empty open — that
 				// path previously fell through the server gate and minted a stray version.
-				if (!versionRefId) return null;
+				console.log(`[dmeOpenTrace] store.openVersion: called with versionRefId=${versionRefId}`);
+				if (!versionRefId) { console.warn(`[dmeOpenTrace] store.openVersion: empty versionRefId — NO-OP (returning null)`); return null; }
 				return this._openCall({ versionRefId });
 			},
 
@@ -492,15 +511,21 @@ export function createGraphinatorStore({
 				// is a no-op switch and must NOT close+reopen itself.
 				const targetRefId = body && body.versionRefId;
 				const reopeningSame = !!targetRefId && targetRefId === this.activeVersionRefId;
+				console.log(`[dmeOpenTrace] store._openCall: ENTRY body=`, JSON.parse(JSON.stringify(body || {})), `incumbentActiveVersionRefId=${this.activeVersionRefId} reopeningSame=${reopeningSame}`);
+				this.openInFlight = true;
+				console.log('[dmeOpenTrace] store._openCall: UI LOCKED (openInFlight=true) — provisioning graph, querying blocked');
 				if (this.activeVersionRefId && !reopeningSame) {
+					console.log(`[dmeOpenTrace] store._openCall: deallocating incumbent ${this.activeVersionRefId} before open`);
 					await this.closeGraph();
 				}
 				this.versionStatusMsg = 'Opening…';
 				try {
 					const authHeaders = await resolveAuthHeaders();
+					console.log(`[dmeOpenTrace] store._openCall: POST /api/dme-user-graph-open ...`);
 					const response = await axios.post('/api/dme-user-graph-open', body, {
 						headers: { 'Content-Type': 'application/json', ...authHeaders },
 					});
+					console.log(`[dmeOpenTrace] store._openCall: HTTP ${response.status} response.data=`, response.data);
 					const result = response.data && response.data[0];
 					if (result) {
 						this.activeVersionRefId = result.versionRefId;
@@ -510,12 +535,20 @@ export function createGraphinatorStore({
 						// Fresh provision (or owner-reclaim) replayed the durable stateScript:
 						// the live clone matches the saved state, so nothing is unsaved yet.
 						this.isDirty = false;
+						console.log(`[dmeOpenTrace] store._openCall: result OK -> activeVersionRefId=${this.activeVersionRefId} activeVersionName="${this.activeVersionName}" isReadOnly=${this.isReadOnly}`);
+					} else {
+						console.warn(`[dmeOpenTrace] store._openCall: response had NO result object (response.data[0] falsy) — activeVersionRefId stays ${this.activeVersionRefId}`);
 					}
 					await this.listVersions();
+					console.log(`[dmeOpenTrace] store._openCall: RETURNING result=`, result ? JSON.parse(JSON.stringify(result)) : result);
+					this.openInFlight = false;
+					console.log(`[dmeOpenTrace] store._openCall: UI UNLOCKED (openInFlight=false) — open done, activeVersionRefId=${this.activeVersionRefId}`);
 					return result;
 				} catch (err) {
-					console.error(`[${storeId}] open failed:`, err);
+					console.error(`[dmeOpenTrace] store._openCall: open FAILED (catch) — status=${err && err.response && err.response.status} body=`, err && err.response && err.response.data, err);
 					this.versionStatusMsg = 'Open failed';
+					this.openInFlight = false;
+					console.log('[dmeOpenTrace] store._openCall: UI UNLOCKED (openInFlight=false) — open FAILED, querying re-enabled');
 					return null;
 				}
 			},

@@ -71,6 +71,37 @@ const primePool = (depth, callback) => {
 	fillOne();
 };
 
+// reconcileAndPrime(depth, callback) — STARTUP entry. Set the target depth, ADOPT any idle
+// warm spares already running in docker (they survive server restarts; the in-memory pool is
+// empty on boot), then top up sequentially toward depth. Docker/disk-aware: a restart with live
+// spares + an on-disk snapshot adopts and returns fast; only a cold machine pays the full build.
+const reconcileAndPrime = (depth, callback) => {
+	const { xLog } = process.global;
+	const cb = typeof callback === 'function' ? callback : () => {};
+	setTargetDepth(depth);
+	const existing = cloneManager.describeWarmContainers();
+	const have = new Set(pool.map((d) => d.containerName));
+	let adopted = 0;
+	existing.forEach((d) => {
+		if (!have.has(d.containerName)) { pool.push(d); have.add(d.containerName); adopted += 1; }
+	});
+	if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: reconcile — adopted ${adopted} existing spare(s); pool=${pool.length}, target=${targetDepth}`);
+	const fillOne = () => {
+		if (pool.length >= targetDepth) {
+			if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: primed to depth ${pool.length}`);
+			cb('', { depth: pool.length, adopted });
+			return;
+		}
+		if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: provisioning warm spare ${pool.length + 1}/${targetDepth}...`);
+		provisionWarmClone((err, descriptor) => {
+			if (err) { if (xLog) xLog.error(`[warm-pool] prime failed: ${err}`); cb(err); return; }
+			pool.push(descriptor);
+			fillOne();
+		});
+	};
+	fillOne();
+};
+
 // claimWarm() — synchronously hand back the OLDEST warm clone (or null on a spike).
 // Triggers an async refill toward N. The claimed clone becomes the caller's to own.
 const claimWarm = () => {
@@ -98,6 +129,7 @@ const drainPool = (callback) => {
 
 module.exports = {
 	primePool,
+	reconcileAndPrime,
 	claimWarm,
 	refillAsync,
 	poolDepth,

@@ -81,6 +81,7 @@ const graphStore = computed(() => props.store);
 
 // Multi-tenant (08): load the user's versions for the selector when they enter User mode.
 watch(() => graphStore.value.settings.graphMode, (mode) => {
+	console.log(`[dmeOpenTrace] GraphinatorPanel: graphMode watcher fired -> '${mode}'`);
 	if (mode === 'user') { graphStore.value.listVersions(); }
 }, { immediate: true });
 
@@ -135,8 +136,10 @@ const revertVersionSelect = async () => {
 
 const onSelectVersion = async (refId) => {
 	// A null/empty emit or a same-version reselect is a no-op (never round-trips an open).
-	if (!refId || refId === graphStore.value.activeVersionRefId) return;
+	console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: refId=${refId} (current active=${graphStore.value.activeVersionRefId})`);
+	if (!refId || refId === graphStore.value.activeVersionRefId) { console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: NO-OP (empty or same version)`); return; }
 	const decision = await guardUnsaved();
+	console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: unsaved-guard decision='${decision}'`);
 	if (decision === 'cancel') { await revertVersionSelect(); return; }
 	await graphStore.value.openVersion(refId);
 };
@@ -795,6 +798,12 @@ defineExpose({ submitPrompt, promptText });
 
 		<!-- Bottom: input + controls side by side -->
 		<div class="input-row">
+			<!-- While a User-mode graph is opening (clone provisioning), the whole input box
+			     becomes a loading indicator: querying is disabled until the workspace is ready. -->
+			<div v-if="graphStore.openInFlight" class="input-loading-overlay" data-testid="input-loading-overlay">
+				<v-progress-circular indeterminate size="32" width="3" color="primary" />
+				<span class="input-loading-text">Opening graph... querying is disabled until your workspace is ready.</span>
+			</div>
 			<v-textarea
 				ref="promptInput"
 				v-model="promptText"
@@ -803,7 +812,7 @@ defineExpose({ submitPrompt, promptText });
 				rows="3"
 				auto-grow
 				hide-details
-				:disabled="graphStore.loading"
+				:disabled="graphStore.loading || graphStore.openInFlight"
 				@keydown="handleKeydown"
 				class="input-field"
 				:class="{ 'prompt-ready': !showLoadingIndicator, 'prompt-waiting': showLoadingIndicator }"
@@ -860,6 +869,9 @@ defineExpose({ submitPrompt, promptText });
 						</v-card-actions>
 					</v-card>
 				</v-dialog>
+				<!-- On-open confirmation removed: the input-row loading overlay (driven by
+				     openInFlight) is now the open/ready signal. -->
+
 				<div class="controls-row">
 					<v-checkbox
 						v-model="graphStore.settings.newSession"
@@ -1000,8 +1012,8 @@ defineExpose({ submitPrompt, promptText });
 					<v-btn
 						color="primary"
 						@click="submitPrompt"
-						:loading="graphStore.loading"
-						:disabled="!graphStore.connected || !promptText.trim()"
+						:loading="graphStore.loading || graphStore.openInFlight"
+						:disabled="!graphStore.connected || !promptText.trim() || graphStore.openInFlight"
 						size="large"
 						class="ml-2 submit-btn"
 					>
@@ -1383,6 +1395,7 @@ defineExpose({ submitPrompt, promptText });
 }
 
 .input-row {
+	position: relative;
 	display: flex;
 	align-items: stretch;
 	padding-top: 12px;
@@ -1390,6 +1403,23 @@ defineExpose({ submitPrompt, promptText });
 	gap: 12px;
 }
 
+.input-loading-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	padding: 0 20px;
+	background: rgba(var(--v-theme-surface), 0.94);
+	border-radius: 8px;
+	text-align: center;
+}
+.input-loading-text {
+	font-size: 0.95rem;
+	color: rgb(var(--v-theme-on-surface));
+}
 .input-field {
 	flex: 1;
 }

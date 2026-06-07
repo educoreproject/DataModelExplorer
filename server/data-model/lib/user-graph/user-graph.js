@@ -105,9 +105,11 @@ const getUserGraph = (
 			next('getUserGraph: sqlDb and dataMapping are required for the cold clone', args);
 			return;
 		}
+		xLog.status(`[dmeOpenTrace] getUserGraph STAGE1: reading version row userRefId=${userRefId} versionRefId=${versionRefId}`);
 		readVersionRow({ sqlDb, dataMapping, userRefId, versionRefId }, (err, row) => {
-			if (err) { next(err, args); return; }
-			if (!row) { next('getUserGraph: version not found or not owned by this user', args); return; }
+			if (err) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE1: readVersionRow ERROR: ${err}`); next(err, args); return; }
+			if (!row) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE1: version NOT FOUND/owned`); next('getUserGraph: version not found or not owned by this user', args); return; }
+			xLog.status(`[dmeOpenTrace] getUserGraph STAGE1: row OK versionName="${row.versionName || ''}" stateScript=${row.stateScript ? row.stateScript.length + ' chars' : 'EMPTY (new version)'}`);
 			next('', {
 				...args,
 				username: username || '',
@@ -122,24 +124,43 @@ const getUserGraph = (
 	// triggered asynchronously toward the pool depth. The claimed clone becomes this
 	// session's container (marker + replay + setLive below); teardown removes it.
 	taskList.push((args, next) => {
+		const coldProvision = () => {
+			xLog.status(`[dmeOpenTrace] getUserGraph STAGE2: warm pool empty — COLD provisioning clone for versionRefId=${versionRefId}`);
+			cloneManager.provisionClone({ userRefId, versionRefId }, (err, descriptor) => {
+				if (err) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE2: provisionClone FAILED: ${err}`); next(`getUserGraph clone failed: ${err}`, args); return; }
+				xLog.status(`[dmeOpenTrace] getUserGraph STAGE2: clone provisioned — container=${descriptor.containerName} bolt=${descriptor.boltUri}`);
+				next('', { ...args, descriptor, warmServed: false });
+			});
+		};
 		const warm = warmPool.claimWarm();
 		if (warm) {
-			next('', { ...args, descriptor: warm, warmServed: true });
+			// rename-on-claim: a spare keeps its usr__warm_* name until claimed; rename it to the
+			// owned name so idle-vs-in-use is unambiguous (safe restart-adoption + correct cap
+			// counting + teardown). The physical cloneDir (under uid-_warm) is unchanged.
+			const ownedName = cloneManager.containerNameFor(userRefId, versionRefId);
+			try {
+				cloneManager.renameContainer(warm.containerName, ownedName);
+			} catch (e) {
+				xLog.status(`[dmeOpenTrace] getUserGraph STAGE2: warm rename ${warm.containerName} -> ${ownedName} FAILED (${e.message}); falling back to cold provision`);
+				coldProvision();
+				return;
+			}
+			const owned = { ...warm, containerName: ownedName };
+			xLog.status(`[dmeOpenTrace] getUserGraph STAGE2: WARM POOL hit — claimed ${warm.containerName}, renamed to ${ownedName} bolt=${owned.boltUri}`);
+			next('', { ...args, descriptor: owned, warmServed: true });
 			return;
 		}
-		cloneManager.provisionClone({ userRefId, versionRefId }, (err, descriptor) => {
-			if (err) { next(`getUserGraph clone failed: ${err}`, args); return; }
-			next('', { ...args, descriptor, warmServed: false });
-		});
+		coldProvision();
 	});
 
 	// STAGE 3: inject the identity marker NODE into the clone.
 	taskList.push((args, next) => {
 		const { descriptor, username, versionName } = args;
+		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: injecting identity marker into ${descriptor.boltUri}`);
 		const markerDb = neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
-				if (connErr) { next(`marker connect failed: ${connErr}`, args); return; }
+				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker connect FAILED: ${connErr}`); next(`marker connect failed: ${connErr}`, args); return; }
 				const cypher =
 					'CREATE (i:UserGraphIdentity:UserContent {' +
 					'userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
@@ -149,7 +170,8 @@ const getUserGraph = (
 					{ userRefId, username, versionRefId, versionName },
 					(qErr) => {
 						db.close();
-						if (qErr) { next(`marker injection failed: ${qErr}`, args); return; }
+						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker injection FAILED: ${qErr}`); next(`marker injection failed: ${qErr}`, args); return; }
+						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker injected OK`);
 						next('', args);
 					},
 				);
@@ -162,14 +184,16 @@ const getUserGraph = (
 	// surfaced on the handle, never silently dropped. Skipped for a brand-new version.
 	taskList.push((args, next) => {
 		const { descriptor, stateScript } = args;
-		if (!stateScript) { next('', { ...args, danglingRefs: [] }); return; }
+		if (!stateScript) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: no stateScript — skipping replay (new/empty version)`); next('', { ...args, danglingRefs: [] }); return; }
+		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replaying stateScript (${stateScript.length} chars) into ${descriptor.boltUri}`);
 		neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
-				if (connErr) { next(`replay connect failed: ${connErr}`, args); return; }
+				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay connect FAILED: ${connErr}`); next(`replay connect failed: ${connErr}`, args); return; }
 				replayStateScript({ userGraphDb: db, stateScript }, (rErr, res) => {
 					db.close();
-					if (rErr) { next(rErr, args); return; }
+					if (rErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay FAILED: ${rErr}`); next(rErr, args); return; }
+					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length}`);
 					next('', { ...args, danglingRefs: res.danglingRefs });
 				});
 			},
@@ -197,7 +221,8 @@ const getUserGraph = (
 				liveDirty: 0,
 			},
 		}, (err) => {
-			if (err) { next(`setLive failed: ${err}`, args); return; }
+			if (err) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE4: setLive FAILED: ${err}`); next(`setLive failed: ${err}`, args); return; }
+			xLog.status(`[dmeOpenTrace] getUserGraph STAGE4: setLive OK — lockToken minted, livePort=${descriptor.boltPort} container=${descriptor.containerName}`);
 			next('', { ...args, lockToken });
 		});
 	});
@@ -223,6 +248,7 @@ const getUserGraph = (
 			},
 			danglingRefs: danglingRefs || [], // surfaced standard refs that no longer resolve (05)
 		};
+		xLog.status(`[dmeOpenTrace] getUserGraph STAGE5: handle assembled — versionRefId=${handle.versionRefId} bolt=${handle.graphConnection.boltUri} container=${handle.containerName}`);
 		next('', { ...args, handle });
 	});
 
@@ -230,15 +256,18 @@ const getUserGraph = (
 		if (err) {
 			// Best-effort cleanup if we provisioned before failing downstream.
 			if (args && args.descriptor) {
+				xLog.status(`[dmeOpenTrace] getUserGraph: FAILED after provisioning — tearing down clone ${args.descriptor.containerName}. err=${err}`);
 				cloneManager.teardownClone(
 					{ containerName: args.descriptor.containerName, cloneDir: args.descriptor.cloneDir },
 					() => callback(err),
 				);
 				return;
 			}
+			xLog.status(`[dmeOpenTrace] getUserGraph: FAILED before provisioning. err=${err}`);
 			callback(err);
 			return;
 		}
+		xLog.status(`[dmeOpenTrace] getUserGraph: COMPLETE — returning handle for versionRefId=${args.handle.versionRefId}`);
 		callback('', args.handle);
 	});
 };

@@ -322,6 +322,25 @@ ${err.toString()}
 
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
+			// Multi-tenant DME: build the golden snapshot + warm clone pool ONCE at startup so
+			// user opens claim a pre-booted clone instead of paying the cold cp+boot. Background
+			// and non-blocking. Docker/disk-aware: adopts an existing snapshot + idle warm
+			// containers across restarts; only a cold machine pays the full build.
+			try {
+				const dmeCfg = (typeof getConfig === 'function' && getConfig('dataModelExplorerSearch')) || {};
+				const warmDepth = Number(dmeCfg.warmPoolDepth != null ? dmeCfg.warmPoolDepth : 2);
+				if (warmDepth > 0) {
+					const warmPool = require('./data-model/lib/user-graph/warm-pool');
+					xLog.status(`[dmeOpenTrace] startup: priming DME warm pool to depth ${warmDepth} (background)...`);
+					warmPool.reconcileAndPrime(warmDepth, (e, res) => {
+						if (e) { xLog.error(`[dmeOpenTrace] startup: warm pool prime FAILED: ${e}`); return; }
+						xLog.status(`[dmeOpenTrace] startup: warm pool READY at depth ${res.depth} (adopted ${res.adopted})`);
+					});
+				}
+			} catch (e) {
+				xLog.error(`[dmeOpenTrace] startup: warm pool init error: ${e.message}`);
+			}
+
 			//callback(err, {localResult1Value, localResult2});
 		});
 
