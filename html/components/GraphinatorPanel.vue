@@ -474,8 +474,16 @@ const handleBeforeUnload = (event) => {
 	graphStore.value.closeGraph();
 };
 
+// pagehide fires when the page is ACTUALLY being unloaded (window/tab close, navigation away),
+// after any beforeunload Leave/Stay decision — the browser-blessed moment for sendBeacon. This
+// frees the live clone promptly on a real window close; beforeunload keeps only its native prompt.
+const handlePageHide = () => {
+	graphStore.value.closeGraphBeacon();
+};
+
 onMounted(() => {
 	window.addEventListener('beforeunload', handleBeforeUnload);
+	window.addEventListener('pagehide', handlePageHide);
 	if (props.autoConnect) {
 		setTimeout(() => {
 			graphStore.value.connect();
@@ -489,6 +497,7 @@ onMounted(() => {
 
 onUnmounted(() => {
 	window.removeEventListener('beforeunload', handleBeforeUnload);
+	window.removeEventListener('pagehide', handlePageHide);
 	graphStore.value.closeGraph();
 	graphStore.value.disconnect();
 	emit('disconnected');

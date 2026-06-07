@@ -41,16 +41,27 @@ export function createGraphinatorStore({
 	// has no dependency on a consumer's @ alias resolution.
 	getAuthHeaders = null,
 } = {}) {
+	// Cached most-recent auth headers, so a synchronous unload handler (pagehide) can read the
+	// bearer token without awaiting — sendBeacon must fire synchronously as the page is torn down.
+	let lastAuthHeaders = {};
+
 	// Internal helper — resolves getAuthHeaders to a header object, or {}.
 	const resolveAuthHeaders = async () => {
 		if (typeof getAuthHeaders !== 'function') return {};
 		try {
 			const headers = await getAuthHeaders();
-			return headers || {};
+			lastAuthHeaders = headers || {};
+			return lastAuthHeaders;
 		} catch (err) {
 			console.warn(`[${storeId}] getAuthHeaders threw:`, err);
 			return {};
 		}
+	};
+
+	// Synchronous bearer-token accessor for the unload beacon (no await possible at pagehide).
+	const currentBearerToken = () => {
+		const auth = (lastAuthHeaders && (lastAuthHeaders.Authorization || lastAuthHeaders.authorization)) || '';
+		return auth.replace(/^Bearer\s+/i, '');
 	};
 
 	return defineStore(storeId, {
@@ -577,6 +588,24 @@ export function createGraphinatorStore({
 					console.error(`[${storeId}] saveGraph failed:`, err);
 					this.versionStatusMsg = 'Save failed';
 					return false;
+				}
+			},
+
+			// Window-unload close: navigator.sendBeacon a {versionRefId, token} body to the public
+			// beacon endpoint, which the browser guarantees to deliver as the page is torn down —
+			// frees the live clone in ~1s instead of waiting for the 15-min reaper. Fully synchronous
+			// (no await possible at pagehide); reads the cached bearer token. Reaper stays as backstop.
+			closeGraphBeacon() {
+				if (!this.activeVersionRefId) return;
+				const token = currentBearerToken();
+				if (!token) { console.warn('[dmeOpenTrace] closeGraphBeacon: no cached token — skipping'); return; }
+				try {
+					const payload = JSON.stringify({ versionRefId: this.activeVersionRefId, token });
+					const blob = new Blob([payload], { type: 'application/json' });
+					const ok = navigator.sendBeacon('/api/dme-user-graph-close-beacon', blob);
+					console.log(`[dmeOpenTrace] closeGraphBeacon: sendBeacon ${ok ? 'queued' : 'FAILED'} for ${this.activeVersionRefId}`);
+				} catch (e) {
+					console.warn('[dmeOpenTrace] closeGraphBeacon error:', e);
 				}
 			},
 
