@@ -163,7 +163,7 @@ const getUserGraph = (
 				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker connect FAILED: ${connErr}`); next(`marker connect failed: ${connErr}`, args); return; }
 				const cypher =
 					'CREATE (i:UserGraphIdentity:UserContent {' +
-					'userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
+					'name: $versionName, userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
 					'versionName: $versionName, createdAt: toString(datetime())}) RETURN i';
 				db.runQuery(
 					cypher,
