@@ -163,7 +163,7 @@ const getUserGraph = (
 				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker connect FAILED: ${connErr}`); next(`marker connect failed: ${connErr}`, args); return; }
 				const cypher =
 					'CREATE (i:UserGraphIdentity:UserContent {' +
-					'name: $versionName, userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
+					'userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
 					'versionName: $versionName, createdAt: toString(datetime())}) RETURN i';
 				db.runQuery(
 					cypher,
@@ -196,6 +196,36 @@ const getUserGraph = (
 					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length}`);
 					next('', { ...args, danglingRefs: res.danglingRefs });
 				});
+			},
+		);
+	});
+
+	// STAGE 3.6: ensure the durable graph NAMEPLATE — a real UserContent node (NOT
+	// UserGraphIdentity, so the re-emit serializer SAVES it). Written ONCE at create
+	// (ON CREATE only), then it replays from the stateScript on every later open — the
+	// name lives IN the graph's own content and is the user's to edit. Also a soft check:
+	// for a saved graph the replayed nameplate's versionRefId should match the request.
+	taskList.push((args, next) => {
+		const { descriptor, versionName } = args;
+		neo4jInstanceGen.initDatabaseInstance(
+			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
+			(connErr, db) => {
+				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate connect FAILED: ${connErr}`); next(`nameplate connect failed: ${connErr}`, args); return; }
+				const cypher =
+					'MERGE (i:UserContent {userNodeId: $nameplateId}) ' +
+					'ON CREATE SET i.name = $versionName, i.versionRefId = $versionRefId, i.kind = $kind, i.createdAt = toString(datetime()) ' +
+					'RETURN i.name AS name, (i.versionRefId = $versionRefId) AS refIdMatches';
+				db.runQuery(
+					cypher,
+					{ nameplateId: 'graphNameplate', versionName, versionRefId, kind: 'graphNameplate' },
+					(qErr, records) => {
+						db.close();
+						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate FAILED: ${qErr}`); next(`nameplate failed: ${qErr}`, args); return; }
+						const row = (records && records[0]) || {};
+						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate ensured name="${row.name}" refIdMatches=${row.refIdMatches}`);
+						next('', args);
+					},
+				);
 			},
 		);
 	});
