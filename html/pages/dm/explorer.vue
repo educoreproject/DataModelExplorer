@@ -4,12 +4,12 @@
 // explorer.vue — Data Model Explorer page
 //
 // Site-specific: auth guard, navigation, welcome text, AI filename generation.
-// All UI logic lives in GraphinatorPanel.vue (shared component).
+// All UI logic lives in EdunatorPanel.vue (shared component).
 
 definePageMeta({ middleware: 'auth' });
 
 import { useLoginStore } from '@/stores/loginStore';
-import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
+import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { personas } from '@/data/personas';
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
@@ -24,7 +24,7 @@ const router = useRouter();
 // sessionEndpoints preserve educore's existing dmeSession* URLs (and the underlying
 // dme_sessions SQLite table) so persisted sessions keep working through the migration.
 // getAuthHeaders is required now that the canonical layer no longer imports loginStore.
-const useGraphStore = createGraphinatorStore({
+const useGraphStore = createEdunatorStore({
 	storeId: 'explorerStore',
 	wsPath: '/ws/explorer',
 	devPort: 7790,
@@ -41,7 +41,7 @@ const useGraphStore = createGraphinatorStore({
 const graphStore = useGraphStore();
 
 // The CEDS-flavored example prompts that previously lived hardcoded inside
-// GraphinatorPanel.vue. The canonical component now takes them via prop.
+// EdunatorPanel.vue. The canonical component now takes them via prop.
 const cedsExamplePrompts = [
 	"Which educore use cases reference the CEDS property 'Has Credential Definition Criteria Definition'",
 	"I'm looking at the CEDS property 'Has Credential Definition Criteria Definition'. Show me which educore use cases depend on it, and for each one, tell me what the use case is about and which step in that use case involves this criterion.",
@@ -111,7 +111,7 @@ const fallbackPromptOptions = [
 					No tools are configured for your role ({{ LoginStore.loggedInUser.role }}). Contact an administrator.
 				</v-alert>
 
-				<GraphinatorPanel
+				<EdunatorPanel
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
@@ -161,7 +161,7 @@ const fallbackPromptOptions = [
 					<h4 style="margin-top: 1em;">Phase 4 &mdash; STRUCTURALLY_MAPS_TO <span style="color: #888;">(class-level inference)</span></h4>
 					<p>Standards often define complex types (Address, Demographics, Person) that are structural analogs to CEDS classes. The builder aggregates field-level MAPS_TO edges and asks: &ldquo;If most fields inside complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; This enables class-level questions like &ldquo;which CEDS class corresponds to this standard's Person structure?&rdquo;</p>
 				</template>
-			</GraphinatorPanel>
+			</EdunatorPanel>
 	</div>
 </template>
 

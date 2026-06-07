@@ -1,15 +1,15 @@
 // @concept: [[WebSocketGraphTool]]
 // @concept: [[DataModelExplorer]]
 // @concept: [[PiniaStorePattern]]
-// createGraphinatorStore.js
+// createEdunatorStore.js
 //
 // Factory function that creates a Pinia store for the Graphinator panel.
 // Parameterized so each consuming project can configure WS endpoint,
 // dev port, and defaults without duplicating the store code.
 //
 // Usage:
-//   import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
-//   const useGraphStore = createGraphinatorStore({ wsPath: '/ws/graphinator', devPort: 7790 });
+//   import { createEdunatorStore } from '@/stores/createEdunatorStore';
+//   const useGraphStore = createEdunatorStore({ wsPath: '/ws/graphinator', devPort: 7790 });
 //   const graphStore = useGraphStore();
 
 import { defineStore } from 'pinia';
@@ -19,7 +19,7 @@ import axios from 'axios';
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
 
-export function createGraphinatorStore({
+export function createEdunatorStore({
 	storeId = 'graphinatorStore',
 	wsPath = '/ws/graphinator',
 	devPort = 7790,
@@ -238,7 +238,7 @@ export function createGraphinatorStore({
 					} else if (msg.channel === 'done') {
 						this.loading = false;
 						this.lastHeartbeat = null;
-						// GraphinatorPanel's watcher on `loading` fires on the next
+						// EdunatorPanel's watcher on `loading` fires on the next
 						// tick and serializes the rendered DOM (with SVG diagrams)
 						// back into resp.controlHtml. Auto-save must wait for that,
 						// otherwise the saved sessionData has controlHtml='' and
@@ -351,7 +351,7 @@ export function createGraphinatorStore({
 
 			// Multi-tenant: set which graph the user is exploring.
 			// 'standard' | 'user'. The value rides along in the settings broadcast
-			// (sendPrompt). The toggle in GraphinatorPanel also v-models this field
+			// (sendPrompt). The toggle in EdunatorPanel also v-models this field
 			// directly, matching the existing settings-binding pattern.
 			setGraphMode(mode) {
 				this.settings.graphMode = mode === 'user' ? 'user' : 'standard';

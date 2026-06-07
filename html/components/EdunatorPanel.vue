@@ -1,5 +1,5 @@
 <script setup>
-// GraphinatorPanel.vue
+// EdunatorPanel.vue
 //
 // Shared Graphinator UI component. Provides the full streaming AI interface:
 // stdout/stderr/control panels, settings, input with history, draggable divider,
@@ -20,7 +20,7 @@ marked.setOptions({
 });
 
 const props = defineProps({
-	// Required: the Pinia store instance (created via createGraphinatorStore)
+	// Required: the Pinia store instance (created via createEdunatorStore)
 	store: { type: Object, required: true },
 
 	// Optional: async function (contentSnippet) => string for AI-powered download filenames
@@ -81,7 +81,7 @@ const graphStore = computed(() => props.store);
 
 // Multi-tenant (08): load the user's versions for the selector when they enter User mode.
 watch(() => graphStore.value.settings.graphMode, (mode) => {
-	console.log(`[dmeOpenTrace] GraphinatorPanel: graphMode watcher fired -> '${mode}'`);
+	console.log(`[dmeOpenTrace] EdunatorPanel: graphMode watcher fired -> '${mode}'`);
 	if (mode === 'user') { graphStore.value.listVersions(); }
 }, { immediate: true });
 
@@ -136,10 +136,10 @@ const revertVersionSelect = async () => {
 
 const onSelectVersion = async (refId) => {
 	// A null/empty emit or a same-version reselect is a no-op (never round-trips an open).
-	console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: refId=${refId} (current active=${graphStore.value.activeVersionRefId})`);
-	if (!refId || refId === graphStore.value.activeVersionRefId) { console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: NO-OP (empty or same version)`); return; }
+	console.log(`[dmeOpenTrace] EdunatorPanel.onSelectVersion: refId=${refId} (current active=${graphStore.value.activeVersionRefId})`);
+	if (!refId || refId === graphStore.value.activeVersionRefId) { console.log(`[dmeOpenTrace] EdunatorPanel.onSelectVersion: NO-OP (empty or same version)`); return; }
 	const decision = await guardUnsaved();
-	console.log(`[dmeOpenTrace] GraphinatorPanel.onSelectVersion: unsaved-guard decision='${decision}'`);
+	console.log(`[dmeOpenTrace] EdunatorPanel.onSelectVersion: unsaved-guard decision='${decision}'`);
 	if (decision === 'cancel') { await revertVersionSelect(); return; }
 	await graphStore.value.openVersion(refId);
 };
@@ -244,7 +244,7 @@ const renderControlBlocks = async (controlString) => {
 			controlPanelRef.value.appendChild(wrapper);
 			const errors = await resolveCidReferences(wrapper, multipart.attachments);
 			if (errors.length > 0) {
-				console.warn('[GraphinatorPanel] CID resolution errors:', errors);
+				console.warn('[EdunatorPanel] CID resolution errors:', errors);
 			}
 			accumulatedHtml += multipart.html;
 		} else {

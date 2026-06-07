@@ -2,7 +2,7 @@
 import { getDomainLabel, getDomainIcon } from '@/data/resolvers';
 import { useCaseById, subcategoryOfUseCase, standardLabel } from '@/data/github-use-cases';
 import { useLoginStore } from '@/stores/loginStore';
-import { createGraphinatorStore } from '@/stores/createGraphinatorStore';
+import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -129,7 +129,7 @@ const responsePanel = ref(null);
 
 const renderedPlan = computed(() => {
 	if (!planResponse.value) return '';
-	// Strip <control> tags (same as GraphinatorPanel)
+	// Strip <control> tags (same as EdunatorPanel)
 	const stripped = planResponse.value.replace(/<control[^>]*>[\s\S]*?<\/control>/g, '');
 	return marked.parse(stripped);
 });
@@ -159,7 +159,7 @@ function createImplementationPlan() {
 	planError.value = '';
 	// Plan renders inline below the chips — no tab switch.
 
-	const useStore = createGraphinatorStore({
+	const useStore = createEdunatorStore({
 		storeId: 'ucPlanStore',
 		wsPath: '/ws/explorer',
 		defaultPromptName: 'DataModelExplorer',
