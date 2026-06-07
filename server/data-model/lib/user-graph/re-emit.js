@@ -45,7 +45,10 @@ const reEmit = ({ userGraphDb, embeddingModelVersion, goldenVersionAuthoredAgain
 	const keyName = resolveStandardKeyName();
 
 	const nodeQuery =
-		`MATCH (n:UserContent) WHERE NOT n:UserGraphIdentity ` +
+		// Include the UserGraphIdentity init node: it now carries a stable userNodeId and is
+		// seeded once at create (MERGE ON CREATE in getUserGraph), so saving + replaying it makes
+		// the graph's name DURABLE content rather than a per-load runtime stamp.
+		`MATCH (n:UserContent) ` +
 		`RETURN n.userNodeId AS userNodeId, labels(n) AS labels, properties(n) AS props ` +
 		`ORDER BY n.userNodeId`;
 
@@ -54,7 +57,7 @@ const reEmit = ({ userGraphDb, embeddingModelVersion, goldenVersionAuthoredAgain
 
 		const relQuery =
 			`MATCH (a)-[r]->(b) ` +
-			`WHERE (a:UserContent OR b:UserContent) AND NOT a:UserGraphIdentity AND NOT b:UserGraphIdentity ` +
+			`WHERE (a:UserContent OR b:UserContent) ` +
 			`RETURN a.userNodeId AS aUser, a.${keyName} AS aKey, ('UserContent' IN labels(a)) AS aIsUser, ` +
 			`type(r) AS relType, properties(r) AS relProps, ` +
 			`b.userNodeId AS bUser, b.${keyName} AS bKey, ('UserContent' IN labels(b)) AS bIsUser ` +

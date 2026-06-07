@@ -156,22 +156,22 @@ const getUserGraph = (
 	// STAGE 3: inject the identity marker NODE into the clone.
 	taskList.push((args, next) => {
 		const { descriptor, username, versionName } = args;
-		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: injecting identity marker into ${descriptor.boltUri}`);
+		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: seeding durable init node into ${descriptor.boltUri}`);
 		const markerDb = neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
 				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker connect FAILED: ${connErr}`); next(`marker connect failed: ${connErr}`, args); return; }
 				const cypher =
-					'CREATE (i:UserGraphIdentity:UserContent {' +
-					'userRefId: $userRefId, username: $username, versionRefId: $versionRefId, ' +
-					'versionName: $versionName, createdAt: toString(datetime())}) RETURN i';
+					'MERGE (i:UserGraphIdentity:UserContent {userNodeId: $nodeId}) ON CREATE SET ' +
+					'i.name = $versionName, i.userRefId = $userRefId, i.username = $username, i.versionRefId = $versionRefId, ' +
+					'i.versionName = $versionName, i.createdAt = toString(datetime())';
 				db.runQuery(
 					cypher,
-					{ userRefId, username, versionRefId, versionName },
+					{ nodeId: 'graphInit', userRefId, username, versionRefId, versionName },
 					(qErr) => {
 						db.close();
-						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker injection FAILED: ${qErr}`); next(`marker injection failed: ${qErr}`, args); return; }
-						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: marker injected OK`);
+						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: init node seed FAILED: ${qErr}`); next(`init node seed failed: ${qErr}`, args); return; }
+						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3: init node seeded (MERGE ON CREATE, userNodeId=graphInit)`);
 						next('', args);
 					},
 				);
@@ -200,29 +200,26 @@ const getUserGraph = (
 		);
 	});
 
-	// STAGE 3.6: ensure the durable graph NAMEPLATE — a real UserContent node (NOT
-	// UserGraphIdentity, so the re-emit serializer SAVES it). Written ONCE at create
-	// (ON CREATE only), then it replays from the stateScript on every later open — the
-	// name lives IN the graph's own content and is the user's to edit. Also a soft check:
-	// for a saved graph the replayed nameplate's versionRefId should match the request.
+	// STAGE 3.6: VERIFY the durable init node identifies the requested version — the
+	// "did I get the right graph?" check. After replay, the init node's versionRefId reflects
+	// the graph's own saved content; a mismatch means a wrong/mismatched clone. Soft: it logs
+	// a warning, never blocks the open.
 	taskList.push((args, next) => {
-		const { descriptor, versionName } = args;
+		const { descriptor } = args;
 		neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
-				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate connect FAILED: ${connErr}`); next(`nameplate connect failed: ${connErr}`, args); return; }
-				const cypher =
-					'MERGE (i:UserContent {userNodeId: $nameplateId}) ' +
-					'ON CREATE SET i.name = $versionName, i.versionRefId = $versionRefId, i.kind = $kind, i.createdAt = toString(datetime()) ' +
-					'RETURN i.name AS name, (i.versionRefId = $versionRefId) AS refIdMatches';
+				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: verify connect FAILED (soft): ${connErr}`); next('', args); return; }
 				db.runQuery(
-					cypher,
-					{ nameplateId: 'graphNameplate', versionName, versionRefId, kind: 'graphNameplate' },
+					'MATCH (i:UserGraphIdentity {userNodeId: $nodeId}) RETURN i.name AS name, i.versionRefId AS vr',
+					{ nodeId: 'graphInit' },
 					(qErr, records) => {
 						db.close();
-						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate FAILED: ${qErr}`); next(`nameplate failed: ${qErr}`, args); return; }
+						if (qErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: verify query FAILED (soft): ${qErr}`); next('', args); return; }
 						const row = (records && records[0]) || {};
-						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: nameplate ensured name="${row.name}" refIdMatches=${row.refIdMatches}`);
+						const matches = row.vr === versionRefId;
+						xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.6: init node name="${row.name}" versionRefId=${row.vr} matchesRequested=${matches}`);
+						if (!matches) { xLog.error(`[dmeOpenTrace] getUserGraph STAGE3.6: WARNING init versionRefId (${row.vr}) != requested (${versionRefId}) — possible wrong graph`); }
 						next('', args);
 					},
 				);
