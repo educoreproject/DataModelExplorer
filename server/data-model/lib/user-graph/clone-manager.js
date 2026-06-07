@@ -206,9 +206,12 @@ const describeWarmContainers = () => {
 				// Verify the orphan is actually query-ready before adopting it. A half-booted
 				// leftover (e.g. from a prior crashed prime) must never be handed to a user;
 				// dead ones are torn down here so they do not accumulate across restarts.
+				// Fast TCP probe on the published bolt port (milliseconds, no JVM) — far less
+				// flaky than `docker exec cypher-shell` (which has ~4s JVM startup and timed out
+				// under restart load, wrongly reaping healthy spares). Port open == neo4j alive.
 				let ready = false;
 				try {
-					execSync(`docker exec ${name} cypher-shell -u neo4j -p '${password}' "RETURN 1 AS x" >/dev/null 2>&1`, { timeout: 15000 });
+					execSync(`bash -c 'exec 3<>/dev/tcp/127.0.0.1/${boltPort}'`, { timeout: 4000, stdio: 'ignore' });
 					ready = true;
 				} catch (rdyErr) { ready = false; }
 				if (ready) {
