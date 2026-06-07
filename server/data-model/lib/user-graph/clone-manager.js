@@ -371,6 +371,8 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 
 	if (!userRefId) { callback('provisionClone: userRefId is required'); return; }
 
+	const provisionStartTs = Date.now(); // timed end-to-end; logged on query-ready
+
 	// The user cap governs LIVE USER graphs only; warm spares (userRefId '_warm') provision
 	// outside it so priming the pool is never blocked by the user limit.
 	const isWarmProvision = userRefId === '_warm';
@@ -405,26 +407,33 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 	// exists yet (first open after startup, or after a deliberate golden refresh), LAZILY
 	// create one — a single one-time quiesce of golden — then copy from it; every later
 	// open reuses the static snapshot and never touches the live golden again.
-	const copyFromSnapshot = (snapDir) => {
+	// ASYNC copy (child process) — the ~GB cp must NOT block the Node event loop. The old
+	// execSync froze the whole server during a copy, so a user's own open (its marker-inject
+	// query needs the loop) stalled behind a warm-spare refill's copy. callback(err).
+	const copyFromSnapshot = (snapDir, done) => {
 		const sData = path.join(snapDir, 'data');
 		const sPlugins = path.join(snapDir, 'plugins');
-		execSync(`cp -R "${sData}/." "${path.join(cloneDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
-		if (sPlugins && fs.existsSync(sPlugins)) {
-			execSync(`cp -R "${sPlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
-		}
+		exec(`cp -R "${sData}/." "${path.join(cloneDir, 'data')}/"`, { timeout: 180000 }, (e1) => {
+			if (e1) { done(`clone copy failed: ${e1.message}`); return; }
+			if (sPlugins && fs.existsSync(sPlugins)) {
+				exec(`cp -R "${sPlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { timeout: 60000 }, (e2) => {
+					done(e2 ? `clone plugins copy failed: ${e2.message}` : '');
+				});
+			} else { done(''); }
+		});
 	};
 
 	const ensureSnapshotThenCopy = (cb) => {
 		const existing = currentSnapshotDir();
 		if (existing) {
 			xLog.status(`[dmeOpenTrace] clone-manager: provisioning ${containerName} from EXISTING snapshot (no golden quiesce)`);
-			let e = ''; try { copyFromSnapshot(existing); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e);
+			copyFromSnapshot(existing, cb);
 			return;
 		}
 		xLog.status(`[dmeOpenTrace] clone-manager: NO snapshot yet — creating one (one-time golden quiesce) before provisioning ${containerName}`);
 		createSnapshot((snapErr, res) => {
 			if (snapErr) { cb(`snapshot create failed: ${snapErr}`); return; }
-			let e = ''; try { copyFromSnapshot(res.snapshotDir); } catch (x) { e = `clone copy failed: ${x.message}`; } cb(e);
+			copyFromSnapshot(res.snapshotDir, cb);
 		});
 	};
 
@@ -480,7 +489,7 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 					if (tcpErr) { xLog.status(`[dmeOpenTrace] clone-manager: TCP not ready: ${tcpErr} — tearing down ${containerName} (no leak)`); teardownClone({ containerName, cloneDir }, () => callback(tcpErr, descriptor)); return; }
 					waitForCypherReady(containerName, password, 120000, (cypherErr) => {
 						if (cypherErr) { xLog.status(`[dmeOpenTrace] clone-manager: cypher not ready: ${cypherErr} — tearing down ${containerName} (no leak)`); teardownClone({ containerName, cloneDir }, () => callback(cypherErr, descriptor)); return; }
-						xLog.status(`[clone-manager] ${containerName} query-ready on bolt ${boltPort}`);
+						xLog.status(`[clone-manager] ${containerName} query-ready on bolt ${boltPort} — provisioned in ${((Date.now() - provisionStartTs) / 1000).toFixed(1)}s`);
 						callback('', descriptor);
 					});
 				});
