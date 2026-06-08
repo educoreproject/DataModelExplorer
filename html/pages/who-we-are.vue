@@ -10,8 +10,9 @@
 		},
 		{
 			name: 'David Clarkson',
-			photo: null,
-			bio: 'Stakeholder Outreach.',
+			title: 'Stakeholder Partnership Manager',
+			photo: '/team/david-clarkson.jpg',
+			bio: 'David Clarkson is a business and IT professional with more than 25 years of experience bridging the gap between technical teams and the stakeholders they serve. His career spans healthcare IT, HR technology, staffing solutions, and internet infrastructure — with a consistent focus on building durable relationships, translating complex needs into actionable outcomes, and shepherding organizations through change. He has managed client portfolios at the enterprise level, led service delivery operations, and served as a liaison between engineering teams and C-suite stakeholders across industries. At EDUcore, David brings that same relationship-driven approach to stakeholder outreach — connecting practitioners, agencies, and community members with the standards work underway and ensuring that the voices of those closest to education and workforce challenges are heard and reflected in the project\'s development.',
 		},
 		{
 			name: 'Brandon Dorman',
