@@ -1,0 +1,21 @@
+# Render Blueprint — static SPA deploy of the Nuxt app in html/.
+# The app is ssr:false, so `nuxt generate` emits a static site to
+# html/.output/public. NUXT_PUBLIC_* vars are read at build time and baked in.
+services:
+  - type: web
+    name: data-model-explorer
+    runtime: static
+    rootDir: html
+    buildCommand: npm install && npm run generate
+    staticPublishPath: .output/public
+    # SPA fallback: serve index.html for client-side routes so refresh/deep
+    # links don't 404. Keep this LAST so real asset paths resolve first.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NUXT_PUBLIC_API_BASE
+        value: https://educore.tqtmp.org/api
+      - key: NUXT_PUBLIC_WS_HOST
+        value: educore.tqtmp.org
