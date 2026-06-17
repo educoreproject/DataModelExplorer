@@ -21,6 +21,18 @@ const activeSection = computed(() =>
 const crosswalkSearch = ref('');
 const selectedElement = ref(null);
 
+// Sections grouped by information type. Organization-level facts (legal entity,
+// establishments, jobs, positions) are relatively stable; worker-level facts
+// (assignments, work relationship, hours, compensation) change far more often.
+// Surfacing the split helps users reason about how each is managed and shared.
+const GROUP_ORDER = ['Organization', 'Worker'];
+const groupedSections = computed(() => {
+	const groups = store.sectionGroups;
+	return GROUP_ORDER
+		.filter((name) => groups[name]?.length)
+		.map((name) => ({ name, sections: groups[name] }));
+});
+
 const filteredElements = computed(() => {
 	const els = activeSection.value?.elements || [];
 	const q = crosswalkSearch.value.trim().toLowerCase();
@@ -154,19 +166,31 @@ function loadSample() {
 
 		<!-- ════════════════════ CROSSWALK MODE ════════════════════ -->
 		<template v-if="mode === 'crosswalk'">
-			<!-- Section tabs -->
-			<v-tabs
-				v-model="activeSectionId"
-				color="primary"
-				show-arrows
-				density="comfortable"
-				class="mb-4 section-tabs"
-			>
-				<v-tab v-for="s in store.crosswalk" :key="s.id" :value="s.id">
-					<span class="font-weight-bold mr-1">{{ s.id }}.</span> {{ s.label }}
-					<v-chip size="x-small" variant="tonal" class="ml-2">{{ s.count }}</v-chip>
-				</v-tab>
-			</v-tabs>
+			<!-- Categories header -->
+			<div class="d-flex align-center flex-wrap ga-2 mb-2">
+				<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
+				<span class="text-subtitle-2 font-weight-bold">Categories</span>
+				<span class="text-caption text-medium-emphasis">— grouped by information type</span>
+			</div>
+
+			<!-- Section tabs, split by information group (Organization vs Worker) -->
+			<div v-for="grp in groupedSections" :key="grp.name" class="mb-3">
+				<div class="text-overline text-medium-emphasis mb-0">
+					{{ grp.name }} information
+				</div>
+				<v-tabs
+					v-model="activeSectionId"
+					color="primary"
+					show-arrows
+					density="comfortable"
+					class="section-tabs"
+				>
+					<v-tab v-for="s in grp.sections" :key="s.id" :value="s.id">
+						<span class="font-weight-bold mr-1">{{ s.id }}.</span> {{ s.label }}
+						<v-chip size="x-small" variant="tonal" class="ml-2">{{ s.count }}</v-chip>
+					</v-tab>
+				</v-tabs>
+			</div>
 
 			<v-row>
 				<!-- Element list -->
