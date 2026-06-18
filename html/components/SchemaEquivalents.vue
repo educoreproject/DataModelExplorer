@@ -15,6 +15,10 @@ const props = defineProps({
 	term: { type: String, default: '' },
 	// Optional authoritative HR Open mapping to pin at the top (a crosswalk element).
 	hrOpenSeed: { type: Object, default: null },
+	// Optional section context ({ id, group, label, title }) the term belongs to.
+	// Used to rank crosswalk matches by category proximity (same section / same
+	// Organization-vs-Worker group first), reducing cross-category false positives.
+	context: { type: Object, default: null },
 	// Auto-run the live graph lookup when the term changes (vs. on-demand button).
 	auto: { type: Boolean, default: true },
 });
@@ -39,6 +43,12 @@ const STANDARD_COLORS = {
 };
 const stdColor = (s) => STANDARD_COLORS[s] || 'grey';
 
+// The two broad information types in the dictionary. Colour-coding the group on
+// each match makes it obvious at a glance whether a suggestion is an
+// Organization-level fact (relatively stable) or a Worker-level one.
+const GROUP_COLORS = { Organization: 'blue-darken-1', Worker: 'deep-orange-darken-1' };
+const groupColor = (g) => GROUP_COLORS[g] || 'grey';
+
 // CEDS gets pulled to the front — it's the headline equivalence the tool promises.
 function groupByStandard(rows) {
 	const groups = {};
@@ -51,15 +61,19 @@ function groupByStandard(rows) {
 const groupedGraph = ref([]);
 
 async function run() {
-	hrMatches.value = store.findHrOpen(props.term);
+	const matches = store.findHrOpen(props.term, { context: props.context });
+	// Don't echo the element we're already pinning as the authoritative mapping.
+	hrMatches.value = props.hrOpenSeed
+		? matches.filter((m) => m.id !== props.hrOpenSeed.id)
+		: matches;
 	graphRows.value = await store.lookupGraph(props.term);
 	groupedGraph.value = groupByStandard(graphRows.value);
 	ran.value = true;
 }
 
 watch(
-	() => props.term,
-	(t) => {
+	() => [props.term, props.context?.id],
+	([t]) => {
 		hrMatches.value = [];
 		graphRows.value = [];
 		groupedGraph.value = [];
@@ -106,6 +120,16 @@ watch(
 				>
 					<v-card-text class="py-2">
 						<div class="d-flex align-center flex-wrap ga-1 mb-1">
+							<v-chip
+								v-if="m.group"
+								size="x-small"
+								:color="groupColor(m.group)"
+								variant="flat"
+								label
+								:title="`${m.group}-level information`"
+							>
+								{{ m.group }}
+							</v-chip>
 							<v-chip size="x-small" variant="tonal">{{ m.id }}</v-chip>
 							<span class="text-body-2 font-weight-medium">{{ m.name }}</span>
 							<v-chip size="x-small" variant="text" class="ml-auto">{{ m.sectionLabel }}</v-chip>

@@ -51,6 +51,19 @@ function significantTokens(raw) {
 	return sig.length ? sig : all;
 }
 
+// Lighter stop-word set for crosswalk *element* matching. In this dictionary
+// words like "name", "code", "type", "number", "id" are discriminating (every
+// element is a name/code/id of something), so the broad STOP_WORDS list above —
+// tuned for the graph lookup — collapses queries too aggressively. e.g.
+// "Legal Name" → ["legal"], which then scores 100% against any element merely
+// containing "legal" (such as the Worker-Comp "Group Legal Insurance Premiums
+// Paid"). Keeping "name" gives ["legal","name"], cleanly separating the real
+// "Legal Name" (2/2) from that false positive (1/2).
+const MATCH_STOP = new Set(['the', 'a', 'an', 'of', 'to', 'for', 'and', 'or']);
+function matchTokens(raw) {
+	return tokenize(raw).filter((w) => !MATCH_STOP.has(w) && w.length > 1);
+}
+
 // Score a candidate string against a set of query tokens (0..1).
 function matchScore(queryTokens, candidate) {
 	if (!queryTokens.length) return 0;
@@ -232,17 +245,34 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		// HR Open equivalents for a free-text term (property name or path).
 		// Pure client-side against the bundled crosswalk. Returns ranked matches.
 
-		findHrOpen(term, limit = 6) {
-			const tokens = significantTokens(term);
+		// `context` (optional) is the section the term belongs to ({ id, group,
+		// label, title }). When supplied, matches are RANKED with category
+		// proximity in mind — same section first, same information group (Org vs
+		// Worker) next, and cross-group collisions pushed down — while the
+		// displayed `score` stays pure text similarity so the "% match" chip
+		// remains meaningful.
+		findHrOpen(term, { limit = 6, context = null } = {}) {
+			const tokens = matchTokens(term);
 			if (!tokens.length) return [];
+			const ctxTokens = context
+				? matchTokens(`${context.title || ''} ${context.label || ''}`)
+				: [];
 			return crosswalkIndex
 				.map((el) => {
 					const nameScore = matchScore(tokens, el.name);
 					const propScore = matchScore(tokens, el.hrOpenProperty) * 0.8;
-					return { el, score: Math.max(nameScore, propScore) };
+					const score = Math.max(nameScore, propScore);
+					let rank = score;
+					if (context) {
+						if (el.sectionId === context.id) rank += 0.5;
+						else if (el.group === context.group) rank += 0.12;
+						else rank -= 0.2;
+						if (ctxTokens.length) rank += matchScore(ctxTokens, el.sectionLabel) * 0.1;
+					}
+					return { el, score, rank };
 				})
 				.filter((x) => x.score > 0)
-				.sort((a, b) => b.score - a.score)
+				.sort((a, b) => b.rank - a.rank || b.score - a.score)
 				.slice(0, limit)
 				.map((x) => ({ ...x.el, score: Math.round(x.score * 100) / 100 }));
 		},

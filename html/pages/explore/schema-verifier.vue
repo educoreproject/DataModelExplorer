@@ -49,6 +49,37 @@ function selectElement(el) {
 	selectedElement.value = el;
 }
 
+// The section that actually owns the selected element (ids are globally unique,
+// so this is correct even if the active tab is switched without re-selecting).
+const selectedSection = computed(() => {
+	const el = selectedElement.value;
+	if (!el) return null;
+	return (
+		store.crosswalk.find((s) => s.elements.some((e) => e.id === el.id)) ||
+		activeSection.value
+	);
+});
+
+// Ancestry of the selected element, derived from its dotted id (e.g. "I.G.1" →
+// section "Organization" › element "I.G"). Lets sub-elements show their place in
+// the hierarchy without scrolling the list back up. Returns [] for top-level
+// elements (nothing to disambiguate beyond the section itself).
+const breadcrumb = computed(() => {
+	const el = selectedElement.value;
+	const sec = selectedSection.value;
+	if (!el || !sec) return [];
+	const parts = el.id.split('.');
+	const crumbs = [{ id: sec.id, name: sec.title || sec.label }];
+	let prefix = parts[0];
+	for (let i = 1; i < parts.length; i++) {
+		prefix += `.${parts[i]}`;
+		if (prefix === el.id) break; // the leaf is shown in the header itself
+		const anc = sec.elements.find((e) => e.id === prefix);
+		crumbs.push({ id: prefix, name: anc ? anc.name : prefix });
+	}
+	return crumbs.length > 1 ? crumbs : [];
+});
+
 // ── OpenAPI mode state ─────────────────────────────────────────────
 const pasteText = ref('');
 const urlText = ref('');
@@ -238,6 +269,15 @@ function loadSample() {
 				<v-col cols="12" md="6" lg="7">
 					<v-card v-if="selectedElement" variant="outlined">
 						<v-card-item>
+							<div
+								v-if="breadcrumb.length"
+								class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
+							>
+								<template v-for="(c, i) in breadcrumb" :key="c.id">
+									<v-icon v-if="i" size="14" class="mx-1">mdi-chevron-right</v-icon>
+									<span>{{ c.name }}</span>
+								</template>
+							</div>
 							<div class="d-flex align-center flex-wrap ga-2">
 								<v-chip size="small" color="primary" variant="tonal">{{ selectedElement.id }}</v-chip>
 								<span class="text-h6 font-weight-bold">{{ selectedElement.name }}</span>
@@ -261,6 +301,7 @@ function loadSample() {
 							<SchemaEquivalents
 								:term="selectedElement.name"
 								:hr-open-seed="selectedElement"
+								:context="selectedSection"
 							/>
 						</v-card-text>
 					</v-card>
