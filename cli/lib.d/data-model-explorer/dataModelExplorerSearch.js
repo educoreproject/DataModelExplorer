@@ -25,6 +25,7 @@ const moduleName = path.basename(__filename).replace(/.js$/, '');
 
 const loadConfig = () => {
 	const configFileProcessor = require('qtools-config-file-processor');
+	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
 
 	const findProjectRoot = ({ rootFolderName = 'system', closest = true } = {}) =>
 		__dirname.replace(new RegExp(`^(.*${closest ? '' : '?'}\\/${rootFolderName}).*$`), "$1");
@@ -38,7 +39,24 @@ const loadConfig = () => {
 	if (!config || !config[moduleName]) {
 		throw new Error(`Config section [${moduleName}] not found in ${configDirPath}${moduleName}.ini`);
 	}
-	return config[moduleName];
+	const moduleConfig = config[moduleName];
+
+	// Single source of truth: derive the bolt connection {boltUri,user,password} from the golden
+	// container NAME (goldenContainerName) instead of reading redundant neo4j* fields. The
+	// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
+	const { goldenContainerName } = moduleConfig;
+	if (!goldenContainerName) {
+		throw new Error(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
+	}
+	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
+	if (error) {
+		throw new Error(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
+	}
+	moduleConfig.neo4jBoltUri = boltUri;
+	moduleConfig.neo4jUser = user;
+	moduleConfig.neo4jPassword = password;
+
+	return moduleConfig;
 };
 
 // =====================================================================
