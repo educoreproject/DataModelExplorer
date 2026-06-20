@@ -198,13 +198,23 @@ const moduleFunction =
 		taskList.push((args, next) => {
 			const { dataModelLogInfoList } = args;
 
-			const neo4jConfig = getConfig('dataModelExplorerSearch');
+			const dmeCfg = getConfig('dataModelExplorerSearch');
 
-			if (!neo4jConfig || !neo4jConfig.neo4jBoltUri) {
-				xLog.status('neo4j-instance: no dataModelExplorerSearch config found, skipping');
+			if (!dmeCfg || !dmeCfg.goldenContainerName) {
+				xLog.status('neo4j-instance: no dataModelExplorerSearch goldenContainerName found, skipping');
 				next('', { ...args, neo4jDb: null });
 				return;
 			}
+
+			// Single source of truth: derive the golden connection from the container NAME.
+			const { resolveContainerConnection } = require('./lib/user-graph/container-connection-resolver');
+			const conn = resolveContainerConnection(dmeCfg.goldenContainerName);
+			if (conn.error) {
+				xLog.error(`neo4j-instance: cannot resolve DME connection from goldenContainerName '${dmeCfg.goldenContainerName}': ${conn.error}`);
+				next('', { ...args, neo4jDb: null });
+				return;
+			}
+			const neo4jConfig = { neo4jBoltUri: conn.boltUri, neo4jUser: conn.user, neo4jPassword: conn.password };
 
 			const neo4jGen = require('./lib/neo4j-instance/neo4j-instance')({ unused: true });
 

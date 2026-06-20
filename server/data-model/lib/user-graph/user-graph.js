@@ -40,14 +40,16 @@ const VERSIONS_TABLE = 'graph_state_versions';
 const buildGraphConnection = () => {
 	const { getConfig } = process.global;
 	const cfg = getConfig('dataModelExplorerSearch') || {};
-	if (!cfg.neo4jBoltUri) {
+	if (!cfg.goldenContainerName) {
 		return null;
 	}
-	return {
-		boltUri: cfg.neo4jBoltUri,
-		user: cfg.neo4jUser,
-		password: cfg.neo4jPassword,
-	};
+	// Single source of truth: derive the standard golden connection from the container NAME.
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const { boltUri, user, password, error } = resolveContainerConnection(cfg.goldenContainerName);
+	if (error) {
+		return null;
+	}
+	return { boltUri, user, password };
 };
 
 // ---------------------------------------------------------------------------
