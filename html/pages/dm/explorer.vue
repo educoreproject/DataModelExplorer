@@ -121,10 +121,10 @@ const fallbackPromptOptions = [
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						NEW: Click the info icon in the bottom right for example prompts to get you started.
+						<strong>Data Model Explorer is still in development.</strong> Connections between standards elements, mappings, come in two types, specified (those that are written in the model) and implied (those we calculate). The latter have a confidence value. We are working on a new implied mapping algorithm that we think will be much better.
 					</p>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
+						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
 					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/16/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
