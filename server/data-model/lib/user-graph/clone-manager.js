@@ -19,16 +19,35 @@ const path = require('path');
 const net = require('net');
 const { execSync, exec } = require('child_process');
 
-const GOLDEN_CONTAINER = 'gf_golden';
 const MAX_CONCURRENT_CLONES = 3; // resource hygiene (ONYX / plan §0.12)
 const NEO4J_IMAGE = 'neo4j:5-community';
+
+// The golden container NAME is the SINGLE SOURCE OF TRUTH (config key goldenContainerName in
+// dataModelExplorerSearch.ini). Everything else about golden's connection — boltUri, user,
+// password, host bolt port — is DERIVED from it at runtime by container-connection-resolver;
+// nothing is hardcoded here. Read at CALL time (not require time) because process.global is
+// not populated when this module first loads.
+const getGoldenContainerName = () => {
+	const { getConfig } = process.global;
+	const cfg = getConfig('dataModelExplorerSearch') || {};
+	return cfg.goldenContainerName;
+};
+
+// Golden's host bolt port, DERIVED from the container name (no hardcoded port). Returns null
+// when the container cannot be inspected.
+const getGoldenBoltPort = () => {
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const { boltUri } = resolveContainerConnection(getGoldenContainerName());
+	return boltUri ? parseInt(boltUri.split(':').pop(), 10) : null;
+};
 
 // ---------------------------------------------------------------------------
 // Golden discovery — authoritative, from the live container's mounts (no hardcoded paths)
 
 const getGoldenMounts = () => {
+	const golden = getGoldenContainerName();
 	const out = execSync(
-		`docker inspect ${GOLDEN_CONTAINER} --format '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'`,
+		`docker inspect ${golden} --format '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'`,
 		{ encoding: 'utf-8' },
 	);
 	const map = {};
@@ -98,10 +117,13 @@ const cloneDirFor = (userRefId, versionRefId) =>
 const containerNameFor = (userRefId, versionRefId) =>
 	`usr_${userRefId}_${versionRefId || 'new'}`.replace(/[^A-Za-z0-9_.-]/g, '_');
 
+// Golden's password, DERIVED from the container name via the resolver (NEO4J_AUTH in the
+// container env) — no longer read from a redundant config field. Returns null on failure;
+// callers already guard on a falsy password.
 const getGoldenPassword = () => {
-	const { getConfig } = process.global;
-	const cfg = getConfig('dataModelExplorerSearch') || {};
-	return cfg.neo4jPassword;
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const { password } = resolveContainerConnection(getGoldenContainerName());
+	return password;
 };
 
 // ---------------------------------------------------------------------------
@@ -326,26 +348,30 @@ const waitForCypherReady = (containerName, password, maxWaitMs, callback) => {
 
 const withQuiescedGolden = (copyFn, callback) => {
 	const { xLog } = process.global;
-	const wasRunning = isContainerRunning(GOLDEN_CONTAINER);
+	const golden = getGoldenContainerName();
+	const wasRunning = isContainerRunning(golden);
 
 	const restartGolden = (originalErr, doneCb) => {
 		if (!wasRunning) { doneCb(originalErr); return; }
 		try {
-			execSync(`docker start ${GOLDEN_CONTAINER}`, { encoding: 'utf-8' });
+			execSync(`docker start ${golden}`, { encoding: 'utf-8' });
 		} catch (e) {
 			doneCb(originalErr || `golden restart failed: ${e.message}`);
 			return;
 		}
-		// Golden serves bolt 7706 inside the container -> host 7706.
-		waitForNeo4jReady(7706, 90000, (readyErr) => {
+		// Golden's host bolt port is DERIVED from its container name (not hardcoded) so the
+		// readiness wait always targets the real golden, never a stale/other container.
+		const goldenBoltPort = getGoldenBoltPort();
+		if (!goldenBoltPort) { doneCb(originalErr || `could not resolve golden bolt port for '${golden}'`); return; }
+		waitForNeo4jReady(goldenBoltPort, 90000, (readyErr) => {
 			doneCb(originalErr || readyErr || '');
 		});
 	};
 
 	if (wasRunning) {
 		try {
-			xLog.status(`[clone-manager] quiescing golden (${GOLDEN_CONTAINER})`);
-			execSync(`docker stop ${GOLDEN_CONTAINER}`, { encoding: 'utf-8' });
+			xLog.status(`[clone-manager] quiescing golden (${golden})`);
+			execSync(`docker stop ${golden}`, { encoding: 'utf-8' });
 		} catch (e) {
 			callback(`failed to stop golden: ${e.message}`);
 			return;
