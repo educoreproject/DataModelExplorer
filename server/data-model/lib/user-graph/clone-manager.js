@@ -19,7 +19,7 @@ const path = require('path');
 const net = require('net');
 const { execSync, exec } = require('child_process');
 
-const GOLDEN_CONTAINER = 'rag_DataModelExplorer';
+const GOLDEN_CONTAINER = 'gf_golden';
 const MAX_CONCURRENT_CLONES = 3; // resource hygiene (ONYX / plan §0.12)
 const NEO4J_IMAGE = 'neo4j:5-community';
 
