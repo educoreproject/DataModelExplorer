@@ -69,63 +69,42 @@ const flatHybridSearch = async ({ neo4jSession, queryText, embedder, limit, sear
 	const results = new Map();
 	const limitInt = neo4j.int(limit);
 
-	// BM25 fulltext search
-	if (searchMode !== 'vector' && schema) {
-		for (const ftIdx of schema.fulltextIndexes) {
-			try {
-				const ftResult = await neo4jSession.run(`
-					CALL db.index.fulltext.queryNodes($idxName, $query) YIELD node, score
-					RETURN node, labels(node) AS labels, score AS ftScore LIMIT $limit
-				`, { idxName: ftIdx.name, query: queryText, limit: limitInt });
+	// The forge golden graph carries ONE vector index — golden_vector on
+	// :ForgedNode(embedding) — and no fulltext index. There is no BM25 leg:
+	// search is a single vector query over the unified index. The single index
+	// name comes from schema.vectorIndexes[0].name (forge-correct schema) and
+	// defaults to 'golden_vector'.
+	const goldenVectorIndexName =
+		(schema && Array.isArray(schema.vectorIndexes) && schema.vectorIndexes.length > 0)
+			? schema.vectorIndexes[0].name
+			: 'golden_vector';
 
-				for (const rec of ftResult.records) {
-					const node = rec.get('node');
-					const id = node.identity.toString();
-					if (results.has(id)) {
-						results.get(id).ftScore = Math.max(results.get(id).ftScore, toNumber(rec.get('ftScore')));
-					} else {
-						results.set(id, {
-							node: serializeNeo4jValue(node.properties),
-							labels: rec.get('labels'),
-							vecScore: 0,
-							ftScore: toNumber(rec.get('ftScore')),
-						});
-					}
-				}
-			} catch (err) {
-				process.stderr.write(`[vectorCypherRetriever] BM25 error (${ftIdx.name}): ${err.message}\n`);
-			}
-		}
-	}
-
-	// Vector search
-	if (searchMode !== 'bm25' && embedder && schema) {
+	// Vector search (single unified golden_vector index)
+	if (searchMode !== 'bm25' && embedder) {
 		const queryEmbedding = await embedQuery(queryText, embedder);
 
-		for (const vecIdx of schema.vectorIndexes) {
-			try {
-				const vecResult = await neo4jSession.run(`
-					CALL db.index.vector.queryNodes($idxName, $limit, $embedding) YIELD node, score
-					RETURN node, labels(node) AS labels, score AS vecScore
-				`, { idxName: vecIdx.name, limit: limitInt, embedding: queryEmbedding });
+		try {
+			const vecResult = await neo4jSession.run(`
+				CALL db.index.vector.queryNodes($idxName, $limit, $embedding) YIELD node, score
+				RETURN node, labels(node) AS labels, score AS vecScore
+			`, { idxName: goldenVectorIndexName, limit: limitInt, embedding: queryEmbedding });
 
-				for (const rec of vecResult.records) {
-					const node = rec.get('node');
-					const id = node.identity.toString();
-					if (results.has(id)) {
-						results.get(id).vecScore = Math.max(results.get(id).vecScore, toNumber(rec.get('vecScore')));
-					} else {
-						results.set(id, {
-							node: serializeNeo4jValue(node.properties),
-							labels: rec.get('labels'),
-							vecScore: toNumber(rec.get('vecScore')),
-							ftScore: 0,
-						});
-					}
+			for (const rec of vecResult.records) {
+				const node = rec.get('node');
+				const id = node.identity.toString();
+				if (results.has(id)) {
+					results.get(id).vecScore = Math.max(results.get(id).vecScore, toNumber(rec.get('vecScore')));
+				} else {
+					results.set(id, {
+						node: serializeNeo4jValue(node.properties),
+						labels: rec.get('labels'),
+						vecScore: toNumber(rec.get('vecScore')),
+						ftScore: 0,
+					});
 				}
-			} catch (err) {
-				process.stderr.write(`[vectorCypherRetriever] Vector error (${vecIdx.name}): ${err.message}\n`);
 			}
+		} catch (err) {
+			process.stderr.write(`[vectorCypherRetriever] Vector error (${goldenVectorIndexName}): ${err.message}\n`);
 		}
 	}
 

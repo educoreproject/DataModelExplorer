@@ -108,7 +108,7 @@ const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
 	lines.push('# EDUcore Education Standards Knowledge Graph Schema');
 	lines.push('');
 	lines.push(
-		'A unified property graph containing nine education data standards plus a use-case library. Standards are connected by cross-standard mapping edges (MAPS_TO authoritative, IMPLIED_MAPPING inferred). Schema below is introspected live from the database.',
+		'A forge golden property graph of education data standards on a universal contract: every node carries the :ForgedNode super-label plus a role and a _source. Standards are connected by cross-standard mapping edges (SPECIFIED_MAPPING authoritative, IMPLIED_MAPPING inferred). The exact standards inventory is whatever the live introspection below reports — it grows as new standards are forged in.',
 	);
 	lines.push('');
 
@@ -149,72 +149,84 @@ const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
 // Curated prose appendix — describes the cross-cutting structure and gives
 // canonical query patterns. Hand-edited; survives forge additions.
 
-const CURATED_GUIDANCE = `## Cross-Standard Relationships
+const CURATED_GUIDANCE = `## The Universal Forge Contract
 
-Standards are connected by two relationship types:
+Every node in the graph carries a uniform contract:
 
-- **MAPS_TO** — spec-annotated crosswalks. Authoritative, confidence 1.0. Created from the source standard's own documentation. Trust these as facts.
-- **IMPLIED_MAPPING** — semantically inferred correspondences from vector similarity. Lower confidence. Treat as hypotheses.
+- **Super-label** \`:ForgedNode\` (plus \`:golden\`) on every node.
+- **\`role\` property** — one of DmeClass, DmeProperty, DmeOptionSet, DmeOptionValue, DmeSupport, DmeStandardRoot. The role tells you what a node IS, independent of which standard it came from.
+- **\`_source\` property** — the standard the node belongs to (e.g. CEDS, LIF, SIF). The inventory grows as standards are forged in; never assume a fixed list.
+- **Native labels are retained** — a node may also carry its standard-specific label (CedsProperty, SifField, LifProperty, …) alongside :ForgedNode. Prefer matching on \`:ForgedNode\` + \`role\` + \`_source\` for portable queries.
+- **Key properties:** \`_id\`, \`_source\`, \`name\`, \`description\`, \`path\`, \`parentId\`, \`stableId\`, \`role\`. A DmeOptionValue's value text lives in \`name\`.
 
-Cross-standard MAPS_TO edges originate from Property and Field nodes (SifField, EdfiField, CedsProperty, CtdlProperty, etc.). They do NOT originate from class/entity nodes or codeset values.
+## Cross-Standard Relationships
 
-## Node Structural Categories
+Standards are connected by two relationship types, both pointing a standard node to a CEDS hub node:
 
-- **Class / Entity nodes** (CedsClass, EdfiEntity, JedxEntity, SifObject, CtdlClass, SedmOntologyClass) — structural hubs. Connect to parent classes and child properties.
-- **Property / Field nodes** (CedsProperty, SifField, EdfiField, JedxField, PescElement, CtdlProperty) — the richest traversal targets. Connect to parent entities, option sets, type chains, and cross-standard mapping edges.
-- **Option Set / Codeset / Enumeration Value nodes** (CedsOptionSet, CedsOptionValue, SifCodeset, EdfiDescriptor, EdfiDescriptorValue, JedxCodeSet, PescEnumValue, SedmOptionSet, SedmOptionValue) — traversal-terminal. They carry allowed values but have no meaningful outgoing structural relationships.
-- **Complex Type nodes** (SifComplexType, SifSimpleType, PescComplexType, PescSimpleType) — shared structural templates. Traversal reveals which objects use them.
-- **Use Case nodes** (UseCase, UseCaseStep, UseCaseActor, UseCaseCategory, DataReference) — process-oriented. Cross-linked to CEDS data model elements via REFERENCES_DATA edges.
+- **SPECIFIED_MAPPING** — spec-annotated crosswalks. Authoritative. Props: confidence, provenanceTier, cedsAnchorValue, bridgeLevel, owner. Trust these as facts.
+- **IMPLIED_MAPPING** — semantically inferred correspondences. Lower confidence. Props: confidence, matchPredicate, provenanceTier, calibrationVersion, rawScore, equivalence, method, predicateBasis, owner. Treat as hypotheses.
 
-## Naming Conventions
+Cross-standard mapping edges originate from DmeProperty (and DmeOptionSet) nodes. They do NOT originate from class nodes or option values.
 
-- **Label prefix = standard.** CedsX → CEDS, SifX → SIF, EdfiX → Ed-Fi, PescX → PESC, CtdlX → CTDL, SedmX → SEDM, JedxX → JEDx, CipX → CIP. EdMatrix and EdStandard belong to EdMatrix. UseCase\*, DataReference, and DataCategory belong to the use-case library.
-- **Every searchable node has a vector embedding** in the \`embedding\` property. Vector indexes exist per major label.
+## Node Structural Categories (by role)
+
+- **DmeStandardRoot** — the per-standard passport node. Props: _source, name, standardName, description, version, sourceUrl, stableId. Owns classes via HAS_CLASS.
+- **DmeClass** — structural hubs. Connect to parent classes (SUBCLASS_OF) and child properties (HAS_PROPERTY).
+- **DmeProperty** — the richest traversal targets. Connect to parent classes, option sets (HAS_OPTION_SET), supports (HAS_SUPPORT), and cross-standard mapping edges.
+- **DmeOptionSet** — connect to allowed values via HAS_VALUE; may carry cross-standard mappings to other option sets.
+- **DmeOptionValue** — traversal-terminal. The value text is in \`name\`.
+- **DmeSupport** — supplementary detail attached to a node via HAS_SUPPORT.
+
+## Structural Edges
+
+HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS, SUBCLASS_OF, and REFERENCES (intra-standard cross references).
+
+## Conventions
+
+- **Match on the contract**, not native labels: \`(:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})\`.
+- **Every searchable node has a vector embedding** in the \`embedding\` property. There is ONE vector index, \`golden_vector\`, on \`:ForgedNode(embedding)\` (COSINE, 1024-dim). There is NO fulltext index.
 - **Use parameterized queries** (\`$param\` syntax) for any user-supplied filter values.
 
 ## Example Cypher Patterns
 
 ### List the root nodes of every standard
 \`\`\`cypher
-MATCH (r) WHERE r:CedsOntology OR r:SifRoot OR r:EdfiRoot OR r:PescRoot
-   OR r:CtdlRoot OR r:SedmRoot OR r:JedxRoot OR r:CipRoot OR r:EdMatrix
-RETURN labels(r) AS standard, properties(r) AS metadata
+MATCH (r:DmeStandardRoot)
+RETURN r._source AS source, r.standardName AS standardName, r.version AS version
+ORDER BY source
 \`\`\`
 
 ### Cross-standard mappings for a CEDS property
 \`\`\`cypher
-MATCH (cp:CedsProperty {label: $cedsLabel})<-[:MAPS_TO]-(other)
-RETURN labels(other) AS standard, other.name AS field
+MATCH (cp:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})
+WHERE toLower(cp.name) CONTAINS toLower($name)
+MATCH (other:ForgedNode)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(cp)
+RETURN other._source AS standard, other.name AS field, type(m) AS mappingType, m.confidence AS confidence
 \`\`\`
 
-### Use cases that depend on a CEDS data element
+### Codeset values for a property
 \`\`\`cypher
-MATCH (cp:CedsProperty {label: $cedsLabel})<-[:REFERENCES_DATA]-(uc:UseCase)
-RETURN uc.name AS useCase, uc.description AS description
+MATCH (p:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET]->(:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+WHERE toLower(p.name) CONTAINS toLower($name)
+RETURN v.name AS value, v.description AS description
 \`\`\`
 
-### Codeset values for a CEDS property
+### Class hierarchy walk for a standard
 \`\`\`cypher
-MATCH (p:CedsProperty {label: $label})-[:HAS_OPTION_SET]->(:CedsOptionSet)-[:HAS_VALUE]->(v:CedsOptionValue)
-RETURN v.label AS value, v.description AS description
-\`\`\`
-
-### Hierarchy walk for a SIF object
-\`\`\`cypher
-MATCH (o:SifObject {name: $name})-[:HAS_ROOT_ELEMENT]->(re:SifXmlElement)
-OPTIONAL MATCH (re)-[:CHILD_ELEMENT*1..5]->(child:SifXmlElement)-[:REALIZED_BY]->(f:SifField)
-RETURN re.name AS root, collect(DISTINCT {element: child.name, field: f.name}) AS hierarchy
+MATCH (root:DmeStandardRoot {_source: $source})-[:HAS_CLASS]->(c:ForgedNode {role: 'DmeClass'})
+OPTIONAL MATCH (c)-[:HAS_PROPERTY]->(p:ForgedNode {role: 'DmeProperty'})
+RETURN c.name AS class, collect(DISTINCT p.name) AS properties
 \`\`\`
 
 ### Compare codesets across standards
 \`\`\`cypher
-MATCH (cp:CedsProperty)<-[:MAPS_TO]-(sf)
-WHERE sf:SifField OR sf:EdfiField OR sf:JedxField
-OPTIONAL MATCH (cp)-[:HAS_OPTION_SET]->(:CedsOptionSet)-[:HAS_VALUE]->(cedsValue:CedsOptionValue)
-OPTIONAL MATCH (sf)-[:CONSTRAINED_BY]->()-[:HAS_VALUE]->(otherValue)
-RETURN cp.label,
-       collect(DISTINCT cedsValue.label) AS cedsValues,
-       collect(DISTINCT otherValue.label) AS otherValues
+MATCH (os:ForgedNode {role: 'DmeOptionSet'})
+WHERE toLower(os.name) CONTAINS toLower($name)
+OPTIONAL MATCH (os)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(target:ForgedNode {role: 'DmeOptionSet'})
+OPTIONAL MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+OPTIONAL MATCH (target)-[:HAS_VALUE]->(tv:ForgedNode {role: 'DmeOptionValue'})
+RETURN os._source AS sourceStandard, os.name AS optionSet, target._source AS targetStandard,
+       collect(DISTINCT v.name) AS sourceValues, collect(DISTINCT tv.name) AS targetValues
 \`\`\`
 `;
 

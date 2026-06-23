@@ -1,126 +1,41 @@
 {
-  "generatedAt": "2026-04-01T17:26:00.000Z",
-  "container": "rag_DataModelExplorer",
+  "generatedAt": "2026-06-23T00:00:00.000Z",
+  "container": "gf_golden",
+  "contract": "forge-golden",
+  "nodeModel": {
+    "superLabel": "ForgedNode",
+    "additionalLabels": [ "golden" ],
+    "description": "Every node carries :ForgedNode + :golden plus a role label and native standard labels (e.g. CedsProperty, SifField, LifProperty). Nodes are distinguished by the 'role' property and the '_source' property. More standards will be added over time; never hardcode the inventory.",
+    "roles": [
+      "DmeClass",
+      "DmeProperty",
+      "DmeOptionSet",
+      "DmeOptionValue",
+      "DmeSupport",
+      "DmeStandardRoot"
+    ],
+    "keyProperties": [ "_id", "_source", "name", "description", "path", "parentId", "stableId", "role", "embedding" ]
+  },
   "vectorIndexes": [
     {
-      "name": "ceds_vector",
-      "nodeLabel": "CEDS",
-      "embeddedTypes": [
-        { "label": "CedsProperty", "count": 2324 },
-        { "label": "CedsOptionSet", "count": 965 },
-        { "label": "CedsClass", "count": 402 },
-        { "label": "CedsOntology", "count": 1 }
-      ],
+      "name": "golden_vector",
+      "nodeLabel": "ForgedNode",
+      "property": "embedding",
       "dimensions": 1024,
-      "similarity": "COSINE"
-    },
-    {
-      "name": "sif_vector",
-      "nodeLabel": "SifModel",
-      "embeddedTypes": [
-        { "label": "SifField", "count": 15620 },
-        { "label": "SifXmlElement", "count": 5872 },
-        { "label": "SifComplexType", "count": 897 },
-        { "label": "SifSimpleType", "count": 301 },
-        { "label": "SifObject", "count": 159 },
-        { "label": "SifCodeset", "count": 140 },
-        { "label": "SifPrimitiveType", "count": 15 },
-        { "label": "SifRoot", "count": 1 }
-      ],
-      "dimensions": 1024,
-      "similarity": "COSINE"
-    },
-    {
-      "name": "edfi_vector",
-      "nodeLabel": "EdfiModel",
-      "embeddedTypes": [
-        { "label": "EdfiDescriptorValue", "count": 8310 },
-        { "label": "EdfiField", "count": 1450 },
-        { "label": "EdfiEntity", "count": 201 },
-        { "label": "EdfiDescriptor", "count": 166 },
-        { "label": "EdfiRoot", "count": 1 }
-      ],
-      "dimensions": 1024,
-      "similarity": "COSINE"
-    },
-    {
-      "name": "jedx_vector",
-      "nodeLabel": "JedxModel",
-      "embeddedTypes": [
-        { "label": "JedxField", "count": 139 },
-        { "label": "JedxCodeSet", "count": 11 },
-        { "label": "JedxEntity", "count": 5 },
-        { "label": "JedxRoot", "count": 1 }
-      ],
-      "dimensions": 1024,
-      "similarity": "COSINE"
-    },
-    {
-      "name": "edmatrix_vector",
-      "nodeLabel": "EdMatrix",
-      "embeddedTypes": [
-        { "label": "EdStandard", "count": 35 },
-        { "label": "SerializationFormat", "count": 17 },
-        { "label": "Organization", "count": 16 },
-        { "label": "DataCategory", "count": 9 },
-        { "label": "SpecLayer", "count": 4 },
-        { "label": "UseCaseCategory", "count": 2 }
-      ],
-      "dimensions": 1024,
-      "similarity": "COSINE"
+      "similarity": "COSINE",
+      "embeddingModel": "voyage-4-large"
     }
   ],
-  "fulltextIndexes": [
-    {
-      "name": "ceds_fulltext",
-      "nodeLabels": [ "CEDS" ],
-      "properties": [ "name", "description", "notation", "searchText" ]
-    },
-    {
-      "name": "sif_fulltext",
-      "nodeLabels": [ "SifModel" ],
-      "properties": [ "name", "description", "searchText" ]
-    },
-    {
-      "name": "edfi_fulltext",
-      "nodeLabels": [ "EdfiModel" ],
-      "properties": [ "name", "description" ]
-    },
-    {
-      "name": "jedx_fulltext",
-      "nodeLabels": [ "JedxModel" ],
-      "properties": [ "name", "description", "searchText" ]
-    },
-    {
-      "name": "edmatrix_fulltext",
-      "nodeLabels": [ "EdMatrix" ],
-      "properties": [ "name", "description", "searchText" ]
-    }
-  ],
+  "fulltextIndexes": [],
   "relationships": [
-    { "type": "IMPLIED_MAPPING", "from": "SIF", "to": "CEDS", "count": 219726 },
-    { "type": "HAS_VALUE", "from": "EdFi", "to": "EdFi", "count": 48434 },
-    { "type": "HAS_VALUE", "from": "CEDS", "to": "CEDS", "count": 19546 },
-    { "type": "HAS_FIELD", "from": "SIF", "to": "SIF", "count": 15620 },
-    { "type": "HAS_TYPE", "from": "SIF", "to": "SIF", "count": 15620 },
-    { "type": "MEMBER_OF", "from": "SIF", "to": "SIF", "count": 14431 },
-    { "type": "REALIZED_BY", "from": "SIF", "to": "SIF", "count": 12936 },
-    { "type": "USES_COMPLEX_TYPE", "from": "SIF", "to": "SIF", "count": 6954 },
-    { "type": "CHILD_ELEMENT", "from": "SIF", "to": "SIF", "count": 4977 },
-    { "type": "HAS_PROPERTY", "from": "CEDS", "to": "CEDS", "count": 2750 },
-    { "type": "MAPS_TO", "from": "SIF", "to": "CEDS", "count": 2168 },
-    { "type": "MAPS_TO", "from": "EdFi", "to": "CEDS", "count": 2126 },
-    { "type": "TYPED_AS", "from": "SIF", "to": "SIF", "count": 2006 },
-    { "type": "HAS_ROOT_ELEMENT", "from": "SIF", "to": "SIF", "count": 1888 },
-    { "type": "IMPLIED_MAPPING", "from": "JEDx", "to": "CEDS", "count": 1886 },
-    { "type": "CONSTRAINED_BY", "from": "SIF", "to": "SIF", "count": 1745 },
-    { "type": "HAS_FIELD", "from": "EdFi", "to": "EdFi", "count": 1450 },
-    { "type": "HAS_OPTION_SET", "from": "CEDS", "to": "CEDS", "count": 994 },
-    { "type": "STRUCTURALLY_MAPS_TO", "from": "EdFi", "to": "CEDS", "count": 492 },
-    { "type": "SUBCLASS_OF", "from": "CEDS", "to": "CEDS", "count": 398 },
-    { "type": "IMPLIED_MAPPING", "from": "EdMatrix", "to": "CEDS", "count": 306 },
-    { "type": "CONSTRAINED_BY", "from": "EdFi", "to": "EdFi", "count": 257 },
-    { "type": "STRUCTURALLY_MAPS_TO", "from": "SIF", "to": "CEDS", "count": 202 },
-    { "type": "HAS_ENTITY", "from": "EdFi", "to": "EdFi", "count": 201 }
+    { "type": "SPECIFIED_MAPPING", "description": "Authoritative cross-standard mapping (standard-node -> CEDS hub). Props: confidence, provenanceTier, cedsAnchorValue, bridgeLevel, owner." },
+    { "type": "IMPLIED_MAPPING", "description": "Inferred cross-standard mapping (standard-node -> CEDS hub). Props: confidence, matchPredicate, provenanceTier, calibrationVersion, rawScore, equivalence, method, predicateBasis, owner." },
+    { "type": "HAS_PROPERTY", "description": "Structural: class -> property." },
+    { "type": "HAS_OPTION_SET", "description": "Structural: property -> option set." },
+    { "type": "HAS_VALUE", "description": "Structural: option set -> option value." },
+    { "type": "HAS_SUPPORT", "description": "Structural: node -> support detail." },
+    { "type": "HAS_CLASS", "description": "Structural: standard root -> class." },
+    { "type": "SUBCLASS_OF", "description": "Structural: class -> parent class." },
+    { "type": "REFERENCES", "description": "Intra-standard cross reference." }
   ]
 }

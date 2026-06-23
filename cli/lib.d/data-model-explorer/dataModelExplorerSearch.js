@@ -4,11 +4,11 @@
 // dataModelExplorerSearch.js — Multi-tool search across unified education data standards graph
 //
 // Query types (via CLI flags):
-//   -search "query"        Hybrid BM25 + vector search across ALL standards
-//   -findMappings "name"   Find MAPS_TO counterparts for a field
+//   -search "query"        Vector search (golden_vector) across ALL standards
+//   -findMappings "name"   Find SPECIFIED_MAPPING/IMPLIED_MAPPING counterparts for a node
 //   -compareCodesets "name" Compare codeset values between standards
-//   -unmappedFields        SIF fields with no or low-confidence mappings
-//   -stats                 Counts by standard, mapping coverage
+//   -unmappedFields        DmeProperty nodes with no cross-standard mapping
+//   -stats                 Counts by standard and role, mapping coverage
 //   -rawCypher --query="..." Passthrough Cypher
 //
 // Outputs JSON to stdout, diagnostics to stderr.
@@ -102,339 +102,246 @@ const toNumber = (val) => {
 };
 
 // =====================================================================
-// GRAPH SOURCE REGISTRY (cached after first query)
-// =====================================================================
-
-let graphSourceRegistry = null;
-
-const getGraphSourceRegistry = async (session) => {
-	if (graphSourceRegistry) return graphSourceRegistry;
-
-	const result = await session.run(`
-		MATCH (gs:GraphSource)
-		WHERE gs.fulltextIndex IS NOT NULL AND gs.vectorIndex IS NOT NULL
-		RETURN gs.name AS name, gs.fulltextIndex AS fulltextIndex,
-		       gs.vectorIndex AS vectorIndex, gs.superLabel AS superLabel
-		ORDER BY gs.name
-	`);
-
-	graphSourceRegistry = result.records.map(rec => ({
-		name: rec.get('name'),
-		fulltextIndex: rec.get('fulltextIndex'),
-		vectorIndex: rec.get('vectorIndex'),
-		superLabel: rec.get('superLabel'),
-	}));
-
-	process.stderr.write(`${moduleName}: Loaded ${graphSourceRegistry.length} standards from GraphSource registry\n`);
-	return graphSourceRegistry;
-};
-
-// =====================================================================
 // QUERY HANDLERS
 // =====================================================================
+
+// =====================================================================
+// HYBRID SEARCH (single unified golden_vector index)
+// =====================================================================
+//
+// The forge golden graph carries ONE vector index — golden_vector on
+// :ForgedNode(embedding) — and no fulltext index. All standards share that
+// index, distinguished by the _source property. Search is a single vector
+// query over :ForgedNode, optionally filtered by _source.
+
+const GOLDEN_VECTOR_INDEX = 'golden_vector';
 
 const hybridSearch = async (session, query, config, params) => {
 	const limit = 20;
 	const standardFilter = (params && params.standard) ? params.standard : null;
-	const results = new Map();
 
-	// Load search registry from GraphSource nodes
-	const registry = await getGraphSourceRegistry(session);
-
-	// Apply standard filter early — skip standards that don't match
-	const activeStandards = standardFilter
-		? registry.filter(s => s.name.toUpperCase() === standardFilter.toUpperCase())
-		: registry;
-
-	// BM25 fulltext search across all active standards
-	for (const standard of activeStandards) {
-		try {
-			const ftResult = await session.run(`
-				CALL db.index.fulltext.queryNodes($indexName, $query)
-				YIELD node, score
-				RETURN node._id AS id, labels(node) AS labels, node.name AS name,
-					node.description AS description, node._source AS standard, score AS ftScore
-				LIMIT $limit
-			`, { indexName: standard.fulltextIndex, query, limit: neo4j.int(limit) });
-
-			for (const rec of ftResult.records) {
-				const id = rec.get('id');
-				const stdName = rec.get('standard') || standard.name;
-				const key = stdName.toLowerCase() + ':' + id;
-				results.set(key, {
-					standard: stdName,
-					id,
-					labels: rec.get('labels').filter(l => l !== 'ForgedNode'),
-					name: rec.get('name'),
-					description: rec.get('description'),
-					ftScore: rec.get('ftScore'),
-					vecScore: 0,
-				});
-			}
-		} catch (err) {
-			process.stderr.write(`${moduleName}: ${standard.name} full-text search error: ${err.message}\n`);
-		}
+	if (!config.embedder) {
+		process.stderr.write(`${moduleName}: no embedder configured; cannot run vector search\n`);
+		return [];
 	}
 
-	// Vector search across all active standards (single embedding for all)
-	if (config.embedder) {
-		try {
-			const queryEmbedding = await embedQuery(query, config.embedder);
-
-			for (const standard of activeStandards) {
-				try {
-					const vecResult = await session.run(`
-						CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
-						YIELD node, score
-						RETURN node._id AS id, labels(node) AS labels, node.name AS name,
-							node.description AS description, node._source AS standard, score AS vecScore
-					`, { indexName: standard.vectorIndex, limit: neo4j.int(limit), embedding: queryEmbedding });
-
-					for (const rec of vecResult.records) {
-						const id = rec.get('id');
-						const stdName = rec.get('standard') || standard.name;
-						const key = stdName.toLowerCase() + ':' + id;
-						if (results.has(key)) {
-							results.get(key).vecScore = rec.get('vecScore');
-						} else {
-							results.set(key, {
-								standard: stdName,
-								id,
-								labels: rec.get('labels').filter(l => l !== 'ForgedNode'),
-								name: rec.get('name'),
-								description: rec.get('description'),
-								ftScore: 0,
-								vecScore: rec.get('vecScore'),
-							});
-						}
-					}
-				} catch (err) {
-					process.stderr.write(`${moduleName}: ${standard.name} vector search error: ${err.message}\n`);
-				}
-			}
-		} catch (err) {
-			process.stderr.write(`${moduleName}: Embedding error: ${err.message}\n`);
-		}
+	let queryEmbedding;
+	try {
+		queryEmbedding = await embedQuery(query, config.embedder);
+	} catch (err) {
+		process.stderr.write(`${moduleName}: embedding error: ${err.message}\n`);
+		return [];
 	}
 
-	// Rank by combined score
-	const ranked = [...results.values()]
-		.map(r => {
-			// Strip embedding from results if present
-			const { embedding, ...clean } = r;
-			return {
-				...clean,
-				combinedScore: (r.ftScore > 0 ? 0.5 : 0) + (r.vecScore > 0 ? r.vecScore * 0.5 : 0)
-			};
-		})
-		.sort((a, b) => b.combinedScore - a.combinedScore);
+	// Over-fetch so a standard filter still yields a full page after filtering.
+	const fetchLimit = standardFilter ? limit * 5 : limit;
 
-	return ranked.slice(0, limit);
+	const vecResult = await session.run(`
+		CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
+		YIELD node, score
+		WHERE $standard IS NULL OR node._source = $standard
+		RETURN node._id AS id, node._source AS standard, node.role AS role,
+			labels(node) AS labels, node.name AS name, node.description AS description,
+			score AS vecScore
+		LIMIT $outLimit
+	`, {
+		indexName: GOLDEN_VECTOR_INDEX,
+		limit: neo4j.int(fetchLimit),
+		outLimit: neo4j.int(limit),
+		embedding: queryEmbedding,
+		standard: standardFilter,
+	});
+
+	return vecResult.records.map(rec => ({
+		standard: rec.get('standard'),
+		id: rec.get('id'),
+		role: rec.get('role'),
+		labels: rec.get('labels').filter(l => l !== 'ForgedNode' && l !== 'golden'),
+		name: rec.get('name'),
+		description: rec.get('description'),
+		score: rec.get('vecScore'),
+	}));
 };
 
-const findMappings = async (session, nameOrXpath) => {
-	// Try as SIF field first (by xpath or name)
-	const sifResult = await session.run(`
-		MATCH (obj:SifObject)-[:HAS_FIELD]->(f:SifField)
-		WHERE f.xpath = $name OR toLower(f.name) CONTAINS toLower($name)
-		MATCH (f)-[m:MAPS_TO]->(p:CedsProperty)
-		OPTIONAL MATCH (c:CedsClass)-[:HAS_PROPERTY]->(p)
-		RETURN obj.name AS sifObject, f.name AS sifField, f.xpath AS sifXpath,
-			p.cedsId AS cedsId, p.label AS cedsLabel, p.description AS cedsDescription,
-			m.source AS source, m.confidence AS confidence, m.reviewed AS reviewed,
-			collect(DISTINCT c.label) AS cedsClasses
-		ORDER BY m.confidence DESC
-		LIMIT 20
-	`, { name: nameOrXpath });
+const findMappings = async (session, nameOrId) => {
+	const result = await session.run(`
+		MATCH (n:ForgedNode)
+		WHERE toLower(n.name) CONTAINS toLower($name) OR n._id = $name
+		   OR n.path = $name OR n.stableId = $name
+		CALL {
+			WITH n
+			MATCH (n)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(t:ForgedNode)
+			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName,
+			       t._source AS toSource, t.name AS toName, t._id AS toId,
+			       type(m) AS mappingType, m.confidence AS confidence,
+			       m.provenanceTier AS provenanceTier, m.matchPredicate AS matchPredicate
+			UNION
+			WITH n
+			MATCH (s:ForgedNode)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(n)
+			RETURN 'incoming' AS direction, s._source AS fromSource, s.name AS fromName,
+			       n._source AS toSource, n.name AS toName, n._id AS toId,
+			       type(m) AS mappingType, m.confidence AS confidence,
+			       m.provenanceTier AS provenanceTier, m.matchPredicate AS matchPredicate
+		}
+		RETURN direction, fromSource, fromName, toSource, toName, toId,
+		       mappingType, confidence, provenanceTier, matchPredicate
+		ORDER BY confidence DESC
+		LIMIT 30
+	`, { name: nameOrId });
 
-	if (sifResult.records.length > 0) {
-		return sifResult.records.map(rec => ({
-			direction: 'SIF → CEDS',
-			sifObject: rec.get('sifObject'),
-			sifField: rec.get('sifField'),
-			sifXpath: rec.get('sifXpath'),
-			cedsId: rec.get('cedsId'),
-			cedsLabel: rec.get('cedsLabel'),
-			cedsDescription: rec.get('cedsDescription'),
-			source: rec.get('source'),
-			confidence: rec.get('confidence'),
-			reviewed: rec.get('reviewed'),
-			cedsClasses: rec.get('cedsClasses'),
-		}));
-	}
-
-	// Try as CEDS property
-	const cedsResult = await session.run(`
-		MATCH (f:SifField)-[m:MAPS_TO]->(p:CedsProperty)
-		WHERE p.cedsId = $name OR toLower(p.label) CONTAINS toLower($name)
-		MATCH (obj:SifObject)-[:HAS_FIELD]->(f)
-		RETURN p.cedsId AS cedsId, p.label AS cedsLabel,
-			obj.name AS sifObject, f.name AS sifField, f.xpath AS sifXpath,
-			m.source AS source, m.confidence AS confidence
-		ORDER BY m.confidence DESC
-		LIMIT 20
-	`, { name: nameOrXpath });
-
-	return cedsResult.records.map(rec => ({
-		direction: 'CEDS → SIF',
-		cedsId: rec.get('cedsId'),
-		cedsLabel: rec.get('cedsLabel'),
-		sifObject: rec.get('sifObject'),
-		sifField: rec.get('sifField'),
-		sifXpath: rec.get('sifXpath'),
-		source: rec.get('source'),
-		confidence: rec.get('confidence'),
+	return result.records.map(rec => ({
+		direction: rec.get('direction'),
+		fromSource: rec.get('fromSource'),
+		fromName: rec.get('fromName'),
+		toSource: rec.get('toSource'),
+		toName: rec.get('toName'),
+		toId: rec.get('toId'),
+		mappingType: rec.get('mappingType'),
+		confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
+		provenanceTier: rec.get('provenanceTier'),
+		matchPredicate: rec.get('matchPredicate'),
 	}));
 };
 
 const compareCodesets = async (session, name) => {
 	const result = await session.run(`
-		MATCH (sifCs:SifCodeset)-[a:ALIGNS_WITH]->(cedsOs:CedsOptionSet)
-		MATCH (f:SifField)-[:CONSTRAINED_BY]->(sifCs)
-		WHERE toLower(f.name) CONTAINS toLower($name) OR toLower(cedsOs.label) CONTAINS toLower($name)
-		RETURN DISTINCT f.name AS fieldName, sifCs.values AS sifValues,
-			cedsOs.label AS cedsOptionSetLabel, cedsOs.cedsId AS cedsOsCedsId,
-			a.alignmentType AS alignmentType, a.coveragePercent AS coveragePercent,
-			a.sifOnlyCount AS sifOnlyCount, a.cedsOnlyCount AS cedsOnlyCount,
-			a.overlapCount AS overlapCount
+		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
+		WHERE toLower(os.name) CONTAINS toLower($name)
+		OPTIONAL MATCH (os)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(target:ForgedNode {role: 'DmeOptionSet'})
+		OPTIONAL MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+		OPTIONAL MATCH (target)-[:HAS_VALUE]->(tv:ForgedNode {role: 'DmeOptionValue'})
+		RETURN os._source AS sourceStandard, os.name AS optionSetName,
+		       target._source AS targetStandard, target.name AS targetOptionSetName,
+		       type(m) AS mappingType, m.confidence AS confidence,
+		       collect(DISTINCT v.name) AS sourceValues,
+		       collect(DISTINCT tv.name) AS targetValues
 		LIMIT 10
 	`, { name });
 
 	return result.records.map(rec => ({
-		fieldName: rec.get('fieldName'),
-		sifValues: rec.get('sifValues'),
-		cedsOptionSetLabel: rec.get('cedsOptionSetLabel'),
-		cedsOsCedsId: rec.get('cedsOsCedsId'),
-		alignmentType: rec.get('alignmentType'),
-		coveragePercent: toNumber(rec.get('coveragePercent')),
-		sifOnlyCount: toNumber(rec.get('sifOnlyCount')),
-		cedsOnlyCount: toNumber(rec.get('cedsOnlyCount')),
-		overlapCount: toNumber(rec.get('overlapCount')),
+		sourceStandard: rec.get('sourceStandard'),
+		optionSetName: rec.get('optionSetName'),
+		targetStandard: rec.get('targetStandard'),
+		targetOptionSetName: rec.get('targetOptionSetName'),
+		mappingType: rec.get('mappingType'),
+		confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
+		sourceValues: rec.get('sourceValues'),
+		targetValues: rec.get('targetValues'),
 	}));
 };
 
 const unmappedFields = async (session, params) => {
 	const limit = params.limit ? parseInt(params.limit) : 50;
+	const standard = params.standard || null;
 
 	const result = await session.run(`
-		MATCH (obj:SifObject)-[:HAS_FIELD]->(f:SifField)
-		WHERE NOT (f)-[:MAPS_TO]->(:CedsProperty)
-		AND (f.cedsId IS NULL OR f.cedsId = '')
-		RETURN obj.name AS objectName, f.name AS fieldName, f.xpath AS xpath,
-			f.description AS description
-		ORDER BY obj.name, f.name
+		MATCH (f:ForgedNode {role: 'DmeProperty'})
+		WHERE ($standard IS NULL OR f._source = $standard)
+		  AND NOT (f)-[:SPECIFIED_MAPPING|IMPLIED_MAPPING]->()
+		RETURN f._source AS standard, f.name AS fieldName, f.path AS path,
+		       f.description AS description
+		ORDER BY f._source, f.name
 		LIMIT $limit
-	`, { limit: neo4j.int(limit) });
+	`, { limit: neo4j.int(limit), standard });
 
 	return result.records.map(rec => ({
-		objectName: rec.get('objectName'),
+		standard: rec.get('standard'),
 		fieldName: rec.get('fieldName'),
-		xpath: rec.get('xpath'),
+		path: rec.get('path'),
 		description: rec.get('description'),
 	}));
 };
 
 const getStats = async (session) => {
-	// CEDS node counts
-	const cedsResult = await session.run(`
-		MATCH (n:CEDS)
-		RETURN labels(n) AS labels, count(n) AS count
+	// Node counts by standard (_source)
+	const bySourceResult = await session.run(`
+		MATCH (n:ForgedNode)
+		RETURN coalesce(n._source, 'UNSCOPED') AS source, count(n) AS count
 		ORDER BY count DESC
 	`);
-
-	const cedsNodes = {};
-	for (const rec of cedsResult.records) {
-		const label = rec.get('labels').filter(l => l !== 'CEDS')[0] || 'Unknown';
-		cedsNodes[label] = toNumber(rec.get('count'));
+	const bySource = {};
+	for (const rec of bySourceResult.records) {
+		bySource[rec.get('source')] = toNumber(rec.get('count'));
 	}
 
-	// SIF node counts
-	const sifResult = await session.run(`
-		MATCH (n:SifModel)
-		RETURN labels(n) AS labels, count(n) AS count
+	// Node counts by universal-contract role
+	const byRoleResult = await session.run(`
+		MATCH (n:ForgedNode)
+		WHERE n.role IS NOT NULL
+		RETURN n.role AS role, count(n) AS count
 		ORDER BY count DESC
 	`);
-
-	const sifNodes = {};
-	for (const rec of sifResult.records) {
-		const label = rec.get('labels').filter(l => l !== 'SifModel')[0] || 'Unknown';
-		sifNodes[label] = toNumber(rec.get('count'));
+	const byRole = {};
+	for (const rec of byRoleResult.records) {
+		byRole[rec.get('role')] = toNumber(rec.get('count'));
 	}
 
-	// Bridge edge counts
-	const bridgeResult = await session.run(`
+	// Cross-standard mapping edge counts
+	const mappingResult = await session.run(`
 		MATCH ()-[r]->()
-		WHERE type(r) IN ['MAPS_TO', 'ALIGNS_WITH', 'STRUCTURALLY_MAPS_TO']
+		WHERE type(r) IN ['SPECIFIED_MAPPING', 'IMPLIED_MAPPING']
 		RETURN type(r) AS relType, count(r) AS count
 	`);
-
-	const bridges = {};
-	for (const rec of bridgeResult.records) {
-		bridges[rec.get('relType')] = toNumber(rec.get('count'));
+	const mappings = {};
+	for (const rec of mappingResult.records) {
+		mappings[rec.get('relType')] = toNumber(rec.get('count'));
 	}
 
-	// Mapping coverage
+	// Mapping coverage over DmeProperty nodes
 	const coverageResult = await session.run(`
-		MATCH (f:SifField)
-		WITH count(f) AS totalFields
-		OPTIONAL MATCH (f2:SifField) WHERE f2.cedsId IS NOT NULL AND f2.cedsId <> ''
-		WITH totalFields, count(f2) AS annotatedFields
-		OPTIONAL MATCH (f3:SifField)-[:MAPS_TO]->(:CedsProperty)
-		RETURN totalFields, annotatedFields, count(DISTINCT f3) AS mappedFields
+		MATCH (f:ForgedNode {role: 'DmeProperty'})
+		WITH count(f) AS totalProperties,
+		     count(CASE WHEN (f)-[:SPECIFIED_MAPPING|IMPLIED_MAPPING]->() THEN 1 END) AS mappedProperties
+		RETURN totalProperties, mappedProperties
 	`);
-
 	let coverage = {};
 	if (coverageResult.records.length > 0) {
 		const rec = coverageResult.records[0];
 		coverage = {
-			totalSifFields: toNumber(rec.get('totalFields')),
-			specAnnotated: toNumber(rec.get('annotatedFields')),
-			totalMapped: toNumber(rec.get('mappedFields')),
+			totalProperties: toNumber(rec.get('totalProperties')),
+			mappedProperties: toNumber(rec.get('mappedProperties')),
 		};
 	}
 
-	return { ceds: cedsNodes, sif: sifNodes, bridges, coverage };
+	return { bySource, byRole, mappings, coverage };
 };
 
 // =====================================================================
 // LIST STANDARDS
 // =====================================================================
 //
-// The authoritative inventory of every registered standard in the unified
-// graph, joined live against ForgedNode counts. Use this — not getStats —
-// to answer "what standards are loaded?" or "list all standards." getStats
-// only covers CEDS and SIF; this query reads :DmeStandard, the registry
-// emitted by every forge during -export.
+// The authoritative inventory of every registered standard in the forge
+// golden graph, joined live against ForgedNode counts. Use this — not
+// getStats — to answer "what standards are loaded?" or "list all standards."
+// getStats covers node counts by _source and role; this query reads
+// :DmeStandardRoot, the per-standard passport node emitted by every forge
+// during -export, and counts the ForgedNodes sharing its _source.
 
 const getListStandards = async (session) => {
 	const result = await session.run(`
-		MATCH (s:DmeStandard)
+		MATCH (r:DmeStandardRoot)
 		CALL {
-			WITH s
-			MATCH (n:ForgedNode) WHERE s.superLabel IN labels(n)
+			WITH r
+			MATCH (n:ForgedNode {_source: r._source})
 			RETURN count(n) AS nodeCount
 		}
-		RETURN s.displayName AS displayName,
-		       s.graphName AS graphName,
-		       s.tier AS tier,
-		       s.tierName AS tierName,
-		       s.description AS description,
-		       s.toolPrefix AS toolPrefix,
-		       s.cliName AS cliName,
-		       s.superLabel AS superLabel,
+		RETURN r._source AS source,
+		       r.name AS name,
+		       r.standardName AS standardName,
+		       r.description AS description,
+		       r.version AS version,
+		       r.sourceUrl AS sourceUrl,
 		       nodeCount
-		ORDER BY tier, graphName
+		ORDER BY source
 	`);
 
 	const standards = result.records.map(rec => ({
-		displayName: rec.get('displayName'),
-		graphName: rec.get('graphName'),
-		tier: toNumber(rec.get('tier')),
-		tierName: rec.get('tierName'),
+		source: rec.get('source'),
+		name: rec.get('name'),
+		standardName: rec.get('standardName'),
 		description: rec.get('description'),
-		toolPrefix: rec.get('toolPrefix'),
-		cliName: rec.get('cliName'),
-		superLabel: rec.get('superLabel'),
+		version: rec.get('version'),
+		sourceUrl: rec.get('sourceUrl'),
 		nodeCount: toNumber(rec.get('nodeCount'))
 	}));
 
@@ -499,25 +406,26 @@ const exploreNode = async (session, params) => {
 };
 
 const historyEvents = async (session, params) => {
-	const standard = params.standard || null;
-	const limit = params.limit ? parseInt(params.limit) : 20;
-
 	const result = await session.run(`
-		MATCH (h:GraphHistory)-[:HAS_EVENT]->(e:GraphHistoryEvent)
-		WHERE $standard IS NULL OR e.source = $standard
-		RETURN e.action AS action, e.source AS source,
-		  toString(e.datetime) AS datetime,
-		  e.nodeCount AS nodeCount, e.edgeCount AS edgeCount
-		ORDER BY e.datetime DESC
-		LIMIT toInteger($limit)
-	`, { standard, limit: neo4j.int(limit) });
+		MATCH (g:GraphProvenance)
+		RETURN g.graphName AS graphName, g.manifestKey AS manifestKey,
+		       toString(g.builtAt) AS builtAt, g.builtBy AS builtBy,
+		       g.standardsIncluded AS standardsIncluded,
+		       g.nodeCountAtBuild AS nodeCount, g.edgeCountAtBuild AS edgeCount,
+		       g.status AS status, g.provenanceTierComplete AS provenanceTierComplete
+		ORDER BY builtAt DESC
+	`);
 
 	return result.records.map(rec => ({
-		action: rec.get('action'),
-		source: rec.get('source'),
-		datetime: rec.get('datetime'),
+		graphName: rec.get('graphName'),
+		manifestKey: rec.get('manifestKey'),
+		builtAt: rec.get('builtAt'),
+		builtBy: rec.get('builtBy'),
+		standardsIncluded: rec.get('standardsIncluded'),
 		nodeCount: toNumber(rec.get('nodeCount')),
 		edgeCount: toNumber(rec.get('edgeCount')),
+		status: rec.get('status'),
+		provenanceTierComplete: rec.get('provenanceTierComplete'),
 	}));
 };
 
@@ -580,7 +488,7 @@ const search = async (queryType, params, callback) => {
 			const { embeddingClient } = require('qtools-graph-forge-core');
 			config.embedder = embeddingClient.create({
 				provider: 'voyage',
-				model: 'voyage-4',
+				model: 'voyage-4-large',
 				dimension: 1024,
 				apiKey: config.voyageApiKey,
 				batchSize: 20

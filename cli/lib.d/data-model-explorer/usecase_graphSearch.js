@@ -27,8 +27,14 @@ let boltUri, neo4jPassword;
 try {
 	const dmeConfig = configFileProcessor.getConfig('dataModelExplorerSearch.ini', configDirPath, { resolve: true });
 	const section = dmeConfig.dataModelExplorerSearch || dmeConfig;
-	boltUri = section.neo4jBoltUri || 'bolt://localhost:7706';
-	neo4jPassword = section.neo4jPassword || '';
+	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
+	const conn = resolveContainerConnection(section.goldenContainerName);
+	if (conn.error) {
+		console.error(`Cannot resolve DME connection from goldenContainerName '${section.goldenContainerName}': ${conn.error}. Override with --boltUri and --password.`);
+		process.exit(1);
+	}
+	boltUri = conn.boltUri;
+	neo4jPassword = conn.password;
 } catch (err) {
 	console.error('Cannot find dataModelExplorerSearch.ini. Set connection via --boltUri and --password.');
 	process.exit(1);

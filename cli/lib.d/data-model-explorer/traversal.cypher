@@ -1,185 +1,105 @@
-// traversal.cypher — DataModelExplorer (5 standards)
-// Vector: ceds_vector, sif_vector, edfi_vector, jedx_vector, edmatrix_vector
-// BM25: ceds_fulltext, sif_fulltext, edfi_fulltext, jedx_fulltext, edmatrix_fulltext
-// Updated: 2026-04-01
+// traversal.cypher — DataModelExplorer (forge golden contract)
+// Vector: golden_vector (single unified index on :ForgedNode(embedding), COSINE, 1024-dim)
+// No fulltext index exists in the forge golden graph.
+// Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
+//   DmeOptionValue, DmeSupport, DmeStandardRoot) and _source (CEDS/LIF/SIF/…).
+// Cross-standard mapping edges: SPECIFIED_MAPPING (authoritative), IMPLIED_MAPPING (inferred).
+// Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
+//   SUBCLASS_OF, REFERENCES.
+// Updated: 2026-06-23 (forge-contract refactor)
 // Parameters: $embedding (list<float>), $limit (int), $query (string)
 
-// === Search preamble: hybrid across all indexes ===
-CALL {
-  CALL db.index.vector.queryNodes('ceds_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('sif_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('edfi_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('jedx_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('edmatrix_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('ceds_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('sif_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('edfi_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('jedx_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('edmatrix_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-}
+// === Search preamble: single unified vector query over golden_vector ===
+CALL db.index.vector.queryNodes('golden_vector', $limit, $embedding) YIELD node, score
+WITH node, score AS vecScore, 0.0 AS ftScore
 
-// === Dedup and rank ===
-WITH node, max(vecScore) AS vecScore, max(ftScore) AS ftScore
+// === Rank ===
 WITH node, vecScore, ftScore,
      (CASE WHEN ftScore > 0 THEN 0.5 ELSE 0 END) +
      (CASE WHEN vecScore > 0 THEN vecScore * 0.5 ELSE 0 END) AS combinedScore
 ORDER BY combinedScore DESC LIMIT $limit
 
-// === Traversal: label-filtered OPTIONAL MATCHes ===
+// === Traversal: forge-contract structural neighborhood ===
 
-// CedsProperty context (only fires when node is CedsProperty)
-OPTIONAL MATCH (node:CedsProperty)-[:HAS_OPTION_SET]->(cedsOptionSet:CedsOptionSet)
+// Parent classes that own this property (role-filtered)
 CALL {
   WITH node
-  OPTIONAL MATCH (s:CedsClass)-[:HAS_PROPERTY]->(node:CedsProperty)
-  RETURN collect(DISTINCT s { .* })[..10] AS cedsClassHASPROPERTYList
-}
-
-// SifField context (only fires when node is SifField)
-OPTIONAL MATCH (node:SifField)-[:MEMBER_OF]->(sifComplexType:SifComplexType)
-OPTIONAL MATCH (node:SifField)-[:HAS_TYPE]->(sifPrimitiveType:SifPrimitiveType)
-OPTIONAL MATCH (node:SifField)-[:HAS_TYPE]->(sifSimpleType:SifSimpleType)
-OPTIONAL MATCH (node:SifField)-[:CONSTRAINED_BY]->(sifCodeset:SifCodeset)
-CALL {
-  WITH node
-  OPTIONAL MATCH (s:SifObject)-[:HAS_FIELD]->(node:SifField)
-  RETURN collect(DISTINCT s { .* })[..10] AS sifObjectHASFIELDList
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s:SifXmlElement)-[:REALIZED_BY]->(node:SifField)
-  RETURN collect(DISTINCT s { .* })[..10] AS sifXmlElementREALIZEDBYList
+  OPTIONAL MATCH (c:ForgedNode {role: 'DmeClass'})-[:HAS_PROPERTY]->(node:ForgedNode {role: 'DmeProperty'})
+  RETURN collect(DISTINCT c { ._id, ._source, .name, .path })[..10] AS parentClasses
 }
 
-// EdfiField context (only fires when node is EdfiField)
+// Option set attached to this property
 CALL {
   WITH node
-  OPTIONAL MATCH (e:EdfiEntity)-[:HAS_FIELD]->(node:EdfiField)
-  RETURN collect(DISTINCT e { .* })[..10] AS edfiEntityHASFIELDList
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdfiField)-[:CONSTRAINED_BY]->(d:EdfiDescriptor)
-  RETURN collect(DISTINCT d { .name })[..10] AS edfiFieldConstrainedByDescriptor
+  OPTIONAL MATCH (node:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET]->(os:ForgedNode {role: 'DmeOptionSet'})
+  RETURN collect(DISTINCT os { ._id, ._source, .name })[..10] AS optionSets
 }
 
-// EdfiDescriptor context (only fires when node is EdfiDescriptor)
+// Allowed values when this node is an option set (DmeOptionValue.value text is in name)
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdfiDescriptor)-[:HAS_VALUE]->(v:EdfiDescriptorValue)
-  RETURN collect(DISTINCT v { .name, .description })[..20] AS edfiDescriptorValues
+  OPTIONAL MATCH (node:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+  RETURN collect(DISTINCT v { ._id, .name, .description })[..50] AS optionValues
 }
 
-// JedxField context (only fires when node is JedxField)
+// Supports attached to this node
 CALL {
   WITH node
-  OPTIONAL MATCH (je:JedxEntity)-[:HAS_FIELD]->(node:JedxField)
-  RETURN collect(DISTINCT je { .* })[..10] AS jedxEntityHASFIELDList
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:JedxField)-[:CONSTRAINED_BY]->(jc:JedxCodeSet)
-  RETURN collect(DISTINCT jc { .name })[..10] AS jedxFieldConstrainedByCodeSet
+  OPTIONAL MATCH (node)-[:HAS_SUPPORT]->(sup:ForgedNode {role: 'DmeSupport'})
+  RETURN collect(DISTINCT sup { ._id, ._source, .name, .description })[..10] AS supports
 }
 
-// EdMatrix EdStandard context (only fires when node is EdStandard)
+// Subclass / superclass relationships
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:PUBLISHED_BY]->(org:Organization)
-  RETURN collect(DISTINCT org { .name })[..5] AS edmatrixPublishedBy
+  OPTIONAL MATCH (node)-[:SUBCLASS_OF]->(parent:ForgedNode)
+  RETURN collect(DISTINCT parent { ._id, ._source, .name })[..10] AS superClasses
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:AT_LAYER]->(layer:SpecLayer)
-  RETURN collect(DISTINCT layer { .name })[..5] AS edmatrixAtLayer
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:IN_USE_CASE]->(uc:UseCaseCategory)
-  RETURN collect(DISTINCT uc { .name })[..5] AS edmatrixInUseCase
+  OPTIONAL MATCH (child:ForgedNode)-[:SUBCLASS_OF]->(node)
+  RETURN collect(DISTINCT child { ._id, ._source, .name })[..10] AS subClasses
 }
 
-// Cross-standard bridge traversals (SIF <-> CEDS)
+// Classes owned by this standard root / properties owned by a class
 CALL {
   WITH node
-  OPTIONAL MATCH (node:SifField)-[m:MAPS_TO]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, confidence: m.confidence, source: m.source })[..5] AS sifFieldMapsToCedsProperty
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s:SifField)-[m:MAPS_TO]->(node:CedsProperty)
-  OPTIONAL MATCH (obj:SifObject)-[:HAS_FIELD]->(s)
-  RETURN collect({ object: obj.name, field: s.name, confidence: m.confidence })[..5] AS cedsPropertyMappedFromSifField
+  OPTIONAL MATCH (node)-[:HAS_CLASS]->(cls:ForgedNode {role: 'DmeClass'})
+  RETURN collect(DISTINCT cls { ._id, ._source, .name })[..20] AS ownedClasses
 }
 
-// Cross-standard bridge traversals (EdFi <-> CEDS)
+// Intra-standard cross references
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdfiField)-[m:MAPS_TO]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, confidence: m.confidence, source: m.source })[..5] AS edfiFieldMapsToCedsProperty
+  OPTIONAL MATCH (node)-[:REFERENCES]->(ref:ForgedNode)
+  RETURN collect(DISTINCT ref { ._id, ._source, .name, .role })[..10] AS referencesTo
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (ef:EdfiField)-[m:MAPS_TO]->(node:CedsProperty)
-  OPTIONAL MATCH (ee:EdfiEntity)-[:HAS_FIELD]->(ef)
-  RETURN collect({ entity: ee.name, field: ef.name, confidence: m.confidence })[..5] AS cedsPropertyMappedFromEdfiField
-}
-
-// Cross-standard implied mapping traversals
-CALL {
-  WITH node
-  OPTIONAL MATCH (node)-[im:IMPLIED_MAPPING]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, score: im.score, method: im.method })[..5] AS impliedMappingsToCeds
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s)-[im:IMPLIED_MAPPING]->(node:CedsProperty)
-  RETURN collect({ source: s._source, name: s.name, score: im.score, method: im.method })[..5] AS impliedMappingsFromOtherStandards
+  OPTIONAL MATCH (referrer:ForgedNode)-[:REFERENCES]->(node)
+  RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role })[..10] AS referencedBy
 }
 
-// SIF reference network
+// Cross-standard mapping edges (outgoing) — SPECIFIED_MAPPING + IMPLIED_MAPPING
 CALL {
   WITH node
-  OPTIONAL MATCH (sifObj:SifObject)-[:HAS_FIELD]->(node:SifField)
-  OPTIONAL MATCH (referrer:SifObject)-[:REFERENCES]->(sifObj)
-  RETURN collect(DISTINCT referrer.name)[..10] AS sifReferencedBy
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (sifObj:SifObject)-[:HAS_FIELD]->(node:SifField)
-  OPTIONAL MATCH (sifObj)-[:REFERENCES]->(referenced:SifObject)
-  RETURN collect(DISTINCT referenced.name)[..10] AS sifReferencesTo
+  OPTIONAL MATCH (node)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(t:ForgedNode)
+  RETURN collect({
+    toSource: t._source, toName: t.name, toId: t._id,
+    mappingType: type(m), confidence: m.confidence,
+    provenanceTier: m.provenanceTier, matchPredicate: m.matchPredicate
+  })[..20] AS mappingsOutgoing
 }
 
-// CEDS class context
+// Cross-standard mapping edges (incoming) — SPECIFIED_MAPPING + IMPLIED_MAPPING
 CALL {
   WITH node
-  OPTIONAL MATCH (cedsClass:CedsClass)-[:HAS_PROPERTY]->(node:CedsProperty)
-  RETURN collect(DISTINCT cedsClass.label) AS cedsClasses
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:CedsProperty)-[:HAS_OPTION_SET]->(os:CedsOptionSet)
-  RETURN collect(DISTINCT os.label) AS cedsOptionSets
+  OPTIONAL MATCH (s:ForgedNode)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(node)
+  RETURN collect({
+    fromSource: s._source, fromName: s.name, fromId: s._id,
+    mappingType: type(m), confidence: m.confidence,
+    provenanceTier: m.provenanceTier, matchPredicate: m.matchPredicate
+  })[..20] AS mappingsIncoming
 }
 
 // === Return ===
@@ -189,29 +109,16 @@ RETURN
   vecScore,
   ftScore,
   labels(node) AS nodeLabels,
-  cedsOptionSet,
-  cedsClassHASPROPERTYList,
-  sifComplexType,
-  sifPrimitiveType,
-  sifSimpleType,
-  sifCodeset,
-  sifObjectHASFIELDList,
-  sifXmlElementREALIZEDBYList,
-  edfiEntityHASFIELDList,
-  edfiFieldConstrainedByDescriptor,
-  edfiDescriptorValues,
-  jedxEntityHASFIELDList,
-  jedxFieldConstrainedByCodeSet,
-  edmatrixPublishedBy,
-  edmatrixAtLayer,
-  edmatrixInUseCase,
-  sifFieldMapsToCedsProperty,
-  cedsPropertyMappedFromSifField,
-  edfiFieldMapsToCedsProperty,
-  cedsPropertyMappedFromEdfiField,
-  impliedMappingsToCeds,
-  impliedMappingsFromOtherStandards,
-  sifReferencedBy,
-  sifReferencesTo,
-  cedsClasses,
-  cedsOptionSets
+  node.role AS role,
+  node._source AS source,
+  parentClasses,
+  optionSets,
+  optionValues,
+  supports,
+  superClasses,
+  subClasses,
+  ownedClasses,
+  referencesTo,
+  referencedBy,
+  mappingsOutgoing,
+  mappingsIncoming
