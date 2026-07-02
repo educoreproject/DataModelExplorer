@@ -40,12 +40,25 @@ const useGraphStore = createEdunatorStore({
 });
 const graphStore = useGraphStore();
 
-// The CEDS-flavored example prompts that previously lived hardcoded inside
-// EdunatorPanel.vue. The canonical component now takes them via prop.
+// Example prompts for the 16-standard equivalence graph (gf_allStandards1 era).
+// Every prompt was tested against the live graph before shipping — each exercises
+// a real capability: cross-standard comparison, HubReference tuples, authored vs
+// inferred (candidate) mappings with confidence, codeset alignment, and the
+// honestly-unmapped islands. The canonical component takes them via prop.
 const cedsExamplePrompts = [
-	"Which educore use cases reference the CEDS property 'Has Credential Definition Criteria Definition'",
-	"I'm looking at the CEDS property 'Has Credential Definition Criteria Definition'. Show me which educore use cases depend on it, and for each one, tell me what the use case is about and which step in that use case involves this criterion.",
-	"For the LER Issuance use case (issue #2), list every CEDS data model element it references — classes and properties. I expect to see seven classes plus one property.",
+	'Compare how SIF and Ed-Fi model grade level — show the CEDS concept each maps to.',
+	'How do the different standards represent a student’s English learner status?',
+	'Show me the codeset for exit reasons in SEDM and what CEDS values they align to.',
+	'Show me the full CEDS tuple — domain, property, range, and value — that ‘Tenth grade’ resolves to, and every standard that lands on it.',
+	'What is the canonical CEDS address (the HubReference tuple) for a student’s birthdate, and which standards map to it?',
+	'Show candidate equivalences from PESC to CEDS with confidence below 0.8 — where are the mappings most uncertain?',
+	'Which LIF fields have only inferred (not authored) CEDS mappings, and how confident are they?',
+	'Which standards have nothing mapped to CEDS at all? List the islands.',
+	'How do the standards handle occupational classification? Compare SOC, CIP, JEDx, CTDL, and CEDS.',
+	'What does SEDM contribute for special education (IDEA) data, and how does it connect to CEDS?',
+	'SIF turned out to carry authored CEDS crosswalks. Show me examples of SIF elements with EXACT matches to CEDS tuples.',
+	'Pick a concept — student attendance — and show which standards model it and whether their mappings are established or candidate.',
+	'Which cross-standard equivalences are established (authored at both ends) versus candidate (inferred)? Explain the difference with examples.',
 ];
 
 const activeTab = 'explore';
