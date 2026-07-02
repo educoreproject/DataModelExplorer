@@ -23,31 +23,53 @@ const findProjectRoot = ({ rootFolderName = 'system', closest = true } = {}) =>
 const projectRoot = findProjectRoot({ closest: false });
 const configDirPath = projectRoot + '/configs/' + configName + '/';
 
-let boltUri, neo4jPassword;
+// L16: the --boltUri/--password overrides are read BEFORE connection resolution, so the
+// escape hatch the error messages advertise is actually reachable — a COMPLETE override
+// (both values) survives a resolver failure or a missing ini. The resolver's parsed
+// username is threaded to the engine (it was previously discarded).
+const overrideValues = commandLineParameters.values || {};
+const getOverride = (key) => { const arr = overrideValues[key]; return (Array.isArray(arr) && arr.length > 0) ? arr[0] : undefined; };
+const overrideBoltUri = getOverride('boltUri');
+const overridePassword = getOverride('password');
+const haveCompleteOverride = Boolean(overrideBoltUri && overridePassword);
+
+let boltUri, neo4jUser, neo4jPassword, voyageApiKey;
 try {
 	const dmeConfig = configFileProcessor.getConfig('dataModelExplorerSearch.ini', configDirPath, { resolve: true });
 	const section = dmeConfig.dataModelExplorerSearch || dmeConfig;
+	voyageApiKey = section.voyageApiKey;
 	// Single source of truth: derive the bolt connection from the golden container NAME.
 	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
 	const conn = resolveContainerConnection(section.goldenContainerName);
-	if (conn.error) {
+	if (conn.error && !haveCompleteOverride) {
 		console.error(`Cannot resolve DME connection from goldenContainerName '${section.goldenContainerName}': ${conn.error}. Override with --boltUri and --password.`);
 		process.exit(1);
 	}
-	boltUri = conn.boltUri;
-	neo4jPassword = conn.password;
+	if (!conn.error) {
+		boltUri = conn.boltUri;
+		neo4jUser = conn.user;
+		neo4jPassword = conn.password;
+	}
 } catch (err) {
-	console.error('Cannot find dataModelExplorerSearch.ini. Set connection via --boltUri and --password.');
+	if (!haveCompleteOverride) {
+		console.error('Cannot find dataModelExplorerSearch.ini. Set connection via --boltUri and --password.');
+		process.exit(1);
+	}
+}
+boltUri = overrideBoltUri || boltUri;
+neo4jPassword = overridePassword || neo4jPassword;
+
+// Create embedder — key and model read from dataModelExplorerSearch.ini
+const { embeddingClient } = require('qtools-graph-forge-core');
+if (!voyageApiKey || voyageApiKey.startsWith('<!')) {
+	console.error("Missing voyageApiKey in dataModelExplorerSearch.ini [dataModelExplorerSearch]. Cannot run vector search.");
 	process.exit(1);
 }
-
-// Create embedder — config baked in at generation time
-const { embeddingClient } = require('qtools-graph-forge-core');
 const embedder = embeddingClient.create({
 	provider: 'voyage',
-	model: 'voyage-4',
+	model: 'voyage-4-large',
 	dimension: 1024,
-	apiKey: 'pa-3W7FFeGKVZ4xEN9Lh2ceXMATTpbLbK-b2nwg6TbqF3o',
+	apiKey: voyageApiKey,
 	batchSize: 20
 });
 
@@ -56,31 +78,29 @@ const values = commandLineParameters.values || {};
 const fileList = commandLineParameters.fileList || [];
 const getVal = (key) => { const arr = values[key]; return (Array.isArray(arr) && arr.length > 0) ? arr[0] : undefined; };
 
-boltUri = getVal('boltUri') || boltUri;
-neo4jPassword = getVal('password') || neo4jPassword;
-
 if (switches.search || getVal('query')) {
 	graphSearchTool.search({
-		boltUri, password: neo4jPassword, embedder,
+		boltUri, user: neo4jUser, password: neo4jPassword, embedder,
 		query: getVal('query') || fileList[0],
 		graphName: GRAPH_NAME, limit: parseInt(getVal('limit') || '10', 10)
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });
 } else if (switches.stats) {
 	graphSearchTool.stats({
-		boltUri, password: neo4jPassword, graphName: GRAPH_NAME
+		boltUri, user: neo4jUser, password: neo4jPassword, graphName: GRAPH_NAME
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });
 } else if (switches.rawCypher) {
 	graphSearchTool.rawCypher({
-		boltUri, password: neo4jPassword, query: getVal('query') || fileList[0]
+		boltUri, user: neo4jUser, password: neo4jPassword, query: getVal('query') || fileList[0],
+		limit: parseInt(getVal('limit') || '1000', 10)
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });
 } else if (switches.explore) {
 	graphSearchTool.explore({
-		boltUri, password: neo4jPassword,
+		boltUri, user: neo4jUser, password: neo4jPassword,
 		name: getVal('name') || fileList[0], graphName: GRAPH_NAME
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });
 } else if (switches.history) {
 	graphSearchTool.history({
-		boltUri, password: neo4jPassword,
+		boltUri, user: neo4jUser, password: neo4jPassword,
 		limit: parseInt(getVal('limit') || '50', 10)
 	}, (e, r) => { if (e) { console.error(e); process.exit(1); } console.log(JSON.stringify(r, null, 2)); });
 } else {

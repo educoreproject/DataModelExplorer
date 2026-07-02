@@ -1,16 +1,22 @@
-// traversal.cypher — DataModelExplorer (forge golden contract)
-// Vector: golden_vector (single unified index on :ForgedNode(embedding), COSINE, 1024-dim)
-// No fulltext index exists in the forge golden graph.
+// traversal.cypher — DataModelExplorer (forge pure-graph contract)
+// Vector: single unified index on :ForgedNode(embedding), COSINE, 1024-dim. The
+//   builder names it <graphName>_vector, so the name is DISCOVERED at runtime by
+//   the caller and passed in as $indexName — never hardcoded here.
+// No fulltext index exists in the forge graph.
 // Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
-//   DmeOptionValue, DmeSupport, DmeStandardRoot) and _source (CEDS/LIF/SIF/…).
-// Cross-standard mapping edges: SPECIFIED_MAPPING (authoritative), IMPLIED_MAPPING (inferred).
+//   DmeOptionValue, DmeSupport, DmeStandardRoot) and _source (CEDS/EdFi/LIF/…).
+// Cross-standard equivalence: elements resolve to CEDS tuples (:HubReference) via
+//   EXACT_MATCH (authored) / CLOSE_MATCH (inferred). Two elements sharing a hub are
+//   equivalent ONLY when both hops are EXACT_MATCH; any CLOSE_MATCH hop makes the
+//   pair a candidateEquivalent (conservativity). SPECIFIED_MAPPING/IMPLIED_MAPPING
+//   are retired — zero such edges exist on the pure graph.
 // Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
 //   SUBCLASS_OF, REFERENCES.
-// Updated: 2026-06-23 (forge-contract refactor)
-// Parameters: $embedding (list<float>), $limit (int), $query (string)
+// Updated: 2026-07-01 (equivalence-model rewrite + runtime index discovery)
+// Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
 
-// === Search preamble: single unified vector query over golden_vector ===
-CALL db.index.vector.queryNodes('golden_vector', $limit, $embedding) YIELD node, score
+// === Search preamble: single unified vector query over the discovered index ===
+CALL db.index.vector.queryNodes($indexName, $limit, $embedding) YIELD node, score
 WITH node, score AS vecScore, 0.0 AS ftScore
 
 // === Rank ===
@@ -80,25 +86,46 @@ CALL {
   RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role })[..10] AS referencedBy
 }
 
-// Cross-standard mapping edges (outgoing) — SPECIFIED_MAPPING + IMPLIED_MAPPING
+// CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference).
+// EXACT_MATCH = authored, CLOSE_MATCH = inferred.
 CALL {
   WITH node
-  OPTIONAL MATCH (node)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(t:ForgedNode)
+  OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
   RETURN collect({
-    toSource: t._source, toName: t.name, toId: t._id,
+    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
     mappingType: type(m), confidence: m.confidence,
-    provenanceTier: m.provenanceTier, matchPredicate: m.matchPredicate
+    provenanceTier: m.provenanceTier, matchPredicate: m.predicate
   })[..20] AS mappingsOutgoing
 }
 
-// Cross-standard mapping edges (incoming) — SPECIFIED_MAPPING + IMPLIED_MAPPING
+// Cross-standard equivalents (shared hub) — other standards' elements resolving to
+// the SAME CEDS tuple. equivalence = 'equivalent' ONLY for EXACT×EXACT; any
+// CLOSE_MATCH hop = 'candidateEquivalent' (a hypothesis, not an assertion). Both
+// hops' evidence is carried — never a fabricated combined score.
 CALL {
   WITH node
-  OPTIONAL MATCH (s:ForgedNode)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(node)
+  OPTIONAL MATCH (node)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+  WHERE other <> node
   RETURN collect({
-    fromSource: s._source, fromName: s.name, fromId: s._id,
+    otherSource: other._source, otherName: other.name, otherId: other._id,
+    hubName: hub.name, hubKey: hub.canonicalKey,
+    equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH'
+                      THEN 'equivalent' ELSE 'candidateEquivalent' END,
+    nearMatchType: type(mNear), nearConfidence: mNear.confidence, nearPredicate: mNear.predicate,
+    farMatchType: type(mFar), farConfidence: mFar.confidence, farPredicate: mFar.predicate
+  })[..20] AS crossStandardEquivalents
+}
+
+// Source elements resolving here (incoming) — when this node is a CEDS leaf, the
+// standards' elements whose tuple contains it.
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(src:ForgedNode)
+  RETURN collect({
+    fromSource: src._source, fromName: src.name, fromId: src._id,
+    hubName: hub.name, hubKey: hub.canonicalKey,
     mappingType: type(m), confidence: m.confidence,
-    provenanceTier: m.provenanceTier, matchPredicate: m.matchPredicate
+    provenanceTier: m.provenanceTier, matchPredicate: m.predicate
   })[..20] AS mappingsIncoming
 }
 
@@ -121,4 +148,5 @@ RETURN
   referencesTo,
   referencedBy,
   mappingsOutgoing,
+  crossStandardEquivalents,
   mappingsIncoming

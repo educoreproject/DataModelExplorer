@@ -7,7 +7,7 @@
 		{
 			"definition": {
 				"name": "dme_search",
-				"description": "Semantic search across ALL education data standards (CEDS, SIF, Ed-Fi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP). Uses hybrid BM25 + vector search. Returns results ranked by relevance. Accepts optional --standard parameter to scope to a single standard.",
+				"description": "Semantic vector search across ALL standards in the unified graph (the live inventory comes from dme_list_standards). Vector-only — the graph carries a single vector index on :ForgedNode(embedding) and no fulltext/BM25 index. Returns results ranked by cosine relevance. Accepts optional --standard parameter to scope to a single standard.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -120,7 +120,7 @@
 		{
 			"definition": {
 				"name": "dme_find_mappings",
-				"description": "Given a field from one standard, return its MAPS_TO counterparts in the other standard. Works bidirectionally: give a SIF field name/xpath to find CEDS mappings, or a CEDS property name/ID to find SIF mappings. Shows confidence score and whether the mapping is spec-annotated or embedding-inferred.",
+				"description": "Given an element from any standard, return the CEDS concept it maps to and its cross-standard equivalents. Each element resolves to a CEDS tuple — a HubReference, the canonical CEDS address — via EXACT_MATCH (authored crosswalk) or CLOSE_MATCH (inferred, carries a confidence score). Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (established, authored); 'candidateEquivalent' when either hop is CLOSE_MATCH (an inferred hypothesis — present it as such, never as established equivalence). Directions: 'outgoing' = this element's CEDS concept; 'equivalent'/'candidateEquivalent' = other standards' elements on the same concept; 'incoming' = when given a CEDS name, the source elements that map to it. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate = the other element's hop, viaMatchType/viaConfidence/viaPredicate = the queried element's own hop; no combined score is computed — judge from both. Every row includes the decomposed CEDS tuple (cedsTuple: domain · property · range [· value] + canonicalKey). Accepts an element name, XPath, _id, or CEDS property name/ID.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -145,7 +145,7 @@
 		{
 			"definition": {
 				"name": "dme_compare_codesets",
-				"description": "Compare allowed values (codesets) between SIF and CEDS for a concept. Shows alignment type (exact/subset/superset/partial), coverage percentage, and which values are unique to each standard. Useful for data mapping decisions.",
+				"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier CEDS hub; values from other standards on the same hub are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / null when unmatched), confidence, the CEDS value and key, and the cross-standard equivalent list. Unmatched values (matchType null) show where a codeset does not align to CEDS. It does NOT compute alignment types or coverage percentages.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -193,7 +193,7 @@
 		{
 			"definition": {
 				"name": "dme_stats",
-				"description": "Partial database statistics covering CEDS and SIF only: node counts and mapping coverage. Does NOT enumerate all loaded standards. For the authoritative list of every registered standard, use dme_list_standards instead.",
+				"description": "Whole-graph statistics across ALL loaded standards: node counts by standard (_source), node counts by universal-contract role, EXACT_MATCH/CLOSE_MATCH equivalence-edge counts, and property-tier mapping coverage. For the per-standard registry list, use dme_list_standards.",
 				"input_schema": {
 					"type": "object",
 					"properties": {},
@@ -209,7 +209,7 @@
 		{
 			"definition": {
 				"name": "dme_list_standards",
-				"description": "Authoritative inventory of every registered standard in the unified graph. Returns each standard's displayName, graphName, tier, tierName, description, toolPrefix, cliName, superLabel, and live nodeCount. Use this for any 'what standards are loaded?' or 'list all standards' question — it reads the :DmeStandard registry directly and never goes stale as new standards are added.",
+				"description": "Inventory of every standard loaded in the graph. Reads the :DmeStandardRoot passport nodes and returns each standard's source, name, standardName, description, version, sourceUrl, and live nodeCount. Use this for any 'what standards are loaded?' question — it never goes stale as new standards are forged in.",
 				"input_schema": {
 					"type": "object",
 					"properties": {},
@@ -225,7 +225,7 @@
 		{
 			"definition": {
 				"name": "dme_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. All nodes are :ForgedNode with _source property indicating standard. Use MATCH (n:ForgedNode {_source: 'StandardName'}) to scope queries. Standards: CEDS, SIF, EdFi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP. Bridge edges: MAPS_TO, ALIGNS_WITH, STRUCTURALLY_MAPS_TO.",
+				"description": "Execute raw Cypher against the unified graph. All nodes are :ForgedNode with a _source property indicating the standard (e.g. CEDS, EdFi, LIF); the inventory grows over time, so read _source rather than assuming a fixed list. Cross-standard equivalence: a source :ForgedNode connects via EXACT_MATCH (authored) or CLOSE_MATCH (inferred; carries confidence + predicate) to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements are equivalent when they resolve to the same HubReference.",
 				"input_schema": {
 					"type": "object",
 					"properties": {

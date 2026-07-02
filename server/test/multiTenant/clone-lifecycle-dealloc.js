@@ -11,6 +11,16 @@
 
 const fs = require('fs');
 const path = require('path');
+// The Voyage key comes from the established ini — never a literal in source.
+const dmeIniSection = require('qtools-config-file-processor').getConfig(
+	'dataModelExplorerSearch.ini',
+	path.join(__dirname, '../../../../configs/instanceSpecific/qbook/'),
+	{ resolve: true }
+).dataModelExplorerSearch;
+if (!dmeIniSection || !dmeIniSection.voyageApiKey || dmeIniSection.voyageApiKey.startsWith('<!')) {
+	console.error('Missing voyageApiKey in dataModelExplorerSearch.ini [dataModelExplorerSearch] — cannot run this test.');
+	process.exit(1);
+}
 const os = require('os');
 const { execSync } = require('child_process');
 
@@ -20,7 +30,7 @@ process.global = {
 			? {
 					neo4jBoltUri: 'bolt://localhost:7706', neo4jUser: 'neo4j',
 					neo4jPassword: '99d0615d205eead0ea65b3f642ffb3d5',
-					voyageApiKey: 'pa-3W7FFeGKVZ4xEN9Lh2ceXMATTpbLbK-b2nwg6TbqF3o',
+					voyageApiKey: dmeIniSection.voyageApiKey,
 			  }
 			: {},
 	xLog: { status: () => {}, error: (m) => console.error('xLog.error:', m), verbose: () => {}, result: () => {} },

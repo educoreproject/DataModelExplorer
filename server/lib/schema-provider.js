@@ -108,7 +108,7 @@ const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
 	lines.push('# EDUcore Education Standards Knowledge Graph Schema');
 	lines.push('');
 	lines.push(
-		'A forge golden property graph of education data standards on a universal contract: every node carries the :ForgedNode super-label plus a role and a _source. Standards are connected by cross-standard mapping edges (SPECIFIED_MAPPING authoritative, IMPLIED_MAPPING inferred). The exact standards inventory is whatever the live introspection below reports — it grows as new standards are forged in.',
+		'A forge property graph of education data standards on a universal contract: every node carries the :ForgedNode super-label plus a role and a _source. Cross-standard meaning is anchored on CEDS: elements resolve to CEDS tuples (:HubReference) via EXACT_MATCH (authored) and CLOSE_MATCH (inferred) edges; two elements sharing a hub are equivalent only when both hops are EXACT_MATCH, otherwise the pair is a candidate. (SPECIFIED_MAPPING/IMPLIED_MAPPING are retired — zero such edges exist.) The exact standards inventory is whatever the live introspection below reports — it grows as new standards are forged in.',
 	);
 	lines.push('');
 
@@ -161,12 +161,14 @@ Every node in the graph carries a uniform contract:
 
 ## Cross-Standard Relationships
 
-Standards are connected by two relationship types, both pointing a standard node to a CEDS hub node:
+Cross-standard meaning is anchored on CEDS. A source element connects to a **HubReference** — the canonical CEDS *tuple* (domain + property + range [+ value]), keyed by \`canonicalKey\` (the CEDS Global ID) — by one of two edge types:
 
-- **SPECIFIED_MAPPING** — spec-annotated crosswalks. Authoritative. Props: confidence, provenanceTier, cedsAnchorValue, bridgeLevel, owner. Trust these as facts.
-- **IMPLIED_MAPPING** — semantically inferred correspondences. Lower confidence. Props: confidence, matchPredicate, provenanceTier, calibrationVersion, rawScore, equivalence, method, predicateBasis, owner. Treat as hypotheses.
+- **EXACT_MATCH** — authored crosswalk. Deterministic/authoritative. Props: confidence (1.0), predicate ('exactMatch'), provenanceTier, mappingJustification, owner. Trust as fact.
+- **CLOSE_MATCH** — semantically inferred correspondence. Props: confidence (0–1), predicate ('closeMatch'), rerankScore, cosineScore, provenanceTier, mappingJustification, owner. Treat as a scored hypothesis.
 
-Cross-standard mapping edges originate from DmeProperty (and DmeOptionSet) nodes. They do NOT originate from class nodes or option values.
+Two source elements are **equivalent** when they resolve to the SAME HubReference. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER — so a match reads back as an ordinary CEDS property/value target.
+
+Match edges originate from DmeProperty (and DmeOptionSet/DmeOptionValue) source nodes and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at CEDS leaf nodes, are retired in the equivalence graph.)
 
 ## Node Structural Categories (by role)
 
@@ -196,12 +198,15 @@ RETURN r._source AS source, r.standardName AS standardName, r.version AS version
 ORDER BY source
 \`\`\`
 
-### Cross-standard mappings for a CEDS property
+### Cross-standard equivalents of an element (via the CEDS tuple)
 \`\`\`cypher
-MATCH (cp:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})
-WHERE toLower(cp.name) CONTAINS toLower($name)
-MATCH (other:ForgedNode)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(cp)
-RETURN other._source AS standard, other.name AS field, type(m) AS mappingType, m.confidence AS confidence
+MATCH (src:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+WHERE toLower(src.name) CONTAINS toLower($name)
+MATCH (hub)<-[m2:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+RETURN src._source AS fromStandard, src.name AS fromElement,
+       hub.name AS cedsConcept, hub.canonicalKey AS cedsId,
+       other._source AS equivalentStandard, other.name AS equivalentElement,
+       type(m2) AS matchType, m2.confidence AS confidence
 \`\`\`
 
 ### Codeset values for a property
@@ -218,15 +223,17 @@ OPTIONAL MATCH (c)-[:HAS_PROPERTY]->(p:ForgedNode {role: 'DmeProperty'})
 RETURN c.name AS class, collect(DISTINCT p.name) AS properties
 \`\`\`
 
-### Compare codesets across standards
+### Compare codesets across standards (equivalence model: shared CEDS value hubs)
 \`\`\`cypher
-MATCH (os:ForgedNode {role: 'DmeOptionSet'})
+MATCH (os:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
 WHERE toLower(os.name) CONTAINS toLower($name)
-OPTIONAL MATCH (os)-[m:SPECIFIED_MAPPING|IMPLIED_MAPPING]->(target:ForgedNode {role: 'DmeOptionSet'})
-OPTIONAL MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
-OPTIONAL MATCH (target)-[:HAS_VALUE]->(tv:ForgedNode {role: 'DmeOptionValue'})
-RETURN os._source AS sourceStandard, os.name AS optionSet, target._source AS targetStandard,
-       collect(DISTINCT v.name) AS sourceValues, collect(DISTINCT tv.name) AS targetValues
+MATCH (v)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH]-(tv:ForgedNode {role: 'DmeOptionValue'})
+WHERE tv._source <> v._source
+RETURN os._source AS sourceStandard, os.name AS optionSet,
+       v.name AS sourceValue, tv._source AS targetStandard, tv.name AS targetValue,
+       hub.name AS cedsValue,
+       CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH'
+            THEN 'equivalent' ELSE 'candidateEquivalent' END AS equivalence
 \`\`\`
 `;
 

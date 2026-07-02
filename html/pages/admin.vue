@@ -6,6 +6,7 @@ import { ref } from 'vue';
 
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
+import ManifestEditor from '@/components/tools/manifest-editor.vue';
 
 // Dev server selector — runtime backend override for DME (see SPEC §8).
 import { backendProfiles } from '@/config/backendProfiles';
@@ -74,6 +75,17 @@ const selectTool = (toolName) => {
 									ADD/EDIT NEW USER
 								</v-btn>
 
+								<!-- Manifest Editor tab -->
+								<v-btn
+									variant="outlined"
+									:disabled="selectedTool === 'manifest-editor'"
+									@click="selectTool('manifest-editor')"
+									prepend-icon="mdi-file-tree"
+									class="mr-2"
+								>
+									MANIFEST EDITOR
+								</v-btn>
+
 								<!-- Dev Tools tab -->
 								<v-btn
 									variant="outlined"
@@ -89,6 +101,11 @@ const selectTool = (toolName) => {
 							<v-card-text class="d-flex justify-center align-start text-subtitle-1 text-medium-emphasis tool-area">
 								<add-edit-user
 									v-if="selectedTool === 'add-edit-user'"
+								/>
+
+								<!-- Manifest Editor -->
+								<manifest-editor
+									v-else-if="selectedTool === 'manifest-editor'"
 								/>
 
 								<!-- Dev Tools: dev-server-selector -->

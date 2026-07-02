@@ -18,7 +18,7 @@
   },
   "vectorIndexes": [
     {
-      "name": "golden_vector",
+      "name": "pureGraph5_vector",
       "nodeLabel": "ForgedNode",
       "property": "embedding",
       "dimensions": 1024,
@@ -28,8 +28,13 @@
   ],
   "fulltextIndexes": [],
   "relationships": [
-    { "type": "SPECIFIED_MAPPING", "description": "Authoritative cross-standard mapping (standard-node -> CEDS hub). Props: confidence, provenanceTier, cedsAnchorValue, bridgeLevel, owner." },
-    { "type": "IMPLIED_MAPPING", "description": "Inferred cross-standard mapping (standard-node -> CEDS hub). Props: confidence, matchPredicate, provenanceTier, calibrationVersion, rawScore, equivalence, method, predicateBasis, owner." },
+    { "type": "EXACT_MATCH", "description": "Authored cross-standard mapping: source :ForgedNode -> :HubReference (the canonical CEDS tuple). Deterministic. Props: confidence (1.0), predicate ('exactMatch'), provenanceTier, mappingJustification, owner." },
+    { "type": "CLOSE_MATCH", "description": "Inferred cross-standard mapping: source :ForgedNode -> :HubReference. Props: confidence (0-1), predicate ('closeMatch'), rerankScore, cosineScore, provenanceTier, mappingJustification, owner. A scored hypothesis. Two elements are equivalent when they resolve to the same HubReference." },
+    { "type": "HAS_CEDS_DOMAIN", "description": "HubReference -> its CEDS domain class." },
+    { "type": "HAS_CEDS_PROPERTY", "description": "HubReference -> its CEDS property leaf (a :CedsProperty / role DmeProperty node)." },
+    { "type": "HAS_CEDS_RANGE", "description": "HubReference -> its CEDS range (datatype or option set)." },
+    { "type": "HAS_CEDS_VALUE", "description": "HubReference -> its CEDS option value leaf (for enumerated tuples)." },
+    { "type": "HAS_CEDS_QUALIFIER", "description": "HubReference -> a co-occurring CEDS qualifier value that distinguishes the tuple." },
     { "type": "HAS_PROPERTY", "description": "Structural: class -> property." },
     { "type": "HAS_OPTION_SET", "description": "Structural: property -> option set." },
     { "type": "HAS_VALUE", "description": "Structural: option set -> option value." },

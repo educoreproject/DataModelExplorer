@@ -37,6 +37,43 @@ const toNumber = (val) => {
 	return Number(val);
 };
 
+// =====================================================================
+// VECTOR INDEX DISCOVERY
+// =====================================================================
+//
+// The builder names the vector index <graphName>_vector (replay-engine
+// contract), so the name changes on every rebuild. It is discovered live
+// from SHOW INDEXES, cached per process, never hardcoded.
+
+let discoveredVectorIndex = null;
+
+const resolveVectorIndex = async (neo4jSession) => {
+	if (discoveredVectorIndex) return discoveredVectorIndex;
+	const result = await neo4jSession.run(
+		'SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties'
+	);
+	const candidates = result.records
+		.map(rec => ({
+			name: rec.get('name'),
+			type: rec.get('type'),
+			entityType: rec.get('entityType'),
+			labels: rec.get('labelsOrTypes') || [],
+			properties: rec.get('properties') || [],
+		}))
+		.filter(row =>
+			row.type === 'VECTOR' && row.entityType === 'NODE' &&
+			row.labels.includes('ForgedNode') && row.properties.includes('embedding')
+		);
+	if (candidates.length === 0) {
+		throw new Error('No VECTOR index on :ForgedNode(embedding) exists on this graph — vector search cannot run.');
+	}
+	if (candidates.length > 1) {
+		throw new Error(`Ambiguous VECTOR indexes on :ForgedNode(embedding): ${candidates.map(row => row.name).join(', ')} — cannot choose safely.`);
+	}
+	discoveredVectorIndex = candidates[0].name;
+	return discoveredVectorIndex;
+};
+
 const serializeNeo4jValue = (val) => {
 	if (val === null || val === undefined) return null;
 	if (typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean') return val;
@@ -69,17 +106,13 @@ const flatHybridSearch = async ({ neo4jSession, queryText, embedder, limit, sear
 	const results = new Map();
 	const limitInt = neo4j.int(limit);
 
-	// The forge golden graph carries ONE vector index — golden_vector on
-	// :ForgedNode(embedding) — and no fulltext index. There is no BM25 leg:
-	// search is a single vector query over the unified index. The single index
-	// name comes from schema.vectorIndexes[0].name (forge-correct schema) and
-	// defaults to 'golden_vector'.
-	const goldenVectorIndexName =
-		(schema && Array.isArray(schema.vectorIndexes) && schema.vectorIndexes.length > 0)
-			? schema.vectorIndexes[0].name
-			: 'golden_vector';
+	// The forge graph carries ONE vector index on :ForgedNode(embedding) and no
+	// fulltext index. There is no BM25 leg: search is a single vector query over
+	// the unified index. The index name is discovered live (SHOW INDEXES) — the
+	// stale schema-summary name is not trusted.
+	const goldenVectorIndexName = await resolveVectorIndex(neo4jSession);
 
-	// Vector search (single unified golden_vector index)
+	// Vector search (single unified vector index)
 	if (searchMode !== 'bm25' && embedder) {
 		const queryEmbedding = await embedQuery(queryText, embedder);
 
@@ -137,11 +170,15 @@ const staticTraversal = async ({ neo4jSession, queryText, embedder, traversalFil
 	// Embed query
 	const embedding = await embedQuery(queryText, embedder);
 
+	// The traversal takes the vector index name as $indexName (discovered live)
+	const indexName = await resolveVectorIndex(neo4jSession);
+
 	// Execute the complete traversal query
 	const result = await neo4jSession.run(cypher, {
 		embedding,
 		limit: neo4j.int(limit),
 		query: queryText,
+		indexName,
 	});
 
 	// Serialize results
