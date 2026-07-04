@@ -52,6 +52,15 @@ const INFRASTRUCTURE_LABELS = new Set([
 	'Organization',
 	'SerializationFormat',
 	'SpecLayer',
+	// Wave-B in-graph self-documentation (educoreForge finishers): the build passport, the manifest
+	// recipe + its blocks, per-standard definitions, the schema-term catalog, and the :GraphMeta
+	// marker every legitimately source-less node carries. Infrastructure, not standards content.
+	'GraphProvenance',
+	'GraphMeta',
+	'ManifestRecipe',
+	'RecipeBlock',
+	'StandardDefinition',
+	'SchemaView',
 ]);
 
 // Limit per-label property listing to keep schema response compact.

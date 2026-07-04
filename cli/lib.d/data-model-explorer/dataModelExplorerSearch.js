@@ -63,13 +63,18 @@ const loadConfig = () => {
 // NEO4J SESSION MANAGEMENT
 // =====================================================================
 
-const withNeo4jSession = async (config, queryFn) => {
+const withNeo4jSession = async (config, queryFn, { readOnly = false } = {}) => {
 	const driver = neo4j.driver(
 		config.neo4jBoltUri,
 		neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
 		{ encrypted: false }
 	);
-	const session = driver.session();
+	// Wave B carry-forward (CRIMSON gate 7): new query types are born READ-ONLY — the session itself
+	// refuses writes, not just the query text. Existing verbs keep their prior behavior (the deferred
+	// C2 read-only migration is a separate item, not silently changed here).
+	const session = readOnly
+		? driver.session({ defaultAccessMode: neo4j.session.READ })
+		: driver.session();
 
 	try {
 		return await queryFn(session);
@@ -648,6 +653,8 @@ const search = async (queryType, params, callback) => {
 	}
 
 	try {
+		// Wave B (CRIMSON gate 7): describeGraph runs in a READ-ONLY session from birth.
+		const READ_ONLY_QUERY_TYPES = ['describeGraph'];
 		const result = await withNeo4jSession(config, async (session) => {
 			switch (queryType) {
 				case 'search': return hybridSearch(session, params.query, config, params);
@@ -660,9 +667,13 @@ const search = async (queryType, params, callback) => {
 				case 'rawCypher': return rawCypher(session, params.query);
 				case 'explore': return exploreNode(session, params);
 				case 'history': return historyEvents(session, params);
+				case 'describeGraph': {
+					const { describeGraph } = require('./lib/describeGraph');
+					return describeGraph(session, params);
+				}
 				default: return { error: `Unknown query type: ${queryType}` };
 			}
-		});
+		}, { readOnly: READ_ONLY_QUERY_TYPES.indexOf(queryType) !== -1 });
 
 		if (callback) return callback(null, result);
 		return result;
@@ -718,6 +729,9 @@ if (require.main === module) {
 		params.limit = flags.limit || '50';
 	} else if (flags.stats) {
 		queryType = 'stats';
+	} else if (flags.describeGraph) {
+		queryType = 'describeGraph';
+		if (flags.limit) params.limit = flags.limit;
 	} else if (flags.listStandards) {
 		queryType = 'listStandards';
 	} else if (flags.graphRetriever) {
@@ -740,6 +754,7 @@ if (require.main === module) {
   ${moduleName} -unmappedFields [--limit=50]
   ${moduleName} -stats
   ${moduleName} -listStandards
+  ${moduleName} -describeGraph [--limit=200]     (the graph card: passport, recipe, lineage, per-standard definitions)
   ${moduleName} -rawCypher --query="CYPHER"
 `);
 		process.exit(0);

@@ -13,7 +13,7 @@ const commandLineParameters = commandLineParser.getParameters();
 
 const { graphSearchTool } = require('qtools-graph-forge-core');
 
-const GRAPH_NAME = 'EduApi';
+const GRAPH_NAME = 'EduAPI';
 
 // Load DME config to get connection info
 const hostname = os.hostname();

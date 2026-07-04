@@ -120,7 +120,7 @@
 		{
 			"definition": {
 				"name": "dme_find_mappings",
-				"description": "Given an element from any standard, return the CEDS concept it maps to and its cross-standard equivalents. Each element resolves to a CEDS tuple — a HubReference, the canonical CEDS address — via EXACT_MATCH (authored crosswalk) or CLOSE_MATCH (inferred, carries a confidence score). Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (established, authored); 'candidateEquivalent' when either hop is CLOSE_MATCH (an inferred hypothesis — present it as such, never as established equivalence). Directions: 'outgoing' = this element's CEDS concept; 'equivalent'/'candidateEquivalent' = other standards' elements on the same concept; 'incoming' = when given a CEDS name, the source elements that map to it. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate = the other element's hop, viaMatchType/viaConfidence/viaPredicate = the queried element's own hop; no combined score is computed — judge from both. Every row includes the decomposed CEDS tuple (cedsTuple: domain · property · range [· value] + canonicalKey). Accepts an element name, XPath, _id, or CEDS property name/ID.",
+				"description": "Given an element from any standard, return the CEDS concept it maps to and its cross-standard equivalents. Each element resolves to a CEDS tuple — a HubReference, the canonical CEDS address — via EXACT_MATCH (authored crosswalk) or CLOSE_MATCH (inferred, carries a confidence score). Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (established, authored); 'candidateEquivalent' when either hop is CLOSE_MATCH (an inferred hypothesis — present it as such, never as established equivalence). Directions: 'outgoing' = this element's CEDS concept; 'equivalent'/'candidateEquivalent' = other standards' elements on the same concept; 'incoming' = when given a CEDS name, the source elements that map to it. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate = the other element's hop, viaMatchType/viaConfidence/viaPredicate = the queried element's own hop; no combined score is computed — judge from both. Every row includes the decomposed CEDS tuple (cedsTuple: domain · property · range [· value] + canonicalKey). Accepts an element name, XPath, _id, or CEDS property name/ID. CLASSIFICATION_CROSSWALK edges are deliberately excluded from this tool's equivalence results: a crosswalk correspondence is not a mapping.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -224,8 +224,31 @@
 		},
 		{
 			"definition": {
+				"name": "dme_describe_graph",
+				"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the enriched :GraphProvenance passport (build facts, capability flags, per-standard breakdown, human description), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with versions and purposes), the manifest ancestry (BASED_ON lineage), and one :StandardDefinition per standard (display name, version + versionSource, source format, element counts, mapping disposition authored/inferred/island). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. Degrades honestly on graphs built before self-documentation (says what is absent). Read-only.",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"limit": {
+							"type": "integer",
+							"description": "Maximum recipe blocks to include in the card (default 200; truncation is reported)"
+						}
+					},
+					"required": []
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -describeGraph",
+				"positionalArgs": [],
+				"flagArgs": {
+					"limit": "--limit"
+				}
+			}
+		},
+		{
+			"definition": {
 				"name": "dme_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. All nodes are :ForgedNode with a _source property indicating the standard (e.g. CEDS, EdFi, LIF); the inventory grows over time, so read _source rather than assuming a fixed list. Cross-standard equivalence: a source :ForgedNode connects via EXACT_MATCH (authored) or CLOSE_MATCH (inferred; carries confidence + predicate) to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements are equivalent when they resolve to the same HubReference.",
+				"description": "Execute raw Cypher against the unified graph. All nodes are :ForgedNode with a _source property indicating the standard (e.g. CEDS, EdFi, LIF); the inventory grows over time, so read _source rather than assuming a fixed list. Cross-standard equivalence: a source :ForgedNode connects via EXACT_MATCH (authored) or CLOSE_MATCH (inferred; carries confidence + predicate) to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements are equivalent when they resolve to the same HubReference. SOC and CIP are additionally linked by CLASSIFICATION_CROSSWALK edges (NCES crosswalk; spec-authoritative; NOT equivalence — never compose them with EXACT_MATCH/CLOSE_MATCH hub resolutions).",
 				"input_schema": {
 					"type": "object",
 					"properties": {
