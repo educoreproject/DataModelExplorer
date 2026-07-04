@@ -46,6 +46,7 @@ const graphStore = useGraphStore();
 // inferred (candidate) mappings with confidence, codeset alignment, and the
 // honestly-unmapped islands. The canonical component takes them via prop.
 const cedsExamplePrompts = [
+	'Describe this graph from its self-documentation: identity, provenance, and the recipe it was built from. Then list every standard it currently contains with element counts and mapping statistics.',
 	'Compare how SIF and Ed-Fi model grade level — show the CEDS concept each maps to.',
 	'How do the different standards represent a student’s English learner status?',
 	'Show me the codeset for exit reasons in SEDM and what CEDS values they align to.',
@@ -134,14 +135,14 @@ const fallbackPromptOptions = [
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						<strong>Data Model Explorer is still in development.</strong> Connections between standards elements, mappings, come in two types, specified (those that are written in the model) and implied (those we calculate). The latter have a confidence value. We are working on a new implied mapping algorithm that we think will be much better.
+						<strong>The mapping layer has been rebuilt.</strong> Every cross-standard connection now resolves to a full CEDS <em>tuple</em> &mdash; domain class &middot; property &middot; range, down to the individual code value &mdash; instead of a bare element reference. Authored mappings (written into the standards themselves) and inferred mappings (calculated, with a calibrated confidence) both land on the same tuples, so they can be compared honestly. Ask about anything and the answer will tell you which kind of evidence it rests on.
 					</p>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
-					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/16/26):</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. Currently supported standards (as of 7/4/26):</p>
 					<ul style="margin: 0.8em 0 0.8em 1.5em;">
-						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
+						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology; the semantic hub)</li>
 						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
 						<li><strong>LIF</strong> &mdash; Learner Information Framework (OpenAPI)</li>
 						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
@@ -149,30 +150,34 @@ const fallbackPromptOptions = [
 						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
 						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
 						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
-						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
-						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
-						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
+						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (1EdTech)</li>
+						<li><strong>Open Badges</strong> &mdash; digital credential specification (1EdTech)</li>
 						<li><strong>CASE</strong> &mdash; Competencies and Academic Standards Exchange (1EdTech)</li>
+						<li><strong>Edu-API</strong> &mdash; higher-education data API (1EdTech)</li>
+						<li><strong>MedBiquitous</strong> &mdash; health-professions education standards</li>
+						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
 						<li><strong>SOC</strong> &mdash; Standard Occupational Classification (BLS)</li>
 						<li><strong>DCTAP</strong> &mdash; Dublin Core Tabular Application Profile (meta-vocabulary for application profiles)</li>
 					</ul>
-					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
-					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
+					<p style="font-style: italic;">For the most current list, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
-					<p>All standards in the graph are connected to CEDS &mdash; the common semantic backbone &mdash; through a multi-phase bridge-building process. The bridge builder creates cross-standard edges using a combination of authoritative annotations, semantic inference, and structural analysis:</p>
+					<p>Cross-standard meaning is anchored on CEDS &mdash; the common semantic backbone. Every mapped element resolves to a <strong>CEDS tuple</strong>: the domain class, the property, its range, and (where it matters) the individual code value. Two elements from different standards that resolve to the same tuple are talking about the same thing &mdash; and the graph is careful about how confidently it says so:</p>
 
-					<h4 style="margin-top: 1em;">Phase 1 &mdash; Spec-Annotation MAPS_TO <span style="color: #888;">(confidence=1.0)</span></h4>
-					<p>Some standards include explicit CEDS references in their specifications &mdash; field-level annotations that identify the corresponding CEDS element by Global ID. These are authoritative mappings decided by each standard's governance body. When present, the builder creates high-confidence MAPS_TO edges directly to the matching CEDS property.</p>
+					<h4 style="margin-top: 1em;">Authored mappings &mdash; EXACT_MATCH <span style="color: #888;">(confidence 1.0, spec-authoritative)</span></h4>
+					<p>Some standards publish explicit CEDS references in their own specifications &mdash; decisions made by each standard's governance body. These become authored EXACT_MATCH edges: the strongest evidence in the graph.</p>
 
-					<h4 style="margin-top: 1em;">Phase 2 &mdash; Embedding-Inferred MAPS_TO <span style="color: #888;">(confidence=cosine score)</span></h4>
-					<p>For fields without explicit annotations, the builder uses vector embeddings to find semantically similar CEDS properties. Each field's description is compared against the CEDS vector index using cosine similarity. Matches above 0.6 create provisional MAPS_TO edges, with up to 3 candidates per field. This is how standards without built-in CEDS references still get connected to the common backbone.</p>
+					<h4 style="margin-top: 1em;">Inferred mappings &mdash; CLOSE_MATCH <span style="color: #888;">(calibrated confidence + SKOS predicate)</span></h4>
+					<p>Where no authored mapping exists, candidates are inferred: semantic retrieval over element definitions, adjudicated one-by-one with the option to decline &mdash; an element with no good match is honestly left unmapped rather than force-fit. Each accepted candidate carries a calibrated confidence and a SKOS relationship type. <strong>Inferred matches now resolve to the same full CEDS tuples as authored ones</strong> &mdash; an upgrade from the earlier leaf-node approach &mdash; so a hypothesis and an authored fact can be compared slot for slot.</p>
 
-					<h4 style="margin-top: 1em;">Phase 3 &mdash; ALIGNS_WITH <span style="color: #888;">(codeset comparison)</span></h4>
-					<p>When a mapped field and its corresponding CEDS property both have value lists (codesets or enumerations), the builder compares them: exact match, subset, superset, partial overlap, or disjoint. The edge records alignment type and coverage percentage. This answers questions like &ldquo;does this standard's grade level codeset match CEDS's?&rdquo;</p>
+					<h4 style="margin-top: 1em;">Equivalence is conservative</h4>
+					<p>Two elements are reported as <em>equivalent</em> only when <strong>both</strong> resolve to the same tuple by authored EXACT_MATCH. If either side is inferred, the pair is presented as a <em>candidate</em> equivalence &mdash; a promising hypothesis with its evidence shown, never dressed up as established fact.</p>
 
-					<h4 style="margin-top: 1em;">Phase 4 &mdash; STRUCTURALLY_MAPS_TO <span style="color: #888;">(class-level inference)</span></h4>
-					<p>Standards often define complex types (Address, Demographics, Person) that are structural analogs to CEDS classes. The builder aggregates field-level MAPS_TO edges and asks: &ldquo;If most fields inside complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; This enables class-level questions like &ldquo;which CEDS class corresponds to this standard's Person structure?&rdquo;</p>
+					<h4 style="margin-top: 1em;">Classification crosswalks are not equivalence</h4>
+					<p>Some connections express relatedness rather than sameness: the CIP&rarr;SOC crosswalk records which occupations an instructional program prepares graduates for, straight from the published federal table. These edges never mix with the equivalence machinery, and the Explorer will say so if you ask.</p>
+
+					<h4 style="margin-top: 1em;">The graph documents itself</h4>
+					<p>Ask &ldquo;What is this graph, how was it built, and what can it do?&rdquo; and the Explorer reads the answer from the graph's own build records &mdash; the standards loaded, their versions, the recipe it was assembled from, and what each standard's mapping coverage looks like.</p>
 				</template>
 			</EdunatorPanel>
 	</div>

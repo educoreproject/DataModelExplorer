@@ -42,6 +42,25 @@ export const useBackendProfile = () => {
 		}
 	}
 
+	// Cookieless safety default: a page served from localhost talks to the LOCAL
+	// backend, never silently to production. A dev browser with no local server
+	// then fails loud (connection refused) rather than quietly serving prod data.
+	// The explicit cookie still wins (handled above); the production domain is
+	// unaffected (onProdDomain short-circuits before this point).
+	const localHosts = ['localhost', '127.0.0.1', '::1'];
+	const onLocalhost = typeof window !== 'undefined'
+		&& localHosts.includes(window.location.hostname);
+
+	if (onLocalhost && backendProfiles.qbook) {
+		return {
+			source: 'localhost',
+			name: 'qbook',
+			label: backendProfiles.qbook.label,
+			wsHost: backendProfiles.qbook.wsHost,
+			apiBase: backendProfiles.qbook.apiBase,
+		};
+	}
+
 	const defaultHost = rc.wsHost || (typeof window !== 'undefined' ? window.location.host : 'unknown');
 	return {
 		source: 'default',

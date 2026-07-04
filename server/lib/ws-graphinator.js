@@ -21,6 +21,15 @@ const moduleFunction = ({ server }) => {
 		? path.dirname(process.global.configurationSourceFilePath)
 		: undefined;
 
+	// Spawn the repo's OWN askMilo, never a PATH-resolved one. A bare 'askMilo'
+	// resolves through /usr/local/bin, which on a dev machine can point at a
+	// different project's copy (with its own config and toolset) — the app then
+	// answers from the wrong prompt and wrong tools. Quoted for shell:true.
+	const askMiloCommand = `"${process.execPath}" "${path.resolve(
+		__dirname,
+		'../data-model/lib/ask-milo-multitool/askMilo.js',
+	)}"`;
+
 	// noServer: true — upgrade routing handled centrally in startApiServer.js
 	// to avoid conflicts when multiple WebSocketServer instances share one HTTP server.
 	const wss = new WebSocketServer({ noServer: true });
@@ -66,7 +75,7 @@ const moduleFunction = ({ server }) => {
 	// Spawns askMilo -getDefaults (reads ini, discovers providers, exits).
 	// Includes toolsByRole from [explorerToolsByRole] config section.
 	const sendConfigDefaults = (ws) => {
-		const child = spawn('askMilo', [], { shell: true, env: process.env });
+		const child = spawn(askMiloCommand, [], { shell: true, env: process.env });
 		let stdout = '';
 		const defaultsInput = { switches: { getDefaults: true }, values: {}, fileList: [] };
 		if (askMiloConfigPath) { defaultsInput.values.configPath = [askMiloConfigPath]; }
@@ -256,7 +265,7 @@ const moduleFunction = ({ server }) => {
 				xLog.status(`[ws-graphinator] QUERY model=${modelInfo} prompt=${promptInfo} perspectives=${perspectivesInfo} ${sessionInfo}`);
 				xLog.status(`[ws-graphinator] QUERY text: ${queryPreview}`);
 
-				const child = spawn('askMilo', [], {
+				const child = spawn(askMiloCommand, [], {
 					shell: true,
 					env: { ...process.env, ...askmiloUserEnv },
 				});
