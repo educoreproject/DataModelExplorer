@@ -28,8 +28,17 @@ const devDeploymentMap: Record<string, { deployment: string; wsHost: string; api
   // Add additional dev hostnames here (e.g., Brandon's machine) as needed.
 };
 
+// In production the host fields default to empty (client falls back to
+// window.location.host — nginx routes /api and /ws). On platforms without a
+// co-located backend (e.g. Vercel), set NUXT_PUBLIC_API_BASE / NUXT_PUBLIC_WS_HOST
+// in the build environment to point the SPA at an absolute backend origin.
+// These are read at build time during `nuxt generate` and baked into the bundle.
 const deploymentProfile = isProdBuild
-  ? { deployment: 'production', wsHost: '', apiBase: '' }
+  ? {
+      deployment: process.env.NUXT_PUBLIC_DEPLOYMENT || 'production',
+      wsHost: process.env.NUXT_PUBLIC_WS_HOST || '',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '',
+    }
   : devDeploymentMap[hostname] || {
       deployment: `dev-${hostname}`,
       wsHost: 'educore.tqtmp.org',
