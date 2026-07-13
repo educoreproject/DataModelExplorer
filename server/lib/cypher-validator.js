@@ -28,6 +28,22 @@ const blockedKeywords = [
 	'FOREACH',
 ];
 
+// CALL is allowlist-gated, not keyword-blocked: only these read-only
+// introspection/index procedures may be invoked. Everything else —
+// apoc.*, dbms.*, db.createIndex, and CALL { } subqueries — is rejected.
+// The askMilo graph tools do NOT pass through this validator (they hold
+// their own bolt connection), so this list serves the HTTP/MCP/Slack seam only.
+const allowedCallProcedures = [
+	'db.labels',
+	'db.relationshipTypes',
+	'db.propertyKeys',
+	'db.schema.visualization',
+	'db.schema.nodeTypeProperties',
+	'db.schema.relTypeProperties',
+	'db.index.vector.queryNodes',
+	'db.index.fulltext.queryNodes',
+];
+
 const stripStringLiterals = (cypher) => {
 	// Remove single-quoted and double-quoted string literals to prevent
 	// false positives on keywords inside strings like WHERE n.name = 'CREATE'
@@ -61,6 +77,32 @@ const validateReadOnly = (cypherString) => {
 			valid: false,
 			reason: `Write operations are not permitted: ${violations.join(', ')}`,
 		};
+	}
+
+	// CALL gating: every CALL must name an allowlisted procedure. A CALL
+	// followed by anything other than an allowlisted procedure name — a
+	// subquery brace, apoc.*, dbms.*, an unknown procedure — is rejected.
+	const callPattern = /\bCALL\b\s*([a-zA-Z0-9_.]*)/gi;
+	let callMatch;
+	while ((callMatch = callPattern.exec(stripped)) !== null) {
+		const procedureName = callMatch[1].toLowerCase();
+
+		if (!procedureName) {
+			return {
+				valid: false,
+				reason: 'CALL subqueries are not permitted',
+			};
+		}
+
+		const isAllowed = allowedCallProcedures.some(
+			(allowed) => allowed.toLowerCase() === procedureName,
+		);
+		if (!isAllowed) {
+			return {
+				valid: false,
+				reason: `CALL to procedure '${callMatch[1]}' is not permitted. Allowed procedures: ${allowedCallProcedures.join(', ')}`,
+			};
+		}
 	}
 
 	return { valid: true };

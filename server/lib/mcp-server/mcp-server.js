@@ -220,11 +220,36 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	};
 
 	// ================================================================================
+	// SEC-2 GATE (2026-07-13, DME/Slack plan v3 task 1.9, DAWN_RIVER ruling)
+	//
+	// The MCP surface is internal-only: x-dme-internal-secret header + loopback
+	// origin + no forwarding header (dme-internal-auth.js). Local MCP clients
+	// (.mcp.json → http://localhost:<apiPort>/mcp) add the header; anything
+	// arriving through nginx carries forwarding headers and is rejected.
+
+	const { resolveInternalAuth } = require('../dme-internal-auth');
+
+	const internalOnly = (handler) => (req, res) => {
+		const { internalAuthSecret } =
+			getConfig('dmeUserGraphInternalAuth') || {};
+		const authDecision = resolveInternalAuth({
+			xReq: req,
+			configuredSecret: internalAuthSecret,
+		});
+		if (!authDecision.internal) {
+			xLog.error(`MCP SEC-2 reject: ${authDecision.reason}`);
+			res.status(401).send('unauthorized');
+			return;
+		}
+		handler(req, res);
+	};
+
+	// ================================================================================
 	// MOUNT ON EXPRESS
 
-	expressApp.post(mcpPath, mcpPostHandler);
-	expressApp.get(mcpPath, mcpGetHandler);
-	expressApp.delete(mcpPath, mcpDeleteHandler);
+	expressApp.post(mcpPath, internalOnly(mcpPostHandler));
+	expressApp.get(mcpPath, internalOnly(mcpGetHandler));
+	expressApp.delete(mcpPath, internalOnly(mcpDeleteHandler));
 
 	xLog.status(`MCP server: mounted at ${mcpPath} (Streamable HTTP)`);
 };

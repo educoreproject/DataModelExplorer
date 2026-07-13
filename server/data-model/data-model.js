@@ -214,7 +214,17 @@ const moduleFunction =
 				next('', { ...args, neo4jDb: null });
 				return;
 			}
-			const neo4jConfig = { neo4jBoltUri: conn.boltUri, neo4jUser: conn.user, neo4jPassword: conn.password };
+			// The golden DME connection is the hardened READ seam: sessions open in
+			// READ mode and auto-commit transactions carry a wall-clock timeout
+			// (dataModelExplorerSearch queryTimeoutMs, default 30s). Writes to the
+			// golden graph go through runTransaction, which this does not affect.
+			const neo4jConfig = {
+				neo4jBoltUri: conn.boltUri,
+				neo4jUser: conn.user,
+				neo4jPassword: conn.password,
+				readOnly: true,
+				queryTimeoutMs: parseInt(dmeCfg.queryTimeoutMs, 10) || 30000,
+			};
 
 			const neo4jGen = require('./lib/neo4j-instance/neo4j-instance')({ unused: true });
 
@@ -229,6 +239,45 @@ const moduleFunction =
 			};
 
 			neo4jGen.initDatabaseInstance(neo4jConfig, localCallback);
+		});
+
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 3.7: SLACK INSTANCE CREATION (DME/Slack Q&A bridge)
+		//
+		// EXPLANATION: Initializes the Slack driver when the instance carries a
+		// dmeSlack config section (merged from dmeSlack.ini via startApiServer.ini
+		// [_mergeBefore] on instances that have one). Instances without the config
+		// boot Slack-free: slackAccess arrives null and the endpoints answer 503.
+		// Credential values live only inside the driver — never in logs.
+
+		taskList.push((args, next) => {
+			const { dataModelLogInfoList } = args;
+
+			const slackCfg = getConfig('dmeSlack');
+
+			if (!slackCfg || !slackCfg.signingSecret || !slackCfg.botToken) {
+				xLog.status(
+					'slack-instance: no dmeSlack config found — Slack surface disabled',
+				);
+				next('', { ...args, slackAccess: null });
+				return;
+			}
+
+			const slackGen = require('./lib/slack-instance/slack-instance')({
+				unused: true,
+			});
+
+			const localCallback = (err, slackAccess) => {
+				if (err) {
+					xLog.error(`slack-instance initialization failed: ${err}`);
+					next('', { ...args, slackAccess: null });
+					return;
+				}
+				dataModelLogInfoList.push('Slack driver initialized (dmeSlack)');
+				next('', { ...args, slackAccess, dataModelLogInfoList });
+			};
+
+			slackGen.initSlackInstance(slackCfg, localCallback);
 		});
 
 		// --------------------------------------------------------------------------------
@@ -254,7 +303,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess']),
 				localCallback,
 			);
 		});
@@ -275,7 +324,7 @@ const moduleFunction =
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, dataMapping } = args;
+			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, dataMapping, slackAccess } = args;
 			// Multi-tenant (07): start the orphan-session reaper daemon — periodically
 			// reclaim abandoned per-user containers + clone dirs (lease expired) and clear
 			// their leases; the durable stateScript is untouched. Non-fatal if unavailable.
@@ -286,7 +335,7 @@ const moduleFunction =
 					if (process.global.xLog) process.global.xLog.error(`[reaper] start failed: ${e.message}`);
 				}
 			}
-			callback(err, { accessPointsDotD, dataModelLogInfoList });
+			callback(err, { accessPointsDotD, dataModelLogInfoList, slackAccess });
 		});
 	};
 

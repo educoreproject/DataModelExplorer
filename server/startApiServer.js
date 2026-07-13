@@ -131,7 +131,19 @@ const moduleFunction =
 			methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		}));
 
-		expressApp.use(bodyParser.json({ extended: true })); //https://stackabuse.com/get-http-post-body-in-express-js/
+		// rawBodyCapture retains the exact request bytes on xReq.rawBody — the
+		// Slack signing-secret HMAC (v0 scheme) must be computed over the raw
+		// bytes, which body-parser otherwise discards. The urlencoded parser is
+		// mounted because Slack slash commands arrive
+		// application/x-www-form-urlencoded; both parsers are content-type gated,
+		// so existing JSON endpoints are untouched.
+		const rawBodyCapture = (xReq, xRes, buf) => {
+			xReq.rawBody = buf;
+		};
+		expressApp.use(bodyParser.json({ extended: true, verify: rawBodyCapture })); //https://stackabuse.com/get-http-post-body-in-express-js/
+		expressApp.use(
+			bodyParser.urlencoded({ extended: true, verify: rawBodyCapture }),
+		);
 
 		// --------------------------------------------------------------------------------
 		//STATIC ENDPOINTS
@@ -169,14 +181,14 @@ const moduleFunction =
 		taskList.push((args, next) => {
 			const localCallback = (
 				err,
-				{ accessPointsDotD, dataModelLogInfoList },
+				{ accessPointsDotD, dataModelLogInfoList, slackAccess },
 			) => {
 				if (err) {
 					next(err, args); //next('skipRestOfPipe', args);
 					return;
 				}
 
-				next('', { ...args, accessPointsDotD, dataModelLogInfoList });
+				next('', { ...args, accessPointsDotD, dataModelLogInfoList, slackAccess });
 			};
 
 			require('./data-model')(
@@ -280,6 +292,7 @@ const moduleFunction =
 					'expressApp',
 					'accessTokenHeaderTools',
 					'accessPointsDotD',
+					'slackAccess',
 				]),
 				localCallback,
 			);
