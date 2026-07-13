@@ -35,14 +35,30 @@ export const standards: Standard[] = [
 	},
 	// Competency Frameworks
 	{
-		name: 'CTDL (Credential Transparency Description Language)',
+		name: 'CTDL-ASN (Achievement Standards Network)',
 		organization: 'Credential Engine',
 		category: 'Competency Frameworks',
 		burden: 'Low',
 		status: 'Active',
-		description: 'A linked open data schema for describing credentials, competencies, and pathways in a machine-readable format.',
+		description: 'The competency schema in the CTDL family, covering competencies, competency frameworks, rubrics, concept schemes, and progression models as linked open data.',
 	},
 	// Credential Transparency
+	{
+		name: 'CTDL (Credential Transparency Description Language)',
+		organization: 'Credential Engine',
+		category: 'Credential Transparency',
+		burden: 'Low',
+		status: 'Active',
+		description: 'A family of three interoperable linked open data schemas (CTDL, CTDL-ASN, CTDL QData) for describing and linking structured, discoverable data across learning and work ecosystems — credentials, organizations, competencies, learning opportunities, pathways, and outcome metrics.',
+	},
+	{
+		name: 'CTDL QData (Quantitative Data)',
+		organization: 'Credential Engine',
+		category: 'Credential Transparency',
+		burden: 'Low',
+		status: 'Active',
+		description: 'The quantitative data schema in the CTDL family, describing outcome and projection metrics such as employment, earnings, and completion measures linked to credentials and organizations.',
+	},
 	{
 		name: 'PESC (Postsecondary Electronic Standards Council)',
 		organization: 'PESC',
