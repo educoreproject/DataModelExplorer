@@ -55,7 +55,12 @@ const moduleFunction =
 				}
 
 				try {
-					const authclaims = jwt.verify(token, secret);
+					// Pin HS256 explicitly (dmeMcpOAuth Phase 1, resolves C6 for the
+					// website path). All website tokens are HS256 (jwt.sign default,
+					// see refreshauthtoken), so this only REJECTS non-HS256 tokens —
+					// e.g. an RS256 MCP access token can never authenticate a website
+					// session (the audience firewall, enforced by algorithm+key type).
+					const authclaims = jwt.verify(token, secret, { algorithms: ['HS256'] });
 					xReq.appValueSetter('authclaims', authclaims);
 					next('', { ...args, authclaims });
 				} catch (err) {

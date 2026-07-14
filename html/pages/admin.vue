@@ -7,6 +7,7 @@ import { ref } from 'vue';
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
 import ManifestEditor from '@/components/tools/manifest-editor.vue';
+import OauthAdmin from '@/components/tools/oauth-admin.vue';
 
 // Dev server selector — runtime backend override for DME (see SPEC §8).
 import { backendProfiles } from '@/config/backendProfiles';
@@ -86,6 +87,17 @@ const selectTool = (toolName) => {
 									MANIFEST EDITOR
 								</v-btn>
 
+								<!-- OAuth Access tab (dmeMcpOAuth Phase 4) -->
+								<v-btn
+									variant="outlined"
+									:disabled="selectedTool === 'oauth-admin'"
+									@click="selectTool('oauth-admin')"
+									prepend-icon="mdi-key-chain"
+									class="mr-2"
+								>
+									OAUTH ACCESS
+								</v-btn>
+
 								<!-- Dev Tools tab -->
 								<v-btn
 									variant="outlined"
@@ -106,6 +118,11 @@ const selectTool = (toolName) => {
 								<!-- Manifest Editor -->
 								<manifest-editor
 									v-else-if="selectedTool === 'manifest-editor'"
+								/>
+
+								<!-- OAuth Access (connections / revoke / clients / audit) -->
+								<oauth-admin
+									v-else-if="selectedTool === 'oauth-admin'"
 								/>
 
 								<!-- Dev Tools: dev-server-selector -->

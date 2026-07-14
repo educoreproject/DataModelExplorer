@@ -96,6 +96,17 @@ const moduleFunction =
 
 		const expressApp = express();
 
+		// dmeMcpOAuth Phase 2 (Gate-2 MED-1 fix): trust EXACTLY ONE proxy hop — the
+		// single nginx in front (which appends the real client via
+		// $proxy_add_x_forwarded_for). This makes req.ip resolve to the real client
+		// instead of collapsing to nginx's 127.0.0.1, so the OAuth per-IP login
+		// throttle, DCR rate-limit, and audit IP are per-real-client. NOT `true`
+		// (which would trust a spoofable client-supplied XFF); with exactly 1,
+		// Express takes the rightmost XFF entry — the address nginx itself appended,
+		// which a client cannot forge. The /mcp loopback gate is unaffected: it keys
+		// on xReq.socket.remoteAddress + a forwarding-header check, not req.ip.
+		expressApp.set('trust proxy', 1);
+
 		expressApp.use((xReq, xRes, next) => {
 			if (suppressPictureRequestLogging && xReq.path.match(/\/api\/image\//)) {
 				next();
@@ -181,14 +192,15 @@ const moduleFunction =
 		taskList.push((args, next) => {
 			const localCallback = (
 				err,
-				{ accessPointsDotD, dataModelLogInfoList, slackAccess },
+				{ accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb },
 			) => {
 				if (err) {
 					next(err, args); //next('skipRestOfPipe', args);
 					return;
 				}
 
-				next('', { ...args, accessPointsDotD, dataModelLogInfoList, slackAccess });
+				// dmeMcpOAuth Phase 2: forward sqlDb for the Authorization Server mount.
+				next('', { ...args, accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb });
 			};
 
 			require('./data-model')(
@@ -225,7 +237,29 @@ const moduleFunction =
 				next();
 			});
 
+			// dmeMcpOAuth Phase 3 (DAWN_RIVER-authorized 2026-07-14): the OAuth-owned
+			// surfaces authenticate with their own machinery — the RS256 bearer gate
+			// on /mcp and the OIDC provider on /oauth/* and the oauth well-knowns —
+			// and every one of them fails closed. hasValidToken would 401 any
+			// non-HS256 Authorization header before those gates could run, and
+			// refreshauthtoken would stamp website auth headers on their responses.
+			// POSITIVE ALLOWLIST of exact paths (plus the /oauth/ prefix) — nothing
+			// broader. Website endpoints are unaffected: an RS256 token presented at
+			// /api/* still 401s (HS256 pin + audience firewall intact).
+			const OAUTH_OWNED_EXACT_PATHS = [
+				'/mcp',
+				'/.well-known/openid-configuration',
+				'/.well-known/oauth-authorization-server',
+				'/.well-known/oauth-protected-resource',
+			];
+			const isOauthOwnedPath = (path) =>
+				OAUTH_OWNED_EXACT_PATHS.includes(path) || path.startsWith('/oauth/');
+
 			expressApp.use((xReq, xRes, next) => {
+				if (isOauthOwnedPath(xReq.path)) {
+					next();
+					return;
+				}
 				const localCallback = (err) => {
 					if (err) {
 						xRes.status(401).send(`Bad Request ${err.toString()}`);
@@ -237,6 +271,10 @@ const moduleFunction =
 			});
 
 			expressApp.use((xReq, xRes, next) => {
+				if (isOauthOwnedPath(xReq.path)) {
+					next();
+					return;
+				}
 				accessTokenHeaderTools.refreshauthtoken({ xReq, xRes }, next); //updated by endpoint, if needed, eg, login
 			});
 
@@ -307,7 +345,7 @@ const moduleFunction =
 
 		const initialData = { expressApp };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList } = args;
+			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb } = args;
 
 			if (err) {
 				xLog.error(
@@ -332,6 +370,17 @@ ${err.toString()}
 
 			// MCP server for AI agent access to the knowledge graph
 			require('./lib/mcp-server/mcp-server')({ expressApp, accessPointsDotD });
+
+			// dmeMcpOAuth Phase 2: the EDUcore OIDC/OAuth 2.1 Authorization Server.
+			// Mounts /oauth/* + the root well-known docs on this same Express app
+			// (nginx routes those paths here). Additive — the /mcp loopback path and
+			// every existing route are untouched.
+			require('./lib/oauth-server')({ expressApp, accessPointsDotD, sqlDb });
+
+			// askMilo utility endpoint (public AI relay — prompt in, response out).
+			// sqlDb is injected for the spend-cap ledger (askmiloUtilitySpend);
+			// registered here (inside the pipeline callback) so sqlDb is in scope.
+			require('./lib/askmilo-utility')({ expressApp, sqlDb });
 
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
@@ -370,9 +419,6 @@ ${err.toString()}
 			}
 			process.exit(1);
 		});
-
-		// askMilo utility endpoint (simple AI relay — prompt in, response out)
-		require('./lib/askmilo-utility')({ expressApp });
 
 		// WebSocket servers for streaming connections
 		// Each handler uses noServer:true and returns its WebSocketServer instance.

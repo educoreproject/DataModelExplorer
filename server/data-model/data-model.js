@@ -335,7 +335,26 @@ const moduleFunction =
 					if (process.global.xLog) process.global.xLog.error(`[reaper] start failed: ${e.message}`);
 				}
 			}
-			callback(err, { accessPointsDotD, dataModelLogInfoList, slackAccess });
+			// dmeMcpOAuth Phase 1.3: ensure the OAuth/OIDC persistence schema exists
+			// (new tables + the users security columns). Idempotent; non-fatal.
+			if (!err && sqlDb) {
+				try {
+					require('../lib/oauth-schema-init')({ sqlDb })((e, res) => {
+						const xLog = process.global.xLog;
+						if (e) {
+							xLog && xLog.error(`[oauth-schema-init] failed: ${e.toString()}`);
+							return;
+						}
+						xLog && xLog.status(`[oauth-schema-init] ${(res.logInfoList || []).join('; ')}`);
+					});
+				} catch (e) {
+					if (process.global.xLog) process.global.xLog.error(`[oauth-schema-init] start failed: ${e.message}`);
+				}
+			}
+			// dmeMcpOAuth Phase 2: expose sqlDb so startApiServer can hand it to the
+			// Authorization Server mount (oauth-server needs the DB for the adapter,
+			// audit log, GC, and the findAccount-by-sub lookup).
+			callback(err, { accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb });
 		});
 	};
 
