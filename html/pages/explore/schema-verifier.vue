@@ -255,6 +255,17 @@ function loadSample() {
 								<v-list-item-subtitle class="mono" style="font-size: 0.72rem;">
 									{{ el.hrOpenProperty }}
 								</v-list-item-subtitle>
+								<template #append>
+									<v-chip
+										v-if="store.userEquivalentsFor(el.id).length"
+										size="x-small"
+										color="deep-purple"
+										variant="tonal"
+										title="Accepted equivalents in your crosswalk"
+									>
+										{{ store.userEquivalentsFor(el.id).length }}
+									</v-chip>
+								</template>
 							</v-list-item>
 							<v-list-item v-if="!filteredElements.length">
 								<v-list-item-title class="text-caption text-medium-emphasis">

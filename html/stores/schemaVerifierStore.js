@@ -11,8 +11,13 @@
 //      file is the authoritative source for HR Open property paths.
 //
 //   2. CEDS (and every other standard) equivalence — looked up LIVE from the
-//      EDUcore knowledge graph via POST /api/dmeCypherQuery (the same engine the
-//      EDUcore MCP server exposes as cypherQuery).
+//      EDUcore knowledge graph via GET /api/dme-equivalents, a fixed
+//      parameterised query the server runs on our behalf. (The generic
+//      /api/dme-cypher-query endpoint is internal-only per SEC-2 — browsers may
+//      not send arbitrary Cypher.) When the live endpoint is unavailable (not
+//      yet deployed, or offline) we fall back to a bundled snapshot of the
+//      graph's hub equivalences (data/educore-equivalents-snapshot.json,
+//      lazy-loaded), and the UI badge switches from "live" to "snapshot".
 //
 // The tool can either browse the crosswalk directly (a better-than-spreadsheet
 // view) or load an arbitrary OpenAPI document, break it into its component
@@ -148,11 +153,20 @@ function parseOpenApi(doc) {
 // -------------------------------------------------------------------------
 // Standard label / colour helpers shared with the UI.
 
+// The graph stamps every golden node with its standard in `_source`
+// (e.g. 'CEDS', 'SIF', 'EdFi', 'EduAPI'). Normalise the few whose display
+// name differs, and fall back to label parsing for rows without a source.
+const SOURCE_DISPLAY = {
+	EdFi: 'Ed-Fi',
+	EduAPI: 'Ed-API',
+	OpenBadges: 'Open Badges',
+};
+
 const STANDARD_FROM_LABEL = (labels = []) => {
 	const l = labels.find((x) => /Property|Field|Class|Element|Entity/.test(x)) || labels[0] || '';
 	if (l.startsWith('Ceds')) return 'CEDS';
 	if (l.startsWith('Jedx')) return 'JEDx';
-	if (l.startsWith('EduApi')) return 'Ed-API';
+	if (l.startsWith('Eduapi') || l.startsWith('EduApi')) return 'Ed-API';
 	if (l.startsWith('Sif')) return 'SIF';
 	if (l.startsWith('Edfi')) return 'Ed-Fi';
 	if (l.startsWith('Ctdl')) return 'CTDL';
@@ -162,8 +176,92 @@ const STANDARD_FROM_LABEL = (labels = []) => {
 	if (l.startsWith('Clr')) return 'CLR';
 	if (l.startsWith('OpenBadges')) return 'Open Badges';
 	if (l.startsWith('Case')) return 'CASE';
+	if (l.startsWith('Medbiq')) return 'MedBiquitous';
 	return l.replace(/(Property|Field|Class|Element|Entity)$/, '') || 'Other';
 };
+
+const standardOf = (source, labels) =>
+	(source && (SOURCE_DISPLAY[source] || source)) || STANDARD_FROM_LABEL(labels);
+
+// -------------------------------------------------------------------------
+// Snapshot fallback — client-side equivalents lookup over the bundled hub
+// snapshot. Mirrors the server's dme-equivalents ranking: token coverage
+// (hits*100), precision, +1 for property leaves, +2 for CEDS.
+
+function scoreSnapshotMember(tokens, minHits, member) {
+	const nameLower = String(member.name || '').toLowerCase();
+	const hits = tokens.filter((w) => nameLower.includes(w)).length;
+	if (hits < minHits) return null;
+	const candWords = nameLower.trim().split(/\s+/).length;
+	const denom = Math.max(candWords, hits);
+	const prec = Math.round((10 * hits) / denom);
+	return (
+		hits * 100 + prec + (member.k === 'P' ? 1 : 0) + (member.source === 'CEDS' ? 2 : 0)
+	);
+}
+
+function searchSnapshot(snapshot, tokens, minHits) {
+	const rows = [];
+	for (const hub of snapshot.hubs) {
+		// A hub's members: its CEDS anchor(s) plus its cross-standard matches.
+		// The anchor's "relationship" to the hub is definitional, so when it
+		// appears in another member's related list it is marked authoritative.
+		const members = [
+			...(hub.ceds || []).map((c) => ({ ...c, rel: 'EXACT_MATCH' })),
+			...(hub.matches || []),
+		];
+		for (const member of members) {
+			const score = scoreSnapshotMember(tokens, minHits, member);
+			if (score === null) continue;
+			rows.push({
+				standard: standardOf(member.source),
+				name: member.name,
+				description: member.desc || '',
+				sourceId: member.id || '',
+				score,
+				related: members
+					.filter((m) => m !== member)
+					.slice(0, 10)
+					.map((m) => ({
+						standard: standardOf(m.source),
+						name: m.name,
+						rel: m.rel,
+						authoritative: m.rel === 'EXACT_MATCH',
+					})),
+			});
+		}
+	}
+	// Dedupe (the same node can sit in several hubs) keeping the best score.
+	const best = new Map();
+	for (const row of rows) {
+		const k = `${row.standard}|${row.name}`;
+		if (!best.has(k) || best.get(k).score < row.score) best.set(k, row);
+	}
+	return [...best.values()].sort((a, b) => b.score - a.score).slice(0, 20);
+}
+
+// -------------------------------------------------------------------------
+// User-curated equivalence crosswalk — persisted in localStorage. Keyed by
+// crosswalk element id (or a term-derived key in OpenAPI mode); each entry is
+// a list the user built by accepting/removing suggestions in the UI.
+
+const USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
+
+function loadUserEquivalents() {
+	try {
+		return JSON.parse(localStorage.getItem(USER_EQUIV_STORAGE_KEY)) || {};
+	} catch (_err) {
+		return {};
+	}
+}
+
+function persistUserEquivalents(value) {
+	try {
+		localStorage.setItem(USER_EQUIV_STORAGE_KEY, JSON.stringify(value));
+	} catch (_err) {
+		/* storage full or unavailable — curation still works for the session */
+	}
+}
 
 // =========================================================================
 
@@ -181,6 +279,11 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		graphCache: {},
 		graphLoading: false,
 		graphError: '',
+		graphSource: '', // '' until first lookup, then 'live' | 'snapshot'
+		snapshotDate: '',
+
+		// user-curated equivalence crosswalk, keyed by element id / term
+		userEquivalents: loadUserEquivalents(),
 	}),
 
 	getters: {
@@ -192,6 +295,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			return groups;
 		},
 		hasApi: (state) => !!state.api,
+		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
 	},
 
 	actions: {
@@ -242,6 +346,35 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		},
 
 		// ------------------------------------------------------------
+		// User-curated equivalence crosswalk. An item is
+		// { standard, name, sourceId?, rel?, detail? } — identity is
+		// (standard, name), so re-adding the same suggestion is a no-op.
+
+		addUserEquivalent(key, item) {
+			if (!key || !item?.name) return;
+			const list = this.userEquivalents[key] || [];
+			if (list.some((e) => e.standard === item.standard && e.name === item.name)) return;
+			this.userEquivalents = { ...this.userEquivalents, [key]: [...list, item] };
+			persistUserEquivalents(this.userEquivalents);
+		},
+
+		removeUserEquivalent(key, item) {
+			const list = this.userEquivalents[key] || [];
+			const next = list.filter(
+				(e) => !(e.standard === item.standard && e.name === item.name),
+			);
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			if (!next.length) delete this.userEquivalents[key];
+			persistUserEquivalents(this.userEquivalents);
+		},
+
+		hasUserEquivalent(key, item) {
+			return (this.userEquivalents[key] || []).some(
+				(e) => e.standard === item.standard && e.name === item.name,
+			);
+		},
+
+		// ------------------------------------------------------------
 		// HR Open equivalents for a free-text term (property name or path).
 		// Pure client-side against the bundled crosswalk. Returns ranked matches.
 
@@ -279,9 +412,10 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 
 		// ------------------------------------------------------------
 		// CEDS / cross-standard equivalents — LIVE graph lookup.
-		// Searches property/field/class nodes whose name matches the term,
-		// then collects each match's cross-standard MAPS_TO / IMPLIED_MAPPING
-		// neighbours (the actual "equivalents").
+		// GET /api/dme-equivalents runs the one fixed, relevance-ranked query
+		// server-side: golden nodes whose name shares tokens with the term, each
+		// with its HubReference's cross-standard neighbours (EXACT_MATCH is the
+		// hub-verified equivalence; CLOSE/NARROW/RELATED_MATCH are suggestions).
 
 		async lookupGraph(term) {
 			const tokens = significantTokens(term);
@@ -292,87 +426,54 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			this.graphLoading = true;
 			this.graphError = '';
 
-			// Relevance-ranked, parameterised, read-only.
-			//
-			// Strict "all tokens present" misses real equivalents whenever the
-			// standard names the concept slightly differently (e.g. the element
-			// "Position Job Title" vs. CEDS "Position Title"). Instead we keep any
-			// node sharing at least `minHits` significant tokens and rank by:
-			//   hits*100   — coverage of the query's tokens (primary)
-			//   + prec     — tightness: fewer extra words ranks higher (capped at 1.0
-			//                so a no-space name like "PositionTitle" can't over-score)
-			//   + 1        — prefer Property/Field leaves over Class hubs
-			//   + 2        — surface CEDS first (the headline equivalence)
-			const minHits = Math.max(1, Math.ceil(tokens.length / 2));
-			const query = `
-				WITH $words AS words, $minHits AS minHits
-				MATCH (n)
-				WHERE (n:CedsProperty OR n:CedsClass OR n:JedxField OR n:EduApiProperty
-				       OR n:SifField OR n:CtdlProperty OR n:EdfiField OR n:LifProperty)
-				  AND size(words) > 0
-				  AND size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) >= minHits
-				WITH n,
-				     size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) AS hits,
-				     size(split(trim(toLower(coalesce(n.name,''))), ' ')) AS candWords
-				WITH n, hits, (CASE WHEN candWords > hits THEN candWords ELSE hits END) AS denom
-				WITH n, hits, toInteger(round(10.0 * hits / denom)) AS prec
-				WITH n, hits,
-				     (hits * 100 + prec
-				      + CASE WHEN (n:CedsProperty OR n:JedxField OR n:EduApiProperty
-				                   OR n:SifField OR n:CtdlProperty OR n:EdfiField OR n:LifProperty)
-				             THEN 1 ELSE 0 END
-				      + CASE WHEN n:CedsProperty OR n:CedsClass THEN 2 ELSE 0 END) AS score
-				ORDER BY score DESC LIMIT 20
-				OPTIONAL MATCH (n)-[r:MAPS_TO|IMPLIED_MAPPING]-(m)
-				WHERE m:CedsProperty OR m:CedsClass OR m:JedxField OR m:EduApiProperty
-				      OR m:SifField OR m:CtdlProperty OR m:EdfiField OR m:LifProperty
-				RETURN labels(n) AS labels,
-				       n.name AS name,
-				       coalesce(n.description, n.definition, '') AS description,
-				       coalesce(n.cedsId, n.persistentId, '') AS sourceId,
-				       score,
-				       collect(DISTINCT {
-				         rel: type(r),
-				         name: m.name,
-				         labels: labels(m),
-				         confidence: r.confidence
-				       })[0..10] AS related
-				ORDER BY score DESC
-			`;
-
 			try {
 				const loginStore = useLoginStore();
-				const headers = { 'Content-Type': 'application/json' };
+				const headers = {};
 				if (loginStore.authtoken) Object.assign(headers, loginStore.getAuthTokenProperty);
 
-				const res = await axios.post(
-					'/api/dme-cypher-query',
-					{ action: 'query', query, params: { words: tokens, minHits } },
-					{ headers },
-				);
+				const res = await axios.get('/api/dme-equivalents', {
+					params: { term },
+					headers,
+				});
 
-				const rows = (Array.isArray(res.data) ? res.data : []).map((row) => ({
-					standard: STANDARD_FROM_LABEL(row.labels),
-					labels: row.labels,
-					name: row.name,
-					description: row.description,
-					sourceId: row.sourceId,
-					related: (row.related || [])
-						.filter((r) => r && r.name)
-						.map((r) => ({
-							standard: STANDARD_FROM_LABEL(r.labels),
-							name: r.name,
-							rel: r.rel,
-							authoritative: r.rel === 'MAPS_TO',
-							confidence: r.confidence,
-						})),
-				}));
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((row) => row && row.name)
+					.map((row) => ({
+						standard: standardOf(row.source, row.labels),
+						labels: row.labels,
+						name: row.name,
+						description: row.description,
+						sourceId: row.sourceId,
+						related: (row.related || [])
+							.filter((r) => r && r.name)
+							.map((r) => ({
+								standard: standardOf(r.source, r.labels),
+								name: r.name,
+								rel: r.rel,
+								authoritative: r.rel === 'EXACT_MATCH',
+							})),
+					}));
 
+				this.graphSource = 'live';
 				this.graphCache[key] = rows;
 				return rows;
-			} catch (err) {
-				this.graphError = err.response?.data || err.message || 'Graph lookup failed';
-				return [];
+			} catch (_liveErr) {
+				// Live endpoint unavailable (not deployed / offline / rejected) —
+				// fall back to the bundled snapshot of the graph's hub equivalences.
+				try {
+					const { default: snapshot } = await import(
+						'@/data/educore-equivalents-snapshot.json'
+					);
+					const minHits = Math.max(1, Math.ceil(tokens.length / 2));
+					const rows = searchSnapshot(snapshot, tokens, minHits);
+					this.graphSource = 'snapshot';
+					this.snapshotDate = snapshot.generated || '';
+					this.graphCache[key] = rows;
+					return rows;
+				} catch (err) {
+					this.graphError = err.message || 'Graph lookup failed';
+					return [];
+				}
 			} finally {
 				this.graphLoading = false;
 			}
