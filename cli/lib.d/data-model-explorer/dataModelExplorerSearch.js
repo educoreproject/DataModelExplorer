@@ -251,7 +251,9 @@ const findMappings = async (session, nameOrId) => {
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.confidence AS confidence,
 			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
+			       m.decisionAlgorithm AS decisionAlgorithm,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
+			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
 			UNION
@@ -275,7 +277,9 @@ const findMappings = async (session, nameOrId) => {
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.confidence AS confidence,
 			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
+			       m.decisionAlgorithm AS decisionAlgorithm,
 			       type(mNear) AS viaMatchType, mNear.confidence AS viaConfidence, mNear.predicate AS viaPredicate,
+			       mNear.decisionAlgorithm AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
 	UNION
@@ -292,13 +296,15 @@ const findMappings = async (session, nameOrId) => {
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.confidence AS confidence,
 			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
+			       m.decisionAlgorithm AS decisionAlgorithm,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
+			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
 		}
 		RETURN direction, fromSource, fromName, toSource, toName, toId,
-		       mappingType, confidence, provenanceTier, matchPredicate,
-		       viaMatchType, viaConfidence, viaPredicate, cedsDomain, cedsProperty,
+		       mappingType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
+		       viaMatchType, viaConfidence, viaPredicate, viaDecisionAlgorithm, cedsDomain, cedsProperty,
 		       cedsRange, cedsValue, cedsQualifier
 		ORDER BY confidence DESC
 		LIMIT 30
@@ -318,10 +324,19 @@ const findMappings = async (session, nameOrId) => {
 			mappingType: rec.get('mappingType'),
 			confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
 			provenanceTier: rec.get('provenanceTier'),
+			// ⟪skipAI, 2026-08-10⟫ decisionAlgorithm — present ONLY when a DEBUG JUDGE produced this
+			// edge (--useDebugJudge), value 'INVALID_DEBUG'. It was on every such edge already but was
+			// NOT projected here, so a caller reading mappings normally saw confident nonsense with no
+			// warning: tqii asked askMilo point-blank about contamination and got a clean bill, because
+			// the flag is a PROPERTY VALUE and it had asked about relationship LABELS. A flag nothing
+			// reads is documentation, not detection. Emitted for BOTH hops — either can be contaminated
+			// independently of the other.
+			decisionAlgorithm: rec.get('decisionAlgorithm'),
 			matchPredicate: rec.get('matchPredicate'),
 			viaMatchType: rec.get('viaMatchType'),
 			viaConfidence: rec.get('viaConfidence') != null ? Number(rec.get('viaConfidence')) : null,
 			viaPredicate: rec.get('viaPredicate'),
+			viaDecisionAlgorithm: rec.get('viaDecisionAlgorithm'),
 			cedsDomain: rec.get('cedsDomain'),
 			cedsProperty: rec.get('cedsProperty'),
 			cedsRange: rec.get('cedsRange'),
