@@ -17,7 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
-const { execSync, exec } = require('child_process');
+const { execSync, exec, spawnSync } = require('child_process');
 
 const MAX_CONCURRENT_CLONES = 3; // resource hygiene (ONYX / plan §0.12)
 const NEO4J_IMAGE = 'neo4j:5-community';
@@ -44,24 +44,67 @@ const getGoldenBoltPort = () => {
 // ---------------------------------------------------------------------------
 // Golden discovery — authoritative, from the live container's mounts (no hardcoded paths)
 
+// spawnSync, NOT execSync: this is reached from inside a promise executor, where a thrown
+// exception becomes an unhandled rejection and Node kills the whole API server. A golden
+// container that is missing, renamed, or reaped is an ORDINARY runtime condition — TQ flips
+// the golden weekly and scratch-graph cleanup reaps containers — so it must come back as
+// data. Every caller already guards on a falsy dataDir. Returns {} when golden cannot be
+// inspected for any reason.
+//
+// Each mount is reported as { type, source, name } because the COPY needs the mount's docker
+// IDENTITY, not a host path: a named volume's Source lives inside the Docker VM and does not
+// exist on the host at all (on macOS there is no /var/lib/docker whatsoever).
 const getGoldenMounts = () => {
 	const golden = getGoldenContainerName();
-	const out = execSync(
-		`docker inspect ${golden} --format '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'`,
+	if (!golden) return {};
+	const res = spawnSync(
+		'docker',
+		['inspect', golden, '--format',
+			'{{range .Mounts}}{{.Destination}}|{{.Type}}|{{.Source}}|{{.Name}}\n{{end}}'],
 		{ encoding: 'utf-8' },
 	);
+	if (res.error || res.status !== 0) return {};
 	const map = {};
-	out.split('\n').filter(Boolean).forEach((line) => {
-		const idx = line.indexOf('=');
-		map[line.slice(0, idx)] = line.slice(idx + 1);
+	(res.stdout || '').split('\n').filter(Boolean).forEach((line) => {
+		const [destination, type, source, name] = line.split('|');
+		map[destination] = { type, source, name };
 	});
-	return { dataDir: map['/data'], pluginsDir: map['/plugins'] };
+	const data = map['/data'];
+	const plugins = map['/plugins'];
+	return {
+		dataDir: data ? data.source : undefined,
+		pluginsDir: plugins ? plugins.source : undefined,
+		dataMount: data,
+		pluginsMount: plugins,
+	};
 };
 
+// The docker reference for a mount, suitable as the SOURCE half of a `docker run -v src:dst`.
+// A named volume is referenced by NAME (its Source path is meaningless outside the Docker VM);
+// a bind mount is referenced by its host path. Returns null when neither is available.
+const mountDockerRef = (mount) => {
+	if (!mount) return null;
+	if (mount.type === 'volume') return mount.name || null;
+	return mount.source || null;
+};
+
+// Where snapshots, warm spares and per-user clones live ON THE HOST. This is DECLARED, not
+// derived. It used to be reverse-engineered out of golden's own mount source by splitting on
+// '/dataStores/' — which silently produced a path INSIDE the golden volume the moment golden
+// became a named volume, because String.split returns the whole string when the separator is
+// absent. Returns null when unconfigured; callers refuse by name rather than guessing.
 const getUserGraphsBase = () => {
-	const { dataDir } = getGoldenMounts();
-	const dataStores = dataDir.split('/dataStores/')[0] + '/dataStores';
-	return path.join(dataStores, 'userGraphs');
+	const { getConfig } = process.global;
+	const cfg = getConfig('dataModelExplorerSearch') || {};
+	const configured = cfg.userGraphsDirPath;
+	if (!configured) return null;
+	// An UNSUBSTITUTED token means the config was loaded without a projectRoot, which yields a
+	// confident-looking wrong path rather than an error. Observed while building this: loading
+	// the ini through a bare qtools-config-file-processor resolved <!projectRoot!> against the
+	// LIBRARY's own directory. Refuse rather than mkdir somewhere arbitrary.
+	if (configured.indexOf('<!') !== -1) return null;
+	if (!path.isAbsolute(configured)) return null;
+	return configured;
 };
 
 // ---------------------------------------------------------------------------
@@ -70,15 +113,40 @@ const getUserGraphsBase = () => {
 // golden on every open. Golden refresh = make a new snapshot + flip the pointer
 // atomically; in-flight sessions are undisturbed, the next open lands on new golden.
 
-const snapshotsBase = () => path.join(getUserGraphsBase(), '_snapshots');
-const pointerPath = () => path.join(getUserGraphsBase(), '_currentSnapshot');
+const snapshotsBase = () => {
+	const base = getUserGraphsBase();
+	return base ? path.join(base, '_snapshots') : null;
+};
+const pointerPath = () => {
+	const base = getUserGraphsBase();
+	return base ? path.join(base, '_currentSnapshot') : null;
+};
 
+// Every snapshot records the golden it was cut from. Without this, flipping the golden and
+// restarting left the pointer aimed at a snapshot of the PREVIOUS graph, and every new user
+// graph was silently built from it — the restart did not mean what it appeared to mean.
+const stampPath = (snapDir) => path.join(snapDir, 'source.json');
+
+const readSnapshotStamp = (snapDir) => {
+	try {
+		return JSON.parse(fs.readFileSync(stampPath(snapDir), 'utf8'));
+	} catch (e) { return null; }
+};
+
+// Returns the current snapshot dir ONLY when it is complete AND was cut from the golden that
+// is configured right now. A stale or unstamped snapshot reads as "no snapshot", which makes
+// the next open rebuild it from current golden.
 const currentSnapshotDir = () => {
 	try {
-		const name = fs.readFileSync(pointerPath(), 'utf8').trim();
+		const pointer = pointerPath();
+		if (!pointer) return null;
+		const name = fs.readFileSync(pointer, 'utf8').trim();
 		if (!name) return null;
 		const dir = path.join(snapshotsBase(), name);
-		return fs.existsSync(path.join(dir, 'data', 'databases')) ? dir : null;
+		if (!fs.existsSync(path.join(dir, 'data', 'databases'))) return null;
+		const stamp = readSnapshotStamp(dir);
+		if (!stamp || stamp.goldenContainerName !== getGoldenContainerName()) return null;
+		return dir;
 	} catch (e) { return null; }
 };
 
@@ -88,31 +156,98 @@ const flipPointer = (snapName) => {
 	fs.renameSync(tmp, pointerPath()); // atomic on POSIX
 };
 
+// Copy one docker mount's contents into a host directory FROM INSIDE A CONTAINER. The old
+// host-side `cp -R "${mount.source}/." dst/` only worked when golden was bind-mounted from a
+// host directory: a named volume's source is unreachable on macOS (no /var/lib/docker on the
+// host) and, on Linux, the derived destination landed inside the source so cp refused to copy
+// a directory into itself. Mounting both ends into a throwaway container works identically on
+// both platforms and for both mount types. NEO4J_IMAGE is reused deliberately — it is already
+// present on any machine that has ever run a graph, so this never pulls.
+const copyMountToHostDir = (mount, hostDir, timeoutMs, callback) => {
+	const srcRef = mountDockerRef(mount);
+	if (!srcRef) { callback(`copyMountToHostDir: golden mount has no usable docker reference`); return; }
+	const args = [
+		'run', '--rm',
+		'-v', `${srcRef}:/qtSrc:ro`,
+		'-v', `${hostDir}:/qtDst`,
+		'--entrypoint', 'sh',
+		NEO4J_IMAGE,
+		'-c', 'cp -a /qtSrc/. /qtDst/',
+	];
+	const child = spawnSync('docker', args, { encoding: 'utf-8', timeout: timeoutMs });
+	if (child.error) { callback(`copyMountToHostDir: ${child.error.message}`); return; }
+	if (child.status !== 0) {
+		callback(`copyMountToHostDir: docker exited ${child.status}: ${(child.stderr || '').trim()}`);
+		return;
+	}
+	callback('');
+};
+
 // createSnapshot — quiesce golden ONCE, copy its data/+plugins into a new snapshot dir,
 // flip the pointer atomically, restart golden. callback(err, { snapName, snapshotDir })
 const createSnapshot = (callback) => {
 	const { xLog } = process.global;
-	const { dataDir: goldenData, pluginsDir: goldenPlugins } = getGoldenMounts();
-	if (!goldenData) { callback('createSnapshot: could not resolve golden data dir'); return; }
+	const golden = getGoldenContainerName();
+	if (!golden) {
+		callback('createSnapshot: no goldenContainerName configured in [dataModelExplorerSearch]');
+		return;
+	}
+	const base = snapshotsBase();
+	if (!base) {
+		callback('createSnapshot: userGraphsDirPath is not configured in [dataModelExplorerSearch]');
+		return;
+	}
+	const { dataMount, pluginsMount } = getGoldenMounts();
+	if (!dataMount) {
+		callback(`createSnapshot: golden container '${golden}' could not be inspected — is it running?`);
+		return;
+	}
 	const snapName = `snap-${process.pid}-${process.hrtime.bigint().toString()}`;
-	const snapDir = path.join(snapshotsBase(), snapName);
+	const snapDir = path.join(base, snapName);
 	['data', 'plugins'].forEach((sub) => fs.mkdirSync(path.join(snapDir, sub), { recursive: true }));
+
+	// The copy runs inside a container, so it is indifferent to whether golden is a named
+	// volume or a bind mount and works the same on macOS and Linux. spawnSync makes it
+	// synchronous, which is what withQuiescedGolden's copyFn contract expects; the error is
+	// carried out in a closure rather than thrown, so golden is still restarted either way.
+	let copyErr = '';
 	const copyFn = () => {
-		execSync(`cp -R "${goldenData}/." "${path.join(snapDir, 'data')}/"`, { encoding: 'utf-8', timeout: 180000 });
-		if (goldenPlugins && fs.existsSync(goldenPlugins)) {
-			execSync(`cp -R "${goldenPlugins}/." "${path.join(snapDir, 'plugins')}/"`, { encoding: 'utf-8', timeout: 60000 });
-		}
+		copyMountToHostDir(dataMount, path.join(snapDir, 'data'), 180000, (dataErr) => {
+			copyErr = dataErr;
+		});
+		if (copyErr || !pluginsMount) return;
+		copyMountToHostDir(pluginsMount, path.join(snapDir, 'plugins'), 60000, (pluginsErr) => {
+			copyErr = pluginsErr;
+		});
 	};
+
 	withQuiescedGolden(copyFn, (err) => {
-		if (err) { try { fs.rmSync(snapDir, { recursive: true, force: true }); } catch (e) {} callback(err); return; }
+		const failure = err || copyErr;
+		if (failure) {
+			try { fs.rmSync(snapDir, { recursive: true, force: true }); } catch (e) {}
+			callback(failure);
+			return;
+		}
+		// Stamp BEFORE flipping the pointer: an unstamped snapshot reads as absent, so a crash
+		// between the two leaves the pointer aimed at something currentSnapshotDir rejects
+		// rather than at an anonymous copy of an unknown graph.
+		fs.writeFileSync(
+			stampPath(snapDir),
+			JSON.stringify({ goldenContainerName: golden, createdAt: new Date().toISOString() }, null, 2),
+		);
 		flipPointer(snapName);
-		if (xLog) xLog.status(`[clone-manager] snapshot ${snapName} created + pointer flipped`);
+		if (xLog) xLog.status(`[clone-manager] snapshot ${snapName} created from golden '${golden}' + pointer flipped`);
 		callback('', { snapName, snapshotDir: snapDir });
 	});
 };
 
-const cloneDirFor = (userRefId, versionRefId) =>
-	path.join(getUserGraphsBase(), `uid-${userRefId}`, `ver-${versionRefId || 'new'}`);
+// Returns null when userGraphsDirPath is unconfigured — callers refuse by name. path.join
+// would throw on a null base, and this is reached from inside a promise executor.
+const cloneDirFor = (userRefId, versionRefId) => {
+	const base = getUserGraphsBase();
+	if (!base) return null;
+	return path.join(base, `uid-${userRefId}`, `ver-${versionRefId || 'new'}`);
+};
 
 const containerNameFor = (userRefId, versionRefId) =>
 	`usr_${userRefId}_${versionRefId || 'new'}`.replace(/[^A-Za-z0-9_.-]/g, '_');
@@ -413,11 +548,21 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 		return;
 	}
 
-	const { dataDir: goldenData, pluginsDir: goldenPlugins } = getGoldenMounts();
-	if (!goldenData) { callback('provisionClone: could not resolve golden data dir'); return; }
+	// Refuse BY NAME. A golden that has been reaped, renamed, or never existed is an ordinary
+	// condition here, and the operator's next move is to edit one line of _goldenContainer.ini
+	// — so the message says which container and which file.
+	const { dataMount } = getGoldenMounts();
+	if (!dataMount) {
+		callback(`provisionClone: golden container '${getGoldenContainerName()}' could not be inspected — check goldenContainerName in _goldenContainer.ini`);
+		return;
+	}
 
 	const containerName = containerNameFor(userRefId, versionRefId);
 	const cloneDir = cloneDirFor(userRefId, versionRefId);
+	if (!cloneDir) {
+		callback('provisionClone: userGraphsDirPath is not configured in [dataModelExplorerSearch]');
+		return;
+	}
 	const password = getGoldenPassword();
 	if (!password) { callback('provisionClone: golden password unavailable from config'); return; }
 
@@ -540,7 +685,16 @@ const provisionClone = (args, callback) => {
 				try { cb(err, descriptor); } finally { resolve(); }
 			});
 		}),
-	);
+	// BACKSTOP. A synchronous throw inside the executor above is captured as a REJECTION, not
+	// propagated to the caller — so cb never fires, the HTTP request hangs, and Node kills the
+	// process on the unhandled rejection. That is exactly how a reaped golden container took
+	// the whole API server down. Nothing should throw here any more, but one user action must
+	// never again be able to end the process for everyone.
+	).catch((e) => {
+		const { xLog } = process.global;
+		if (xLog) xLog.error(`[clone-manager] provision queue absorbed an unexpected throw: ${e && e.message}`);
+		cb(`provisionClone failed unexpectedly: ${e && e.message}`);
+	});
 };
 
 // ---------------------------------------------------------------------------
@@ -588,6 +742,7 @@ module.exports = {
 	containerExists,
 	isContainerRunning,
 	getUserGraphsBase,
+	getGoldenMounts,
 	MAX_CONCURRENT_CLONES,
 	createSnapshot,
 	currentSnapshotDir,

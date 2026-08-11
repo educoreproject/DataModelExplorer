@@ -40,8 +40,25 @@ const buildUserModeAskmiloContext = ({ settings = {}, getConfig } = {}) => {
 			dmeVersionRefId: versionRefId,
 			dmeApiBase: apiBase,
 		},
+		// The tools read all three of these from the ENVIRONMENT (see the header comment in
+		// cli/lib.d/dme-user-read/dmeUserReadTool.js and both provider.json files), and the
+		// CANONICAL askMilo already bridges two of them itself — it lifts dmeVersionRefId and
+		// dmeApiBase out of its command input into every spawned tool's sessionEnv.
+		//
+		// This placement is belt-and-braces for the case where the askMilo in use PREDATES that
+		// bridge: educore's copy under server/data-model/lib/ask-milo-multitool is a real
+		// directory, not a symlink to qbookSuperTool, and as of 2026-08-07 it is an April 15
+		// snapshot with no DME_VERSION_REF_ID anywhere in it. A stale copy therefore spawns
+		// tools that die on "DME_VERSION_REF_ID is unset" however cleanly the graph opened.
+		// Because ws-graphinator spawns askMilo with { ...process.env, ...env }, anything put
+		// here is inherited by the tools whether or not askMilo forwards it.
+		//
+		// They stay in commandValues as well: TQ's intent is that versionRefId be a real
+		// askMilo input, and the phase-2 gate asserts it arrives that way.
 		env: {
 			DME_INTERNAL_SECRET: internalAuthSecret,
+			DME_VERSION_REF_ID: versionRefId,
+			DME_API_BASE: apiBase,
 		},
 	};
 };
