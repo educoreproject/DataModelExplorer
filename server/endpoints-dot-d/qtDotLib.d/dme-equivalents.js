@@ -53,6 +53,15 @@ const moduleFunction = function ({
 		return sig.length ? sig : all;
 	};
 
+	// Ranking tokens keep the discriminating words the broad list drops
+	// ("name", "code", "date", ...). Eligibility still runs on significant
+	// tokens — "name" alone matches half the graph — but among eligible
+	// candidates these words separate "Last or Surname" (2 hits for
+	// "last name"; sur-NAME) from "Last Instruction Date" (1 hit).
+	const MATCH_STOP = new Set(['the', 'a', 'an', 'of', 'to', 'for', 'and', 'or']);
+	const matchTokens = (raw) =>
+		tokenize(raw).filter((w) => !MATCH_STOP.has(w) && w.length > 1);
+
 	// ================================================================================
 	// EQUIVALENTS QUERY
 	//
@@ -73,13 +82,13 @@ const moduleFunction = function ({
 	// public like the reference-library pages that use it.
 
 	const EQUIVALENTS_QUERY = `
-		WITH $words AS words, $minHits AS minHits
+		WITH $words AS words, $allWords AS allWords, $minHits AS minHits
 		MATCH (n)
 		WHERE (n:DmeProperty OR n:DmeClass OR (n:DmeOptionValue AND n._source = 'CTDL'))
 		  AND size(words) > 0
 		  AND size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) >= minHits
 		WITH n,
-		     size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) AS hits,
+		     size([w IN allWords WHERE toLower(coalesce(n.name,'')) CONTAINS w]) AS hits,
 		     size(split(trim(toLower(coalesce(n.name,''))), ' ')) AS candWords
 		WITH n, hits, (CASE WHEN candWords > hits THEN candWords ELSE hits END) AS denom
 		WITH n, hits, toInteger(round(10.0 * hits / denom)) AS prec
@@ -131,6 +140,7 @@ const moduleFunction = function ({
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const term = String(xQuery.term || '').slice(0, 200);
 			const words = significantTokens(term).slice(0, 12);
+			const allWords = matchTokens(term).slice(0, 12);
 
 			if (!words.length) {
 				next('term is required', args);
@@ -142,7 +152,7 @@ const moduleFunction = function ({
 			const queryData = {
 				action: 'query',
 				query: EQUIVALENTS_QUERY,
-				params: { words, minHits },
+				params: { words, allWords: allWords.length ? allWords : words, minHits },
 			};
 
 			const localCallback = (err, result) => {

@@ -187,11 +187,20 @@ const standardOf = (source, labels) =>
 // Snapshot fallback — client-side equivalents lookup over the bundled hub
 // snapshot. Mirrors the server's dme-equivalents ranking: token coverage
 // (hits*100), precision, +1 for property leaves, +2 for CEDS.
+//
+// Two token lists play different roles. ELIGIBILITY uses the significant
+// tokens (broad stop list — "name"/"code"/"id" match half the graph, so they
+// may not qualify a candidate on their own). RANKING counts hits over the
+// full matchTokens list, so those same words still discriminate between
+// eligible candidates: for "last name", "Last or Surname" scores 2 hits
+// (sur-NAME) while "Last Instruction Date" scores 1, and the tier filter
+// below then drops the 1-hit rows.
 
-function scoreSnapshotMember(tokens, minHits, member) {
+function scoreSnapshotMember(sigTokens, allTokens, minHits, member) {
 	const nameLower = String(member.name || '').toLowerCase();
-	const hits = tokens.filter((w) => nameLower.includes(w)).length;
-	if (hits < minHits) return null;
+	const sigHits = sigTokens.filter((w) => nameLower.includes(w)).length;
+	if (sigHits < minHits) return null;
+	const hits = allTokens.filter((w) => nameLower.includes(w)).length;
 	const candWords = nameLower.trim().split(/\s+/).length;
 	const denom = Math.max(candWords, hits);
 	const prec = Math.round((10 * hits) / denom);
@@ -200,7 +209,17 @@ function scoreSnapshotMember(tokens, minHits, member) {
 	);
 }
 
-function searchSnapshot(snapshot, tokens, minHits) {
+// Keep only the best hit tier. When any candidate matched 2+ query tokens,
+// candidates that matched fewer are near-certain false positives (they share
+// one word, e.g. "last"), so hide them rather than merely rank them lower.
+// Single-token queries (maxHits <= 1) pass through untouched.
+function keepTopHitTier(rows) {
+	const hitsOf = (r) => Math.floor((r.score || 0) / 100);
+	const maxHits = rows.reduce((m, r) => Math.max(m, hitsOf(r)), 0);
+	return maxHits > 1 ? rows.filter((r) => hitsOf(r) === maxHits) : rows;
+}
+
+function searchSnapshot(snapshot, sigTokens, allTokens, minHits) {
 	const rows = [];
 	for (const hub of snapshot.hubs) {
 		// A hub's members: its CEDS anchor(s) plus its cross-standard matches.
@@ -211,7 +230,7 @@ function searchSnapshot(snapshot, tokens, minHits) {
 			...(hub.matches || []),
 		];
 		for (const member of members) {
-			const score = scoreSnapshotMember(tokens, minHits, member);
+			const score = scoreSnapshotMember(sigTokens, allTokens, minHits, member);
 			if (score === null) continue;
 			rows.push({
 				standard: standardOf(member.source),
@@ -419,6 +438,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 
 		async lookupGraph(term) {
 			const tokens = significantTokens(term);
+			const allTokens = matchTokens(term);
 			const key = tokens.join(' ');
 			if (!key) return [];
 			if (this.graphCache[key]) return this.graphCache[key];
@@ -436,14 +456,16 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 					headers,
 				});
 
-				const rows = (Array.isArray(res.data) ? res.data : [])
-					.filter((row) => row && row.name)
-					.map((row) => ({
+				const rows = keepTopHitTier(
+					(Array.isArray(res.data) ? res.data : [])
+						.filter((row) => row && row.name)
+						.map((row) => ({
 						standard: standardOf(row.source, row.labels),
 						labels: row.labels,
 						name: row.name,
 						description: row.description,
 						sourceId: row.sourceId,
+						score: row.score || 0,
 						related: (row.related || [])
 							.filter((r) => r && r.name)
 							.map((r) => ({
@@ -452,7 +474,8 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 								rel: r.rel,
 								authoritative: r.rel === 'EXACT_MATCH',
 							})),
-					}));
+					})),
+				);
 
 				this.graphSource = 'live';
 				this.graphCache[key] = rows;
@@ -465,7 +488,9 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 						'@/data/educore-equivalents-snapshot.json'
 					);
 					const minHits = Math.max(1, Math.ceil(tokens.length / 2));
-					const rows = searchSnapshot(snapshot, tokens, minHits);
+					const rows = keepTopHitTier(
+						searchSnapshot(snapshot, tokens, allTokens, minHits),
+					);
 					this.graphSource = 'snapshot';
 					this.snapshotDate = snapshot.generated || '';
 					this.graphCache[key] = rows;
