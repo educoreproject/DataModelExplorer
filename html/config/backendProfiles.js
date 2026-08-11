@@ -8,10 +8,12 @@ export const backendProfiles = {
 		wsHost: 'localhost:7790',
 		apiBase: 'http://localhost:7790/api',
 	},
-	educoreProd: {
-		label: 'Production (educore.tqtmp.org)',
-		wsHost: 'educore.tqtmp.org',
-		apiBase: 'https://educore.tqtmp.org/api',
-	},
-	// Add additional profiles here as needed.
+	// REMOVED 2026-08-09 (TQ: "I do not want dev to ever talk to production"):
+	//   educoreProd → wsHost/apiBase educore.tqtmp.org
+	// Selecting it pointed the websocket at the live server while /api kept going wherever
+	// nitro's devProxy was baked to go — one page, two backends, nothing in the UI saying so.
+	// To look at production, open the production site. Do not aim a dev page at it.
+	//
+	// Add additional LOCAL profiles here as needed. nuxt.config refuses to start a dev build
+	// whose resolved wsHost/apiBase is not loopback, so a non-local entry will fail loudly.
 };
