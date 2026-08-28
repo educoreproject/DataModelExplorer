@@ -44,7 +44,9 @@ const expandedCards = ref([]);
 						</v-card-title>
 
 						<v-card-subtitle class="pb-2">
-							{{ spec.owner }} &mdash; v{{ spec.version }}
+							{{ spec.owner }} &mdash; {{ /^\d/.test(spec.version) ? 'v' + spec.version : spec.version }}
+							<template v-if="spec.governanceBody"> &middot; Governance: {{ spec.governanceBody }}</template>
+							<template v-if="spec.lastUpdated"> &middot; Updated {{ spec.lastUpdated }}</template>
 						</v-card-subtitle>
 
 						<v-card-text class="pt-0">
