@@ -21,6 +21,7 @@
     "vite-plugin-vuetify": "^2.1.1",
     "vue": "^3.5.16",
     "vue-router": "latest",
-    "vuetify": "^3.8.9"
+    "vuetify": "^3.8.9",
+    "yaml": "^2.8.2"
   }
 }

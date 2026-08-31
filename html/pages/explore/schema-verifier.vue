@@ -1,0 +1,757 @@
+<script setup>
+// @concept: [[SchemaVerifier]]
+// Reference Library → Schema Verifier.
+//
+// Three ways in:
+//   1. Specifications — pick any spec the EDUcore graph carries (listed live,
+//      grouped by publishing organization) and walk its elements, seeing each
+//      one's cross-spec mappings in both tiers: authoritative (both hub legs
+//      verified) and implied. This is the default entry point.
+//   2. Crosswalk — the better-than-spreadsheet view of the JEDx ↔ HR Open data
+//      dictionary, which is authoritative but HR-Open-specific.
+//   3. OpenAPI — break any uploaded schema into its component parts and resolve
+//      every property against CEDS (live graph) and HR Open (bundled crosswalk).
+
+import { ref, computed, watch, onMounted } from 'vue';
+import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+
+const store = useSchemaVerifierStore();
+
+const mode = ref('specs'); // 'specs' | 'crosswalk' | 'openapi'
+
+// ── Specification mode state ───────────────────────────────────────
+// The spec list is fetched once on mount so the picker is populated before the
+// user reaches for it.
+const specSource = ref(null);
+const elementSearch = ref('');
+const selectedGraphElement = ref(null);
+
+onMounted(() => store.loadSpecifications());
+
+// Picker items: one subheader per publishing organization, then that
+// organization's specs. `specsByOrganization` is already sorted organization
+// then title, so this flattening keeps the dropdown in that order.
+const specItems = computed(() => {
+	const items = [];
+	for (const group of store.specsByOrganization) {
+		items.push({ type: 'subheader', title: group.organization, props: { disabled: true } });
+		for (const spec of group.specs) {
+			items.push({
+				title: spec.standard,
+				value: spec.source,
+				subtitle: `${spec.elementCount.toLocaleString()} elements · ${group.organization}`,
+				spec,
+			});
+		}
+	}
+	return items;
+});
+
+const activeSpec = computed(
+	() => store.specs.find((s) => s.source === specSource.value) || null,
+);
+
+// Picking a spec resets the element list and its search; the store clears the
+// previous spec's elements so nothing stale shows under the new heading.
+watch(specSource, (source) => {
+	elementSearch.value = '';
+	selectedGraphElement.value = null;
+	store.selectSpec(activeSpec.value);
+	if (source) store.loadSpecElements(source);
+});
+
+// The element filter runs server-side (a standard the size of CEDS is much
+// larger than one response), so it is debounced rather than fired per keystroke.
+let searchTimer = null;
+watch(elementSearch, (q) => {
+	if (!specSource.value) return;
+	clearTimeout(searchTimer);
+	searchTimer = setTimeout(() => {
+		store.loadSpecElements(specSource.value, { search: (q || '').trim() });
+	}, 300);
+});
+
+function selectGraphElement(el) {
+	selectedGraphElement.value = el;
+}
+
+const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
+const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
+
+// ── Crosswalk mode state ───────────────────────────────────────────
+const activeSectionId = ref(store.crosswalk[0]?.id || 'I');
+const activeSection = computed(() =>
+	store.crosswalk.find((s) => s.id === activeSectionId.value) || store.crosswalk[0],
+);
+const crosswalkSearch = ref('');
+const selectedElement = ref(null);
+
+// Sections grouped by information type. Organization-level facts (legal entity,
+// establishments, jobs, positions) are relatively stable; worker-level facts
+// (assignments, work relationship, hours, compensation) change far more often.
+// Surfacing the split helps users reason about how each is managed and shared.
+const GROUP_ORDER = ['Organization', 'Worker'];
+const groupedSections = computed(() => {
+	const groups = store.sectionGroups;
+	return GROUP_ORDER
+		.filter((name) => groups[name]?.length)
+		.map((name) => ({ name, sections: groups[name] }));
+});
+
+const filteredElements = computed(() => {
+	const els = activeSection.value?.elements || [];
+	const q = crosswalkSearch.value.trim().toLowerCase();
+	if (!q) return els;
+	return els.filter(
+		(e) =>
+			e.name.toLowerCase().includes(q) ||
+			e.id.toLowerCase().includes(q) ||
+			e.hrOpenProperty.toLowerCase().includes(q),
+	);
+});
+
+function selectElement(el) {
+	selectedElement.value = el;
+}
+
+// The section that actually owns the selected element (ids are globally unique,
+// so this is correct even if the active tab is switched without re-selecting).
+const selectedSection = computed(() => {
+	const el = selectedElement.value;
+	if (!el) return null;
+	return (
+		store.crosswalk.find((s) => s.elements.some((e) => e.id === el.id)) ||
+		activeSection.value
+	);
+});
+
+// Ancestry of the selected element, derived from its dotted id (e.g. "I.G.1" →
+// section "Organization" › element "I.G"). Lets sub-elements show their place in
+// the hierarchy without scrolling the list back up. Returns [] for top-level
+// elements (nothing to disambiguate beyond the section itself).
+const breadcrumb = computed(() => {
+	const el = selectedElement.value;
+	const sec = selectedSection.value;
+	if (!el || !sec) return [];
+	const parts = el.id.split('.');
+	const crumbs = [{ id: sec.id, name: sec.title || sec.label }];
+	let prefix = parts[0];
+	for (let i = 1; i < parts.length; i++) {
+		prefix += `.${parts[i]}`;
+		if (prefix === el.id) break; // the leaf is shown in the header itself
+		const anc = sec.elements.find((e) => e.id === prefix);
+		crumbs.push({ id: prefix, name: anc ? anc.name : prefix });
+	}
+	return crumbs.length > 1 ? crumbs : [];
+});
+
+// ── OpenAPI mode state ─────────────────────────────────────────────
+const pasteText = ref('');
+const urlText = ref('');
+const activeComponentName = ref(null);
+const selectedProperty = ref(null);
+const fileInput = ref(null);
+
+const activeComponent = computed(() =>
+	store.api?.components.find((c) => c.name === activeComponentName.value) || null,
+);
+
+function doLoadText() {
+	if (store.loadOpenApiText(pasteText.value)) {
+		activeComponentName.value = store.api.components[0]?.name || null;
+		selectedProperty.value = null;
+	}
+}
+async function doLoadUrl() {
+	if (await store.loadOpenApiUrl(urlText.value)) {
+		activeComponentName.value = store.api.components[0]?.name || null;
+		selectedProperty.value = null;
+	}
+}
+function onFile(e) {
+	const file = e.target.files?.[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = () => {
+		pasteText.value = reader.result;
+		doLoadText();
+	};
+	reader.readAsText(file);
+}
+function resetApi() {
+	store.clearApi();
+	activeComponentName.value = null;
+	selectedProperty.value = null;
+	pasteText.value = '';
+}
+function selectComponent(name) {
+	activeComponentName.value = name;
+	selectedProperty.value = null;
+}
+
+// A compact JEDx-flavoured sample so the tool is explorable with one click.
+const SAMPLE = JSON.stringify(
+	{
+		openapi: '3.0.3',
+		info: { title: 'JEDx Employer Reporting (sample)', version: '0.1.0' },
+		components: {
+			schemas: {
+				Organization: {
+					type: 'object',
+					description: 'An employing organization.',
+					required: ['legalName'],
+					properties: {
+						legalName: { type: 'string', description: 'Legal name of the organization.' },
+						tradeNames: { type: 'array', items: { type: 'string' } },
+						federalEmployerIdentificationNumber: { type: 'string', description: 'FEIN / EIN.' },
+						organizationType: { type: 'string' },
+						operatingStatus: { type: 'string' },
+					},
+				},
+				Job: {
+					type: 'object',
+					properties: {
+						organizationJobId: { type: 'string' },
+						jobTitle: { type: 'string', description: 'Job title.' },
+						jobCategoryCode: { type: 'string' },
+					},
+				},
+				Worker: {
+					type: 'object',
+					properties: {
+						workerIdentification: { type: 'string' },
+						socialSecurityNumber: { type: 'string' },
+						firstName: { type: 'string' },
+						lastName: { type: 'string' },
+						birthDate: { type: 'string', format: 'date' },
+					},
+				},
+			},
+		},
+	},
+	null,
+	2,
+);
+function loadSample() {
+	pasteText.value = SAMPLE;
+	doLoadText();
+}
+</script>
+
+<template>
+	<v-container class="py-8" style="max-width: 1240px;">
+		<!-- Header -->
+		<div class="d-flex align-center flex-wrap ga-3 mb-1">
+			<h1 class="text-h4 font-weight-bold text-primary">Schema Verifier</h1>
+			<v-chip color="indigo" variant="tonal" size="small" prepend-icon="mdi-graph-outline">
+				EDUcore knowledge graph
+			</v-chip>
+		</div>
+		<p class="text-body-1 text-medium-emphasis mb-5">
+			Break a schema into its component parts and see, element by element, what else in the
+			standards landscape means the same thing. Start from any specification in the
+			<strong>EDUcore graph</strong> to see its authoritative and implied cross-specification mappings, or work from
+			the authoritative JEDx ↔ HR Open crosswalk ({{ store.crosswalkMeta.elementCount }} mapped
+			elements).
+		</p>
+
+		<!-- Mode toggle -->
+		<v-btn-toggle v-model="mode" mandatory color="primary" variant="outlined" density="comfortable" class="mb-6">
+			<v-btn value="specs" prepend-icon="mdi-book-open-variant">Specifications</v-btn>
+			<v-btn value="crosswalk" prepend-icon="mdi-table-large">JEDx ↔ HR Open Crosswalk</v-btn>
+			<v-btn value="openapi" prepend-icon="mdi-code-json">Load OpenAPI Schema</v-btn>
+		</v-btn-toggle>
+
+		<!-- ════════════════════ SPECIFICATION MODE ════════════════════ -->
+		<template v-if="mode === 'specs'">
+			<v-row class="mb-1">
+				<v-col cols="12" md="7" lg="6">
+					<v-autocomplete
+						v-model="specSource"
+						:items="specItems"
+						item-title="title"
+						item-value="value"
+						label="Specification"
+						placeholder="Pick a specification — grouped by publishing organization"
+						prepend-inner-icon="mdi-book-open-variant"
+						variant="outlined"
+						density="comfortable"
+						:loading="store.specsLoading"
+						:disabled="store.specsLoading && !store.specs.length"
+						clearable
+						hide-details
+					>
+						<template #item="{ props: itemProps, item }">
+							<v-list-subheader v-if="item.raw.type === 'subheader'">
+								{{ item.raw.title }}
+							</v-list-subheader>
+							<v-list-item v-else v-bind="itemProps" :subtitle="item.raw.subtitle" />
+						</template>
+					</v-autocomplete>
+				</v-col>
+				<v-col cols="12" md="5" lg="6" class="d-flex align-center">
+					<v-chip
+						size="small"
+						variant="tonal"
+						:color="store.specsSource === 'snapshot' ? 'grey-darken-1' : 'indigo'"
+						:title="store.specsSource === 'snapshot'
+							? 'The live EDUcore endpoint is unavailable; the list comes from a bundled snapshot of the graph.'
+							: 'Specification list read live from the EDUcore knowledge graph.'"
+					>
+						{{ store.specsSource === 'snapshot'
+							? `EDUcore snapshot · ${store.snapshotDate}`
+							: 'live · EDUcore graph' }}
+					</v-chip>
+					<span v-if="store.specs.length" class="text-caption text-medium-emphasis ml-2">
+						{{ store.specs.length }} specifications
+					</span>
+				</v-col>
+			</v-row>
+
+			<v-alert v-if="store.specsError" type="warning" variant="tonal" density="compact" class="mb-4">
+				{{ store.specsError }}
+			</v-alert>
+
+			<!-- Selected spec summary -->
+			<v-card v-if="activeSpec" variant="tonal" color="indigo" class="my-4">
+				<v-card-text class="py-3 d-flex align-center flex-wrap ga-3">
+					<div>
+						<div class="text-subtitle-1 font-weight-bold">{{ activeSpec.standard }}</div>
+						<div class="text-caption">{{ activeSpec.organization }}</div>
+					</div>
+					<v-chip size="small" variant="flat" color="indigo">
+						{{ activeSpec.elementCount.toLocaleString() }} elements
+					</v-chip>
+					<v-chip v-if="activeSpec.classCount" size="small" variant="outlined">
+						{{ activeSpec.classCount.toLocaleString() }} classes
+					</v-chip>
+					<v-chip v-if="activeSpec.propertyCount" size="small" variant="outlined">
+						{{ activeSpec.propertyCount.toLocaleString() }} properties
+					</v-chip>
+					<v-spacer />
+					<v-btn
+						v-if="activeSpec.url"
+						size="small"
+						variant="text"
+						append-icon="mdi-open-in-new"
+						:href="activeSpec.url"
+						target="_blank"
+						rel="noopener"
+					>
+						Publisher
+					</v-btn>
+				</v-card-text>
+			</v-card>
+
+			<v-row v-if="activeSpec">
+				<!-- Element list -->
+				<v-col cols="12" md="6" lg="5">
+					<v-text-field
+						v-model="elementSearch"
+						prepend-inner-icon="mdi-magnify"
+						:placeholder="`Filter ${activeSpec.standard} elements…`"
+						variant="outlined"
+						density="compact"
+						hide-details
+						clearable
+						class="mb-3"
+					/>
+					<v-alert
+						v-if="store.elementsTruncated"
+						type="info"
+						variant="tonal"
+						density="compact"
+						class="mb-2 text-caption"
+					>
+						Showing the first {{ store.elements.length }} elements — filter to narrow the list.
+					</v-alert>
+					<v-alert v-if="store.elementsError" type="warning" variant="tonal" density="compact" class="mb-2">
+						{{ store.elementsError }}
+					</v-alert>
+
+					<v-progress-linear v-if="store.elementsLoading" indeterminate color="indigo" class="mb-1" />
+
+					<v-card variant="outlined" class="element-list">
+						<v-list density="compact" nav>
+							<v-list-item
+								v-for="el in store.elements"
+								:key="`${el.source}|${el.name}`"
+								:active="selectedGraphElement?.name === el.name"
+								color="primary"
+								@click="selectGraphElement(el)"
+							>
+								<template #prepend>
+									<v-chip
+										size="x-small"
+										variant="tonal"
+										:color="kindColor(el.kind)"
+										class="mr-2"
+										style="min-width: 62px;"
+									>
+										{{ el.kind }}
+									</v-chip>
+								</template>
+								<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+								<v-list-item-subtitle v-if="el.description" style="font-size: 0.72rem;">
+									{{ el.description }}
+								</v-list-item-subtitle>
+								<template #append>
+									<v-chip
+										v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
+										size="x-small"
+										color="deep-purple"
+										variant="tonal"
+										title="Accepted equivalents in your crosswalk"
+									>
+										{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
+									</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item v-if="!store.elements.length && !store.elementsLoading">
+								<v-list-item-title class="text-caption text-medium-emphasis">
+									No elements match.
+								</v-list-item-title>
+							</v-list-item>
+						</v-list>
+					</v-card>
+				</v-col>
+
+				<!-- Implied mappings -->
+				<v-col cols="12" md="6" lg="7">
+					<v-card v-if="selectedGraphElement" variant="outlined">
+						<v-card-item>
+							<div class="d-flex align-center flex-wrap ga-2">
+								<v-chip size="small" :color="kindColor(selectedGraphElement.kind)" variant="tonal">
+									{{ selectedGraphElement.kind }}
+								</v-chip>
+								<span class="text-h6 font-weight-bold">{{ selectedGraphElement.name }}</span>
+								<v-chip v-if="selectedGraphElement.sourceId" size="x-small" variant="text">
+									{{ selectedGraphElement.sourceId }}
+								</v-chip>
+							</div>
+						</v-card-item>
+						<v-card-text>
+							<p v-if="selectedGraphElement.description" class="text-body-2 mb-4">
+								{{ selectedGraphElement.description }}
+							</p>
+							<SpecCrossMappings :element="selectedGraphElement" />
+						</v-card-text>
+					</v-card>
+
+					<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+						<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
+						<p class="text-body-2 text-medium-emphasis mb-0">
+							Select an element to see its authoritative and implied mappings in every other specification.
+						</p>
+					</v-card>
+				</v-col>
+			</v-row>
+
+			<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+				<v-icon size="42" color="grey" class="mb-3">mdi-book-open-variant</v-icon>
+				<p class="text-body-2 text-medium-emphasis mb-0">
+					Pick a specification above to browse its elements and their cross-specification
+					mappings.
+				</p>
+			</v-card>
+		</template>
+
+		<!-- ════════════════════ CROSSWALK MODE ════════════════════ -->
+		<template v-if="mode === 'crosswalk'">
+			<!-- Categories header -->
+			<div class="d-flex align-center flex-wrap ga-2 mb-2">
+				<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
+				<span class="text-subtitle-2 font-weight-bold">Categories</span>
+				<span class="text-caption text-medium-emphasis">— grouped by information type</span>
+			</div>
+
+			<!-- Section tabs, split by information group (Organization vs Worker) -->
+			<div v-for="grp in groupedSections" :key="grp.name" class="mb-3">
+				<div class="text-overline text-medium-emphasis mb-0">
+					{{ grp.name }} information
+				</div>
+				<v-tabs
+					v-model="activeSectionId"
+					color="primary"
+					show-arrows
+					density="comfortable"
+					class="section-tabs"
+				>
+					<v-tab v-for="s in grp.sections" :key="s.id" :value="s.id">
+						<span class="font-weight-bold mr-1">{{ s.id }}.</span> {{ s.label }}
+						<v-chip size="x-small" variant="tonal" class="ml-2">{{ s.count }}</v-chip>
+					</v-tab>
+				</v-tabs>
+			</div>
+
+			<v-row>
+				<!-- Element list -->
+				<v-col cols="12" md="6" lg="5">
+					<v-text-field
+						v-model="crosswalkSearch"
+						prepend-inner-icon="mdi-magnify"
+						placeholder="Filter elements in this section…"
+						variant="outlined"
+						density="compact"
+						hide-details
+						clearable
+						class="mb-3"
+					/>
+					<v-card variant="outlined" class="element-list">
+						<v-list density="compact" nav>
+							<v-list-item
+								v-for="el in filteredElements"
+								:key="el.id"
+								:active="selectedElement?.id === el.id"
+								color="primary"
+								@click="selectElement(el)"
+							>
+								<template #prepend>
+									<span
+										class="text-caption text-medium-emphasis mono mr-2"
+										:style="{ paddingLeft: `${el.depth * 12}px`, minWidth: '64px' }"
+									>{{ el.id }}</span>
+								</template>
+								<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+								<v-list-item-subtitle class="mono" style="font-size: 0.72rem;">
+									{{ el.hrOpenProperty }}
+								</v-list-item-subtitle>
+								<template #append>
+									<v-chip
+										v-if="store.userEquivalentsFor(el.id).length"
+										size="x-small"
+										color="deep-purple"
+										variant="tonal"
+										title="Accepted equivalents in your crosswalk"
+									>
+										{{ store.userEquivalentsFor(el.id).length }}
+									</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item v-if="!filteredElements.length">
+								<v-list-item-title class="text-caption text-medium-emphasis">
+									No elements match.
+								</v-list-item-title>
+							</v-list-item>
+						</v-list>
+					</v-card>
+				</v-col>
+
+				<!-- Detail -->
+				<v-col cols="12" md="6" lg="7">
+					<v-card v-if="selectedElement" variant="outlined">
+						<v-card-item>
+							<div
+								v-if="breadcrumb.length"
+								class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
+							>
+								<template v-for="(c, i) in breadcrumb" :key="c.id">
+									<v-icon v-if="i" size="14" class="mx-1">mdi-chevron-right</v-icon>
+									<span>{{ c.name }}</span>
+								</template>
+							</div>
+							<div class="d-flex align-center flex-wrap ga-2">
+								<v-chip size="small" color="primary" variant="tonal">{{ selectedElement.id }}</v-chip>
+								<span class="text-h6 font-weight-bold">{{ selectedElement.name }}</span>
+							</div>
+						</v-card-item>
+						<v-card-text>
+							<p v-if="selectedElement.definition" class="text-body-2 mb-4">
+								{{ selectedElement.definition }}
+							</p>
+							<v-alert
+								v-if="selectedElement.revisionNotes"
+								type="info"
+								variant="tonal"
+								density="compact"
+								icon="mdi-comment-question-outline"
+								class="mb-4 text-body-2"
+							>
+								{{ selectedElement.revisionNotes }}
+							</v-alert>
+
+							<SchemaEquivalents
+								:term="selectedElement.name"
+								:hr-open-seed="selectedElement"
+								:context="selectedSection"
+							/>
+						</v-card-text>
+					</v-card>
+
+					<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+						<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
+						<p class="text-body-2 text-medium-emphasis mb-0">
+							Select an element to see its HR Open mapping and live CEDS equivalents.
+						</p>
+					</v-card>
+				</v-col>
+			</v-row>
+		</template>
+
+		<!-- ════════════════════ OPENAPI MODE ════════════════════ -->
+		<template v-else-if="mode === 'openapi'">
+			<!-- Loader -->
+			<v-card v-if="!store.hasApi" variant="outlined" class="mb-4">
+				<v-card-text>
+					<div class="d-flex align-center flex-wrap ga-2 mb-3">
+						<v-btn color="primary" variant="tonal" prepend-icon="mdi-flask-outline" @click="loadSample">
+							Load sample (JEDx-flavoured)
+						</v-btn>
+						<v-btn variant="text" prepend-icon="mdi-upload" @click="fileInput?.click()">
+							Upload file
+						</v-btn>
+						<input ref="fileInput" type="file" accept=".json,.yaml,.yml,.txt" hidden @change="onFile" />
+					</div>
+
+					<v-textarea
+						v-model="pasteText"
+						label="Paste an OpenAPI 3 / Swagger 2 document (JSON or YAML)"
+						variant="outlined"
+						rows="8"
+						auto-grow
+						class="mono-area mb-2"
+						hide-details
+					/>
+					<div class="d-flex align-center flex-wrap ga-2 mb-3">
+						<v-btn color="primary" prepend-icon="mdi-code-braces" :disabled="!pasteText.trim()" @click="doLoadText">
+							Parse schema
+						</v-btn>
+					</div>
+
+					<v-divider class="my-3" />
+					<div class="d-flex align-center flex-wrap ga-2">
+						<v-text-field
+							v-model="urlText"
+							placeholder="…or load from a URL (https://…/openapi.json)"
+							variant="outlined"
+							density="compact"
+							hide-details
+							style="min-width: 320px; flex: 1;"
+						/>
+						<v-btn variant="tonal" prepend-icon="mdi-cloud-download-outline" :disabled="!urlText.trim()" @click="doLoadUrl">
+							Fetch
+						</v-btn>
+					</div>
+
+					<v-alert v-if="store.loadError" type="error" variant="tonal" density="compact" class="mt-3">
+						{{ store.loadError }}
+					</v-alert>
+				</v-card-text>
+			</v-card>
+
+			<!-- Loaded schema -->
+			<template v-else>
+				<div class="d-flex align-center flex-wrap ga-2 mb-3">
+					<div>
+						<span class="text-h6 font-weight-bold">{{ store.api.title }}</span>
+						<span v-if="store.api.version" class="text-medium-emphasis ml-2">v{{ store.api.version }}</span>
+					</div>
+					<v-chip size="small" variant="tonal">{{ store.api.componentCount }} schemas</v-chip>
+					<v-spacer />
+					<v-btn variant="text" size="small" prepend-icon="mdi-refresh" @click="resetApi">
+						Load a different schema
+					</v-btn>
+				</div>
+
+				<!-- Component (schema) tabs -->
+				<v-tabs
+					:model-value="activeComponentName"
+					color="primary"
+					show-arrows
+					density="comfortable"
+					class="mb-4 section-tabs"
+					@update:model-value="selectComponent"
+				>
+					<v-tab v-for="c in store.api.components" :key="c.name" :value="c.name">
+						{{ c.name }}
+						<v-chip size="x-small" variant="tonal" class="ml-2">{{ c.propertyCount }}</v-chip>
+					</v-tab>
+				</v-tabs>
+
+				<v-row v-if="activeComponent">
+					<!-- Property list -->
+					<v-col cols="12" md="6" lg="5">
+						<p v-if="activeComponent.description" class="text-body-2 text-medium-emphasis mb-2">
+							{{ activeComponent.description }}
+						</p>
+						<v-card variant="outlined" class="element-list">
+							<v-list density="compact" nav>
+								<v-list-item
+									v-for="p in activeComponent.properties"
+									:key="p.name"
+									:active="selectedProperty?.name === p.name"
+									color="primary"
+									@click="selectedProperty = p"
+								>
+									<v-list-item-title class="text-body-2 d-flex align-center">
+										<span class="mono">{{ p.name }}</span>
+										<v-icon v-if="p.required" size="12" color="error" class="ml-1" title="required">mdi-asterisk</v-icon>
+									</v-list-item-title>
+									<v-list-item-subtitle style="font-size: 0.72rem;">
+										{{ p.type }}<span v-if="p.format"> · {{ p.format }}</span>
+									</v-list-item-subtitle>
+								</v-list-item>
+								<v-list-item v-if="!activeComponent.properties.length">
+									<v-list-item-title class="text-caption text-medium-emphasis">
+										This schema has no direct properties.
+									</v-list-item-title>
+								</v-list-item>
+							</v-list>
+						</v-card>
+					</v-col>
+
+					<!-- Property detail -->
+					<v-col cols="12" md="6" lg="7">
+						<v-card v-if="selectedProperty" variant="outlined">
+							<v-card-item>
+								<div class="d-flex align-center flex-wrap ga-2">
+									<span class="text-h6 font-weight-bold mono">{{ selectedProperty.name }}</span>
+									<v-chip size="x-small" variant="tonal">{{ selectedProperty.type }}</v-chip>
+									<v-chip v-if="selectedProperty.required" size="x-small" color="error" variant="tonal">required</v-chip>
+								</div>
+							</v-card-item>
+							<v-card-text>
+								<p v-if="selectedProperty.description" class="text-body-2 mb-2">
+									{{ selectedProperty.description }}
+								</p>
+								<div v-if="selectedProperty.enum" class="mb-3">
+									<span class="text-caption font-weight-bold mr-1">Allowed:</span>
+									<v-chip v-for="v in selectedProperty.enum" :key="v" size="x-small" variant="outlined" class="mr-1 mb-1">
+										{{ v }}
+									</v-chip>
+								</div>
+								<v-divider class="mb-4" />
+								<SchemaEquivalents :term="selectedProperty.name" />
+							</v-card-text>
+						</v-card>
+
+						<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+							<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
+							<p class="text-body-2 text-medium-emphasis mb-0">
+								Select a property to find its CEDS and HR Open equivalents.
+							</p>
+						</v-card>
+					</v-col>
+				</v-row>
+			</template>
+		</template>
+	</v-container>
+</template>
+
+<style scoped>
+.mono {
+	font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+.mono-area :deep(textarea) {
+	font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+	font-size: 0.8rem;
+	line-height: 1.5;
+}
+.element-list {
+	max-height: 560px;
+	overflow-y: auto;
+}
+.section-tabs {
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+</style>

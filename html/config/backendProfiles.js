@@ -9,7 +9,12 @@ export const backendProfiles = {
 		apiBase: 'http://localhost:7790/api',
 	},
 	educoreProd: {
-		label: 'Production (educore.tqtmp.org)',
+		label: 'Production (educore.org)',
+		wsHost: 'educore.org',
+		apiBase: 'https://educore.org/api',
+	},
+	educoreTqtmp: {
+		label: 'Legacy host (educore.tqtmp.org)',
 		wsHost: 'educore.tqtmp.org',
 		apiBase: 'https://educore.tqtmp.org/api',
 	},

@@ -1,14 +1,24 @@
-// Redirects axios /api/* calls to the cookie-selected backend's apiBase.
+// Redirects axios /api/* calls to a configured backend's apiBase.
 //
-// Default behavior (no cookie): config.url passes through unchanged; the
-// request flows to the Nuxt /api proxy and out to the deployment's
-// configured remote. When educoreDevServer is set to a known profile, the
-// /api prefix is swapped for profile.apiBase (which already ends in /api),
-// producing e.g. http://localhost:7790/api/login.
+// Two cases trigger a rewrite (the /api prefix is swapped for profile.apiBase,
+// which already ends in /api, producing e.g. http://localhost:7790/api/login):
 //
-// Production is inert: useBackendProfile() short-circuits on the
-// educore.tqtmp.org domain and returns source='default', so the rewrite
-// branch is never entered regardless of any cookie value.
+//   1. A cookie profile is active (educoreDevServer set to a known profile) —
+//      works in any environment.
+//   2. Production build with a build-time apiBase configured via
+//      NUXT_PUBLIC_API_BASE (e.g. a Vercel static deploy with no co-located
+//      backend). There is no Nuxt proxy in a static SPA, so a relative /api
+//      call would hit the static-hosting origin and 404 — the absolute apiBase
+//      is required.
+//
+// Otherwise config.url passes through unchanged:
+//   - In dev, relative /api flows through Nuxt's nitro.devProxy to the remote
+//     (avoids browser CORS), so we must NOT rewrite the default profile there.
+//   - On the educore.tqtmp.org prod domain, apiBase is empty and nginx proxies
+//     /api, so the falsy-apiBase guard leaves the request relative.
+//
+// NOTE: when case 2 applies, the backend must send CORS headers permitting the
+// deploy origin — these become genuine cross-origin requests.
 
 import axios from 'axios';
 
@@ -16,7 +26,9 @@ export default defineNuxtPlugin(() => {
 	axios.interceptors.request.use((config) => {
 		const profile = useBackendProfile();
 
-		if (profile.source !== 'cookie' || !profile.apiBase) {
+		const shouldRewrite =
+			profile.apiBase && (profile.source === 'cookie' || !import.meta.dev);
+		if (!shouldRewrite) {
 			return config;
 		}
 
