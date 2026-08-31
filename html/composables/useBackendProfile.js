@@ -4,9 +4,10 @@
 // returns a uniform { source, name, label, wsHost, apiBase } shape. Callers
 // do not branch on whether the source is 'cookie' or 'default'.
 //
-// Production safety: when the page itself is served from educore.tqtmp.org,
-// the cookie is ignored outright — an admin who somehow sets it on the prod
-// domain cannot redirect prod traffic to an attacker-controlled backend.
+// Production safety: when the page itself is served from a production domain
+// (educore.org, or the legacy educore.tqtmp.org), the cookie is ignored
+// outright — an admin who somehow sets it on a prod domain cannot redirect
+// prod traffic to an attacker-controlled backend.
 //
 // Unknown cookie values silently fall through to the default, so a typo
 // cannot break the UI.
@@ -27,7 +28,7 @@ export const useBackendProfile = () => {
 	const rc = useRuntimeConfig().public;
 
 	const onProdDomain = typeof window !== 'undefined'
-		&& /educore\.tqtmp\.org$/i.test(window.location.hostname);
+		&& /(^|\.)educore\.org$|educore\.tqtmp\.org$/i.test(window.location.hostname);
 
 	if (!onProdDomain) {
 		const name = readCookie(COOKIE_NAME);

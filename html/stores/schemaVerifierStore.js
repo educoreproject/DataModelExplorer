@@ -260,6 +260,131 @@ function searchSnapshot(snapshot, sigTokens, allTokens, minHits) {
 }
 
 // -------------------------------------------------------------------------
+// Specification inventory + per-spec browsing.
+//
+// The Schema Verifier's entry point is a live list of the specifications the
+// graph can actually explain element by element. That list is NOT hand-kept:
+// every golden node carries a `_source` stamp, so the distinct sources ARE the
+// inventory, and a spec appears the moment it is forged into the graph.
+//
+// Publishing organization is the sort key the dropdown groups on. The graph
+// supplies it from the EdMatrix side ((EdStandard)-[:PUBLISHED_BY]->(Organization))
+// when the EdMatrix title and the `_source` code line up; the table below fills
+// the gaps for sources with no EdMatrix twin. It is a display convenience, never
+// a source of truth — anything unmatched simply lands under "Other publishers".
+
+const ORG_BY_SOURCE = {
+	CEDS: 'NCES / US Department of Education',
+	CIP: 'NCES',
+	SIF: 'Access 4 Learning (A4L)',
+	EdFi: 'Ed-Fi Alliance',
+	CTDL: 'Credential Engine',
+	CTDLASN: 'Credential Engine',
+	CTDLQData: 'Credential Engine',
+	PESC: 'PESC',
+	JEDx: 'US Chamber of Commerce Foundation',
+	SEDM: 'CIID / IDEA',
+	CASE: '1EdTech',
+	CLR: '1EdTech',
+	OpenBadges: '1EdTech',
+	MedBiquitous: 'MedBiquitous Consortium',
+};
+
+const UNATTRIBUTED_ORG = 'Other publishers';
+
+// The snapshot is imported lazily and at most once — it is a large JSON blob
+// that most sessions never need (it only comes into play when the live
+// endpoints are unavailable).
+
+let snapshotPromise = null;
+function loadSnapshot() {
+	if (!snapshotPromise) {
+		snapshotPromise = import('@/data/educore-equivalents-snapshot.json').then(
+			(mod) => mod.default,
+		);
+	}
+	return snapshotPromise;
+}
+
+// Flatten the snapshot's hubs into the two shapes the spec views need: every
+// element grouped by its spec, and, for each element, the hubs it sits in (the
+// path to its cross-spec neighbours). Built once per session.
+//
+// A hub's CEDS anchors are its definition, so they enter as EXACT_MATCH — the
+// same treatment searchSnapshot() gives them, and the reason they are excluded
+// from "implied" results below.
+
+let snapshotIndexCache = null;
+
+function snapshotIndex(snapshot) {
+	if (snapshotIndexCache) return snapshotIndexCache;
+
+	const bySource = new Map(); // source -> Map(nameLower -> element)
+	const hubsByMember = new Map(); // 'source|nameLower' -> [members[], ...]
+
+	const kindOf = (k) => (k === 'C' ? 'class' : k === 'P' ? 'property' : 'value');
+
+	for (const hub of snapshot.hubs) {
+		const members = [
+			...(hub.ceds || []).map((c) => ({ ...c, rel: 'EXACT_MATCH' })),
+			...(hub.matches || []),
+		];
+		for (const member of members) {
+			if (!member.name || !member.source) continue;
+			const nameKey = member.name.toLowerCase();
+			const memberKey = `${member.source}|${nameKey}`;
+
+			if (!bySource.has(member.source)) bySource.set(member.source, new Map());
+			const specMap = bySource.get(member.source);
+			if (!specMap.has(nameKey)) {
+				specMap.set(nameKey, {
+					name: member.name,
+					source: member.source,
+					standard: standardOf(member.source),
+					kind: kindOf(member.k),
+					description: member.desc || '',
+					sourceId: member.id || '',
+				});
+			}
+
+			if (!hubsByMember.has(memberKey)) hubsByMember.set(memberKey, []);
+			hubsByMember.get(memberKey).push({ hub: hub.hub, members });
+		}
+	}
+
+	snapshotIndexCache = { bySource, hubsByMember };
+	return snapshotIndexCache;
+}
+
+// Which hub edges count as verified. EXACT_MATCH is the hub-verified
+// equivalence; the HAS_CEDS_* edges are how a CEDS anchor is bound to the hub
+// it defines, which is definitional and therefore at least as strong.
+const VERIFIED_RELS = new Set([
+	'EXACT_MATCH',
+	'HAS_CEDS_PROPERTY',
+	'HAS_CEDS_DOMAIN',
+	'HAS_CEDS_VALUE',
+]);
+
+// A cross-spec correspondence runs over two hub edges — the element's own
+// (selfRel) and the neighbour's (rel) — and is only as strong as the weaker of
+// them. Both verified means the pair is authoritative BY COMPOSITION: no
+// standard's documentation crosswalks directly to another's, so a SIF ↔ Ed-Fi
+// equivalence is two asserted legs meeting at a CEDS hub. Anything else is a
+// similarity-derived hypothesis.
+const isAuthoritativePair = (selfRel, rel) =>
+	VERIFIED_RELS.has(selfRel) && VERIFIED_RELS.has(rel);
+
+// Sort specs the way the dropdown groups them: organization first, then title.
+function sortSpecs(specs) {
+	return specs.sort(
+		(a, b) =>
+			a.organization.localeCompare(b.organization) ||
+			a.standard.localeCompare(b.standard),
+	);
+}
+
+// -------------------------------------------------------------------------
 // User-curated equivalence crosswalk — persisted in localStorage. Keyed by
 // crosswalk element id (or a term-derived key in OpenAPI mode); each entry is
 // a list the user built by accepting/removing suggestions in the UI.
@@ -301,6 +426,24 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		graphSource: '', // '' until first lookup, then 'live' | 'snapshot'
 		snapshotDate: '',
 
+		// specification inventory (live graph, snapshot fallback)
+		specs: [],
+		specsLoading: false,
+		specsError: '',
+		specsSource: '', // '' until first load, then 'live' | 'snapshot'
+
+		// the spec currently being browsed, and its elements
+		selectedSpec: null,
+		elements: [],
+		elementsLoading: false,
+		elementsError: '',
+		elementsTruncated: false,
+
+		// cross-spec mappings ({ authoritative, implied }), keyed by 'source|nameLower'
+		mappingsCache: {},
+		mappingsLoading: false,
+		mappingsError: '',
+
 		// user-curated equivalence crosswalk, keyed by element id / term
 		userEquivalents: loadUserEquivalents(),
 	}),
@@ -315,6 +458,19 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		},
 		hasApi: (state) => !!state.api,
 		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
+
+		// Specs grouped for the picker: [{ organization, specs: [...] }], both
+		// levels alphabetical. `specs` is already sorted organization-then-title,
+		// so a single pass preserves that order.
+		specsByOrganization: (state) => {
+			const groups = [];
+			for (const spec of state.specs) {
+				const last = groups[groups.length - 1];
+				if (last && last.organization === spec.organization) last.specs.push(spec);
+				else groups.push({ organization: spec.organization, specs: [spec] });
+			}
+			return groups;
+		},
 	},
 
 	actions: {
@@ -362,6 +518,263 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		clearApi() {
 			this.api = null;
 			this.loadError = '';
+		},
+
+		// ------------------------------------------------------------
+		// Auth header for the public reference endpoints. They accept
+		// anonymous callers, but a signed-in user's token is forwarded so the
+		// request is attributed rather than anonymous.
+
+		authHeaders() {
+			const loginStore = useLoginStore();
+			return loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {};
+		},
+
+		// ------------------------------------------------------------
+		// Specification inventory — the list behind the picker. Live from the
+		// graph; falls back to the bundled snapshot, which carries the same
+		// `_source` stamps and so yields the same shape of answer.
+
+		async loadSpecifications({ force = false } = {}) {
+			if (this.specs.length && !force) return this.specs;
+
+			this.specsLoading = true;
+			this.specsError = '';
+
+			try {
+				const res = await axios.get('/api/dme-specifications', {
+					headers: this.authHeaders(),
+				});
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((row) => row && row.source && row.elementCount > 0)
+					.map((row) => ({
+						source: row.source,
+						standard: standardOf(row.source),
+						organization:
+							row.organization || ORG_BY_SOURCE[row.source] || UNATTRIBUTED_ORG,
+						elementCount: row.elementCount || 0,
+						propertyCount: row.propertyCount || 0,
+						classCount: row.classCount || 0,
+						url: row.url || '',
+						description: row.description || '',
+					}));
+				if (!rows.length) throw new Error('graph returned no specifications');
+
+				this.specsSource = 'live';
+				this.specs = sortSpecs(rows);
+				return this.specs;
+			} catch (_liveErr) {
+				try {
+					const snapshot = await loadSnapshot();
+					const { bySource } = snapshotIndex(snapshot);
+					const rows = [...bySource.entries()].map(([source, elements]) => {
+						const list = [...elements.values()];
+						const classCount = list.filter((e) => e.kind === 'class').length;
+						return {
+							source,
+							standard: standardOf(source),
+							organization: ORG_BY_SOURCE[source] || UNATTRIBUTED_ORG,
+							elementCount: list.length,
+							propertyCount: list.length - classCount,
+							classCount,
+							url: '',
+							description: '',
+						};
+					});
+
+					this.specsSource = 'snapshot';
+					this.snapshotDate = snapshot.generated || '';
+					this.specs = sortSpecs(rows);
+					return this.specs;
+				} catch (err) {
+					this.specsError =
+						err.message || 'Could not load the specification list.';
+					return [];
+				}
+			} finally {
+				this.specsLoading = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// Elements of one specification — the left-hand list. `search` is
+		// pushed down to the query rather than applied in the browser: a
+		// standard the size of CEDS is far larger than one response.
+
+		async loadSpecElements(source, { search = '', limit = 400 } = {}) {
+			if (!source) return [];
+
+			this.elementsLoading = true;
+			this.elementsError = '';
+
+			try {
+				const res = await axios.get('/api/dme-spec-elements', {
+					params: { source, search, limit },
+					headers: this.authHeaders(),
+				});
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((row) => row && row.name)
+					.map((row) => ({
+						name: row.name,
+						source: row.source || source,
+						standard: standardOf(row.source || source, row.labels),
+						kind: row.kind || 'property',
+						description: row.description || '',
+						sourceId: row.sourceId || '',
+					}));
+
+				this.elements = rows;
+				this.elementsTruncated = rows.length >= limit;
+				return rows;
+			} catch (_liveErr) {
+				try {
+					const snapshot = await loadSnapshot();
+					const { bySource } = snapshotIndex(snapshot);
+					const q = search.trim().toLowerCase();
+					const all = [...(bySource.get(source)?.values() || [])]
+						.filter((el) => !q || el.name.toLowerCase().includes(q))
+						.sort(
+							(a, b) =>
+								(a.kind === 'class' ? 0 : 1) - (b.kind === 'class' ? 0 : 1) ||
+								a.name.localeCompare(b.name),
+						);
+
+					this.snapshotDate = snapshot.generated || '';
+					this.elements = all.slice(0, limit);
+					this.elementsTruncated = all.length > limit;
+					return this.elements;
+				} catch (err) {
+					this.elements = [];
+					this.elementsTruncated = false;
+					this.elementsError =
+						err.message || 'Could not load elements for this specification.';
+					return [];
+				}
+			} finally {
+				this.elementsLoading = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// Cross-specification mappings for one element, split into the graph's
+		// two tiers. Returns { authoritative, implied }.
+		//
+		// AUTHORITATIVE — both hub edges are verified. Because cross-standard
+		// authority is always CEDS-mediated, most of these are equivalences
+		// between two non-CEDS specs (SIF ↔ Ed-Fi being the big one) that hold
+		// by composition through a shared hub, plus the hub's CEDS anchor
+		// itself. Each row carries the `hub` that carried the claim.
+		//
+		// IMPLIED — everything else: at least one leg is a similarity-derived
+		// CLOSE / NARROW / RELATED_MATCH, so the pair is a hypothesis.
+		//
+		// The element's own specification is excluded from both.
+
+		async lookupCrossSpec(element) {
+			const empty = { authoritative: [], implied: [] };
+			if (!element?.name || !element?.source) return empty;
+
+			const nameKey = element.name.toLowerCase();
+			const key = `${element.source}|${nameKey}`;
+			if (this.mappingsCache[key]) return this.mappingsCache[key];
+
+			this.mappingsLoading = true;
+			this.mappingsError = '';
+
+			// Identity is (standard, name). The same pair can be reachable over
+			// several hubs; keep the strongest reading of it, so one verified
+			// path is not buried by a weaker one elsewhere in the graph.
+			const split = (rows) => {
+				const best = new Map();
+				for (const row of rows) {
+					const k = `${row.standard}|${row.name}`;
+					const prior = best.get(k);
+					if (!prior || (row.authoritative && !prior.authoritative)) best.set(k, row);
+				}
+				const sorted = [...best.values()].sort(
+					(a, b) => a.standard.localeCompare(b.standard) || a.name.localeCompare(b.name),
+				);
+				return {
+					authoritative: sorted.filter((r) => r.authoritative),
+					implied: sorted.filter((r) => !r.authoritative),
+				};
+			};
+
+			try {
+				const res = await axios.get('/api/dme-cross-spec-mappings', {
+					params: { source: element.source, name: element.name },
+					headers: this.authHeaders(),
+				});
+				const result = split(
+					(Array.isArray(res.data) ? res.data : []).flatMap((row) =>
+						(row?.matches || [])
+							.filter((m) => m && m.name)
+							.map((m) => ({
+								standard: standardOf(m.source, m.labels),
+								name: m.name,
+								source: m.source || '',
+								rel: m.rel || 'RELATED_MATCH',
+								selfRel: m.selfRel || '',
+								authoritative: isAuthoritativePair(m.selfRel, m.rel),
+								description: m.description || '',
+								sourceId: m.sourceId || '',
+								hub: m.hub || '',
+							})),
+					),
+				);
+
+				this.graphSource = 'live';
+				this.mappingsCache = { ...this.mappingsCache, [key]: result };
+				return result;
+			} catch (_liveErr) {
+				try {
+					const snapshot = await loadSnapshot();
+					const { hubsByMember } = snapshotIndex(snapshot);
+					const result = split(
+						(hubsByMember.get(key) || []).flatMap(({ hub, members }) => {
+							// The element's own edge to this hub sets the ceiling on
+							// every correspondence drawn through it.
+							const self = members.find(
+								(m) =>
+									m.source === element.source &&
+									String(m.name).toLowerCase() === nameKey,
+							);
+							return members
+								.filter((m) => m.name && m.source !== element.source && m.rel)
+								.map((m) => ({
+									standard: standardOf(m.source),
+									name: m.name,
+									source: m.source,
+									rel: m.rel,
+									selfRel: self?.rel || '',
+									authoritative: isAuthoritativePair(self?.rel, m.rel),
+									description: m.desc || '',
+									sourceId: m.id || '',
+									hub: hub || '',
+								}));
+						}),
+					);
+
+					this.graphSource = 'snapshot';
+					this.snapshotDate = snapshot.generated || '';
+					this.mappingsCache = { ...this.mappingsCache, [key]: result };
+					return result;
+				} catch (err) {
+					this.mappingsError = err.message || 'Cross-spec mapping lookup failed.';
+					return empty;
+				}
+			} finally {
+				this.mappingsLoading = false;
+			}
+		},
+
+		// Switch the browsed specification: clears the element list so a stale
+		// spec's elements never show under a new spec's heading.
+		selectSpec(spec) {
+			this.selectedSpec = spec || null;
+			this.elements = [];
+			this.elementsTruncated = false;
+			this.elementsError = '';
 		},
 
 		// ------------------------------------------------------------
