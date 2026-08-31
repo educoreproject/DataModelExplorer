@@ -375,6 +375,74 @@ const VERIFIED_RELS = new Set([
 const isAuthoritativePair = (selfRel, rel) =>
 	VERIFIED_RELS.has(selfRel) && VERIFIED_RELS.has(rel);
 
+// -------------------------------------------------------------------------
+// Scoring a cross-spec row, for the "%" chip and for ranking.
+//
+// Two different things can supply the number, and they are NOT interchangeable,
+// so each row records which one it used:
+//
+//   'semantic' — cosine distance between the two elements' voyage-3 embeddings,
+//     computed by the graph on demand. This is the only basis that measures
+//     MEANING, so it is preferred whenever available. Same model on both sides,
+//     so the comparison is sound.
+//
+//   'confidence' — the forge's own number, stamped on the hub edges. Authored
+//     crosswalk edges carried 1.0; similarity-derived ones carry the vector
+//     score. A composed path multiplies its two legs, because two independent
+//     0.9 hops genuinely are weaker evidence than one.
+//
+//   'similarity' — last resort, computed here from names (or definitions) when
+//     the graph offers neither of the above; the bundled snapshot never does,
+//     since it carries no embeddings. It says how alike the LABELS are, which is
+//     nearly unrelated to whether the mapping is right: CASE `fullStatement` and
+//     CEDS `Competency Definition` mean the same thing and share no words at
+//     all. Recorded as its own basis so the UI can refuse to dress it up.
+//
+// Dice coefficient over significant tokens: symmetric, so "County" scores well
+// against "NameOfCounty" but not against a long name that merely contains it.
+
+function nameSimilarity(a, b) {
+	const left = new Set(matchTokens(a));
+	const right = new Set(matchTokens(b));
+	if (!left.size || !right.size) return 0;
+	let shared = 0;
+	for (const token of left) if (right.has(token)) shared++;
+	return (2 * shared) / (left.size + right.size);
+}
+
+function scoreRow({
+	semantic,
+	selfConfidence,
+	confidence,
+	fromName,
+	toName,
+	fromDescription = '',
+	toDescription = '',
+}) {
+	if (typeof semantic === 'number' && Number.isFinite(semantic)) {
+		// Cosine runs -1..1; only the positive half is meaningful here.
+		return { score: Math.max(0, Math.min(1, semantic)), scoreBasis: 'semantic' };
+	}
+	const legs = [selfConfidence, confidence].filter(
+		(c) => typeof c === 'number' && Number.isFinite(c),
+	);
+	if (legs.length === 2) {
+		return { score: legs[0] * legs[1], scoreBasis: 'confidence' };
+	}
+	if (legs.length === 1) {
+		return { score: legs[0], scoreBasis: 'confidence' };
+	}
+	// Best lexical evidence available, not a blend: two elements can share a
+	// meaning while sharing no words in their names (CASE `fullStatement` and
+	// CEDS `Competency Definition`), and then the definitions are the only
+	// lexical signal there is. Taking the max avoids inventing a weighting.
+	const score = Math.max(
+		nameSimilarity(fromName, toName),
+		nameSimilarity(fromDescription, toDescription),
+	);
+	return { score, scoreBasis: 'similarity' };
+}
+
 // Sort specs the way the dropdown groups them: organization first, then title.
 function sortSpecs(specs) {
 	return specs.sort(
@@ -683,16 +751,25 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 
 			// Identity is (standard, name). The same pair can be reachable over
 			// several hubs; keep the strongest reading of it, so one verified
-			// path is not buried by a weaker one elsewhere in the graph.
+			// path is not buried by a weaker one elsewhere in the graph. Among
+			// equally authoritative readings the higher-scoring one wins.
 			const split = (rows) => {
 				const best = new Map();
 				for (const row of rows) {
 					const k = `${row.standard}|${row.name}`;
 					const prior = best.get(k);
-					if (!prior || (row.authoritative && !prior.authoritative)) best.set(k, row);
+					const better =
+						!prior ||
+						(row.authoritative && !prior.authoritative) ||
+						(row.authoritative === prior.authoritative && row.score > prior.score);
+					if (better) best.set(k, row);
 				}
+				// Highest score first — that is the ranking the UI presents.
 				const sorted = [...best.values()].sort(
-					(a, b) => a.standard.localeCompare(b.standard) || a.name.localeCompare(b.name),
+					(a, b) =>
+						b.score - a.score ||
+						a.standard.localeCompare(b.standard) ||
+						a.name.localeCompare(b.name),
 				);
 				return {
 					authoritative: sorted.filter((r) => r.authoritative),
@@ -719,6 +796,13 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 								description: m.description || '',
 								sourceId: m.sourceId || '',
 								hub: m.hub || '',
+								...scoreRow({
+									semantic: m.semantic,
+									selfConfidence: m.selfConfidence,
+									confidence: m.confidence,
+									fromName: element.name,
+									toName: m.name,
+								}),
 							})),
 					),
 				);
@@ -751,6 +835,14 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 									description: m.desc || '',
 									sourceId: m.id || '',
 									hub: hub || '',
+									// The snapshot carries no edge confidence, so every
+									// snapshot row scores on name similarity.
+									...scoreRow({
+										fromName: element.name,
+										toName: m.name,
+										fromDescription: element.description || '',
+										toDescription: m.desc || '',
+									}),
 								}));
 						}),
 					);

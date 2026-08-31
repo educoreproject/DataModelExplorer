@@ -110,16 +110,84 @@ function weakestRel(row) {
 function groupByStandard(list) {
 	const groups = {};
 	for (const r of list) (groups[r.standard] ||= []).push(r);
+	// MEANING RANKS FIRST, then the number.
+	//
+	// The graph's own verdict on a pair — close vs narrower vs related — is a
+	// semantic judgement made against the hub concept. A percentage is at best a
+	// vector distance and at worst (the lexical fallback) a word-overlap
+	// coincidence, so it must not reorder rows across match tiers. Sorting the
+	// other way round put a 67% label collision above a genuinely close match.
 	for (const rowsForStd of Object.values(groups)) {
 		rowsForStd.sort(
 			(a, b) => strengthOf(weakestRel(a)) - strengthOf(weakestRel(b)) ||
+				b.score - a.score ||
 				a.name.localeCompare(b.name),
 		);
 	}
-	return Object.entries(groups).sort(
-		([a], [b]) => (b === 'CEDS') - (a === 'CEDS') || a.localeCompare(b),
-	);
+	// Specifications lead with their best row: strongest tier first, then score
+	// within it. CEDS only breaks ties — being the hub language is not itself a
+	// reason to outrank a better match elsewhere.
+	const bestOf = (rows) =>
+		rows.reduce(
+			(best, r) => {
+				const tier = strengthOf(weakestRel(r));
+				if (tier < best.tier || (tier === best.tier && (r.score || 0) > best.score)) {
+					return { tier, score: r.score || 0 };
+				}
+				return best;
+			},
+			{ tier: 99, score: 0 },
+		);
+	return Object.entries(groups).sort(([aName, aRows], [bName, bRows]) => {
+		const a = bestOf(aRows);
+		const b = bestOf(bRows);
+		return (
+			a.tier - b.tier ||
+			b.score - a.score ||
+			(bName === 'CEDS') - (aName === 'CEDS') ||
+			aName.localeCompare(bName)
+		);
+	});
 }
+
+// The percentage chip. Colour tracks the score so a column of rows is scannable
+// without reading the numbers.
+const pct = (score) => Math.round((score || 0) * 100);
+const scoreColor = (score) => {
+	const value = pct(score);
+	if (value >= 90) return 'success';
+	if (value >= 65) return 'lime-darken-3';
+	if (value >= 40) return 'amber-darken-3';
+	return 'grey';
+};
+
+// A lexical zero means "these labels share no words", which is NOT "these do not
+// match" — CASE fullStatement ↔ CEDS Competency Definition is exactly that case,
+// and printing 0% there argues against the human who knows better. Show an em
+// dash: no signal, no claim.
+const hasScore = (row) => row.scoreBasis !== 'similarity' || pct(row.score) > 0;
+const scoreText = (row) => (hasScore(row) ? `${pct(row.score)}%` : '—');
+
+const SCORE_BASIS_ICON = {
+	semantic: 'mdi-vector-triangle',
+	confidence: 'mdi-seal-variant',
+	similarity: 'mdi-approximately-equal',
+};
+const scoreIcon = (row) => SCORE_BASIS_ICON[row.scoreBasis] || '';
+
+// The three bases must never read as the same number.
+const scoreTitle = (row) => {
+	if (row.scoreBasis === 'semantic') {
+		return `${pct(row.score)}% — semantic similarity: cosine distance between the two elements' embeddings. Measures meaning, not spelling.`;
+	}
+	if (row.scoreBasis === 'confidence') {
+		return `${pct(row.score)}% — the graph's own stamped confidence for this path (both hub legs multiplied).`;
+	}
+	if (!hasScore(row)) {
+		return 'No lexical signal — these labels share no words. That is not evidence against the mapping; the graph offered no semantic score to use instead.';
+	}
+	return `${pct(row.score)}% — label similarity only. No embeddings or stamped confidence were available, so this compares wording, not meaning.`;
+};
 
 const groupedAuthoritative = computed(() => groupByStandard(authoritativeRows.value));
 const groupedImplied = computed(() => groupByStandard(impliedRows.value));
@@ -261,6 +329,15 @@ watch(
 									<v-icon start size="12">mdi-check-decagram</v-icon>
 									{{ relLabel(row.rel) }}
 								</v-chip>
+								<v-chip
+									size="x-small"
+									:color="hasScore(row) ? scoreColor(row.score) : 'grey'"
+									:variant="row.scoreBasis === 'similarity' ? 'tonal' : 'flat'"
+									:title="scoreTitle(row)"
+								>
+									<v-icon v-if="scoreIcon(row)" start size="11">{{ scoreIcon(row) }}</v-icon>
+									{{ scoreText(row) }}
+								</v-chip>
 								<v-chip v-if="row.sourceId" size="x-small" variant="text">{{ row.sourceId }}</v-chip>
 								<v-btn
 									size="x-small"
@@ -342,6 +419,15 @@ watch(
 									<span v-if="row.selfRel && row.selfRel !== row.rel" class="ml-1 text-disabled">
 										({{ relLabel(row.selfRel) }} → {{ relLabel(row.rel) }})
 									</span>
+								</v-chip>
+								<v-chip
+									size="x-small"
+									:color="hasScore(row) ? scoreColor(row.score) : 'grey'"
+									:variant="row.scoreBasis === 'similarity' ? 'tonal' : 'flat'"
+									:title="scoreTitle(row)"
+								>
+									<v-icon v-if="scoreIcon(row)" start size="11">{{ scoreIcon(row) }}</v-icon>
+									{{ scoreText(row) }}
 								</v-chip>
 								<v-chip v-if="row.sourceId" size="x-small" variant="text">{{ row.sourceId }}</v-chip>
 								<v-btn

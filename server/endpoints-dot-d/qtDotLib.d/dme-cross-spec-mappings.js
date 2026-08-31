@@ -52,8 +52,31 @@ const moduleFunction = function ({
 	//
 	// The element's own spec is excluded throughout: a mapping to yourself is not
 	// a crosswalk.
+	//
+	// Both edges' `confidence` is returned when the forge stamped one (MAPS_TO-era
+	// edges carried 1.0; similarity-derived ones carry the vector score). It is
+	// null on edges that never got the property, so the caller must treat it as
+	// optional and fall back to its own scoring rather than printing a zero.
 
-	const MAPPINGS_QUERY = `
+	// SEMANTIC SCORE
+	//
+	// Every searchable node carries a voyage-3 embedding (1024-dim, cosine) written
+	// by the indexers — the SAME model on both sides of any pair, so the vectors are
+	// directly comparable. That makes a real semantic score computable here, on
+	// demand, without depending on the forge having stamped a confidence: cosine of
+	// the two element embeddings.
+	//
+	// It is built as an optional term because vector.similarity.cosine() needs a
+	// recent Neo4j 5. If the deployed server is older the enriched query is a hard
+	// parse error, which would take the whole mappings list down with it — so the
+	// caller runs the enriched form first and silently retries the plain one.
+	const SEMANTIC_TERM = `
+		         semantic: CASE
+		           WHEN n.embedding IS NOT NULL AND m.embedding IS NOT NULL
+		           THEN vector.similarity.cosine(n.embedding, m.embedding)
+		           ELSE null END,`;
+
+	const buildMappingsQuery = (semanticTerm) => `
 		MATCH (n)
 		WHERE (n:DmeProperty OR n:DmeClass OR (n:DmeOptionValue AND n._source = 'CTDL'))
 		  AND n._source = $source
@@ -72,6 +95,8 @@ const moduleFunction = function ({
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),
 		         selfRel: type(r1),
+		         confidence: r2.confidence,
+		         selfConfidence: r1.confidence,${semanticTerm}
 		         name: m.name,
 		         source: m._source,
 		         labels: labels(m),
@@ -112,21 +137,35 @@ const moduleFunction = function ({
 				return;
 			}
 
-			const queryData = {
-				action: 'query',
-				query: MAPPINGS_QUERY,
-				params: { source, name },
-			};
+			const runQuery = (semanticTerm, callback) =>
+				accessPointsDotD['dme-cypher-query'](
+					{
+						action: 'query',
+						query: buildMappingsQuery(semanticTerm),
+						params: { source, name },
+					},
+					callback,
+				);
 
-			const localCallback = (err, result) => {
-				if (err) {
-					next(err, args);
+			// Enriched first; on ANY failure fall back to the plain query rather
+			// than returning nothing. A server too old for vector.similarity
+			// should cost the caller its percentages, not its mappings.
+			runQuery(SEMANTIC_TERM, (semanticErr, semanticResult) => {
+				if (!semanticErr) {
+					next('', { ...args, result: semanticResult });
 					return;
 				}
-				next('', { ...args, result });
-			};
-
-			accessPointsDotD['dme-cypher-query'](queryData, localCallback);
+				xLog.status(
+					`dme-cross-spec-mappings: semantic scoring unavailable, retrying without it (${semanticErr})`,
+				);
+				runQuery('', (err, result) => {
+					if (err) {
+						next(err, args);
+						return;
+					}
+					next('', { ...args, result });
+				});
+			});
 		});
 
 		// --------------------------------------------------------------------------------
