@@ -2,8 +2,8 @@
 const claudeCodeConfig = `{
   "mcpServers": {
     "educore-standards": {
-      "type": "url",
-      "url": "https://educore.dev/mcp"
+      "type": "http",
+      "url": "https://ed-core.org/mcp"
     }
   }
 }`;
@@ -11,8 +11,8 @@ const claudeCodeConfig = `{
 const mcpConfigExample = `{
   "mcpServers": {
     "educore-standards": {
-      "type": "url",
-      "url": "https://educore.dev/mcp"
+      "type": "http",
+      "url": "https://ed-core.org/mcp"
     }
   }
 }`;
@@ -246,7 +246,7 @@ const { response } = await res.json();`;
 					<p class="text-body-2 text-medium-emphasis mb-3">
 						Run this command in your project directory. Claude Code will add the server to your project's <code>.mcp.json</code>:
 					</p>
-					<pre class="code-block mb-0">claude mcp add educore-standards --transport http https://educore.dev/mcp</pre>
+					<pre class="code-block mb-0">claude mcp add educore-standards --transport http https://ed-core.org/mcp</pre>
 				</v-card-text>
 			</v-card>
 
