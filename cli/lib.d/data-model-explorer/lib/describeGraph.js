@@ -67,14 +67,19 @@ const describeGraph = async (session, params = {}) => {
 		: [];
 
 	// 4) the per-standard definitions
+	// Two self-doc vintages write :StandardDefinition: the Wave-B finishers (source/displayName,
+	// July 2026) and the educoreForge finish verb (standardKey/standardName, Sept 2026). The card
+	// reads BOTH — coalesced here, in the one query, so the renderer sees a single shape.
 	const standardsResult = await session.run(`
 		MATCH (d:StandardDefinition)
-		RETURN d { .source, .displayName, .version, .versionSource, .sourceFormat, .sourceUrl,
+		RETURN d { .version, .versionSource, .sourceFormat, .sourceUrl,
 			.description, .nodeCount, .propertyCount, .classCount, .optionSetCount, .optionValueCount,
 			.exactMappedProperties, .closeMappedProperties, .mappingEdgeCount,
 			.exactEdgeCount, .closeEdgeCount, .mappingDisposition,
-			.subjectVersions, .objectVersions } AS standard
-		ORDER BY d.source
+			.subjectVersions, .objectVersions,
+			source: coalesce(d.source, d.standardKey),
+			displayName: coalesce(d.displayName, d.standardName) } AS standard
+		ORDER BY coalesce(d.source, d.standardKey)
 	`);
 	const standards = standardsResult.records.map((rec) => deepPlain(rec.get('standard')));
 
@@ -160,7 +165,7 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 				? `v${oneStd.version} (${oneStd.versionSource || 'unstated'})`
 				: 'version unrecorded';
 			lines.push(
-				`  ${oneStd.source.padEnd(14)} ${version.padEnd(28)} ${String(oneStd.propertyCount ?? '?').padStart(6)} properties · ` +
+				`  ${String(oneStd.source ?? '?').padEnd(14)} ${version.padEnd(28)} ${String(oneStd.propertyCount ?? '?').padStart(6)} properties · ` +
 					`${oneStd.mappingDisposition || '?'} · EXACT ${oneStd.exactEdgeCount ?? 0} / CLOSE ${oneStd.closeEdgeCount ?? 0}`,
 			);
 		});
