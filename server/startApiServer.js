@@ -111,14 +111,19 @@ const moduleFunction =
 			next();
 		});
 
-		// CORS for local dev cross-origin: the Nuxt UI on :7791 calls the API on :7790
-		// when the educoreDevServer cookie is active. Bearer tokens, not cookies, carry
-		// auth, so credentials is false. In production nginx serves UI and API from the
-		// same origin, so this middleware is harmless — no prod origin is allowed.
+		// CORS. Two cross-origin cases:
+		//   1. Local dev: the Nuxt UI on :7791 calls the API on :7790 when the
+		//      educoreDevServer cookie is active.
+		//   2. Split hosting: the static SPA on educore.org (Vercel) calls this API
+		//      on its droplet hostname (ed-core.org). These are genuine cross-origin
+		//      requests, so the deploy origin must be allowed explicitly.
+		// Bearer tokens, not cookies, carry auth, so credentials is false.
 		expressApp.use(cors({
 			origin: [
 				'http://localhost:7791',
 				'http://localhost:7790',
+				'https://educore.org',
+				'https://www.educore.org',
 			],
 			credentials: false,
 			allowedHeaders: ['Authorization', 'Content-Type', 'from'],
