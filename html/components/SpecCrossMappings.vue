@@ -35,11 +35,23 @@ const ran = ref(false);
 const curationKey = computed(() =>
 	props.element ? `${props.element.source}::${props.element.name}` : '',
 );
-const curated = computed(() => store.userEquivalentsFor(curationKey.value));
+// The element being mapped FROM, recorded on every accepted mapping so exports
+// read as full source → target rows.
+const sourceInfo = computed(() =>
+	props.element
+		? { standard: props.element.standard || props.element.source, name: props.element.name, sourceId: props.element.sourceId || '' }
+		: null,
+);
+const curatedPanel = ref(null);
 const isCurated = (item) => store.hasUserEquivalent(curationKey.value, item);
+// Adding a mapping immediately offers a transformation rule for it.
 const toggleCurated = (item) => {
-	if (isCurated(item)) store.removeUserEquivalent(curationKey.value, item);
-	else store.addUserEquivalent(curationKey.value, item);
+	if (isCurated(item)) {
+		store.removeUserEquivalent(curationKey.value, item);
+		return;
+	}
+	store.addUserEquivalent(curationKey.value, item, sourceInfo.value);
+	curatedPanel.value?.openRuleFor(item, true);
 };
 const rowItem = (row) => ({
 	standard: row.standard,
@@ -220,34 +232,9 @@ watch(
 
 <template>
 	<div>
-		<!-- ── Your equivalence crosswalk (user-curated) ─────────── -->
+		<!-- ── Your equivalence crosswalk (user-curated, with transformation rules) ── -->
 		<div class="mb-5">
-			<div class="d-flex align-center mb-2">
-				<v-icon size="18" color="deep-purple" class="mr-2">mdi-table-star</v-icon>
-				<span class="text-subtitle-2 font-weight-bold">Your equivalence crosswalk</span>
-				<v-chip v-if="curated.length" size="x-small" variant="tonal" color="deep-purple" class="ml-2">
-					{{ curated.length }} accepted
-				</v-chip>
-			</div>
-			<div v-if="curated.length">
-				<v-chip
-					v-for="item in curated"
-					:key="`${item.standard}|${item.name}`"
-					size="small"
-					color="deep-purple"
-					variant="tonal"
-					closable
-					class="mr-1 mb-1"
-					:title="item.detail || `${item.standard}: ${item.name}`"
-					@click:close="store.removeUserEquivalent(curationKey, item)"
-				>
-					<strong class="mr-1">{{ item.standard }}:</strong> {{ item.name }}
-				</v-chip>
-			</div>
-			<p v-else class="text-caption text-medium-emphasis mb-0">
-				Nothing accepted yet — click the <v-icon size="14">mdi-plus-circle-outline</v-icon>
-				on any mapping below to promote it into this element&#39;s equivalence set.
-			</p>
+			<CuratedMappings ref="curatedPanel" :curation-key="curationKey" :source="sourceInfo" />
 		</div>
 
 		<v-divider class="mb-5" />

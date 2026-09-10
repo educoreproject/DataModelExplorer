@@ -453,9 +453,18 @@ function sortSpecs(specs) {
 }
 
 // -------------------------------------------------------------------------
-// User-curated equivalence crosswalk — persisted in localStorage. Keyed by
-// crosswalk element id (or a term-derived key in OpenAPI mode); each entry is
-// a list the user built by accepting/removing suggestions in the UI.
+// User-curated equivalence crosswalk. Keyed by crosswalk element id (or
+// "<spec>::<element>" / a term-derived key); each entry is a list of mappings
+// the user built by accepting/removing suggestions in the UI. A mapping is
+//
+//   { standard, name, sourceId?, rel?, detail?,
+//     sourceStandard?, sourceName?, sourceElementId?,   // the element being mapped
+//     transform?: { type, rule, notes },                // how a value moves across
+//     refId? }                                          // server row id once synced
+//
+// Persistence is two-tier: localStorage always (works logged out, survives the
+// session), and the server's dme_user_mappings SQLite table whenever the user
+// is logged in. On load the server copy wins; local-only entries are pushed up.
 
 const USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
 
@@ -473,6 +482,141 @@ function persistUserEquivalents(value) {
 	} catch (_err) {
 		/* storage full or unavailable — curation still works for the session */
 	}
+}
+
+// The transformation-rule vocabulary. `direct` is the implicit default: the
+// value is copied unchanged. Everything else needs a rule string whose shape
+// depends on the type — the hint tells the user what to write.
+export const TRANSFORM_TYPES = [
+	{ value: 'direct', title: 'Direct copy', hint: 'Value moves across unchanged. No rule needed.' },
+	{ value: 'rename', title: 'Rename only', hint: 'Same value, different field name. Optionally note the target path (e.g. person.name.legal).' },
+	{ value: 'valueMap', title: 'Value / code lookup', hint: 'One mapping per line, source => target. Example:\nM => Male\nF => Female\n* => Unknown   (fallback)' },
+	{ value: 'format', title: 'Format conversion', hint: 'Describe the conversion, e.g. date MM/DD/YYYY => YYYY-MM-DD, or number "1,234.50" => 1234.5.' },
+	{ value: 'concat', title: 'Concatenate fields', hint: 'Template using {field} placeholders, e.g. {firstName} {lastName}.' },
+	{ value: 'split', title: 'Split a field', hint: 'Delimiter or regex and which part to keep, e.g. split on " " take [0].' },
+	{ value: 'constant', title: 'Constant value', hint: 'The fixed value the target always receives, e.g. "US".' },
+	{ value: 'expression', title: 'Custom expression', hint: 'Any expression in your integration language (JSONata, JavaScript, SQL…). Note the language in Notes.' },
+];
+
+const EMPTY_TRANSFORM = { type: 'direct', rule: '', notes: '' };
+
+function normalizeTransform(transform) {
+	if (!transform || typeof transform !== 'object') return { ...EMPTY_TRANSFORM };
+	return {
+		type: transform.type || 'direct',
+		rule: transform.rule || '',
+		notes: transform.notes || '',
+	};
+}
+
+const sameMapping = (a, b) => a.standard === b.standard && a.name === b.name;
+
+// Server row  ⇄  store item. The server flattens the transform into three
+// columns; the store keeps it nested so components can treat it as one thing.
+function rowToItem(row) {
+	return {
+		refId: row.refId,
+		standard: row.targetStandard,
+		name: row.targetName,
+		sourceId: row.targetSourceId || '',
+		rel: row.rel || '',
+		detail: row.detail || '',
+		sourceStandard: row.sourceStandard || '',
+		sourceName: row.sourceName || '',
+		sourceElementId: row.sourceId || '',
+		transform: normalizeTransform({
+			type: row.transformType,
+			rule: row.transformRule,
+			notes: row.transformNotes,
+		}),
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	};
+}
+
+function itemToRow(key, item) {
+	const transform = normalizeTransform(item.transform);
+	return {
+		mappingKey: key,
+		sourceStandard: item.sourceStandard || '',
+		sourceName: item.sourceName || '',
+		sourceId: item.sourceElementId || '',
+		targetStandard: item.standard,
+		targetName: item.name,
+		targetSourceId: item.sourceId || '',
+		rel: item.rel || '',
+		detail: item.detail || '',
+		transformType: transform.type,
+		transformRule: transform.rule,
+		transformNotes: transform.notes,
+	};
+}
+
+// One flat record per mapping — the export shape (and the "all mappings" table).
+function flattenEquivalents(userEquivalents) {
+	const rows = [];
+	for (const [key, list] of Object.entries(userEquivalents)) {
+		for (const item of list) {
+			const transform = normalizeTransform(item.transform);
+			rows.push({
+				mappingKey: key,
+				sourceStandard: item.sourceStandard || '',
+				sourceName: item.sourceName || '',
+				sourceId: item.sourceElementId || '',
+				targetStandard: item.standard,
+				targetName: item.name,
+				targetSourceId: item.sourceId || '',
+				relationship: item.rel || '',
+				detail: item.detail || '',
+				transformType: transform.type,
+				transformRule: transform.rule,
+				transformNotes: transform.notes,
+				refId: item.refId || '',
+				createdAt: item.createdAt || '',
+				updatedAt: item.updatedAt || '',
+			});
+		}
+	}
+	return rows.sort(
+		(a, b) =>
+			a.mappingKey.localeCompare(b.mappingKey) ||
+			a.targetStandard.localeCompare(b.targetStandard) ||
+			a.targetName.localeCompare(b.targetName),
+	);
+}
+
+const EXPORT_COLUMNS = [
+	'mappingKey',
+	'sourceStandard',
+	'sourceName',
+	'sourceId',
+	'targetStandard',
+	'targetName',
+	'targetSourceId',
+	'relationship',
+	'detail',
+	'transformType',
+	'transformRule',
+	'transformNotes',
+	'refId',
+	'createdAt',
+	'updatedAt',
+];
+
+function csvCell(value) {
+	const text = value === undefined || value === null ? '' : String(value);
+	return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsv(rows) {
+	const lines = [EXPORT_COLUMNS.join(',')];
+	for (const row of rows) lines.push(EXPORT_COLUMNS.map((c) => csvCell(row[c])).join(','));
+	return lines.join('\r\n');
+}
+
+function authHeaders() {
+	const loginStore = useLoginStore();
+	return loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : null;
 }
 
 // =========================================================================
@@ -514,6 +658,12 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 
 		// user-curated equivalence crosswalk, keyed by element id / term
 		userEquivalents: loadUserEquivalents(),
+		// '' until the first sync attempt, then 'server' (rows persisted to the
+		// user's account) or 'local' (browser storage only — not logged in, or the
+		// endpoint is unavailable)
+		mappingsPersistence: '',
+		mappingsSyncing: false,
+		mappingsSyncError: '',
 	}),
 
 	getters: {
@@ -526,6 +676,11 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		},
 		hasApi: (state) => !!state.api,
 		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
+
+		// Every saved mapping, flattened to one record each — what gets exported.
+		allMappings: (state) => flattenEquivalents(state.userEquivalents),
+		mappingCount: (state) =>
+			Object.values(state.userEquivalents).reduce((n, list) => n + list.length, 0),
 
 		// Specs grouped for the picker: [{ organization, specs: [...] }], both
 		// levels alphabetical. `specs` is already sorted organization-then-title,
@@ -871,31 +1026,209 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 
 		// ------------------------------------------------------------
 		// User-curated equivalence crosswalk. An item is
-		// { standard, name, sourceId?, rel?, detail? } — identity is
+		// { standard, name, sourceId?, rel?, detail?, transform? } — identity is
 		// (standard, name), so re-adding the same suggestion is a no-op.
+		//
+		// `source` ({ standard, name, sourceId }) describes the element being
+		// mapped FROM; it is recorded on the item so exports read as complete
+		// source → target rows rather than opaque keys.
 
-		addUserEquivalent(key, item) {
-			if (!key || !item?.name) return;
+		addUserEquivalent(key, item, source = null) {
+			if (!key || !item?.name) return null;
 			const list = this.userEquivalents[key] || [];
-			if (list.some((e) => e.standard === item.standard && e.name === item.name)) return;
-			this.userEquivalents = { ...this.userEquivalents, [key]: [...list, item] };
+			const existing = list.find((e) => sameMapping(e, item));
+			if (existing) return existing;
+			const entry = {
+				...item,
+				sourceStandard: source?.standard || item.sourceStandard || '',
+				sourceName: source?.name || item.sourceName || '',
+				sourceElementId: source?.sourceId || item.sourceElementId || '',
+				transform: normalizeTransform(item.transform),
+			};
+			this.userEquivalents = { ...this.userEquivalents, [key]: [...list, entry] };
 			persistUserEquivalents(this.userEquivalents);
+			this.pushMappingToServer(key, entry);
+			return entry;
 		},
 
 		removeUserEquivalent(key, item) {
 			const list = this.userEquivalents[key] || [];
-			const next = list.filter(
-				(e) => !(e.standard === item.standard && e.name === item.name),
-			);
+			const removed = list.find((e) => sameMapping(e, item));
+			const next = list.filter((e) => !sameMapping(e, item));
 			this.userEquivalents = { ...this.userEquivalents, [key]: next };
 			if (!next.length) delete this.userEquivalents[key];
 			persistUserEquivalents(this.userEquivalents);
+			if (removed) this.deleteMappingOnServer(key, removed);
 		},
 
 		hasUserEquivalent(key, item) {
-			return (this.userEquivalents[key] || []).some(
-				(e) => e.standard === item.standard && e.name === item.name,
-			);
+			return (this.userEquivalents[key] || []).some((e) => sameMapping(e, item));
+		},
+
+		getUserEquivalent(key, item) {
+			return (this.userEquivalents[key] || []).find((e) => sameMapping(e, item)) || null;
+		},
+
+		// Attach / replace the transformation rule on an accepted mapping. The
+		// mapping must already exist — rules describe a mapping, they don't create
+		// one — so the UI adds first, then opens the rule editor.
+		setUserEquivalentTransform(key, item, transform) {
+			const list = this.userEquivalents[key] || [];
+			const idx = list.findIndex((e) => sameMapping(e, item));
+			if (idx < 0) return null;
+			const updated = { ...list[idx], transform: normalizeTransform(transform) };
+			const next = [...list];
+			next[idx] = updated;
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			persistUserEquivalents(this.userEquivalents);
+			this.pushMappingToServer(key, updated);
+			return updated;
+		},
+
+		// ------------------------------------------------------------
+		// Server persistence (dme_user_mappings). Every call is a no-op when the
+		// user is not logged in, and a failure never blocks the local edit — the
+		// browser copy stays authoritative for the session and the badge says so.
+
+		async pushMappingToServer(key, item) {
+			const headers = authHeaders();
+			if (!headers) {
+				this.mappingsPersistence = 'local';
+				return;
+			}
+			try {
+				const res = await axios.post(
+					'/api/dmeUserMappingSave',
+					{ mappings: [itemToRow(key, item)] },
+					{ headers },
+				);
+				const row = (Array.isArray(res.data) ? res.data : [])[0];
+				if (row?.refId) this._attachServerRow(key, row);
+				this.mappingsPersistence = 'server';
+				this.mappingsSyncError = '';
+			} catch (err) {
+				this.mappingsPersistence = 'local';
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not save mapping to your account.';
+			}
+		},
+
+		async deleteMappingOnServer(key, item) {
+			const headers = authHeaders();
+			if (!headers) return;
+			try {
+				const params = item.refId
+					? { refId: item.refId }
+					: { mappingKey: key, targetStandard: item.standard, targetName: item.name };
+				await axios.delete('/api/dmeUserMappingDelete', { params, headers });
+				this.mappingsSyncError = '';
+			} catch (err) {
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not remove mapping from your account.';
+			}
+		},
+
+		// Pull the user's saved mappings and merge: server rows win (they carry
+		// refIds and timestamps); anything that exists only in this browser is
+		// pushed up so the account becomes the complete record.
+		async syncMappingsFromServer() {
+			const headers = authHeaders();
+			if (!headers) {
+				this.mappingsPersistence = 'local';
+				return false;
+			}
+			this.mappingsSyncing = true;
+			this.mappingsSyncError = '';
+			try {
+				const res = await axios.get('/api/dmeUserMappingList', { headers });
+				const rows = Array.isArray(res.data) ? res.data : [];
+
+				const merged = {};
+				for (const row of rows) {
+					if (!row?.mappingKey || !row?.targetName) continue;
+					(merged[row.mappingKey] ||= []).push(rowToItem(row));
+				}
+
+				const localOnly = [];
+				for (const [key, list] of Object.entries(this.userEquivalents)) {
+					for (const item of list) {
+						if ((merged[key] || []).some((e) => sameMapping(e, item))) continue;
+						(merged[key] ||= []).push({ ...item, transform: normalizeTransform(item.transform) });
+						localOnly.push(itemToRow(key, item));
+					}
+				}
+
+				this.userEquivalents = merged;
+				persistUserEquivalents(this.userEquivalents);
+
+				if (localOnly.length) {
+					const pushed = await axios.post('/api/dmeUserMappingSave', { mappings: localOnly }, { headers });
+					for (const row of Array.isArray(pushed.data) ? pushed.data : []) {
+						if (row?.refId) this._attachServerRow(row.mappingKey, row);
+					}
+				}
+
+				this.mappingsPersistence = 'server';
+				return true;
+			} catch (err) {
+				this.mappingsPersistence = 'local';
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not load saved mappings from your account.';
+				return false;
+			} finally {
+				this.mappingsSyncing = false;
+			}
+		},
+
+		_attachServerRow(key, row) {
+			const list = this.userEquivalents[key] || [];
+			const idx = list.findIndex((e) => e.standard === row.targetStandard && e.name === row.targetName);
+			if (idx < 0) return;
+			const next = [...list];
+			next[idx] = { ...next[idx], refId: row.refId, createdAt: row.createdAt, updatedAt: row.updatedAt };
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			persistUserEquivalents(this.userEquivalents);
+		},
+
+		// ------------------------------------------------------------
+		// Export every saved mapping. Returns { filename, mimeType, content }; the
+		// caller turns it into a download.
+
+		exportMappings(format = 'json') {
+			const rows = this.allMappings;
+			const stamp = new Date().toISOString().slice(0, 10);
+			if (format === 'csv') {
+				return {
+					filename: `educore-mappings-${stamp}.csv`,
+					mimeType: 'text/csv',
+					content: toCsv(rows),
+				};
+			}
+			return {
+				filename: `educore-mappings-${stamp}.json`,
+				mimeType: 'application/json',
+				content: JSON.stringify(
+					{
+						exportedAt: new Date().toISOString(),
+						source: 'EDUcore Schema Verifier — curated crosswalk',
+						persistence: this.mappingsPersistence || 'local',
+						mappingCount: rows.length,
+						mappings: rows,
+					},
+					null,
+					2,
+				),
+			};
+		},
+
+		clearAllMappings() {
+			const all = flattenEquivalents(this.userEquivalents);
+			this.userEquivalents = {};
+			persistUserEquivalents(this.userEquivalents);
+			for (const row of all) {
+				this.deleteMappingOnServer(row.mappingKey, {
+					refId: row.refId,
+					standard: row.targetStandard,
+					name: row.targetName,
+				});
+			}
 		},
 
 		// ------------------------------------------------------------

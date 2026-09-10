@@ -14,10 +14,95 @@
 
 import { ref, computed, watch, onMounted } from 'vue';
 import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { useLoginStore } from '@/stores/loginStore';
 
 const store = useSchemaVerifierStore();
+const loginStore = useLoginStore();
 
 const mode = ref('specs'); // 'specs' | 'crosswalk' | 'openapi'
+
+// ── Saved mappings: sync, export, review ───────────────────────────
+// The curated crosswalk lives in the browser and, when the user is logged in,
+// in their account (dme_user_mappings). Pull the account copy on arrival and
+// again whenever a login happens mid-visit.
+onMounted(() => store.syncMappingsFromServer());
+watch(
+	() => loginStore.authtoken,
+	(token) => {
+		if (token) store.syncMappingsFromServer();
+	},
+);
+
+function downloadMappings(format) {
+	const { filename, mimeType, content } = store.exportMappings(format);
+	const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const mappingsDialog = ref(false);
+const mappingsSearch = ref('');
+const mappingsHeaders = [
+	{ title: 'Source', key: 'source', sortable: false },
+	{ title: 'Target', key: 'target', sortable: false },
+	{ title: 'Relationship', key: 'relationship' },
+	{ title: 'Transformation', key: 'transform', sortable: false },
+	{ title: '', key: 'actions', sortable: false, align: 'end', width: 90 },
+];
+const mappingRows = computed(() =>
+	store.allMappings.map((m) => ({
+		...m,
+		id: `${m.mappingKey}|${m.targetStandard}|${m.targetName}`,
+		source: `${m.sourceStandard ? `${m.sourceStandard}: ` : ''}${m.sourceName || m.mappingKey}`,
+		target: `${m.targetStandard}: ${m.targetName}`,
+		transform: m.transformType === 'direct' && !m.transformRule ? '' : `${m.transformType}${m.transformRule ? ` — ${m.transformRule}` : ''}`,
+	})),
+);
+
+// Rule editing straight from the table reuses the same dialog the panels use.
+const ruleDialog = ref(false);
+const ruleRow = ref(null);
+const ruleItem = computed(() =>
+	ruleRow.value
+		? store.getUserEquivalent(ruleRow.value.mappingKey, {
+				standard: ruleRow.value.targetStandard,
+				name: ruleRow.value.targetName,
+			})
+		: null,
+);
+const ruleSource = computed(() =>
+	ruleRow.value
+		? { standard: ruleRow.value.sourceStandard, name: ruleRow.value.sourceName || ruleRow.value.mappingKey, sourceId: ruleRow.value.sourceId }
+		: null,
+);
+function editRule(row) {
+	ruleRow.value = row;
+	ruleDialog.value = true;
+}
+function saveRule(transform) {
+	if (!ruleRow.value) return;
+	store.setUserEquivalentTransform(
+		ruleRow.value.mappingKey,
+		{ standard: ruleRow.value.targetStandard, name: ruleRow.value.targetName },
+		transform,
+	);
+}
+function removeMapping(row) {
+	store.removeUserEquivalent(row.mappingKey, { standard: row.targetStandard, name: row.targetName });
+}
+
+const confirmClear = ref(false);
+function clearAll() {
+	store.clearAllMappings();
+	confirmClear.value = false;
+	mappingsDialog.value = false;
+}
 
 // ── Specification mode state ───────────────────────────────────────
 // The spec list is fetched once on mount so the picker is populated before the
@@ -254,6 +339,141 @@ function loadSample() {
 			the authoritative JEDx ↔ HR Open crosswalk ({{ store.crosswalkMeta.elementCount }} mapped
 			elements).
 		</p>
+
+		<!-- Saved mappings toolbar: what you've curated, where it lives, export it -->
+		<v-card variant="tonal" color="deep-purple" class="mb-5">
+			<v-card-text class="py-2 d-flex align-center flex-wrap ga-2">
+				<v-icon size="20">mdi-table-star</v-icon>
+				<span class="text-subtitle-2 font-weight-bold">Your saved mappings</span>
+				<v-chip size="small" variant="flat" color="deep-purple">
+					{{ store.mappingCount }} mapping{{ store.mappingCount === 1 ? '' : 's' }}
+				</v-chip>
+				<v-chip
+					size="small"
+					variant="outlined"
+					:color="store.mappingsPersistence === 'server' ? 'success' : 'grey-darken-1'"
+					:prepend-icon="store.mappingsSyncing
+						? 'mdi-cloud-sync-outline'
+						: store.mappingsPersistence === 'server' ? 'mdi-cloud-check-outline' : 'mdi-laptop'"
+					:title="store.mappingsPersistence === 'server'
+						? 'Mappings and transformation rules are stored in your account and follow you between browsers.'
+						: 'Mappings are stored in this browser only. Log in to save them to your account.'"
+				>
+					{{ store.mappingsSyncing
+						? 'syncing…'
+						: store.mappingsPersistence === 'server' ? 'saved to your account' : 'browser only' }}
+				</v-chip>
+				<span v-if="store.mappingsSyncError" class="text-caption text-error">
+					{{ store.mappingsSyncError }}
+				</span>
+				<v-spacer />
+				<v-btn
+					size="small"
+					variant="text"
+					prepend-icon="mdi-table-eye"
+					:disabled="!store.mappingCount"
+					@click="mappingsDialog = true"
+				>
+					View all
+				</v-btn>
+				<v-menu>
+					<template #activator="{ props: menuProps }">
+						<v-btn
+							v-bind="menuProps"
+							size="small"
+							variant="flat"
+							color="deep-purple"
+							prepend-icon="mdi-download"
+							append-icon="mdi-menu-down"
+							:disabled="!store.mappingCount"
+						>
+							Export mappings
+						</v-btn>
+					</template>
+					<v-list density="compact">
+						<v-list-item prepend-icon="mdi-code-json" title="JSON (with transformation rules)" @click="downloadMappings('json')" />
+						<v-list-item prepend-icon="mdi-file-delimited-outline" title="CSV (spreadsheet)" @click="downloadMappings('csv')" />
+					</v-list>
+				</v-menu>
+			</v-card-text>
+		</v-card>
+
+		<!-- All saved mappings -->
+		<v-dialog v-model="mappingsDialog" max-width="1100" scrollable>
+			<v-card>
+				<v-card-item>
+					<div class="d-flex align-center flex-wrap ga-2">
+						<v-icon color="deep-purple">mdi-table-star</v-icon>
+						<span class="text-h6 font-weight-bold">All saved mappings</span>
+						<v-chip size="small" variant="tonal" color="deep-purple">{{ store.mappingCount }}</v-chip>
+						<v-spacer />
+						<v-text-field
+							v-model="mappingsSearch"
+							prepend-inner-icon="mdi-magnify"
+							placeholder="Filter…"
+							variant="outlined"
+							density="compact"
+							hide-details
+							clearable
+							style="max-width: 280px;"
+						/>
+					</div>
+				</v-card-item>
+				<v-card-text class="pt-0">
+					<v-data-table
+						:headers="mappingsHeaders"
+						:items="mappingRows"
+						:search="mappingsSearch"
+						item-value="id"
+						density="compact"
+						items-per-page="15"
+					>
+						<template #item.source="{ item }">
+							<span class="text-body-2">{{ item.source }}</span>
+							<div v-if="item.sourceId" class="text-caption text-disabled">{{ item.sourceId }}</div>
+						</template>
+						<template #item.target="{ item }">
+							<span class="text-body-2 font-weight-medium">{{ item.target }}</span>
+							<div v-if="item.targetSourceId" class="text-caption text-disabled">{{ item.targetSourceId }}</div>
+						</template>
+						<template #item.relationship="{ item }">
+							<v-chip v-if="item.relationship" size="x-small" variant="tonal">{{ item.relationship }}</v-chip>
+						</template>
+						<template #item.transform="{ item }">
+							<span v-if="item.transform" class="text-caption mono">{{ item.transform }}</span>
+							<span v-else class="text-caption text-disabled">direct copy</span>
+							<div v-if="item.transformNotes" class="text-caption text-medium-emphasis">{{ item.transformNotes }}</div>
+						</template>
+						<template #item.actions="{ item }">
+							<v-btn size="x-small" variant="text" icon="mdi-function-variant" color="deep-purple" title="Edit transformation rule" @click="editRule(item)" />
+							<v-btn size="x-small" variant="text" icon="mdi-close" color="error" title="Remove mapping" @click="removeMapping(item)" />
+						</template>
+					</v-data-table>
+				</v-card-text>
+				<v-card-actions class="px-6 pb-4">
+					<v-btn v-if="!confirmClear" variant="text" color="error" prepend-icon="mdi-delete-sweep-outline" @click="confirmClear = true">
+						Clear all
+					</v-btn>
+					<template v-else>
+						<span class="text-caption text-error mr-2">Remove all {{ store.mappingCount }} mappings?</span>
+						<v-btn size="small" variant="flat" color="error" @click="clearAll">Yes, clear</v-btn>
+						<v-btn size="small" variant="text" @click="confirmClear = false">No</v-btn>
+					</template>
+					<v-spacer />
+					<v-btn variant="text" prepend-icon="mdi-code-json" @click="downloadMappings('json')">JSON</v-btn>
+					<v-btn variant="text" prepend-icon="mdi-file-delimited-outline" @click="downloadMappings('csv')">CSV</v-btn>
+					<v-btn variant="flat" color="primary" @click="mappingsDialog = false">Close</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+
+		<MappingTransformDialog
+			v-model="ruleDialog"
+			:mapping="ruleItem"
+			:source="ruleSource"
+			@save="saveRule"
+			@remove="ruleRow && removeMapping(ruleRow)"
+		/>
 
 		<!-- Mode toggle -->
 		<v-btn-toggle v-model="mode" mandatory color="primary" variant="outlined" density="comfortable" class="mb-6">
