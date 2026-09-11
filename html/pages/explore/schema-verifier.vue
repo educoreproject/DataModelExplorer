@@ -141,9 +141,54 @@ const activeSpec = computed(
 watch(specSource, (source) => {
 	elementSearch.value = '';
 	selectedGraphElement.value = null;
+	activeGroup.value = ALL_GROUPS;
 	store.selectSpec(activeSpec.value);
 	if (source) store.loadSpecElements(source);
 });
+
+// ── Entity tabs ────────────────────────────────────────────────────
+// The graph gives every element a dotted path whose head is its owning entity
+// (Assessment, Person, Organization …). When the loaded elements carry paths,
+// the list gets one tab per entity — the same categories-first shape the HR
+// Open crosswalk has, derived automatically. With no paths (snapshot fallback)
+// there are no tabs and the list stays flat.
+const ALL_GROUPS = '__all__';
+const activeGroup = ref(ALL_GROUPS);
+// Tabs read well up to a couple of dozen entities (LIF has 9, JEDx 5). SIF has
+// over a thousand top-level objects, so past this the same filter becomes a
+// searchable dropdown instead of a tab strip nobody can scan.
+const MAX_TABS = 24;
+const hasGroups = computed(() => store.elementGroups.length > 1);
+const showGroupTabs = computed(() => hasGroups.value && store.elementGroups.length <= MAX_TABS);
+const showGroupSelect = computed(() => hasGroups.value && store.elementGroups.length > MAX_TABS);
+const groupSelectItems = computed(() => [
+	{ title: `All entities (${store.elements.length})`, value: ALL_GROUPS },
+	...store.elementGroups.map((g) => ({ title: `${g.name} (${g.count})`, value: g.name })),
+]);
+
+// If a filter or reload empties the active tab, fall back to "All" rather than
+// showing an empty list under a tab that still has a count.
+watch(
+	() => store.elementGroups,
+	(groups) => {
+		if (activeGroup.value !== ALL_GROUPS && !groups.some((g) => g.name === activeGroup.value)) {
+			activeGroup.value = ALL_GROUPS;
+		}
+	},
+);
+
+const visibleElements = computed(() => {
+	if (!hasGroups.value || activeGroup.value === ALL_GROUPS) return store.elements;
+	return store.elements.filter((el) => el.group === activeGroup.value);
+});
+
+// The part of an element's path beneath its entity ("AssessmentPerformanceLevel.label"),
+// shown as a caption so nested properties keep their context inside a tab.
+const subPath = (el) => {
+	if (!el.path || !el.group) return '';
+	const rest = el.path.startsWith(`${el.group}.`) ? el.path.slice(el.group.length + 1) : '';
+	return rest && rest !== el.name ? rest : '';
+};
 
 // The element filter runs server-side (a standard the size of CEDS is much
 // larger than one response), so it is debounced rather than fired per keystroke.
@@ -591,11 +636,47 @@ function loadSample() {
 
 					<v-progress-linear v-if="store.elementsLoading" indeterminate color="indigo" class="mb-1" />
 
+					<!-- Entity tabs, derived from each element's path -->
+					<template v-if="showGroupTabs">
+						<div class="d-flex align-center flex-wrap ga-2 mb-1">
+							<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
+							<span class="text-subtitle-2 font-weight-bold">Entities</span>
+							<span class="text-caption text-medium-emphasis">— grouped by the standard's own structure</span>
+						</div>
+						<v-tabs
+							v-model="activeGroup"
+							color="primary"
+							show-arrows
+							density="comfortable"
+							class="section-tabs mb-3"
+						>
+							<v-tab :value="ALL_GROUPS">
+								All
+								<v-chip size="x-small" variant="tonal" class="ml-2">{{ store.elements.length }}</v-chip>
+							</v-tab>
+							<v-tab v-for="g in store.elementGroups" :key="g.name" :value="g.name">
+								{{ g.name }}
+								<v-chip size="x-small" variant="tonal" class="ml-2">{{ g.count }}</v-chip>
+							</v-tab>
+						</v-tabs>
+					</template>
+					<v-autocomplete
+						v-else-if="showGroupSelect"
+						v-model="activeGroup"
+						:items="groupSelectItems"
+						label="Entity"
+						prepend-inner-icon="mdi-format-list-bulleted"
+						variant="outlined"
+						density="compact"
+						hide-details
+						class="mb-3"
+					/>
+
 					<v-card variant="outlined" class="element-list">
 						<v-list density="compact" nav>
 							<v-list-item
-								v-for="el in store.elements"
-								:key="`${el.source}|${el.name}`"
+								v-for="el in visibleElements"
+								:key="`${el.source}|${el.path || el.name}`"
 								:active="selectedGraphElement?.name === el.name"
 								color="primary"
 								@click="selectGraphElement(el)"
@@ -611,7 +692,10 @@ function loadSample() {
 										{{ el.kind }}
 									</v-chip>
 								</template>
-								<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+								<v-list-item-title class="text-body-2">
+									{{ el.name }}
+									<span v-if="subPath(el)" class="text-caption text-disabled mono ml-1">{{ subPath(el) }}</span>
+								</v-list-item-title>
 								<v-list-item-subtitle v-if="el.description" style="font-size: 0.72rem;">
 									{{ el.description }}
 								</v-list-item-subtitle>
@@ -627,7 +711,7 @@ function loadSample() {
 									</v-chip>
 								</template>
 							</v-list-item>
-							<v-list-item v-if="!store.elements.length && !store.elementsLoading">
+							<v-list-item v-if="!visibleElements.length && !store.elementsLoading">
 								<v-list-item-title class="text-caption text-medium-emphasis">
 									No elements match.
 								</v-list-item-title>

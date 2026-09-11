@@ -54,6 +54,7 @@ const moduleFunction = function ({
 		       n._source AS source,
 		       coalesce(n.description, n.definition, '') AS description,
 		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       coalesce(n.path, '') AS path,
 		       CASE WHEN n:DmeClass THEN 'class' ELSE 'property' END AS kind
 		ORDER BY kindOrder, toLower(coalesce(n.name, ''))
 		LIMIT $limit

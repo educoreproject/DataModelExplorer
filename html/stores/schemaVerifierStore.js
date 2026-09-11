@@ -287,10 +287,27 @@ const ORG_BY_SOURCE = {
 	CASE: '1EdTech',
 	CLR: '1EdTech',
 	OpenBadges: '1EdTech',
+	LIF: '1EdTech',
+	EduAPI: '1EdTech',
 	MedBiquitous: 'MedBiquitous Consortium',
 };
 
 const UNATTRIBUTED_ORG = 'Other publishers';
+
+// The entity an element belongs to, derived from the graph's dotted `path`
+// ("Assessment.AssessmentPerformanceLevel.label" → "Assessment"). This is what
+// the specification browser tabs on — the same categories-first shape the HR
+// Open crosswalk has, but derived from the standard's own structure rather
+// than hand-authored. A top-level class is its own group; an element with no
+// path (snapshot rows) gets '' and the browser falls back to one flat list.
+function elementGroup(path, name, kind) {
+	const p = String(path || '').trim();
+	if (!p) return '';
+	const head = p.split('.')[0].trim();
+	if (!head) return '';
+	if (kind === 'class' && p === name) return name;
+	return head;
+}
 
 // The snapshot is imported lazily and at most once — it is a large JSON blob
 // that most sessions never need (it only comes into play when the live
@@ -677,6 +694,20 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		hasApi: (state) => !!state.api,
 		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
 
+		// Top-level entities among the loaded elements, for the browser's tabs:
+		// [{ name, count }] alphabetical. Empty when the elements carry no path
+		// (snapshot fallback), which tells the page to show one flat list.
+		elementGroups: (state) => {
+			const counts = new Map();
+			for (const el of state.elements) {
+				if (!el.group) continue;
+				counts.set(el.group, (counts.get(el.group) || 0) + 1);
+			}
+			return [...counts.entries()]
+				.map(([name, count]) => ({ name, count }))
+				.sort((a, b) => a.name.localeCompare(b.name));
+		},
+
 		// Every saved mapping, flattened to one record each — what gets exported.
 		allMappings: (state) => flattenEquivalents(state.userEquivalents),
 		mappingCount: (state) =>
@@ -844,6 +875,8 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 						kind: row.kind || 'property',
 						description: row.description || '',
 						sourceId: row.sourceId || '',
+						path: row.path || '',
+						group: elementGroup(row.path, row.name, row.kind),
 					}));
 
 				this.elements = rows;
