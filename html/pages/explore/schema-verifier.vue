@@ -182,13 +182,44 @@ const visibleElements = computed(() => {
 	return store.elements.filter((el) => el.group === activeGroup.value);
 });
 
-// The part of an element's path beneath its entity ("AssessmentPerformanceLevel.label"),
-// shown as a caption so nested properties keep their context inside a tab.
-const subPath = (el) => {
-	if (!el.path || !el.group) return '';
-	const rest = el.path.startsWith(`${el.group}.`) ? el.path.slice(el.group.length + 1) : '';
-	return rest && rest !== el.name ? rest : '';
+// ── Partitioned list ───────────────────────────────────────────────
+// Within a tab, elements are split into sections by the class that contains
+// them (the path minus its last segment): "Person", then "Person › Contact",
+// then "Person › Contact › Address" … — the crosswalk's numbered sections,
+// derived from the model. Elements without a path all land in one unnamed
+// section, which renders as the plain list.
+const parentOf = (el) => {
+	if (!el.path) return '';
+	const i = el.path.lastIndexOf('.');
+	return i < 0 ? '' : el.path.slice(0, i);
 };
+const depthOf = (el) => (el.path ? el.path.split('.').length - 1 : 0);
+const crumbs = (parentPath) => parentPath.split('.').filter(Boolean);
+
+const elementSections = computed(() => {
+	const sections = [];
+	let current = null;
+	for (const el of visibleElements.value) {
+		const parent = parentOf(el);
+		if (!current || current.parent !== parent) {
+			current = { parent, crumbs: crumbs(parent), items: [] };
+			sections.push(current);
+		}
+		current.items.push(el);
+	}
+	return sections;
+});
+// A single unnamed section is just a list — no header, no indentation.
+const partitioned = computed(
+	() => elementSections.value.length > 1 || (elementSections.value[0]?.parent || '') !== '',
+);
+// Indentation is relative to the shallowest element on screen, so a tab that
+// starts two levels deep does not open with everything shoved right.
+const baseDepth = computed(() =>
+	visibleElements.value.reduce((min, el) => Math.min(min, depthOf(el)), Infinity),
+);
+const indentOf = (el) =>
+	partitioned.value && Number.isFinite(baseDepth.value) ? Math.max(0, depthOf(el) - baseDepth.value) : 0;
 
 // The element filter runs server-side (a standard the size of CEDS is much
 // larger than one response), so it is debounced rather than fired per keystroke.
@@ -318,6 +349,22 @@ function selectComponent(name) {
 	activeComponentName.value = name;
 	selectedProperty.value = null;
 }
+
+// Properties partitioned by the inline nested object they belong to (rows
+// carry `parent` from the flattener), mirroring the spec browser's sections.
+const propertySections = computed(() => {
+	const sections = [];
+	let current = null;
+	for (const p of activeComponent.value?.properties || []) {
+		const parent = p.parent || '';
+		if (!current || current.parent !== parent) {
+			current = { parent, crumbs: parent.split('.').filter(Boolean), items: [] };
+			sections.push(current);
+		}
+		current.items.push(p);
+	}
+	return sections;
+});
 
 // A compact JEDx-flavoured sample so the tool is explorable with one click.
 const SAMPLE = JSON.stringify(
@@ -674,43 +721,52 @@ function loadSample() {
 
 					<v-card variant="outlined" class="element-list">
 						<v-list density="compact" nav>
-							<v-list-item
-								v-for="el in visibleElements"
-								:key="`${el.source}|${el.path || el.name}`"
-								:active="selectedGraphElement?.name === el.name"
-								color="primary"
-								@click="selectGraphElement(el)"
-							>
-								<template #prepend>
-									<v-chip
-										size="x-small"
-										variant="tonal"
-										:color="kindColor(el.kind)"
-										class="mr-2"
-										style="min-width: 62px;"
-									>
-										{{ el.kind }}
-									</v-chip>
-								</template>
-								<v-list-item-title class="text-body-2">
-									{{ el.name }}
-									<span v-if="subPath(el)" class="text-caption text-disabled mono ml-1">{{ subPath(el) }}</span>
-								</v-list-item-title>
-								<v-list-item-subtitle v-if="el.description" style="font-size: 0.72rem;">
-									{{ el.description }}
-								</v-list-item-subtitle>
-								<template #append>
-									<v-chip
-										v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
-										size="x-small"
-										color="deep-purple"
-										variant="tonal"
-										title="Accepted equivalents in your crosswalk"
-									>
-										{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
-									</v-chip>
-								</template>
-							</v-list-item>
+							<template v-for="section in elementSections" :key="section.parent || '__root__'">
+								<!-- Section header: the containing class, as a breadcrumb -->
+								<v-list-subheader v-if="partitioned && section.parent" class="section-header">
+									<template v-for="(c, i) in section.crumbs" :key="i">
+										<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+										<span :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
+									</template>
+									<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
+								</v-list-subheader>
+
+								<v-list-item
+									v-for="el in section.items"
+									:key="`${el.source}|${el.path || el.name}`"
+									:active="selectedGraphElement?.name === el.name && selectedGraphElement?.path === el.path"
+									color="primary"
+									:style="{ paddingLeft: `${8 + indentOf(el) * 14}px` }"
+									@click="selectGraphElement(el)"
+								>
+									<template #prepend>
+										<v-chip
+											size="x-small"
+											variant="tonal"
+											:color="kindColor(el.kind)"
+											class="mr-2"
+											style="min-width: 62px;"
+										>
+											{{ el.kind }}
+										</v-chip>
+									</template>
+									<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+									<v-list-item-subtitle v-if="el.description" style="font-size: 0.72rem;">
+										{{ el.description }}
+									</v-list-item-subtitle>
+									<template #append>
+										<v-chip
+											v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
+											size="x-small"
+											color="deep-purple"
+											variant="tonal"
+											title="Accepted equivalents in your crosswalk"
+										>
+											{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
+										</v-chip>
+									</template>
+								</v-list-item>
+							</template>
 							<v-list-item v-if="!visibleElements.length && !store.elementsLoading">
 								<v-list-item-title class="text-caption text-medium-emphasis">
 									No elements match.
@@ -978,23 +1034,63 @@ function loadSample() {
 						<p v-if="activeComponent.description" class="text-body-2 text-medium-emphasis mb-2">
 							{{ activeComponent.description }}
 						</p>
+						<!-- Other schemas this one is built from — each a jump to its tab -->
+						<div v-if="activeComponent.refs?.length" class="d-flex align-center flex-wrap ga-1 mb-2">
+							<span class="text-caption text-medium-emphasis mr-1">Uses:</span>
+							<v-chip
+								v-for="r in activeComponent.refs"
+								:key="r"
+								size="x-small"
+								variant="tonal"
+								color="primary"
+								:disabled="!store.api.components.some((c) => c.name === r)"
+								append-icon="mdi-arrow-right"
+								@click="selectComponent(r)"
+							>
+								{{ r }}
+							</v-chip>
+						</div>
 						<v-card variant="outlined" class="element-list">
 							<v-list density="compact" nav>
-								<v-list-item
-									v-for="p in activeComponent.properties"
-									:key="p.name"
-									:active="selectedProperty?.name === p.name"
-									color="primary"
-									@click="selectedProperty = p"
-								>
-									<v-list-item-title class="text-body-2 d-flex align-center">
-										<span class="mono">{{ p.name }}</span>
-										<v-icon v-if="p.required" size="12" color="error" class="ml-1" title="required">mdi-asterisk</v-icon>
-									</v-list-item-title>
-									<v-list-item-subtitle style="font-size: 0.72rem;">
-										{{ p.type }}<span v-if="p.format"> · {{ p.format }}</span>
-									</v-list-item-subtitle>
-								</v-list-item>
+								<template v-for="section in propertySections" :key="section.parent || '__root__'">
+									<!-- Section header: the nested object these properties sit inside -->
+									<v-list-subheader v-if="section.parent" class="section-header">
+										<template v-for="(c, i) in section.crumbs" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span class="mono" :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
+										</template>
+										<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
+									</v-list-subheader>
+
+									<v-list-item
+										v-for="p in section.items"
+										:key="p.name"
+										:active="selectedProperty?.name === p.name"
+										color="primary"
+										:style="{ paddingLeft: `${8 + (p.depth || 0) * 14}px` }"
+										@click="selectedProperty = p"
+									>
+										<v-list-item-title class="text-body-2 d-flex align-center">
+											<span class="mono">{{ p.leaf || p.name }}</span>
+											<v-icon v-if="p.required" size="12" color="error" class="ml-1" title="required">mdi-asterisk</v-icon>
+											<v-chip
+												v-if="p.ref && store.api.components.some((c) => c.name === p.ref)"
+												size="x-small"
+												variant="text"
+												color="primary"
+												class="ml-2"
+												append-icon="mdi-arrow-right"
+												:title="`Open the ${p.ref} schema`"
+												@click.stop="selectComponent(p.ref)"
+											>
+												{{ p.ref }}
+											</v-chip>
+										</v-list-item-title>
+										<v-list-item-subtitle style="font-size: 0.72rem;">
+											{{ p.type }}<span v-if="p.format"> · {{ p.format }}</span>
+										</v-list-item-subtitle>
+									</v-list-item>
+								</template>
 								<v-list-item v-if="!activeComponent.properties.length">
 									<v-list-item-title class="text-caption text-medium-emphasis">
 										This schema has no direct properties.
@@ -1057,5 +1153,14 @@ function loadSample() {
 }
 .section-tabs {
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.section-header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: rgb(var(--v-theme-surface));
+	font-size: 0.72rem;
+	letter-spacing: 0.04em;
+	text-transform: none;
 }
 </style>

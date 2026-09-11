@@ -100,29 +100,43 @@ function resolveRefName(ref) {
 	return ref.split('/').pop();
 }
 
-// Turn one schema object into a flat list of property rows.
-function extractProperties(schema) {
+// Turn one schema object into a flat list of property rows. Inline nested
+// objects (a property that is itself `type: object` with `properties`, or an
+// array of such) are flattened with dotted names — `address.street` — and each
+// row records its `parent` so the browser can partition the list by the
+// sub-object it belongs to, the way the spec browser partitions by class.
+// `$ref` properties are not expanded (the referenced schema is its own
+// component tab); the row keeps `ref` so the UI can link across.
+function extractProperties(schema, prefix = '', depth = 0) {
 	if (!schema || typeof schema !== 'object') return [];
 	const required = new Set(Array.isArray(schema.required) ? schema.required : []);
 	const props = schema.properties || {};
-	return Object.entries(props).map(([name, def]) => {
-		def = def || {};
+	const rows = [];
+	for (const [key, rawDef] of Object.entries(props)) {
+		const def = rawDef || {};
 		const ref = def.$ref || def.items?.$ref || null;
 		let type = def.type || (ref ? 'object' : (def.enum ? 'enum' : 'any'));
 		if (type === 'array') {
 			const itemType = def.items?.type || resolveRefName(def.items?.$ref) || 'item';
 			type = `array<${itemType}>`;
 		}
-		return {
+		const name = prefix ? `${prefix}.${key}` : key;
+		rows.push({
 			name,
+			leaf: key,
+			parent: prefix,
+			depth,
 			type,
 			format: def.format || '',
 			description: def.description || def.title || '',
-			required: required.has(name),
+			required: required.has(key),
 			ref: resolveRefName(ref),
 			enum: Array.isArray(def.enum) ? def.enum : null,
-		};
-	});
+		});
+		const inline = def.properties ? def : def.items?.properties ? def.items : null;
+		if (inline && depth < 6) rows.push(...extractProperties(inline, name, depth + 1));
+	}
+	return rows;
 }
 
 function parseOpenApi(doc) {
@@ -134,6 +148,8 @@ function parseOpenApi(doc) {
 		type: schema?.type || 'object',
 		propertyCount: schema?.properties ? Object.keys(schema.properties).length : 0,
 		properties: extractProperties(schema),
+		// Which other components this one points at, for the "uses" links.
+		refs: [...new Set(extractProperties(schema).map((p) => p.ref).filter(Boolean))],
 		raw: schema,
 	}));
 	// Sort: schemas with properties first, then alphabetical.
@@ -341,6 +357,31 @@ function snapshotIndex(snapshot) {
 
 	const kindOf = (k) => (k === 'C' ? 'class' : k === 'P' ? 'property' : 'value');
 
+	const toElement = (source, member) => ({
+		name: member.name,
+		source,
+		standard: standardOf(source),
+		kind: kindOf(member.k),
+		description: member.desc || '',
+		sourceId: member.id || '',
+		path: member.path || '',
+		group: elementGroup(member.path, member.name, kindOf(member.k)),
+	});
+
+	// Structural elements the snapshot carries outright (a standard's classes and
+	// properties, whether or not they have hub mappings yet). These are the data
+	// model; hub members below only add what is missing.
+	for (const [source, list] of Object.entries(snapshot.elements || {})) {
+		const specMap = new Map();
+		for (const member of list) {
+			if (!member.name) continue;
+			// Keyed by path when present so same-named fields on different
+			// entities (every LIF entity has `identifier`) stay distinct.
+			specMap.set((member.path || member.name).toLowerCase(), toElement(source, member));
+		}
+		bySource.set(source, specMap);
+	}
+
 	for (const hub of snapshot.hubs) {
 		const members = [
 			...(hub.ceds || []).map((c) => ({ ...c, rel: 'EXACT_MATCH' })),
@@ -353,16 +394,8 @@ function snapshotIndex(snapshot) {
 
 			if (!bySource.has(member.source)) bySource.set(member.source, new Map());
 			const specMap = bySource.get(member.source);
-			if (!specMap.has(nameKey)) {
-				specMap.set(nameKey, {
-					name: member.name,
-					source: member.source,
-					standard: standardOf(member.source),
-					kind: kindOf(member.k),
-					description: member.desc || '',
-					sourceId: member.id || '',
-				});
-			}
+			const elementKey = (member.path || member.name).toLowerCase();
+			if (!specMap.has(elementKey)) specMap.set(elementKey, toElement(member.source, member));
 
 			if (!hubsByMember.has(memberKey)) hubsByMember.set(memberKey, []);
 			hubsByMember.get(memberKey).push({ hub: hub.hub, members });
@@ -855,7 +888,11 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		// pushed down to the query rather than applied in the browser: a
 		// standard the size of CEDS is far larger than one response.
 
-		async loadSpecElements(source, { search = '', limit = 400 } = {}) {
+		// The cap is generous enough that a mid-sized model (LIF is ~1,700 rows
+		// with its mapped values) arrives whole — the entity tabs partition it
+		// client-side, and a truncated list would silently drop whole entities.
+		// CEDS and SIF still exceed it and show the "filter to narrow" notice.
+		async loadSpecElements(source, { search = '', limit = 2000 } = {}) {
 			if (!source) return [];
 
 			this.elementsLoading = true;
@@ -879,6 +916,10 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 						group: elementGroup(row.path, row.name, row.kind),
 					}));
 
+				// When the graph supplies paths, order follows the model (an entity,
+				// then its members) so the partitioned list reads top-down.
+				if (rows.every((r) => r.path)) rows.sort((a, b) => a.path.localeCompare(b.path));
+
 				this.elements = rows;
 				this.elementsTruncated = rows.length >= limit;
 				return rows;
@@ -887,10 +928,13 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 					const snapshot = await loadSnapshot();
 					const { bySource } = snapshotIndex(snapshot);
 					const q = search.trim().toLowerCase();
+					// With paths, order follows the model (an entity, then its members);
+					// without, classes first then alphabetical, as before.
 					const all = [...(bySource.get(source)?.values() || [])]
 						.filter((el) => !q || el.name.toLowerCase().includes(q))
 						.sort(
 							(a, b) =>
+								(a.path && b.path ? a.path.localeCompare(b.path) : 0) ||
 								(a.kind === 'class' ? 0 : 1) - (b.kind === 'class' ? 0 : 1) ||
 								a.name.localeCompare(b.name),
 						);
