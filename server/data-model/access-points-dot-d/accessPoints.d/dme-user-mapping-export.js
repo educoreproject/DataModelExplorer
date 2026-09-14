@@ -3,10 +3,11 @@
 // @concept: [[UserMappingPersistence]]
 // @concept: [[AccessPointPattern]]
 //
-// Deletes one curated mapping, addressed either by refId or by identity
-// (mappingKey + targetStandard + targetName). Owners may delete their own rows;
-// an admin (isAdmin: true, set by the endpoint from the verified role claim)
-// may delete any row by refId.
+// Exports every user's mappings for ingestion into the graph.
+//   format: json | csv | cypher      (default json)
+//   status: accepted | proposed | rejected | all   (default accepted)
+// Returns { filename, mimeType, content, count }. The endpoint restricts this to
+// admin/super roles.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -14,7 +15,8 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 
-const { getMappingTable } = require('../../lib/dme-user-mapping-table');
+const { getMappingTable, getUserDirectory, decorateRows } = require('../../lib/dme-user-mapping-table');
+const { renderExport, FORMATS } = require('../../lib/dme-user-mapping-export');
 
 //START OF moduleFunction() ============================================================
 
@@ -34,13 +36,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) => {
-			const { userRefId, refId, mappingKey, targetStandard, targetName } = args;
-			if (!userRefId) {
-				next('No user identity supplied', args);
+			const statuses = [...args.dataMapping['dme-user-mapping'].REVIEW_STATUSES, 'all'];
+			if (!FORMATS[args.format]) {
+				next(`Unknown format '${args.format}' (expected ${Object.keys(FORMATS).join(' | ')})`, args);
 				return;
 			}
-			if (!refId && !(mappingKey && targetStandard && targetName)) {
-				next('Supply refId, or mappingKey + targetStandard + targetName', args);
+			if (!statuses.includes(args.status)) {
+				next(`Unknown status '${args.status}' (expected ${statuses.join(' | ')})`, args);
 				return;
 			}
 			next('', args);
@@ -54,32 +56,23 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		);
 
 		taskList.push((args, next) => {
-			const { mappingTable, dataMapping, userRefId, isAdmin, refId, mappingKey, targetStandard, targetName } =
-				args;
+			const { mappingTable, dataMapping, status } = args;
 			const mapper = dataMapping['dme-user-mapping'];
-			let sql;
-			if (refId && isAdmin) {
-				sql = mapper.getSql('deleteByRefIdAny', { refId: String(refId) });
-			} else if (refId) {
-				sql = mapper.getSql('deleteByRefId', { refId: String(refId), userRefId });
-			} else {
-				sql = mapper.getSql('deleteByIdentity', {
-					userRefId,
-					mappingKey: String(mappingKey),
-					targetStandard: String(targetStandard),
-					targetName: String(targetName),
-				});
-			}
-			mappingTable.runStatement(sql, { suppressStatementLog: true }, (err) => next(err, args));
+			const query = status === 'all' ? mapper.getSql('all') : mapper.getSql('allByStatus', { status });
+			mappingTable.getData(query, { suppressStatementLog: true }, (err, rows = []) =>
+				next(err, { ...args, rows: rows || [] }),
+			);
 		});
 
+		taskList.push((args, next) =>
+			getUserDirectory({ sqlDb: args.sqlDb, dataMapping: args.dataMapping }, (err, directory) =>
+				next('', { ...args, directory: err ? {} : directory }),
+			),
+		);
+
 		const initialData = {
-			userRefId: inputData.userRefId,
-			isAdmin: inputData.isAdmin === true,
-			refId: inputData.refId,
-			mappingKey: inputData.mappingKey,
-			targetStandard: inputData.targetStandard,
-			targetName: inputData.targetName,
+			format: String(inputData.format || 'json').toLowerCase(),
+			status: String(inputData.status || 'accepted').toLowerCase(),
 			sqlDb,
 			dataMapping,
 		};
@@ -89,7 +82,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(err, {});
 				return;
 			}
-			callback('', { deleted: true, refId: args.refId || null });
+			const decorated = decorateRows(args.rows, args.directory, '');
+			const rendered = renderExport(decorated, { format: args.format, statusFilter: args.status });
+			callback('', { ...rendered, count: decorated.length });
 		});
 	};
 

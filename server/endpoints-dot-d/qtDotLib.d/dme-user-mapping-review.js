@@ -2,9 +2,9 @@
 'use strict';
 // @concept: [[UserMappingPersistence]]
 //
-// DELETE /api/dmeUserMappingDelete?refId=…
-// DELETE /api/dmeUserMappingDelete?mappingKey=…&targetStandard=…&targetName=…
-// Removes one of the caller's curated mappings.
+// POST /api/dmeUserMappingReview   body: { refId, status, note? }
+// Sets a proposal's review status (proposed | accepted | rejected). Admin and
+// super roles only; the reviewer is taken from the verified token claim.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -37,22 +37,16 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		taskList.push((args, next) => {
 			const { accessPointsDotD } = args;
 			const authClaims = xReq.appValueGetter('authclaims');
-			const userRefId = authClaims.qtGetSurePath('user.refId', '');
-			// Admins may remove anyone's proposal; the role comes from the verified
-			// token claim, never from the request body.
-			const isAdmin = ['admin', 'super'].includes(authClaims.qtGetSurePath('user.role', ''));
-			const { refId, mappingKey, targetStandard, targetName } = xReq.query || {};
+			const reviewerRefId = authClaims.qtGetSurePath('user.refId', '');
+			const { refId, status, note } = xReq.body || {};
 
-			accessPointsDotD['dme-user-mapping-delete'](
-				{ userRefId, isAdmin, refId, mappingKey, targetStandard, targetName },
-				(err, result) => {
-					if (err) {
-						next(err, args);
-						return;
-					}
-					next('', { ...args, result });
-				},
-			);
+			accessPointsDotD['dme-user-mapping-review']({ reviewerRefId, refId, status, note }, (err, result) => {
+				if (err) {
+					next(err, args);
+					return;
+				}
+				next('', { ...args, result });
+			});
 		});
 
 		const initialData = { accessPointsDotD, permissionValidator };
@@ -85,17 +79,12 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	// ================================================================================
 	// Do the constructing
 
-	const method = 'delete';
-	const thisEndpointName = 'dmeUserMappingDelete';
+	const method = 'post';
+	const thisEndpointName = 'dmeUserMappingReview';
 	const routePath = `${routingPrefix}${thisEndpointName}`;
 	const name = routePath;
 
-	const permissionValidator = accessTokenHeaderTools.getValidator([
-		'user',
-		'client',
-		'admin',
-		'super',
-	]);
+	const permissionValidator = accessTokenHeaderTools.getValidator(['admin', 'super']);
 
 	addEndpoint({
 		name,

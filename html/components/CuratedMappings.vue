@@ -45,10 +45,18 @@ function removeFromDialog() {
 
 const hasRule = (item) => item.transform && item.transform.type && item.transform.type !== 'direct';
 const ruleTitle = (item) => {
-	if (!hasRule(item)) return 'Direct copy — click to add a transformation rule';
+	const review = item.status === 'accepted'
+		? `Accepted${item.reviewedByName ? ` by ${item.reviewedByName}` : ''}${item.reviewNote ? `: ${item.reviewNote}` : ''}\n`
+		: item.status === 'rejected'
+			? `Rejected${item.reviewedByName ? ` by ${item.reviewedByName}` : ''}${item.reviewNote ? `: ${item.reviewNote}` : ''}\n`
+			: '';
+	if (!hasRule(item)) return `${review}Direct copy — click to add a transformation rule`;
 	const t = item.transform;
-	return `${t.type}${t.rule ? `: ${t.rule}` : ''}${t.notes ? `\n${t.notes}` : ''}\n(click to edit)`;
+	return `${review}${t.type}${t.rule ? `: ${t.rule}` : ''}${t.notes ? `\n${t.notes}` : ''}\n(click to edit)`;
 };
+// Review verdicts come from an admin; shown as a small mark on the chip.
+const REVIEW_ICON = { accepted: 'mdi-check-decagram', rejected: 'mdi-close-octagon' };
+const REVIEW_COLOR = { accepted: 'success', rejected: 'error' };
 
 defineExpose({ openRuleFor });
 </script>
@@ -92,6 +100,14 @@ defineExpose({ openRuleFor });
 				<v-icon start size="14">{{ hasRule(item) ? 'mdi-function-variant' : 'mdi-arrow-right-thin' }}</v-icon>
 				<strong class="mr-1">{{ item.standard }}:</strong> {{ item.name }}
 				<span v-if="hasRule(item)" class="ml-2 text-caption rule-tag">{{ item.transform.type }}</span>
+				<v-icon
+					v-if="REVIEW_ICON[item.status]"
+					end
+					size="14"
+					:color="REVIEW_COLOR[item.status]"
+				>
+					{{ REVIEW_ICON[item.status] }}
+				</v-icon>
 			</v-chip>
 			<p class="text-caption text-medium-emphasis mt-1 mb-0">
 				Click a mapping to set how its value is transformed.

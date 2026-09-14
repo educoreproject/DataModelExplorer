@@ -5,8 +5,10 @@
 //
 // Upserts one or more of a user's curated mappings (with their transformation
 // rules). Identity is (userRefId, mappingKey, targetStandard, targetName); an
-// existing row is updated in place, otherwise a new row is inserted. Returns the
-// saved rows so the caller learns each row's refId.
+// existing row is updated in place, otherwise a new row is inserted as a
+// 'proposed' mapping. Review fields (status, reviewedBy, …) are never written
+// here — an owner re-saving a mapping keeps whatever review it already has.
+// Returns the saved rows so the caller learns each row's refId.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -14,24 +16,28 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 
-const { getMappingTable } = require('../../lib/dme-user-mapping-table');
+const { getMappingTable, getUserDirectory, decorateRows } = require('../../lib/dme-user-mapping-table');
 const newRefId = require('../../lib/new-refid')({ digits: 20 });
 const REFID_OPTIONS = { excludedChars: ['0', 'O', '1', 'l'] };
 
+// Fields a proposer may set. Review fields are deliberately absent.
 const TEXT_FIELDS = [
 	'mappingKey',
 	'sourceStandard',
 	'sourceName',
 	'sourceId',
+	'sourcePath',
 	'targetStandard',
 	'targetName',
 	'targetSourceId',
+	'targetPath',
 	'rel',
 	'detail',
 	'transformType',
 	'transformRule',
 	'transformNotes',
 ];
+const REVIEW_FIELDS = ['status', 'reviewedBy', 'reviewedAt', 'reviewNote'];
 
 //START OF moduleFunction() ============================================================
 
@@ -44,12 +50,16 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const { sqlDb, hxAccess, dataMapping } = passThroughParameters;
 
-	// Only plain-text fields, coerced to strings, ever reach SQL.
+	// Only plain-text fields, coerced to strings, ever reach SQL. Fields the
+	// caller did not send are left out, so an update merges onto the existing
+	// row (a rule edit must not blank the source columns); on insert the mapper
+	// fills the gaps with ''.
 	const sanitize = (raw = {}) => {
 		const clean = {};
 		TEXT_FIELDS.forEach((name) => {
 			const value = raw[name];
-			clean[name] = value === undefined || value === null ? '' : String(value);
+			if (value === undefined) return;
+			clean[name] = value === null ? '' : String(value);
 		});
 		return clean;
 	};
@@ -117,7 +127,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 							}
 							const existing = (rows || []).qtLast();
 							const refId = existing ? existing.refId : newRefId(REFID_OPTIONS);
-							const record = { ...mapping, refId, userRefId };
+
+							// Carry the existing row forward — its review verdict and any
+							// data field the caller did not resend — then lay the new values
+							// over it. A fresh row is a proposal.
+							const carried = {};
+							[...TEXT_FIELDS, ...REVIEW_FIELDS].forEach((f) => {
+								carried[f] = existing ? existing[f] || '' : '';
+							});
+							if (!carried.status) carried.status = 'proposed';
+
+							const record = { ...carried, ...mapping, refId, userRefId };
 							const sql = existing
 								? mapper.getSql('updateByRefId', record)
 								: mapper.getSql('insert', record);
@@ -149,6 +169,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			);
 		});
 
+		taskList.push((args, next) =>
+			getUserDirectory({ sqlDb: args.sqlDb, dataMapping: args.dataMapping }, (err, directory) =>
+				next('', { ...args, directory: err ? {} : directory }),
+			),
+		);
+
 		// --------------------------------------------------------------------------------
 		// INIT AND EXECUTE THE PIPELINE
 
@@ -164,7 +190,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(err, []);
 				return;
 			}
-			callback('', args.savedRows);
+			callback('', decorateRows(args.savedRows, args.directory, args.userRefId));
 		});
 	};
 

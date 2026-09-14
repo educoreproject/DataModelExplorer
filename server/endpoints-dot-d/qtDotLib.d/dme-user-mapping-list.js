@@ -2,10 +2,10 @@
 'use strict';
 // @concept: [[UserMappingPersistence]]
 //
-// GET /api/dmeUserMappingList
-// Responds with every curated mapping (and transformation rule) the caller has
-// saved. The browser uses this both to hydrate the Schema Verifier's crosswalk
-// and to export all saved mappings.
+// GET /api/dmeUserMappingList?scope=mine|all&status=proposed|accepted|rejected
+// Responds with curated mappings (and transformation rules). `scope=mine`
+// (default) is the caller's own; `scope=all` is every user's proposals, each
+// labelled with proposer and a `mine` flag. Any logged-in role may read.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -39,8 +39,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			const { accessPointsDotD } = args;
 			const authClaims = xReq.appValueGetter('authclaims');
 			const userRefId = authClaims.qtGetSurePath('user.refId', '');
+			const { scope, status } = xReq.query || {};
 
-			accessPointsDotD['dme-user-mapping-list']({ userRefId }, (err, result) => {
+			accessPointsDotD['dme-user-mapping-list']({ userRefId, scope, status }, (err, result) => {
 				if (err) {
 					next(err, args);
 					return;

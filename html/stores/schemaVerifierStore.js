@@ -569,16 +569,23 @@ function rowToItem(row) {
 		standard: row.targetStandard,
 		name: row.targetName,
 		sourceId: row.targetSourceId || '',
+		targetPath: row.targetPath || '',
 		rel: row.rel || '',
 		detail: row.detail || '',
 		sourceStandard: row.sourceStandard || '',
 		sourceName: row.sourceName || '',
 		sourceElementId: row.sourceId || '',
+		sourcePath: row.sourcePath || '',
 		transform: normalizeTransform({
 			type: row.transformType,
 			rule: row.transformRule,
 			notes: row.transformNotes,
 		}),
+		// review state, set server-side by an admin
+		status: row.status || 'proposed',
+		reviewedByName: row.reviewedByName || '',
+		reviewNote: row.reviewNote || '',
+		proposedBy: row.proposedBy || '',
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 	};
@@ -591,14 +598,45 @@ function itemToRow(key, item) {
 		sourceStandard: item.sourceStandard || '',
 		sourceName: item.sourceName || '',
 		sourceId: item.sourceElementId || '',
+		sourcePath: item.sourcePath || '',
 		targetStandard: item.standard,
 		targetName: item.name,
 		targetSourceId: item.sourceId || '',
+		targetPath: item.targetPath || item.path || '',
 		rel: item.rel || '',
 		detail: item.detail || '',
 		transformType: transform.type,
 		transformRule: transform.rule,
 		transformNotes: transform.notes,
+	};
+}
+
+// A server row (anyone's proposal) in the flat shape the "all mappings" table
+// and exports use. Same columns as flattenEquivalents() plus provenance.
+function rowToFlat(row) {
+	return {
+		mappingKey: row.mappingKey,
+		sourceStandard: row.sourceStandard || '',
+		sourceName: row.sourceName || '',
+		sourceId: row.sourceId || '',
+		sourcePath: row.sourcePath || '',
+		targetStandard: row.targetStandard,
+		targetName: row.targetName,
+		targetSourceId: row.targetSourceId || '',
+		targetPath: row.targetPath || '',
+		relationship: row.rel || '',
+		detail: row.detail || '',
+		transformType: row.transformType || 'direct',
+		transformRule: row.transformRule || '',
+		transformNotes: row.transformNotes || '',
+		status: row.status || 'proposed',
+		proposedBy: row.proposedBy || '',
+		reviewedByName: row.reviewedByName || '',
+		reviewNote: row.reviewNote || '',
+		mine: !!row.mine,
+		refId: row.refId || '',
+		createdAt: row.createdAt || '',
+		updatedAt: row.updatedAt || '',
 	};
 }
 
@@ -613,14 +651,21 @@ function flattenEquivalents(userEquivalents) {
 				sourceStandard: item.sourceStandard || '',
 				sourceName: item.sourceName || '',
 				sourceId: item.sourceElementId || '',
+				sourcePath: item.sourcePath || '',
 				targetStandard: item.standard,
 				targetName: item.name,
 				targetSourceId: item.sourceId || '',
+				targetPath: item.targetPath || '',
 				relationship: item.rel || '',
 				detail: item.detail || '',
 				transformType: transform.type,
 				transformRule: transform.rule,
 				transformNotes: transform.notes,
+				status: item.status || (item.refId ? 'proposed' : 'local'),
+				proposedBy: item.proposedBy || '',
+				reviewedByName: item.reviewedByName || '',
+				reviewNote: item.reviewNote || '',
+				mine: true,
 				refId: item.refId || '',
 				createdAt: item.createdAt || '',
 				updatedAt: item.updatedAt || '',
@@ -640,14 +685,20 @@ const EXPORT_COLUMNS = [
 	'sourceStandard',
 	'sourceName',
 	'sourceId',
+	'sourcePath',
 	'targetStandard',
 	'targetName',
 	'targetSourceId',
+	'targetPath',
 	'relationship',
 	'detail',
 	'transformType',
 	'transformRule',
 	'transformNotes',
+	'status',
+	'proposedBy',
+	'reviewedByName',
+	'reviewNote',
 	'refId',
 	'createdAt',
 	'updatedAt',
@@ -714,6 +765,12 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		mappingsPersistence: '',
 		mappingsSyncing: false,
 		mappingsSyncError: '',
+
+		// Everyone's proposals (scope=all), flat rows with proposer + status.
+		// Loaded alongside the user's own on sync; empty when logged out.
+		communityMappings: [],
+		communityLoading: false,
+		communityError: '',
 	}),
 
 	getters: {
@@ -745,6 +802,18 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		allMappings: (state) => flattenEquivalents(state.userEquivalents),
 		mappingCount: (state) =>
 			Object.values(state.userEquivalents).reduce((n, list) => n + list.length, 0),
+
+		// Reviewing and bulk-exporting proposals is an admin job; the role comes
+		// from the login token, and the server enforces it again.
+		isMappingAdmin: () => {
+			const loginStore = useLoginStore();
+			return !!loginStore.authtoken && ['admin', 'super'].includes(loginStore.loggedInUser?.role);
+		},
+		communityCounts: (state) => {
+			const counts = { proposed: 0, accepted: 0, rejected: 0 };
+			for (const row of state.communityMappings) counts[row.status] = (counts[row.status] || 0) + 1;
+			return counts;
+		},
 
 		// Specs grouped for the picker: [{ organization, specs: [...] }], both
 		// levels alphabetical. `specs` is already sorted organization-then-title,
@@ -1120,6 +1189,8 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 				sourceStandard: source?.standard || item.sourceStandard || '',
 				sourceName: source?.name || item.sourceName || '',
 				sourceElementId: source?.sourceId || item.sourceElementId || '',
+				sourcePath: source?.path || item.sourcePath || '',
+				targetPath: item.targetPath || item.path || '',
 				transform: normalizeTransform(item.transform),
 			};
 			this.userEquivalents = { ...this.userEquivalents, [key]: [...list, entry] };
@@ -1244,6 +1315,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 				}
 
 				this.mappingsPersistence = 'server';
+				this.loadCommunityMappings();
 				return true;
 			} catch (err) {
 				this.mappingsPersistence = 'local';
@@ -1252,6 +1324,78 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			} finally {
 				this.mappingsSyncing = false;
 			}
+		},
+
+		// ------------------------------------------------------------
+		// Everyone's proposals. Any logged-in user may read them; the rows say
+		// who proposed each and whether it is the caller's own.
+
+		async loadCommunityMappings({ status = '' } = {}) {
+			const headers = authHeaders();
+			if (!headers) {
+				this.communityMappings = [];
+				return [];
+			}
+			this.communityLoading = true;
+			this.communityError = '';
+			try {
+				const res = await axios.get('/api/dmeUserMappingList', {
+					params: { scope: 'all', ...(status ? { status } : {}) },
+					headers,
+				});
+				this.communityMappings = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r?.mappingKey && r?.targetName)
+					.map(rowToFlat);
+				return this.communityMappings;
+			} catch (err) {
+				this.communityError = err.response?.data || err.message || 'Could not load shared mappings.';
+				return [];
+			} finally {
+				this.communityLoading = false;
+			}
+		},
+
+		// Admin: accept / reject / reopen a proposal. Updates the shared list in
+		// place and, if the row is the caller's own, its curated item too.
+		async reviewMapping(refId, status, note = '') {
+			const headers = authHeaders();
+			if (!headers) return null;
+			const res = await axios.post('/api/dmeUserMappingReview', { refId, status, note }, { headers });
+			const row = (Array.isArray(res.data) ? res.data : [])[0];
+			if (!row?.refId) return null;
+			const flat = rowToFlat(row);
+			this.communityMappings = this.communityMappings.map((r) => (r.refId === refId ? flat : r));
+			for (const [key, list] of Object.entries(this.userEquivalents)) {
+				const idx = list.findIndex((e) => e.refId === refId);
+				if (idx < 0) continue;
+				const next = [...list];
+				next[idx] = { ...next[idx], status: flat.status, reviewedByName: flat.reviewedByName, reviewNote: flat.reviewNote };
+				this.userEquivalents = { ...this.userEquivalents, [key]: next };
+				persistUserEquivalents(this.userEquivalents);
+			}
+			return flat;
+		},
+
+		// Admin: server-rendered export of everyone's mappings (json | csv |
+		// cypher), filtered by status. Returns { filename, mimeType, content }.
+		async exportCommunityMappings({ format = 'json', status = 'accepted' } = {}) {
+			const headers = authHeaders();
+			if (!headers) throw new Error('Log in as an admin to export shared mappings.');
+			const res = await axios.get('/api/dmeUserMappingExport', {
+				params: { format, status },
+				headers,
+				responseType: 'text',
+				transformResponse: [(d) => d],
+			});
+			const disposition = res.headers?.['content-disposition'] || '';
+			const match = disposition.match(/filename="([^"]+)"/);
+			const ext = format === 'cypher' ? 'cypher' : format;
+			return {
+				filename: match ? match[1] : `educore-user-mappings-${status}.${ext}`,
+				mimeType: (res.headers?.['content-type'] || 'text/plain').split(';')[0],
+				content: typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2),
+				count: Number(res.headers?.['x-mapping-count'] || 0),
+			};
 		},
 
 		_attachServerRow(key, row) {

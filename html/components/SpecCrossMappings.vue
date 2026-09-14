@@ -39,7 +39,14 @@ const curationKey = computed(() =>
 // read as full source → target rows.
 const sourceInfo = computed(() =>
 	props.element
-		? { standard: props.element.standard || props.element.source, name: props.element.name, sourceId: props.element.sourceId || '' }
+		? {
+				standard: props.element.standard || props.element.source,
+				name: props.element.name,
+				sourceId: props.element.sourceId || '',
+				// dotted graph path — lets the graph-ingestion export resolve the
+				// exact node (LIF has an `identifier` on every entity)
+				path: props.element.path || '',
+			}
 		: null,
 );
 const curatedPanel = ref(null);
@@ -57,6 +64,7 @@ const rowItem = (row) => ({
 	standard: row.standard,
 	name: row.name,
 	sourceId: row.sourceId || '',
+	targetPath: row.path || '',
 	rel: row.rel,
 	detail: row.description || '',
 });

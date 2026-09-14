@@ -8,6 +8,10 @@
 // → TARGET element in another specification, plus an optional TRANSFORMATION
 // RULE describing how a value moves from source to target.
 //
+// Mappings are proposals visible to every logged-in user. Each carries a review
+// status (proposed → accepted | rejected) that an admin sets; accepted rows are
+// what the graph-ingestion export emits by default.
+//
 // Identity of a mapping (for upsert) is (userRefId, mappingKey, targetStandard,
 // targetName) — the same identity the browser store uses.
 
@@ -33,14 +37,20 @@ const moduleFunction =
 			['sourceStandard']: 'sourceStandard',
 			['sourceName']: 'sourceName',
 			['sourceId']: 'sourceId',
+			['sourcePath']: 'sourcePath',
 			['targetStandard']: 'targetStandard',
 			['targetName']: 'targetName',
 			['targetSourceId']: 'targetSourceId',
+			['targetPath']: 'targetPath',
 			['rel']: 'rel',
 			['detail']: 'detail',
 			['transformType']: 'transformType',
 			['transformRule']: 'transformRule',
 			['transformNotes']: 'transformNotes',
+			['status']: 'status',
+			['reviewedBy']: 'reviewedBy',
+			['reviewedAt']: 'reviewedAt',
+			['reviewNote']: 'reviewNote',
 			['createdAt']: 'createdAt',
 			['updatedAt']: 'updatedAt',
 		};
@@ -52,15 +62,14 @@ const moduleFunction =
 			(name) => !['refId', 'createdAt', 'updatedAt'].includes(name),
 		);
 
+		const REVIEW_STATUSES = ['proposed', 'accepted', 'rejected'];
+
 		// ================================================================================
 		// TRANSFORMATION FUNCTION SETUP
 
 		const basicMapper = baseMappingProcess(inputNameMapping);
 
-		const recordMapper = (inObj, direction = 'forward') => {
-			const outObj = basicMapper(inObj, { direction });
-			return outObj;
-		};
+		const recordMapper = (inObj, direction = 'forward') => basicMapper(inObj, { direction });
 
 		const mapper = (inData, direction = 'forward') => {
 			if (Array.isArray(inData)) {
@@ -75,22 +84,30 @@ const moduleFunction =
 		// <!tableName!> is left for sqlite-instance to substitute; every other token
 		// is a user value and is escaped by safeSql.
 
+		const identityColumns = ['userRefId', 'mappingKey', 'targetStandard', 'targetName'];
 		const columnList = dataColumns.map((name) => `[${name}]`).join(', ');
 		const valueList = dataColumns.map((name) => `<!${name}!>`).join(', ');
 		const assignmentList = dataColumns
-			.filter((name) => !['userRefId', 'mappingKey', 'targetStandard', 'targetName'].includes(name))
+			.filter((name) => !identityColumns.includes(name))
 			.map((name) => `[${name}]=<!${name}!>`)
 			.join(', ');
 
+		const ORDER = `ORDER BY sourceStandard, mappingKey, targetStandard, targetName`;
+
 		const getSql = (queryName, replaceObject = {}) => {
 			const queries = {
-				byUser: `SELECT * FROM <!tableName!> WHERE userRefId = <!userRefId!> ORDER BY mappingKey, targetStandard, targetName`,
+				byUser: `SELECT * FROM <!tableName!> WHERE userRefId = <!userRefId!> ${ORDER}`,
+				all: `SELECT * FROM <!tableName!> ${ORDER}`,
+				allByStatus: `SELECT * FROM <!tableName!> WHERE status = <!status!> ${ORDER}`,
 				byRefId: `SELECT * FROM <!tableName!> WHERE refId = <!refId!>`,
 				byIdentity: `SELECT * FROM <!tableName!> WHERE userRefId = <!userRefId!> AND mappingKey = <!mappingKey!> AND targetStandard = <!targetStandard!> AND targetName = <!targetName!>`,
 				insert: `INSERT INTO <!tableName!> ([refId], ${columnList}) VALUES (<!refId!>, ${valueList})`,
 				updateByRefId: `UPDATE <!tableName!> SET ${assignmentList} WHERE refId = <!refId!> AND userRefId = <!userRefId!>`,
+				setStatus: `UPDATE <!tableName!> SET [status] = <!status!>, [reviewedBy] = <!reviewedBy!>, [reviewedAt] = <!reviewedAt!>, [reviewNote] = <!reviewNote!> WHERE refId = <!refId!>`,
 				deleteByRefId: `DELETE FROM <!tableName!> WHERE refId = <!refId!> AND userRefId = <!userRefId!>`,
+				deleteByRefIdAny: `DELETE FROM <!tableName!> WHERE refId = <!refId!>`,
 				deleteByIdentity: `DELETE FROM <!tableName!> WHERE userRefId = <!userRefId!> AND mappingKey = <!mappingKey!> AND targetStandard = <!targetStandard!> AND targetName = <!targetName!>`,
+				countByStatus: `SELECT status, COUNT(*) AS n FROM <!tableName!> GROUP BY status`,
 			};
 
 			if (!queries[queryName]) {
@@ -117,6 +134,7 @@ const moduleFunction =
 			map: mapper,
 			getSql,
 			dataColumns,
+			REVIEW_STATUSES,
 		};
 	};
 

@@ -35,6 +35,9 @@ watch(
 
 function downloadMappings(format) {
 	const { filename, mimeType, content } = store.exportMappings(format);
+	saveBlob(filename, mimeType, content);
+}
+function saveBlob(filename, mimeType, content) {
 	const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
@@ -48,22 +51,81 @@ function downloadMappings(format) {
 
 const mappingsDialog = ref(false);
 const mappingsSearch = ref('');
-const mappingsHeaders = [
+
+// "Mine" is the browser's curated set (works logged out). "Everyone" is every
+// user's proposal from the server, each labelled with proposer and review
+// status — shared knowledge, owner-only edits, admin-only verdicts.
+const viewScope = ref('mine'); // 'mine' | 'all'
+const statusFilter = ref('all'); // 'all' | proposed | accepted | rejected
+const canViewAll = computed(() => store.mappingsPersistence === 'server');
+watch(mappingsDialog, (open) => {
+	if (open && canViewAll.value) store.loadCommunityMappings();
+});
+
+const mappingsHeaders = computed(() => [
 	{ title: 'Source', key: 'source', sortable: false },
 	{ title: 'Target', key: 'target', sortable: false },
 	{ title: 'Relationship', key: 'relationship' },
 	{ title: 'Transformation', key: 'transform', sortable: false },
-	{ title: '', key: 'actions', sortable: false, align: 'end', width: 90 },
-];
-const mappingRows = computed(() =>
-	store.allMappings.map((m) => ({
-		...m,
-		id: `${m.mappingKey}|${m.targetStandard}|${m.targetName}`,
-		source: `${m.sourceStandard ? `${m.sourceStandard}: ` : ''}${m.sourceName || m.mappingKey}`,
-		target: `${m.targetStandard}: ${m.targetName}`,
-		transform: m.transformType === 'direct' && !m.transformRule ? '' : `${m.transformType}${m.transformRule ? ` — ${m.transformRule}` : ''}`,
-	})),
-);
+	...(viewScope.value === 'all' ? [{ title: 'Proposed by', key: 'proposedBy' }] : []),
+	{ title: 'Status', key: 'status' },
+	{ title: '', key: 'actions', sortable: false, align: 'end', width: store.isMappingAdmin ? 170 : 90 },
+]);
+
+const toTableRow = (m) => ({
+	...m,
+	id: m.refId || `${m.mappingKey}|${m.targetStandard}|${m.targetName}`,
+	source: `${m.sourceStandard ? `${m.sourceStandard}: ` : ''}${m.sourceName || m.mappingKey}`,
+	target: `${m.targetStandard}: ${m.targetName}`,
+	transform: m.transformType === 'direct' && !m.transformRule ? '' : `${m.transformType}${m.transformRule ? ` — ${m.transformRule}` : ''}`,
+});
+const mappingRows = computed(() => {
+	const base = viewScope.value === 'all' ? store.communityMappings : store.allMappings;
+	return base
+		.filter((m) => statusFilter.value === 'all' || m.status === statusFilter.value)
+		.map(toTableRow);
+});
+
+const STATUS_COLOR = { proposed: 'amber-darken-2', accepted: 'success', rejected: 'error', local: 'grey' };
+const statusColor = (s) => STATUS_COLOR[s] || 'grey';
+const statusTitle = (row) => {
+	if (row.status === 'local') return 'Saved in this browser only — log in to propose it to everyone';
+	const who = row.reviewedByName ? ` by ${row.reviewedByName}` : '';
+	const note = row.reviewNote ? ` — ${row.reviewNote}` : '';
+	return row.status === 'proposed' ? 'Awaiting admin review' : `${row.status}${who}${note}`;
+};
+
+// Admin verdicts. The server re-checks the role; this just hides the buttons
+// from everyone else.
+const reviewing = ref('');
+const reviewError = ref('');
+async function review(row, status) {
+	reviewing.value = row.refId;
+	reviewError.value = '';
+	try {
+		await store.reviewMapping(row.refId, status);
+	} catch (err) {
+		reviewError.value = err.response?.data || err.message || 'Review failed.';
+	} finally {
+		reviewing.value = '';
+	}
+}
+
+// Admin export of everyone's mappings, rendered server-side (the Cypher form is
+// what goes into the graph).
+const exporting = ref(false);
+async function downloadCommunity(format, status) {
+	exporting.value = true;
+	reviewError.value = '';
+	try {
+		const { filename, mimeType, content } = await store.exportCommunityMappings({ format, status });
+		saveBlob(filename, mimeType, content);
+	} catch (err) {
+		reviewError.value = err.response?.data || err.message || 'Export failed.';
+	} finally {
+		exporting.value = false;
+	}
+}
 
 // Rule editing straight from the table reuses the same dialog the panels use.
 const ruleDialog = ref(false);
@@ -483,8 +545,17 @@ function loadSample() {
 						</v-btn>
 					</template>
 					<v-list density="compact">
+						<v-list-subheader>My mappings</v-list-subheader>
 						<v-list-item prepend-icon="mdi-code-json" title="JSON (with transformation rules)" @click="downloadMappings('json')" />
 						<v-list-item prepend-icon="mdi-file-delimited-outline" title="CSV (spreadsheet)" @click="downloadMappings('csv')" />
+						<template v-if="store.isMappingAdmin">
+							<v-divider class="my-1" />
+							<v-list-subheader>Everyone's mappings · admin</v-list-subheader>
+							<v-list-item prepend-icon="mdi-graph-outline" title="Cypher — accepted only" subtitle="Ready for cypher-shell → PROPOSED_MATCH edges" @click="downloadCommunity('cypher', 'accepted')" />
+							<v-list-item prepend-icon="mdi-graph-outline" title="Cypher — all statuses" @click="downloadCommunity('cypher', 'all')" />
+							<v-list-item prepend-icon="mdi-code-json" title="JSON — all statuses" @click="downloadCommunity('json', 'all')" />
+							<v-list-item prepend-icon="mdi-file-delimited-outline" title="CSV — all statuses" @click="downloadCommunity('csv', 'all')" />
+						</template>
 					</v-list>
 				</v-menu>
 			</v-card-text>
@@ -496,8 +567,29 @@ function loadSample() {
 				<v-card-item>
 					<div class="d-flex align-center flex-wrap ga-2">
 						<v-icon color="deep-purple">mdi-table-star</v-icon>
-						<span class="text-h6 font-weight-bold">All saved mappings</span>
-						<v-chip size="small" variant="tonal" color="deep-purple">{{ store.mappingCount }}</v-chip>
+						<span class="text-h6 font-weight-bold">Saved mappings</span>
+						<v-btn-toggle v-model="viewScope" mandatory density="compact" color="deep-purple" variant="outlined">
+							<v-btn value="mine" size="small">
+								Mine <v-chip size="x-small" variant="tonal" class="ml-1">{{ store.mappingCount }}</v-chip>
+							</v-btn>
+							<v-btn value="all" size="small" :disabled="!canViewAll" :title="canViewAll ? 'Every user\'s proposals' : 'Log in to see everyone\'s proposals'">
+								Everyone <v-chip size="x-small" variant="tonal" class="ml-1">{{ store.communityMappings.length }}</v-chip>
+							</v-btn>
+						</v-btn-toggle>
+						<v-select
+							v-model="statusFilter"
+							:items="[
+								{ title: 'Any status', value: 'all' },
+								{ title: `Proposed (${viewScope === 'all' ? store.communityCounts.proposed : ''})`.replace(' ()', ''), value: 'proposed' },
+								{ title: `Accepted (${viewScope === 'all' ? store.communityCounts.accepted : ''})`.replace(' ()', ''), value: 'accepted' },
+								{ title: `Rejected (${viewScope === 'all' ? store.communityCounts.rejected : ''})`.replace(' ()', ''), value: 'rejected' },
+							]"
+							density="compact"
+							variant="outlined"
+							hide-details
+							style="max-width: 170px;"
+						/>
+						<v-progress-circular v-if="store.communityLoading" indeterminate size="18" width="2" color="deep-purple" />
 						<v-spacer />
 						<v-text-field
 							v-model="mappingsSearch"
@@ -536,14 +628,55 @@ function loadSample() {
 							<span v-else class="text-caption text-disabled">direct copy</span>
 							<div v-if="item.transformNotes" class="text-caption text-medium-emphasis">{{ item.transformNotes }}</div>
 						</template>
+						<template #item.proposedBy="{ item }">
+							<span class="text-body-2">{{ item.proposedBy || '—' }}</span>
+							<v-chip v-if="item.mine" size="x-small" variant="tonal" color="deep-purple" class="ml-1">you</v-chip>
+						</template>
+						<template #item.status="{ item }">
+							<v-chip size="x-small" variant="tonal" :color="statusColor(item.status)" :title="statusTitle(item)">
+								{{ item.status }}
+							</v-chip>
+						</template>
 						<template #item.actions="{ item }">
-							<v-btn size="x-small" variant="text" icon="mdi-function-variant" color="deep-purple" title="Edit transformation rule" @click="editRule(item)" />
-							<v-btn size="x-small" variant="text" icon="mdi-close" color="error" title="Remove mapping" @click="removeMapping(item)" />
+							<!-- admin verdicts on anyone's proposal -->
+							<template v-if="store.isMappingAdmin && item.refId">
+								<v-btn
+									v-if="item.status !== 'accepted'"
+									size="x-small" variant="text" icon="mdi-check-decagram" color="success"
+									title="Accept — include in graph export" :loading="reviewing === item.refId"
+									@click="review(item, 'accepted')"
+								/>
+								<v-btn
+									v-if="item.status !== 'rejected'"
+									size="x-small" variant="text" icon="mdi-close-octagon-outline" color="error"
+									title="Reject" :loading="reviewing === item.refId"
+									@click="review(item, 'rejected')"
+								/>
+								<v-btn
+									v-if="item.status !== 'proposed'"
+									size="x-small" variant="text" icon="mdi-undo-variant"
+									title="Reopen as proposed" :loading="reviewing === item.refId"
+									@click="review(item, 'proposed')"
+								/>
+							</template>
+							<!-- owner-only edits -->
+							<template v-if="item.mine !== false">
+								<v-btn size="x-small" variant="text" icon="mdi-function-variant" color="deep-purple" title="Edit transformation rule" @click="editRule(item)" />
+								<v-btn size="x-small" variant="text" icon="mdi-close" color="error" title="Remove mapping" @click="removeMapping(item)" />
+							</template>
 						</template>
 					</v-data-table>
+					<v-alert v-if="reviewError" type="error" variant="tonal" density="compact" class="mt-2">{{ reviewError }}</v-alert>
+					<v-alert v-if="store.communityError && viewScope === 'all'" type="warning" variant="tonal" density="compact" class="mt-2">
+						{{ store.communityError }}
+					</v-alert>
+					<p v-if="viewScope === 'all'" class="text-caption text-medium-emphasis mt-2 mb-0">
+						Everyone's proposals are visible to all logged-in users. Only the proposer can edit or remove a mapping;
+						admins accept or reject, and accepted mappings are what the Cypher export sends to the graph.
+					</p>
 				</v-card-text>
 				<v-card-actions class="px-6 pb-4">
-					<v-btn v-if="!confirmClear" variant="text" color="error" prepend-icon="mdi-delete-sweep-outline" @click="confirmClear = true">
+					<v-btn v-if="!confirmClear && viewScope === 'mine'" variant="text" color="error" prepend-icon="mdi-delete-sweep-outline" @click="confirmClear = true">
 						Clear all
 					</v-btn>
 					<template v-else>

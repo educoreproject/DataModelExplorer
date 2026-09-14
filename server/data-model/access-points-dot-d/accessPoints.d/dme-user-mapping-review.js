@@ -3,12 +3,10 @@
 // @concept: [[UserMappingPersistence]]
 // @concept: [[AccessPointPattern]]
 //
-// Lists curated mappings (with transformation rules and review status).
-//   scope: 'mine' (default) — the caller's own rows
-//          'all'            — every user's rows; proposals are shared knowledge
-//   status: optional filter (proposed | accepted | rejected)
-// Every row is labelled with who proposed it and whether it belongs to the
-// caller, so the browser can show one shared table with owner-only controls.
+// Sets the review status of one proposed mapping: proposed | accepted |
+// rejected, stamped with the reviewer and time and an optional note. The
+// endpoint restricts this to admin/super roles; the access point trusts the
+// reviewerRefId it is handed.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -36,13 +34,18 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) => {
-			if (!args.userRefId) {
-				next('No user identity supplied', args);
+			const { reviewerRefId, refId, status } = args;
+			const statuses = args.dataMapping['dme-user-mapping'].REVIEW_STATUSES;
+			if (!reviewerRefId) {
+				next('No reviewer identity supplied', args);
 				return;
 			}
-			const statuses = args.dataMapping['dme-user-mapping'].REVIEW_STATUSES;
-			if (args.status && !statuses.includes(args.status)) {
-				next(`Unknown status '${args.status}' (expected ${statuses.join(' | ')})`, args);
+			if (!refId) {
+				next('refId is required', args);
+				return;
+			}
+			if (!statuses.includes(status)) {
+				next(`Unknown status '${status}' (expected ${statuses.join(' | ')})`, args);
 				return;
 			}
 			next('', args);
@@ -56,19 +59,43 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		);
 
 		taskList.push((args, next) => {
-			const { mappingTable, dataMapping, userRefId, scope, status } = args;
-			const mapper = dataMapping['dme-user-mapping'];
-			let query;
-			if (scope === 'all') {
-				query = status ? mapper.getSql('allByStatus', { status }) : mapper.getSql('all');
-			} else {
-				query = mapper.getSql('byUser', { userRefId });
-			}
-			mappingTable.getData(query, { suppressStatementLog: true }, (err, rows = []) => {
-				let list = rows || [];
-				if (scope !== 'all' && status) list = list.filter((r) => (r.status || 'proposed') === status);
-				next(err, { ...args, mappingList: list });
+			const { mappingTable, dataMapping, refId } = args;
+			mappingTable.getData(
+				dataMapping['dme-user-mapping'].getSql('byRefId', { refId }),
+				{ suppressStatementLog: true },
+				(err, rows = []) => {
+					if (err) {
+						next(err, args);
+						return;
+					}
+					if (!(rows || []).length) {
+						next(`Mapping not found: ${refId}`, args);
+						return;
+					}
+					next('', args);
+				},
+			);
+		});
+
+		taskList.push((args, next) => {
+			const { mappingTable, dataMapping, refId, status, reviewerRefId, note } = args;
+			const sql = dataMapping['dme-user-mapping'].getSql('setStatus', {
+				refId,
+				status,
+				reviewedBy: reviewerRefId,
+				reviewedAt: new Date().toISOString(),
+				reviewNote: note || '',
 			});
+			mappingTable.runStatement(sql, { suppressStatementLog: true }, (err) => next(err, args));
+		});
+
+		taskList.push((args, next) => {
+			const { mappingTable, dataMapping, refId } = args;
+			mappingTable.getData(
+				dataMapping['dme-user-mapping'].getSql('byRefId', { refId }),
+				{ suppressStatementLog: true },
+				(err, rows = []) => next(err, { ...args, updated: (rows || []).qtLast() }),
+			);
 		});
 
 		taskList.push((args, next) =>
@@ -78,19 +105,20 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		);
 
 		const initialData = {
-			userRefId: inputData.userRefId,
-			scope: inputData.scope === 'all' ? 'all' : 'mine',
-			status: inputData.status || '',
+			reviewerRefId: inputData.reviewerRefId,
+			refId: inputData.refId ? String(inputData.refId) : '',
+			status: String(inputData.status || ''),
+			note: inputData.note ? String(inputData.note) : '',
 			sqlDb,
 			dataMapping,
 		};
 
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			if (err) {
-				callback(err, []);
+				callback(err, {});
 				return;
 			}
-			callback('', decorateRows(args.mappingList, args.directory, args.userRefId));
+			callback('', decorateRows([args.updated], args.directory, args.reviewerRefId)[0]);
 		});
 	};
 
