@@ -233,6 +233,11 @@ async function run() {
 // has no mappings for the element, since that is the only way forward.
 const manualOpen = ref(false);
 
+// The explanation of the two tiers lives in one collapsed note under the
+// section header rather than a paragraph per tier, so the panel reads
+// "accepted → verified → implied → search" without prose in between.
+const aboutOpen = ref(false);
+
 watch(
 	() => (props.element ? `${props.element.source}|${props.element.name}` : ''),
 	(key) => {
@@ -279,6 +284,43 @@ watch(
 			</v-chip>
 		</div>
 
+		<!-- How to read the two tiers — collapsed by default so the mappings
+		     themselves, accepted and prospective, carry the eye. -->
+		<div class="mb-3">
+			<v-btn
+				size="x-small"
+				variant="text"
+				color="indigo"
+				:prepend-icon="aboutOpen ? 'mdi-chevron-up' : 'mdi-information-outline'"
+				class="px-1 text-none"
+				@click="aboutOpen = !aboutOpen"
+			>
+				{{ aboutOpen ? 'Hide' : 'About these tiers' }}
+			</v-btn>
+			<v-expand-transition>
+				<div v-if="aboutOpen" class="about-tiers text-caption text-medium-emphasis mt-1">
+					<p class="mb-1">
+						<strong class="text-success">Authoritative</strong> — no standard's documentation
+						crosswalks directly to another's; each maps to CEDS. These hold
+						<strong>by composition</strong>: the {{ element?.standard }} element and the
+						other element are both verified against the same CEDS concept.
+						<span v-if="authoritativeHubs.length">
+							Here via
+							<em v-for="(hub, i) in authoritativeHubs.slice(0, 3)" :key="hub">
+								{{ hub }}<span v-if="i < Math.min(authoritativeHubs.length, 3) - 1">, </span>
+							</em><span v-if="authoritativeHubs.length > 3">
+								and {{ authoritativeHubs.length - 3 }} more</span>.
+						</span>
+					</p>
+					<p class="mb-0">
+						<strong class="text-amber-darken-3">Implied</strong> — at least one leg is
+						similarity-derived, so the pair is a hypothesis to confirm, not a fact to trust.
+						Accepting one into your crosswalk is that confirmation.
+					</p>
+				</div>
+			</v-expand-transition>
+		</div>
+
 		<v-progress-linear v-if="store.mappingsLoading" indeterminate color="indigo" class="mb-3" />
 
 		<v-alert v-if="store.mappingsError" type="warning" density="compact" variant="tonal" class="mb-2">
@@ -295,20 +337,6 @@ watch(
 					{{ authoritativeRows.length }} across {{ groupedAuthoritative.length }} spec(s)
 				</v-chip>
 			</div>
-
-			<p class="text-caption text-medium-emphasis mb-3">
-				No standard's documentation crosswalks directly to another's — each maps to
-				CEDS — so these hold <strong>by composition</strong>: each of these and the
-				{{ element?.standard }} element are verified against
-				the same CEDS concept.
-				<span v-if="authoritativeHubs.length">
-					Via
-					<em v-for="(hub, i) in authoritativeHubs.slice(0, 3)" :key="hub">
-						{{ hub }}<span v-if="i < Math.min(authoritativeHubs.length, 3) - 1">, </span>
-					</em><span v-if="authoritativeHubs.length > 3">
-						and {{ authoritativeHubs.length - 3 }} more</span>.
-				</span>
-			</p>
 
 			<div v-if="groupedAuthoritative.length">
 				<div v-for="[standard, list] in groupedAuthoritative" :key="standard" class="mb-4">
@@ -373,8 +401,7 @@ watch(
 				v-else-if="ran && !store.mappingsLoading && !store.mappingsError"
 				class="text-caption text-medium-emphasis"
 			>
-				No authoritative equivalents — this element's own edge to its hub is not a
-				verified match, so nothing beyond it can be asserted.
+				None — this element's own hub edge is not a verified match.
 			</p>
 		</div>
 
@@ -392,12 +419,6 @@ watch(
 					{{ impliedRows.length }} across {{ groupedImplied.length }} spec(s)
 				</v-chip>
 			</div>
-
-			<p class="text-caption text-medium-emphasis mb-3">
-				Similarity-derived correspondences from every specification other than
-				<strong>{{ element?.standard }}</strong> — hypotheses to confirm, not facts
-				to trust.
-			</p>
 
 			<div v-if="groupedImplied.length">
 				<div v-for="[standard, list] in groupedImplied" :key="standard" class="mb-4">
@@ -464,7 +485,7 @@ watch(
 				v-else-if="ran && !store.mappingsLoading && !store.mappingsError"
 				class="text-caption text-medium-emphasis"
 			>
-				No implied mappings for <code>{{ element?.name }}</code>.
+				None for <code>{{ element?.name }}</code> — search for a target field below.
 			</p>
 		</div>
 
@@ -480,3 +501,11 @@ watch(
 		/>
 	</div>
 </template>
+
+<style scoped>
+.about-tiers {
+	border-left: 3px solid rgba(var(--v-theme-indigo), 0.35);
+	padding-left: 10px;
+	max-width: 62ch;
+}
+</style>
