@@ -1161,6 +1161,81 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			}
 		},
 
+		// ------------------------------------------------------------
+		// Manual match search. Ranks elements of `target` (or of every other
+		// specification when target is '') by SEMANTIC similarity to `element`,
+		// using the embeddings the graph already carries — the anchor is the
+		// selected element's own vector, so no embedding API is involved. `q`
+		// narrows candidates lexically before ranking. This is how a user picks
+		// a mapping where the graph has no implied one.
+		//
+		// Offline the snapshot has no vectors, so the fallback is a lexical
+		// match over the target spec's snapshot elements, and the rows say so
+		// (scoreBasis 'similarity' instead of 'semantic').
+
+		async searchSpecElements({ element, target = '', q = '', kinds = 'property,class', limit = 25 } = {}) {
+			if (!element?.source || !element?.name) return { rows: [], basis: '' };
+
+			try {
+				const res = await axios.get('/api/dme-semantic-search', {
+					params: {
+						source: element.source,
+						path: element.path || '',
+						name: element.name,
+						target,
+						q,
+						kinds,
+						limit,
+					},
+					headers: this.authHeaders(),
+				});
+				const seen = new Set();
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r && r.name)
+					.filter((r) => {
+						// the same element can be forged twice (SIF); show it once
+						const key = `${r.source}|${r.path || r.name}`;
+						if (seen.has(key)) return false;
+						seen.add(key);
+						return true;
+					})
+					.map((r) => ({
+						name: r.name,
+						source: r.source,
+						standard: standardOf(r.source, r.labels),
+						path: r.path || '',
+						description: r.description || '',
+						sourceId: r.sourceId || '',
+						kind: r.kind || 'property',
+						score: r.score || 0,
+						scoreBasis: 'semantic',
+					}));
+				this.graphSource = 'live';
+				return { rows, basis: 'semantic' };
+			} catch (_liveErr) {
+				const snapshot = await loadSnapshot();
+				const { bySource } = snapshotIndex(snapshot);
+				const tokens = matchTokens(q || element.name);
+				if (!tokens.length) return { rows: [], basis: 'similarity' };
+				const wantedKinds = new Set(String(kinds).split(',').map((k) => k.trim()).filter(Boolean));
+				const sources = target ? [target] : [...bySource.keys()].filter((s) => s !== element.source);
+				const rows = [];
+				for (const source of sources) {
+					if (source === element.source) continue;
+					for (const el of bySource.get(source)?.values() || []) {
+						if (wantedKinds.size && !wantedKinds.has(el.kind)) continue;
+						const score = Math.max(matchScore(tokens, el.name), matchScore(tokens, el.path || '') * 0.8);
+						if (score <= 0) continue;
+						rows.push({ ...el, score: Math.round(score * 1000) / 1000, scoreBasis: 'similarity' });
+					}
+				}
+				rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+				this.graphSource = 'snapshot';
+				this.snapshotDate = snapshot.generated || '';
+				return { rows: rows.slice(0, limit), basis: 'similarity' };
+			}
+		},
+
 		// Switch the browsed specification: clears the element list so a stale
 		// spec's elements never show under a new spec's heading.
 		selectSpec(spec) {
