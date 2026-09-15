@@ -1213,27 +1213,82 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 				this.graphSource = 'live';
 				return { rows, basis: 'semantic' };
 			} catch (_liveErr) {
-				const snapshot = await loadSnapshot();
-				const { bySource } = snapshotIndex(snapshot);
-				const tokens = matchTokens(q || element.name);
-				if (!tokens.length) return { rows: [], basis: 'similarity' };
-				const wantedKinds = new Set(String(kinds).split(',').map((k) => k.trim()).filter(Boolean));
-				const sources = target ? [target] : [...bySource.keys()].filter((s) => s !== element.source);
-				const rows = [];
-				for (const source of sources) {
-					if (source === element.source) continue;
-					for (const el of bySource.get(source)?.values() || []) {
-						if (wantedKinds.size && !wantedKinds.has(el.kind)) continue;
-						const score = Math.max(matchScore(tokens, el.name), matchScore(tokens, el.path || '') * 0.8);
-						if (score <= 0) continue;
-						rows.push({ ...el, score: Math.round(score * 1000) / 1000, scoreBasis: 'similarity' });
-					}
-				}
-				rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-				this.graphSource = 'snapshot';
-				this.snapshotDate = snapshot.generated || '';
-				return { rows: rows.slice(0, limit), basis: 'similarity' };
+				return this._snapshotFieldSearch({ q: q || element.name, target, exclude: element.source, kinds, limit });
 			}
+		},
+
+		// Free-text search for a target field: "grade level", "date of birth".
+		// The server embeds the phrase with the graph's own model and ranks by
+		// meaning; if the embedding service is down it ranks by label match
+		// against the live graph (basis 'lexical'); offline, the snapshot
+		// (basis 'similarity'). Works for terms with no graph node at all —
+		// HR Open crosswalk rows, OpenAPI properties.
+		async searchTargetFields({ q = '', target = '', exclude = '', kinds = 'property,class', limit = 25 } = {}) {
+			const text = String(q || '').trim();
+			if (text.length < 2) return { rows: [], basis: '' };
+
+			try {
+				const res = await axios.get('/api/dme-field-search', {
+					params: { q: text, target, exclude, kinds, limit },
+					headers: this.authHeaders(),
+				});
+				const seen = new Set();
+				let basis = 'lexical';
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r && r.name)
+					.filter((r) => {
+						const key = `${r.source}|${r.path || r.name}`;
+						if (seen.has(key)) return false;
+						seen.add(key);
+						return true;
+					})
+					.map((r) => {
+						if (r.basis === 'semantic') basis = 'semantic';
+						return {
+							name: r.name,
+							source: r.source,
+							standard: standardOf(r.source, r.labels),
+							path: r.path || '',
+							description: r.description || '',
+							sourceId: r.sourceId || '',
+							kind: r.kind || 'property',
+							score: r.score || 0,
+							scoreBasis: r.basis === 'semantic' ? 'semantic' : 'similarity',
+						};
+					});
+				this.graphSource = 'live';
+				return { rows, basis };
+			} catch (_liveErr) {
+				return this._snapshotFieldSearch({ q: text, target, exclude, kinds, limit });
+			}
+		},
+
+		// Shared offline fallback: label match over the bundled snapshot.
+		async _snapshotFieldSearch({ q, target, exclude, kinds, limit }) {
+			const snapshot = await loadSnapshot();
+			const { bySource } = snapshotIndex(snapshot);
+			const tokens = matchTokens(q);
+			if (!tokens.length) return { rows: [], basis: 'similarity' };
+			const wantedKinds = new Set(String(kinds).split(',').map((k) => k.trim()).filter(Boolean));
+			const sources = target ? [target] : [...bySource.keys()];
+			const rows = [];
+			for (const source of sources) {
+				if (source === exclude) continue;
+				for (const el of bySource.get(source)?.values() || []) {
+					if (wantedKinds.size && !wantedKinds.has(el.kind)) continue;
+					const score = Math.max(
+						matchScore(tokens, el.name),
+						matchScore(tokens, el.path || '') * 0.8,
+						matchScore(tokens, el.description || '') * 0.5,
+					);
+					if (score <= 0) continue;
+					rows.push({ ...el, score: Math.round(score * 1000) / 1000, scoreBasis: 'similarity' });
+				}
+			}
+			rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+			this.graphSource = 'snapshot';
+			this.snapshotDate = snapshot.generated || '';
+			return { rows: rows.slice(0, limit), basis: 'similarity' };
 		},
 
 		// Switch the browsed specification: clears the element list so a stale

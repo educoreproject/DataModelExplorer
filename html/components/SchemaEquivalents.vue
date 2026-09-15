@@ -329,6 +329,16 @@ watch(
 				<code>{{ term }}</code>. Try a broader or differently-worded term.
 			</p>
 		</div>
+
+		<v-divider class="my-5" />
+
+		<!-- ── Find a target field by meaning (this term has no graph node to anchor on) ── -->
+		<TargetFieldSearch
+			:default-query="term"
+			:is-curated="isCurated"
+			:toggle="toggleCurated"
+			:open="ran && !store.graphLoading && !groupedGraph.length"
+		/>
 	</div>
 </template>
 

@@ -227,81 +227,11 @@ async function run() {
 }
 
 // ── Manual match search ────────────────────────────────────────────
-// When the graph offers nothing (or the wrong thing), the user searches a
-// chosen specification for the counterpart themselves. Candidates are ranked
-// by semantic similarity to THIS element's embedding, live from the graph;
-// the text box narrows by name / description / path before ranking. Any hit
-// can be accepted into the crosswalk like a graph suggestion, with rel
-// 'manual' so the provenance is honest.
+// When the graph offers nothing (or the wrong thing), the user finds the
+// counterpart themselves in <TargetFieldSearch>: ranked by similarity to this
+// element's embedding, or to a typed phrase. Opens by itself when the graph
+// has no mappings for the element, since that is the only way forward.
 const manualOpen = ref(false);
-const manualTarget = ref(''); // '' = every other specification
-const manualQuery = ref('');
-const manualKinds = ref('property,class');
-const manualRows = ref([]);
-const manualBasis = ref(''); // 'semantic' (live) | 'similarity' (snapshot fallback)
-const manualLoading = ref(false);
-const manualRan = ref(false);
-const manualError = ref('');
-
-const targetItems = computed(() => [
-	{ title: 'All other specifications', value: '', subtitle: 'ranked across the whole graph' },
-	...store.specs
-		.filter((s) => s.source !== props.element?.source)
-		.map((s) => ({ title: s.standard, value: s.source, subtitle: s.organization })),
-]);
-
-async function runManualSearch() {
-	if (!props.element) return;
-	manualLoading.value = true;
-	manualError.value = '';
-	try {
-		const { rows, basis } = await store.searchSpecElements({
-			element: props.element,
-			target: manualTarget.value,
-			q: manualQuery.value.trim(),
-			kinds: manualKinds.value,
-		});
-		manualRows.value = rows;
-		manualBasis.value = basis;
-		manualRan.value = true;
-	} catch (err) {
-		manualError.value = err.message || 'Search failed.';
-	} finally {
-		manualLoading.value = false;
-	}
-}
-
-let manualTimer = null;
-watch([manualTarget, manualQuery, manualKinds], () => {
-	if (!manualOpen.value) return;
-	clearTimeout(manualTimer);
-	manualTimer = setTimeout(runManualSearch, 350);
-});
-watch(manualOpen, (open) => {
-	if (open) {
-		if (!store.specs.length) store.loadSpecifications();
-		if (!manualRan.value) runManualSearch();
-	}
-});
-
-const manualItem = (row) => ({
-	standard: row.standard,
-	name: row.name,
-	sourceId: row.sourceId || '',
-	targetPath: row.path || '',
-	rel: 'manual',
-	detail: row.description || '',
-});
-const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
-const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
-const semanticPct = (row) => `${Math.round((row.score || 0) * 100)}%`;
-const semanticColor = (row) => {
-	const v = Math.round((row.score || 0) * 100);
-	if (v >= 88) return 'success';
-	if (v >= 80) return 'lime-darken-3';
-	if (v >= 70) return 'amber-darken-3';
-	return 'grey';
-};
 
 watch(
 	() => (props.element ? `${props.element.source}|${props.element.name}` : ''),
@@ -309,19 +239,11 @@ watch(
 		authoritativeRows.value = [];
 		impliedRows.value = [];
 		ran.value = false;
-		manualRows.value = [];
-		manualRan.value = false;
-		manualError.value = '';
-		if (key) {
-			run();
-			if (manualOpen.value) runManualSearch();
-		}
+		if (key) run();
 	},
 	{ immediate: true },
 );
 
-// Nothing to show from the graph → open the manual search by itself, since
-// that is the only way forward for this element.
 watch(
 	() => [ran.value, authoritativeRows.value.length, impliedRows.value.length],
 	([done, a, i]) => {
@@ -548,132 +470,13 @@ watch(
 
 		<v-divider class="my-5" />
 
-		<!-- ── Manual match search: semantic ranking against this element ──── -->
-		<div>
-			<div class="d-flex align-center flex-wrap ga-2 mb-2 manual-header" @click="manualOpen = !manualOpen">
-				<v-icon size="18" color="deep-purple">mdi-text-search-variant</v-icon>
-				<span class="text-subtitle-2 font-weight-bold">Find a match manually</span>
-				<v-chip
-					size="x-small"
-					variant="tonal"
-					:color="manualBasis === 'similarity' ? 'grey-darken-1' : 'deep-purple'"
-					:title="manualBasis === 'similarity'
-						? 'Live graph unavailable — lexical match over the bundled snapshot.'
-						: 'Candidates ranked by semantic similarity to this element, using the graph\'s embeddings.'"
-				>
-					<v-icon start size="11">{{ manualBasis === 'similarity' ? 'mdi-approximately-equal' : 'mdi-vector-triangle' }}</v-icon>
-					{{ manualBasis === 'similarity' ? 'lexical · snapshot' : 'semantic · live' }}
-				</v-chip>
-				<v-spacer />
-				<v-btn size="x-small" variant="text" :icon="manualOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
-			</div>
-
-			<v-expand-transition>
-				<div v-if="manualOpen">
-					<p class="text-caption text-medium-emphasis mb-3">
-						Search any specification for the element that means the same as
-						<strong>{{ element?.name }}</strong>. Results are ordered by how close their
-						meaning is to this element, so the best candidate is usually first even when
-						the wording differs. Accept one with <v-icon size="14">mdi-plus-circle-outline</v-icon>.
-					</p>
-
-					<div class="d-flex flex-wrap ga-2 mb-3">
-						<v-autocomplete
-							v-model="manualTarget"
-							:items="targetItems"
-							item-title="title"
-							item-value="value"
-							label="Search in"
-							prepend-inner-icon="mdi-book-open-variant"
-							variant="outlined"
-							density="compact"
-							hide-details
-							:loading="store.specsLoading"
-							style="min-width: 240px; flex: 1 1 240px;"
-						>
-							<template #item="{ props: itemProps, item }">
-								<v-list-item v-bind="itemProps" :subtitle="item.raw.subtitle" />
-							</template>
-						</v-autocomplete>
-						<v-text-field
-							v-model="manualQuery"
-							label="Narrow by name, description or path (optional)"
-							prepend-inner-icon="mdi-magnify"
-							variant="outlined"
-							density="compact"
-							hide-details
-							clearable
-							style="min-width: 240px; flex: 2 1 280px;"
-							@keyup.enter="runManualSearch"
-						/>
-						<v-btn-toggle v-model="manualKinds" mandatory density="compact" variant="outlined" color="deep-purple">
-							<v-btn value="property,class" size="small" title="Properties and classes">Fields</v-btn>
-							<v-btn value="value" size="small" title="Code-list values">Values</v-btn>
-						</v-btn-toggle>
-					</div>
-
-					<v-progress-linear v-if="manualLoading" indeterminate color="deep-purple" class="mb-3" />
-					<v-alert v-if="manualError" type="warning" density="compact" variant="tonal" class="mb-2">
-						{{ manualError }}
-					</v-alert>
-
-					<div v-if="manualRows.length">
-						<v-card
-							v-for="row in manualRows"
-							:key="`${row.source}|${row.path || row.name}`"
-							variant="outlined"
-							class="mb-2"
-							:style="{ borderLeft: `3px solid rgb(var(--v-theme-${stdColor(row.standard)}))` }"
-						>
-							<v-card-text class="py-2">
-								<div class="d-flex align-center flex-wrap ga-1">
-									<v-chip size="x-small" :color="stdColor(row.standard)" variant="flat" label>{{ row.standard }}</v-chip>
-									<v-chip size="x-small" variant="tonal" :color="kindColor(row.kind)">{{ row.kind }}</v-chip>
-									<span class="text-body-2 font-weight-medium">{{ row.name }}</span>
-									<v-chip
-										size="x-small"
-										:color="semanticColor(row)"
-										:variant="row.scoreBasis === 'semantic' ? 'flat' : 'tonal'"
-										:title="row.scoreBasis === 'semantic'
-											? `${semanticPct(row)} — cosine similarity between the two elements' embeddings`
-											: `${semanticPct(row)} — label similarity only (snapshot)`"
-									>
-										<v-icon start size="11">{{ row.scoreBasis === 'semantic' ? 'mdi-vector-triangle' : 'mdi-approximately-equal' }}</v-icon>
-										{{ semanticPct(row) }}
-									</v-chip>
-									<v-chip v-if="row.sourceId" size="x-small" variant="text">{{ row.sourceId }}</v-chip>
-									<v-btn
-										size="x-small"
-										variant="text"
-										class="ml-auto"
-										:icon="isCurated(manualItem(row)) ? 'mdi-check-circle' : 'mdi-plus-circle-outline'"
-										:color="isCurated(manualItem(row)) ? 'success' : 'deep-purple'"
-										:title="isCurated(manualItem(row)) ? 'In your crosswalk — click to remove' : 'Add to your crosswalk'"
-										@click="toggleCurated(manualItem(row))"
-									/>
-								</div>
-								<div v-if="row.path && row.path !== row.name" class="text-caption text-disabled mono mt-1">{{ row.path }}</div>
-								<div v-if="row.description" class="text-caption text-medium-emphasis mt-1">{{ row.description }}</div>
-							</v-card-text>
-						</v-card>
-					</div>
-					<p v-else-if="manualRan && !manualLoading && !manualError" class="text-caption text-medium-emphasis">
-						No candidates<span v-if="manualQuery"> matching <code>{{ manualQuery }}</code></span>
-						{{ manualTarget ? 'in that specification' : 'in any other specification' }}. Try a broader word or
-						a different specification.
-					</p>
-				</div>
-			</v-expand-transition>
-		</div>
+		<!-- ── Find a target field: similar to this element, or by typed text ── -->
+		<TargetFieldSearch
+			:anchor="element"
+			:exclude-source="element?.source || ''"
+			:is-curated="isCurated"
+			:toggle="toggleCurated"
+			:open="manualOpen"
+		/>
 	</div>
 </template>
-
-<style scoped>
-.manual-header {
-	cursor: pointer;
-	user-select: none;
-}
-.mono {
-	font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-}
-</style>
