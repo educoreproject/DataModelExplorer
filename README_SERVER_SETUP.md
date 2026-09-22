@@ -130,6 +130,14 @@ ssh educore 'systemctl start com.tqwhite.educore'
 ssh educore 'systemctl status com.tqwhite.educore'  # should show "Magic happens on 7790"
 ```
 
+## Pointing at a hosted Neo4j instead
+
+The droplet's docker containers are not the only option. To run the server against a
+hosted Neo4j (Aura or equivalent), see
+`server/data-model/lib/neo4j-instance/README_HOWTO-pointAtHostedNeo4j.md` — it is a
+`dataModelExplorerSearch` config change, and it lists the two parts (per-user graph
+clones, the indexer CLIs) that still require a local container.
+
 ## Gotchas and Lessons Learned
 
 ### Docker port-scanning race condition (fixed)
