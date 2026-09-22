@@ -18,15 +18,44 @@ const moduleFunction = function ({ unused }) {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 
 	// ================================================================================
+	// CONNECTION OPTIONS
+	//
+	// The bolt URI decides encryption, so the driver options have to follow the URI.
+	//
+	// Self-hosted Neo4j (the docker containers on the droplet: bolt://, neo4j://) serves
+	// the bolt connector without TLS, and some driver versions try an encrypted handshake
+	// by default, so those URIs must be given { encrypted: false } explicitly.
+	//
+	// Hosted Neo4j (Aura and friends) uses a +s / +ssc scheme that states encryption in
+	// the URI itself. Passing `encrypted` alongside such a URI makes the driver THROW
+	// "Encryption/trust can only be configured either through URL or config, not both"
+	// before any connection is attempted.
+	//
+	// So: send { encrypted: false } only for the schemes that do not state it themselves.
+
+	const uriStatesEncryption = (neo4jBoltUri) =>
+		/^[a-z0-9]+\+s(sc)?:\/\//i.test((neo4jBoltUri || '').trim());
+
+	const driverOptionsForUri = (neo4jBoltUri) =>
+		uriStatesEncryption(neo4jBoltUri) ? {} : { encrypted: false };
+
+	// sessionOptions — hosted Neo4j serves several databases from one URI; `neo4jDatabase`
+	// picks one (Aura's is 'neo4j'). Omitted, the server keeps using the connection's
+	// default database, which is what every self-hosted container does today.
+
+	const sessionOptions = (neo4jDatabase) =>
+		neo4jDatabase ? { database: neo4jDatabase } : {};
+
+	// ================================================================================
 	// QUERY EXECUTION
 
-	const runQueryActual = (driver) => (cypher, params, callback) => {
+	const runQueryActual = (openSession) => (cypher, params, callback) => {
 		if (typeof params === 'function') {
 			callback = params;
 			params = {};
 		}
 
-		const session = driver.session();
+		const session = openSession();
 
 		session
 			.run(cypher, params || {})
@@ -112,8 +141,8 @@ const moduleFunction = function ({ unused }) {
 	// This sits alongside runQuery; existing callers of runQuery are unaffected.
 	// Used by the Use Case Editor save path for atomic root+children updates.
 
-	const runTransactionActual = (driver) => (userFn, callback) => {
-		const session = driver.session();
+	const runTransactionActual = (openSession) => (userFn, callback) => {
+		const session = openSession();
 		let tx;
 		try {
 			tx = session.beginTransaction();
@@ -194,30 +223,47 @@ const moduleFunction = function ({ unused }) {
 	// INITIALIZE DATABASE INSTANCE
 
 	const initDatabaseInstance = (config, callback) => {
-		const { neo4jBoltUri, neo4jUser, neo4jPassword } = config;
+		const { neo4jBoltUri, neo4jUser, neo4jPassword, neo4jDatabase } = config;
 
 		if (!neo4jBoltUri || !neo4jUser || !neo4jPassword) {
 			callback('neo4j-instance: missing required config (neo4jBoltUri, neo4jUser, neo4jPassword)');
 			return;
 		}
 
-		const driver = neo4j.driver(
-			neo4jBoltUri,
-			neo4j.auth.basic(neo4jUser, neo4jPassword),
-			{ encrypted: false },
-		);
+		// neo4j.driver() validates the URI synchronously and THROWS on a bad one (an
+		// unknown scheme, or a +s URI combined with an `encrypted` option). Catch it here
+		// so a misconfigured host reports through the callback like every other failure
+		// instead of taking down the caller's pipeline.
+		let driver;
+		try {
+			driver = neo4j.driver(
+				neo4jBoltUri,
+				neo4j.auth.basic(neo4jUser, neo4jPassword),
+				driverOptionsForUri(neo4jBoltUri),
+			);
+		} catch (err) {
+			const message = `neo4j-instance: cannot open driver for ${neo4jBoltUri}: ${err.toString()}`;
+			xLog.error(message);
+			callback(message);
+			return;
+		}
 
-		const runQuery = runQueryActual(driver);
-		const runTransaction = runTransactionActual(driver);
+		const openSession = () => driver.session(sessionOptions(neo4jDatabase));
+
+		const runQuery = runQueryActual(openSession);
+		const runTransaction = runTransactionActual(openSession);
 		const close = closeActual(driver);
 
 		const localCallback = (err) => {
 			if (err) {
 				xLog.error(`neo4j-instance: connection verification failed: ${err}`);
+				driver.close();
 				callback(err);
 				return;
 			}
-			xLog.status(`neo4j-instance: connected to ${neo4jBoltUri}`);
+			xLog.status(
+				`neo4j-instance: connected to ${neo4jBoltUri}${neo4jDatabase ? ` (database ${neo4jDatabase})` : ''}`,
+			);
 			callback('', { runQuery, runTransaction, close });
 		};
 
