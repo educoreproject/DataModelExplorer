@@ -304,7 +304,6 @@ const ORG_BY_SOURCE = {
 	CASE: '1EdTech',
 	CLR: '1EdTech',
 	OpenBadges: '1EdTech',
-	LIF: '1EdTech',
 	EduAPI: '1EdTech',
 	MedBiquitous: 'MedBiquitous Consortium',
 };

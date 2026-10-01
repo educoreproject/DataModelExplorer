@@ -219,22 +219,14 @@ watch(specSource, (source) => {
 // there are no tabs and the list stays flat.
 const ALL_GROUPS = '__all__';
 const activeGroup = ref(ALL_GROUPS);
-// How the entities are offered depends on how many there are and how much room
-// the screen has:
-//   ≤ 12 entities (LIF 9, JEDx 5, CTDLASN 11) → a tab strip, like the crosswalk.
-//   more, on a wide screen (CEDS 402, Ed-Fi 201, SIF 1,049) → an entity rail: a
-//     filterable column of entities beside the element list.
-//   more, on a narrow screen → a searchable dropdown.
-const MAX_TABS = 12;
+// Every grouped spec is navigated the same way, whatever its size (LIF's 9
+// entities or SIF's 1,049): on a wide screen, an entity rail — a filterable
+// column of entities beside the element list; on a narrow screen, a searchable
+// dropdown above it.
 const { lgAndUp } = useDisplay();
 const hasGroups = computed(() => store.elementGroups.length > 1);
-const showGroupTabs = computed(() => hasGroups.value && store.elementGroups.length <= MAX_TABS);
-const showEntityRail = computed(
-	() => hasGroups.value && store.elementGroups.length > MAX_TABS && lgAndUp.value,
-);
-const showGroupSelect = computed(
-	() => hasGroups.value && store.elementGroups.length > MAX_TABS && !lgAndUp.value,
-);
+const showEntityRail = computed(() => hasGroups.value && lgAndUp.value);
+const showGroupSelect = computed(() => hasGroups.value && !lgAndUp.value);
 const groupSelectItems = computed(() => [
 	{ title: `All entities (${store.elements.length})`, value: ALL_GROUPS },
 	...store.elementGroups.map((g) => ({ title: `${g.name} (${g.count})`, value: g.name })),
@@ -842,7 +834,7 @@ function loadSample() {
 			</v-card>
 
 			<v-row v-if="activeSpec" class="spec-browser">
-				<!-- Entity rail: wide screens, specs with many entities (CEDS, Ed-Fi, SIF …) -->
+				<!-- Entity rail: every grouped spec on wide screens (LIF, CEDS, Ed-Fi, SIF …) -->
 				<v-col v-if="showEntityRail && !detailExpanded" cols="12" lg="3" class="pane-col">
 					<v-card variant="outlined" class="pane entity-rail">
 						<div class="pa-2 pb-1">
@@ -907,27 +899,9 @@ function loadSample() {
 						{{ store.elementsError }}
 					</v-alert>
 
-					<!-- Entity tabs: few entities (LIF, JEDx …) -->
-					<v-tabs
-						v-if="showGroupTabs"
-						v-model="activeGroup"
-						color="primary"
-						show-arrows
-						density="comfortable"
-						class="section-tabs mb-3"
-					>
-						<v-tab :value="ALL_GROUPS">
-							All
-							<v-chip size="x-small" variant="tonal" class="ml-2">{{ store.elements.length }}</v-chip>
-						</v-tab>
-						<v-tab v-for="g in store.elementGroups" :key="g.name" :value="g.name">
-							{{ g.name }}
-							<v-chip size="x-small" variant="tonal" class="ml-2">{{ g.count }}</v-chip>
-						</v-tab>
-					</v-tabs>
-					<!-- Many entities on a narrow screen -->
+					<!-- Narrow screens: the entity rail becomes a dropdown -->
 					<v-autocomplete
-						v-else-if="showGroupSelect"
+						v-if="showGroupSelect"
 						v-model="activeGroup"
 						:items="groupSelectItems"
 						label="Entity"
