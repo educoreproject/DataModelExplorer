@@ -13,6 +13,7 @@
 //      every property against CEDS (live graph) and HR Open (bundled crosswalk).
 
 import { ref, computed, watch, onMounted } from 'vue';
+import { useDisplay } from 'vuetify';
 import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
 import { useLoginStore } from '@/stores/loginStore';
 
@@ -202,7 +203,9 @@ const activeSpec = computed(
 // previous spec's elements so nothing stale shows under the new heading.
 watch(specSource, (source) => {
 	elementSearch.value = '';
+	entityFilter.value = '';
 	selectedGraphElement.value = null;
+	detailExpanded.value = false;
 	activeGroup.value = ALL_GROUPS;
 	store.selectSpec(activeSpec.value);
 	if (source) store.loadSpecElements(source);
@@ -216,17 +219,58 @@ watch(specSource, (source) => {
 // there are no tabs and the list stays flat.
 const ALL_GROUPS = '__all__';
 const activeGroup = ref(ALL_GROUPS);
-// Tabs read well up to a couple of dozen entities (LIF has 9, JEDx 5). SIF has
-// over a thousand top-level objects, so past this the same filter becomes a
-// searchable dropdown instead of a tab strip nobody can scan.
-const MAX_TABS = 24;
+// How the entities are offered depends on how many there are and how much room
+// the screen has:
+//   ≤ 12 entities (LIF 9, JEDx 5, CTDLASN 11) → a tab strip, like the crosswalk.
+//   more, on a wide screen (CEDS 402, Ed-Fi 201, SIF 1,049) → an entity rail: a
+//     filterable column of entities beside the element list.
+//   more, on a narrow screen → a searchable dropdown.
+const MAX_TABS = 12;
+const { lgAndUp } = useDisplay();
 const hasGroups = computed(() => store.elementGroups.length > 1);
 const showGroupTabs = computed(() => hasGroups.value && store.elementGroups.length <= MAX_TABS);
-const showGroupSelect = computed(() => hasGroups.value && store.elementGroups.length > MAX_TABS);
+const showEntityRail = computed(
+	() => hasGroups.value && store.elementGroups.length > MAX_TABS && lgAndUp.value,
+);
+const showGroupSelect = computed(
+	() => hasGroups.value && store.elementGroups.length > MAX_TABS && !lgAndUp.value,
+);
 const groupSelectItems = computed(() => [
 	{ title: `All entities (${store.elements.length})`, value: ALL_GROUPS },
 	...store.elementGroups.map((g) => ({ title: `${g.name} (${g.count})`, value: g.name })),
 ]);
+
+// Entity rail filter — separate from the element filter so a user can find
+// "Person" among 402 CEDS entities without filtering the elements themselves.
+const entityFilter = ref('');
+const railGroups = computed(() => {
+	const q = entityFilter.value.trim().toLowerCase();
+	return q ? store.elementGroups.filter((g) => g.name.toLowerCase().includes(q)) : store.elementGroups;
+});
+const elementListEl = ref(null);
+function pickGroup(name) {
+	activeGroup.value = name;
+}
+// A new entity starts at the top of its list.
+watch(activeGroup, () => {
+	renderLimit.value = RENDER_PAGE;
+	const el = elementListEl.value?.$el || elementListEl.value;
+	if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// The detail pane can take the full width when a mapping needs room (long
+// descriptions, the target search, many implied rows); the lists come back
+// with one click.
+const detailExpanded = ref(false);
+const listCols = computed(() => (showEntityRail.value ? { md: 6, lg: 4 } : { md: 6, lg: 5 }));
+const detailCols = computed(() =>
+	detailExpanded.value ? { md: 12, lg: 12 } : showEntityRail.value ? { md: 6, lg: 5 } : { md: 6, lg: 7 },
+);
+
+// Rendering every row of an 8,951-element spec at once is slow and useless;
+// "All" shows a page at a time. An entity is almost always under one page.
+const RENDER_PAGE = 300;
+const renderLimit = ref(RENDER_PAGE);
 
 // If a filter or reload empties the active tab, fall back to "All" rather than
 // showing an empty list under a tab that still has a count.
@@ -239,10 +283,15 @@ watch(
 	},
 );
 
-const visibleElements = computed(() => {
+const groupElements = computed(() => {
 	if (!hasGroups.value || activeGroup.value === ALL_GROUPS) return store.elements;
 	return store.elements.filter((el) => el.group === activeGroup.value);
 });
+const visibleElements = computed(() => groupElements.value.slice(0, renderLimit.value));
+const hiddenCount = computed(() => Math.max(0, groupElements.value.length - visibleElements.value.length));
+function showMore() {
+	renderLimit.value += RENDER_PAGE;
+}
 
 // ── Partitioned list ───────────────────────────────────────────────
 // Within a tab, elements are split into sections by the class that contains
@@ -283,20 +332,24 @@ const baseDepth = computed(() =>
 const indentOf = (el) =>
 	partitioned.value && Number.isFinite(baseDepth.value) ? Math.max(0, depthOf(el) - baseDepth.value) : 0;
 
-// The element filter runs server-side (a standard the size of CEDS is much
-// larger than one response), so it is debounced rather than fired per keystroke.
+// The element filter matches name, path and description over the spec's model
+// (server-side only for specs without a bundled model); debounced so a fast
+// typist does not re-render 9,000 rows per keystroke.
 let searchTimer = null;
 watch(elementSearch, (q) => {
 	if (!specSource.value) return;
 	clearTimeout(searchTimer);
 	searchTimer = setTimeout(() => {
+		renderLimit.value = RENDER_PAGE;
 		store.loadSpecElements(specSource.value, { search: (q || '').trim() });
-	}, 300);
+	}, 200);
 });
 
 function selectGraphElement(el) {
 	selectedGraphElement.value = el;
 }
+const isSelected = (el) =>
+	selectedGraphElement.value?.name === el.name && selectedGraphElement.value?.path === el.path;
 
 const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
 const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
@@ -478,7 +531,7 @@ function loadSample() {
 </script>
 
 <template>
-	<v-container class="py-8" style="max-width: 1240px;">
+	<v-container class="py-8 verifier-container">
 		<!-- Header -->
 		<div class="d-flex align-center flex-wrap ga-3 mb-1">
 			<h1 class="text-h4 font-weight-bold text-primary">Schema Verifier</h1>
@@ -788,58 +841,91 @@ function loadSample() {
 				</v-card-text>
 			</v-card>
 
-			<v-row v-if="activeSpec">
-				<!-- Element list -->
-				<v-col cols="12" md="6" lg="5">
+			<v-row v-if="activeSpec" class="spec-browser">
+				<!-- Entity rail: wide screens, specs with many entities (CEDS, Ed-Fi, SIF …) -->
+				<v-col v-if="showEntityRail && !detailExpanded" cols="12" lg="3" class="pane-col">
+					<v-card variant="outlined" class="pane entity-rail">
+						<div class="pa-2 pb-1">
+							<div class="d-flex align-center ga-2 mb-2">
+								<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
+								<span class="text-subtitle-2 font-weight-bold">Entities</span>
+								<v-chip size="x-small" variant="tonal">{{ store.elementGroups.length }}</v-chip>
+							</div>
+							<v-text-field
+								v-model="entityFilter"
+								prepend-inner-icon="mdi-filter-variant"
+								placeholder="Find an entity…"
+								variant="outlined"
+								density="compact"
+								hide-details
+								clearable
+							/>
+						</div>
+						<v-list density="compact" nav class="rail-list">
+							<v-list-item
+								:active="activeGroup === ALL_GROUPS"
+								color="primary"
+								@click="pickGroup(ALL_GROUPS)"
+							>
+								<v-list-item-title class="text-body-2 font-weight-medium">All entities</v-list-item-title>
+								<template #append>
+									<v-chip size="x-small" variant="tonal">{{ store.elements.length.toLocaleString() }}</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item
+								v-for="g in railGroups"
+								:key="g.name"
+								:active="activeGroup === g.name"
+								color="primary"
+								@click="pickGroup(g.name)"
+							>
+								<v-list-item-title class="text-body-2">{{ g.name }}</v-list-item-title>
+								<template #append>
+									<v-chip size="x-small" variant="tonal">{{ g.count }}</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item v-if="!railGroups.length">
+								<v-list-item-title class="text-caption text-medium-emphasis">No entity matches.</v-list-item-title>
+							</v-list-item>
+						</v-list>
+					</v-card>
+				</v-col>
+
+				<!-- Element list, partitioned into the spec's own sections -->
+				<v-col v-if="!detailExpanded" cols="12" :md="listCols.md" :lg="listCols.lg" class="pane-col">
 					<v-text-field
 						v-model="elementSearch"
 						prepend-inner-icon="mdi-magnify"
-						:placeholder="`Filter ${activeSpec.standard} elements…`"
+						:placeholder="`Filter ${activeSpec.standard} by name, path or description…`"
 						variant="outlined"
 						density="compact"
 						hide-details
 						clearable
 						class="mb-3"
 					/>
-					<v-alert
-						v-if="store.elementsTruncated"
-						type="info"
-						variant="tonal"
-						density="compact"
-						class="mb-2 text-caption"
-					>
-						Showing the first {{ store.elements.length }} elements — filter to narrow the list.
-					</v-alert>
 					<v-alert v-if="store.elementsError" type="warning" variant="tonal" density="compact" class="mb-2">
 						{{ store.elementsError }}
 					</v-alert>
 
-					<v-progress-linear v-if="store.elementsLoading" indeterminate color="indigo" class="mb-1" />
-
-					<!-- Entity tabs, derived from each element's path -->
-					<template v-if="showGroupTabs">
-						<div class="d-flex align-center flex-wrap ga-2 mb-1">
-							<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
-							<span class="text-subtitle-2 font-weight-bold">Entities</span>
-							<span class="text-caption text-medium-emphasis">— grouped by the standard's own structure</span>
-						</div>
-						<v-tabs
-							v-model="activeGroup"
-							color="primary"
-							show-arrows
-							density="comfortable"
-							class="section-tabs mb-3"
-						>
-							<v-tab :value="ALL_GROUPS">
-								All
-								<v-chip size="x-small" variant="tonal" class="ml-2">{{ store.elements.length }}</v-chip>
-							</v-tab>
-							<v-tab v-for="g in store.elementGroups" :key="g.name" :value="g.name">
-								{{ g.name }}
-								<v-chip size="x-small" variant="tonal" class="ml-2">{{ g.count }}</v-chip>
-							</v-tab>
-						</v-tabs>
-					</template>
+					<!-- Entity tabs: few entities (LIF, JEDx …) -->
+					<v-tabs
+						v-if="showGroupTabs"
+						v-model="activeGroup"
+						color="primary"
+						show-arrows
+						density="comfortable"
+						class="section-tabs mb-3"
+					>
+						<v-tab :value="ALL_GROUPS">
+							All
+							<v-chip size="x-small" variant="tonal" class="ml-2">{{ store.elements.length }}</v-chip>
+						</v-tab>
+						<v-tab v-for="g in store.elementGroups" :key="g.name" :value="g.name">
+							{{ g.name }}
+							<v-chip size="x-small" variant="tonal" class="ml-2">{{ g.count }}</v-chip>
+						</v-tab>
+					</v-tabs>
+					<!-- Many entities on a narrow screen -->
 					<v-autocomplete
 						v-else-if="showGroupSelect"
 						v-model="activeGroup"
@@ -852,91 +938,135 @@ function loadSample() {
 						class="mb-3"
 					/>
 
-					<v-card variant="outlined" class="element-list">
-						<v-list density="compact" nav>
-							<template v-for="section in elementSections" :key="section.parent || '__root__'">
-								<!-- Section header: the containing class, as a breadcrumb -->
-								<v-list-subheader v-if="partitioned && section.parent" class="section-header">
-									<template v-for="(c, i) in section.crumbs" :key="i">
-										<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
-										<span :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
-									</template>
-									<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
-								</v-list-subheader>
+					<v-card ref="elementListEl" variant="outlined" class="pane element-list">
+						<v-progress-linear v-if="store.elementsLoading" indeterminate color="indigo" absolute />
+						<v-skeleton-loader
+							v-if="store.elementsLoading && !store.elements.length"
+							type="list-item-two-line@8"
+						/>
+						<v-fade-transition mode="out-in">
+							<v-list :key="`${specSource}|${activeGroup}`" density="compact" nav>
+								<template v-for="section in elementSections" :key="section.parent || '__root__'">
+									<!-- Section header: the containing class, as a breadcrumb -->
+									<v-list-subheader v-if="partitioned && section.parent" class="section-header">
+										<template v-for="(c, i) in section.crumbs" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
+										</template>
+										<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
+									</v-list-subheader>
 
-								<v-list-item
-									v-for="el in section.items"
-									:key="`${el.source}|${el.path || el.name}`"
-									:active="selectedGraphElement?.name === el.name && selectedGraphElement?.path === el.path"
-									color="primary"
-									:style="{ paddingLeft: `${8 + indentOf(el) * 14}px` }"
-									@click="selectGraphElement(el)"
-								>
-									<template #prepend>
-										<v-chip
-											size="x-small"
-											variant="tonal"
-											:color="kindColor(el.kind)"
-											class="mr-2"
-											style="min-width: 62px;"
+									<v-list-item
+										v-for="el in section.items"
+										:key="`${el.source}|${el.path || el.name}`"
+										:active="isSelected(el)"
+										color="primary"
+										class="element-row"
+										:style="{ paddingLeft: `${8 + indentOf(el) * 14}px` }"
+										@click="selectGraphElement(el)"
+									>
+										<template #prepend>
+											<v-chip
+												size="x-small"
+												variant="tonal"
+												:color="kindColor(el.kind)"
+												class="mr-2"
+												style="min-width: 62px;"
+											>
+												{{ el.kind }}
+											</v-chip>
+										</template>
+										<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+										<v-list-item-subtitle
+											v-if="el.description"
+											class="element-desc"
+											:class="{ 'element-desc--open': isSelected(el) }"
 										>
-											{{ el.kind }}
-										</v-chip>
-									</template>
-									<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
-									<v-list-item-subtitle v-if="el.description" style="font-size: 0.72rem;">
-										{{ el.description }}
-									</v-list-item-subtitle>
-									<template #append>
-										<v-chip
-											v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
-											size="x-small"
-											color="deep-purple"
-											variant="tonal"
-											title="Accepted equivalents in your crosswalk"
-										>
-											{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
-										</v-chip>
-									</template>
+											{{ el.description }}
+										</v-list-item-subtitle>
+										<template #append>
+											<v-chip
+												v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
+												size="x-small"
+												color="deep-purple"
+												variant="tonal"
+												title="Accepted equivalents in your crosswalk"
+											>
+												{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
+											</v-chip>
+										</template>
+									</v-list-item>
+								</template>
+								<v-list-item v-if="hiddenCount">
+									<v-btn block variant="tonal" color="primary" size="small" prepend-icon="mdi-chevron-down" @click="showMore">
+										Show {{ Math.min(hiddenCount, RENDER_PAGE) }} more
+										<span class="text-medium-emphasis ml-1">({{ hiddenCount.toLocaleString() }} not shown{{ showEntityRail || showGroupSelect ? ' — or pick an entity' : '' }})</span>
+									</v-btn>
 								</v-list-item>
-							</template>
-							<v-list-item v-if="!visibleElements.length && !store.elementsLoading">
-								<v-list-item-title class="text-caption text-medium-emphasis">
-									No elements match.
-								</v-list-item-title>
-							</v-list-item>
-						</v-list>
+								<v-list-item v-if="!groupElements.length && !store.elementsLoading">
+									<v-list-item-title class="text-caption text-medium-emphasis">
+										No elements match.
+									</v-list-item-title>
+								</v-list-item>
+							</v-list>
+						</v-fade-transition>
 					</v-card>
 				</v-col>
 
-				<!-- Implied mappings -->
-				<v-col cols="12" md="6" lg="7">
-					<v-card v-if="selectedGraphElement" variant="outlined">
-						<v-card-item>
-							<div class="d-flex align-center flex-wrap ga-2">
-								<v-chip size="small" :color="kindColor(selectedGraphElement.kind)" variant="tonal">
-									{{ selectedGraphElement.kind }}
-								</v-chip>
-								<span class="text-h6 font-weight-bold">{{ selectedGraphElement.name }}</span>
-								<v-chip v-if="selectedGraphElement.sourceId" size="x-small" variant="text">
-									{{ selectedGraphElement.sourceId }}
-								</v-chip>
-							</div>
-						</v-card-item>
-						<v-card-text>
-							<p v-if="selectedGraphElement.description" class="text-body-2 mb-4">
-								{{ selectedGraphElement.description }}
-							</p>
-							<SpecCrossMappings :element="selectedGraphElement" />
-						</v-card-text>
-					</v-card>
+				<!-- Mappings for the selected element — sticky, scrolls on its own, can take the full width -->
+				<v-col cols="12" :md="detailCols.md" :lg="detailCols.lg" class="pane-col">
+					<div class="detail-sticky">
+						<v-fade-transition mode="out-in">
+							<v-card
+								v-if="selectedGraphElement"
+								:key="`${selectedGraphElement.source}|${selectedGraphElement.path || selectedGraphElement.name}`"
+								variant="outlined"
+								class="pane detail-pane"
+							>
+								<v-card-item>
+									<div
+										v-if="selectedGraphElement.path && selectedGraphElement.path !== selectedGraphElement.name"
+										class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
+									>
+										<template v-for="(c, i) in crumbs(parentOf(selectedGraphElement))" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span>{{ c }}</span>
+										</template>
+									</div>
+									<div class="d-flex align-center flex-wrap ga-2">
+										<v-chip size="small" :color="kindColor(selectedGraphElement.kind)" variant="tonal">
+											{{ selectedGraphElement.kind }}
+										</v-chip>
+										<span class="text-h6 font-weight-bold">{{ selectedGraphElement.name }}</span>
+										<v-chip v-if="selectedGraphElement.sourceId" size="x-small" variant="text">
+											{{ selectedGraphElement.sourceId }}
+										</v-chip>
+										<v-spacer />
+										<v-btn
+											size="small"
+											variant="text"
+											:icon="detailExpanded ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal'"
+											:title="detailExpanded ? 'Show the element list again' : 'Use the full width for this element'"
+											@click="detailExpanded = !detailExpanded"
+										/>
+									</div>
+								</v-card-item>
+								<v-card-text>
+									<p v-if="selectedGraphElement.description" class="text-body-2 mb-4">
+										{{ selectedGraphElement.description }}
+									</p>
+									<SpecCrossMappings :element="selectedGraphElement" />
+								</v-card-text>
+							</v-card>
 
-					<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
-						<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
-						<p class="text-body-2 text-medium-emphasis mb-0">
-							Select an element to see its authoritative and implied mappings in every other specification.
-						</p>
-					</v-card>
+							<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+								<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
+								<p class="text-body-2 text-medium-emphasis mb-0">
+									Select an element to see its authoritative and implied mappings in every other specification.
+								</p>
+							</v-card>
+						</v-fade-transition>
+					</div>
 				</v-col>
 			</v-row>
 
@@ -1280,9 +1410,64 @@ function loadSample() {
 	font-size: 0.8rem;
 	line-height: 1.5;
 }
-.element-list {
-	max-height: 560px;
+/* Widen with the screen instead of capping at a laptop width; the panes below
+   size themselves to the viewport rather than a fixed pixel height. */
+.verifier-container {
+	max-width: min(1680px, 100%);
+}
+
+/* Every list pane fills the visible height and scrolls on its own, so the
+   page itself barely scrolls and the detail stays beside the list. */
+.element-list,
+.entity-rail {
+	max-height: max(420px, calc(100vh - 300px));
 	overflow-y: auto;
+	scroll-behavior: smooth;
+	position: relative;
+}
+.entity-rail {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.rail-list {
+	overflow-y: auto;
+	flex: 1 1 auto;
+}
+
+/* The mapping pane stays in view while the list scrolls (wide screens). */
+@media (min-width: 960px) {
+	.detail-sticky {
+		position: sticky;
+		top: 16px;
+	}
+	.detail-pane {
+		max-height: calc(100vh - 32px);
+		overflow-y: auto;
+	}
+}
+
+/* Columns resize smoothly when the detail pane expands or the rail appears. */
+.spec-browser > .pane-col {
+	transition: flex-basis 0.25s ease, max-width 0.25s ease;
+}
+
+/* Descriptions are two lines in the list; the selected row shows all of it. */
+.element-desc {
+	font-size: 0.72rem;
+	white-space: normal;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	transition: max-height 0.2s ease;
+}
+.element-desc--open {
+	-webkit-line-clamp: unset;
+	display: block;
+}
+.element-row {
+	transition: background-color 0.15s ease;
 }
 .section-tabs {
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);

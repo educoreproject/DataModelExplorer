@@ -27,6 +27,7 @@ import axios from 'axios';
 import { parse as parseYaml } from 'yaml';
 import { useLoginStore } from '@/stores/loginStore';
 import { hrOpenCrosswalk, hrOpenCrosswalkMeta } from '@/data/hr-open-crosswalk';
+import { specElementLoaders, specElementManifest } from '@/data/specElementFiles';
 
 // -------------------------------------------------------------------------
 // Text helpers — normalise property names so camelCase / snake_case /
@@ -404,6 +405,89 @@ function snapshotIndex(snapshot) {
 
 	snapshotIndexCache = { bySource, hubsByMember };
 	return snapshotIndexCache;
+}
+
+// -------------------------------------------------------------------------
+// Bundled specification models. Every spec's classes and properties with their
+// dotted paths ship as one lazily-loaded file per spec (data/spec-elements/),
+// so any spec can be shown by its own sections — the way LIF and the HR Open
+// crosswalk are — whether or not the live graph endpoints are reachable.
+//
+// A spec's code-list VALUES are not in its file; the ones the graph has mapped
+// to CEDS (and that carry a path, as LIF's do) are folded in from the hub
+// snapshot so they sit in their property's section.
+
+const specModelCache = new Map(); // source -> Promise<element[]>
+
+const KIND_BY_CODE = { C: 'class', P: 'property', V: 'value' };
+
+function specModelElement(source, kindCode, path, name, id = '', desc = '') {
+	const kind = KIND_BY_CODE[kindCode] || 'property';
+	return {
+		name,
+		source,
+		standard: standardOf(source),
+		kind,
+		description: desc,
+		sourceId: id,
+		path,
+		group: elementGroup(path, name, kind),
+	};
+}
+
+function hasSpecModel(source) {
+	return !!specElementLoaders[source];
+}
+
+function loadSpecModel(source) {
+	if (!hasSpecModel(source)) return Promise.resolve(null);
+	if (!specModelCache.has(source)) {
+		const promise = specElementLoaders[source]()
+			.then((mod) => mod.default || mod)
+			.then(async (file) => {
+				const elements = file.elements.map(([k, path, name, id, desc]) =>
+					specModelElement(source, k, path, name, id || '', desc || ''),
+				);
+				// Mapped code-list values with paths, from the hub snapshot.
+				try {
+					const snapshot = await loadSnapshot();
+					const known = new Set(elements.map((e) => e.path.toLowerCase()));
+					for (const hub of snapshot.hubs) {
+						for (const m of hub.matches || []) {
+							if (m.source !== source || m.k !== 'V' || !m.path) continue;
+							const key = m.path.toLowerCase();
+							if (known.has(key)) continue;
+							known.add(key);
+							elements.push(specModelElement(source, 'V', m.path, m.name));
+						}
+					}
+				} catch (_e) {
+					/* values are a bonus; the structure stands on its own */
+				}
+				elements.sort((a, b) => a.path.localeCompare(b.path) || (a.kind === 'class' ? -1 : 1));
+				return elements;
+			})
+			.catch((err) => {
+				specModelCache.delete(source);
+				throw err;
+			});
+		specModelCache.set(source, promise);
+	}
+	return specModelCache.get(source);
+}
+
+// Grouping by entity only helps when entities actually hold several elements.
+// SOC is a flat list of 2,005 occupations, each its own "entity" — tabbing
+// that would be one tab per row, so such specs stay a single list.
+function isGroupable(elements) {
+	const groups = new Set();
+	let withGroup = 0;
+	for (const el of elements) {
+		if (!el.group) continue;
+		withGroup++;
+		groups.add(el.group);
+	}
+	return groups.size > 1 && withGroup / groups.size >= 1.6;
 }
 
 // Which hub edges count as verified. EXACT_MATCH is the hub-verified
@@ -784,10 +868,12 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		hasApi: (state) => !!state.api,
 		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
 
-		// Top-level entities among the loaded elements, for the browser's tabs:
-		// [{ name, count }] alphabetical. Empty when the elements carry no path
-		// (snapshot fallback), which tells the page to show one flat list.
+		// Top-level entities among the loaded elements, for the browser's tabs or
+		// entity rail: [{ name, count }] alphabetical. Empty when the elements
+		// carry no path, or when grouping would be one entity per row (SOC) —
+		// either tells the page to show one flat list.
 		elementGroups: (state) => {
+			if (!isGroupable(state.elements)) return [];
 			const counts = new Map();
 			for (const el of state.elements) {
 				if (!el.group) continue;
@@ -921,12 +1007,28 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 				return this.specs;
 			} catch (_liveErr) {
 				try {
+					// The bundled models' manifest is the complete inventory (every
+					// spec, real class/property counts); hub-only specs not in it are
+					// added from the snapshot so nothing disappears.
+					const rows = Object.entries(specElementManifest.specs || {}).map(([source, m]) => ({
+						source,
+						standard: standardOf(source),
+						organization: ORG_BY_SOURCE[source] || UNATTRIBUTED_ORG,
+						elementCount: m.elementCount || 0,
+						propertyCount: m.propertyCount || 0,
+						classCount: m.classCount || 0,
+						entityCount: m.entityCount || 0,
+						url: '',
+						description: '',
+					}));
+					const listed = new Set(rows.map((r) => r.source));
 					const snapshot = await loadSnapshot();
 					const { bySource } = snapshotIndex(snapshot);
-					const rows = [...bySource.entries()].map(([source, elements]) => {
+					for (const [source, elements] of bySource.entries()) {
+						if (listed.has(source)) continue;
 						const list = [...elements.values()];
 						const classCount = list.filter((e) => e.kind === 'class').length;
-						return {
+						rows.push({
 							source,
 							standard: standardOf(source),
 							organization: ORG_BY_SOURCE[source] || UNATTRIBUTED_ORG,
@@ -935,11 +1037,11 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 							classCount,
 							url: '',
 							description: '',
-						};
-					});
+						});
+					}
 
 					this.specsSource = 'snapshot';
-					this.snapshotDate = snapshot.generated || '';
+					this.snapshotDate = specElementManifest.generated || snapshot.generated || '';
 					this.specs = sortSpecs(rows);
 					return this.specs;
 				} catch (err) {
@@ -957,15 +1059,43 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		// pushed down to the query rather than applied in the browser: a
 		// standard the size of CEDS is far larger than one response.
 
-		// The cap is generous enough that a mid-sized model (LIF is ~1,700 rows
-		// with its mapped values) arrives whole — the entity tabs partition it
-		// client-side, and a truncated list would silently drop whole entities.
-		// CEDS and SIF still exceed it and show the "filter to narrow" notice.
+		// Specs with a bundled model are served from it: the whole model, every
+		// entity, already in path order, filtered here — so sections and entity
+		// tabs are complete for CEDS and SIF too, and switching specs is instant
+		// after the first load. The live endpoint is the source only for a spec
+		// that has no bundled file yet (newly forged). Search matches name, path
+		// and description.
 		async loadSpecElements(source, { search = '', limit = 2000 } = {}) {
 			if (!source) return [];
 
 			this.elementsLoading = true;
 			this.elementsError = '';
+
+			if (hasSpecModel(source)) {
+				try {
+					const model = await loadSpecModel(source);
+					// A newer request (another spec picked) may have landed first.
+					if (this.selectedSpec && this.selectedSpec.source !== source) return this.elements;
+					const q = search.trim().toLowerCase();
+					const rows = q
+						? model.filter(
+								(el) =>
+									el.name.toLowerCase().includes(q) ||
+									el.path.toLowerCase().includes(q) ||
+									el.description.toLowerCase().includes(q),
+							)
+						: model;
+					this.elements = rows;
+					this.elementsTruncated = false;
+					this.snapshotDate = specElementManifest.generated || this.snapshotDate;
+					return rows;
+				} catch (err) {
+					// fall through to the live endpoint / hub snapshot
+				} finally {
+					this.elementsLoading = false;
+				}
+				this.elementsLoading = true;
+			}
 
 			try {
 				const res = await axios.get('/api/dme-spec-elements', {
@@ -1263,18 +1393,27 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			}
 		},
 
-		// Shared offline fallback: label match over the bundled snapshot.
+		// Shared offline fallback: label match over the bundled spec models (every
+		// class and property of every spec), plus hub-snapshot members for any
+		// spec without a model.
 		async _snapshotFieldSearch({ q, target, exclude, kinds, limit }) {
 			const snapshot = await loadSnapshot();
 			const { bySource } = snapshotIndex(snapshot);
 			const tokens = matchTokens(q);
 			if (!tokens.length) return { rows: [], basis: 'similarity' };
 			const wantedKinds = new Set(String(kinds).split(',').map((k) => k.trim()).filter(Boolean));
-			const sources = target ? [target] : [...bySource.keys()];
+			const allSources = new Set([...Object.keys(specElementLoaders), ...bySource.keys()]);
+			const sources = (target ? [target] : [...allSources]).filter((s) => s !== exclude);
+			const models = await Promise.all(
+				sources.map(async (source) => {
+					const model = hasSpecModel(source) ? await loadSpecModel(source).catch(() => null) : null;
+					return [source, model || [...(bySource.get(source)?.values() || [])]];
+				}),
+			);
 			const rows = [];
-			for (const source of sources) {
+			for (const [source, elements] of models) {
 				if (source === exclude) continue;
-				for (const el of bySource.get(source)?.values() || []) {
+				for (const el of elements) {
 					if (wantedKinds.size && !wantedKinds.has(el.kind)) continue;
 					const score = Math.max(
 						matchScore(tokens, el.name),
