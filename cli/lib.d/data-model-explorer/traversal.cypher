@@ -161,7 +161,7 @@ CALL {
     toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
     mappingType: matchType, confidence: confidence, provenanceTier: provenanceTier,
     matchPredicate: matchPredicate, decisionAlgorithm: decisionAlgorithm,
-    instanceGroupList: instanceGroupList, instanceCount: instanceCount
+    instanceGroupList: instanceGroupList[..25], instanceGroupCount: size(instanceGroupList), instanceCount: instanceCount
   })[..20] AS mappingsViaInstances
 }
 CALL {

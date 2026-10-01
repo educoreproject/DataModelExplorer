@@ -256,12 +256,16 @@ const declarationOf = (instanceVariable) =>
 	`head([(declaration:ForgedNode)-[:HAS_INSTANCE]->(${instanceVariable}) | declaration])`;
 
 const INSTANCE_FIELD_NAME_LIST = [
+	'fromElementId',
 	'instanceOf',
 	'instanceGroupList',
 	'instanceCount',
 	'viaInstanceGroupList',
 	'viaInstanceCount',
 ];
+
+const INSTANCE_GROUP_LIST_NAME_LIST = ['instanceGroupList', 'viaInstanceGroupList'];
+const INSTANCE_GROUP_LIST_CAP = 25;
 
 const findMappings = async (session, nameOrId) => {
 	requireNonEmpty(nameOrId, '-findMappings'); // L8
@@ -297,6 +301,7 @@ const findMappings = async (session, nameOrId) => {
 			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       CASE WHEN nDeclaration IS NULL THEN null ELSE n._id END AS fromElementId,
 			       nDeclaration.name AS instanceOf,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE [groupName IN [${instanceGroupOf('n')}] WHERE groupName IS NOT NULL] END AS instanceGroupList,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE 1 END AS instanceCount,
@@ -337,6 +342,7 @@ const findMappings = async (session, nameOrId) => {
 			       mNear.decisionAlgorithm AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       CASE WHEN farIsInstanced THEN farElement._id ELSE null END AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
 			       CASE WHEN farIsInstanced THEN farInstanceCount ELSE null END AS instanceCount,
@@ -368,6 +374,7 @@ const findMappings = async (session, nameOrId) => {
 			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
 			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
@@ -397,6 +404,7 @@ const findMappings = async (session, nameOrId) => {
 			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       n._id AS fromElementId,
 			       null AS instanceOf, instGroupList AS instanceGroupList, instInstanceCount AS instanceCount,
 			       null AS viaInstanceGroupList, null AS viaInstanceCount
 	UNION
@@ -436,6 +444,7 @@ const findMappings = async (session, nameOrId) => {
 			       nearDecisionAlgorithm AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       farElement._id AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
 			       CASE WHEN farIsInstanced THEN farInstanceCount ELSE null END AS instanceCount,
@@ -445,7 +454,7 @@ const findMappings = async (session, nameOrId) => {
 		       mappingType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
 		       viaMatchType, viaConfidence, viaPredicate, viaDecisionAlgorithm, cedsDomain, cedsProperty,
 		       cedsRange, cedsValue, cedsQualifier,
-		       instanceOf, instanceGroupList, instanceCount, viaInstanceGroupList, viaInstanceCount
+		       fromElementId, instanceOf, instanceGroupList, instanceCount, viaInstanceGroupList, viaInstanceCount
 		ORDER BY confidence DESC
 		LIMIT 30
 	`, { name: nameOrId });
@@ -489,6 +498,13 @@ const findMappings = async (session, nameOrId) => {
 			if (instanceFieldValue !== null) {
 				mappingRow[instanceFieldName] = serializeValue(instanceFieldValue);
 			}
+		});
+		// A SIF metadata question can sit in every object (136 groups); the list is capped and the
+		// full group count is always reported beside it, so a cut list is never mistaken for whole.
+		INSTANCE_GROUP_LIST_NAME_LIST.forEach(groupListName => {
+			if (!mappingRow[groupListName]) return;
+			mappingRow[`${groupListName.replace(/List$/, '')}Count`] = mappingRow[groupListName].length;
+			mappingRow[groupListName] = mappingRow[groupListName].slice(0, INSTANCE_GROUP_LIST_CAP);
 		});
 		return mappingRow;
 	});
