@@ -186,11 +186,17 @@ Match edges originate from DmeProperty (and DmeOptionSet/DmeOptionValue) source 
 - **DmeProperty** — the richest traversal targets. Connect to parent classes, option sets (HAS_OPTION_SET), supports (HAS_SUPPORT), and cross-standard mapping edges.
 - **DmeOptionSet** — connect to allowed values via HAS_VALUE; may carry cross-standard mappings to other option sets.
 - **DmeOptionValue** — traversal-terminal. The value text is in \`name\`.
-- **DmeSupport** — supplementary detail attached to a node via HAS_SUPPORT.
+- **DmeSupport** — supplementary detail attached to a node via HAS_SUPPORT. In SIF and PESC also the instance nodes (SIF Fields and Containers, PESC occurrences); the instances reached by HAS_INSTANCE carry those standards' mapping edges.
 
 ## Structural Edges
 
 HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS, SUBCLASS_OF, and REFERENCES (intra-standard cross references).
+
+SIF and PESC add three more: **HAS_INSTANCE** (an element stands for each of its occurrences — a SIF Question to one Field per object it appears in; a PESC element declaration to one occurrence per place it appears in the document), **HAS_FIELD** (SIF: an Object has a Field), and **HAS_CHILD** (element contains element — SIF Object/Container nesting, PESC occurrence nesting).
+
+## Instance Nodes Carry the Mappings (SIF, PESC)
+
+In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** EXACT_MATCH/CLOSE_MATCH edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeSupport nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
 
 ## Conventions
 
@@ -216,6 +222,16 @@ RETURN src._source AS fromStandard, src.name AS fromElement,
        hub.name AS cedsConcept, hub.canonicalKey AS cedsId,
        other._source AS equivalentStandard, other.name AS equivalentElement,
        type(m2) AS matchType, m2.confidence AS confidence
+\`\`\`
+
+### CEDS mappings of a SIF Question or PESC element (they live on its instances)
+\`\`\`cypher
+MATCH (decl:ForgedNode {role: 'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+WHERE toLower(decl.name) CONTAINS toLower($name)
+OPTIONAL MATCH (obj:ForgedNode)-[:HAS_FIELD]->(inst)
+RETURN decl._source AS standard, decl.name AS element,
+       hub.name AS cedsConcept, hub.canonicalKey AS cedsId, type(m) AS matchType, m.confidence AS confidence,
+       collect(DISTINCT coalesce(obj.name, inst.sectionPath)) AS instanceGroups, count(inst) AS instanceCount
 \`\`\`
 
 ### Codeset values for a property

@@ -41,6 +41,9 @@
     { "type": "HAS_SUPPORT", "description": "Structural: node -> support detail." },
     { "type": "HAS_CLASS", "description": "Structural: standard root -> class." },
     { "type": "SUBCLASS_OF", "description": "Structural: class -> parent class." },
-    { "type": "REFERENCES", "description": "Intra-standard cross reference." }
+    { "type": "REFERENCES", "description": "Intra-standard cross reference." },
+    { "type": "HAS_INSTANCE", "description": "SIF and PESC: element -> each of its occurrences (SIF Question -> one Field per object; PESC element declaration -> one occurrence per document position). The instances carry these standards' EXACT_MATCH/CLOSE_MATCH edges; the element itself carries none." },
+    { "type": "HAS_FIELD", "description": "SIF: Object -> Field it owns. Names an instance's group." },
+    { "type": "HAS_CHILD", "description": "Structural nesting: element contains element (SIF Object/Container -> Container/Field; PESC occurrence -> occurrence)." }
   ]
 }

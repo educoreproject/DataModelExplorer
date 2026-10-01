@@ -231,12 +231,52 @@ const hybridSearch = async (session, query, config, params) => {
 	}));
 };
 
+// =====================================================================
+// INSTANCE NODES (HAS_INSTANCE) — lane D, 2026-10-01
+// =====================================================================
+//
+// SIF and PESC write their CEDS mapping edges onto INSTANCE nodes, not onto the element the
+// DME finds. A SIF Question (DmeProperty) -[:HAS_INSTANCE]-> one Field (DmeSupport) per object it
+// appears in; a PESC element declaration (DmeProperty) -[:HAS_INSTANCE]-> one occurrence
+// (DmeSupport) per place it appears in the document. The bridges fan their verdicts out onto
+// those instances, so the declaration itself carries no mapping edge. CEDS and Ed-Fi have no
+// HAS_INSTANCE edges, and every arm below reduces to its old self on them.
+//
+// An instance's GROUP is where it sits: the SIF Object that owns the Field (HAS_FIELD), else the
+// PESC occurrence's sectionPath. When neither exists the instance contributes no group name —
+// the count still includes it, and no group is invented.
+//
+// Instance fields are attached to a row ONLY when the row involves instances (an absent field
+// means "no instances", never null), so CEDS and Ed-Fi rows serialize exactly as before.
+
+const instanceGroupOf = (instanceVariable) =>
+	`coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(${instanceVariable}) | groupObject.name]), ${instanceVariable}.sectionPath)`;
+
+const declarationOf = (instanceVariable) =>
+	`head([(declaration:ForgedNode)-[:HAS_INSTANCE]->(${instanceVariable}) | declaration])`;
+
+const INSTANCE_FIELD_NAME_LIST = [
+	'instanceOf',
+	'instanceGroupList',
+	'instanceCount',
+	'viaInstanceGroupList',
+	'viaInstanceCount',
+];
+
 const findMappings = async (session, nameOrId) => {
 	requireNonEmpty(nameOrId, '-findMappings'); // L8
 	const result = await session.run(`
 		MATCH (n:ForgedNode)
 		WHERE toLower(n.name) CONTAINS toLower($name) OR n._id = $name
 		   OR n.path = $name OR n.stableId = $name
+		// An instance whose declaration ALSO matched is reported through that declaration (the
+		// outgoingViaInstance arm, grouped), not again as one loose same-named row per instance.
+		WITH n
+		WHERE NOT EXISTS {
+			MATCH (matchedDeclaration:ForgedNode)-[:HAS_INSTANCE]->(n)
+			WHERE toLower(matchedDeclaration.name) CONTAINS toLower($name) OR matchedDeclaration._id = $name
+			   OR matchedDeclaration.path = $name OR matchedDeclaration.stableId = $name
+		}
 		CALL {
 			WITH n
 			// outgoing: this element resolves to its CEDS tuple (a HubReference), shown via
@@ -247,6 +287,7 @@ const findMappings = async (session, nameOrId) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
 			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.confidence AS confidence,
@@ -255,7 +296,11 @@ const findMappings = async (session, nameOrId) => {
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
 			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
+			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       nDeclaration.name AS instanceOf,
+			       CASE WHEN nDeclaration IS NULL THEN null ELSE [groupName IN [${instanceGroupOf('n')}] WHERE groupName IS NOT NULL] END AS instanceGroupList,
+			       CASE WHEN nDeclaration IS NULL THEN null ELSE 1 END AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
 			UNION
 			WITH n
 			// shared-hub pair: another standard's element resolving to the SAME CEDS tuple.
@@ -264,48 +309,143 @@ const findMappings = async (session, nameOrId) => {
 			// and is labeled 'candidateEquivalent'. Both hops' evidence is returned: the
 			// far element's edge in mappingType/confidence/matchPredicate, n's own edge in
 			// viaMatchType/viaConfidence/viaPredicate — never a fabricated combined score.
+			// A far INSTANCE is reported as its declaration, its instances grouped and counted.
 			MATCH (n)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
 			WHERE other <> n
+			WITH n, mNear, hub, m, other, ${declarationOf('other')} AS otherDeclaration
+			WITH n, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
+			WHERE NOT (farElement)-[:HAS_INSTANCE]->(n)
+			WITH n, mNear, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
+			     type(m) AS farMatchType, m.confidence AS farConfidence, m.provenanceTier AS farProvenanceTier,
+			     m.predicate AS farPredicate, m.decisionAlgorithm AS farDecisionAlgorithm,
+			     CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
+			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farProvenanceTier,
+			     farPredicate, farDecisionAlgorithm, collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(m) = 'EXACT_MATCH'
+			RETURN CASE WHEN type(mNear) = 'EXACT_MATCH' AND farMatchType = 'EXACT_MATCH'
 			            THEN 'equivalent' ELSE 'candidateEquivalent' END AS direction,
-			       other._source AS fromSource, other.name AS fromName,
+			       farElement._source AS fromSource, farElement.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
-			       type(m) AS mappingType, m.confidence AS confidence,
-			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
-			       m.decisionAlgorithm AS decisionAlgorithm,
+			       farMatchType AS mappingType, farConfidence AS confidence,
+			       farProvenanceTier AS provenanceTier, farPredicate AS matchPredicate,
+			       farDecisionAlgorithm AS decisionAlgorithm,
 			       type(mNear) AS viaMatchType, mNear.confidence AS viaConfidence, mNear.predicate AS viaPredicate,
 			       mNear.decisionAlgorithm AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
+			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       null AS instanceOf,
+			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
+			       CASE WHEN farIsInstanced THEN farInstanceCount ELSE null END AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
 	UNION
 			WITH n
 			// incoming: when n is a CEDS leaf, the source elements that resolve to a tuple
 			// containing it. The hub decomposes like every other arm (no n.name stand-ins).
+			// A source INSTANCE is reported as its declaration, its instances grouped and counted.
 			MATCH (n)<-[:HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(src:ForgedNode)
+			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
+			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
+			     type(m) AS srcMatchType, m.confidence AS srcConfidence, m.provenanceTier AS srcProvenanceTier,
+			     m.predicate AS srcPredicate, m.decisionAlgorithm AS srcDecisionAlgorithm,
+			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
+			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcProvenanceTier,
+			     srcPredicate, srcDecisionAlgorithm, collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN 'incoming' AS direction, src._source AS fromSource, src.name AS fromName,
+			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
-			       type(m) AS mappingType, m.confidence AS confidence,
-			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
-			       m.decisionAlgorithm AS decisionAlgorithm,
+			       srcMatchType AS mappingType, srcConfidence AS confidence,
+			       srcProvenanceTier AS provenanceTier, srcPredicate AS matchPredicate,
+			       srcDecisionAlgorithm AS decisionAlgorithm,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
 			       null AS viaDecisionAlgorithm,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier
+			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       null AS instanceOf,
+			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
+			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
+	UNION
+			WITH n
+			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
+			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
+			// groups (SIF objects / PESC sections) that hold it and how many instances do.
+			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+			WITH n, hub, type(m) AS instMatchType, m.confidence AS instConfidence, m.provenanceTier AS instProvenanceTier,
+			     m.predicate AS instPredicate, m.decisionAlgorithm AS instDecisionAlgorithm,
+			     ${instanceGroupOf('instanceNode')} AS instGroupName
+			WITH n, hub, instMatchType, instConfidence, instProvenanceTier, instPredicate, instDecisionAlgorithm,
+			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			RETURN 'outgoingViaInstance' AS direction, n._source AS fromSource, n.name AS fromName,
+			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       instMatchType AS mappingType, instConfidence AS confidence,
+			       instProvenanceTier AS provenanceTier, instPredicate AS matchPredicate,
+			       instDecisionAlgorithm AS decisionAlgorithm,
+			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
+			       null AS viaDecisionAlgorithm,
+			       cd.name AS cedsDomain, cp.name AS cedsProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       null AS instanceOf, instGroupList AS instanceGroupList, instInstanceCount AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
+	UNION
+			WITH n
+			// shared-hub pair THROUGH n's instances: same conservativity as the shared-hub arm.
+			// The near hop is the instance's edge (viaMatchType/viaConfidence/viaPredicate, with
+			// viaInstanceGroupList/viaInstanceCount naming which of n's instances carry it); a far
+			// instance is reported as its declaration with instanceGroupList/instanceCount.
+			MATCH (n)-[:HAS_INSTANCE]->(nearInstance:ForgedNode)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+			WHERE other <> n AND NOT (n)-[:HAS_INSTANCE]->(other)
+			WITH n, nearInstance, mNear, hub, m, other, ${declarationOf('other')} AS otherDeclaration
+			WITH n, nearInstance, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
+			WITH n, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
+			     type(mNear) AS nearMatchType, mNear.confidence AS nearConfidence, mNear.predicate AS nearPredicate,
+			     mNear.decisionAlgorithm AS nearDecisionAlgorithm,
+			     type(m) AS farMatchType, m.confidence AS farConfidence, m.provenanceTier AS farProvenanceTier,
+			     m.predicate AS farPredicate, m.decisionAlgorithm AS farDecisionAlgorithm,
+			     nearInstance, ${instanceGroupOf('nearInstance')} AS nearGroupName,
+			     other, CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
+			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearDecisionAlgorithm,
+			     farMatchType, farConfidence, farProvenanceTier, farPredicate, farDecisionAlgorithm,
+			     collect(DISTINCT nearGroupName) AS nearGroupList, count(DISTINCT nearInstance) AS nearInstanceCount,
+			     collect(DISTINCT farGroupName) AS farGroupList, count(DISTINCT other) AS farInstanceCount
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			RETURN CASE WHEN nearMatchType = 'EXACT_MATCH' AND farMatchType = 'EXACT_MATCH'
+			            THEN 'equivalent' ELSE 'candidateEquivalent' END AS direction,
+			       farElement._source AS fromSource, farElement.name AS fromName,
+			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       farMatchType AS mappingType, farConfidence AS confidence,
+			       farProvenanceTier AS provenanceTier, farPredicate AS matchPredicate,
+			       farDecisionAlgorithm AS decisionAlgorithm,
+			       nearMatchType AS viaMatchType, nearConfidence AS viaConfidence, nearPredicate AS viaPredicate,
+			       nearDecisionAlgorithm AS viaDecisionAlgorithm,
+			       cd.name AS cedsDomain, cp.name AS cedsProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       null AS instanceOf,
+			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
+			       CASE WHEN farIsInstanced THEN farInstanceCount ELSE null END AS instanceCount,
+			       nearGroupList AS viaInstanceGroupList, nearInstanceCount AS viaInstanceCount
 		}
 		RETURN direction, fromSource, fromName, toSource, toName, toId,
 		       mappingType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
 		       viaMatchType, viaConfidence, viaPredicate, viaDecisionAlgorithm, cedsDomain, cedsProperty,
-		       cedsRange, cedsValue, cedsQualifier
+		       cedsRange, cedsValue, cedsQualifier,
+		       instanceOf, instanceGroupList, instanceCount, viaInstanceGroupList, viaInstanceCount
 		ORDER BY confidence DESC
 		LIMIT 30
 	`, { name: nameOrId });
@@ -314,7 +454,7 @@ const findMappings = async (session, nameOrId) => {
 		// cedsTuple: the CEDS anchor rendered as its full tuple (domain · property · range [· value]),
 		// with the canonicalKey in parens — so consumers show the tuple, not just the bare Global ID.
 		const tupleParts = [rec.get('cedsDomain'), rec.get('cedsProperty'), rec.get('cedsRange'), rec.get('cedsValue')].filter(Boolean);
-		return {
+		const mappingRow = {
 			direction: rec.get('direction'),
 			fromSource: rec.get('fromSource'),
 			fromName: rec.get('fromName'),
@@ -344,6 +484,13 @@ const findMappings = async (session, nameOrId) => {
 			cedsQualifier: rec.get('cedsQualifier'),
 			cedsTuple: tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null,
 		};
+		INSTANCE_FIELD_NAME_LIST.forEach(instanceFieldName => {
+			const instanceFieldValue = rec.get(instanceFieldName);
+			if (instanceFieldValue !== null) {
+				mappingRow[instanceFieldName] = serializeValue(instanceFieldValue);
+			}
+		});
+		return mappingRow;
 	});
 };
 
@@ -389,6 +536,8 @@ const unmappedFields = async (session, params) => {
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WHERE ($standard IS NULL OR f._source = $standard)
 		  AND NOT (f)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		  // a SIF Question / PESC element is mapped when any of its HAS_INSTANCE instances is
+		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
 		RETURN f._source AS standard, f.name AS fieldName, f.path AS path,
 		       f.description AS description
 		ORDER BY f._source, f.name
@@ -438,11 +587,14 @@ const getStats = async (session) => {
 		mappings[rec.get('relType')] = toNumber(rec.get('count'));
 	}
 
-	// Mapping coverage over DmeProperty nodes
+	// Mapping coverage over DmeProperty nodes. A SIF Question / PESC element counts as mapped when
+	// its mapping lives on one of its HAS_INSTANCE instances (the bridges fan verdicts out there).
 	const coverageResult = await session.run(`
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WITH count(f) AS totalProperties,
-		     count(CASE WHEN (f)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference) THEN 1 END) AS mappedProperties
+		     count(CASE WHEN (f)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		                THEN 1 END) AS mappedProperties
 		RETURN totalProperties, mappedProperties
 	`);
 	let coverage = {};

@@ -11,7 +11,7 @@
 //   pair a candidateEquivalent (conservativity). SPECIFIED_MAPPING/IMPLIED_MAPPING
 //   are retired — zero such edges exist on the pure graph.
 // Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
-//   SUBCLASS_OF, REFERENCES.
+//   SUBCLASS_OF, REFERENCES; SIF/PESC add HAS_INSTANCE, HAS_FIELD, HAS_CHILD (see instanceView).
 // Updated: 2026-07-01 (equivalence-model rewrite + runtime index discovery)
 // Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
 
@@ -129,6 +129,79 @@ CALL {
   })[..20] AS mappingsIncoming
 }
 
+// Instance view (lane D, 2026-10-01) — SIF and PESC put their CEDS mappings on INSTANCE nodes:
+// SIF Question -[:HAS_INSTANCE]-> Field (one per object), PESC element -[:HAS_INSTANCE]-> occurrence
+// (one per document position). The vector hit is the declaration, which carries no mapping edge,
+// so its mappings are read through its instances and grouped by where each instance sits: the
+// owning SIF Object (HAS_FIELD), else the PESC occurrence's sectionPath. SIF structure rides along:
+// HAS_FIELD (object owns field) and HAS_CHILD (element contains element). instanceView is null
+// when the node has none of these, and the caller omits a null instanceView, so CEDS and Ed-Fi
+// results carry no new key.
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)
+  WITH node, inst,
+       coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName
+  WITH node, instGroupName, count(inst) AS groupInstanceCount, collect(inst.path)[..3] AS groupPathSampleList
+  WHERE groupInstanceCount > 0
+  RETURN collect({ group: instGroupName, instanceCount: groupInstanceCount, pathSampleList: groupPathSampleList })[..30] AS instancesByGroup,
+         sum(groupInstanceCount) AS instanceTotal
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+  WITH hub, type(m) AS matchType, m.confidence AS confidence, m.provenanceTier AS provenanceTier,
+       m.predicate AS matchPredicate, m.decisionAlgorithm AS decisionAlgorithm,
+       coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName,
+       inst
+  WITH hub, matchType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
+       collect(DISTINCT instGroupName) AS instanceGroupList, count(inst) AS instanceCount
+  WHERE hub IS NOT NULL
+  RETURN collect({
+    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
+    mappingType: matchType, confidence: confidence, provenanceTier: provenanceTier,
+    matchPredicate: matchPredicate, decisionAlgorithm: decisionAlgorithm,
+    instanceGroupList: instanceGroupList, instanceCount: instanceCount
+  })[..20] AS mappingsViaInstances
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (declaration:ForgedNode)-[:HAS_INSTANCE]->(node)
+  RETURN head(collect(declaration { ._id, ._source, .name, .role })) AS instanceOf
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_FIELD]->(ownedField:ForgedNode)
+  RETURN collect(ownedField { ._id, .name, .path })[..20] AS ownedFields, count(ownedField) AS ownedFieldCount
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (owningObject:ForgedNode)-[:HAS_FIELD]->(node)
+  RETURN collect(owningObject { ._id, ._source, .name })[..10] AS owningObjects
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (structuralParent:ForgedNode)-[:HAS_CHILD]->(node)
+  RETURN collect(structuralParent { ._id, .name, .path, .role })[..10] AS structuralParents
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_CHILD]->(structuralChild:ForgedNode)
+  RETURN collect(structuralChild { ._id, .name, .path, .role })[..20] AS structuralChildren, count(structuralChild) AS structuralChildCount
+}
+WITH *,
+     CASE WHEN instanceTotal = 0 AND instanceOf IS NULL AND ownedFieldCount = 0
+               AND size(owningObjects) = 0 AND size(structuralParents) = 0 AND structuralChildCount = 0
+          THEN null
+          ELSE {
+            instanceOf: instanceOf, instanceTotal: instanceTotal, instancesByGroup: instancesByGroup,
+            mappingsViaInstances: mappingsViaInstances,
+            ownedFieldCount: ownedFieldCount, ownedFields: ownedFields, owningObjects: owningObjects,
+            structuralParents: structuralParents,
+            structuralChildCount: structuralChildCount, structuralChildren: structuralChildren
+          }
+     END AS instanceView
+
 // === Return ===
 RETURN
   node,
@@ -149,4 +222,5 @@ RETURN
   referencedBy,
   mappingsOutgoing,
   crossStandardEquivalents,
-  mappingsIncoming
+  mappingsIncoming,
+  instanceView

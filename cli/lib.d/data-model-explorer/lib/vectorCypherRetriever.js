@@ -158,6 +158,9 @@ const flatHybridSearch = async ({ neo4jSession, queryText, embedder, limit, sear
 // STATIC TRAVERSAL (read and execute traversal.cypher)
 // =====================================================================
 
+// instanceView (traversal.cypher): present only for SIF/PESC nodes with instances or structure.
+const OMIT_WHEN_NULL_COLUMN_LIST = ['instanceView'];
+
 const staticTraversal = async ({ neo4jSession, queryText, embedder, traversalFilePath, limit, searchMode }) => {
 	const neo4j = require('neo4j-driver');
 
@@ -181,10 +184,12 @@ const staticTraversal = async ({ neo4jSession, queryText, embedder, traversalFil
 		indexName,
 	});
 
-	// Serialize results
+	// Serialize results. A column named in OMIT_WHEN_NULL_COLUMN_LIST is left out when null, so a
+	// traversal column that only some standards populate adds no key to the others' results.
 	return result.records.map(rec => {
 		const obj = {};
 		for (const key of rec.keys) {
+			if (OMIT_WHEN_NULL_COLUMN_LIST.includes(key) && rec.get(key) === null) continue;
 			obj[key] = serializeNeo4jValue(rec.get(key));
 		}
 		return obj;
