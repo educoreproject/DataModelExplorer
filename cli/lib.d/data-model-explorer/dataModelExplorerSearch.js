@@ -254,6 +254,53 @@ const sharedHubDirectionOf = (nearMatchTypeExpression, farMatchTypeExpression) =
 	      WHEN ${nearMatchTypeExpression} IN $composingMatchEdgeTypeList AND ${farMatchTypeExpression} IN $composingMatchEdgeTypeList THEN 'candidateEquivalent'
 	      ELSE 'related' END`;
 
+// findMappings returns at most FIND_MAPPINGS_ROW_CAP rows. Each relation present first gets up to
+// FIND_MAPPINGS_ROWS_PER_RELATION of its best rows (TQ/VIOLET_VALLEY ruling 2026-10-04: never silently drop a
+// whole relation); the rest of the cap fills in composing-first, confidence order. truncatedRowCountByRelation
+// says how many rows of each relation were left out.
+const FIND_MAPPINGS_ROW_CAP = 30;
+const FIND_MAPPINGS_ROWS_PER_RELATION = Math.floor(FIND_MAPPINGS_ROW_CAP / MATCH_EDGE_TYPE_LIST.length);
+
+const mappingRowRank = (row) => [
+	COMPOSING_MATCH_EDGE_TYPE_LIST.includes(row.mappingType)
+		&& (row.viaMatchType === null || COMPOSING_MATCH_EDGE_TYPE_LIST.includes(row.viaMatchType)) ? 0 : 1,
+	-(row.confidence === null ? -1 : row.confidence),
+];
+const compareMappingRows = (rowA, rowB) => {
+	const rankA = mappingRowRank(rowA);
+	const rankB = mappingRowRank(rowB);
+	return rankA[0] - rankB[0] || rankA[1] - rankB[1];
+};
+
+const allocateMappingRowsByRelation = (rowListByRelation, totalRowCountByRelation) => {
+	const shownCountByRelation = {};
+	const guaranteedRowList = [];
+	const leftoverRowList = [];
+	MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
+		const relationRowList = rowListByRelation[edgeType] || [];
+		const guaranteedSlice = relationRowList.slice(0, FIND_MAPPINGS_ROWS_PER_RELATION);
+		guaranteedRowList.push(...guaranteedSlice);
+		leftoverRowList.push(...relationRowList.slice(FIND_MAPPINGS_ROWS_PER_RELATION));
+		shownCountByRelation[edgeType] = guaranteedSlice.length;
+	});
+	const fillRowList = leftoverRowList
+		.slice()
+		.sort(compareMappingRows)
+		.slice(0, Math.max(0, FIND_MAPPINGS_ROW_CAP - guaranteedRowList.length));
+	fillRowList.forEach((row) => {
+		const rowRelation = MATCH_EDGE_TYPE_LIST.find((edgeType) => (rowListByRelation[edgeType] || []).includes(row));
+		shownCountByRelation[rowRelation] += 1;
+	});
+	const truncatedRowCountByRelation = {};
+	MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
+		truncatedRowCountByRelation[edgeType] = (totalRowCountByRelation[edgeType] || 0) - shownCountByRelation[edgeType];
+	});
+	return {
+		shownRowList: guaranteedRowList.concat(fillRowList).sort(compareMappingRows),
+		truncatedRowCountByRelation,
+	};
+};
+
 const JUDGMENT_FIELD_NAME_LIST = [
 	'mappingConfidence',
 	'mappingKind',
@@ -477,20 +524,64 @@ const findMappings = async (session, nameOrId) => {
 			       CASE WHEN farIsInstanced THEN farInstanceCount ELSE null END AS instanceCount,
 			       nearGroupList AS viaInstanceGroupList, nearInstanceCount AS viaInstanceCount
 		}
-		RETURN direction, fromSource, fromName, toSource, toName, toId,
-		       mappingType, confidence, matchPredicate,
-		       mappingConfidence, mappingKind, mappingSource,
-		       viaMatchType, viaConfidence, viaPredicate,
-		       viaMappingConfidence, viaMappingKind, viaMappingSource, cedsDomain, cedsProperty,
-		       cedsRange, cedsValue, cedsQualifier,
-		       fromElementId, instanceOf, instanceGroupList, instanceCount, viaInstanceGroupList, viaInstanceCount
-		ORDER BY CASE WHEN mappingType IN $composingMatchEdgeTypeList
-		                   AND (viaMatchType IS NULL OR viaMatchType IN $composingMatchEdgeTypeList) THEN 0 ELSE 1 END,
-		         confidence DESC
-		LIMIT 30
-	`, { name: nameOrId, composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST });
+		// Each row belongs to ONE relation for the cap: a broad/narrow hop on either side wins, then
+		// a close hop, else exact. Rows are kept per relation (best confidence first) and allocated
+		// in JS (allocateMappingRowsByRelation) so no relation is ever silently dropped.
+		WITH *, CASE WHEN mappingType IN $nonComposingMatchEdgeTypeList THEN mappingType
+		             WHEN viaMatchType IN $nonComposingMatchEdgeTypeList THEN viaMatchType
+		             WHEN mappingType = 'CLOSE_MATCH' OR viaMatchType = 'CLOSE_MATCH' THEN 'CLOSE_MATCH'
+		             ELSE 'EXACT_MATCH' END AS rowRelation
+		ORDER BY confidence DESC
+		WITH rowRelation, collect({
+			direction: direction,
+			fromSource: fromSource,
+			fromName: fromName,
+			toSource: toSource,
+			toName: toName,
+			toId: toId,
+			mappingType: mappingType,
+			confidence: confidence,
+			matchPredicate: matchPredicate,
+			mappingConfidence: mappingConfidence,
+			mappingKind: mappingKind,
+			mappingSource: mappingSource,
+			viaMatchType: viaMatchType,
+			viaConfidence: viaConfidence,
+			viaPredicate: viaPredicate,
+			viaMappingConfidence: viaMappingConfidence,
+			viaMappingKind: viaMappingKind,
+			viaMappingSource: viaMappingSource,
+			cedsDomain: cedsDomain,
+			cedsProperty: cedsProperty,
+			cedsRange: cedsRange,
+			cedsValue: cedsValue,
+			cedsQualifier: cedsQualifier,
+			fromElementId: fromElementId,
+			instanceOf: instanceOf,
+			instanceGroupList: instanceGroupList,
+			instanceCount: instanceCount,
+			viaInstanceGroupList: viaInstanceGroupList,
+			viaInstanceCount: viaInstanceCount
+		}) AS relationRowList
+		RETURN rowRelation, relationRowList[..$findMappingsRowCap] AS topRowList, size(relationRowList) AS relationRowCount
+	`, {
+		name: nameOrId,
+		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
+		nonComposingMatchEdgeTypeList: MATCH_EDGE_TYPE_LIST.filter((edgeType) => !COMPOSING_MATCH_EDGE_TYPE_LIST.includes(edgeType)),
+		findMappingsRowCap: neo4j.int(FIND_MAPPINGS_ROW_CAP),
+	});
 
-	return result.records.map(rec => {
+	const rowListByRelation = {};
+	const totalRowCountByRelation = {};
+	result.records.forEach((relationRecord) => {
+		const rowRelation = relationRecord.get('rowRelation');
+		rowListByRelation[rowRelation] = relationRecord.get('topRowList');
+		totalRowCountByRelation[rowRelation] = toNumber(relationRecord.get('relationRowCount'));
+	});
+	const { shownRowList, truncatedRowCountByRelation } = allocateMappingRowsByRelation(rowListByRelation, totalRowCountByRelation);
+
+	const mappingRowList = shownRowList.map(rowObject => {
+		const rec = { get: (columnName) => rowObject[columnName] };
 		// cedsTuple: the CEDS anchor rendered as its full tuple (domain · property · range [· value]),
 		// with the canonicalKey in parens — so consumers show the tuple, not just the bare Global ID.
 		const tupleParts = [rec.get('cedsDomain'), rec.get('cedsProperty'), rec.get('cedsRange'), rec.get('cedsValue')].filter(Boolean);
@@ -539,6 +630,7 @@ const findMappings = async (session, nameOrId) => {
 		});
 		return mappingRow;
 	});
+	return { mappingRowList, totalRowCountByRelation, truncatedRowCountByRelation };
 };
 
 const compareCodesets = async (session, name) => {
