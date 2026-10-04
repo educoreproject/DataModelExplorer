@@ -36,53 +36,83 @@ const assert = (testName, condition, detailText) => {
 	console.log(`  FAIL: ${testName}${detailText ? ' — ' + detailText : ''}`);
 };
 
+const { pipeRunner, taskListPlus } = new (require(path.join(dmeDirPath, '..', '..', 'node_modules', 'qtools-asynchronous-pipe-plus')))();
+
 const driver = neo4j.driver(connection.boltUri, neo4j.auth.basic(connection.user, connection.password));
 const session = driver.session({ defaultAccessMode: neo4j.session.READ });
 
-const run = async () => {
-	console.log('\n=== traversal relation cap (CEDS Birthdate, mappingsIncoming) ===\n');
-	const seed = (await session.run(
+// session.run returns a promise; each task turns it into an explicit next(err, args) step.
+const runQuery = (queryText, queryParams, callback) => {
+	session.run(queryText, queryParams).then(
+		(result) => callback('', result.records),
+		(err) => callback(`query failed: ${err.message}`),
+	);
+};
+
+console.log('\n=== traversal relation cap (CEDS Birthdate, mappingsIncoming) ===\n');
+const taskList = new taskListPlus();
+
+taskList.push((args, next) => {
+	runQuery(
 		`MATCH (n:ForgedNode {role: 'DmeProperty', _source: 'CEDS'}) WHERE n.name = 'Birthdate' AND n.embedding IS NOT NULL
 		 RETURN elementId(n) AS seedElementId, n.embedding AS embedding LIMIT 1`,
-	)).records[0];
-	if (!seed) { assert('CEDS Birthdate property exists with an embedding', false); return; }
-	const indexName = (await session.run("SHOW INDEXES YIELD name, type, labelsOrTypes, properties WHERE type = 'VECTOR' AND 'ForgedNode' IN labelsOrTypes AND 'embedding' IN properties RETURN name")).records[0].get('name');
-	const traversalResult = await session.run(fs.readFileSync(traversalFilePath, 'utf8'), {
-		embedding: seed.get('embedding'), limit: neo4j.int(5), query: 'Birthdate', indexName,
+		{},
+		(err, records) => {
+			if (err) { next(err, args); return; }
+			if (!records[0]) { next('CEDS Birthdate property with an embedding not found', args); return; }
+			next('', { ...args, seedElementId: records[0].get('seedElementId'), seedEmbedding: records[0].get('embedding') });
+		},
+	);
+});
+
+taskList.push((args, next) => {
+	runQuery("SHOW INDEXES YIELD name, type, labelsOrTypes, properties WHERE type = 'VECTOR' AND 'ForgedNode' IN labelsOrTypes AND 'embedding' IN properties RETURN name", {}, (err, records) => {
+		if (err) { next(err, args); return; }
+		next('', { ...args, indexName: records[0].get('name') });
 	});
-	const seedRecord = traversalResult.records.find((record) => record.get('node').elementId === seed.get('seedElementId'));
-	assert('the seeded node is among the hits', !!seedRecord);
-	if (!seedRecord) return;
-	const incomingList = seedRecord.get('mappingsIncoming');
-	const truncationList = seedRecord.keys.includes('mappingsIncomingTruncatedByRelation') ? seedRecord.get('mappingsIncomingTruncatedByRelation') : null;
-	assert('mappingsIncomingTruncatedByRelation is returned', Array.isArray(truncationList));
-	assert('at most 20 entries', incomingList.length <= 20, `${incomingList.length}`);
-	assert('BROAD_MATCH entries are present (PESC Birthday)', incomingList.some((entry) => entry.mappingType === 'BROAD_MATCH'));
-	const totalRecords = (await session.run(
+});
+
+taskList.push((args, next) => {
+	runQuery(fs.readFileSync(traversalFilePath, 'utf8'), { embedding: args.seedEmbedding, limit: neo4j.int(5), query: 'Birthdate', indexName: args.indexName }, (err, records) => {
+		if (err) { next(err, args); return; }
+		const seedRecord = records.find((record) => record.get('node').elementId === args.seedElementId);
+		assert('the seeded node is among the hits', !!seedRecord);
+		if (!seedRecord) { next('seeded node not among the hits', args); return; }
+		const incomingList = seedRecord.get('mappingsIncoming');
+		const truncationList = seedRecord.keys.includes('mappingsIncomingTruncatedByRelation') ? seedRecord.get('mappingsIncomingTruncatedByRelation') : null;
+		assert('mappingsIncomingTruncatedByRelation is returned', Array.isArray(truncationList));
+		assert('at most 20 entries', incomingList.length <= 20, `${incomingList.length}`);
+		assert('BROAD_MATCH entries are present (PESC Birthday)', incomingList.some((entry) => entry.mappingType === 'BROAD_MATCH'));
+		next('', { ...args, incomingList, truncationList });
+	});
+});
+
+taskList.push((args, next) => {
+	runQuery(
 		`MATCH (n) WHERE elementId(n) = $seedElementId
 		 MATCH (n)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(:ForgedNode)
 		 RETURN type(m) AS relation, count(*) AS totalCount`,
-		{ seedElementId: seed.get('seedElementId') },
-	)).records;
-	totalRecords.forEach((record) => {
-		const relation = record.get('relation');
-		const totalCount = record.get('totalCount').toNumber();
-		const shownCount = incomingList.filter((entry) => entry.mappingType === relation).length;
-		const truncation = (truncationList || []).find((oneTruncation) => oneTruncation.relation === relation);
-		const truncatedCount = truncation ? Number(truncation.truncatedCount) : 0;
-		assert(`${relation}: shown ${shownCount} + truncated ${truncatedCount} = total ${totalCount}`, shownCount + truncatedCount === totalCount);
-		assert(`${relation}: shown >= min(total, 5)`, shownCount >= Math.min(totalCount, 5));
-	});
-};
+		{ seedElementId: args.seedElementId },
+		(err, records) => {
+			if (err) { next(err, args); return; }
+			records.forEach((record) => {
+				const relation = record.get('relation');
+				const totalCount = record.get('totalCount').toNumber();
+				const shownCount = args.incomingList.filter((entry) => entry.mappingType === relation).length;
+				const truncation = (args.truncationList || []).find((oneTruncation) => oneTruncation.relation === relation);
+				const truncatedCount = truncation ? Number(truncation.truncatedCount) : 0;
+				assert(`${relation}: shown ${shownCount} + truncated ${truncatedCount} = total ${totalCount}`, shownCount + truncatedCount === totalCount);
+				assert(`${relation}: shown >= min(total, 5)`, shownCount >= Math.min(totalCount, 5));
+			});
+			next('', args);
+		},
+	);
+});
 
-run().then(
-	() => finish(),
-	(err) => { console.error('ERR', err.message); failed++; finish(); },
-);
-
-function finish() {
+pipeRunner(taskList.getList(), {}, (err) => {
+	if (err) { failed++; console.log(`  FAIL: ${err}`); }
 	session.close().then(() => driver.close()).then(() => {
 		console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 		process.exit(failed > 0 ? 1 : 0);
 	});
-}
+});
