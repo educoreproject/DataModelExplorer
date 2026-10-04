@@ -27,6 +27,17 @@ const qt = require('qtools-functional-library');
 const SECTION_TEXT_CAP = 2900;
 const ANSWER_TOTAL_CAP = 11600; // four full sections
 const LOOKUP_CARD_LIMIT = 3;
+
+// The four SKOS match relations and the word the card shows for each. Every match edge is a judgment;
+// the card shows its relation, confidence and source (mappingSource), and flags a debug judge's edge.
+const MATCH_RELATION_WORD_BY_EDGE_TYPE = {
+	EXACT_MATCH: 'exact',
+	CLOSE_MATCH: 'close',
+	BROAD_MATCH: 'broad',
+	NARROW_MATCH: 'narrow',
+};
+const MATCH_EDGE_PATTERN = Object.keys(MATCH_RELATION_WORD_BY_EDGE_TYPE).join('|');
+const DEBUG_MAPPING_KIND = 'invalid-debug';
 const LOOKUP_SEARCH_LIMIT = 8;
 
 //START OF moduleFunction() ============================================================
@@ -61,23 +72,25 @@ const moduleFunction =
 				},
 
 				// ----- elementCard — one element's card: identity, CEDS hub tuple(s)
-				// via EXACT_MATCH/CLOSE_MATCH, and the peer elements from other
-				// standards landing on the same hub (cross-standard equivalents).
+				// via any of the four match relations, and the peer elements from other
+				// standards landing on the same hub.
 				elementCard: {
 					cypher: `
 						MATCH (n:ForgedNode {name: $name, _source: $source})
 						WITH n LIMIT 1
-						OPTIONAL MATCH (n)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+						OPTIONAL MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 						OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cedsDomain:ForgedNode)
 						OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cedsProperty:ForgedNode)
 						OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cedsRange:ForgedNode)
-						OPTIONAL MATCH (peer:ForgedNode)-[peerMatch:EXACT_MATCH|CLOSE_MATCH]->(hub)
+						OPTIONAL MATCH (peer:ForgedNode)-[peerMatch:${MATCH_EDGE_PATTERN}]->(hub)
 							WHERE peer._source <> n._source
 						RETURN n.name AS name, n._source AS source,
 							n.description AS description, n.path AS path, n.stableId AS stableId,
 							collect(DISTINCT {
 								mappingType: type(m),
 								confidence: m.confidence,
+								mappingKind: m.mappingKind,
+								mappingSource: m.mappingSource,
 								hubName: hub.name,
 								hubKey: hub.canonicalKey,
 								cedsDomain: cedsDomain.name,
@@ -164,9 +177,6 @@ const moduleFunction =
 			};
 		};
 
-		const formatConfidence = (confidence) =>
-			typeof confidence === 'number' ? ` (${Math.round(confidence * 100)}%)` : '';
-
 		// ----- one element card → Slack section text
 		const formatElementCard = (card) => {
 			const lines = [`*${card.name}*  ·  ${card.source}`];
@@ -181,14 +191,21 @@ const moduleFunction =
 			if (realTuples.length) {
 				lines.push('*CEDS hub tuple:*');
 				realTuples.slice(0, 4).forEach((tuple) => {
-					const kind = tuple.mappingType === 'EXACT_MATCH' ? 'exact' : 'close';
+					// an edge type outside the four is shown by its own name, never relabelled
+					const relationWord =
+						MATCH_RELATION_WORD_BY_EDGE_TYPE[tuple.mappingType] || tuple.mappingType;
+					const confidenceText =
+						typeof tuple.confidence === 'number' ? ` ${Math.round(tuple.confidence * 100)}%` : '';
+					const sourceText = tuple.mappingSource ? `, ${tuple.mappingSource}` : '';
+					const debugText =
+						tuple.mappingKind === DEBUG_MAPPING_KIND ? ' ⚠ DEBUG placeholder, not a mapping' : '';
 					const tupleParts = [
 						tuple.cedsDomain,
 						tuple.cedsProperty,
 						tuple.cedsRange,
 					].filter(Boolean);
 					lines.push(
-						`• ${tupleParts.join(' › ')} — \`${tuple.hubKey || '?'}\` (${kind}${formatConfidence(tuple.confidence)})`,
+						`• ${tupleParts.join(' › ')} — \`${tuple.hubKey || '?'}\` (${relationWord}${confidenceText}${sourceText})${debugText}`,
 					);
 				});
 			}
