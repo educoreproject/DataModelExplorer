@@ -102,6 +102,14 @@ schemaProvider({ neo4jDb: undefined })((absentDbError) => {
 		});
 
 		assert(
+			"Guidance names mappingKind 'invalid-debug' as the debug marker",
+			crossSection.includes('`invalid-debug`'),
+		);
+		assert(
+			'Guidance prose does not describe provenanceTier (match edges no longer carry it)',
+			!crossSection.includes('provenanceTier'),
+		);
+		assert(
 			'Guidance says every match edge is a judgment',
 			/every match edge is a judgment/i.test(schemaText),
 		);

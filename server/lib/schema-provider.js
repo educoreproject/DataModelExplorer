@@ -232,15 +232,13 @@ ${MATCH_RELATION_LIST.map(
 
 ### Every match edge is a judgment
 
-No match edge is a fact. Each records a decision and says who made it and how sure it was:
+No match edge is a fact. Each records a decision in three fields — read them, never assume them:
 
-- **\`mappingKind\`** — how the mapping came to exist. \`inferred\`: a mapping judge decided it (today an LLM judge choosing among CEDS candidates retrieved for the element). An authored mapping (a published crosswalk, or a standard's own declaration) would carry its own kind; read the value, never assume one.
-- **\`mappingSource\`** — who decided: \`bridge-<judgeName>\` for a judged edge (e.g. \`bridge-jev\`), \`crosswalk-<crosswalkName>\` for an authored crosswalk.
-- **\`mappingConfidence\`** — the decider's confidence, 0–1. Current builds use three bands: 0.9 strong, 0.7 moderate, 0.5 weak but real. (Graphs built before these three fields carry the same number only as \`confidence\`.)
+- **\`mappingKind\`** — how the mapping came to exist: \`inferred\` (a mapping judge chose it — today an LLM judge choosing among CEDS candidates retrieved for the element), \`authored\` (a document named it: a published crosswalk or the standard's own specification), or \`invalid-debug\` (a DEBUG judge produced it mechanically — a placeholder that says nothing about meaning; never present it as a mapping).
+- **\`mappingSource\`** — who decided: \`bridge-<judgeName>\` for a judged edge (e.g. \`bridge-jev\`; a debug judge's edges read \`bridge-debug\`), \`crosswalk-<name>\` or \`standard-<name>\` for an authored one.
+- **\`mappingConfidence\`** — on judged edges only, the judge's confidence, 0–1. Current builds use three bands: 0.9 strong, 0.7 moderate, 0.5 weak but real. Authored edges carry none. (Graphs built before these three fields carry the number only as \`confidence\`.)
 
-**Relation and confidence are independent axes.** The relation says WHAT correspondence is asserted; the confidence says HOW SURE the decider is of it. An EXACT_MATCH at 0.5 is a weakly held claim of sameness; a NARROW_MATCH at 0.9 is a firmly held claim that CEDS is narrower. Never read EXACT_MATCH as "more certain", a high confidence as "more exact", or any match edge as authoritative. Present every mapping as the judgment it is, with its relation, confidence and source.
-
-The other match-edge properties record the decision's trail: \`mappingTool\` / \`mappingToolVersion\` (the exact judge build and evidence renderer), \`mappingJustification\` (SSSOM/SEMAPV; \`semapv:CompositeMatching\` = a judge chose among candidates), \`decisionBlockHash\` (the frozen decision record it was replayed from), \`attestationChannelList\` (how the candidates were retrieved). An edge with \`provenanceTier\` 'invalid-debug' was made by the DEBUG judge: a mechanical placeholder, not a judgment at all. The full live property list is in Match Edge Properties above.
+**Relation and confidence are independent axes.** The relation says WHAT correspondence is asserted; the confidence says HOW SURE the judge is of it. An EXACT_MATCH at 0.5 is a weakly held claim of sameness; a NARROW_MATCH at 0.9 is a firmly held claim that CEDS is narrower. Never read EXACT_MATCH as "more certain", a high confidence as "more exact", or a mapping as authoritative unless its \`mappingKind\` is \`authored\`. Present every mapping with its relation, confidence and source. The full live property list is in Match Edge Properties above.
 
 ### Reading two elements through one hub
 

@@ -232,6 +232,39 @@ const hybridSearch = async (session, query, config, params) => {
 };
 
 // =====================================================================
+// MATCH RELATIONS — lane Q, 2026-10-04
+// =====================================================================
+//
+// A match edge asserts one of four SKOS relations, one edge type each. Every match edge is a
+// JUDGMENT carrying mappingConfidence / mappingKind / mappingSource (absent on graphs built before
+// those fields existed). EXACT and CLOSE are the COMPOSING relations: two elements sharing a hub
+// through them are 'equivalent' (EXACT x EXACT) or 'candidateEquivalent'. A BROAD or NARROW hop
+// makes the pair only 'related' — both elements narrower than one broad tuple are not the same
+// thing. Composing rows sort ahead of broad/narrow ones, so a LIMIT never drops them for those.
+//
+// Match edges no longer carry provenanceTier (TQ, 2026-10-04): mappingKind ('inferred' | 'authored'
+// | 'invalid-debug') replaces it, and is also how a debug judge's edges are recognised.
+
+const MATCH_EDGE_TYPE_LIST = ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH'];
+const COMPOSING_MATCH_EDGE_TYPE_LIST = ['EXACT_MATCH', 'CLOSE_MATCH'];
+const MATCH_EDGE_PATTERN = MATCH_EDGE_TYPE_LIST.join('|');
+
+const sharedHubDirectionOf = (nearMatchTypeExpression, farMatchTypeExpression) =>
+	`CASE WHEN ${nearMatchTypeExpression} = 'EXACT_MATCH' AND ${farMatchTypeExpression} = 'EXACT_MATCH' THEN 'equivalent'
+	      WHEN ${nearMatchTypeExpression} IN $composingMatchEdgeTypeList AND ${farMatchTypeExpression} IN $composingMatchEdgeTypeList THEN 'candidateEquivalent'
+	      ELSE 'related' END`;
+
+const JUDGMENT_FIELD_NAME_LIST = [
+	'mappingConfidence',
+	'mappingKind',
+	'mappingSource',
+	'viaMappingConfidence',
+	'viaMappingKind',
+	'viaMappingSource',
+];
+const JUDGMENT_CONFIDENCE_FIELD_NAME_LIST = ['mappingConfidence', 'viaMappingConfidence'];
+
+// =====================================================================
 // INSTANCE NODES (HAS_INSTANCE) — lane D, 2026-10-01
 // =====================================================================
 //
@@ -284,8 +317,8 @@ const findMappings = async (session, nameOrId) => {
 		CALL {
 			WITH n
 			// outgoing: this element resolves to its CEDS tuple (a HubReference), shown via
-			// its decomposed CEDS domain/property. EXACT_MATCH = authored, CLOSE_MATCH = inferred.
-			MATCH (n)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+			// its decomposed CEDS domain/property, under any of the four relations.
+			MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
@@ -295,10 +328,10 @@ const findMappings = async (session, nameOrId) => {
 			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.confidence AS confidence,
-			       m.provenanceTier AS provenanceTier, m.predicate AS matchPredicate,
-			       m.decisionAlgorithm AS decisionAlgorithm,
+			       m.predicate AS matchPredicate,
+			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaDecisionAlgorithm,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE n._id END AS fromElementId,
@@ -309,37 +342,35 @@ const findMappings = async (session, nameOrId) => {
 			UNION
 			WITH n
 			// shared-hub pair: another standard's element resolving to the SAME CEDS tuple.
-			// Conservativity: 'equivalent' ONLY when BOTH hops are authored (EXACT_MATCH x
-			// EXACT_MATCH); if either hop is inferred (CLOSE_MATCH) the pair is a hypothesis
-			// and is labeled 'candidateEquivalent'. Both hops' evidence is returned: the
+			// Conservativity: 'equivalent' ONLY when BOTH hops are EXACT_MATCH (two judgments of
+			// sameness); an EXACT/CLOSE pair with a CLOSE hop is a hypothesis, 'candidateEquivalent';
+			// any BROAD/NARROW hop makes it 'related' (sharedHubDirectionOf). Both hops' evidence is returned: the
 			// far element's edge in mappingType/confidence/matchPredicate, n's own edge in
 			// viaMatchType/viaConfidence/viaPredicate — never a fabricated combined score.
 			// A far INSTANCE is reported as its declaration, its instances grouped and counted.
-			MATCH (n)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+			MATCH (n)-[mNear:${MATCH_EDGE_PATTERN}]->(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(other:ForgedNode)
 			WHERE other <> n
 			WITH n, mNear, hub, m, other, ${declarationOf('other')} AS otherDeclaration
 			WITH n, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WHERE NOT (farElement)-[:HAS_INSTANCE]->(n)
 			WITH n, mNear, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
-			     type(m) AS farMatchType, m.confidence AS farConfidence, m.provenanceTier AS farProvenanceTier,
-			     m.predicate AS farPredicate, m.decisionAlgorithm AS farDecisionAlgorithm,
+			     type(m) AS farMatchType, m.confidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
 			     CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
-			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farProvenanceTier,
-			     farPredicate, farDecisionAlgorithm, collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
+			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource,
+			     collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN CASE WHEN type(mNear) = 'EXACT_MATCH' AND farMatchType = 'EXACT_MATCH'
-			            THEN 'equivalent' ELSE 'candidateEquivalent' END AS direction,
+			RETURN ${sharedHubDirectionOf('type(mNear)', 'farMatchType')} AS direction,
 			       farElement._source AS fromSource, farElement.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
-			       farProvenanceTier AS provenanceTier, farPredicate AS matchPredicate,
-			       farDecisionAlgorithm AS decisionAlgorithm,
+			       farPredicate AS matchPredicate,
+			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
 			       type(mNear) AS viaMatchType, mNear.confidence AS viaConfidence, mNear.predicate AS viaPredicate,
-			       mNear.decisionAlgorithm AS viaDecisionAlgorithm,
+			       mNear.mappingConfidence AS viaMappingConfidence, mNear.mappingKind AS viaMappingKind, mNear.mappingSource AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN farIsInstanced THEN farElement._id ELSE null END AS fromElementId,
@@ -352,14 +383,13 @@ const findMappings = async (session, nameOrId) => {
 			// incoming: when n is a CEDS leaf, the source elements that resolve to a tuple
 			// containing it. The hub decomposes like every other arm (no n.name stand-ins).
 			// A source INSTANCE is reported as its declaration, its instances grouped and counted.
-			MATCH (n)<-[:HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(src:ForgedNode)
+			MATCH (n)<-[:HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
 			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
 			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
-			     type(m) AS srcMatchType, m.confidence AS srcConfidence, m.provenanceTier AS srcProvenanceTier,
-			     m.predicate AS srcPredicate, m.decisionAlgorithm AS srcDecisionAlgorithm,
+			     type(m) AS srcMatchType, m.confidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource,
 			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
-			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcProvenanceTier,
-			     srcPredicate, srcDecisionAlgorithm, collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
+			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource,
+			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
@@ -368,10 +398,10 @@ const findMappings = async (session, nameOrId) => {
 			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       srcMatchType AS mappingType, srcConfidence AS confidence,
-			       srcProvenanceTier AS provenanceTier, srcPredicate AS matchPredicate,
-			       srcDecisionAlgorithm AS decisionAlgorithm,
+			       srcPredicate AS matchPredicate,
+			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaDecisionAlgorithm,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
@@ -384,11 +414,10 @@ const findMappings = async (session, nameOrId) => {
 			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
 			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
-			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
-			WITH n, hub, type(m) AS instMatchType, m.confidence AS instConfidence, m.provenanceTier AS instProvenanceTier,
-			     m.predicate AS instPredicate, m.decisionAlgorithm AS instDecisionAlgorithm,
+			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
+			WITH n, hub, type(m) AS instMatchType, m.confidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource,
 			     ${instanceGroupOf('instanceNode')} AS instGroupName
-			WITH n, hub, instMatchType, instConfidence, instProvenanceTier, instPredicate, instDecisionAlgorithm,
+			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource,
 			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
@@ -398,10 +427,10 @@ const findMappings = async (session, nameOrId) => {
 			RETURN 'outgoingViaInstance' AS direction, n._source AS fromSource, n.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       instMatchType AS mappingType, instConfidence AS confidence,
-			       instProvenanceTier AS provenanceTier, instPredicate AS matchPredicate,
-			       instDecisionAlgorithm AS decisionAlgorithm,
+			       instPredicate AS matchPredicate,
+			       instMappingConfidence AS mappingConfidence, instMappingKind AS mappingKind, instMappingSource AS mappingSource,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaDecisionAlgorithm,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       n._id AS fromElementId,
@@ -413,19 +442,18 @@ const findMappings = async (session, nameOrId) => {
 			// The near hop is the instance's edge (viaMatchType/viaConfidence/viaPredicate, with
 			// viaInstanceGroupList/viaInstanceCount naming which of n's instances carry it); a far
 			// instance is reported as its declaration with instanceGroupList/instanceCount.
-			MATCH (n)-[:HAS_INSTANCE]->(nearInstance:ForgedNode)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+			MATCH (n)-[:HAS_INSTANCE]->(nearInstance:ForgedNode)-[mNear:${MATCH_EDGE_PATTERN}]->(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(other:ForgedNode)
 			WHERE other <> n AND NOT (n)-[:HAS_INSTANCE]->(other)
 			WITH n, nearInstance, mNear, hub, m, other, ${declarationOf('other')} AS otherDeclaration
 			WITH n, nearInstance, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WITH n, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
 			     type(mNear) AS nearMatchType, mNear.confidence AS nearConfidence, mNear.predicate AS nearPredicate,
-			     mNear.decisionAlgorithm AS nearDecisionAlgorithm,
-			     type(m) AS farMatchType, m.confidence AS farConfidence, m.provenanceTier AS farProvenanceTier,
-			     m.predicate AS farPredicate, m.decisionAlgorithm AS farDecisionAlgorithm,
+			     mNear.mappingConfidence AS nearMappingConfidence, mNear.mappingKind AS nearMappingKind, mNear.mappingSource AS nearMappingSource,
+			     type(m) AS farMatchType, m.confidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
 			     nearInstance, ${instanceGroupOf('nearInstance')} AS nearGroupName,
 			     other, CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
-			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearDecisionAlgorithm,
-			     farMatchType, farConfidence, farProvenanceTier, farPredicate, farDecisionAlgorithm,
+			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearMappingConfidence, nearMappingKind, nearMappingSource,
+			     farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource,
 			     collect(DISTINCT nearGroupName) AS nearGroupList, count(DISTINCT nearInstance) AS nearInstanceCount,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(DISTINCT other) AS farInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
@@ -433,15 +461,14 @@ const findMappings = async (session, nameOrId) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN CASE WHEN nearMatchType = 'EXACT_MATCH' AND farMatchType = 'EXACT_MATCH'
-			            THEN 'equivalent' ELSE 'candidateEquivalent' END AS direction,
+			RETURN ${sharedHubDirectionOf('nearMatchType', 'farMatchType')} AS direction,
 			       farElement._source AS fromSource, farElement.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
-			       farProvenanceTier AS provenanceTier, farPredicate AS matchPredicate,
-			       farDecisionAlgorithm AS decisionAlgorithm,
+			       farPredicate AS matchPredicate,
+			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
 			       nearMatchType AS viaMatchType, nearConfidence AS viaConfidence, nearPredicate AS viaPredicate,
-			       nearDecisionAlgorithm AS viaDecisionAlgorithm,
+			       nearMappingConfidence AS viaMappingConfidence, nearMappingKind AS viaMappingKind, nearMappingSource AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       farElement._id AS fromElementId,
@@ -451,13 +478,17 @@ const findMappings = async (session, nameOrId) => {
 			       nearGroupList AS viaInstanceGroupList, nearInstanceCount AS viaInstanceCount
 		}
 		RETURN direction, fromSource, fromName, toSource, toName, toId,
-		       mappingType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
-		       viaMatchType, viaConfidence, viaPredicate, viaDecisionAlgorithm, cedsDomain, cedsProperty,
+		       mappingType, confidence, matchPredicate,
+		       mappingConfidence, mappingKind, mappingSource,
+		       viaMatchType, viaConfidence, viaPredicate,
+		       viaMappingConfidence, viaMappingKind, viaMappingSource, cedsDomain, cedsProperty,
 		       cedsRange, cedsValue, cedsQualifier,
 		       fromElementId, instanceOf, instanceGroupList, instanceCount, viaInstanceGroupList, viaInstanceCount
-		ORDER BY confidence DESC
+		ORDER BY CASE WHEN mappingType IN $composingMatchEdgeTypeList
+		                   AND (viaMatchType IS NULL OR viaMatchType IN $composingMatchEdgeTypeList) THEN 0 ELSE 1 END,
+		         confidence DESC
 		LIMIT 30
-	`, { name: nameOrId });
+	`, { name: nameOrId, composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST });
 
 	return result.records.map(rec => {
 		// cedsTuple: the CEDS anchor rendered as its full tuple (domain · property · range [· value]),
@@ -472,20 +503,10 @@ const findMappings = async (session, nameOrId) => {
 			toId: rec.get('toId'),
 			mappingType: rec.get('mappingType'),
 			confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
-			provenanceTier: rec.get('provenanceTier'),
-			// ⟪skipAI, 2026-08-10⟫ decisionAlgorithm — present ONLY when a DEBUG JUDGE produced this
-			// edge (--useDebugJudge), value 'INVALID_DEBUG'. It was on every such edge already but was
-			// NOT projected here, so a caller reading mappings normally saw confident nonsense with no
-			// warning: tqii asked askMilo point-blank about contamination and got a clean bill, because
-			// the flag is a PROPERTY VALUE and it had asked about relationship LABELS. A flag nothing
-			// reads is documentation, not detection. Emitted for BOTH hops — either can be contaminated
-			// independently of the other.
-			decisionAlgorithm: rec.get('decisionAlgorithm'),
 			matchPredicate: rec.get('matchPredicate'),
 			viaMatchType: rec.get('viaMatchType'),
 			viaConfidence: rec.get('viaConfidence') != null ? Number(rec.get('viaConfidence')) : null,
 			viaPredicate: rec.get('viaPredicate'),
-			viaDecisionAlgorithm: rec.get('viaDecisionAlgorithm'),
 			cedsDomain: rec.get('cedsDomain'),
 			cedsProperty: rec.get('cedsProperty'),
 			cedsRange: rec.get('cedsRange'),
@@ -493,6 +514,16 @@ const findMappings = async (session, nameOrId) => {
 			cedsQualifier: rec.get('cedsQualifier'),
 			cedsTuple: tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null,
 		};
+		// The judgment fields are always present (null on a graph that predates them). mappingKind is
+		// also the DEBUG flag: 'invalid-debug' marks an edge a debug judge produced mechanically, so it
+		// is emitted for BOTH hops on every row — a flag nothing reads is documentation, not detection
+		// (tqii, 2026-08-10; moved here from provenanceTier/decisionAlgorithm, TQ 2026-10-04).
+		JUDGMENT_FIELD_NAME_LIST.forEach(judgmentFieldName => {
+			const judgmentFieldValue = rec.get(judgmentFieldName);
+			mappingRow[judgmentFieldName] = judgmentFieldValue !== null && JUDGMENT_CONFIDENCE_FIELD_NAME_LIST.includes(judgmentFieldName)
+				? Number(judgmentFieldValue)
+				: judgmentFieldValue;
+		});
 		INSTANCE_FIELD_NAME_LIST.forEach(instanceFieldName => {
 			const instanceFieldValue = rec.get(instanceFieldName);
 			if (instanceFieldValue !== null) {
@@ -520,12 +551,13 @@ const compareCodesets = async (session, name) => {
 		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
 		WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> 'CEDS'
 		MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
-		OPTIONAL MATCH (v)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference {referenceTier: 'value'})
+		OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference {referenceTier: 'value'})
 		OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-		OPTIONAL MATCH (hub)<-[:EXACT_MATCH|CLOSE_MATCH]-(ov:ForgedNode)
+		OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
 		WHERE ov._source <> os._source
 		RETURN os._source AS sourceStandard, os.name AS optionSetName,
 		       v.name AS sourceValue, type(m) AS matchType, m.confidence AS confidence,
+		       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
 		       cv.name AS cedsValue, hub.canonicalKey AS cedsValueKey,
 		       collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
 		ORDER BY os._source, os.name, v.name
@@ -538,6 +570,9 @@ const compareCodesets = async (session, name) => {
 		sourceValue: rec.get('sourceValue'),
 		matchType: rec.get('matchType'),
 		confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
+		...(rec.get('mappingConfidence') !== null ? { mappingConfidence: Number(rec.get('mappingConfidence')) } : {}),
+		...(rec.get('mappingKind') !== null ? { mappingKind: rec.get('mappingKind') } : {}),
+		...(rec.get('mappingSource') !== null ? { mappingSource: rec.get('mappingSource') } : {}),
 		cedsValue: rec.get('cedsValue'),
 		cedsValueKey: rec.get('cedsValueKey'),
 		crossStandardEquivalents: rec.get('crossStandardEquivalents').filter(s => s && !s.startsWith('null')),
@@ -551,9 +586,9 @@ const unmappedFields = async (session, params) => {
 	const result = await session.run(`
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WHERE ($standard IS NULL OR f._source = $standard)
-		  AND NOT (f)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		  AND NOT (f)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
 		  // a SIF Question / PESC element is mapped when any of its HAS_INSTANCE instances is
-		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
 		RETURN f._source AS standard, f.name AS fieldName, f.path AS path,
 		       f.description AS description
 		ORDER BY f._source, f.name
@@ -595,9 +630,9 @@ const getStats = async (session) => {
 	// Cross-standard mapping edge counts
 	const mappingResult = await session.run(`
 		MATCH ()-[r]->()
-		WHERE type(r) IN ['EXACT_MATCH', 'CLOSE_MATCH']
+		WHERE type(r) IN $matchEdgeTypeList
 		RETURN type(r) AS relType, count(r) AS count
-	`);
+	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST });
 	const mappings = {};
 	for (const rec of mappingResult.records) {
 		mappings[rec.get('relType')] = toNumber(rec.get('count'));
@@ -608,8 +643,8 @@ const getStats = async (session) => {
 	const coverageResult = await session.run(`
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WITH count(f) AS totalProperties,
-		     count(CASE WHEN (f)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
-		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:EXACT_MATCH|CLOSE_MATCH]->(:HubReference)
+		     count(CASE WHEN (f)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
+		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
 		                THEN 1 END) AS mappedProperties
 		RETURN totalProperties, mappedProperties
 	`);

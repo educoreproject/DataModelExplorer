@@ -5,14 +5,17 @@
 // No fulltext index exists in the forge graph.
 // Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
 //   DmeOptionValue, DmeSupport, DmeStandardRoot) and _source (CEDS/EdFi/LIF/…).
-// Cross-standard equivalence: elements resolve to CEDS tuples (:HubReference) via
-//   EXACT_MATCH (authored) / CLOSE_MATCH (inferred). Two elements sharing a hub are
-//   equivalent ONLY when both hops are EXACT_MATCH; any CLOSE_MATCH hop makes the
-//   pair a candidateEquivalent (conservativity). SPECIFIED_MAPPING/IMPLIED_MAPPING
-//   are retired — zero such edges exist on the pure graph.
+// Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
+//   match edges, one per SKOS relation (EXACT/CLOSE/BROAD/NARROW_MATCH). Every one is a
+//   judgment carrying mappingConfidence/mappingKind/mappingSource; none is authored fact.
+//   mappingKind 'invalid-debug' marks a debug judge's edge (match edges carry no provenanceTier).
+//   Two elements sharing a hub are 'equivalent' ONLY when both hops are EXACT_MATCH; an
+//   EXACT/CLOSE pair with a CLOSE hop is a candidateEquivalent; any BROAD/NARROW hop makes
+//   the pair 'related', never equivalent. EXACT/CLOSE entries sort ahead of BROAD/NARROW
+//   so the list caps never drop them. SPECIFIED_MAPPING/IMPLIED_MAPPING are retired.
 // Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
 //   SUBCLASS_OF, REFERENCES; SIF/PESC add HAS_INSTANCE, HAS_FIELD, HAS_CHILD (see instanceView).
-// Updated: 2026-07-01 (equivalence-model rewrite + runtime index discovery)
+// Updated: 2026-10-04 (four SKOS relations + judgment fields; was 2026-07-01 equivalence-model rewrite)
 // Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
 
 // === Search preamble: single unified vector query over the discovered index ===
@@ -86,33 +89,40 @@ CALL {
   RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role })[..10] AS referencedBy
 }
 
-// CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference).
-// EXACT_MATCH = authored, CLOSE_MATCH = inferred.
+// CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference),
+// each a judgment (relation + mappingConfidence + mappingSource).
 CALL {
   WITH node
-  OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+  OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
+  WITH m, hub ORDER BY CASE WHEN type(m) IN ['EXACT_MATCH', 'CLOSE_MATCH'] THEN 0 ELSE 1 END
   RETURN collect({
     toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
     mappingType: type(m), confidence: m.confidence,
-    provenanceTier: m.provenanceTier, matchPredicate: m.predicate
+    matchPredicate: m.predicate,
+    mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource
   })[..20] AS mappingsOutgoing
 }
 
-// Cross-standard equivalents (shared hub) — other standards' elements resolving to
-// the SAME CEDS tuple. equivalence = 'equivalent' ONLY for EXACT×EXACT; any
-// CLOSE_MATCH hop = 'candidateEquivalent' (a hypothesis, not an assertion). Both
-// hops' evidence is carried — never a fabricated combined score.
+// Cross-standard pairs (shared hub) — other standards' elements resolving to the SAME
+// CEDS tuple. equivalence = 'equivalent' ONLY for EXACT×EXACT (two judgments); an
+// EXACT/CLOSE pair with a CLOSE hop = 'candidateEquivalent'; any BROAD/NARROW hop =
+// 'related' (never equivalent). Both hops' evidence is carried — never a combined score.
 CALL {
   WITH node
-  OPTIONAL MATCH (node)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+  OPTIONAL MATCH (node)-[mNear:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(other:ForgedNode)
   WHERE other <> node
+  WITH mNear, hub, mFar, other
+  ORDER BY CASE WHEN type(mNear) IN ['EXACT_MATCH', 'CLOSE_MATCH'] AND type(mFar) IN ['EXACT_MATCH', 'CLOSE_MATCH'] THEN 0 ELSE 1 END
   RETURN collect({
     otherSource: other._source, otherName: other.name, otherId: other._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
-    equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH'
-                      THEN 'equivalent' ELSE 'candidateEquivalent' END,
+    equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalent'
+                      WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] OR type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN 'related'
+                      ELSE 'candidateEquivalent' END,
     nearMatchType: type(mNear), nearConfidence: mNear.confidence, nearPredicate: mNear.predicate,
-    farMatchType: type(mFar), farConfidence: mFar.confidence, farPredicate: mFar.predicate
+    farMatchType: type(mFar), farConfidence: mFar.confidence, farPredicate: mFar.predicate,
+    nearMappingConfidence: mNear.mappingConfidence, nearMappingKind: mNear.mappingKind, nearMappingSource: mNear.mappingSource,
+    farMappingConfidence: mFar.mappingConfidence, farMappingKind: mFar.mappingKind, farMappingSource: mFar.mappingSource
   })[..20] AS crossStandardEquivalents
 }
 
@@ -120,12 +130,14 @@ CALL {
 // standards' elements whose tuple contains it.
 CALL {
   WITH node
-  OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH]-(src:ForgedNode)
+  OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(src:ForgedNode)
+  WITH hub, m, src ORDER BY CASE WHEN type(m) IN ['EXACT_MATCH', 'CLOSE_MATCH'] THEN 0 ELSE 1 END
   RETURN collect({
     fromSource: src._source, fromName: src.name, fromId: src._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
     mappingType: type(m), confidence: m.confidence,
-    provenanceTier: m.provenanceTier, matchPredicate: m.predicate
+    matchPredicate: m.predicate,
+    mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource
   })[..20] AS mappingsIncoming
 }
 
@@ -149,18 +161,22 @@ CALL {
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
-  WITH hub, type(m) AS matchType, m.confidence AS confidence, m.provenanceTier AS provenanceTier,
-       m.predicate AS matchPredicate, m.decisionAlgorithm AS decisionAlgorithm,
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
+  WITH hub, type(m) AS matchType, m.confidence AS confidence, m.predicate AS matchPredicate,
+       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
        coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName,
        inst
-  WITH hub, matchType, confidence, provenanceTier, matchPredicate, decisionAlgorithm,
+  WITH hub, matchType, confidence, matchPredicate,
+       mappingConfidence, mappingKind, mappingSource,
        collect(DISTINCT instGroupName) AS instanceGroupList, count(inst) AS instanceCount
   WHERE hub IS NOT NULL
+  WITH hub, matchType, confidence, matchPredicate,
+       mappingConfidence, mappingKind, mappingSource, instanceGroupList, instanceCount
+  ORDER BY CASE WHEN matchType IN ['EXACT_MATCH', 'CLOSE_MATCH'] THEN 0 ELSE 1 END
   RETURN collect({
     toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
-    mappingType: matchType, confidence: confidence, provenanceTier: provenanceTier,
-    matchPredicate: matchPredicate, decisionAlgorithm: decisionAlgorithm,
+    mappingType: matchType, confidence: confidence, matchPredicate: matchPredicate,
+    mappingConfidence: mappingConfidence, mappingKind: mappingKind, mappingSource: mappingSource,
     instanceGroupList: instanceGroupList[..25], instanceGroupCount: size(instanceGroupList), instanceCount: instanceCount
   })[..20] AS mappingsViaInstances
 }
