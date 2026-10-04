@@ -66,6 +66,35 @@ const INFRASTRUCTURE_LABELS = new Set([
 // Limit per-label property listing to keep schema response compact.
 const MAX_PROPERTIES_DISPLAYED = 8;
 
+// The four SKOS mapping relations a match edge can assert, one edge type each. The
+// guidance prose and the live property listing both read this list.
+const MATCH_RELATION_LIST = [
+	{
+		edgeType: 'EXACT_MATCH',
+		skosPredicate: 'exactMatch',
+		assertion: 'the element and the CEDS tuple mean the same thing',
+	},
+	{
+		edgeType: 'CLOSE_MATCH',
+		skosPredicate: 'closeMatch',
+		assertion: 'near enough to stand in for each other in some contexts, but not interchangeable',
+	},
+	{
+		edgeType: 'BROAD_MATCH',
+		skosPredicate: 'broadMatch',
+		assertion: 'the CEDS tuple is BROADER than the element',
+	},
+	{
+		edgeType: 'NARROW_MATCH',
+		skosPredicate: 'narrowMatch',
+		assertion: 'the CEDS tuple is NARROWER than the element',
+	},
+];
+
+const MATCH_EDGE_TYPE_ALTERNATION = MATCH_RELATION_LIST.map(
+	(matchRelation) => matchRelation.edgeType,
+).join('|');
+
 // ----------------------------------------------------------------------------
 // Group labels by detected standard prefix.
 
@@ -99,7 +128,12 @@ const groupLabels = (labels) => {
 // ----------------------------------------------------------------------------
 // Render the assembled schema as markdown.
 
-const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
+const renderSchema = ({
+	labels,
+	relationshipTypes,
+	propertiesByLabel,
+	propertiesByRelationshipType,
+}) => {
 	const { grouped, infrastructure, other } = groupLabels(labels);
 
 	const formatLabelLine = (label) => {
@@ -117,7 +151,7 @@ const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
 	lines.push('# EDUcore Education Standards Knowledge Graph Schema');
 	lines.push('');
 	lines.push(
-		'A forge property graph of education data standards on a universal contract: every node carries the :ForgedNode super-label plus a role and a _source. Cross-standard meaning is anchored on CEDS: elements resolve to CEDS tuples (:HubReference) via EXACT_MATCH (authored) and CLOSE_MATCH (inferred) edges; two elements sharing a hub are equivalent only when both hops are EXACT_MATCH, otherwise the pair is a candidate. (SPECIFIED_MAPPING/IMPLIED_MAPPING are retired — zero such edges exist.) The exact standards inventory is whatever the live introspection below reports — it grows as new standards are forged in.',
+		'A forge property graph of education data standards on a universal contract: every node carries the :ForgedNode super-label plus a role and a _source. Cross-standard meaning is anchored on CEDS: elements resolve to CEDS tuples (:HubReference) through four match edges, one per SKOS mapping relation (EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH, NARROW_MATCH). Every match edge is a judgment carrying its own confidence and source, never an established fact; see Cross-Standard Relationships below. (SPECIFIED_MAPPING/IMPLIED_MAPPING are retired — zero such edges exist.) The exact standards inventory is whatever the live introspection below reports — it grows as new standards are forged in.',
 	);
 	lines.push('');
 
@@ -149,6 +183,25 @@ const renderSchema = ({ labels, relationshipTypes, propertiesByLabel }) => {
 	relationshipTypes.forEach((rt) => lines.push(`- ${rt}`));
 	lines.push('');
 
+	// The match-edge property list is read from the live graph, never written from memory:
+	// prose about edge properties went stale once (rerankScore/cosineScore/owner, none of
+	// which a judged edge carries).
+	const liveMatchRelationList = MATCH_RELATION_LIST.filter((matchRelation) =>
+		relationshipTypes.includes(matchRelation.edgeType),
+	);
+	if (liveMatchRelationList.length > 0) {
+		lines.push('## Match Edge Properties (live)');
+		lines.push('');
+		liveMatchRelationList.forEach((matchRelation) => {
+			const edgePropertyList =
+				propertiesByRelationshipType[matchRelation.edgeType] || [];
+			lines.push(
+				`- **${matchRelation.edgeType}** — ${edgePropertyList.slice().sort().join(', ')}`,
+			);
+		});
+		lines.push('');
+	}
+
 	lines.push(CURATED_GUIDANCE);
 
 	return lines.join('\n');
@@ -162,7 +215,7 @@ const CURATED_GUIDANCE = `## The Universal Forge Contract
 
 Every node in the graph carries a uniform contract:
 
-- **Super-label** \`:ForgedNode\` (plus \`:golden\`) on every node.
+- **Super-label** \`:ForgedNode\` on every node.
 - **\`role\` property** — one of DmeClass, DmeProperty, DmeOptionSet, DmeOptionValue, DmeSupport, DmeStandardRoot. The role tells you what a node IS, independent of which standard it came from.
 - **\`_source\` property** — the standard the node belongs to (e.g. CEDS, LIF, SIF). The inventory grows as standards are forged in; never assume a fixed list.
 - **Native labels are retained** — a node may also carry its standard-specific label (CedsProperty, SifField, LifProperty, …) alongside :ForgedNode. Prefer matching on \`:ForgedNode\` + \`role\` + \`_source\` for portable queries.
@@ -170,14 +223,32 @@ Every node in the graph carries a uniform contract:
 
 ## Cross-Standard Relationships
 
-Cross-standard meaning is anchored on CEDS. A source element connects to a **HubReference** — the canonical CEDS *tuple* (domain + property + range [+ value]), keyed by \`canonicalKey\` (the CEDS Global ID) — by one of two edge types:
+Cross-standard meaning is anchored on CEDS. A source element connects to a **HubReference** — the canonical CEDS *tuple* (domain + property + range [+ value]), keyed by \`canonicalKey\` (the CEDS Global ID) — by one of four match edges, one per SKOS mapping relation. The edge type and its \`predicate\` property name the relation:
 
-- **EXACT_MATCH** — authored crosswalk. Deterministic/authoritative. Props: confidence (1.0), predicate ('exactMatch'), provenanceTier, mappingJustification, owner. Trust as fact.
-- **CLOSE_MATCH** — semantically inferred correspondence. Props: confidence (0–1), predicate ('closeMatch'), rerankScore, cosineScore, provenanceTier, mappingJustification, owner. Treat as a scored hypothesis.
+${MATCH_RELATION_LIST.map(
+	(matchRelation) =>
+		`- **${matchRelation.edgeType}** (\`predicate\` '${matchRelation.skosPredicate}') — ${matchRelation.assertion}.`,
+).join('\n')}
 
-Two source elements are **equivalent** when they resolve to the SAME HubReference. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER — so a match reads back as an ordinary CEDS property/value target.
+### Every match edge is a judgment
 
-Match edges originate from DmeProperty (and DmeOptionSet/DmeOptionValue) source nodes and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at CEDS leaf nodes, are retired in the equivalence graph.)
+No match edge is a fact. Each records a decision and says who made it and how sure it was:
+
+- **\`mappingKind\`** — how the mapping came to exist. \`inferred\`: a mapping judge decided it (today an LLM judge choosing among CEDS candidates retrieved for the element). An authored mapping (a published crosswalk, or a standard's own declaration) would carry its own kind; read the value, never assume one.
+- **\`mappingSource\`** — who decided: \`bridge-<judgeName>\` for a judged edge (e.g. \`bridge-jev\`), \`crosswalk-<crosswalkName>\` for an authored crosswalk.
+- **\`mappingConfidence\`** — the decider's confidence, 0–1. Current builds use three bands: 0.9 strong, 0.7 moderate, 0.5 weak but real. (Graphs built before these three fields carry the same number only as \`confidence\`.)
+
+**Relation and confidence are independent axes.** The relation says WHAT correspondence is asserted; the confidence says HOW SURE the decider is of it. An EXACT_MATCH at 0.5 is a weakly held claim of sameness; a NARROW_MATCH at 0.9 is a firmly held claim that CEDS is narrower. Never read EXACT_MATCH as "more certain", a high confidence as "more exact", or any match edge as authoritative. Present every mapping as the judgment it is, with its relation, confidence and source.
+
+The other match-edge properties record the decision's trail: \`mappingTool\` / \`mappingToolVersion\` (the exact judge build and evidence renderer), \`mappingJustification\` (SSSOM/SEMAPV; \`semapv:CompositeMatching\` = a judge chose among candidates), \`decisionBlockHash\` (the frozen decision record it was replayed from), \`attestationChannelList\` (how the candidates were retrieved). An edge with \`provenanceTier\` 'invalid-debug' was made by the DEBUG judge: a mechanical placeholder, not a judgment at all. The full live property list is in Match Edge Properties above.
+
+### Reading two elements through one hub
+
+Two source elements that resolve to the SAME HubReference are related through CEDS, and the relation between them is only as good as both hops. When BOTH hops are EXACT_MATCH the pair is an equivalence composed from two judgments; report both hops' relation and confidence and never combine them into one number. A pair with a CLOSE_MATCH hop is a candidate, weaker still. BROAD_MATCH and NARROW_MATCH never compose to equivalence: two elements can both be narrower than one broad CEDS tuple without being the same thing.
+
+A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER — so a match reads back as an ordinary CEDS property/value target.
+
+Match edges originate from source-standard elements (DmeProperty; in SIF and PESC, the DmeSupport instances described below; DmeOptionSet/DmeOptionValue where a build judges codesets) and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at CEDS leaf nodes, are retired in the equivalence graph.)
 
 ## Node Structural Categories (by role)
 
@@ -196,12 +267,12 @@ SIF and PESC add three more: **HAS_INSTANCE** (an element stands for each of its
 
 ## Instance Nodes Carry the Mappings (SIF, PESC)
 
-In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** EXACT_MATCH/CLOSE_MATCH edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeSupport nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
+In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** match edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeSupport nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
 
 ## Conventions
 
 - **Match on the contract**, not native labels: \`(:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})\`.
-- **Every searchable node has a vector embedding** in the \`embedding\` property. There is ONE vector index, \`golden_vector\`, on \`:ForgedNode(embedding)\` (COSINE, 1024-dim). There is NO fulltext index.
+- **Searchable nodes carry a vector embedding** in the \`embedding\` property, indexed by one vector index on \`:ForgedNode(embedding)\` (COSINE, 1024-dim). Its name varies by build: discover it with \`SHOW VECTOR INDEXES\`. A build may add a second, on \`:DmeEmbedText(textEmbedding)\`. There is NO fulltext index.
 - **Use parameterized queries** (\`$param\` syntax) for any user-supplied filter values.
 
 ## Example Cypher Patterns
@@ -215,22 +286,25 @@ ORDER BY source
 
 ### Cross-standard equivalents of an element (via the CEDS tuple)
 \`\`\`cypher
-MATCH (src:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+MATCH (src:ForgedNode)-[m:${MATCH_EDGE_TYPE_ALTERNATION}]->(hub:HubReference)
 WHERE toLower(src.name) CONTAINS toLower($name)
-MATCH (hub)<-[m2:EXACT_MATCH|CLOSE_MATCH]-(other:ForgedNode)
+MATCH (hub)<-[m2:${MATCH_EDGE_TYPE_ALTERNATION}]-(other:ForgedNode)
+WHERE other <> src
 RETURN src._source AS fromStandard, src.name AS fromElement,
+       type(m) AS fromRelation, m.mappingConfidence AS fromConfidence, m.mappingSource AS fromMappingSource,
        hub.name AS cedsConcept, hub.canonicalKey AS cedsId,
-       other._source AS equivalentStandard, other.name AS equivalentElement,
-       type(m2) AS matchType, m2.confidence AS confidence
+       other._source AS otherStandard, other.name AS otherElement,
+       type(m2) AS otherRelation, m2.mappingConfidence AS otherConfidence, m2.mappingSource AS otherMappingSource
 \`\`\`
 
 ### CEDS mappings of a SIF Question or PESC element (they live on its instances)
 \`\`\`cypher
-MATCH (decl:ForgedNode {role: 'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)
+MATCH (decl:ForgedNode {role: 'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:${MATCH_EDGE_TYPE_ALTERNATION}]->(hub:HubReference)
 WHERE toLower(decl.name) CONTAINS toLower($name)
 OPTIONAL MATCH (obj:ForgedNode)-[:HAS_FIELD]->(inst)
 RETURN decl._source AS standard, decl.name AS element,
-       hub.name AS cedsConcept, hub.canonicalKey AS cedsId, type(m) AS matchType, m.confidence AS confidence,
+       hub.name AS cedsConcept, hub.canonicalKey AS cedsId, type(m) AS relation,
+       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
        collect(DISTINCT coalesce(obj.name, inst.sectionPath)) AS instanceGroups, count(inst) AS instanceCount
 \`\`\`
 
@@ -248,17 +322,20 @@ OPTIONAL MATCH (c)-[:HAS_PROPERTY]->(p:ForgedNode {role: 'DmeProperty'})
 RETURN c.name AS class, collect(DISTINCT p.name) AS properties
 \`\`\`
 
-### Compare codesets across standards (equivalence model: shared CEDS value hubs)
+### Compare codesets across standards (shared CEDS value hubs; both hops are judgments)
 \`\`\`cypher
 MATCH (os:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
 WHERE toLower(os.name) CONTAINS toLower($name)
-MATCH (v)-[mNear:EXACT_MATCH|CLOSE_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH]-(tv:ForgedNode {role: 'DmeOptionValue'})
+MATCH (v)-[mNear:${MATCH_EDGE_TYPE_ALTERNATION}]->(hub:HubReference)<-[mFar:${MATCH_EDGE_TYPE_ALTERNATION}]-(tv:ForgedNode {role: 'DmeOptionValue'})
 WHERE tv._source <> v._source
 RETURN os._source AS sourceStandard, os.name AS optionSet,
        v.name AS sourceValue, tv._source AS targetStandard, tv.name AS targetValue,
        hub.name AS cedsValue,
-       CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH'
-            THEN 'equivalent' ELSE 'candidateEquivalent' END AS equivalence
+       type(mNear) AS nearRelation, mNear.mappingConfidence AS nearConfidence,
+       type(mFar) AS farRelation, mFar.mappingConfidence AS farConfidence,
+       CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalentByTwoJudgments'
+            WHEN type(mNear) IN ['EXACT_MATCH', 'CLOSE_MATCH'] AND type(mFar) IN ['EXACT_MATCH', 'CLOSE_MATCH'] THEN 'candidateEquivalent'
+            ELSE 'relatedNotEquivalent' END AS equivalence
 \`\`\`
 `;
 
@@ -325,6 +402,33 @@ const moduleFunction = ({ neo4jDb }) => (callback) => {
 					propertiesByLabel[r.label] = r.properties;
 				});
 				next('', { ...args, propertiesByLabel });
+			},
+		);
+	});
+
+	taskList.push((args, next) => {
+		neo4jDb.runQuery(
+			`CALL db.schema.relTypeProperties()
+			   YIELD relType, propertyName
+			 RETURN relType, collect(DISTINCT propertyName) AS properties`,
+			{},
+			(err, records) => {
+				if (err) {
+					next(
+						`schema-provider: db.schema.relTypeProperties() failed: ${err}`,
+						args,
+					);
+					return;
+				}
+				// relType arrives quoted, e.g. ":`EXACT_MATCH`"; a type with no properties
+				// reports a null propertyName.
+				const propertiesByRelationshipType = {};
+				records.forEach((r) => {
+					const relationshipTypeName = r.relType.replace(/^:`|`$/g, '');
+					propertiesByRelationshipType[relationshipTypeName] =
+						r.properties.filter((propertyName) => propertyName !== null);
+				});
+				next('', { ...args, propertiesByRelationshipType });
 			},
 		);
 	});
