@@ -678,9 +678,11 @@ const unmappedFields = async (session, params) => {
 	const result = await session.run(`
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WHERE ($standard IS NULL OR f._source = $standard)
-		  AND NOT (f)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
+		  // ANY edge into a HubReference counts (only match edges point at hubs), so an element mapped by a
+		  // relation type this reader does not know is never reported as unmapped
+		  AND NOT (f)-->(:HubReference)
 		  // a SIF Question / PESC element is mapped when any of its HAS_INSTANCE instances is
-		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
+		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 		RETURN f._source AS standard, f.name AS fieldName, f.path AS path,
 		       f.description AS description
 		ORDER BY f._source, f.name
@@ -730,13 +732,25 @@ const getStats = async (session) => {
 		mappings[rec.get('relType')] = toNumber(rec.get('count'));
 	}
 
+	// Guard (VIOLET_VALLEY 2026-10-04): an edge into a HubReference of a type outside the four relations (e.g.
+	// a future RELATED_MATCH) is counted here rather than silently ignored; it is {} when there are none.
+	const otherMatchEdgeResult = await session.run(`
+		MATCH ()-[r]->(:HubReference)
+		WHERE NOT type(r) IN $matchEdgeTypeList
+		RETURN type(r) AS relType, count(r) AS count
+	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST });
+	mappings.otherMatchEdgeCountByType = {};
+	for (const rec of otherMatchEdgeResult.records) {
+		mappings.otherMatchEdgeCountByType[rec.get('relType')] = toNumber(rec.get('count'));
+	}
+
 	// Mapping coverage over DmeProperty nodes. A SIF Question / PESC element counts as mapped when
 	// its mapping lives on one of its HAS_INSTANCE instances (the bridges fan verdicts out there).
 	const coverageResult = await session.run(`
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WITH count(f) AS totalProperties,
-		     count(CASE WHEN (f)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
-		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(:HubReference)
+		     count(CASE WHEN (f)-->(:HubReference)
+		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 		                THEN 1 END) AS mappedProperties
 		RETURN totalProperties, mappedProperties
 	`);
