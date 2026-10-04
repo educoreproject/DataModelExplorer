@@ -75,7 +75,7 @@ const describeGraph = async (session, params = {}) => {
 		RETURN d { .version, .versionSource, .sourceFormat, .sourceUrl,
 			.description, .nodeCount, .propertyCount, .classCount, .optionSetCount, .optionValueCount,
 			.exactMappedProperties, .closeMappedProperties, .mappingEdgeCount,
-			.exactEdgeCount, .closeEdgeCount, .mappingDisposition,
+			.exactEdgeCount, .closeEdgeCount, .mappingDisposition, .mappingKindList, .mappingSourceList,
 			.subjectVersions, .objectVersions, .standardKind, .standardUsageTips,
 			source: coalesce(d.source, d.standardKey),
 			displayName: coalesce(d.displayName, d.standardName) } AS standard
@@ -158,6 +158,21 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 		}
 	}
 
+	// Graphs from 2026-10 carry mappingKindList / mappingSourceList (the distinct values on the standard's own
+	// match edges; empty for the hub). Older graphs carry mappingDisposition and EXACT/CLOSE counts instead; each
+	// vintage is shown as what it is, and a card with neither says so.
+	const describeStandardMappings = (oneStd) => {
+		if (Array.isArray(oneStd.mappingKindList) || Array.isArray(oneStd.mappingSourceList)) {
+			const kindText = (oneStd.mappingKindList || []).join(', ') || 'none';
+			const sourceText = (oneStd.mappingSourceList || []).join(', ') || 'none';
+			return `mapping kinds: ${kindText} · sources: ${sourceText}`;
+		}
+		if (oneStd.mappingDisposition) {
+			return `${oneStd.mappingDisposition} (older graph's disposition) · EXACT ${oneStd.exactEdgeCount ?? 0} / CLOSE ${oneStd.closeEdgeCount ?? 0}`;
+		}
+		return 'mappings unrecorded';
+	};
+
 	if (standards.length) {
 		lines.push(`Standards (${standards.length}):`);
 		standards.forEach((oneStd) => {
@@ -166,7 +181,7 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 				: 'version unrecorded';
 			lines.push(
 				`  ${String(oneStd.source ?? '?').padEnd(14)} ${version.padEnd(28)} ${String(oneStd.propertyCount ?? '?').padStart(6)} properties · ` +
-					`${oneStd.mappingDisposition || '?'} · EXACT ${oneStd.exactEdgeCount ?? 0} / CLOSE ${oneStd.closeEdgeCount ?? 0}`,
+					describeStandardMappings(oneStd),
 			);
 			// standardKind and standardUsageTips (lane Q, 2026-10-04): askMilo is told to read a standard's
 			// card before answering about it; a card without them says so rather than leaving a blank.
