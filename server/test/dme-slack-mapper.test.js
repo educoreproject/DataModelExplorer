@@ -155,7 +155,7 @@ const judgedCardText = mapper
 				source: 'PESC-CollegeTranscript-1.8.0',
 				hubTuples: [
 					{ mappingType: 'BROAD_MATCH', confidence: 0.9, mappingKind: 'inferred', mappingSource: 'bridge-jev', hubName: 'Birthdate', hubKey: 'P000033', cedsDomain: 'Person Birth', cedsProperty: 'Birthdate', cedsRange: 'date' },
-					{ mappingType: 'NARROW_MATCH', confidence: 0.5, mappingKind: 'invalid-debug', mappingSource: 'bridge-debug', hubName: 'Birth Place', hubKey: 'P000999', cedsProperty: 'Birth Place' },
+					{ mappingType: 'NARROW_MATCH', confidence: 0, mappingKind: 'inferred', mappingSource: 'bridge-debug', hubName: 'Birth Place', hubKey: 'P000999', cedsProperty: 'Birth Place' },
 				],
 				peers: [],
 			},
@@ -165,8 +165,8 @@ const judgedCardText = mapper
 	.join('\n');
 ok('a BROAD_MATCH tuple is labelled broad, not close', /P000033`? \(broad 90%/.test(judgedCardText), judgedCardText.split('\n').find((l) => l.includes('P000033')));
 ok('a NARROW_MATCH tuple is labelled narrow', /P000999`? \(narrow/.test(judgedCardText));
-ok('the card names who decided (mappingSource)', judgedCardText.includes('bridge-jev'));
-ok("a debug-judge tuple (mappingKind 'invalid-debug') is flagged as a placeholder", /DEBUG placeholder/.test(judgedCardText));
+ok('the card names who decided (mappingSource)', judgedCardText.includes('bridge-jev,') || judgedCardText.includes('bridge-jev)'));
+ok("a debug-judge tuple (mappingSource 'bridge-debug') is flagged as a placeholder", /DEBUG placeholder/.test(judgedCardText));
 
 // --------------------------------------------------------------------
 // live: fixture lookup + hostile terms as data

@@ -37,7 +37,7 @@ const MATCH_RELATION_WORD_BY_EDGE_TYPE = {
 	NARROW_MATCH: 'narrow',
 };
 const MATCH_EDGE_PATTERN = Object.keys(MATCH_RELATION_WORD_BY_EDGE_TYPE).join('|');
-const DEBUG_MAPPING_KIND = 'invalid-debug';
+const DEBUG_MAPPING_SOURCE = 'bridge-debug';
 const LOOKUP_SEARCH_LIMIT = 8;
 
 //START OF moduleFunction() ============================================================
@@ -198,7 +198,7 @@ const moduleFunction =
 						typeof tuple.confidence === 'number' ? ` ${Math.round(tuple.confidence * 100)}%` : '';
 					const sourceText = tuple.mappingSource ? `, ${tuple.mappingSource}` : '';
 					const debugText =
-						tuple.mappingKind === DEBUG_MAPPING_KIND ? ' ⚠ DEBUG placeholder, not a mapping' : '';
+						tuple.mappingSource === DEBUG_MAPPING_SOURCE ? ' ⚠ DEBUG placeholder, not a mapping' : '';
 					const tupleParts = [
 						tuple.cedsDomain,
 						tuple.cedsProperty,

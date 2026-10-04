@@ -8,7 +8,7 @@
 // Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
 //   match edges, one per SKOS relation (EXACT/CLOSE/BROAD/NARROW_MATCH). Every one is a
 //   judgment carrying mappingConfidence/mappingKind/mappingSource; none is authored fact.
-//   mappingKind 'invalid-debug' marks a debug judge's edge (match edges carry no provenanceTier).
+//   mappingSource 'bridge-debug' marks a debug judge's edge (match edges carry no provenanceTier).
 //   Two elements sharing a hub are 'equivalent' ONLY when both hops are EXACT_MATCH; an
 //   EXACT/CLOSE pair with a CLOSE hop is a candidateEquivalent; any BROAD/NARROW hop makes
 //   the pair 'related', never equivalent. EXACT/CLOSE entries sort ahead of BROAD/NARROW

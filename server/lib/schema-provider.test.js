@@ -102,8 +102,8 @@ schemaProvider({ neo4jDb: undefined })((absentDbError) => {
 		});
 
 		assert(
-			"Guidance names mappingKind 'invalid-debug' as the debug marker",
-			crossSection.includes('`invalid-debug`'),
+			"Guidance names mappingSource 'bridge-debug' as the debug marker",
+			crossSection.includes('`bridge-debug`') && !crossSection.includes('invalid-debug'),
 		);
 		assert(
 			'Guidance prose does not describe provenanceTier (match edges no longer carry it)',

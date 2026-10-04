@@ -242,8 +242,8 @@ const hybridSearch = async (session, query, config, params) => {
 // makes the pair only 'related' — both elements narrower than one broad tuple are not the same
 // thing. Composing rows sort ahead of broad/narrow ones, so a LIMIT never drops them for those.
 //
-// Match edges no longer carry provenanceTier (TQ, 2026-10-04): mappingKind ('inferred' | 'authored'
-// | 'invalid-debug') replaces it, and is also how a debug judge's edges are recognised.
+// Match edges no longer carry provenanceTier (TQ, 2026-10-04): mappingKind ('inferred' | 'authored')
+// replaces it, and a debug judge's edges are recognised by mappingSource 'bridge-debug'.
 
 const MATCH_EDGE_TYPE_LIST = ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH'];
 const COMPOSING_MATCH_EDGE_TYPE_LIST = ['EXACT_MATCH', 'CLOSE_MATCH'];
@@ -514,8 +514,8 @@ const findMappings = async (session, nameOrId) => {
 			cedsQualifier: rec.get('cedsQualifier'),
 			cedsTuple: tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null,
 		};
-		// The judgment fields are always present (null on a graph that predates them). mappingKind is
-		// also the DEBUG flag: 'invalid-debug' marks an edge a debug judge produced mechanically, so it
+		// The judgment fields are always present (null on a graph that predates them). mappingSource is
+		// also the DEBUG flag: 'bridge-debug' marks an edge a debug judge produced mechanically, so it
 		// is emitted for BOTH hops on every row — a flag nothing reads is documentation, not detection
 		// (tqii, 2026-08-10; moved here from provenanceTier/decisionAlgorithm, TQ 2026-10-04).
 		JUDGMENT_FIELD_NAME_LIST.forEach(judgmentFieldName => {
