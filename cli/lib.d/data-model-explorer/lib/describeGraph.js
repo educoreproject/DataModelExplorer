@@ -161,10 +161,15 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 	// Graphs from 2026-10 carry mappingKindList / mappingSourceList (the distinct values on the standard's own
 	// match edges; empty for the hub). Older graphs carry mappingDisposition and EXACT/CLOSE counts instead; each
 	// vintage is shown as what it is, and a card with neither says so.
+	// The loader stores a ONE-value list as a plain string (its pgToStored rule) and keeps empty lists as
+	// lists, so each field is read in either form (lane P, 2026-10-04).
+	const asValueList = (storedValue) => (Array.isArray(storedValue) ? storedValue : [storedValue]);
 	const describeStandardMappings = (oneStd) => {
-		if (Array.isArray(oneStd.mappingKindList) || Array.isArray(oneStd.mappingSourceList)) {
-			const kindText = (oneStd.mappingKindList || []).join(', ') || 'none';
-			const sourceText = (oneStd.mappingSourceList || []).join(', ') || 'none';
+		const hasKindField = oneStd.mappingKindList !== undefined && oneStd.mappingKindList !== null;
+		const hasSourceField = oneStd.mappingSourceList !== undefined && oneStd.mappingSourceList !== null;
+		if (hasKindField || hasSourceField) {
+			const kindText = hasKindField ? asValueList(oneStd.mappingKindList).join(', ') || 'none' : 'unrecorded';
+			const sourceText = hasSourceField ? asValueList(oneStd.mappingSourceList).join(', ') || 'none' : 'unrecorded';
 			return `mapping kinds: ${kindText} · sources: ${sourceText}`;
 		}
 		if (oneStd.mappingDisposition) {
