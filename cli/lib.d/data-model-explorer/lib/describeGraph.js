@@ -76,7 +76,7 @@ const describeGraph = async (session, params = {}) => {
 			.description, .nodeCount, .propertyCount, .classCount, .optionSetCount, .optionValueCount,
 			.exactMappedProperties, .closeMappedProperties, .mappingEdgeCount,
 			.exactEdgeCount, .closeEdgeCount, .mappingDisposition,
-			.subjectVersions, .objectVersions,
+			.subjectVersions, .objectVersions, .standardKind, .standardUsageTips,
 			source: coalesce(d.source, d.standardKey),
 			displayName: coalesce(d.displayName, d.standardName) } AS standard
 		ORDER BY coalesce(d.source, d.standardKey)
@@ -168,6 +168,9 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 				`  ${String(oneStd.source ?? '?').padEnd(14)} ${version.padEnd(28)} ${String(oneStd.propertyCount ?? '?').padStart(6)} properties · ` +
 					`${oneStd.mappingDisposition || '?'} · EXACT ${oneStd.exactEdgeCount ?? 0} / CLOSE ${oneStd.closeEdgeCount ?? 0}`,
 			);
+			// standardKind and standardUsageTips (lane Q, 2026-10-04): askMilo is told to read a standard's
+			// card before answering about it; a card without them says so rather than leaving a blank.
+			lines.push(`    kind: ${oneStd.standardKind || 'unrecorded'} · usage tips: ${oneStd.standardUsageTips ? oneStd.standardUsageTips : 'none'}`);
 		});
 	} else {
 		lines.push('Standards: (no StandardDefinition self-documentation on this graph)');
