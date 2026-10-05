@@ -11,7 +11,7 @@
 // Unknown cookie values silently fall through to the default, so a typo
 // cannot break the UI.
 
-import { backendProfiles } from '@/config/backendProfiles';
+import { backendProfiles, sameOriginProxyHosts } from '@/config/backendProfiles';
 
 export const COOKIE_NAME = 'educoreDevServer';
 
@@ -40,6 +40,21 @@ export const useBackendProfile = () => {
 				apiBase: backendProfiles[name].apiBase,
 			};
 		}
+	}
+
+	// Same-origin reverse proxy (e.g. dme.qbook.work): nginx routes /api and /ws to the
+	// local API server, so empty hosts make the browser use the page's own origin.
+	const onSameOriginProxy = typeof window !== 'undefined'
+		&& sameOriginProxyHosts.includes(window.location.hostname);
+
+	if (onSameOriginProxy) {
+		return {
+			source: 'sameOriginProxy',
+			name: window.location.hostname,
+			label: `Proxied local (${window.location.host})`,
+			wsHost: '',
+			apiBase: '',
+		};
 	}
 
 	// Cookieless safety default: a page served from localhost talks to the LOCAL
