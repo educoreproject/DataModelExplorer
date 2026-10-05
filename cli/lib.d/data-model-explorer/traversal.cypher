@@ -16,10 +16,16 @@
 //   then the rest fill in relation order; <list>TruncatedByRelation names what was left out,
 //   so no relation is ever silently dropped (ruling 2026-10-04). Fill entries are counted by a carried
 //   rowRelation, never by `entry IN list`: map equality with null values is null, so IN never matches.
+//   Within a relation, crossStandardEquivalents and mappingsIncoming share entries across STANDARDS first:
+//   round-robin by standard (standards ordered by their best confidence, then name), then by confidence,
+//   so one standard never crowds out the others (TQ, 2026-10-05: Birthdate showed no Ed-Fi entry);
+//   <list>TruncatedByRelationAndStandard names what was left out per relation and standard. The other
+//   two lists hold one standard's entries (the node's own), so there is nothing to share there.
 //   SPECIFIED/IMPLIED_MAPPING retired.
 // Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
 //   SUBCLASS_OF, REFERENCES; SIF/PESC add HAS_INSTANCE, HAS_FIELD, HAS_CHILD (see instanceView).
-// Updated: 2026-10-04 (four SKOS relations + judgment fields; was 2026-07-01 equivalence-model rewrite)
+// Updated: 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
+//   2026-07-01 equivalence-model rewrite)
 // Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
 
 // === Search preamble: single unified vector query over the discovered index ===
@@ -133,7 +139,7 @@ CALL {
   WITH mNear, hub, mFar, other, CASE WHEN mNear IS NULL THEN null WHEN type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mFar) WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mNear) WHEN type(mNear) = 'CLOSE_MATCH' OR type(mFar) = 'CLOSE_MATCH' THEN 'CLOSE_MATCH' ELSE 'EXACT_MATCH' END AS rowRelation
   WITH mNear, hub, mFar, other, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
   ORDER BY mFar.confidence DESC
-  WITH rowRelation, relationOrder, collect({
+  WITH rowRelation, relationOrder, other._source AS rowStandard, collect({
     otherSource: other._source, otherName: other.name, otherId: other._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
     equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalent'
@@ -143,20 +149,35 @@ CALL {
     farMatchType: type(mFar), farConfidence: mFar.confidence, farPredicate: mFar.predicate,
     nearMappingConfidence: mNear.mappingConfidence, nearMappingKind: mNear.mappingKind, nearMappingSource: mNear.mappingSource,
     farMappingConfidence: mFar.mappingConfidence, farMappingKind: mFar.mappingKind, farMappingSource: mFar.mappingSource
-  }) AS relationEntryList
+  }) AS standardEntryList
+  ORDER BY relationOrder, standardEntryList[0].farConfidence DESC, rowStandard
+  WITH rowRelation, relationOrder, collect({rowStandard: rowStandard, entryList: standardEntryList}) AS standardGroupList
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(longestSize = 0, standardGroup IN standardGroupList | CASE WHEN size(standardGroup.entryList) > longestSize THEN size(standardGroup.entryList) ELSE longestSize END) AS longestStandardListSize
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(interleavedPairList = [], roundIndex IN range(0, longestStandardListSize - 1) |
+              interleavedPairList + [standardGroup IN standardGroupList WHERE size(standardGroup.entryList) > roundIndex |
+                                     {rowStandard: standardGroup.rowStandard, entry: standardGroup.entryList[roundIndex]}]) AS relationPairList
   ORDER BY relationOrder
-  WITH collect({rowRelation: rowRelation, entryList: relationEntryList}) AS relationGroupList
+  WITH collect({rowRelation: rowRelation, pairList: relationPairList, standardGroupList: standardGroupList}) AS relationGroupList
   WITH relationGroupList,
-       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.entryList[..5]) AS guaranteedEntryList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.pairList[..5]) AS guaranteedPairList,
        reduce(keptList = [], relationGroup IN relationGroupList |
-              keptList + [leftoverEntry IN relationGroup.entryList[5..] | {rowRelation: relationGroup.rowRelation, entry: leftoverEntry}]) AS leftoverPairList
-  WITH relationGroupList, guaranteedEntryList, leftoverPairList[..(20 - size(guaranteedEntryList))] AS fillPairList
-  RETURN guaranteedEntryList + [fillPair IN fillPairList | fillPair.entry] AS crossStandardEquivalents,
+              keptList + [leftoverPair IN relationGroup.pairList[5..] | {rowRelation: relationGroup.rowRelation, rowStandard: leftoverPair.rowStandard, entry: leftoverPair.entry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedPairList, leftoverPairList[..(20 - size(guaranteedPairList))] AS fillPairList
+  RETURN [guaranteedPair IN guaranteedPairList | guaranteedPair.entry] + [fillPair IN fillPairList | fillPair.entry] AS crossStandardEquivalents,
          [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
             {relation: relationGroup.rowRelation,
-             truncatedCount: size(relationGroup.entryList) - size(relationGroup.entryList[..5])
+             truncatedCount: size(relationGroup.pairList) - size(relationGroup.pairList[..5])
                              - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
-          WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelation
+          WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelation,
+         [truncation IN reduce(standardTruncationList = [], relationGroup IN [presentGroup IN relationGroupList WHERE presentGroup.rowRelation IS NOT NULL] |
+              standardTruncationList + [standardGroup IN relationGroup.standardGroupList |
+                {relation: relationGroup.rowRelation, standard: standardGroup.rowStandard,
+                 truncatedCount: size(standardGroup.entryList)
+                                 - size([guaranteedPair IN relationGroup.pairList[..5] WHERE guaranteedPair.rowStandard = standardGroup.rowStandard])
+                                 - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation AND fillPair.rowStandard = standardGroup.rowStandard])}])
+          WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelationAndStandard
 }
 
 // Source elements resolving here (incoming) — when this node is a CEDS leaf, the
@@ -167,26 +188,41 @@ CALL {
   WITH hub, m, src, type(m) AS rowRelation
   WITH hub, m, src, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
   ORDER BY m.confidence DESC
-  WITH rowRelation, relationOrder, collect({
+  WITH rowRelation, relationOrder, src._source AS rowStandard, collect({
     fromSource: src._source, fromName: src.name, fromId: src._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
     mappingType: type(m), confidence: m.confidence,
     matchPredicate: m.predicate,
     mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource
-  }) AS relationEntryList
+  }) AS standardEntryList
+  ORDER BY relationOrder, standardEntryList[0].confidence DESC, rowStandard
+  WITH rowRelation, relationOrder, collect({rowStandard: rowStandard, entryList: standardEntryList}) AS standardGroupList
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(longestSize = 0, standardGroup IN standardGroupList | CASE WHEN size(standardGroup.entryList) > longestSize THEN size(standardGroup.entryList) ELSE longestSize END) AS longestStandardListSize
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(interleavedPairList = [], roundIndex IN range(0, longestStandardListSize - 1) |
+              interleavedPairList + [standardGroup IN standardGroupList WHERE size(standardGroup.entryList) > roundIndex |
+                                     {rowStandard: standardGroup.rowStandard, entry: standardGroup.entryList[roundIndex]}]) AS relationPairList
   ORDER BY relationOrder
-  WITH collect({rowRelation: rowRelation, entryList: relationEntryList}) AS relationGroupList
+  WITH collect({rowRelation: rowRelation, pairList: relationPairList, standardGroupList: standardGroupList}) AS relationGroupList
   WITH relationGroupList,
-       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.entryList[..5]) AS guaranteedEntryList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.pairList[..5]) AS guaranteedPairList,
        reduce(keptList = [], relationGroup IN relationGroupList |
-              keptList + [leftoverEntry IN relationGroup.entryList[5..] | {rowRelation: relationGroup.rowRelation, entry: leftoverEntry}]) AS leftoverPairList
-  WITH relationGroupList, guaranteedEntryList, leftoverPairList[..(20 - size(guaranteedEntryList))] AS fillPairList
-  RETURN guaranteedEntryList + [fillPair IN fillPairList | fillPair.entry] AS mappingsIncoming,
+              keptList + [leftoverPair IN relationGroup.pairList[5..] | {rowRelation: relationGroup.rowRelation, rowStandard: leftoverPair.rowStandard, entry: leftoverPair.entry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedPairList, leftoverPairList[..(20 - size(guaranteedPairList))] AS fillPairList
+  RETURN [guaranteedPair IN guaranteedPairList | guaranteedPair.entry] + [fillPair IN fillPairList | fillPair.entry] AS mappingsIncoming,
          [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
             {relation: relationGroup.rowRelation,
-             truncatedCount: size(relationGroup.entryList) - size(relationGroup.entryList[..5])
+             truncatedCount: size(relationGroup.pairList) - size(relationGroup.pairList[..5])
                              - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
-          WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelation
+          WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelation,
+         [truncation IN reduce(standardTruncationList = [], relationGroup IN [presentGroup IN relationGroupList WHERE presentGroup.rowRelation IS NOT NULL] |
+              standardTruncationList + [standardGroup IN relationGroup.standardGroupList |
+                {relation: relationGroup.rowRelation, standard: standardGroup.rowStandard,
+                 truncatedCount: size(standardGroup.entryList)
+                                 - size([guaranteedPair IN relationGroup.pairList[..5] WHERE guaranteedPair.rowStandard = standardGroup.rowStandard])
+                                 - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation AND fillPair.rowStandard = standardGroup.rowStandard])}])
+          WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelationAndStandard
 }
 
 // Instance view (lane D, 2026-10-01) — SIF and PESC put their CEDS mappings on INSTANCE nodes:
@@ -301,6 +337,8 @@ RETURN
   mappingsOutgoingTruncatedByRelation,
   crossStandardEquivalents,
   crossStandardEquivalentsTruncatedByRelation,
+  crossStandardEquivalentsTruncatedByRelationAndStandard,
   mappingsIncoming,
   mappingsIncomingTruncatedByRelation,
+  mappingsIncomingTruncatedByRelationAndStandard,
   instanceView

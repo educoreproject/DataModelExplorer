@@ -306,9 +306,10 @@ const sharedHubDirectionOf = (nearMatchTypeExpression, farMatchTypeExpression) =
 	      ELSE 'related' END`;
 
 // findMappings returns at most FIND_MAPPINGS_ROW_CAP rows. Each relation present first gets up to
-// FIND_MAPPINGS_ROWS_PER_RELATION of its best rows (TQ/VIOLET_VALLEY ruling 2026-10-04: never silently drop a
-// whole relation); the rest of the cap fills in composing-first, confidence order. truncatedRowCountByRelation
-// says how many rows of each relation were left out.
+// FIND_MAPPINGS_ROWS_PER_RELATION rows (TQ/VIOLET_VALLEY ruling 2026-10-04: never silently drop a whole
+// relation); the rest of the cap fills in composing-first, confidence order. Within a relation the rows are shared
+// across source standards (interleaveRowsByStandard, 2026-10-05). truncatedRowCountByRelation and
+// truncatedRowCountByRelationAndStandard say how many rows of each relation, and of each standard in it, were left out.
 const FIND_MAPPINGS_ROW_CAP = 30;
 const FIND_MAPPINGS_ROWS_PER_RELATION = Math.floor(FIND_MAPPINGS_ROW_CAP / MATCH_EDGE_TYPE_LIST.length);
 
@@ -323,32 +324,72 @@ const compareMappingRows = (rowA, rowB) => {
 	return rankA[0] - rankB[0] || rankA[1] - rankB[1];
 };
 
-const allocateMappingRowsByRelation = (rowListByRelation, totalRowCountByRelation) => {
-	const shownCountByRelation = {};
-	const guaranteedRowList = [];
-	const leftoverRowList = [];
+// Within one relation, rows are shared across SOURCE STANDARDS first (TQ, 2026-10-05: BirthDate's EXACT share was
+// filled by 0.9 SIF/PESC rows and Ed-Fi's 0.7 rows never showed): round-robin by standard — standards in order of
+// their best row, then by name — and within a standard by confidence. The relation's rows are then taken in that
+// order, both for its guaranteed share and for any fill it wins.
+const interleaveRowsByStandard = (rowListByStandard) => {
+	const standardNameList = Object.keys(rowListByStandard).sort((standardNameA, standardNameB) =>
+		compareMappingRows(rowListByStandard[standardNameA][0], rowListByStandard[standardNameB][0])
+			|| (standardNameA < standardNameB ? -1 : standardNameA > standardNameB ? 1 : 0));
+	const longestStandardRowCount = Math.max(0, ...standardNameList.map((standardName) => rowListByStandard[standardName].length));
+	const interleavedRowList = [];
+	for (let roundIndex = 0; roundIndex < longestStandardRowCount; roundIndex++) {
+		standardNameList.forEach((standardName) => {
+			const standardRow = rowListByStandard[standardName][roundIndex];
+			if (standardRow) interleavedRowList.push(standardRow);
+		});
+	}
+	return interleavedRowList;
+};
+
+// Each relation present gets up to FIND_MAPPINGS_ROWS_PER_RELATION rows; the rest of the cap is filled by merging the
+// relations' remaining rows, at each step taking the best-ranked head (composing first, then confidence; ties to the
+// earlier relation), so a relation's own standard order is never re-sorted away. Over sorted single-standard
+// relations this is exactly the stable sort it replaces.
+const allocateMappingRowsByRelation = (rowListByRelationAndStandard, totalRowCountByRelationAndStandard) => {
+	const shownRowList = [];
+	const leftoverRowListByRelation = {};
+	const shownCountByRelationAndStandard = {};
+	const takeRow = (edgeType, row) => {
+		shownRowList.push(row);
+		shownCountByRelationAndStandard[edgeType][row.fromSource] = (shownCountByRelationAndStandard[edgeType][row.fromSource] || 0) + 1;
+	};
 	MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
-		const relationRowList = rowListByRelation[edgeType] || [];
-		const guaranteedSlice = relationRowList.slice(0, FIND_MAPPINGS_ROWS_PER_RELATION);
-		guaranteedRowList.push(...guaranteedSlice);
-		leftoverRowList.push(...relationRowList.slice(FIND_MAPPINGS_ROWS_PER_RELATION));
-		shownCountByRelation[edgeType] = guaranteedSlice.length;
+		shownCountByRelationAndStandard[edgeType] = {};
+		const rowListByStandard = rowListByRelationAndStandard[edgeType] || {};
+		Object.keys(rowListByStandard).forEach((standardName) => rowListByStandard[standardName].sort(compareMappingRows));
+		const relationRowList = interleaveRowsByStandard(rowListByStandard);
+		relationRowList.slice(0, FIND_MAPPINGS_ROWS_PER_RELATION).forEach((row) => takeRow(edgeType, row));
+		leftoverRowListByRelation[edgeType] = relationRowList.slice(FIND_MAPPINGS_ROWS_PER_RELATION);
 	});
-	const fillRowList = leftoverRowList
-		.slice()
-		.sort(compareMappingRows)
-		.slice(0, Math.max(0, FIND_MAPPINGS_ROW_CAP - guaranteedRowList.length));
-	fillRowList.forEach((row) => {
-		const rowRelation = MATCH_EDGE_TYPE_LIST.find((edgeType) => (rowListByRelation[edgeType] || []).includes(row));
-		shownCountByRelation[rowRelation] += 1;
-	});
+	while (shownRowList.length < FIND_MAPPINGS_ROW_CAP) {
+		const headRelationList = MATCH_EDGE_TYPE_LIST.filter((edgeType) => leftoverRowListByRelation[edgeType].length > 0);
+		if (headRelationList.length === 0) break;
+		const bestRelation = headRelationList.reduce((bestEdgeType, edgeType) =>
+			compareMappingRows(leftoverRowListByRelation[edgeType][0], leftoverRowListByRelation[bestEdgeType][0]) < 0 ? edgeType : bestEdgeType);
+		takeRow(bestRelation, leftoverRowListByRelation[bestRelation].shift());
+	}
+
+	const totalRowCountByRelation = {};
 	const truncatedRowCountByRelation = {};
+	const truncatedRowCountByRelationAndStandard = {};
 	MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
-		truncatedRowCountByRelation[edgeType] = (totalRowCountByRelation[edgeType] || 0) - shownCountByRelation[edgeType];
+		const standardTotalByName = totalRowCountByRelationAndStandard[edgeType] || {};
+		truncatedRowCountByRelation[edgeType] = 0;
+		Object.keys(standardTotalByName).forEach((standardName) => {
+			const standardTruncatedCount = standardTotalByName[standardName] - (shownCountByRelationAndStandard[edgeType][standardName] || 0);
+			totalRowCountByRelation[edgeType] = (totalRowCountByRelation[edgeType] || 0) + standardTotalByName[standardName];
+			truncatedRowCountByRelation[edgeType] += standardTruncatedCount;
+			truncatedRowCountByRelationAndStandard[edgeType] = truncatedRowCountByRelationAndStandard[edgeType] || {};
+			truncatedRowCountByRelationAndStandard[edgeType][standardName] = standardTruncatedCount;
+		});
 	});
 	return {
-		shownRowList: guaranteedRowList.concat(fillRowList).sort(compareMappingRows),
+		shownRowList: shownRowList.sort(compareMappingRows),
+		totalRowCountByRelation,
 		truncatedRowCountByRelation,
+		truncatedRowCountByRelationAndStandard,
 	};
 };
 
@@ -580,14 +621,15 @@ const findMappings = (session, nameOrId, callback) => {
 			       nearGroupList AS viaInstanceGroupList, nearInstanceCount AS viaInstanceCount
 		}
 		// Each row belongs to ONE relation for the cap: a broad/narrow hop on either side wins, then
-		// a close hop, else exact. Rows are kept per relation (best confidence first) and allocated
-		// in JS (allocateMappingRowsByRelation) so no relation is ever silently dropped.
+		// a close hop, else exact. Rows are kept per relation AND standard (best confidence first) and
+		// allocated in JS (allocateMappingRowsByRelation) so no relation is ever silently dropped and,
+		// within a relation, no standard crowds out the others.
 		WITH *, CASE WHEN mappingType IN $nonComposingMatchEdgeTypeList THEN mappingType
 		             WHEN viaMatchType IN $nonComposingMatchEdgeTypeList THEN viaMatchType
 		             WHEN mappingType = 'CLOSE_MATCH' OR viaMatchType = 'CLOSE_MATCH' THEN 'CLOSE_MATCH'
 		             ELSE 'EXACT_MATCH' END AS rowRelation
 		ORDER BY confidence DESC
-		WITH rowRelation, collect({
+		WITH rowRelation, fromSource AS rowStandard, collect({
 			direction: direction,
 			fromSource: fromSource,
 			fromName: fromName,
@@ -617,8 +659,8 @@ const findMappings = (session, nameOrId, callback) => {
 			instanceCount: instanceCount,
 			viaInstanceGroupList: viaInstanceGroupList,
 			viaInstanceCount: viaInstanceCount
-		}) AS relationRowList
-		RETURN rowRelation, relationRowList[..$findMappingsRowCap] AS topRowList, size(relationRowList) AS relationRowCount
+		}) AS standardRowList
+		RETURN rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount
 	`, {
 		name: nameOrId,
 		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
@@ -634,14 +676,22 @@ const findMappings = (session, nameOrId, callback) => {
 };
 
 const shapeFindMappingsResult = (result) => {
-	const rowListByRelation = {};
-	const totalRowCountByRelation = {};
-	result.records.forEach((relationRecord) => {
-		const rowRelation = relationRecord.get('rowRelation');
-		rowListByRelation[rowRelation] = relationRecord.get('topRowList');
-		totalRowCountByRelation[rowRelation] = toNumber(relationRecord.get('relationRowCount'));
+	const rowListByRelationAndStandard = {};
+	const totalRowCountByRelationAndStandard = {};
+	result.records.forEach((standardRecord) => {
+		const rowRelation = standardRecord.get('rowRelation');
+		const rowStandard = standardRecord.get('rowStandard');
+		rowListByRelationAndStandard[rowRelation] = rowListByRelationAndStandard[rowRelation] || {};
+		totalRowCountByRelationAndStandard[rowRelation] = totalRowCountByRelationAndStandard[rowRelation] || {};
+		rowListByRelationAndStandard[rowRelation][rowStandard] = standardRecord.get('topRowList');
+		totalRowCountByRelationAndStandard[rowRelation][rowStandard] = toNumber(standardRecord.get('standardRowCount'));
 	});
-	const { shownRowList, truncatedRowCountByRelation } = allocateMappingRowsByRelation(rowListByRelation, totalRowCountByRelation);
+	const {
+		shownRowList,
+		totalRowCountByRelation,
+		truncatedRowCountByRelation,
+		truncatedRowCountByRelationAndStandard,
+	} = allocateMappingRowsByRelation(rowListByRelationAndStandard, totalRowCountByRelationAndStandard);
 
 	const mappingRowList = shownRowList.map(rowObject => {
 		const rec = { get: (columnName) => rowObject[columnName] };
@@ -693,7 +743,13 @@ const shapeFindMappingsResult = (result) => {
 		});
 		return mappingRow;
 	});
-	return { mappingRowList, totalRowCountByRelation, truncatedRowCountByRelation };
+	return {
+		mappingRowList,
+		totalRowCountByRelation,
+		truncatedRowCountByRelation,
+		totalRowCountByRelationAndStandard,
+		truncatedRowCountByRelationAndStandard,
+	};
 };
 
 const compareCodesets = (session, name, callback) => {
