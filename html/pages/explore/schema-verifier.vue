@@ -14,7 +14,7 @@
 
 import { ref, computed, watch, onMounted } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
 import { useLoginStore } from '@/stores/loginStore';
 
 const store = useSchemaVerifierStore();
@@ -960,13 +960,13 @@ function loadSample() {
 										</v-list-item-subtitle>
 										<template #append>
 											<v-chip
-												v-if="store.userEquivalentsFor(`${el.source}::${el.name}`).length"
+												v-if="store.userEquivalentsFor(elementCurationKey(el)).length"
 												size="x-small"
 												color="deep-purple"
 												variant="tonal"
 												title="Accepted equivalents in your crosswalk"
 											>
-												{{ store.userEquivalentsFor(`${el.source}::${el.name}`).length }}
+												{{ store.userEquivalentsFor(elementCurationKey(el)).length }}
 											</v-chip>
 										</template>
 									</v-list-item>

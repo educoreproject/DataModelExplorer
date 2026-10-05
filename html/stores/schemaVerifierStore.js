@@ -332,11 +332,34 @@ function elementGroup(path, name, kind) {
 let snapshotPromise = null;
 function loadSnapshot() {
 	if (!snapshotPromise) {
-		snapshotPromise = import('@/data/educore-equivalents-snapshot.json').then(
-			(mod) => mod.default,
+		snapshotPromise = import('@/data/educore-equivalents-snapshot.json').then((mod) =>
+			expandSnapshot(mod.default || mod),
 		);
 	}
 	return snapshotPromise;
+}
+
+// The v2 snapshot stores each CEDS element once and has every concept refer to
+// it; expand to the v1 shape the lookups use:
+//   { hub, key, ceds: [{ name, source:'CEDS', id, k, desc, path }],
+//     matches: [{ name, source, path, k, rel, c }] }
+// A v1 file passes through untouched.
+function expandSnapshot(raw) {
+	if (!raw || raw.version !== 2) return raw;
+	const anchor = (id) => {
+		const [k, name, desc, path] = raw.ceds[id] || [];
+		return name ? { name, source: 'CEDS', id: id.includes(':') ? '' : id, k, desc: desc || '', path: path || '' } : null;
+	};
+	return {
+		generated: raw.generated,
+		source: raw.source,
+		hubs: raw.hubs.map(([key, hub, ids, members]) => ({
+			key,
+			hub,
+			ceds: ids.map(anchor).filter(Boolean),
+			matches: members.map(([source, name, path, k, rel, c]) => ({ source, name, path, k, rel, c })),
+		})),
+	};
 }
 
 // Flatten the snapshot's hubs into the two shapes the spec views need: every
@@ -354,6 +377,7 @@ function snapshotIndex(snapshot) {
 
 	const bySource = new Map(); // source -> Map(nameLower -> element)
 	const hubsByMember = new Map(); // 'source|nameLower' -> [members[], ...]
+	const hubsByPath = new Map(); // 'source|pathLower' -> [hub, ...]
 
 	const kindOf = (k) => (k === 'C' ? 'class' : k === 'P' ? 'property' : 'value');
 
@@ -399,12 +423,29 @@ function snapshotIndex(snapshot) {
 
 			if (!hubsByMember.has(memberKey)) hubsByMember.set(memberKey, []);
 			hubsByMember.get(memberKey).push({ hub: hub.hub, members });
+
+			// Path-exact index for the CEDS concept view: names repeat across
+			// entities, paths do not.
+			if (member.path) {
+				const pathKey = `${member.source}|${member.path.toLowerCase()}`;
+				if (!hubsByPath.has(pathKey)) hubsByPath.set(pathKey, []);
+				hubsByPath.get(pathKey).push(hub);
+			}
 		}
 	}
 
-	snapshotIndexCache = { bySource, hubsByMember };
+	snapshotIndexCache = { bySource, hubsByMember, hubsByPath };
 	return snapshotIndexCache;
 }
+
+// The CEDS element a concept is ABOUT — the most specific anchor: an option
+// value for a value tuple, else the property, else the domain class.
+function conceptAnchor(hub) {
+	const ceds = hub.ceds || [];
+	return ceds.find((c) => c.k === 'V') || ceds.find((c) => c.k === 'P') || ceds.find((c) => c.k === 'C') || null;
+}
+
+const REL_RANK = { EXACT_MATCH: 0, CLOSE_MATCH: 1, NARROW_MATCH: 2, RELATED_MATCH: 3 };
 
 // -------------------------------------------------------------------------
 // Bundled specification models. Every spec's classes and properties with their
@@ -603,10 +644,38 @@ const USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
 
 function loadUserEquivalents() {
 	try {
-		return JSON.parse(localStorage.getItem(USER_EQUIV_STORAGE_KEY)) || {};
+		return migrateCurationKeys(JSON.parse(localStorage.getItem(USER_EQUIV_STORAGE_KEY)) || {});
 	} catch (_err) {
 		return {};
 	}
+}
+
+// Spec-browser curation keys used to be "<spec>::<element name>", which merges
+// every same-named element of a spec into one key — Ed-Fi has fifteen `City`
+// properties, one per entity, and approving one approved them all. Keys are
+// now "<spec>::<element path>". Items that recorded their source path move to
+// the path key; anything without one (HR Open / OpenAPI keys, older items)
+// stays where it is.
+function migrateCurationKeys(map) {
+	const out = {};
+	for (const [key, list] of Object.entries(map || {})) {
+		const sep = key.indexOf('::');
+		for (const item of Array.isArray(list) ? list : []) {
+			let target = key;
+			if (sep > 0 && item?.sourcePath && key === `${key.slice(0, sep)}::${item.sourceName}` && item.sourcePath !== item.sourceName) {
+				target = `${key.slice(0, sep)}::${item.sourcePath}`;
+			}
+			const bucket = (out[target] ||= []);
+			if (!bucket.some((e) => e.standard === item.standard && e.name === item.name)) bucket.push(item);
+		}
+	}
+	return out;
+}
+
+// The curation key for a graph element: spec code + path (unique within a
+// spec), falling back to the name for elements with no path.
+export function elementCurationKey(element) {
+	return element ? `${element.source}::${element.path || element.name}` : '';
 }
 
 function persistUserEquivalents(value) {
@@ -1288,6 +1357,117 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			} finally {
 				this.mappingsLoading = false;
 			}
+		},
+
+		// ------------------------------------------------------------
+		// The element seen as the graph sees it: a spoke on one or more CEDS
+		// concepts (hubs). Returns
+		//
+		//   [{ key, hub, anchor: { name, id, k, path, desc }, property, domain, value,
+		//      isSelf,        // the element IS this concept's CEDS anchor
+		//      selfRel, selfConfidence,
+		//      spokes: [{ source, standard, name, path, kind, rel, confidence }] }]
+		//
+		// Spokes are the OTHER standards' elements matched to the same CEDS
+		// concept. Their relationship is to CEDS, not to the selected element —
+		// which is exactly how the graph stores it and how an approval of one is
+		// recorded (spoke → CEDS concept).
+		//
+		// Resolution is by exact path, then by name for elements with no path.
+		// A CEDS property is the anchor of its own concept; its option-value
+		// tuples are separate concepts and are not listed under the property.
+
+		async lookupCedsConcepts(element) {
+			if (!element?.name || !element?.source) return [];
+			const snapshot = await loadSnapshot();
+			const { hubsByMember, hubsByPath } = snapshotIndex(snapshot);
+			this.snapshotDate = snapshot.generated || this.snapshotDate;
+
+			const nameLower = element.name.toLowerCase();
+			const pathLower = (element.path || '').toLowerCase();
+			let hubs;
+			if (element.source === 'CEDS') {
+				// A CEDS element: the concepts it anchors as the MOST specific
+				// anchor (so a property shows its own concept, not every option
+				// value tuple beneath it).
+				const candidates = pathLower
+					? hubsByPath.get(`CEDS|${pathLower}`) || []
+					: (hubsByMember.get(`CEDS|${nameLower}`) || []).map((h) => snapshot.hubs.find((x) => x.hub === h.hub));
+				hubs = candidates.filter((h) => {
+					const a = h && conceptAnchor(h);
+					return a && a.name.toLowerCase() === nameLower && (!pathLower || (a.path || '').toLowerCase() === pathLower || a.k !== 'P');
+				});
+			} else {
+				hubs = pathLower ? hubsByPath.get(`${element.source}|${pathLower}`) || [] : [];
+				if (!hubs.length) {
+					// No path (or none indexed): fall back to name, which can be ambiguous.
+					const byName = new Set((hubsByMember.get(`${element.source}|${nameLower}`) || []).map((h) => h.hub));
+					hubs = snapshot.hubs.filter((h) => byName.has(h.hub));
+				}
+			}
+
+			const seen = new Set();
+			const concepts = [];
+			for (const hub of hubs) {
+				if (!hub || seen.has(hub.key || hub.hub)) continue;
+				seen.add(hub.key || hub.hub);
+				const anchor = conceptAnchor(hub);
+				if (!anchor) continue;
+				const isSelf = element.source === 'CEDS';
+				const self = isSelf
+					? null
+					: (hub.matches || []).find(
+							(m) =>
+								m.source === element.source &&
+								(pathLower ? (m.path || '').toLowerCase() === pathLower : m.name.toLowerCase() === nameLower),
+						) || (hub.matches || []).find((m) => m.source === element.source && m.name.toLowerCase() === nameLower);
+				// One row per element: SIF is forged more than once, so the same
+				// path can carry several identical edges.
+				const spokeSeen = new Set();
+				const spokes = (hub.matches || [])
+					.filter((m) => m !== self && m.name && !(m.source === element.source && (m.path || m.name) === (element.path || element.name)))
+					.filter((m) => {
+						const k = `${m.source}|${m.path || m.name}`;
+						if (spokeSeen.has(k)) return false;
+						spokeSeen.add(k);
+						return true;
+					})
+					.map((m) => ({
+						source: m.source,
+						standard: standardOf(m.source),
+						name: m.name,
+						path: m.path || '',
+						kind: KIND_BY_CODE[m.k] || 'property',
+						rel: m.rel,
+						confidence: m.c || 0,
+					}))
+					.sort(
+						(a, b) =>
+							(REL_RANK[a.rel] ?? 9) - (REL_RANK[b.rel] ?? 9) ||
+							b.confidence - a.confidence ||
+							a.standard.localeCompare(b.standard) ||
+							a.name.localeCompare(b.name),
+					);
+				concepts.push({
+					key: hub.key || hub.hub,
+					hub: hub.hub,
+					anchor,
+					property: (hub.ceds || []).find((c) => c.k === 'P') || null,
+					domain: (hub.ceds || []).find((c) => c.k === 'C') || null,
+					value: (hub.ceds || []).find((c) => c.k === 'V') || null,
+					isSelf,
+					selfRel: isSelf ? 'EXACT_MATCH' : self?.rel || '',
+					selfConfidence: isSelf ? 1 : self?.c || 0,
+					spokes,
+				});
+			}
+			// Verified concepts first, then by the element's own confidence.
+			return concepts.sort(
+				(a, b) =>
+					(REL_RANK[a.selfRel] ?? 9) - (REL_RANK[b.selfRel] ?? 9) ||
+					b.selfConfidence - a.selfConfidence ||
+					b.spokes.length - a.spokes.length,
+			);
 		},
 
 		// ------------------------------------------------------------

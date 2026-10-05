@@ -33,13 +33,19 @@ const props = defineProps({
 	toggle: { type: Function, required: true },
 	// Start expanded.
 	open: { type: Boolean, default: false },
+	// Spec to search first ('' = every other specification), e.g. 'CEDS'.
+	defaultTarget: { type: String, default: '' },
+	// Header text and intro, so the same search can be framed as
+	// "find a CEDS concept" or "find more elements for this concept".
+	title: { type: String, default: 'Find a target field' },
+	intro: { type: String, default: '' },
 });
 
 const isOpen = ref(props.open);
 watch(() => props.open, (v) => { if (v) isOpen.value = true; });
 
 const mode = ref(props.anchor ? 'similar' : 'text'); // 'similar' | 'text'
-const target = ref(''); // '' = every other specification
+const target = ref(props.defaultTarget || ''); // '' = every other specification
 const query = ref(props.defaultQuery || '');
 const kinds = ref('property,class');
 const rows = ref([]);
@@ -123,6 +129,9 @@ onMounted(() => {
 });
 
 const toItem = (row) => ({
+	sourceCode: row.source, // graph spec code, for callers that key by it
+	path: row.path || '',
+	description: row.description || '',
 	standard: row.standard,
 	name: row.name,
 	sourceId: row.sourceId || '',
@@ -168,7 +177,7 @@ const basisTitle = computed(() => ({
 	<div>
 		<div class="d-flex align-center flex-wrap ga-2 mb-2 tfs-header" @click="isOpen = !isOpen">
 			<v-icon size="18" color="deep-purple">mdi-text-search-variant</v-icon>
-			<span class="text-subtitle-2 font-weight-bold">Find a target field</span>
+			<span class="text-subtitle-2 font-weight-bold">{{ title }}</span>
 			<v-chip
 				v-if="basis"
 				size="x-small"
@@ -185,7 +194,8 @@ const basisTitle = computed(() => ({
 
 		<v-expand-transition>
 			<div v-if="isOpen">
-				<p class="text-caption text-medium-emphasis mb-3">
+				<p v-if="intro" class="text-caption text-medium-emphasis mb-3">{{ intro }}</p>
+				<p v-else class="text-caption text-medium-emphasis mb-3">
 					Search any specification for the field this should map to. Results are ordered by how
 					close their <em>meaning</em> is, so the best candidate is usually first even when the
 					wording differs. Accept one with <v-icon size="14">mdi-plus-circle-outline</v-icon>.
