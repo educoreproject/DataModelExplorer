@@ -66,7 +66,7 @@ const loadConfig = (callback) => {
 	moduleConfig.neo4jPassword = password;
 
 	// Create provider-agnostic embedder from config
-	// An unresolved ini token ('<!voyageApiKey!>') means the key is absent — no embedder
+	// An unresolved ini token ('<!voyageApiKey!>') means the Voyage API key is absent — no embedder
 	if (moduleConfig.voyageApiKey && !moduleConfig.voyageApiKey.startsWith('<!')) {
 		const { embeddingClient } = require('qtools-graph-forge-core');
 		moduleConfig.embedder = embeddingClient.create({
