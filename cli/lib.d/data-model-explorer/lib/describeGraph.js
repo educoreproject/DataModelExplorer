@@ -15,16 +15,16 @@
 //     recipe, no standard definitions) yields a card that SAYS what is absent — never an error, never
 //     fabricated content.
 //
-// Style note: this file matches the data-model-explorer tool's own idiom (async/await + neo4j-driver),
-// which the workorder names as legitimate for this module family.
+// Control flow (lane S, 2026-10-05): the four reads run as a qtools taskList and the module answers through
+// callback(err, result), TQ's CLI standard. It was async/await until then; the queries and the card are unchanged.
+
+const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
+const { runCypherQuery } = require('./runCypherQuery');
 
 const CARD_BLOCK_LIMIT = 200; // recipe display bound; overflow is REPORTED, never silent
 
-const describeGraph = async (session, params = {}) => {
-	const blockLimit = Number.isFinite(parseInt(params.limit)) ? parseInt(params.limit) : CARD_BLOCK_LIMIT;
-
-	// 1) the passport (enriched by Wave B; may be pre-enrichment or absent on old graphs)
-	const passportResult = await session.run(`
+// 1) the passport (enriched by Wave B; may be pre-enrichment or absent on old graphs)
+const PASSPORT_CYPHER = `
 		MATCH (p:GraphProvenance)
 		RETURN p { .graphName, .graphType, .owner, .status, .manifestKey, .builtBy,
 			.replayEngineVersion, .serializerVersion, .embeddingModelVersion,
@@ -33,11 +33,10 @@ const describeGraph = async (session, params = {}) => {
 			.equivalenceLayer, .legacyEdgeCount, .legacyEdgesPresent,
 			builtAt: toString(p.builtAt) } AS passport
 		LIMIT 5
-	`);
-	const passports = passportResult.records.map((rec) => rec.get('passport'));
+	`;
 
-	// 2) the recipe + member blocks (via the passport's BUILT_FROM when present, else any build recipe)
-	const recipeResult = await session.run(`
+// 2) the recipe + member blocks (via the passport's BUILT_FROM when present, else any build recipe)
+const RECIPE_CYPHER = `
 		OPTIONAL MATCH (:GraphProvenance)-[:BUILT_FROM]->(linked:ManifestRecipe)
 		OPTIONAL MATCH (unlinked:ManifestRecipe { isBuildManifest: true })
 		WITH coalesce(linked, unlinked) AS r
@@ -49,28 +48,21 @@ const describeGraph = async (session, params = {}) => {
 				createdAt: toString(b.createdAt) })[0..$blockLimit] AS blocks,
 			count(b) AS blockTotal
 		LIMIT 1
-	`, { blockLimit: neo4jInt(blockLimit) });
-	const recipeRow = recipeResult.records.length ? recipeResult.records[0] : null;
-	const recipe = recipeRow ? recipeRow.get('recipe') : null;
-	const blocks = recipeRow ? recipeRow.get('blocks') : [];
-	const blockTotal = recipeRow ? toPlainNumber(recipeRow.get('blockTotal')) : 0;
+	`;
 
-	// 3) the ancestry chain (recipe lineage, in-graph)
-	const ancestryResult = await session.run(`
+// 3) the ancestry chain (recipe lineage, in-graph)
+const ANCESTRY_CYPHER = `
 		MATCH (r:ManifestRecipe { isBuildManifest: true })
 		OPTIONAL MATCH path = (r)-[:BASED_ON*1..50]->(a:ManifestRecipe)
 		WITH a ORDER BY length(path)
 		RETURN collect(a.manifestKey) AS ancestorKeys
-	`);
-	const ancestorKeys = ancestryResult.records.length
-		? ancestryResult.records[0].get('ancestorKeys')
-		: [];
+	`;
 
-	// 4) the per-standard definitions
-	// Two self-doc vintages write :StandardDefinition: the Wave-B finishers (source/displayName,
-	// July 2026) and the educoreForge finish verb (standardKey/standardName, Sept 2026). The card
-	// reads BOTH — coalesced here, in the one query, so the renderer sees a single shape.
-	const standardsResult = await session.run(`
+// 4) the per-standard definitions
+// Two self-doc vintages write :StandardDefinition: the Wave-B finishers (source/displayName,
+// July 2026) and the educoreForge finish verb (standardKey/standardName, Sept 2026). The card
+// reads BOTH — coalesced here, in the one query, so the renderer sees a single shape.
+const STANDARD_DEFINITION_CYPHER = `
 		MATCH (d:StandardDefinition)
 		RETURN d { .version, .versionSource, .sourceFormat, .sourceUrl,
 			.description, .nodeCount, .propertyCount, .classCount, .optionSetCount, .optionValueCount,
@@ -80,23 +72,51 @@ const describeGraph = async (session, params = {}) => {
 			source: coalesce(d.source, d.standardKey),
 			displayName: coalesce(d.displayName, d.standardName) } AS standard
 		ORDER BY coalesce(d.source, d.standardKey)
-	`);
-	const standards = standardsResult.records.map((rec) => deepPlain(rec.get('standard')));
+	`;
 
-	const passport = passports.length === 1 ? deepPlain(passports[0]) : null;
-	const structured = {
-		passport,
-		passportCount: passports.length,
-		recipe: recipe ? deepPlain(recipe) : null,
-		blocks: (blocks || []).map(deepPlain),
-		blockTotal,
-		blocksTruncated: blockTotal > (blocks || []).length,
-		ancestry: ancestorKeys || [],
-		standards,
-		selfDocumentationPresent: !!(recipe || standards.length),
-	};
-	structured.card = renderCard(structured);
-	return structured;
+const describeGraph = (session, params, callback) => {
+	const blockLimit = Number.isFinite(parseInt(params.limit)) ? parseInt(params.limit) : CARD_BLOCK_LIMIT;
+
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => runCypherQuery(session, PASSPORT_CYPHER, {}, mergeArgs(args, next, 'passportResult')));
+	taskList.push((args, next) => runCypherQuery(session, RECIPE_CYPHER, { blockLimit: neo4jInt(blockLimit) }, mergeArgs(args, next, 'recipeResult')));
+	taskList.push((args, next) => runCypherQuery(session, ANCESTRY_CYPHER, {}, mergeArgs(args, next, 'ancestryResult')));
+	taskList.push((args, next) => runCypherQuery(session, STANDARD_DEFINITION_CYPHER, {}, mergeArgs(args, next, 'standardsResult')));
+
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		const { passportResult, recipeResult, ancestryResult, standardsResult } = args;
+		const passports = passportResult.records.map((rec) => rec.get('passport'));
+
+		const recipeRow = recipeResult.records.length ? recipeResult.records[0] : null;
+		const recipe = recipeRow ? recipeRow.get('recipe') : null;
+		const blocks = recipeRow ? recipeRow.get('blocks') : [];
+		const blockTotal = recipeRow ? toPlainNumber(recipeRow.get('blockTotal')) : 0;
+
+		const ancestorKeys = ancestryResult.records.length
+			? ancestryResult.records[0].get('ancestorKeys')
+			: [];
+
+		const standards = standardsResult.records.map((rec) => deepPlain(rec.get('standard')));
+
+		const passport = passports.length === 1 ? deepPlain(passports[0]) : null;
+		const structured = {
+			passport,
+			passportCount: passports.length,
+			recipe: recipe ? deepPlain(recipe) : null,
+			blocks: (blocks || []).map(deepPlain),
+			blockTotal,
+			blocksTruncated: blockTotal > (blocks || []).length,
+			ancestry: ancestorKeys || [],
+			standards,
+			selfDocumentationPresent: !!(recipe || standards.length),
+		};
+		structured.card = renderCard(structured);
+		callback('', structured);
+	});
 };
 
 // ---- helpers ----

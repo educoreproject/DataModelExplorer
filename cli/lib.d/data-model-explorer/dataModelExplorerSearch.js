@@ -12,10 +12,16 @@
 //   -rawCypher --query="..." Passthrough Cypher
 //
 // Outputs JSON to stdout, diagnostics to stderr.
+//
+// Control flow (lane S, 2026-10-05): every query handler answers through callback(err, result) and multi-step
+// handlers run as qtools taskLists, TQ's CLI standard. neo4j-driver's promises are met in exactly one place,
+// lib/runCypherQuery.js. Until then this file was async/await; the queries and their output are unchanged.
 
 const os = require('os');
 const path = require('path');
 const neo4j = require('neo4j-driver');
+const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
+const { runCypherQuery } = require('./lib/runCypherQuery');
 
 const moduleName = path.basename(__filename).replace(/.js$/, '');
 
@@ -23,7 +29,7 @@ const moduleName = path.basename(__filename).replace(/.js$/, '');
 // CONFIG
 // =====================================================================
 
-const loadConfig = () => {
+const loadConfig = (callback) => {
 	const configFileProcessor = require('qtools-config-file-processor');
 	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
 
@@ -37,7 +43,8 @@ const loadConfig = () => {
 
 	const config = configFileProcessor.getConfig(`${moduleName}.ini`, configDirPath);
 	if (!config || !config[moduleName]) {
-		throw new Error(`Config section [${moduleName}] not found in ${configDirPath}${moduleName}.ini`);
+		callback(`Config section [${moduleName}] not found in ${configDirPath}${moduleName}.ini`);
+		return;
 	}
 	const moduleConfig = config[moduleName];
 
@@ -46,24 +53,41 @@ const loadConfig = () => {
 	// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
 	const { goldenContainerName } = moduleConfig;
 	if (!goldenContainerName) {
-		throw new Error(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
+		callback(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
+		return;
 	}
 	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
 	if (error) {
-		throw new Error(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
+		callback(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
+		return;
 	}
 	moduleConfig.neo4jBoltUri = boltUri;
 	moduleConfig.neo4jUser = user;
 	moduleConfig.neo4jPassword = password;
 
-	return moduleConfig;
+	// Create provider-agnostic embedder from config
+	// An unresolved ini token ('<!voyageApiKey!>') means the key is absent — no embedder
+	if (moduleConfig.voyageApiKey && !moduleConfig.voyageApiKey.startsWith('<!')) {
+		const { embeddingClient } = require('qtools-graph-forge-core');
+		moduleConfig.embedder = embeddingClient.create({
+			provider: 'voyage',
+			model: 'voyage-4-large',
+			dimension: 1024,
+			apiKey: moduleConfig.voyageApiKey,
+			batchSize: 20
+		});
+	}
+
+	callback('', moduleConfig);
 };
 
 // =====================================================================
 // NEO4J SESSION MANAGEMENT
 // =====================================================================
 
-const withNeo4jSession = async (config, queryFn, { readOnly = false } = {}) => {
+// The session and driver are closed whether or not the handler failed; a close failure is reported in place
+// of the handler's result, as the earlier try/finally did.
+const withNeo4jSession = (config, { readOnly }, queryHandler, callback) => {
 	const driver = neo4j.driver(
 		config.neo4jBoltUri,
 		neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
@@ -76,24 +100,29 @@ const withNeo4jSession = async (config, queryFn, { readOnly = false } = {}) => {
 		? driver.session({ defaultAccessMode: neo4j.session.READ })
 		: driver.session();
 
-	try {
-		return await queryFn(session);
-	} finally {
-		await session.close();
-		await driver.close();
-	}
+	queryHandler(session, (queryError, queryResult) => {
+		session.close()
+			.then(() => driver.close())
+			.then(
+				() => callback(queryError, queryResult),
+				(closeError) => callback(closeError.message),
+			);
+	});
 };
 
 // =====================================================================
 // QUERY EMBEDDING (via embedder object)
 // =====================================================================
 
-const embedQuery = (text, embedder) => new Promise((resolve, reject) => {
+const embedQuery = (text, embedder, callback) => {
 	embedder.embed([text], (err, embeddings) => {
-		if (err) { reject(new Error(`Embedding failed: ${err}`)); return; }
-		resolve(embeddings[0]);
+		if (err) {
+			callback(`Embedding failed: ${err}`);
+			return;
+		}
+		callback('', embeddings[0]);
 	});
-});
+};
 
 // =====================================================================
 // HELPERS
@@ -108,12 +137,11 @@ const toNumber = (val) => {
 
 // L8: an empty positional arg used to reach CONTAINS '' — matching EVERY node and running
 // the three-branch findMappings subquery graph-wide before LIMIT. Reject empty names/queries
-// with an explicit error instead.
-const requireNonEmpty = (value, whatFor) => {
-	if (value === null || value === undefined || `${value}`.trim() === '') {
-		throw new Error(`${whatFor} requires a non-empty argument — an empty value would match every node in the graph.`);
-	}
-};
+// with an explicit error instead. Returns the refusal text, or '' when the argument is usable.
+const emptyArgumentRefusal = (value, whatFor) =>
+	value === null || value === undefined || `${value}`.trim() === ''
+		? `${whatFor} requires a non-empty argument — an empty value would match every node in the graph.`
+		: '';
 
 // L7: deep result serialization — Neo4j Integers become plain numbers at EVERY depth
 // (nested node properties previously leaked {low, high} objects), node/relationship
@@ -156,55 +184,71 @@ const EXPLORE_EDGE_CAP = 200;
 
 let discoveredVectorIndex = null;
 
-const resolveVectorIndex = async (session) => {
-	if (discoveredVectorIndex) return discoveredVectorIndex;
-	const result = await session.run(
-		'SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties'
-	);
-	const candidates = result.records
-		.map(rec => ({
-			name: rec.get('name'),
-			type: rec.get('type'),
-			entityType: rec.get('entityType'),
-			labels: rec.get('labelsOrTypes') || [],
-			properties: rec.get('properties') || [],
-		}))
-		.filter(row =>
-			row.type === 'VECTOR' && row.entityType === 'NODE' &&
-			row.labels.includes('ForgedNode') && row.properties.includes('embedding')
-		);
-	if (candidates.length === 0) {
-		throw new Error('No VECTOR index on :ForgedNode(embedding) exists on this graph — vector search cannot run.');
+const resolveVectorIndex = (session, callback) => {
+	if (discoveredVectorIndex) {
+		callback('', discoveredVectorIndex);
+		return;
 	}
-	if (candidates.length > 1) {
-		throw new Error(`Ambiguous VECTOR indexes on :ForgedNode(embedding): ${candidates.map(row => row.name).join(', ')} — cannot choose safely.`);
-	}
-	discoveredVectorIndex = candidates[0].name;
-	return discoveredVectorIndex;
+	runCypherQuery(session, 'SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties', {}, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		const candidates = result.records
+			.map(rec => ({
+				name: rec.get('name'),
+				type: rec.get('type'),
+				entityType: rec.get('entityType'),
+				labels: rec.get('labelsOrTypes') || [],
+				properties: rec.get('properties') || [],
+			}))
+			.filter(row =>
+				row.type === 'VECTOR' && row.entityType === 'NODE' &&
+				row.labels.includes('ForgedNode') && row.properties.includes('embedding')
+			);
+		if (candidates.length === 0) {
+			callback('No VECTOR index on :ForgedNode(embedding) exists on this graph — vector search cannot run.');
+			return;
+		}
+		if (candidates.length > 1) {
+			callback(`Ambiguous VECTOR indexes on :ForgedNode(embedding): ${candidates.map(row => row.name).join(', ')} — cannot choose safely.`);
+			return;
+		}
+		discoveredVectorIndex = candidates[0].name;
+		callback('', discoveredVectorIndex);
+	});
 };
 
-const hybridSearch = async (session, query, config, params) => {
-	requireNonEmpty(query, '-search'); // L8
+const hybridSearch = (session, query, config, params, callback) => {
+	const emptyQueryRefusal = emptyArgumentRefusal(query, '-search'); // L8
+	if (emptyQueryRefusal) {
+		callback(emptyQueryRefusal);
+		return;
+	}
 	const limit = 20;
 	const standardFilter = (params && params.standard) ? params.standard : null;
 
 	if (!config.embedder) {
-		throw new Error('No embedder configured — vector search cannot run. Check voyageApiKey in dataModelExplorerSearch.ini.');
+		callback('No embedder configured — vector search cannot run. Check voyageApiKey in dataModelExplorerSearch.ini.');
+		return;
 	}
-
-	let queryEmbedding;
-	try {
-		queryEmbedding = await embedQuery(query, config.embedder);
-	} catch (err) {
-		throw new Error(`Embedding the query failed: ${err.message}`);
-	}
-
-	const vectorIndexName = await resolveVectorIndex(session);
 
 	// Over-fetch so a standard filter still yields a full page after filtering.
 	const fetchLimit = standardFilter ? limit * 5 : limit;
 
-	const vecResult = await session.run(`
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => {
+		embedQuery(query, config.embedder, (err, queryEmbedding) => {
+			if (err) {
+				next(`Embedding the query failed: ${err}`, args);
+				return;
+			}
+			next('', { ...args, queryEmbedding });
+		});
+	});
+	taskList.push((args, next) => resolveVectorIndex(session, mergeArgs(args, next, 'vectorIndexName')));
+	taskList.push((args, next) => {
+		runCypherQuery(session, `
 		CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
 		YIELD node, score
 		WHERE $standard IS NULL OR node._source = $standard
@@ -213,22 +257,29 @@ const hybridSearch = async (session, query, config, params) => {
 			score AS vecScore
 		LIMIT $outLimit
 	`, {
-		indexName: vectorIndexName,
-		limit: neo4j.int(fetchLimit),
-		outLimit: neo4j.int(limit),
-		embedding: queryEmbedding,
-		standard: standardFilter,
+			indexName: args.vectorIndexName,
+			limit: neo4j.int(fetchLimit),
+			outLimit: neo4j.int(limit),
+			embedding: args.queryEmbedding,
+			standard: standardFilter,
+		}, mergeArgs(args, next, 'vecResult'));
 	});
 
-	return vecResult.records.map(rec => ({
-		standard: rec.get('standard'),
-		id: rec.get('id'),
-		role: rec.get('role'),
-		labels: rec.get('labels').filter(l => l !== 'ForgedNode' && l !== 'golden'),
-		name: rec.get('name'),
-		description: rec.get('description'),
-		score: rec.get('vecScore'),
-	}));
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', args.vecResult.records.map(rec => ({
+			standard: rec.get('standard'),
+			id: rec.get('id'),
+			role: rec.get('role'),
+			labels: rec.get('labels').filter(l => l !== 'ForgedNode' && l !== 'golden'),
+			name: rec.get('name'),
+			description: rec.get('description'),
+			score: rec.get('vecScore'),
+		})));
+	});
 };
 
 // =====================================================================
@@ -347,9 +398,13 @@ const INSTANCE_FIELD_NAME_LIST = [
 const INSTANCE_GROUP_LIST_NAME_LIST = ['instanceGroupList', 'viaInstanceGroupList'];
 const INSTANCE_GROUP_LIST_CAP = 25;
 
-const findMappings = async (session, nameOrId) => {
-	requireNonEmpty(nameOrId, '-findMappings'); // L8
-	const result = await session.run(`
+const findMappings = (session, nameOrId, callback) => {
+	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
+	if (emptyNameRefusal) {
+		callback(emptyNameRefusal);
+		return;
+	}
+	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE toLower(n.name) CONTAINS toLower($name) OR n._id = $name
 		   OR n.path = $name OR n.stableId = $name
@@ -569,8 +624,16 @@ const findMappings = async (session, nameOrId) => {
 		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
 		nonComposingMatchEdgeTypeList: MATCH_EDGE_TYPE_LIST.filter((edgeType) => !COMPOSING_MATCH_EDGE_TYPE_LIST.includes(edgeType)),
 		findMappingsRowCap: neo4j.int(FIND_MAPPINGS_ROW_CAP),
+	}, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', shapeFindMappingsResult(result));
 	});
+};
 
+const shapeFindMappingsResult = (result) => {
 	const rowListByRelation = {};
 	const totalRowCountByRelation = {};
 	result.records.forEach((relationRecord) => {
@@ -633,13 +696,17 @@ const findMappings = async (session, nameOrId) => {
 	return { mappingRowList, totalRowCountByRelation, truncatedRowCountByRelation };
 };
 
-const compareCodesets = async (session, name) => {
-	requireNonEmpty(name, '-compareCodesets'); // L8
+const compareCodesets = (session, name, callback) => {
+	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
+	if (emptyNameRefusal) {
+		callback(emptyNameRefusal);
+		return;
+	}
 	// Codeset comparison in the equivalence model: each source option VALUE resolves to a
 	// value-tier HubReference (the canonical CEDS option value); values from other standards that
 	// land on the same HubReference are the cross-standard equivalents. Unmatched values (matchType
 	// null) show where a codeset does NOT align to CEDS.
-	const result = await session.run(`
+	runCypherQuery(session, `
 		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
 		WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> 'CEDS'
 		MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
@@ -654,9 +721,17 @@ const compareCodesets = async (session, name) => {
 		       collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
 		ORDER BY os._source, os.name, v.name
 		LIMIT 100
-	`, { name });
+	`, { name }, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', shapeCompareCodesetsResult(result));
+	});
+};
 
-	return result.records.map(rec => ({
+const shapeCompareCodesetsResult = (result) =>
+	result.records.map(rec => ({
 		sourceStandard: rec.get('sourceStandard'),
 		optionSetName: rec.get('optionSetName'),
 		sourceValue: rec.get('sourceValue'),
@@ -669,13 +744,12 @@ const compareCodesets = async (session, name) => {
 		cedsValueKey: rec.get('cedsValueKey'),
 		crossStandardEquivalents: rec.get('crossStandardEquivalents').filter(s => s && !s.startsWith('null')),
 	}));
-};
 
-const unmappedFields = async (session, params) => {
+const unmappedFields = (session, params, callback) => {
 	const limit = params.limit ? parseInt(params.limit) : 50;
 	const standard = params.standard || null;
 
-	const result = await session.run(`
+	runCypherQuery(session, `
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WHERE ($standard IS NULL OR f._source = $standard)
 		  // ANY edge into a HubReference counts (only match edges point at hubs), so an element mapped by a
@@ -687,83 +761,96 @@ const unmappedFields = async (session, params) => {
 		       f.description AS description
 		ORDER BY f._source, f.name
 		LIMIT $limit
-	`, { limit: neo4j.int(limit), standard });
-
-	return result.records.map(rec => ({
-		standard: rec.get('standard'),
-		fieldName: rec.get('fieldName'),
-		path: rec.get('path'),
-		description: rec.get('description'),
-	}));
+	`, { limit: neo4j.int(limit), standard }, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', result.records.map(rec => ({
+			standard: rec.get('standard'),
+			fieldName: rec.get('fieldName'),
+			path: rec.get('path'),
+			description: rec.get('description'),
+		})));
+	});
 };
 
-const getStats = async (session) => {
+const getStats = (session, callback) => {
+	const taskList = new taskListPlus();
+
 	// Node counts by standard (_source)
-	const bySourceResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		RETURN coalesce(n._source, 'UNSCOPED') AS source, count(n) AS count
 		ORDER BY count DESC
-	`);
-	const bySource = {};
-	for (const rec of bySourceResult.records) {
-		bySource[rec.get('source')] = toNumber(rec.get('count'));
-	}
+	`, {}, mergeArgs(args, next, 'bySourceResult')));
 
 	// Node counts by universal-contract role
-	const byRoleResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE n.role IS NOT NULL
 		RETURN n.role AS role, count(n) AS count
 		ORDER BY count DESC
-	`);
-	const byRole = {};
-	for (const rec of byRoleResult.records) {
-		byRole[rec.get('role')] = toNumber(rec.get('count'));
-	}
+	`, {}, mergeArgs(args, next, 'byRoleResult')));
 
 	// Cross-standard mapping edge counts
-	const mappingResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH ()-[r]->()
 		WHERE type(r) IN $matchEdgeTypeList
 		RETURN type(r) AS relType, count(r) AS count
-	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST });
-	const mappings = {};
-	for (const rec of mappingResult.records) {
-		mappings[rec.get('relType')] = toNumber(rec.get('count'));
-	}
+	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST }, mergeArgs(args, next, 'mappingResult')));
 
 	// Guard (VIOLET_VALLEY 2026-10-04): an edge into a HubReference of a type outside the four relations (e.g.
 	// a future RELATED_MATCH) is counted here rather than silently ignored; it is {} when there are none.
-	const otherMatchEdgeResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH ()-[r]->(:HubReference)
 		WHERE NOT type(r) IN $matchEdgeTypeList
 		RETURN type(r) AS relType, count(r) AS count
-	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST });
-	mappings.otherMatchEdgeCountByType = {};
-	for (const rec of otherMatchEdgeResult.records) {
-		mappings.otherMatchEdgeCountByType[rec.get('relType')] = toNumber(rec.get('count'));
-	}
+	`, { matchEdgeTypeList: MATCH_EDGE_TYPE_LIST }, mergeArgs(args, next, 'otherMatchEdgeResult')));
 
 	// Mapping coverage over DmeProperty nodes. A SIF Question / PESC element counts as mapped when
 	// its mapping lives on one of its HAS_INSTANCE instances (the bridges fan verdicts out there).
-	const coverageResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
 		WITH count(f) AS totalProperties,
 		     count(CASE WHEN (f)-->(:HubReference)
 		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 		                THEN 1 END) AS mappedProperties
 		RETURN totalProperties, mappedProperties
-	`);
-	let coverage = {};
-	if (coverageResult.records.length > 0) {
-		const rec = coverageResult.records[0];
-		coverage = {
-			totalProperties: toNumber(rec.get('totalProperties')),
-			mappedProperties: toNumber(rec.get('mappedProperties')),
-		};
-	}
+	`, {}, mergeArgs(args, next, 'coverageResult')));
 
-	return { bySource, byRole, mappings, coverage };
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		const { bySourceResult, byRoleResult, mappingResult, otherMatchEdgeResult, coverageResult } = args;
+		const bySource = {};
+		bySourceResult.records.forEach((rec) => {
+			bySource[rec.get('source')] = toNumber(rec.get('count'));
+		});
+		const byRole = {};
+		byRoleResult.records.forEach((rec) => {
+			byRole[rec.get('role')] = toNumber(rec.get('count'));
+		});
+		const mappings = {};
+		mappingResult.records.forEach((rec) => {
+			mappings[rec.get('relType')] = toNumber(rec.get('count'));
+		});
+		mappings.otherMatchEdgeCountByType = {};
+		otherMatchEdgeResult.records.forEach((rec) => {
+			mappings.otherMatchEdgeCountByType[rec.get('relType')] = toNumber(rec.get('count'));
+		});
+		let coverage = {};
+		if (coverageResult.records.length > 0) {
+			const rec = coverageResult.records[0];
+			coverage = {
+				totalProperties: toNumber(rec.get('totalProperties')),
+				mappedProperties: toNumber(rec.get('mappedProperties')),
+			};
+		}
+		callback('', { bySource, byRole, mappings, coverage });
+	});
 };
 
 // =====================================================================
@@ -777,8 +864,8 @@ const getStats = async (session) => {
 // :DmeStandardRoot, the per-standard passport node emitted by every forge
 // during -export, and counts the ForgedNodes sharing its _source.
 
-const getListStandards = async (session) => {
-	const result = await session.run(`
+const getListStandards = (session, callback) => {
+	runCypherQuery(session, `
 		MATCH (r:DmeStandardRoot)
 		CALL {
 			WITH r
@@ -793,31 +880,40 @@ const getListStandards = async (session) => {
 		       r.sourceUrl AS sourceUrl,
 		       nodeCount
 		ORDER BY source
-	`);
-
-	const standards = result.records.map(rec => ({
-		source: rec.get('source'),
-		name: rec.get('name'),
-		standardName: rec.get('standardName'),
-		description: rec.get('description'),
-		version: rec.get('version'),
-		sourceUrl: rec.get('sourceUrl'),
-		nodeCount: toNumber(rec.get('nodeCount'))
-	}));
-
-	return { standards, count: standards.length };
+	`, {}, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		const standards = result.records.map(rec => ({
+			source: rec.get('source'),
+			name: rec.get('name'),
+			standardName: rec.get('standardName'),
+			description: rec.get('description'),
+			version: rec.get('version'),
+			sourceUrl: rec.get('sourceUrl'),
+			nodeCount: toNumber(rec.get('nodeCount'))
+		}));
+		callback('', { standards, count: standards.length });
+	});
 };
 
-const exploreNode = async (session, params) => {
+const exploreNode = (session, params, callback) => {
 	const name = params.name;
-	requireNonEmpty(name, '-explore'); // L8
+	const emptyNameRefusal = emptyArgumentRefusal(name, '-explore'); // L8
+	if (emptyNameRefusal) {
+		callback(emptyNameRefusal);
+		return;
+	}
 	const standard = params.standard || null;
 	// L7: bound the per-node edge lists — a standard root or popular hub explodes the JSON
 	// otherwise. Truncation is REPORTED via the totals, never silent.
 	const edgeCap = params.limit ? parseInt(params.limit) : EXPLORE_EDGE_CAP;
 
+	const taskList = new taskListPlus();
+
 	// Get outgoing relationships
-	const outgoingResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE n.name = $name
 		  AND ($standard IS NULL OR n._source = $standard)
@@ -825,10 +921,10 @@ const exploreNode = async (session, params) => {
 		OPTIONAL MATCH (n)-[r]->(m:ForgedNode)
 		RETURN n {.*, _labels: labels(n)} AS node,
 		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
-	`, { name, standard });
+	`, { name, standard }, mergeArgs(args, next, 'outgoingResult')));
 
 	// Get incoming relationships
-	const incomingResult = await session.run(`
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE n.name = $name
 		  AND ($standard IS NULL OR n._source = $standard)
@@ -836,8 +932,18 @@ const exploreNode = async (session, params) => {
 		OPTIONAL MATCH (m:ForgedNode)-[r]->(n)
 		RETURN n {.*, _labels: labels(n)} AS node,
 		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStandard: m._source, sourceLabels: labels(m)} ELSE NULL END) AS incoming
-	`, { name, standard });
+	`, { name, standard }, mergeArgs(args, next, 'incomingResult')));
 
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', shapeExploreResult(args.outgoingResult, args.incomingResult, edgeCap));
+	});
+};
+
+const shapeExploreResult = (outgoingResult, incomingResult, edgeCap) => {
 	const nodes = new Map();
 
 	const cleanNode = (node) => {
@@ -848,24 +954,24 @@ const exploreNode = async (session, params) => {
 
 	for (const rec of outgoingResult.records) {
 		const node = rec.get('node');
-		const key = JSON.stringify(node._labels) + ':' + node.name;
-		if (!nodes.has(key)) {
-			nodes.set(key, { node: cleanNode(node), outgoing: [], incoming: [] });
+		const nodeIdentityText = JSON.stringify(node._labels) + ':' + node.name;
+		if (!nodes.has(nodeIdentityText)) {
+			nodes.set(nodeIdentityText, { node: cleanNode(node), outgoing: [], incoming: [] });
 		}
 		const out = rec.get('outgoing').filter(o => o !== null);
-		const entry = nodes.get(key);
+		const entry = nodes.get(nodeIdentityText);
 		entry.outgoingTotal = out.length;
 		entry.outgoing = out.slice(0, edgeCap).map(serializeValue);
 	}
 
 	for (const rec of incomingResult.records) {
 		const node = rec.get('node');
-		const key = JSON.stringify(node._labels) + ':' + node.name;
-		if (!nodes.has(key)) {
-			nodes.set(key, { node: cleanNode(node), outgoing: [], incoming: [] });
+		const nodeIdentityText = JSON.stringify(node._labels) + ':' + node.name;
+		if (!nodes.has(nodeIdentityText)) {
+			nodes.set(nodeIdentityText, { node: cleanNode(node), outgoing: [], incoming: [] });
 		}
 		const inc = rec.get('incoming').filter(i => i !== null);
-		const entry = nodes.get(key);
+		const entry = nodes.get(nodeIdentityText);
 		entry.incomingTotal = inc.length;
 		entry.incoming = inc.slice(0, edgeCap).map(serializeValue);
 	}
@@ -877,10 +983,10 @@ const exploreNode = async (session, params) => {
 	}));
 };
 
-const historyEvents = async (session, params) => {
+const historyEvents = (session, params, callback) => {
 	// L7: the limit param is now actually applied (it was accepted and ignored).
 	const limit = params.limit ? parseInt(params.limit) : 20;
-	const result = await session.run(`
+	runCypherQuery(session, `
 		MATCH (g:GraphProvenance)
 		RETURN g.graphName AS graphName, g.manifestKey AS manifestKey,
 		       toString(g.builtAt) AS builtAt, g.builtBy AS builtBy,
@@ -889,47 +995,62 @@ const historyEvents = async (session, params) => {
 		       g.status AS status, g.provenanceTierComplete AS provenanceTierComplete
 		ORDER BY builtAt DESC
 		LIMIT $limit
-	`, { limit: neo4j.int(limit) });
-
-	return result.records.map(rec => ({
-		graphName: rec.get('graphName'),
-		manifestKey: rec.get('manifestKey'),
-		builtAt: rec.get('builtAt'),
-		builtBy: rec.get('builtBy'),
-		standardsIncluded: rec.get('standardsIncluded'),
-		nodeCount: toNumber(rec.get('nodeCount')),
-		edgeCount: toNumber(rec.get('edgeCount')),
-		status: rec.get('status'),
-		provenanceTierComplete: rec.get('provenanceTierComplete'),
-	}));
+	`, { limit: neo4j.int(limit) }, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		callback('', result.records.map(rec => ({
+			graphName: rec.get('graphName'),
+			manifestKey: rec.get('manifestKey'),
+			builtAt: rec.get('builtAt'),
+			builtBy: rec.get('builtBy'),
+			standardsIncluded: rec.get('standardsIncluded'),
+			nodeCount: toNumber(rec.get('nodeCount')),
+			edgeCount: toNumber(rec.get('edgeCount')),
+			status: rec.get('status'),
+			provenanceTierComplete: rec.get('provenanceTierComplete'),
+		})));
+	});
 };
 
-const rawCypher = async (session, query) => {
-	requireNonEmpty(query, '-rawCypher'); // L8
-	const result = await session.run(query);
-	// L7: deep serialization (nested Integers -> numbers, embeddings dropped) and a row
-	// cap — truncation is REPORTED, never silent.
-	const totalRecords = result.records.length;
-	const records = result.records.slice(0, RAW_CYPHER_ROW_CAP).map(rec => {
-		const obj = {};
-		for (const key of rec.keys) {
-			obj[key] = serializeValue(rec.get(key));
+const rawCypher = (session, query, callback) => {
+	const emptyQueryRefusal = emptyArgumentRefusal(query, '-rawCypher'); // L8
+	if (emptyQueryRefusal) {
+		callback(emptyQueryRefusal);
+		return;
+	}
+	runCypherQuery(session, query, {}, (err, result) => {
+		if (err) {
+			callback(err);
+			return;
 		}
-		return obj;
+		// L7: deep serialization (nested Integers -> numbers, embeddings dropped) and a row
+		// cap — truncation is REPORTED, never silent.
+		const totalRecords = result.records.length;
+		const records = result.records.slice(0, RAW_CYPHER_ROW_CAP).map(rec => {
+			const obj = {};
+			rec.keys.forEach((columnName) => {
+				obj[columnName] = serializeValue(rec.get(columnName));
+			});
+			return obj;
+		});
+		callback('', {
+			recordCount: records.length,
+			totalRecordCount: totalRecords,
+			truncated: totalRecords > records.length,
+			records,
+		});
 	});
-	return {
-		recordCount: records.length,
-		totalRecordCount: totalRecords,
-		truncated: totalRecords > records.length,
-		records,
-	};
 };
 
 // =====================================================================
 // GRAPH RETRIEVER (VectorCypherRetriever)
 // =====================================================================
 
-const graphRetriever = async (session, query, config, params) => {
+// lib/vectorCypherRetriever.js is still promise-based (lane S left it: its recovery chain is try/catch control
+// flow that a refactor must rule on, not just transcribe). Its promise is met here and nowhere else.
+const graphRetriever = (session, query, config, params, callback) => {
 	const { retrieve } = require('./lib/vectorCypherRetriever');
 
 	const limit = params.limit ? parseInt(params.limit) : 10;
@@ -939,7 +1060,7 @@ const graphRetriever = async (session, query, config, params) => {
 	const traversalFilePath = path.join(__dirname, 'traversal.cypher');
 	const schemaFilePath = path.join(__dirname, 'schema-summary.json');
 
-	return retrieve({
+	retrieve({
 		neo4jSession: session,
 		queryText: query,
 		embedder: config.embedder,
@@ -948,63 +1069,56 @@ const graphRetriever = async (session, query, config, params) => {
 		limit,
 		traversalMode,
 		searchMode,
-	});
+	}).then(
+		(retrievedResultList) => callback('', retrievedResultList),
+		(retrieveError) => callback(retrieveError.message),
+	);
 };
 
 // =====================================================================
 // SEARCH API (module interface)
 // =====================================================================
 
-const search = async (queryType, params, callback) => {
-	let config;
-	try {
-		config = loadConfig();
-		// Create provider-agnostic embedder from config
-		// An unresolved ini token ('<!voyageApiKey!>') means the key is absent — no embedder
-		if (config.voyageApiKey && !config.voyageApiKey.startsWith('<!')) {
-			const { embeddingClient } = require('qtools-graph-forge-core');
-			config.embedder = embeddingClient.create({
-				provider: 'voyage',
-				model: 'voyage-4-large',
-				dimension: 1024,
-				apiKey: config.voyageApiKey,
-				batchSize: 20
-			});
+// queryType -> handler. Every handler is (session, params, config, callback).
+const QUERY_HANDLER_BY_QUERY_TYPE = {
+	search: (session, params, config, callback) => hybridSearch(session, params.query, config, params, callback),
+	graphRetriever: (session, params, config, callback) => graphRetriever(session, params.query, config, params, callback),
+	findMappings: (session, params, config, callback) => findMappings(session, params.name, callback),
+	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, callback),
+	unmappedFields: (session, params, config, callback) => unmappedFields(session, params, callback),
+	stats: (session, params, config, callback) => getStats(session, callback),
+	listStandards: (session, params, config, callback) => getListStandards(session, callback),
+	rawCypher: (session, params, config, callback) => rawCypher(session, params.query, callback),
+	explore: (session, params, config, callback) => exploreNode(session, params, callback),
+	history: (session, params, config, callback) => historyEvents(session, params, callback),
+	describeGraph: (session, params, config, callback) => require('./lib/describeGraph').describeGraph(session, params, callback),
+};
+
+// Wave B (CRIMSON gate 7): describeGraph runs in a READ-ONLY session from birth.
+const READ_ONLY_QUERY_TYPES = ['describeGraph'];
+
+const search = (queryType, params, callback) => {
+	loadConfig((configError, config) => {
+		if (configError) {
+			callback(`Config error: ${configError}`);
+			return;
 		}
-	} catch (err) {
-		if (callback) return callback(`Config error: ${err.message}`);
-		throw err;
-	}
-
-	try {
-		// Wave B (CRIMSON gate 7): describeGraph runs in a READ-ONLY session from birth.
-		const READ_ONLY_QUERY_TYPES = ['describeGraph'];
-		const result = await withNeo4jSession(config, async (session) => {
-			switch (queryType) {
-				case 'search': return hybridSearch(session, params.query, config, params);
-				case 'graphRetriever': return graphRetriever(session, params.query, config, params);
-				case 'findMappings': return findMappings(session, params.name);
-				case 'compareCodesets': return compareCodesets(session, params.name);
-				case 'unmappedFields': return unmappedFields(session, params);
-				case 'stats': return getStats(session);
-				case 'listStandards': return getListStandards(session);
-				case 'rawCypher': return rawCypher(session, params.query);
-				case 'explore': return exploreNode(session, params);
-				case 'history': return historyEvents(session, params);
-				case 'describeGraph': {
-					const { describeGraph } = require('./lib/describeGraph');
-					return describeGraph(session, params);
-				}
-				default: return { error: `Unknown query type: ${queryType}` };
+		const queryHandler = QUERY_HANDLER_BY_QUERY_TYPE[queryType];
+		withNeo4jSession(config, { readOnly: READ_ONLY_QUERY_TYPES.indexOf(queryType) !== -1 }, (session, sessionCallback) => {
+			if (!queryHandler) {
+				// an unknown type is answered by name as the result, as it always was
+				sessionCallback('', { error: `Unknown query type: ${queryType}` });
+				return;
 			}
-		}, { readOnly: READ_ONLY_QUERY_TYPES.indexOf(queryType) !== -1 });
-
-		if (callback) return callback(null, result);
-		return result;
-	} catch (err) {
-		if (callback) return callback(`Query failed: ${err.message}`);
-		throw err;
-	}
+			queryHandler(session, params, config, sessionCallback);
+		}, (queryError, result) => {
+			if (queryError) {
+				callback(`Query failed: ${queryError}`);
+				return;
+			}
+			callback(null, result);
+		});
+	});
 };
 
 // =====================================================================
