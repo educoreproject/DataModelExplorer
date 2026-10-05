@@ -38,7 +38,7 @@
 		{
 			"definition": {
 				"name": "dme_graph_retriever",
-				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead.",
+				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result is an object with retrievalMode \"flat\" (and a retrievalNote) instead of a list, traversal.cypher was not available and its rows carry no graph context: tell the user so, quoting the retrievalNote.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -51,23 +51,13 @@
 							"description": "Number of results (default 10)",
 							"default": 10
 						},
-						"traversalMode": {
-							"type": "string",
-							"enum": [
-								"static",
-								"dynamic"
-							],
-							"description": "static: use pre-defined traversal (fast, free). dynamic: generate traversal Cypher specific to this query (slower, costs one LLM call, potentially richer).",
-							"default": "static"
-						},
 						"searchMode": {
 							"type": "string",
 							"enum": [
 								"hybrid",
-								"vector",
-								"bm25"
+								"vector"
 							],
-							"description": "hybrid: BM25 + vector (default when both indexes exist). vector: vector similarity only. bm25: full-text only.",
+							"description": "Both values run the graph's one vector index (there is no fulltext index, so no BM25 leg); any other value is refused.",
 							"default": "hybrid"
 						}
 					},
@@ -83,7 +73,6 @@
 				],
 				"flagArgs": {
 					"limit": "--limit",
-					"traversalMode": "--traversalMode",
 					"searchMode": "--searchMode"
 				}
 			}

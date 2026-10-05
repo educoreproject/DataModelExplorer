@@ -1104,31 +1104,31 @@ const rawCypher = (session, query, callback) => {
 // GRAPH RETRIEVER (VectorCypherRetriever)
 // =====================================================================
 
-// lib/vectorCypherRetriever.js is still promise-based (lane S left it: its recovery chain is try/catch control
-// flow that a refactor must rule on, not just transcribe). Its promise is met here and nowhere else.
+// Ruling C (TQ, 2026-10-05): the retriever answers a real error by name, never with an empty or degraded list; when
+// traversal.cypher is absent it runs a flat vector search and its result says so (retrievalMode 'flat'). The
+// never-built 'dynamic' traversal mode was deleted, and with it traversalMode: supplying it is refused by name.
+// limit and searchMode carry their declared CLI defaults (-help); the retriever refuses either when invalid.
 const graphRetriever = (session, query, config, params, callback) => {
 	const { retrieve } = require('./lib/vectorCypherRetriever');
 
-	const limit = params.limit ? parseInt(params.limit) : 10;
-	const traversalMode = params.traversalMode || 'static';
-	const searchMode = params.searchMode || 'hybrid';
-
-	const traversalFilePath = path.join(__dirname, 'traversal.cypher');
-	const schemaFilePath = path.join(__dirname, 'schema-summary.json');
+	const emptyQueryRefusal = emptyArgumentRefusal(query, '-graphRetriever');
+	if (emptyQueryRefusal) {
+		callback(emptyQueryRefusal);
+		return;
+	}
+	if (params.traversalMode !== undefined) {
+		callback(`graphRetriever traversalMode was removed (got '${params.traversalMode}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`);
+		return;
+	}
 
 	retrieve({
 		neo4jSession: session,
 		queryText: query,
 		embedder: config.embedder,
-		traversalFilePath,
-		schemaFilePath,
-		limit,
-		traversalMode,
-		searchMode,
-	}).then(
-		(retrievedResultList) => callback('', retrievedResultList),
-		(retrieveError) => callback(retrieveError.message),
-	);
+		traversalFilePath: path.join(__dirname, 'traversal.cypher'),
+		limit: Number(params.limit),
+		searchMode: params.searchMode,
+	}, callback);
 };
 
 // =====================================================================
@@ -1232,7 +1232,7 @@ if (require.main === module) {
 		queryType = 'graphRetriever';
 		params.query = positionalArgs[0] || '';
 		params.limit = flags.limit || '10';
-		params.traversalMode = flags.traversalMode || 'static';
+		if (flags.traversalMode !== undefined) params.traversalMode = flags.traversalMode;
 		params.searchMode = flags.searchMode || 'hybrid';
 	} else if (flags.rawCypher) {
 		queryType = 'rawCypher';
@@ -1240,7 +1240,7 @@ if (require.main === module) {
 	} else if (flags.help) {
 		process.stderr.write(`Usage:
   ${moduleName} -search "query text" [--standard=PESC]
-  ${moduleName} -graphRetriever "query text" [--limit=10] [--traversalMode=static] [--searchMode=hybrid]
+  ${moduleName} -graphRetriever "query text" [--limit=10] [--searchMode=hybrid|vector]
   ${moduleName} -explore --name="NodeName" [--standard=PESC]
   ${moduleName} -history [--standard=PESC] [--limit=20]
   ${moduleName} -findMappings "field name or xpath"
