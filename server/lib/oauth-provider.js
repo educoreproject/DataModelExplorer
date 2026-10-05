@@ -90,7 +90,7 @@ const moduleFunction = ({
 			token_endpoint_auth_method: 'none', // public clients (PKCE), no secret
 			id_token_signed_response_alg: 'RS256',
 		},
-		clientAuthMethods: ['none', 'client_secret_basic', 'client_secret_post'],
+		clientAuthMethods: ['none', 'client_secret_basic', 'client_secret_post', 'private_key_jwt'], // private_key_jwt: ChatGPT's CIMD client.json declares it
 
 		// --- Spec-required route paths (root /.well-known handled in mount) ---
 		routes: {

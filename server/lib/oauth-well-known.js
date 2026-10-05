@@ -40,7 +40,7 @@ const moduleFunction = ({ issuer, mcpResource, routes = {} } = {}) => ({ express
 		response_types_supported: ['code'],
 		response_modes_supported: ['query'],
 		grant_types_supported: ['authorization_code', 'refresh_token'],
-		token_endpoint_auth_methods_supported: ['none', 'client_secret_basic', 'client_secret_post'],
+		token_endpoint_auth_methods_supported: ['none', 'client_secret_basic', 'client_secret_post', 'private_key_jwt'],
 		code_challenge_methods_supported: ['S256'],
 		// Advertise the RFC 8707 resource-indicator + CIMD support.
 		authorization_response_iss_parameter_supported: true,
