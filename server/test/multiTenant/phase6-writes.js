@@ -77,7 +77,8 @@ const queryConn = (conn, cypher, params, cb) => {
 	});
 };
 
-const GOLDEN = { boltUri: 'bolt://localhost:7706', user: 'neo4j', password: '99d0615d205eead0ea65b3f642ffb3d5' };
+// W-E-11 (campaign P1): the golden connection is resolved from its declared container name, never a literal URI/password
+const GOLDEN = require('../../data-model/lib/user-graph/container-connection-resolver').resolveContainerConnection(require('../lib/goldenContainerName').readGoldenContainerName());
 const STANDARD_URI = 'https://w3id.org/CEDStandards/terms/C000000'; // a real CEDS element uri
 
 sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {

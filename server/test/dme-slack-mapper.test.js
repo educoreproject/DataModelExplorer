@@ -1,4 +1,5 @@
 'use strict';
+const { readGoldenContainerName } = require('./lib/goldenContainerName'); // W-E-11: the golden is declared once
 // dme-slack mapper gate (DME/Slack plan v3, task 1.5).
 // Adversarial-term proof (user text ONLY in $params; hostile terms treated as
 // data by the live golden), lookup fixture sanity, card shaping with output
@@ -171,7 +172,7 @@ ok("a debug-judge tuple (mappingSource 'bridge-debug') is flagged as a placehold
 // --------------------------------------------------------------------
 // live: fixture lookup + hostile terms as data
 
-const conn = resolveContainerConnection(process.env.GOLDEN_CONTAINER || 'gf_pvsEcand');
+const conn = resolveContainerConnection(readGoldenContainerName());
 if (conn.error) {
 	console.error(`Cannot resolve golden connection: ${conn.error}`);
 	process.exit(1);

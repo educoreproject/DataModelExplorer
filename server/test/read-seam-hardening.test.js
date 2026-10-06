@@ -1,4 +1,5 @@
 'use strict';
+const { readGoldenContainerName } = require('./lib/goldenContainerName'); // W-E-11: the golden is declared once
 // Read-seam hardening gate (DME/Slack plan v3, task 1.0).
 // Proves against the LIVE golden container:
 //   1. a write through the hardened runQuery seam is refused by Neo4j itself
@@ -30,7 +31,7 @@ const neo4jGen = require('../data-model/lib/neo4j-instance/neo4j-instance')({
 	unused: true,
 });
 
-const GOLDEN_CONTAINER = process.env.GOLDEN_CONTAINER || 'gf_pvsEcand';
+const GOLDEN_CONTAINER = readGoldenContainerName();
 
 const results = [];
 const ok = (name, cond, detail) => {

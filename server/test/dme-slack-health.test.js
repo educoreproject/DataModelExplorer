@@ -1,4 +1,5 @@
 'use strict';
+const { readGoldenContainerName } = require('./lib/goldenContainerName'); // W-E-11: the golden is declared once
 // /dme health gate (DME/Slack plan v3, task 1.10).
 // Runs the health command through the REAL dispatch: golden identity (name +
 // live node count), askMilo responsiveness (real getDefaults spawn), and the
@@ -30,7 +31,7 @@ process.global = {
 			return dmeSlackTestConfig;
 		}
 		if (name === 'dataModelExplorerSearch') {
-			return { goldenContainerName: process.env.GOLDEN_CONTAINER || 'gf_pvsEcand' };
+			return { goldenContainerName: readGoldenContainerName() };
 		}
 		return {};
 	},
@@ -71,7 +72,7 @@ if (fs.existsSync(TEST_DB_PATH)) {
 	fs.unlinkSync(TEST_DB_PATH);
 }
 
-const conn = resolveContainerConnection(process.env.GOLDEN_CONTAINER || 'gf_pvsEcand');
+const conn = resolveContainerConnection(readGoldenContainerName());
 
 console.log('\n=== /dme health gate ===\n');
 
@@ -99,7 +100,7 @@ sqliteGen.initDatabaseInstance(TEST_DB_PATH, (e1, sqlDb) => {
 								const delivery = deliveries[deliveries.length - 1];
 								const text = (delivery && delivery.data.text) || '';
 								ok('health dispatch completes', !dispatchErr, dispatchErr);
-								ok('names the golden container', /gf_pvsEcand/.test(text));
+								ok('names the golden container', text.includes(readGoldenContainerName()));
 								ok('reports a live forged-node count', /105\d{3} forged nodes/.test(text));
 								ok('reports askMilo responsive', /askMilo: responsive/.test(text));
 								ok('reports today’s spend with the team cap', /spend .*you \$0\.00 · team \$0\.00 of \$10/.test(text));

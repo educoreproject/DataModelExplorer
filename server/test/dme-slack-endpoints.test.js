@@ -1,4 +1,5 @@
 'use strict';
+const { readGoldenContainerName } = require('./lib/goldenContainerName'); // W-E-11: the golden is declared once
 // Endpoint + dispatch gate (DME/Slack plan v3, tasks 1.4/1.6/1.8 non-spawn rows).
 // Assembles the REAL stack — express with the startApiServer middleware shape,
 // real endpoints, real dispatch access point, real mapper, real hardened golden
@@ -47,7 +48,7 @@ process.global = {
 			return dmeSlackTestConfig;
 		}
 		if (name === 'dataModelExplorerSearch') {
-			return { goldenContainerName: process.env.GOLDEN_CONTAINER || 'gf_pvsEcand' };
+			return { goldenContainerName: readGoldenContainerName() };
 		}
 		return {};
 	},
@@ -170,7 +171,7 @@ if (fs.existsSync(TEST_DB_PATH)) {
 	fs.unlinkSync(TEST_DB_PATH);
 }
 
-const conn = resolveContainerConnection(process.env.GOLDEN_CONTAINER || 'gf_pvsEcand');
+const conn = resolveContainerConnection(readGoldenContainerName());
 if (conn.error) {
 	console.error(`Cannot resolve golden connection: ${conn.error}`);
 	process.exit(1);
