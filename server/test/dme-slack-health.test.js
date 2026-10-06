@@ -89,6 +89,9 @@ sqliteGen.initDatabaseInstance(TEST_DB_PATH, (e1, sqlDb) => {
 							process.exit(1);
 						}
 
+						let liveContentNodeCount = null;
+						neo4jDb.runQuery('MATCH (n:ForgedNode) WHERE NOT n:GraphMeta RETURN count(n) AS contentNodeCount', {}, (countError, countRows) => {
+						liveContentNodeCount = countError ? null : countRows[0].contentNodeCount;
 						accessPointsDotD['dme-slack-dispatch'](
 							{
 								commandText: 'health',
@@ -101,7 +104,8 @@ sqliteGen.initDatabaseInstance(TEST_DB_PATH, (e1, sqlDb) => {
 								const text = (delivery && delivery.data.text) || '';
 								ok('health dispatch completes', !dispatchErr, dispatchErr);
 								ok('names the golden container', text.includes(readGoldenContainerName()));
-								ok('reports a live forged-node count', /105\d{3} forged nodes/.test(text));
+								// W-E-2 (campaign P1): the passport's content-node count, held to the live non-GraphMeta count
+								ok('reports the passport content-node count, equal to the live count', new RegExp(`${liveContentNodeCount} content nodes · \\d+ standards · built `).test(text), `live ${liveContentNodeCount}`);
 								ok('reports askMilo responsive', /askMilo: responsive/.test(text));
 								ok('reports today’s spend with the team cap', /spend .*you \$0\.00 · team \$0\.00 of \$10/.test(text));
 								ok('reports uptime', /uptime/i.test(text));
@@ -115,6 +119,7 @@ sqliteGen.initDatabaseInstance(TEST_DB_PATH, (e1, sqlDb) => {
 								process.exit(failed > 0 ? 1 : 0);
 							},
 						);
+						});
 					},
 				);
 			});

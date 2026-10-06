@@ -517,6 +517,30 @@ series(
 		},
 
 		// ----------------------------------------------------------------
+		// W-E-1 / W-E-2 (campaign P1): a live lookup through the REAL dispatch — "of N" is the whole match count (the page
+		// is 8); the cards arrive (the top three for 'birth date' are CEDS and Ed-Fi nodes, so the instance-carried card is
+		// gated in dme-slack-mapper.test.js, by stableId)
+		(next) => {
+			const before = deliveries.length;
+			accessPointsDotD['dme-slack-dispatch'](
+				{
+					commandText: 'lookup birth date',
+					slackUserId: 'U0TESTER',
+					channelId: 'C0TESTCH',
+					responseUrl: 'https://hooks.slack.com/commands/T0001/fixture',
+				},
+				() => {
+					waitForDelivery(before, 30000, (waitErr, delivery) => {
+						const blockText = !waitErr ? JSON.stringify(delivery.data.blocks || delivery.data) : '';
+						const ofMatch = blockText.match(/showing (\d+) of (\d+)/);
+						ok('live lookup: "showing k of N" with N the whole count (> the page of 8)', !!ofMatch && Number(ofMatch[2]) > 8, waitErr || (ofMatch && ofMatch[0]));
+						ok('live lookup: cards are delivered (the instance-carried card itself is gated in dme-slack-mapper.test.js)', /\*CEDS hub tuple:\*/.test(blockText));
+						next();
+					});
+				},
+			);
+		},
+
 		// graph-down state: dispatch with neo4jDb null answers the A8 message
 		(next) => {
 			require('../data-model/access-points-dot-d')(

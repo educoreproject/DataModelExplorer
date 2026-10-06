@@ -304,6 +304,27 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			);
 		});
 
+		// W-E-2 (campaign P1): "showing 3 of N" — N is the whole match count, not the page
+		taskList.push((args, next) => {
+			const spec = dmeSlackMapper.getCypher('elementSearchCount', { term: searchTerm });
+			accessPointsDotD['dme-cypher-query'](
+				{ action: 'query', query: spec.cypher, params: spec.params },
+				(err, rows) => {
+					if (err) {
+						next(err, args);
+						return;
+					}
+					next('', { ...args, totalMatchCount: rows[0].totalMatchCount });
+				},
+			);
+		});
+
+		// one card per search row, keyed by stableId (W-E-2); each card is its own-edge arm plus its instance arm
+		// (W-E-1: SIF and PESC carry their mappings on HAS_INSTANCE children), merged by the mapper
+		const runNamedQuery = (queryName, queryParams, callback) => {
+			const spec = dmeSlackMapper.getCypher(queryName, queryParams);
+			accessPointsDotD['dme-cypher-query']({ action: 'query', query: spec.cypher, params: spec.params }, callback);
+		};
 		taskList.push((args, next) => {
 			const { searchRows } = args;
 			if (!searchRows.length) {
@@ -315,54 +336,44 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				0,
 				dmeSlackMapper.limits.lookupCardLimit,
 			);
-			const cards = [];
+			const cardByStableId = {};
 			let remaining = cardTargets.length;
 			let firstError = '';
 
 			cardTargets.forEach((target) => {
-				const spec = dmeSlackMapper.getCypher('elementCard', {
-					name: target.name,
-					source: target.source,
-				});
-				accessPointsDotD['dme-cypher-query'](
-					{ action: 'query', query: spec.cypher, params: spec.params },
-					(err, rows) => {
-						if (err && !firstError) {
-							firstError = err;
+				runNamedQuery('elementCardOwn', { stableId: target.stableId }, (ownError, ownRows) => {
+					runNamedQuery('elementCardViaInstance', { stableId: target.stableId }, (viaError, viaRows) => {
+						const { refusalText, card } = dmeSlackMapper.mergeElementCard({
+							ownRow: ownRows && ownRows[0],
+							viaInstanceRow: viaRows && viaRows[0],
+						});
+						const cardError = ownError || viaError || refusalText;
+						if (cardError && !firstError) {
+							firstError = cardError;
 						}
-						const card = rows && rows[0];
-						if (card && card.name) {
-							cards.push(card);
+						if (!cardError && card) {
+							cardByStableId[target.stableId] = card;
 						}
 						remaining -= 1;
 						if (remaining === 0) {
+							const cards = cardTargets.map((cardTarget) => cardByStableId[cardTarget.stableId]).filter(Boolean);
 							if (!cards.length && firstError) {
 								next(firstError, args);
 								return;
 							}
-							// preserve searchRows order
-							cards.sort(
-								(a, b) =>
-									cardTargets.findIndex(
-										(t) => t.name === a.name && t.source === a.source,
-									) -
-									cardTargets.findIndex(
-										(t) => t.name === b.name && t.source === b.source,
-									),
-							);
 							next('', { ...args, cards });
 						}
-					},
-				);
+					});
+				});
 			});
 		});
 
 		taskList.push((args, next) => {
-			const { cards, searchRows } = args;
+			const { cards, totalMatchCount } = args;
 			const blocks = dmeSlackMapper.buildLookupBlocks({
 				term,
 				cards,
-				totalMatches: searchRows.length,
+				totalMatches: totalMatchCount,
 				dmeBaseUrl: slackConfig.dmeBaseUrl,
 				slashCommand,
 				questionHint: `Want an explanation instead? Just type: \`${slashCommand} ${term}\` (no 'lookup') for an AI answer.`,
@@ -589,8 +600,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			accessPointsDotD['dme-cypher-query'](
 				{ action: 'query', query: spec.cypher, params: spec.params },
 				(err, rows) => {
-					const nodeCount = !err && rows[0] ? rows[0].forgedNodeCount : null;
-					next('', { ...args, graphOk: !err, nodeCount });
+					// W-E-2: the passport's content-node count; a graph without a :GraphProvenance row says so by name
+					// (it used to count every ForgedNode, the :GraphMeta self-documentation nodes among them)
+					const passportRow = !err && rows[0] ? rows[0] : null;
+					next('', { ...args, graphOk: !err, passportRow, graphIdentityRefusal: !err && !passportRow ? 'graphIdentity: no :GraphProvenance row' : '' });
 				},
 			);
 		});
@@ -608,7 +621,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		taskList.push((args, next) => {
-			const { graphOk, nodeCount, askMiloOk, totals } = args;
+			const { graphOk, passportRow, graphIdentityRefusal, askMiloOk, totals } = args;
 			const goldenName = (getConfig('dataModelExplorerSearch') || {})
 				.goldenContainerName;
 			const running = askMiloRelay.getRunningCounts();
@@ -616,7 +629,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const lines = [
 				'*DME/Slack bridge health*',
 				`• Server uptime (bridge): ${formatUptime()}`,
-				`• Golden graph: \`${goldenName || 'unresolved'}\` — ${graphOk ? `${nodeCount} forged nodes` : ':warning: unreachable'}`,
+				`• Golden graph: \`${goldenName || 'unresolved'}\` — ${!graphOk ? ':warning: unreachable' : graphIdentityRefusal ? `:warning: ${graphIdentityRefusal}` : `${passportRow.contentNodeCount} content nodes · ${(passportRow.standardsIncluded || []).length} standards · built ${passportRow.builtAt}`}`,
 				`• askMilo: ${askMiloOk ? 'responsive' : ':warning: check failed'} (running now: ${running.global})`,
 				totals
 					? `• Today's /dme ask spend (${totals.localDay}): you $${totals.userTotalUsd.toFixed(2)} · team $${totals.globalTotalUsd.toFixed(2)} of $${parseFloat(slackConfig.globalDailyCapUsd) || 50}`
