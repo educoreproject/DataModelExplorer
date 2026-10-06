@@ -535,6 +535,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				const blocks = dmeSlackMapper.buildAskAnswerBlocks({
 					question,
 					answerText: runResult.answerText,
+					answerCutOff: runResult.answerCutOff,
 					dmeBaseUrl: slackConfig.dmeBaseUrl,
 				});
 				deliver(

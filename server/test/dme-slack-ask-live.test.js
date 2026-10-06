@@ -90,7 +90,10 @@ relay.checkAskMilo((healthErr, healthResult) => {
 
 			// TQ directive 2026-07-13: Slack-formatted prompt must take —
 			// re: line in *single asterisks*, no markdown-web artifacts
-			const answerBody = answer.replace(/^=+[\s\S]*?PROMPT:.*$/m, ''); // skip askMilo's own banner
+			// W-E-3 (campaign P1): the relay answers askMilo's JSON `response`, so there is no banner to skip — assert it
+			const answerBody = answer;
+			ok('the answer carries no askMilo banner (no ==== line, no PROMPT: echo)', !/^=+$/m.test(answer) && !/^PROMPT:/m.test(answer));
+			ok('the relay reports why the model stopped', typeof askResult.stopReason === 'string' && typeof askResult.answerCutOff === 'boolean', `${askResult.stopReason} / ${askResult.answerCutOff}`);
 			ok(
 				'Slack prompt took: re: line wrapped in single asterisks',
 				/^\*re:.*\*/m.test(answer),

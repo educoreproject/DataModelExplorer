@@ -3,6 +3,7 @@
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+const { finalAnswerFor } = require('../lib/stopReason');
 
 import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod/v4";
@@ -34,6 +35,7 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, access
 
 	let responseText = '';
 	let cost = { inputTokens: 0, outputTokens: 0, usd: 0 };
+	let sdkStopReason = '';
 
 	// Build MCP servers map when confluence accessor is provided
 	let mcpServers;
@@ -83,6 +85,7 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, access
 			xLog.status(`[SingleCall-SDK] SDK message: type=${message.type}${subtypeInfo}${detail}`);
 		}
 		if (message.type === "result") {
+			sdkStopReason = message.stop_reason || `sdkResult:${message.subtype}`;
 			if (message.subtype === "success") {
 				responseText = message.result || '[NO RESPONSE]';
 				cost = {
@@ -108,7 +111,9 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, access
 		throw new Error("SingleCall returned empty result");
 	}
 
-	return { responseText, cost };
+	// W-D-21: the SDK result names its own stop (stop_reason when the SDK reports one, else its result subtype, named
+	// as such); a cut-off answer is marked
+	return finalAnswerFor({ responseText, cost, stopReason: sdkStopReason });
 };
 
 export { singleCall };

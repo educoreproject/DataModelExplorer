@@ -14,7 +14,10 @@
 //   - DmeUserRead/DmeUserWrite force-suppressed (Standard-mode discipline);
 //     never graphMode:'user', never the user-mode env branch
 //   - configPath derived from process.global.configurationSourceFilePath
-//   - buffered (not streaming): stdout to completion = the answer report
+//   - buffered (not streaming): stdout to completion = askMilo's JSON report; the
+//     answer is its `response`, with stopReason / answerCutOff (W-E-3, campaign
+//     P1: the text report's banner and PROMPT: echo used to reach Slack, and a
+//     reply cut off at the output limit arrived as if finished)
 //   - wall-clock timeout: SIGTERM, 10s grace, SIGKILL — no orphan subprocess
 //   - actual cost parsed from askMilo's stderr line
 //     "Cost: $0.0123 (N input / M output) ..." (askMilo.js:876); the config
@@ -25,18 +28,25 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 
 const qt = require('qtools-functional-library');
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
 const SUPPRESSED_PROVIDERS = 'DmeUserRead,DmeUserWrite';
+// W-E-3: the fields askMilo's single-call JSON report carries (declared beside every DME payload)
+const { ASK_MILO_SINGLE_CALL_REPORT_FIELD_LIST } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const SIGKILL_GRACE_MS = 10000;
 
 // START OF moduleFunction() ============================================================
 
-const moduleFunction = function ({ unused }) {
+const moduleFunction = function ({ unused, askMiloJsPathOverride }) {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 
-	const askMiloJsPath = path.resolve(
+	// askMiloJsPathOverride lets a test spawn a stub; a named override that is not a file is refused, never ignored
+	if (askMiloJsPathOverride !== undefined && !fs.existsSync(askMiloJsPathOverride)) {
+		throw new Error(`ask-milo-relay: askMiloJsPathOverride '${askMiloJsPathOverride}' is not an existing file`);
+	}
+	const askMiloJsPath = askMiloJsPathOverride || path.resolve(
 		__dirname,
 		'../ask-milo-multitool/askMilo.js',
 	);
@@ -84,7 +94,8 @@ const moduleFunction = function ({ unused }) {
 	// DataModelExplorer is the conservative choice when no name is supplied.
 	const askMiloInputFor = ({ question, askModel, askPromptName, verbose }) => {
 		const askMiloInput = {
-			switches: {},
+			// the JSON report: the relay answers its `response` and stopReason, never the human text report (W-E-3)
+			switches: { json: true },
 			values: {
 				singleCallPromptName: [String(askPromptName || 'DataModelExplorer')],
 				aiToolsSuppressed: [SUPPRESSED_PROVIDERS],
@@ -219,8 +230,32 @@ const moduleFunction = function ({ unused }) {
 				/\[SingleCall\] Providers: (.*)/,
 			);
 
+			// the same malformed-output guard checkAskMilo uses: output that is not the JSON report is a failure by
+			// name, never relayed to Slack as an answer
+			let reportJson = null;
+			try {
+				reportJson = JSON.parse(stdoutText.slice(stdoutText.indexOf('{')));
+			} catch (parseError) {
+				reportJson = null;
+			}
+			const missingFieldNameList = reportJson ? ASK_MILO_SINGLE_CALL_REPORT_FIELD_LIST.filter((fieldName) => reportJson[fieldName] === undefined) : [];
+			if (!reportJson || missingFieldNameList.length > 0) {
+				settle('', {
+					failed: true,
+					failureReason: reportJson
+						? `askMilo's report lacks ${missingFieldNameList.join(', ')}`
+						: 'askMilo returned non-JSON output',
+					exitCode,
+					durationMs,
+					actualCostUsd,
+				});
+				return;
+			}
+
 			settle('', {
-				answerText: stdoutText.trim(),
+				answerText: reportJson.response,
+				stopReason: reportJson.stopReason,
+				answerCutOff: reportJson.answerCutOff === true,
 				exitCode: 0,
 				durationMs,
 				actualCostUsd,

@@ -574,12 +574,12 @@ Examples:
 			const useToolsDriver = hasToolProviders && args.config.driver === 'direct';
 
 			// Common completion handler for all branches
-			const onComplete = ({ responseText, cost }) => {
+			const onComplete = ({ responseText, cost, stopReason, answerCutOff }) => {
 				if (args.config.stream) {
 					process.stdout.write('\n');
 				}
 				args.timing.mark('singleCall', 'api_call_done', { tokens: cost.outputTokens, usd: cost.usd });
-				next('', { ...args, responseText, singleCallCost: cost });
+				next('', { ...args, responseText, singleCallCost: cost, stopReason, answerCutOff });
 			};
 
 			if (useToolsDriver) {
@@ -668,6 +668,8 @@ Examples:
 				promptName: args.config.firstPromptName,
 				prompt: args.originalPrompt,
 				responseText: args.responseText,
+				stopReason: args.stopReason,
+				answerCutOff: args.answerCutOff,
 				cost: args.singleCallCost,
 				model: args.config.agentModel,
 				elapsedSeconds,

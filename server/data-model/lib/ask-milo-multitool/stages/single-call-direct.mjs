@@ -4,6 +4,7 @@
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+const { finalAnswerFor } = require('../lib/stopReason');
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -101,7 +102,8 @@ const singleCall = async ({ prompt, systemPrompt, sessionContext, config, timing
 		usd: estimateCost(model, response.usage),
 	};
 
-	return { responseText, cost };
+	// W-D-21: the answer carries why the model stopped; a cut-off answer is marked
+	return finalAnswerFor({ responseText, cost, stopReason: response.stop_reason });
 };
 
 export { singleCall };

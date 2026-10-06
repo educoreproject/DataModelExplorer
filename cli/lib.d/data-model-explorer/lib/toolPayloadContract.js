@@ -133,9 +133,10 @@ const SLACK_LOOKUP_LIMITS = Object.freeze({ searchPageSize: 8, cardLimit: 3, tup
 const SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST = Object.freeze(['stableId', 'name', 'source', 'role', 'description']);
 const SLACK_CARDABLE_ROLE_LIST = Object.freeze(['DmeProperty', 'DmeClass', 'DmeOptionSet', 'DmeOptionValue']); // declarations, never instances (DmeSupport)
 
-// W-E-3 / W-D-21: askMilo's single-call JSON report, and the stop reasons it can carry
+// W-E-3: askMilo's single-call JSON report (formatters/json.js writes it; the Slack relay refuses a report lacking any of
+// these). Why the model stopped is open-ended (the API's stop_reason, or askMilo's own maxToolIterations); which stops
+// make an answer CUT OFF is askMilo's lib/stopReason.js table.
 const ASK_MILO_SINGLE_CALL_REPORT_FIELD_LIST = Object.freeze(['mode', 'promptName', 'prompt', 'response', 'stopReason', 'answerCutOff', 'cost', 'model', 'elapsedSeconds']);
-const ASK_MILO_STOP_REASON_LIST = Object.freeze(['end_turn', 'max_tokens', 'stop_sequence', 'tool_use', 'refusal', 'pause_turn']);
 
 // refusalFor — the refusal object, exactly REFUSAL_FIELD_LIST; a refusal name the verb does not declare is a programming
 // error and throws by name (the contract is what makes two refusals of one verb tell apart)
@@ -199,7 +200,6 @@ module.exports = Object.freeze({
 	SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST,
 	SLACK_CARDABLE_ROLE_LIST,
 	ASK_MILO_SINGLE_CALL_REPORT_FIELD_LIST,
-	ASK_MILO_STOP_REASON_LIST,
 	listEnvelopeFor,
 	refusalFor,
 });

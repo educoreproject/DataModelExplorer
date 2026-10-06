@@ -1,11 +1,15 @@
 'use strict';
 
+// W-D-21: a mock single-call answer leaves through finalAnswerFor like every driver's, as a whole (end_turn) answer
+const { finalAnswerFor } = require('./stopReason');
+
 const mockSingleCall = ({ prompt, systemPrompt, config }) => {
 	const responseText = `[MOCK] Response to: "${(prompt || '').slice(0, 80)}..."\nSystem prompt: ${(systemPrompt || '').slice(0, 60)}...\nModel: ${config.agentModel}`;
-	return {
+	return finalAnswerFor({
 		responseText,
 		cost: { inputTokens: 100, outputTokens: 200, usd: 0.0001 },
-	};
+		stopReason: 'end_turn',
+	});
 };
 
 const mockExpand = ({ originalPrompt, config }) => {

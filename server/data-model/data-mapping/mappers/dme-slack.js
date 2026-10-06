@@ -382,7 +382,7 @@ const moduleFunction =
 		};
 
 		// ----- ask reply: buffered askMilo answer → capped sections + deep link
-		const buildAskAnswerBlocks = ({ question, answerText, dmeBaseUrl }) => {
+		const buildAskAnswerBlocks = ({ question, answerText, dmeBaseUrl, answerCutOff }) => {
 			const { text: cappedAnswer, truncated } = truncateWithAffordance(
 				String(answerText || '').trim(),
 				ANSWER_TOTAL_CAP,
@@ -410,6 +410,10 @@ const moduleFunction =
 			}
 
 			const contextParts = [];
+			// W-E-3: the model stopped at its output limit — the answer is incomplete, and the reader is told
+			if (answerCutOff === true) {
+				contextParts.push('Answer cut off at the model\'s output limit — ask a narrower question.');
+			}
 			if (truncated) {
 				contextParts.push('Answer trimmed — refine, or open in the DME.');
 			}
