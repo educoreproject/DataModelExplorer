@@ -22,6 +22,8 @@
 // trusted server chain (ws-graphinator knows the authenticated userRefId) established
 // them. Otherwise internal=false and the endpoint uses the existing JWT path, unchanged.
 
+const crypto = require('crypto');
+
 const INTERNAL_SECRET_HEADER = 'x-dme-internal-secret';
 
 const FORWARDING_HEADERS = [
@@ -39,6 +41,12 @@ const isLoopbackAddress = (addr) => {
 	const bare = addr.replace(/^::ffff:/, '');
 	return bare === '127.0.0.1' || bare === '::1';
 };
+
+// secretsMatch — CONSTANT-TIME equality of the presented and the configured secret (W-E-12, X4 mechanics, 2026-10-06).
+// Both are hashed to the same fixed width first, so timingSafeEqual (which throws on unequal lengths) always compares
+// 32 bytes, and not even the presented secret's length leaks through timing. `!==` returned at the first differing byte.
+const secretDigestOf = (secretText) => crypto.createHash('sha256').update(String(secretText), 'utf8').digest();
+const secretsMatch = (presentedText, configuredText) => crypto.timingSafeEqual(secretDigestOf(presentedText), secretDigestOf(configuredText));
 
 const hasForwardingHeader = (headers) =>
 	FORWARDING_HEADERS.some((name) => headers && headers[name] !== undefined);
@@ -59,7 +67,7 @@ const resolveInternalAuth = ({ xReq, configuredSecret } = {}) => {
 			reason: 'internal mode disabled (no secret configured)',
 		};
 	}
-	if (presented !== configuredSecret) {
+	if (!secretsMatch(presented, configuredSecret)) {
 		return { internal: false, reason: 'internal-secret mismatch' };
 	}
 	// The secret matched — the origin MUST also be loopback and unproxied.
