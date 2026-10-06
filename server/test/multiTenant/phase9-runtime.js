@@ -58,7 +58,7 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 	series([
 		// ---- T9.4 snapshot-source + pointer flip ----
 		(cb) => { console.log('creating golden snapshot (one quiesce)...'); cloneManager.createSnapshot((e, r) => { st.snap1 = r && r.snapName; ok('T9.4 snapshot created + pointer set', !!st.snap1 && !!cloneManager.currentSnapshotDir()); cb(e); }); },
-		(cb) => { console.log('provision clone FROM snapshot (golden NOT quiesced)...'); cloneManager.provisionClone({ userRefId: '__TEST_snap', versionRefId: 's1' }, (e, d) => { if (e) { cb(e); return; } st.snapClone = d; owned.push({ containerName: d.containerName, cloneDir: d.cloneDir }); ok('T9.4 golden stayed RUNNING during clone (no quiesce)', cloneManager.isContainerRunning('rag_DataModelExplorer')); cb(); }); },
+		(cb) => { console.log('provision clone FROM snapshot (golden NOT quiesced)...'); cloneManager.provisionClone({ userRefId: '__TEST_snap', versionRefId: 's1' }, (e, d) => { if (e) { cb(e); return; } st.snapClone = d; owned.push({ containerName: d.containerName, cloneDir: d.cloneDir }); ok('T9.4 golden stayed RUNNING during clone (no quiesce)', cloneManager.isContainerRunning(require('../lib/goldenContainerName').readGoldenContainerName())); cb(); }); },
 		(cb) => countNonUser(st.snapClone, (e, c) => { ok('T9.4 snapshot clone carries golden standards (75882)', String(c) === '75882'); cb(e); }),
 		(cb) => { cloneManager.teardownClone(st.snapClone, () => { owned.length = 0; cb(); }); },
 		(cb) => { cloneManager.createSnapshot((e, r) => { st.snap2 = r && r.snapName; ok('T9.4 pointer FLIPPED to a new snapshot atomically', st.snap2 && st.snap2 !== st.snap1 && cloneManager.currentSnapshotDir().indexOf(st.snap2) !== -1); cb(e); }); },

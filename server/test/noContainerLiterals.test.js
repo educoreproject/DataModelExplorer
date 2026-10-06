@@ -15,7 +15,7 @@ const path = require('path');
 
 const SCANNED_DIR_PATH_LIST = [path.join(__dirname), path.join(__dirname, '..', 'data-model', 'lib', 'user-graph', 'test')];
 // widened in P1 after the multiTenant suites were found to name a retired golden by bolt port 7706 and neo4jPassword literal
-const FORBIDDEN_LITERAL_PATTERN_LIST = [/gf_pvsEcand/, /gf_golden\b/, /localhost:770[46]\b/, /IMPLIED_MAPPING/, /\bpassword:\s*'[^']+'/, /neo4jPassword:\s*'[^']+'/];
+const FORBIDDEN_LITERAL_PATTERN_LIST = [/gf_pvsEcand/, /gf_golden\b/, /rag_DataModelExplorer/, /localhost:770[46]\b/, /IMPLIED_MAPPING/, /\bpassword:\s*'[^']+'/, /neo4jPassword:\s*'[^']+'/];
 const SELF_FILE_NAME = path.basename(__filename);
 
 const listJsFiles = (dirPath) => fs.readdirSync(dirPath, { withFileTypes: true }).flatMap((dirEntry) => {

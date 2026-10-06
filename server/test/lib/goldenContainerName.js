@@ -9,14 +9,18 @@ const os = require('os');
 const path = require('path');
 const configFileProcessor = require('qtools-config-file-processor');
 
+// test/lib -> test -> server -> the code root; configs sit beside the code root (code/../configs)
+const serverConfigDirPath = () => {
+	const hostName = os.hostname();
+	const instanceDirName = hostName === 'qMini.local' || hostName === 'qbook.local' ? 'instanceSpecific/qbook' : '';
+	return path.join(__dirname, '..', '..', '..', '..', 'configs', instanceDirName) + '/';
+};
+
 const readGoldenContainerName = () => {
 	if (process.env.GOLDEN_CONTAINER) {
 		return process.env.GOLDEN_CONTAINER;
 	}
-	const hostName = os.hostname();
-	const instanceDirName = hostName === 'qMini.local' || hostName === 'qbook.local' ? 'instanceSpecific/qbook' : '';
-	// test/lib -> test -> server -> the code root; configs sit beside the code root (code/../configs)
-	const configDirPath = path.join(__dirname, '..', '..', '..', '..', 'configs', instanceDirName) + '/';
+	const configDirPath = serverConfigDirPath();
 	const goldenConfig = configFileProcessor.getConfig('_goldenContainer.ini', configDirPath) || {};
 	const goldenContainerName = (goldenConfig.dataModelExplorerSearch || {}).goldenContainerName;
 	if (!goldenContainerName) {
@@ -25,17 +29,24 @@ const readGoldenContainerName = () => {
 	return goldenContainerName;
 };
 
-// goldenDmeConfigForTests — the [dataModelExplorerSearch] keys a test's process.global.getConfig hands the code under test:
-// the declared golden NAME (clone-manager reads goldenContainerName) and the connection the resolver derives from it.
-// The multiTenant suites used to hand a literal bolt URI and password of a retired container, and no name at all.
+// goldenDmeConfigForTests — the [dataModelExplorerSearch] section a test's process.global.getConfig hands the code under test:
+// the API server's OWN resolved section (startApiServer.ini, which merges _goldenContainer.ini: goldenContainerName,
+// userGraphsDirPath, warmPoolDepth) plus the connection the resolver derives from the golden's name. The multiTenant suites
+// used to hand a literal bolt URI and password of a retired container and no name, no userGraphsDirPath at all, so
+// clone-manager refused before provisioning anything.
 const goldenDmeConfigForTests = () => {
 	const goldenContainerName = readGoldenContainerName();
+	const serverConfig = configFileProcessor.getConfig('startApiServer.ini', serverConfigDirPath(), { resolve: true }) || {};
+	const serverDmeSection = serverConfig.dataModelExplorerSearch;
+	if (!serverDmeSection || !serverDmeSection.userGraphsDirPath) {
+		throw new Error(`goldenDmeConfigForTests: ${serverConfigDirPath()}startApiServer.ini declares no [dataModelExplorerSearch] userGraphsDirPath`);
+	}
 	const { resolveContainerConnection } = require('../../data-model/lib/user-graph/container-connection-resolver');
 	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
 	if (error) {
 		throw new Error(`goldenDmeConfigForTests: ${goldenContainerName} does not resolve: ${error}`);
 	}
-	return { goldenContainerName, neo4jBoltUri: boltUri, neo4jUser: user, neo4jPassword: password };
+	return { ...serverDmeSection, goldenContainerName, neo4jBoltUri: boltUri, neo4jUser: user, neo4jPassword: password };
 };
 
 module.exports = { readGoldenContainerName, goldenDmeConfigForTests };
