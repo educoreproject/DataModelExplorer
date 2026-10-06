@@ -239,7 +239,6 @@ const getUserGraph = (
 			versionRefId,
 			fields: {
 				liveBoltUri: descriptor.boltUri,
-				liveBoltPassword: descriptor.password,
 				liveContainerName: descriptor.containerName,
 				livePort: descriptor.boltPort,
 				lockToken,
@@ -322,7 +321,7 @@ const releaseUserGraph = (handle, deps, callback) => {
 		{ containerName: handle.containerName, cloneDir: handle.cloneDir },
 		(tearErr) => {
 			const clearedFields = {
-				liveBoltUri: '', liveBoltPassword: '', liveContainerName: '',
+				liveBoltUri: '', liveContainerName: '',
 				livePort: '', lockToken: '', openedAt: '', lastHeartbeatAt: '',
 				liveDirty: 0, // no live clone, nothing unsaved (doc 12)
 			};
@@ -355,7 +354,21 @@ const setLiveDirty = ({ sqlDb, versionRefId, dirty }, callback) => {
 	);
 };
 
+// liveCloneConnectionFor — the neo4j connection to a version's LIVE clone (W-E-12, ruling B, 2026-10-06). The credential
+// is resolved from the clone's own container (DME_CLONE_NEO4J_AUTH), never read from graph_state_versions, which no longer
+// stores it. A clone opened before 2026-10-06 carries no such variable: refused by name, 'reopen this graph', not guessed.
+// Returns { neo4jBoltUri, neo4jUser, neo4jPassword } or { error }.
+const liveCloneConnectionFor = (versionRow) => {
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const resolved = resolveContainerConnection(versionRow && versionRow.liveContainerName);
+	if (resolved.error) {
+		return { error: `the live clone '${versionRow && versionRow.liveContainerName}' has no credential this server can read (${resolved.error}); reopen this graph` };
+	}
+	return { neo4jBoltUri: versionRow.liveBoltUri, neo4jUser: resolved.user, neo4jPassword: resolved.password };
+};
+
 module.exports = {
+	liveCloneConnectionFor,
 	getUserGraph,
 	releaseUserGraph,
 	buildGraphConnection,

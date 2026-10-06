@@ -60,7 +60,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				goldenVersionAuthoredAgainst: '',
 				userNodeCount: 0,
 				liveBoltUri: '',
-				liveBoltPassword: '',
 				liveContainerName: '',
 				livePort: '',
 				lockToken: '',

@@ -90,7 +90,7 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 		(cb) => { // verify the re-opened clone has the migrated node with the new stamp
 			lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.vw }, (e, row) => {
 				if (e || !row || !row.liveBoltUri) { ok('T9.5 replay after migration reconstructed the node', false); cb(); return; }
-				neo4jGen.initDatabaseInstance({ neo4jBoltUri: row.liveBoltUri, neo4jUser: 'neo4j', neo4jPassword: row.liveBoltPassword }, (ce, db) => {
+				neo4jGen.initDatabaseInstance(seam.liveCloneConnectionFor(row), (ce, db) => { // W-E-12: the clone's own credential
 					if (ce) { ok('T9.5 replay after migration reconstructed the node', false); cb(); return; }
 					db.runQuery('MATCH (n:UserContent {userNodeId:$id}) RETURN n.embeddingModelVersion AS emv, size(n.embedding) AS dim', { id: st.mn }, (qe, rows) => {
 						db.close();

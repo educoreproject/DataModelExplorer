@@ -17,7 +17,20 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
-const { execSync, exec, spawnSync } = require('child_process');
+const { execFileSync, execFile, spawnSync } = require('child_process');
+
+// W-E-12 (X4 mechanics, campaign P0, 2026-10-06): docker and cp are invoked with ARGUMENT ARRAYS (execFile /
+// execFileSync), never a shell string, and every container name is checked against DOCKER_CONTAINER_NAME_PATTERN before
+// it reaches docker. Until 2026-10-06 names, paths and the golden password were interpolated into shell strings.
+const DOCKER_CONTAINER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+const dockerSafeContainerName = (containerName) => {
+	if (typeof containerName !== 'string' || !DOCKER_CONTAINER_NAME_PATTERN.test(containerName)) {
+		throw new Error(`clone-manager: '${containerName}' is not a valid docker container name (${DOCKER_CONTAINER_NAME_PATTERN}); refused before docker is called`);
+	}
+	return containerName;
+};
+const DOCKER_QUIET_OPTIONS = Object.freeze({ encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+const { CLONE_AUTH_ENV_NAME } = require('./container-connection-resolver');
 
 const MAX_CONCURRENT_CLONES = 3; // resource hygiene (ONYX / plan §0.12)
 const NEO4J_IMAGE = 'neo4j:5-community';
@@ -267,9 +280,7 @@ const getGoldenPassword = () => {
 const isContainerRunning = (name) => {
 	try {
 		return (
-			execSync(`docker inspect --format '{{.State.Running}}' ${name} 2>/dev/null`, {
-				encoding: 'utf-8',
-			}).trim() === 'true'
+			execFileSync('docker', ['inspect', '--format', '{{.State.Running}}', dockerSafeContainerName(name)], DOCKER_QUIET_OPTIONS).trim() === 'true'
 		);
 	} catch (e) {
 		return false;
@@ -278,7 +289,7 @@ const isContainerRunning = (name) => {
 
 const containerExists = (name) => {
 	try {
-		execSync(`docker inspect ${name} 2>/dev/null`, { encoding: 'utf-8' });
+		execFileSync('docker', ['inspect', dockerSafeContainerName(name)], DOCKER_QUIET_OPTIONS);
 		return true;
 	} catch (e) {
 		return false;
@@ -287,9 +298,7 @@ const containerExists = (name) => {
 
 const countCloneContainers = () => {
 	try {
-		const out = execSync(`docker ps -a --filter name=usr_ --format '{{.Names}}'`, {
-			encoding: 'utf-8',
-		}).trim();
+		const out = execFileSync('docker', ['ps', '-a', '--filter', 'name=usr_', '--format', '{{.Names}}'], DOCKER_QUIET_OPTIONS).trim();
 		return out ? out.split('\n').filter(Boolean).length : 0;
 	} catch (e) {
 		return 0;
@@ -301,9 +310,7 @@ const countCloneContainers = () => {
 // it. A claimed warm spare is renamed to usr_<user>_<version>, so it correctly counts here.
 const countUserCloneContainers = () => {
 	try {
-		const out = execSync(`docker ps -a --filter name=usr_ --format '{{.Names}}'`, {
-			encoding: 'utf-8',
-		}).trim();
+		const out = execFileSync('docker', ['ps', '-a', '--filter', 'name=usr_', '--format', '{{.Names}}'], DOCKER_QUIET_OPTIONS).trim();
 		const names = out ? out.split('\n').filter(Boolean) : [];
 		return names.filter((n) => !n.startsWith('usr__warm_')).length;
 	} catch (e) {
@@ -315,7 +322,7 @@ const countUserCloneContainers = () => {
 // into an owned user clone (usr_<userRefId>_<versionRefId>), so the container name always
 // tells the truth about idle-vs-in-use (prevents re-adopting an in-use container as a spare).
 const renameContainer = (oldName, newName) => {
-	execSync(`docker rename ${oldName} ${newName}`, { encoding: 'utf-8' });
+	execFileSync('docker', ['rename', dockerSafeContainerName(oldName), dockerSafeContainerName(newName)], DOCKER_QUIET_OPTIONS);
 };
 
 // describeWarmContainers — reconstruct descriptors for every RUNNING idle warm spare
@@ -325,9 +332,7 @@ const renameContainer = (oldName, newName) => {
 const describeWarmContainers = () => {
 	let names = [];
 	try {
-		const out = execSync(`docker ps --filter name=usr__warm_ --format '{{.Names}}'`, {
-			encoding: 'utf-8',
-		}).trim();
+		const out = execFileSync('docker', ['ps', '--filter', 'name=usr__warm_', '--format', '{{.Names}}'], DOCKER_QUIET_OPTIONS).trim();
 		names = out ? out.split('\n').filter(Boolean) : [];
 	} catch (e) {
 		return [];
@@ -336,9 +341,10 @@ const describeWarmContainers = () => {
 	const descriptors = [];
 	names.forEach((name) => {
 		try {
-			const portOut = execSync(
-				`docker inspect ${name} --format '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}={{(index $conf 0).HostPort}};{{end}}{{end}}'`,
-				{ encoding: 'utf-8' },
+			const portOut = execFileSync(
+				'docker',
+				['inspect', dockerSafeContainerName(name), '--format', '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}={{(index $conf 0).HostPort}};{{end}}{{end}}'],
+				DOCKER_QUIET_OPTIONS,
 			).trim();
 			let boltPort = null;
 			let httpPort = null;
@@ -349,9 +355,10 @@ const describeWarmContainers = () => {
 				if (cport.startsWith('7687')) boltPort = hport;
 				if (cport.startsWith('7474')) httpPort = hport;
 			});
-			const mountOut = execSync(
-				`docker inspect ${name} --format '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'`,
-				{ encoding: 'utf-8' },
+			const mountOut = execFileSync(
+				'docker',
+				['inspect', dockerSafeContainerName(name), '--format', '{{range .Mounts}}{{.Destination}}={{.Source}}\n{{end}}'],
+				DOCKER_QUIET_OPTIONS,
 			);
 			let dataSrc = null;
 			mountOut.split('\n').filter(Boolean).forEach((line) => {
@@ -366,12 +373,16 @@ const describeWarmContainers = () => {
 				// Fast TCP probe on the published bolt port (milliseconds, no JVM) — far less
 				// flaky than `docker exec cypher-shell` (which has ~4s JVM startup and timed out
 				// under restart load, wrongly reaping healthy spares). Port open == neo4j alive.
+				// W-E-12 (ruling B): a spare launched before 2026-10-06 carries no DME_CLONE_NEO4J_AUTH, so once claimed
+				// no reader could reach it; it is torn down here rather than adopted and handed to a user
+				const { resolveContainerConnection } = require('./container-connection-resolver');
+				const carriesCloneCredential = !resolveContainerConnection(name).error;
 				let ready = false;
 				try {
-					execSync(`bash -c 'exec 3<>/dev/tcp/127.0.0.1/${boltPort}'`, { timeout: 4000, stdio: 'ignore' });
+					execFileSync('bash', ['-c', `exec 3<>/dev/tcp/127.0.0.1/${Number(boltPort)}`], { timeout: 4000, stdio: 'ignore' });
 					ready = true;
 				} catch (rdyErr) { ready = false; }
-				if (ready) {
+				if (ready && carriesCloneCredential) {
 					descriptors.push({
 						containerName: name,
 						cloneDir,
@@ -382,7 +393,7 @@ const describeWarmContainers = () => {
 						password,
 					});
 				} else {
-					if (process.global.xLog) process.global.xLog.status(`[dmeOpenTrace] clone-manager: orphan warm spare ${name} not query-ready — tearing it down (not adopting)`);
+					if (process.global.xLog) process.global.xLog.status(`[dmeOpenTrace] clone-manager: orphan warm spare ${name} ${carriesCloneCredential ? 'not query-ready' : 'carries no DME_CLONE_NEO4J_AUTH (launched before W-E-12)'} — tearing it down (not adopting)`);
 					teardownClone({ containerName: name, cloneDir }, () => {});
 				}
 			}
@@ -395,9 +406,7 @@ const describeWarmContainers = () => {
 
 const getDockerBoundPorts = () => {
 	try {
-		const output = execSync("docker ps --format '{{.Ports}}' 2>/dev/null", {
-			encoding: 'utf-8',
-		});
+		const output = execFileSync('docker', ['ps', '--format', '{{.Ports}}'], DOCKER_QUIET_OPTIONS);
 		const ports = new Set();
 		for (const m of output.matchAll(/0\.0\.0\.0:(\d+)->/g)) {
 			ports.add(parseInt(m[1], 10));
@@ -467,8 +476,9 @@ const waitForCypherReady = (containerName, password, maxWaitMs, callback) => {
 			callback(`cypher not ready within ${maxWaitMs / 1000}s on ${containerName}`);
 			return;
 		}
-		exec(
-			`docker exec ${containerName} cypher-shell -u neo4j -p '${password}' "RETURN 1 AS x" 2>/dev/null`,
+		execFile(
+			'docker',
+			['exec', dockerSafeContainerName(containerName), 'cypher-shell', '-u', 'neo4j', '-p', password, 'RETURN 1 AS x'],
 			(err) => {
 				if (!err) { callback(''); return; }
 				setTimeout(poll, 2000);
@@ -489,7 +499,7 @@ const withQuiescedGolden = (copyFn, callback) => {
 	const restartGolden = (originalErr, doneCb) => {
 		if (!wasRunning) { doneCb(originalErr); return; }
 		try {
-			execSync(`docker start ${golden}`, { encoding: 'utf-8' });
+			execFileSync('docker', ['start', dockerSafeContainerName(golden)], DOCKER_QUIET_OPTIONS);
 		} catch (e) {
 			doneCb(originalErr || `golden restart failed: ${e.message}`);
 			return;
@@ -506,7 +516,7 @@ const withQuiescedGolden = (copyFn, callback) => {
 	if (wasRunning) {
 		try {
 			xLog.status(`[clone-manager] quiescing golden (${golden})`);
-			execSync(`docker stop ${golden}`, { encoding: 'utf-8' });
+			execFileSync('docker', ['stop', dockerSafeContainerName(golden)], DOCKER_QUIET_OPTIONS);
 		} catch (e) {
 			callback(`failed to stop golden: ${e.message}`);
 			return;
@@ -568,7 +578,7 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 
 	// Defensive clean slate: a stale container/dir for this user+version must not linger.
 	if (containerExists(containerName)) {
-		try { execSync(`docker rm -f ${containerName}`, { encoding: 'utf-8' }); } catch (e) {}
+		try { execFileSync('docker', ['rm', '-f', dockerSafeContainerName(containerName)], DOCKER_QUIET_OPTIONS); } catch (e) {}
 	}
 	try { fs.rmSync(cloneDir, { recursive: true, force: true }); } catch (e) {}
 
@@ -582,15 +592,15 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 	// create one — a single one-time quiesce of golden — then copy from it; every later
 	// open reuses the static snapshot and never touches the live golden again.
 	// ASYNC copy (child process) — the ~GB cp must NOT block the Node event loop. The old
-	// execSync froze the whole server during a copy, so a user's own open (its marker-inject
+	// execSync (a synchronous copy) froze the whole server during a copy, so a user's own open (its marker-inject
 	// query needs the loop) stalled behind a warm-spare refill's copy. callback(err).
 	const copyFromSnapshot = (snapDir, done) => {
 		const sData = path.join(snapDir, 'data');
 		const sPlugins = path.join(snapDir, 'plugins');
-		exec(`cp -R "${sData}/." "${path.join(cloneDir, 'data')}/"`, { timeout: 180000 }, (e1) => {
+		execFile('cp', ['-R', `${sData}/.`, `${path.join(cloneDir, 'data')}/`], { timeout: 180000 }, (e1) => {
 			if (e1) { done(`clone copy failed: ${e1.message}`); return; }
 			if (sPlugins && fs.existsSync(sPlugins)) {
-				exec(`cp -R "${sPlugins}/." "${path.join(cloneDir, 'plugins')}/"`, { timeout: 60000 }, (e2) => {
+				execFile('cp', ['-R', `${sPlugins}/.`, `${path.join(cloneDir, 'plugins')}/`], { timeout: 60000 }, (e2) => {
 					done(e2 ? `clone plugins copy failed: ${e2.message}` : '');
 				});
 			} else { done(''); }
@@ -630,19 +640,24 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 
 			// GOTCHA: clone carries golden's system DB (and its password). Do NOT pass
 			// NEO4J_AUTH — it reinitializes the system db and wipes the cloned data.
-			const dockerCmd =
-				`docker run -d --name ${containerName} ` +
-				`-p ${boltPort}:7687 -p ${httpPort}:7474 ` +
-				`-e NEO4J_PLUGINS='["apoc"]' ` +
-				`-e NEO4J_dbms_security_procedures_unrestricted=apoc.* ` +
-				`-e NEO4J_dbms_security_procedures_allowlist=apoc.* ` +
-				`-v ${cloneDir}/data:/data -v ${cloneDir}/logs:/logs ` +
-				`-v ${cloneDir}/plugins:/plugins -v ${cloneDir}/import:/var/lib/neo4j/import ` +
-				`${NEO4J_IMAGE}`;
+			// DME_CLONE_NEO4J_AUTH (W-E-12, ruling B, VIOLET_VALLEY 2026-10-06): the clone's credential travels WITH the
+			// clone, in a variable Neo4j ignores, so container-connection-resolver derives it from the clone's own name
+			// exactly as it derives golden's from NEO4J_AUTH. The graph_state_versions row no longer stores it.
+			const dockerRunArgumentList = [
+				'run', '-d', '--name', dockerSafeContainerName(containerName),
+				'-p', `${Number(boltPort)}:7687`, '-p', `${Number(httpPort)}:7474`,
+				'-e', 'NEO4J_PLUGINS=["apoc"]',
+				'-e', 'NEO4J_dbms_security_procedures_unrestricted=apoc.*',
+				'-e', 'NEO4J_dbms_security_procedures_allowlist=apoc.*',
+				'-e', `${CLONE_AUTH_ENV_NAME}=neo4j/${password}`,
+				'-v', `${cloneDir}/data:/data`, '-v', `${cloneDir}/logs:/logs`,
+				'-v', `${cloneDir}/plugins:/plugins`, '-v', `${cloneDir}/import:/var/lib/neo4j/import`,
+				NEO4J_IMAGE,
+			];
 
-			exec(dockerCmd, (runErr, stdout, stderr) => {
+			execFile('docker', dockerRunArgumentList, (runErr, stdout, stderr) => {
 				if (runErr) {
-					try { execSync(`docker rm -f ${containerName}`, { encoding: 'utf-8' }); } catch (e) {}
+					try { execFileSync('docker', ['rm', '-f', dockerSafeContainerName(containerName)], DOCKER_QUIET_OPTIONS); } catch (e) {}
 					try { fs.rmSync(cloneDir, { recursive: true, force: true }); } catch (e) {}
 					callback(`docker run failed: ${runErr.message}\n${stderr}`);
 					return;
@@ -705,7 +720,7 @@ const teardownClone = ({ containerName, cloneDir }, callback) => {
 	const cb = typeof callback === 'function' ? callback : () => {};
 
 	if (containerName && containerExists(containerName)) {
-		try { execSync(`docker rm -f ${containerName}`, { encoding: 'utf-8' }); } catch (e) {
+		try { execFileSync('docker', ['rm', '-f', dockerSafeContainerName(containerName)], DOCKER_QUIET_OPTIONS); } catch (e) {
 			cb(`failed to remove container ${containerName}: ${e.message}`);
 			return;
 		}

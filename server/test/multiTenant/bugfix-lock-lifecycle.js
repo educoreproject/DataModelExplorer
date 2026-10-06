@@ -122,7 +122,6 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 					lastHeartbeatAt: new Date().toISOString(),
 					openedAt: new Date().toISOString(),
 					liveBoltUri: 'bolt://localhost:9999',
-					liveBoltPassword: 'dead',
 					liveContainerName: 'usr___TEST_dead_container',
 					livePort: '9999',
 				}, { suppressStatementLog: true }, (sErr) => cb(sErr));
@@ -165,10 +164,12 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 
 		// 4) BUG2 — the reclaimed clone REPLAYED the saved state: the 2 user nodes are present
 		//    (the old read-only branch showed nothing; reclaim provisions + replays).
-		(cb) => queryBolt(st.liveRow.liveBoltUri, st.liveRow.liveBoltPassword,
+		(cb) => queryBolt(st.liveRow.liveBoltUri, require('../../data-model/lib/user-graph/user-graph').liveCloneConnectionFor(st.liveRow).neo4jPassword, // W-E-12: from the clone
+			
 			'MATCH (n:DebugNode) RETURN count(n) AS c', {},
 			(e, rows) => { ok('BUG2 replayed clone has the 2 saved DebugNode nodes', rows && String(rows[0].c) === '2'); cb(e); }),
-		(cb) => queryBolt(st.liveRow.liveBoltUri, st.liveRow.liveBoltPassword,
+		(cb) => queryBolt(st.liveRow.liveBoltUri, require('../../data-model/lib/user-graph/user-graph').liveCloneConnectionFor(st.liveRow).neo4jPassword, // W-E-12: from the clone
+			
 			'MATCH (i:UserGraphIdentity) RETURN i.versionRefId AS v', {},
 			(e, rows) => { ok('BUG2 clone carries this version identity marker', rows && rows[0] && rows[0].v === st.vRef); cb(e); }),
 

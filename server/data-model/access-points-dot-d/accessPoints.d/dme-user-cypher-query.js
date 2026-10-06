@@ -71,12 +71,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 		taskList.push((args, next) => {
 			const { versionRow } = args;
+			const cloneConnection = require('../../lib/user-graph/user-graph').liveCloneConnectionFor(versionRow);
+			if (cloneConnection.error) {
+				next(cloneConnection.error, args);
+				return;
+			}
 
 			neo4jInstanceGen.initDatabaseInstance(
 				{
-					neo4jBoltUri: versionRow.liveBoltUri,
-					neo4jUser: 'neo4j',
-					neo4jPassword: versionRow.liveBoltPassword,
+					...cloneConnection,
 					// W-E-10 (X2): the user's query runs in a READ session with the golden handle's timeout; the
 					// validator is a filter, the session is the wall (it used to open write-capable, untimed)
 					readOnly: true,

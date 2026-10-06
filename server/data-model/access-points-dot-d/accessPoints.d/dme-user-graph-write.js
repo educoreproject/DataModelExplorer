@@ -69,8 +69,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// STAGE 2: open a per-request connection to the live clone
 		taskList.push((args, next) => {
 			const { versionRow } = args;
+			const cloneConnection = require('../../lib/user-graph/user-graph').liveCloneConnectionFor(versionRow);
+			if (cloneConnection.error) { next(cloneConnection.error, args); return; }
 			neo4jInstanceGen.initDatabaseInstance(
-				{ neo4jBoltUri: versionRow.liveBoltUri, neo4jUser: 'neo4j', neo4jPassword: versionRow.liveBoltPassword },
+				cloneConnection,
 				(err, userGraphDb) => {
 					if (err) { next(`user graph connection failed: ${err}`, args); return; }
 					next('', { ...args, userGraphDb });

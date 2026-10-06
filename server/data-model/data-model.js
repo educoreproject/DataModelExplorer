@@ -352,6 +352,18 @@ const moduleFunction =
 					if (process.global.xLog) process.global.xLog.error(`[oauth-schema-init] start failed: ${e.message}`);
 				}
 			}
+			// W-E-12 (ruling B, 2026-10-06): drop graph_state_versions columns that held secrets (liveBoltPassword).
+			// Idempotent; a failure is named in the log and startup continues (the column then stays, unwritten).
+			if (!err && sqlDb) {
+				require('../lib/graph-state-version-schema-migration')({ sqlDb })((migrationError, migrationResult) => {
+					const xLog = process.global.xLog;
+					if (migrationError) {
+						xLog && xLog.error(`[graph-state-version-schema-migration] FAILED: ${migrationError}`);
+						return;
+					}
+					xLog && xLog.status(`[graph-state-version-schema-migration] ${migrationResult.logInfoList.join('; ')}`);
+				});
+			}
 			// dmeMcpOAuth Phase 2: expose sqlDb so startApiServer can hand it to the
 			// Authorization Server mount (oauth-server needs the DB for the adapter,
 			// audit log, GC, and the findAccount-by-sub lookup).

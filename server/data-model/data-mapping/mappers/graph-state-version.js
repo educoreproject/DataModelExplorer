@@ -41,7 +41,8 @@ const moduleFunction =
 			['updatedAt']: 'updatedAt',
 			// --- transient live block ---
 			['liveBoltUri']: 'liveBoltUri',
-			['liveBoltPassword']: 'liveBoltPassword',
+			// liveBoltPassword RETIRED (W-E-12, ruling B, 2026-10-06): a clone's credential travels with the clone
+			// (DME_CLONE_NEO4J_AUTH) and is never stored here; lib/graph-state-version-schema-migration.js drops the column
 			['liveContainerName']: 'liveContainerName',
 			['livePort']: 'livePort',
 			['lockToken']: 'lockToken',
@@ -107,7 +108,7 @@ const moduleFunction =
 				// expired (lastHeartbeatAt older than the cutoff). Durable columns
 				// (stateScript etc.) are untouched. Empty string === "not live"
 				// (saveObject drops nulls, so the store uses '' as the cleared marker).
-				'clearStaleLocks': `UPDATE <!tableName!> SET liveBoltUri='', liveBoltPassword='', liveContainerName='', livePort='', lockToken='', openedAt='', lastHeartbeatAt='', liveDirty='0' WHERE lastHeartbeatAt != '' AND lastHeartbeatAt < <!cutoff!>`,
+				'clearStaleLocks': `UPDATE <!tableName!> SET liveBoltUri='', liveContainerName='', livePort='', lockToken='', openedAt='', lastHeartbeatAt='', liveDirty='0' WHERE lastHeartbeatAt != '' AND lastHeartbeatAt < <!cutoff!>`,
 			};
 
 			if (!queries[queryName]) {

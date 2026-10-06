@@ -49,8 +49,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// STAGE 2: re-emit the live user layer into a deterministic state script (doc 04)
 		taskList.push((args, next) => {
 			const { versionRow } = args;
+			const cloneConnection = require('../../lib/user-graph/user-graph').liveCloneConnectionFor(versionRow);
+			if (cloneConnection.error) { next(cloneConnection.error, args); return; }
 			neo4jInstanceGen.initDatabaseInstance(
-				{ neo4jBoltUri: versionRow.liveBoltUri, neo4jUser: 'neo4j', neo4jPassword: versionRow.liveBoltPassword },
+				cloneConnection,
 				(err, db) => {
 					if (err) { next(`save connect failed: ${err}`, args); return; }
 					reEmit(
