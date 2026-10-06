@@ -478,7 +478,7 @@ const findMappings = (session, nameOrId, callback) => {
 			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
 			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName,
 			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
-			       type(m) AS mappingType, m.confidence AS confidence,
+			       type(m) AS mappingType, m.mappingConfidence AS confidence,
 			       m.predicate AS matchPredicate,
 			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
@@ -505,7 +505,7 @@ const findMappings = (session, nameOrId, callback) => {
 			WITH n, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WHERE NOT (farElement)-[:HAS_INSTANCE]->(n)
 			WITH n, mNear, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
-			     type(m) AS farMatchType, m.confidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
+			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
 			     CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
 			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
@@ -520,7 +520,7 @@ const findMappings = (session, nameOrId, callback) => {
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
 			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
-			       type(mNear) AS viaMatchType, mNear.confidence AS viaConfidence, mNear.predicate AS viaPredicate,
+			       type(mNear) AS viaMatchType, mNear.mappingConfidence AS viaConfidence, mNear.predicate AS viaPredicate,
 			       mNear.mappingConfidence AS viaMappingConfidence, mNear.mappingKind AS viaMappingKind, mNear.mappingSource AS viaMappingSource,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
@@ -537,7 +537,7 @@ const findMappings = (session, nameOrId, callback) => {
 			MATCH (n)<-[:HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
 			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
 			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
-			     type(m) AS srcMatchType, m.confidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource,
+			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource,
 			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
 			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource,
 			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
@@ -566,7 +566,7 @@ const findMappings = (session, nameOrId, callback) => {
 			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
 			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
-			WITH n, hub, type(m) AS instMatchType, m.confidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource,
+			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource,
 			     ${instanceGroupOf('instanceNode')} AS instGroupName
 			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource,
 			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
@@ -598,9 +598,9 @@ const findMappings = (session, nameOrId, callback) => {
 			WITH n, nearInstance, mNear, hub, m, other, ${declarationOf('other')} AS otherDeclaration
 			WITH n, nearInstance, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WITH n, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
-			     type(mNear) AS nearMatchType, mNear.confidence AS nearConfidence, mNear.predicate AS nearPredicate,
+			     type(mNear) AS nearMatchType, mNear.mappingConfidence AS nearConfidence, mNear.predicate AS nearPredicate,
 			     mNear.mappingConfidence AS nearMappingConfidence, mNear.mappingKind AS nearMappingKind, mNear.mappingSource AS nearMappingSource,
-			     type(m) AS farMatchType, m.confidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
+			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
 			     nearInstance, ${instanceGroupOf('nearInstance')} AS nearGroupName,
 			     other, CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
 			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearMappingConfidence, nearMappingKind, nearMappingSource,
@@ -779,7 +779,7 @@ const compareCodesets = (session, name, callback) => {
 		OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
 		WHERE ov._source <> os._source
 		RETURN os._source AS sourceStandard, os.name AS optionSetName,
-		       v.name AS sourceValue, type(m) AS matchType, m.confidence AS confidence,
+		       v.name AS sourceValue, type(m) AS matchType, m.mappingConfidence AS confidence,
 		       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
 		       cv.name AS cedsValue, hub.canonicalKey AS cedsValueKey,
 		       collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents

@@ -88,7 +88,7 @@ const moduleFunction =
 							n.description AS description, n.path AS path, n.stableId AS stableId,
 							collect(DISTINCT {
 								mappingType: type(m),
-								confidence: m.confidence,
+								confidence: m.mappingConfidence,
 								mappingKind: m.mappingKind,
 								mappingSource: m.mappingSource,
 								hubName: hub.name,

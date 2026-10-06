@@ -4,7 +4,7 @@
 //   the caller and passed in as $indexName — never hardcoded here.
 // No fulltext index exists in the forge graph.
 // Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
-//   DmeOptionValue, DmeSupport, DmeStandardRoot) and _source (CEDS/EdFi/LIF/…).
+//   DmeOptionValue, DmeSupport, DmeStandardRoot, …) and _source (the live inventory: dme_list_standards).
 // Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
 //   match edges, one per SKOS relation (EXACT/CLOSE/BROAD/NARROW_MATCH). Every one is a
 //   judgment carrying mappingConfidence/mappingKind/mappingSource; none is authored fact.
@@ -22,9 +22,12 @@
 //   <list>TruncatedByRelationAndStandard names what was left out per relation and standard. The other
 //   two lists hold one standard's entries (the node's own), so there is nothing to share there.
 //   SPECIFIED/IMPLIED_MAPPING retired.
-// Structural edges: HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS,
-//   SUBCLASS_OF, REFERENCES; SIF/PESC add HAS_INSTANCE, HAS_FIELD, HAS_CHILD (see instanceView).
-// Updated: 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
+// Structural edges: HAS_PROPERTY, HAS_OPTION_SET (CONSTRAINED_BY in SIF, from the Field), HAS_VALUE, HAS_SUPPORT,
+//   HAS_CLASS, SUBCLASS_OF, REFERENCES / REFERENCES_TYPE / REFERENCES_OBJECT; SIF/PESC add HAS_INSTANCE, HAS_FIELD,
+//   HAS_CHILD (see instanceView).
+// Every confidence shown is the edge's mappingConfidence (the duplicate `confidence` property retires, W-B-2).
+// Updated: 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
+//   instances and the REFERENCES_* family, W-D-4; mappingConfidence read, W-B-2 step A); 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
 //   2026-07-01 equivalence-model rewrite)
 // Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
 
@@ -47,11 +50,16 @@ CALL {
   RETURN collect(DISTINCT c { ._id, ._source, .name, .path })[..10] AS parentClasses
 }
 
-// Option set attached to this property
+// Option set attached to this property — directly (HAS_OPTION_SET: CEDS, Ed-Fi, PESC) or through the property's
+// instances (SIF: Question -[:HAS_INSTANCE]-> Field -[:CONSTRAINED_BY]-> Codeset). SIF code sets carry no name, so each
+// entry carries path and valueCount; optionSetCount is the total behind the capped list (W-D-4, S3).
 CALL {
   WITH node
-  OPTIONAL MATCH (node:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET]->(os:ForgedNode {role: 'DmeOptionSet'})
-  RETURN collect(DISTINCT os { ._id, ._source, .name })[..10] AS optionSets
+  OPTIONAL MATCH (node:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET|CONSTRAINED_BY]->(os:ForgedNode {role: 'DmeOptionSet'})
+  WITH node, collect(DISTINCT os { ._id, ._source, .name, .path, .valueCount, viaInstance: false }) AS directOptionSets
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(:ForgedNode)-[:HAS_OPTION_SET|CONSTRAINED_BY]->(ios:ForgedNode {role: 'DmeOptionSet'})
+  WITH directOptionSets, collect(DISTINCT ios { ._id, ._source, .name, .path, .valueCount, viaInstance: true }) AS instanceOptionSets
+  RETURN (directOptionSets + instanceOptionSets)[..10] AS optionSets, size(directOptionSets + instanceOptionSets) AS optionSetCount
 }
 
 // Allowed values when this node is an option set (DmeOptionValue.value text is in name)
@@ -90,13 +98,13 @@ CALL {
 // Intra-standard cross references
 CALL {
   WITH node
-  OPTIONAL MATCH (node)-[:REFERENCES]->(ref:ForgedNode)
-  RETURN collect(DISTINCT ref { ._id, ._source, .name, .role })[..10] AS referencesTo
+  OPTIONAL MATCH (node)-[r:REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT]->(ref:ForgedNode)
+  RETURN collect(DISTINCT ref { ._id, ._source, .name, .role, referenceEdgeType: type(r) })[..10] AS referencesTo
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (referrer:ForgedNode)-[:REFERENCES]->(node)
-  RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role })[..10] AS referencedBy
+  OPTIONAL MATCH (referrer:ForgedNode)-[r:REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT]->(node)
+  RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role, referenceEdgeType: type(r) })[..10] AS referencedBy
 }
 
 // CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference),
@@ -105,11 +113,12 @@ CALL {
   WITH node
   OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
   WITH m, hub, type(m) AS rowRelation
+  WHERE hub IS NOT NULL
   WITH m, hub, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
-  ORDER BY m.confidence DESC
+  ORDER BY m.mappingConfidence DESC
   WITH rowRelation, relationOrder, collect({
     toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
-    mappingType: type(m), confidence: m.confidence,
+    mappingType: type(m), confidence: m.mappingConfidence,
     matchPredicate: m.predicate,
     mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource
   }) AS relationEntryList
@@ -136,17 +145,19 @@ CALL {
   WITH node
   OPTIONAL MATCH (node)-[mNear:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(other:ForgedNode)
   WHERE other <> node
-  WITH mNear, hub, mFar, other, CASE WHEN mNear IS NULL THEN null WHEN type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mFar) WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mNear) WHEN type(mNear) = 'CLOSE_MATCH' OR type(mFar) = 'CLOSE_MATCH' THEN 'CLOSE_MATCH' ELSE 'EXACT_MATCH' END AS rowRelation
+  WITH mNear, hub, mFar, other
+  WHERE hub IS NOT NULL
+  WITH mNear, hub, mFar, other, CASE WHEN type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mFar) WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mNear) WHEN type(mNear) = 'CLOSE_MATCH' OR type(mFar) = 'CLOSE_MATCH' THEN 'CLOSE_MATCH' ELSE 'EXACT_MATCH' END AS rowRelation
   WITH mNear, hub, mFar, other, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
-  ORDER BY mFar.confidence DESC
+  ORDER BY mFar.mappingConfidence DESC
   WITH rowRelation, relationOrder, other._source AS rowStandard, collect({
     otherSource: other._source, otherName: other.name, otherId: other._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
     equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalent'
                       WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] OR type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN 'related'
                       ELSE 'candidateEquivalent' END,
-    nearMatchType: type(mNear), nearConfidence: mNear.confidence, nearPredicate: mNear.predicate,
-    farMatchType: type(mFar), farConfidence: mFar.confidence, farPredicate: mFar.predicate,
+    nearMatchType: type(mNear), nearConfidence: mNear.mappingConfidence, nearPredicate: mNear.predicate,
+    farMatchType: type(mFar), farConfidence: mFar.mappingConfidence, farPredicate: mFar.predicate,
     nearMappingConfidence: mNear.mappingConfidence, nearMappingKind: mNear.mappingKind, nearMappingSource: mNear.mappingSource,
     farMappingConfidence: mFar.mappingConfidence, farMappingKind: mFar.mappingKind, farMappingSource: mFar.mappingSource
   }) AS standardEntryList
@@ -186,12 +197,13 @@ CALL {
   WITH node
   OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(src:ForgedNode)
   WITH hub, m, src, type(m) AS rowRelation
+  WHERE hub IS NOT NULL
   WITH hub, m, src, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
-  ORDER BY m.confidence DESC
+  ORDER BY m.mappingConfidence DESC
   WITH rowRelation, relationOrder, src._source AS rowStandard, collect({
     fromSource: src._source, fromName: src.name, fromId: src._id,
     hubName: hub.name, hubKey: hub.canonicalKey,
-    mappingType: type(m), confidence: m.confidence,
+    mappingType: type(m), confidence: m.mappingConfidence,
     matchPredicate: m.predicate,
     mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource
   }) AS standardEntryList
@@ -246,7 +258,7 @@ CALL {
 CALL {
   WITH node
   OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
-  WITH hub, type(m) AS matchType, m.confidence AS confidence, m.predicate AS matchPredicate,
+  WITH hub, type(m) AS matchType, m.mappingConfidence AS confidence, m.predicate AS matchPredicate,
        m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
        coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName,
        inst
@@ -326,6 +338,7 @@ RETURN
   node._source AS source,
   parentClasses,
   optionSets,
+  optionSetCount,
   optionValues,
   supports,
   superClasses,
