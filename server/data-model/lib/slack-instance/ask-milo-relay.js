@@ -77,34 +77,12 @@ const moduleFunction = function ({ unused }) {
 	};
 
 	// ================================================================================
-	// ASK — buffered single-call run
-
-	const askQuestion = (
-		{
-			question,
-			slackUserId,
-			timeoutSeconds,
-			maxConcurrent,
-			maxPerUser,
-			verbose,
-			askModel,
-			askPromptName,
-		},
-		callback,
-	) => {
-		const slot = acquireSlot({
-			slackUserId,
-			maxConcurrent: maxConcurrent || 2,
-			maxPerUser: maxPerUser || 1,
-		});
-		if (!slot.acquired) {
-			callback('', { busy: true, busyReason: slot.reason });
-			return;
-		}
-
-		// prompt selection is config-driven (dmeSlack.ini askPromptName —
-		// DataModelExplorerSlack, the Slack-formatted twin); DataModelExplorer
-		// is the conservative choice when no name is supplied
+	// askMiloInputFor — the ONE place the relay composes askMilo's input (W-E-4, X3, 2026-10-06). The Slack text is the
+	// single positional and askMilo treats a positional as literal text, never as a file; the input carries no
+	// promptFile, so a Slack user can never name a file for askMilo to read (promptIsText.test.js asserts both).
+	// Prompt selection is config-driven (dmeSlack.ini askPromptName — DataModelExplorerSlack, the Slack-formatted twin);
+	// DataModelExplorer is the conservative choice when no name is supplied.
+	const askMiloInputFor = ({ question, askModel, askPromptName, verbose }) => {
 		const askMiloInput = {
 			switches: {},
 			values: {
@@ -130,6 +108,36 @@ const moduleFunction = function ({ unused }) {
 		if (askMiloConfigPath) {
 			askMiloInput.values.configPath = [askMiloConfigPath];
 		}
+		return askMiloInput;
+	};
+
+	// ================================================================================
+	// ASK — buffered single-call run
+
+	const askQuestion = (
+		{
+			question,
+			slackUserId,
+			timeoutSeconds,
+			maxConcurrent,
+			maxPerUser,
+			verbose,
+			askModel,
+			askPromptName,
+		},
+		callback,
+	) => {
+		const slot = acquireSlot({
+			slackUserId,
+			maxConcurrent: maxConcurrent || 2,
+			maxPerUser: maxPerUser || 1,
+		});
+		if (!slot.acquired) {
+			callback('', { busy: true, busyReason: slot.reason });
+			return;
+		}
+
+		const askMiloInput = askMiloInputFor({ question, askModel, askPromptName, verbose });
 
 		const child = spawn(process.execPath, [askMiloJsPath], {
 			env: process.env,
@@ -277,7 +285,7 @@ const moduleFunction = function ({ unused }) {
 		child.stdin.end();
 	};
 
-	return { askQuestion, checkAskMilo, getRunningCounts };
+	return { askQuestion, checkAskMilo, getRunningCounts, askMiloInputFor };
 };
 
 // END OF moduleFunction() ============================================================

@@ -27,7 +27,7 @@ askMilo -- AI Chorus of Experts Pipeline Processor
 
 Usage:
   askMilo [options] "your prompt here"
-  askMilo [options] /path/to/prompt-file.txt
+  askMilo [options] --promptFile=/path/to/prompt-file.txt
   echo '{ JSON }' | askMilo
   askMilo <<EOF
   { JSON }
@@ -35,7 +35,8 @@ Usage:
 
 Pipeline control:
   --perspectives=N       Number of chorus perspectives. 0 = single-call (default: 0)
-  --promptFile=PATH      Use file contents as system prompt (overrides --firstPrompt)
+  --promptFile=PATH      Read the user prompt from a file (the ONLY way a file is read;
+                         a positional argument is always literal text)
   --firstPrompt=NAME     Select prompt from [prompts] section of .ini
   -summarize             Add synthesis stage after chorus (requires perspectives>0)
   -serialFanOut          Run chorus agents sequentially instead of in parallel
@@ -240,20 +241,12 @@ Examples:
 		return modelMap[shorthand] || shorthand;
 	};
 
-	// -- auto-detect file path as prompt --
-	// If the positional arg is a single token that exists as a file, read its contents as the prompt.
-	const resolvePromptFromFileList = (fileList) => {
-		const raw = fileList.join(' ');
-		if (fileList.length === 1 && !raw.includes('\n') && fs.existsSync(raw)) {
-			xLog.status(`[askMilo] Reading prompt from file: ${raw}`);
-			return fs.readFileSync(raw, 'utf-8');
-		}
-		return raw;
-	};
-
 	// -- build config from .ini + CLI args --
 	const buildConfig = () => {
-		let prompt = resolvePromptFromFileList(commandLineParameters.fileList);
+		// W-E-4 (X3, 2026-10-06): a positional argument is ALWAYS the question text; a file is read only through
+		// --promptFile below. A sniff that read a single positional naming an existing file AS that file let a Slack
+		// user who typed a server path receive the file's contents.
+		let prompt = commandLineParameters.fileList.join(' ');
 		const cfg = localConfig;
 		const parsedPerspectives = parseInt(cfg.perspectives, 10);
 		const perspectives = isNaN(parsedPerspectives) ? 0 : parsedPerspectives;
