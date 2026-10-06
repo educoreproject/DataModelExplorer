@@ -234,7 +234,12 @@ const replayStateScript = ({ userGraphDb, stateScript, userRefId }, callback) =>
 				{ stampRowList },
 				(sErr, sRows) => {
 					if (sErr) { next(`replay legacy-edge stamp failed: ${sErr}`, args); return; }
-					next('', { ...args, legacyEdgeStampedCount: Number(((sRows || [])[0] || {}).stampedCount || 0) });
+					const stampedRow = (sRows || [])[0];
+					if (!stampedRow || Number(stampedRow.stampedCount) !== stampRowList.length) {
+						next(`replay legacy-edge stamp: ${stampRowList.length} unstamped edge(s) found but ${stampedRow ? stampedRow.stampedCount : 'no count'} stamped`, args);
+						return;
+					}
+					next('', { ...args, legacyEdgeStampedCount: stampRowList.length });
 				},
 			);
 		});
@@ -245,7 +250,9 @@ const replayStateScript = ({ userGraphDb, stateScript, userRefId }, callback) =>
 		const removeList = VECTOR_PROPERTY_NAME_LIST.map((onePropertyName) => `n.${onePropertyName}`).join(', ');
 		userGraphDb.runQuery(`MATCH (n:UserContent) WHERE ${vectorPredicate} REMOVE ${removeList} RETURN count(n) AS strippedCount`, {}, (err, rows) => {
 			if (err) { next(`replay vector strip failed: ${err}`, args); return; }
-			next('', { ...args, vectorStrippedCount: Number(((rows || [])[0] || {}).strippedCount || 0) });
+			const strippedRow = (rows || [])[0];
+			if (!strippedRow) { next('replay vector strip: the count query returned no row', args); return; }
+			next('', { ...args, vectorStrippedCount: Number(strippedRow.strippedCount) });
 		});
 	});
 
