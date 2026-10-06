@@ -31,7 +31,8 @@ taskList.push((args, next) => runVerb(['-describeGraph'], (err, outcome) => {
 	const declaredNameText = sortedText(standardDefinitionFieldList.map((oneField) => oneField.name));
 	assert(`every standards[i] has exactly the §5 field names (${standardDefinitionFieldList.length})`, standardList.length > 0 && standardList.every((oneStandard) => sortedText(Object.keys(oneStandard)) === declaredNameText), standardList[0] ? sortedText(Object.keys(standardList[0])) : 'none');
 	assert('  every sourceKey is a live _source value (the filter vocabulary)', standardList.length > 0 && standardList.every((oneStandard) => args.liveSourceList.includes(oneStandard.sourceKey)), JSON.stringify(standardList.map((oneStandard) => oneStandard.sourceKey)));
-	const pescLine = (payload.card || '').split('\n').find((lineText) => /PESC-CollegeTranscript-1\.8\.0/.test(lineText));
+	// the STANDARDS-section line (indented, the name first): the P2 card also lists every _source on its Content line
+	const pescLine = (payload.card || '').split('\n').find((lineText) => /^\s+PESC-CollegeTranscript-1\.8\.0\s/.test(lineText));
 	assert('  the card line for PESC CT names PESC-CollegeTranscript-1.8.0 with the token in parentheses', !!pescLine && /\(pesccollegetranscript1v8v0\)/.test(pescLine), pescLine);
 	next('', args);
 }, cliFilePath));

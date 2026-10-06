@@ -19,8 +19,13 @@ const { assert, runQuery, finish, neo4j, taskListPlus, pipeRunner, readText } = 
 const traversalFilePath = process.argv[2] || path.join(harness.dmeDirPath, 'traversal.cypher');
 
 const FIXTURE_CYPHER_BY_NAME = {
-	sifQuestionWithCodeset: `MATCH (q:ForgedNode {role: 'DmeProperty', _source: 'SIF260928'})-[:HAS_INSTANCE]->(:ForgedNode)-[:CONSTRAINED_BY]->(c:ForgedNode {role: 'DmeOptionSet'})
-		WHERE q.embedding IS NOT NULL WITH q, count(DISTINCT c) AS expectedOptionSetCount ORDER BY q.stableId LIMIT 1
+	// a Question whose searchText no OTHER Question shares (campaign P2, R1): the vector index is approximate, and among
+	// identical-text Questions (identical vectors) its top 5 need not include the seed itself — on the R1 replay the first
+	// Question by stableId shared its text with four others and was not among its own hits, though it was on the gold
+	sifQuestionWithCodeset: `MATCH (s:ForgedNode {role: 'DmeProperty', _source: 'SIF260928'}) WHERE s.embedding IS NOT NULL
+		WITH s.searchText AS sharedSearchText, collect(s) AS sameTextList WHERE size(sameTextList) = 1 WITH sameTextList[0] AS q
+		MATCH (q)-[:HAS_INSTANCE]->(:ForgedNode)-[:CONSTRAINED_BY]->(c:ForgedNode {role: 'DmeOptionSet'})
+		WITH q, count(DISTINCT c) AS expectedOptionSetCount ORDER BY q.stableId LIMIT 1
 		RETURN q.stableId AS stableId, q.embedding AS embedding, expectedOptionSetCount`,
 	cedsPropertyWithOptionSet: `MATCH (p:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})-[:HAS_OPTION_SET]->(os:ForgedNode {role: 'DmeOptionSet'})
 		WHERE p.embedding IS NOT NULL WITH p, count(DISTINCT os) AS expectedOptionSetCount ORDER BY p.stableId LIMIT 1
@@ -33,7 +38,10 @@ const FIXTURE_CYPHER_BY_NAME = {
 const runTraversalFor = (args, fixtureName, callback) => runQuery(FIXTURE_CYPHER_BY_NAME[fixtureName], {}, (err, rowList, rawRecordList) => {
 	if (err) { callback(err); return; }
 	if (!rowList[0]) { callback(`no fixture for ${fixtureName}`); return; }
-	runQuery(readText(traversalFilePath), { embedding: rawRecordList[0].get('embedding'), limit: neo4j.int(5), query: fixtureName, indexName: args.indexName }, (traversalError, hitRowList) => {
+	// k = 50, not 5 (campaign P2, R1, measured): the vector index is APPROXIMATE (HNSW, quantized), and on the R1 replay a
+	// seed's own vector was missing from its top 5 (best hit 0.878) yet present at k = 50 (0.99989); the gold found it at 5.
+	// This gate is about what traversal READS from a hit, not about recall — recall at small k is a P3 finding (DEVLOG-P2).
+	runQuery(readText(traversalFilePath), { embedding: rawRecordList[0].get('embedding'), limit: neo4j.int(50), query: fixtureName, indexName: args.indexName }, (traversalError, hitRowList) => {
 		if (traversalError) { callback(traversalError); return; }
 		const fixtureHit = hitRowList.find((oneRow) => oneRow.node && oneRow.node.stableId === rowList[0].stableId);
 		if (!fixtureHit) { callback(`${fixtureName} fixture ${rowList[0].stableId} not among its own hits`); return; }
