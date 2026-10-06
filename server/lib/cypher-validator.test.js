@@ -218,6 +218,40 @@ assert(
 	false,
 );
 
+// --- W-E-9 (X1, 2026-10-06): every reproduced bypass is refused ---
+console.log('\nValidator bypasses (W-E-9, should fail):');
+
+const { VALIDATOR_BYPASS_CASE_LIST } = require('./cypher-validator-rules');
+VALIDATOR_BYPASS_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} bypass refused: ${cypher}`, validateReadOnly(cypher), false);
+});
+
+console.log('\nLegitimate reads beside the new rules (should pass):');
+
+assert(
+	'a property literally named in a string after a comment',
+	validateReadOnly("MATCH (n) // a comment that says CREATE\nWHERE n.name = 'SHOW' RETURN n"),
+	true,
+);
+
+assert(
+	'a backtick-quoted label holding a keyword is an identifier, not a clause',
+	validateReadOnly('MATCH (n:`CREATE`) RETURN count(n)'),
+	true,
+);
+
+assert(
+	'a function that is not on the blocked prefix list',
+	validateReadOnly('MATCH (n) RETURN toLower(n.name), size(n.name) LIMIT 5'),
+	true,
+);
+
+assert(
+	'an unterminated string literal is refused, never guessed at',
+	validateReadOnly("MATCH (n) WHERE n.name = 'unclosed RETURN n"),
+	false,
+);
+
 // --- Summary ---
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);
