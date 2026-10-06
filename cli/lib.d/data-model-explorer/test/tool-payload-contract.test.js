@@ -11,8 +11,8 @@
 // undeclared refusal name. LIVE half (dev graph, nothing written: every case is refused before any Cypher runs): each
 // input refusal arrives on STDOUT as a refusedByName object with exit 0.
 //
-// NOT HERE (P1, W-D-6..W-D-11): the list envelopes (totalRowCount, returnedRowCount, truncatedRowCount). The descriptions
-// do not claim them yet, and this gate does not assert them.
+// P1 (2026-10-06) adds: the descriptions name each verb's row list and the envelope's totalRowCount, and listEnvelopeFor
+// builds the declared shape.
 //
 //   node cli/lib.d/data-model-explorer/test/tool-payload-contract.test.js
 
@@ -57,6 +57,22 @@ const unmentionedToolList = providerToolList.filter((oneTool) => !/refusedByName
 assert('every dme_* description tells the model what a refusedByName object means', unmentionedToolList.length === 0, unmentionedToolList.join(', '));
 const verbWithoutToolList = Object.keys(VERB_PAYLOAD_CONTRACT).filter((oneVerb) => !providerToolList.some((oneTool) => verbOfTool(oneTool) === oneVerb));
 assert('every VERB_PAYLOAD_CONTRACT row is a verb some dme_* tool runs', verbWithoutToolList.length === 0, verbWithoutToolList.join(', '));
+
+// P1 (W-D-6..W-D-13, campaign 2026-10-06): the list verbs now EMIT the envelope, so every description names the field its
+// rows live under, and every enveloped verb's description names totalRowCount (history's payload is V2-C04's, P2)
+const { listEnvelopeFor } = toolPayloadContract;
+const ENVELOPED_VERB_LIST = ['search', 'findMappings', 'compareCodesets', 'unmappedFields', 'explore'];
+providerToolList.forEach((oneTool) => {
+	const verbRow = VERB_PAYLOAD_CONTRACT[verbOfTool(oneTool)];
+	if (!verbRow || !verbRow.rowListFieldName || verbOfTool(oneTool) === 'history') return;
+	assert(`${oneTool.definition.name}: description names its row list '${verbRow.rowListFieldName}'`, oneTool.definition.description.includes(verbRow.rowListFieldName));
+	if (ENVELOPED_VERB_LIST.includes(verbOfTool(oneTool))) assert(`  and names totalRowCount`, oneTool.definition.description.includes('totalRowCount'));
+});
+const builtEnvelope = listEnvelopeFor('search', [1, 2], 5);
+assert('listEnvelopeFor builds { resultList, totalRowCount, returnedRowCount, truncatedRowCount }', JSON.stringify(builtEnvelope) === JSON.stringify({ resultList: [1, 2], totalRowCount: 5, returnedRowCount: 2, truncatedRowCount: 3 }), JSON.stringify(builtEnvelope));
+let smallTotalText = '';
+try { listEnvelopeFor('search', [1, 2], 1); } catch (envelopeError) { smallTotalText = envelopeError.message; }
+assert('  and refuses a total smaller than the rows shown', /is not an integer >= the 2 rows returned/.test(smallTotalText), smallTotalText);
 
 const builtRefusal = refusalFor('findMappings', 'emptyName', 'a reason', ['a', 'b']);
 assert('refusalFor builds { refusedByName, refusalName, reason, validValueList }', JSON.stringify(builtRefusal) === JSON.stringify({ refusedByName: 'findMappings', refusalName: 'emptyName', reason: 'a reason', validValueList: ['a', 'b'] }), JSON.stringify(builtRefusal));

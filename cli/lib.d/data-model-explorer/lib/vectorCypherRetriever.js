@@ -14,9 +14,9 @@
 // traversal file is configured or present, a flat vector search runs and the RESULT says so.
 //
 // retrieve(retrievalSpecification, callback) answers callback(errorText) or callback('', retrievedResult):
-//   traversal ran  -> retrievedResult is the traversal's row list (one object per traversal.cypher record);
+//   traversal ran  -> retrievedResult is { retrievalMode: 'traversal', requestedHitCount, returnedHitCount, hitList }, one
+//                     hitList entry per traversal.cypher record (W-D-10, campaign P1: the bare list carried no count);
 //   flat search    -> retrievedResult is { retrievalMode: 'flat', retrievalNote, resultCount, results }.
-// The traversal shape is kept as the bare list so every answer that succeeded before ruling C is byte-identical.
 //
 // The embedder object is created by embeddingClient.create() and passed in.
 // It provides embed(texts, callback), dimension, batchSize, and metadata().
@@ -196,14 +196,15 @@ const staticTraversal = ({ neo4jSession, queryText, embedder, traversalFilePath,
 		}
 		// A column named in OMIT_WHEN_NULL_COLUMN_LIST is left out when null, so a traversal column that only
 		// some standards populate adds no property to the others' results.
-		callback('', args.traversalResult.records.map(rec => {
+		const hitList = args.traversalResult.records.map(rec => {
 			const obj = {};
 			for (const columnName of rec.keys) {
 				if (OMIT_WHEN_NULL_COLUMN_LIST.includes(columnName) && rec.get(columnName) === null) continue;
 				obj[columnName] = serializeNeo4jValue(rec.get(columnName));
 			}
 			return obj;
-		}));
+		});
+		callback('', { retrievalMode: 'traversal', requestedHitCount: limit, returnedHitCount: hitList.length, hitList });
 	});
 };
 

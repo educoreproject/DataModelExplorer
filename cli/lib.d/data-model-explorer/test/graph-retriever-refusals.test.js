@@ -139,7 +139,8 @@ const CASE_LIST = [
 		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
 		(errorText, retrievedResult) => {
 			assert('traversal answers without error', !errorText, answerTextOf(errorText, retrievedResult));
-			assert('traversal answers a bare list of 3 rows carrying graph context', Array.isArray(retrievedResult) && retrievedResult.length === 3 && retrievedResult.every((row) => 'mappingsIncoming' in row), answerTextOf(errorText, retrievedResult));
+			// W-D-10 (campaign P1): the traversal answers { retrievalMode, requestedHitCount, returnedHitCount, hitList }
+			assert('traversal answers hitList: 3 rows carrying graph context, counted', !!retrievedResult && retrievedResult.retrievalMode === 'traversal' && retrievedResult.requestedHitCount === 3 && retrievedResult.returnedHitCount === 3 && Array.isArray(retrievedResult.hitList) && retrievedResult.hitList.length === 3 && retrievedResult.hitList.every((row) => 'mappingsIncoming' in row), answerTextOf(errorText, retrievedResult));
 		}],
 ];
 

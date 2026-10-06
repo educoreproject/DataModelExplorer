@@ -7,7 +7,7 @@
 		{
 			"definition": {
 				"name": "dme_search",
-				"description": "Semantic vector search across ALL standards in the unified graph (the live inventory comes from dme_list_standards). Vector-only — the graph carries a single vector index on :ForgedNode(embedding) and no fulltext/BM25 index. Returns results ranked by cosine relevance. Accepts optional --standard parameter to scope to a single standard. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Semantic vector search across ALL standards in the unified graph (the live inventory comes from dme_list_standards). Vector-only — the graph carries a single vector index on :ForgedNode(embedding) and no fulltext/BM25 index. Returns results ranked by cosine relevance. Accepts an optional standard (a `source` value from dme_list_standards). RETURNS AN OBJECT: resultList (at most 20 rows, nearest first, each with stableId), totalRowCount (matches among the nearest overFetchWindow nodes), returnedRowCount, truncatedRowCount; a filtered page that is short carries shortPageNote — the page is short, not the standard. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -17,7 +17,7 @@
 						},
 						"standard": {
 							"type": "string",
-							"description": "Optional: limit results to a specific standard (CEDS, SIF, EdFi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP)"
+							"description": "Optional: limit to one standard. Give a `source` value exactly as dme_list_standards returns it (e.g. SIF260928, PESC-CollegeTranscript-1.8.0); an unknown value is refused by name with the valid list."
 						}
 					},
 					"required": [
@@ -38,7 +38,7 @@
 		{
 			"definition": {
 				"name": "dme_graph_retriever",
-				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result is an object with retrievalMode \"flat\" (and a retrievalNote) instead of a list, traversal.cypher was not available and its rows carry no graph context: tell the user so, quoting the retrievalNote. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (CONSTRAINED_BY; viaInstance: true, carrying path and valueCount because SIF code sets have no name), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows carry no graph context: tell the user so, quoting the retrievalNote. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -80,7 +80,7 @@
 		{
 			"definition": {
 				"name": "dme_explore",
-				"description": "Show a specific node by name with all its properties and relationships. Returns the node's data plus all incoming and outgoing edges. Accepts optional --standard parameter to scope to a specific standard (CEDS, SIF, EdFi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Show the nodes bearing a name, with all their properties and relationships. RETURNS AN OBJECT: entryList (ONE ENTRY PER NODE that bears the name (same-named nodes are distinct entries keyed by stableId), each with its stableId, outgoing and incoming edges and their totals), totalRowCount / returnedRowCount / truncatedRowCount, matchedNodeCount — state that count when you report, and enumerate entries rather than counting them yourself. The match is exact unless nameMatch is caseInsensitive; caseVariantNodeCount and caseVariantNameList name the nodes an exact lookup missed only by letter case (SIF splits one concept into BirthDate and birthDate) — if caseVariantNodeCount > 0, say so and re-run with nameMatch=caseInsensitive before listing \"all\" of anything. A name no node bears is refused by name (nothingMatched). Accepts an optional standard (a `source` value from dme_list_standards). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -90,7 +90,16 @@
 						},
 						"standard": {
 							"type": "string",
-							"description": "Optional: limit to a specific standard (CEDS, SIF, EdFi, PESC, CTDL, SEDM, JEDx, EdMatrix, CIP)"
+							"description": "Optional: limit to one standard. Give a `source` value exactly as dme_list_standards returns it (e.g. SIF260928, PESC-CollegeTranscript-1.8.0); an unknown value is refused by name with the valid list."
+						},
+						"nameMatch": {
+							"type": "string",
+							"enum": [
+								"exact",
+								"caseInsensitive"
+							],
+							"description": "'exact' (default) or 'caseInsensitive'. Any other value is refused by name.",
+							"default": "exact"
 						}
 					},
 					"required": [
@@ -102,20 +111,21 @@
 				"command": "node dataModelExplorerSearch.js -explore",
 				"flagArgs": {
 					"name": "--name",
-					"standard": "--standard"
+					"standard": "--standard",
+					"nameMatch": "--nameMatch"
 				}
 			}
 		},
 		{
 			"definition": {
 				"name": "dme_find_mappings",
-				"description": "Given an element from any standard, return the CEDS concept it maps to and its cross-standard equivalents. Each element resolves to a CEDS tuple — a HubReference, the canonical CEDS address — through one of four match edges, one per SKOS relation: EXACT_MATCH (same meaning), CLOSE_MATCH (near, not interchangeable), BROAD_MATCH (the CEDS tuple is broader than the element), NARROW_MATCH (the CEDS tuple is narrower). EVERY match edge is a JUDGMENT, not a fact: every row carries mappingConfidence (the judge's confidence; null on authored edges), mappingKind ('inferred' = a judge chose it, 'authored' = a document named it) and mappingSource (who decided, naming the actual judge, e.g. 'bridge-jev'; 'bridge-debug' = a DEBUG judge's mechanical placeholder, confidence 0 — if any row has it, say so first and prominently and never present it as a mapping), plus viaMappingConfidence/viaMappingKind/viaMappingSource for the queried element's hop (all null on graphs built before these fields); the relation (mappingType) and the confidence are independent — never present any row as authoritative or authored unless its mappingKind is 'authored'. Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (an equivalence composed from two judgments, not an established fact); 'candidateEquivalent' when the hops are EXACT/CLOSE with at least one CLOSE (a hypothesis); 'related' when either hop is BROAD_MATCH or NARROW_MATCH (never equivalent: both may be narrower than one broad tuple). EXACT/CLOSE rows sort first. Directions: 'outgoing' = this element's CEDS concept; 'equivalent'/'candidateEquivalent'/'related' = other standards' elements on the same concept; 'incoming' = when given a CEDS name, the source elements that map to it. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate/mappingConfidence/mappingSource = the other element's hop, viaMatchType/viaConfidence/viaPredicate/viaMappingConfidence/viaMappingSource = the queried element's own hop; no combined score is computed — judge from both. RETURNS AN OBJECT: mappingRowList (at most 30 rows; every relation present first gets up to 7 rows, then the rest fill composing-first by confidence, so no relation is ever dropped; WITHIN a relation the rows are shared round-robin across the source standards, best confidence first within each, so one standard never crowds out another), totalRowCountByRelation and truncatedRowCountByRelation (rows of each relation NOT shown), and totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard (the same, per relation and per source standard). When a truncated count is non-zero, say how many rows of that relation (and which standards' rows) were left out and offer to narrow the query; never say a relation or a standard has no mapping when its total is non-zero. Every row includes the decomposed CEDS tuple (cedsTuple: domain · property · range [· value] + canonicalKey). Accepts an element name, XPath, _id, or CEDS property name/ID. CLASSIFICATION_CROSSWALK edges (present only in graphs holding SOC and CIP) are deliberately excluded: a classification-crosswalk correspondence is not a mapping. INSTANCE NODES (SIF, PESC): these standards put their mappings on INSTANCE nodes reached by HAS_INSTANCE — a SIF Question has one Field per object it appears in; a PESC element declaration has one occurrence per place it appears in the document. Direction 'outgoingViaInstance' = the queried declaration's CEDS concept as carried by its instances, one row per CEDS tuple and verdict, with instanceGroupList (the SIF objects or PESC document sections holding it) and instanceCount (how many instances carry it). On a shared-hub or incoming row, instanceGroupList/instanceCount describe the from-element's instances that carry the mapping, and viaInstanceGroupList/viaInstanceCount describe the queried declaration's instances that carry the near hop. instanceOf names the declaration when the row's element is itself an instance. These fields are ABSENT (not null) on rows that involve no instances — CEDS, Ed-Fi and every other standard. Present instance mappings grouped by object (SIF) or section (PESC), never as repeated rows. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Given an element from any standard, return the CEDS concept it maps to and its cross-standard equivalents. Each element resolves to a CEDS tuple — a HubReference, the canonical CEDS address — through one of four match edges, one per SKOS relation: EXACT_MATCH (same meaning), CLOSE_MATCH (near, not interchangeable), BROAD_MATCH (the CEDS tuple is broader than the element), NARROW_MATCH (the CEDS tuple is narrower). EVERY match edge is a JUDGMENT, not a fact: every row carries mappingConfidence (the judge's confidence; null on authored edges), mappingKind ('inferred' = a judge chose it, 'authored' = a document named it) and mappingSource (who decided, naming the actual judge, e.g. 'bridge-jev'; 'bridge-debug' = a DEBUG judge's mechanical placeholder, confidence 0 — if any row has it, say so first and prominently and never present it as a mapping), plus viaMappingConfidence/viaMappingKind/viaMappingSource for the queried element's hop (all null on graphs built before these fields); the relation (mappingType) and the confidence are independent — never present any row as authoritative or authored unless its mappingKind is 'authored'. Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (an equivalence composed from two judgments, not an established fact); 'candidateEquivalent' when the hops are EXACT/CLOSE with at least one CLOSE (a hypothesis); 'related' when either hop is BROAD_MATCH or NARROW_MATCH (never equivalent: both may be narrower than one broad tuple). EXACT/CLOSE rows sort first. Directions: 'outgoing' = this element's CEDS concept; 'equivalent'/'candidateEquivalent'/'related' = other standards' elements on the same concept; 'incoming' = when given a CEDS name or Global ID, the source elements that map to it — any CEDS leaf: class, property, range, value or qualifier. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate/mappingConfidence/mappingSource = the other element's hop, viaMatchType/viaConfidence/viaPredicate/viaMappingConfidence/viaMappingSource = the queried element's own hop; no combined score is computed — judge from both. RETURNS AN OBJECT: matchedNodeCount (how many nodes the input matched), totalRowCount / returnedRowCount / truncatedRowCount (DISTINCT mappings: one row per element, CEDS tuple and relation, each row naming its element by fromStableId), mappingRowList (at most 30 rows; every relation present first gets up to 7 rows, then the rest fill composing-first by confidence, so no relation is ever dropped; WITHIN a relation the rows are shared round-robin across the source standards, best confidence first within each, so one standard never crowds out another), totalRowCountByRelation and truncatedRowCountByRelation (rows of each relation NOT shown), and totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard (the same, per relation and per source standard). When a truncated count is non-zero, say how many rows of that relation (and which standards' rows) were left out and offer to narrow the query; never say a relation or a standard has no mapping when its total is non-zero. Every row includes the decomposed CEDS tuple (cedsTuple: domain · property · range [· value] + canonicalKey). Accepts an element name, XPath, _id, stableId or the hub's canonical key / CEDS Global ID (cedsId, e.g. P000033); an input that matches no node is refused by name (nothingMatched). CLASSIFICATION_CROSSWALK edges (present only in graphs holding classification standards) are deliberately excluded: a classification-crosswalk correspondence is not a mapping. INSTANCE NODES (SIF, PESC): these standards put their mappings on INSTANCE nodes reached by HAS_INSTANCE — a SIF Question has one Field per object it appears in; a PESC element declaration has one occurrence per place it appears in the document. Direction 'outgoingViaInstance' = the queried declaration's CEDS concept as carried by its instances, one row per CEDS tuple and verdict, with instanceGroupList (the SIF objects or PESC document sections holding it) and instanceCount (how many instances carry it). On a shared-hub or incoming row, instanceGroupList/instanceCount describe the from-element's instances that carry the mapping, and viaInstanceGroupList/viaInstanceCount describe the queried declaration's instances that carry the near hop. instanceOf names the declaration when the row's element is itself an instance. These fields are ABSENT (not null) on rows that involve no instances — CEDS, Ed-Fi and every other standard. Present instance mappings grouped by object (SIF) or section (PESC), never as repeated rows. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
 						"name": {
 							"type": "string",
-							"description": "SIF field name, XPath, CEDS property name, or CEDS ID (e.g., 'BirthDate', '/StudentPersonals/StudentPersonal/Name/FirstName', 'P600559')"
+							"description": "Element name, XPath, _id, stableId, or the hub's canonical key / CEDS Global ID (cedsId, e.g. 'BirthDate', '/StudentPersonals/StudentPersonal/Name/FirstName', 'P000033')"
 						}
 					},
 					"required": [
@@ -134,7 +144,7 @@
 		{
 			"definition": {
 				"name": "dme_compare_codesets",
-				"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier CEDS hub; values from other standards on the same hub are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the CEDS value and key, and the list of other standards' values on the same CEDS value (equivalent only when both are EXACT_MATCH). Unmatched values (matchType null) show where a codeset does not align to CEDS. It does NOT compute alignment types or coverage percentages. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier CEDS hub; values from other standards on the same hub are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the CEDS value and key, and the list of other standards' values on the same CEDS value (equivalent only when both are EXACT_MATCH). RETURNS AN OBJECT: verdict, valueTierJudgmentCount, matchedOptionSetCount, valueRowList (cap 100) and totalRowCount / returnedRowCount / truncatedRowCount. matchType null means the value was NOT JUDGED when verdict is 'valuesNotJudgedInThisBuild' (the build holds no value-tier judgments; verdictText says so — report it that way); only when verdict is 'judged' does a null show non-alignment. A name matching no option set is refused by name (noOptionSetMatched); SIF code sets carry no name in this build and cannot be found by name. It does NOT compute alignment types or coverage percentages. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -159,13 +169,17 @@
 		{
 			"definition": {
 				"name": "dme_unmapped_fields",
-				"description": "List DmeProperty elements, from any standard, that have no CEDS mapping under any of the four match relations — neither directly nor through any of their HAS_INSTANCE instances (SIF Questions, PESC element declarations). The annotation backlog. Shows standard, element name, path, and description. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "List DmeProperty elements of the NON-hub standards that have no CEDS mapping under any of the four match relations — neither directly nor through any of their HAS_INSTANCE instances (SIF Questions, PESC element declarations). The annotation backlog of the non-hub standards: the hub (named in the result as hubStandard) does not map to itself, so hubPolicy 'excludeHub' leaves its properties out. RETURNS AN OBJECT: unmappedRowList (standard, fieldName, path, description), totalRowCount, returnedRowCount, truncatedRowCount — quote totalRowCount for \"how many\". If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
-						"limit": {
+						"standard": {
 							"type": "string",
-							"description": "Max results (default 50)"
+							"description": "Optional: limit to one standard. Give a `source` value exactly as dme_list_standards returns it (e.g. SIF260928, PESC-CollegeTranscript-1.8.0); an unknown value is refused by name with the valid list."
+						},
+						"limit": {
+							"type": "integer",
+							"description": "Max rows (default 50); totalRowCount is always returned"
 						}
 					},
 					"required": []
@@ -175,6 +189,7 @@
 				"command": "node dataModelExplorerSearch.js -unmappedFields",
 				"positionalArgs": [],
 				"flagArgs": {
+					"standard": "--standard",
 					"limit": "--limit"
 				}
 			}
@@ -182,7 +197,7 @@
 		{
 			"definition": {
 				"name": "dme_stats",
-				"description": "Whole-graph statistics across ALL loaded standards: node counts by standard (_source), node counts by universal-contract role, match-edge counts per relation (EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH, NARROW_MATCH), and property-tier mapping coverage (a property counts as mapped under any of the four). For the per-standard registry list, use dme_list_standards. A SIF Question or PESC element counts as a mapped property when one of its HAS_INSTANCE instances carries the mapping edge. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Whole-graph statistics across ALL loaded standards: node counts by standard (_source), node counts by universal-contract role, match-edge counts per relation (EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH, NARROW_MATCH), and property-tier mapping coverage of the NON-hub standards (coverage: totalProperties, mappedProperties, hubStandard, hubPropertyCount, hubPolicy — the hub does not map to itself, so its properties are counted apart; a property counts as mapped under any of the four). For the per-standard registry list, use dme_list_standards. A SIF Question or PESC element counts as a mapped property when one of its HAS_INSTANCE instances carries the mapping edge. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {},
@@ -198,7 +213,7 @@
 		{
 			"definition": {
 				"name": "dme_list_standards",
-				"description": "Inventory of every standard loaded in the graph. Reads the :DmeStandardRoot passport nodes and returns each standard's source, name, standardName, description, version, sourceUrl, and live nodeCount. Use this for any 'what standards are loaded?' question — it never goes stale as new standards are forged in. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Inventory of every standard loaded in the graph. Reads the :DmeStandardRoot nodes and returns each standard's source (the value every standard filter takes), standardKey, name, standardName, description, version, sourceUrl, standardFamily, releaseLabel and live nodeCount. Returns totals.standardCount and totals.familyList ([{family, releaseCount, sourceList}], counted by the tool's own query) — read 'how many standards / how many PESC releases' from these, never by counting the list yourself; when familyFieldPresent is false the build declares no families (familyNote says so) and you must not group releases into families by their names. Use this for any 'what standards are loaded?' question — it never goes stale as new standards are forged in. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {},
@@ -214,7 +229,7 @@
 		{
 			"definition": {
 				"name": "dme_describe_graph",
-				"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the enriched :GraphProvenance passport (build facts, capability flags, per-standard breakdown, human description), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with versions and purposes), the manifest ancestry (BASED_ON lineage), and one :StandardDefinition per standard (display name, version + versionSource, source format, element counts, mapping disposition authored/inferred/island). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. Degrades honestly on graphs built before self-documentation (says what is absent). Read-only. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the enriched :GraphProvenance passport (build facts, capability flags, per-standard breakdown, human description), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with versions and purposes), the manifest ancestry (BASED_ON lineage), and one :StandardDefinition per standard (sourceKey — the `_source` value every filter takes; standardKey — the forge token used in block subjects; version + versionSource, source format, element counts, mapping kinds and sources, standardKind, standardUsageTips). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. Degrades honestly on graphs built before self-documentation (says what is absent). Read-only. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -237,7 +252,7 @@
 		{
 			"definition": {
 				"name": "dme_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. All nodes are :ForgedNode with a _source property indicating the standard (e.g. CEDS, EdFi, LIF); the inventory grows over time, so read _source rather than assuming a fixed list. Cross-standard mapping: a source :ForgedNode connects to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey — through one of four match edges, one per SKOS relation: EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH (CEDS broader), NARROW_MATCH (CEDS narrower). Every match edge is a judgment carrying predicate, confidence and, on current graphs, mappingConfidence / mappingKind ('inferred' | 'authored') / mappingSource ('bridge-<judge>', 'crosswalk-<name>', 'standard-<name>'); a judged edge is not fact, and relation and confidence are independent. Match edges carry no provenanceTier: detect debug edges by mappingSource = 'bridge-debug'. Read them with [m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements sharing a HubReference are equivalent only when both hops are EXACT_MATCH (two judgments); a CLOSE hop makes them a candidate; a BROAD/NARROW hop makes them only related. Graphs holding SOC and CIP also link them by CLASSIFICATION_CROSSWALK edges (NCES crosswalk; NOT equivalence — never compose them with match-edge hub resolutions). INSTANCE NODES: SIF and PESC carry mappings on instances, not on the element search finds — (decl:ForgedNode {role:'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode {role:'DmeSupport'})-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference). A SIF instance's group is its owning Object, (obj)-[:HAS_FIELD]->(inst); a PESC instance's group is inst.sectionPath. SIF nesting: Object -[:HAS_CHILD]-> Container -[:HAS_CHILD]-> Container|Field. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Execute read-only Cypher against the unified graph. RETURNS { recordCount, totalRecordCount, truncated, records } (at most 1000 records; truncated says when more existed). Content nodes are :ForgedNode with a _source property naming the standard (read the inventory from dme_list_standards; never assume a fixed list). Self-documentation nodes (:GraphProvenance, :BuildAttestation, :ManifestRecipe, …) carry :GraphMeta and no _source. Cross-standard mapping: a source :ForgedNode connects to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey — through one of four match edges, one per SKOS relation: EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH (CEDS broader), NARROW_MATCH (CEDS narrower). Every match edge is a judgment carrying predicate, mappingConfidence (THE confidence; the older duplicate `confidence` property is retiring — never read it), mappingKind ('inferred' | 'authored') / mappingSource ('bridge-<judge>', 'crosswalk-<name>', 'standard-<name>'); a judged edge is not fact, and relation and confidence are independent. Match edges carry no provenanceTier: detect debug edges by mappingSource = 'bridge-debug'. Read them with [m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements sharing a HubReference are equivalent only when both hops are EXACT_MATCH (two judgments); a CLOSE hop makes them a candidate; a BROAD/NARROW hop makes them only related. A graph holding classification standards may also link them by CLASSIFICATION_CROSSWALK edges (NCES crosswalk; NOT equivalence — never compose them with match-edge hub resolutions). INSTANCE NODES: SIF and PESC carry mappings on instances, not on the element search finds — (decl:ForgedNode {role:'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode {role:'DmeSupport'})-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference). A SIF instance's group is its owning Object, (obj)-[:HAS_FIELD]->(inst); a PESC instance's group is inst.sectionPath. SIF nesting: Object -[:HAS_CHILD]-> Container -[:HAS_CHILD]-> Container|Field. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". Use this for any count, total or average you need to state; do not compute numbers yourself.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -262,14 +277,10 @@
 		{
 			"definition": {
 				"name": "dme_history",
-				"description": "Show graph build history — timestamped events for every load, embed, bridge, and export operation across all standards. Accepts optional --standard filter and --limit (default 20). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Show graph build history — timestamped events for every load, embed, bridge, and export operation across all standards. Accepts --limit (default 20). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
-						"standard": {
-							"type": "string",
-							"description": "Optional: show history for a specific standard only"
-						},
 						"limit": {
 							"type": "integer",
 							"description": "Maximum number of history events to return (default 20)"
@@ -280,275 +291,52 @@
 			"cli": {
 				"command": "node dataModelExplorerSearch.js -history",
 				"flagArgs": {
-					"standard": "--standard",
 					"limit": "--limit"
-				}
+				},
+				"positionalArgs": []
 			}
 		},
 		{
 			"definition": {
-				"name": "usecase_graph_search",
-				"description": "Hybrid BM25 + vector search across UseCases data. Use cases from educoreproject/educore_use_cases GitHub issues, parsed into actors, steps, categories, and CEDS references. Returns ranked results by relevance.",
+				"name": "dme_calculate",
+				"description": "Arithmetic over numbers you already hold — NEVER do arithmetic yourself. operation is one of count, sum, average, minimum, maximum (one or more numbers), difference, ratio, percent (exactly two: for percent and ratio the first is the part / numerator, the second the whole / denominator). numberList is plain numbers (no thousands separators, units or percent signs). RETURNS { operation, numberList, result, resultRoundedToTwoDecimals }; quote result. For counts and totals of graph data prefer a Cypher count() through dme_raw_cypher, so the numbers themselves come from the database. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
-						"query": {
+						"operation": {
 							"type": "string",
-							"description": "Search query for UseCases data"
+							"enum": [
+								"count",
+								"sum",
+								"average",
+								"minimum",
+								"maximum",
+								"difference",
+								"ratio",
+								"percent"
+							],
+							"description": "The calculation to run."
+						},
+						"numberList": {
+							"type": "array",
+							"items": {
+								"type": "number"
+							},
+							"description": "The numbers, in order (for difference, ratio and percent: first, second)."
 						}
 					},
 					"required": [
-						"query"
+						"operation",
+						"numberList"
 					]
 				}
 			},
 			"cli": {
-				"command": "node usecase_graphSearch.js -search",
-				"positionalArgs": [
-					"query"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "usecase_graph_explore",
-				"description": "Describe a UseCases node by name. Shows all properties and relationships.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"name": {
-							"type": "string",
-							"description": "Node name to explore in UseCases"
-						}
-					},
-					"required": [
-						"name"
-					]
-				}
-			},
-			"cli": {
-				"command": "node usecase_graphSearch.js -explore",
-				"positionalArgs": [
-					"name"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "usecase_graph_stats",
-				"description": "Show UseCases graph statistics — node counts by type and edge counts by relationship type.",
-				"input_schema": {
-					"type": "object",
-					"properties": {},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node usecase_graphSearch.js -stats",
-				"positionalArgs": [],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "usecase_graph_history",
-				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"limit": {
-							"type": "integer",
-							"description": "Max events to return (default 50)"
-						}
-					},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node usecase_graphSearch.js -history",
+				"command": "node dataModelExplorerSearch.js -calculate",
 				"positionalArgs": [],
 				"flagArgs": {
-					"limit": "--limit"
-				}
-			}
-		},
-		{
-			"definition": {
-				"name": "lif_graph_search",
-				"description": "Hybrid BM25 + vector search across LIF data. Learner Information Framework OpenAPI schema — entities, properties, cross-entity references, option sets, and option values describing learners, credentials, competencies, programs, and positions. Returns ranked results by relevance.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "Search query for LIF data"
-						}
-					},
-					"required": [
-						"query"
-					]
-				}
-			},
-			"cli": {
-				"command": "node lif_graphSearch.js -search",
-				"positionalArgs": [
-					"query"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "lif_graph_explore",
-				"description": "Describe a LIF node by name. Shows all properties and relationships.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"name": {
-							"type": "string",
-							"description": "Node name to explore in LIF"
-						}
-					},
-					"required": [
-						"name"
-					]
-				}
-			},
-			"cli": {
-				"command": "node lif_graphSearch.js -explore",
-				"positionalArgs": [
-					"name"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "lif_graph_stats",
-				"description": "Show LIF graph statistics — node counts by type and edge counts by relationship type.",
-				"input_schema": {
-					"type": "object",
-					"properties": {},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node lif_graphSearch.js -stats",
-				"positionalArgs": [],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "lif_graph_history",
-				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"limit": {
-							"type": "integer",
-							"description": "Max events to return (default 50)"
-						}
-					},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node lif_graphSearch.js -history",
-				"positionalArgs": [],
-				"flagArgs": {
-					"limit": "--limit"
-				}
-			}
-		},
-		{
-			"definition": {
-				"name": "clr_graph_search",
-				"description": "Hybrid BM25 + vector search across CLR data. IMS Global Comprehensive Learner Record Standard v2.0 — classes, properties, and cross-class references describing verifiable credentials, achievements, endorsements, and learner profiles in the W3C VC / 1EdTech ecosystem. Returns ranked results by relevance.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "Search query for CLR data"
-						}
-					},
-					"required": [
-						"query"
-					]
-				}
-			},
-			"cli": {
-				"command": "node clr_graphSearch.js -search",
-				"positionalArgs": [
-					"query"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "clr_graph_explore",
-				"description": "Describe a CLR node by name. Shows all properties and relationships.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"name": {
-							"type": "string",
-							"description": "Node name to explore in CLR"
-						}
-					},
-					"required": [
-						"name"
-					]
-				}
-			},
-			"cli": {
-				"command": "node clr_graphSearch.js -explore",
-				"positionalArgs": [
-					"name"
-				],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "clr_graph_stats",
-				"description": "Show CLR graph statistics — node counts by type and edge counts by relationship type.",
-				"input_schema": {
-					"type": "object",
-					"properties": {},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node clr_graphSearch.js -stats",
-				"positionalArgs": [],
-				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "clr_graph_history",
-				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"limit": {
-							"type": "integer",
-							"description": "Max events to return (default 50)"
-						}
-					},
-					"required": []
-				}
-			},
-			"cli": {
-				"command": "node clr_graphSearch.js -history",
-				"positionalArgs": [],
-				"flagArgs": {
-					"limit": "--limit"
+					"operation": "--operation",
+					"numberList": "--numberList"
 				}
 			}
 		}

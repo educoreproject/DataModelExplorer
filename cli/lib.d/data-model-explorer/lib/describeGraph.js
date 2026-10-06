@@ -20,6 +20,7 @@
 
 const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
 const { runCypherQuery } = require('./runCypherQuery');
+const { refusalFor } = require('./toolPayloadContract');
 
 const CARD_BLOCK_LIMIT = 200; // recipe display bound; overflow is REPORTED, never silent
 
@@ -58,21 +59,24 @@ const ANCESTRY_CYPHER = `
 		RETURN collect(a.manifestKey) AS ancestorKeys
 	`;
 
-// 4) the per-standard definitions
-// Two self-doc vintages write :StandardDefinition: the Wave-B finishers (source/displayName,
-// July 2026) and the educoreForge finish verb (standardKey/standardName, Sept 2026). The card
-// reads BOTH — coalesced here, in the one query, so the renderer sees a single shape.
+// 4) the per-standard definitions — W-D-15 (campaign P1): read by CONTRACTS §5 STANDARD_DEFINITION_FIELD_LIST verbatim,
+// from the graphContract.json educoreForge emits, with no coalesce and no reader-only names. (Until 2026-10-06 this read
+// coalesced the July vintage's source/displayName into the Sept one, so the card printed the forge token
+// pesccollegetranscript1v8v0 where every filter takes PESC-CollegeTranscript-1.8.0.) A definition lacking a required
+// field is refused by name, never shown with blanks.
+const STANDARD_DEFINITION_FIELD_LIST = require('../contract/graphContract.json').standardDefinitionFieldList;
+const CYPHER_PROPERTY_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
+STANDARD_DEFINITION_FIELD_LIST.forEach((oneField) => {
+	if (!CYPHER_PROPERTY_NAME_PATTERN.test(oneField.name)) {
+		throw new Error(`describeGraph: graphContract.json standardDefinitionFieldList holds '${oneField.name}', not a plain property name`);
+	}
+});
 const STANDARD_DEFINITION_CYPHER = `
 		MATCH (d:StandardDefinition)
-		RETURN d { .version, .versionSource, .sourceFormat, .sourceUrl,
-			.description, .nodeCount, .propertyCount, .classCount, .optionSetCount, .optionValueCount,
-			.exactMappedProperties, .closeMappedProperties, .mappingEdgeCount,
-			.exactEdgeCount, .closeEdgeCount, .mappingDisposition, .mappingKindList, .mappingSourceList,
-			.subjectVersions, .objectVersions, .standardKind, .standardUsageTips,
-			source: coalesce(d.source, d.standardKey),
-			displayName: coalesce(d.displayName, d.standardName) } AS standard
-		ORDER BY coalesce(d.source, d.standardKey)
+		RETURN d { ${STANDARD_DEFINITION_FIELD_LIST.map((oneField) => `.${oneField.name}`).join(', ')} } AS standard, d.stableId AS definitionStableId
+		ORDER BY d.sourceKey
 	`;
+const REQUIRED_STANDARD_DEFINITION_FIELD_NAME_LIST = STANDARD_DEFINITION_FIELD_LIST.filter((oneField) => oneField.required).map((oneField) => oneField.name);
 
 const describeGraph = (session, params, callback) => {
 	const blockLimit = Number.isFinite(parseInt(params.limit)) ? parseInt(params.limit) : CARD_BLOCK_LIMIT;
@@ -101,6 +105,14 @@ const describeGraph = (session, params, callback) => {
 			: [];
 
 		const standards = standardsResult.records.map((rec) => deepPlain(rec.get('standard')));
+		const shapeMismatchText = standardsResult.records.map((rec) => {
+			const missingFieldNameList = REQUIRED_STANDARD_DEFINITION_FIELD_NAME_LIST.filter((fieldName) => rec.get('standard')[fieldName] === null || rec.get('standard')[fieldName] === undefined);
+			return missingFieldNameList.length ? `StandardDefinition ${rec.get('definitionStableId')} lacks ${missingFieldNameList.join(', ')}` : '';
+		}).filter(Boolean).join('; ');
+		if (shapeMismatchText) {
+			callback('', refusalFor('describeGraph', 'standardDefinitionShapeNotRecognised', `${shapeMismatchText} (CONTRACTS §5 requires them).`));
+			return;
+		}
 
 		const passport = passports.length === 1 ? deepPlain(passports[0]) : null;
 		const structured = {
@@ -178,25 +190,12 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 		}
 	}
 
-	// Graphs from 2026-10 carry mappingKindList / mappingSourceList (the distinct values on the standard's own
-	// match edges; empty for the hub). Older graphs carry mappingDisposition and EXACT/CLOSE counts instead; each
-	// vintage is shown as what it is, and a card with neither says so.
-	// The loader stores a ONE-value list as a plain string (its pgToStored rule) and keeps empty lists as
-	// lists, so each field is read in either form (lane P, 2026-10-04).
+	// mappingKindList / mappingSourceList are §5-required (the distinct values on the standard's own match edges; empty for
+	// the hub). The loader stores a ONE-value list as a plain string (its pgToStored rule, W-A-1 fixes it in P2) and keeps
+	// empty lists as lists, so each is read in either form (lane P, 2026-10-04).
 	const asValueList = (storedValue) => (Array.isArray(storedValue) ? storedValue : [storedValue]);
-	const describeStandardMappings = (oneStd) => {
-		const hasKindField = oneStd.mappingKindList !== undefined && oneStd.mappingKindList !== null;
-		const hasSourceField = oneStd.mappingSourceList !== undefined && oneStd.mappingSourceList !== null;
-		if (hasKindField || hasSourceField) {
-			const kindText = hasKindField ? asValueList(oneStd.mappingKindList).join(', ') || 'none' : 'unrecorded';
-			const sourceText = hasSourceField ? asValueList(oneStd.mappingSourceList).join(', ') || 'none' : 'unrecorded';
-			return `mapping kinds: ${kindText} · sources: ${sourceText}`;
-		}
-		if (oneStd.mappingDisposition) {
-			return `${oneStd.mappingDisposition} (older graph's disposition) · EXACT ${oneStd.exactEdgeCount ?? 0} / CLOSE ${oneStd.closeEdgeCount ?? 0}`;
-		}
-		return 'mappings unrecorded';
-	};
+	const describeStandardMappings = (oneStd) =>
+		`mapping kinds: ${asValueList(oneStd.mappingKindList).join(', ') || 'none'} · sources: ${asValueList(oneStd.mappingSourceList).join(', ') || 'none'}`;
 
 	if (standards.length) {
 		lines.push(`Standards (${standards.length}):`);
@@ -204,8 +203,9 @@ const renderCard = ({ passport, passportCount, recipe, blocks, blockTotal, block
 			const version = oneStd.version
 				? `v${oneStd.version} (${oneStd.versionSource || 'unstated'})`
 				: 'version unrecorded';
+			// sourceKey first (the `_source` every filter takes, padded to the longest live value), the forge token after it
 			lines.push(
-				`  ${String(oneStd.source ?? '?').padEnd(14)} ${version.padEnd(28)} ${String(oneStd.propertyCount ?? '?').padStart(6)} properties · ` +
+				`  ${String(oneStd.sourceKey).padEnd(31)} (${oneStd.standardKey}) ${version.padEnd(28)} ${String(oneStd.propertyCount).padStart(6)} properties · ` +
 					describeStandardMappings(oneStd),
 			);
 			// standardKind and standardUsageTips (lane Q, 2026-10-04): askMilo is told to read a standard's

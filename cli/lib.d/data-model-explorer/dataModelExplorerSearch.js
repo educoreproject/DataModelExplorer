@@ -24,7 +24,25 @@ const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronou
 const { runCypherQuery } = require('./lib/runCypherQuery');
 // W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
 // JSON with exit 0; an ERROR (the tool could not run) stays callback(errorText) -> stderr, exit 1 (supervisor ruling 1)
-const { refusalFor } = require('./lib/toolPayloadContract');
+const {
+	refusalFor,
+	listEnvelopeFor,
+	VERB_INPUT_CONTRACT,
+	VERB_FLAG_DEFAULT_BY_VERB,
+	UNMAPPED_HUB_POLICY,
+	hubDecompositionEdgeTypeList,
+	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
+	COMPARE_CODESETS_ROW_CAP,
+	VALUE_TIER_JUDGMENT_COUNT_CYPHER,
+	SEARCH_PAGE_SIZE,
+	SEARCH_OVER_FETCH_FACTOR,
+	SEARCH_OVER_FETCH_CAP,
+	EXPLORE_EDGE_CAP,
+	NAME_MATCH_MODE_LIST,
+	CALCULATE_OPERATION_ARITY_BY_NAME,
+} = require('./lib/toolPayloadContract');
+// W-D-2 / W-D-5 / W-D-8 / W-D-9 (campaign P1): the live _source list and the hub standard are read from the graph
+const { resolveStandardFilter, resolveHubIdentity } = require('./lib/liveInventory');
 // X1 via the CLI: dme_raw_cypher is the model's own Cypher, so it passes the same read-only validator the HTTP / MCP /
 // Slack seam uses (the READ session is the wall; this is the filter that also stops reads that fetch, LOAD CSV / apoc)
 const validateReadOnly = require('../../../server/lib/cypher-validator');
@@ -174,7 +192,6 @@ const serializeValue = (val) => {
 // L7 output bounds — a popular hub or a graph-wide rawCypher would otherwise explode the
 // JSON output (the known output-cap failure mode for LLM consumers).
 const RAW_CYPHER_ROW_CAP = 1000;
-const EXPLORE_EDGE_CAP = 200;
 
 // =====================================================================
 // QUERY HANDLERS
@@ -227,66 +244,80 @@ const resolveVectorIndex = (session, callback) => {
 	});
 };
 
+// W-D-10 (campaign P1): a filtered search over-fetches SEARCH_OVER_FETCH_FACTOR x the page (capped) so a small standard
+// still fills it, and answers the §14 envelope. totalRowCount counts the matches inside the over-fetch window (the
+// nearest overFetchWindow nodes), the most the vector index can say; a short filtered page says so in shortPageNote.
 const hybridSearch = (session, query, config, params, callback) => {
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-search'); // L8
 	if (emptyQueryRefusal) {
 		callback('', refusalFor('search', 'emptyQuery', emptyQueryRefusal));
 		return;
 	}
-	const limit = 20;
-	const standardFilter = (params && params.standard) ? params.standard : null;
-
 	if (!config.embedder) {
 		callback('No embedder configured — vector search cannot run. Check voyageApiKey in dataModelExplorerSearch.ini.');
 		return;
 	}
-
-	// Over-fetch so a standard filter still yields a full page after filtering.
-	const fetchLimit = standardFilter ? limit * 5 : limit;
-
-	const taskList = new taskListPlus();
-	taskList.push((args, next) => {
-		embedQuery(query, config.embedder, (err, queryEmbedding) => {
-			if (err) {
-				next(`Embedding the query failed: ${err}`, args);
-				return;
-			}
-			next('', { ...args, queryEmbedding });
-		});
-	});
-	taskList.push((args, next) => resolveVectorIndex(session, mergeArgs(args, next, 'vectorIndexName')));
-	taskList.push((args, next) => {
-		runCypherQuery(session, `
-		CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
-		YIELD node, score
-		WHERE $standard IS NULL OR node._source = $standard
-		RETURN node._id AS id, node._source AS standard, node.role AS role,
-			labels(node) AS labels, node.name AS name, node.description AS description,
-			score AS vecScore
-		LIMIT $outLimit
-	`, {
-			indexName: args.vectorIndexName,
-			limit: neo4j.int(fetchLimit),
-			outLimit: neo4j.int(limit),
-			embedding: args.queryEmbedding,
-			standard: standardFilter,
-		}, mergeArgs(args, next, 'vecResult'));
-	});
-
-	pipeRunner(taskList.getList(), {}, (err, args) => {
-		if (err) {
-			callback(err);
+	resolveStandardFilter(session, 'search', params.standard, (filterError, standardFilter) => {
+		if (filterError) {
+			callback(filterError);
 			return;
 		}
-		callback('', args.vecResult.records.map(rec => ({
-			standard: rec.get('standard'),
-			id: rec.get('id'),
-			role: rec.get('role'),
-			labels: rec.get('labels').filter(l => l !== 'ForgedNode' && l !== 'golden'),
-			name: rec.get('name'),
-			description: rec.get('description'),
-			score: rec.get('vecScore'),
-		})));
+		if (standardFilter.refusal) {
+			callback('', standardFilter.refusal);
+			return;
+		}
+		const { sourceList } = standardFilter;
+		const overFetchWindow = sourceList ? Math.min(SEARCH_PAGE_SIZE * SEARCH_OVER_FETCH_FACTOR, SEARCH_OVER_FETCH_CAP) : SEARCH_PAGE_SIZE;
+
+		const taskList = new taskListPlus();
+		taskList.push((args, next) => {
+			embedQuery(query, config.embedder, (err, queryEmbedding) => {
+				if (err) {
+					next(`Embedding the query failed: ${err}`, args);
+					return;
+				}
+				next('', { ...args, queryEmbedding });
+			});
+		});
+		taskList.push((args, next) => resolveVectorIndex(session, mergeArgs(args, next, 'vectorIndexName')));
+		taskList.push((args, next) => {
+			runCypherQuery(session, `
+			CALL db.index.vector.queryNodes($indexName, $overFetchWindow, $embedding)
+			YIELD node, score
+			WITH node, score
+			WHERE $sourceList IS NULL OR node._source IN $sourceList
+			WITH node, score ORDER BY score DESC
+			WITH collect({ standard: node._source, id: node._id, stableId: node.stableId, role: node.role,
+			               labels: labels(node), name: node.name, description: node.description, score: score }) AS rowList
+			RETURN rowList[..$pageSize] AS resultList, size(rowList) AS totalRowCount
+		`, {
+				indexName: args.vectorIndexName,
+				overFetchWindow: neo4j.int(overFetchWindow),
+				pageSize: neo4j.int(SEARCH_PAGE_SIZE),
+				embedding: args.queryEmbedding,
+				sourceList,
+			}, mergeArgs(args, next, 'vecResult'));
+		});
+
+		pipeRunner(taskList.getList(), {}, (err, args) => {
+			if (err) {
+				callback(err);
+				return;
+			}
+			const searchRecord = args.vecResult.records[0];
+			const resultList = searchRecord.get('resultList').map((oneRow) => ({
+				...serializeValue(oneRow),
+				labels: oneRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
+			}));
+			const searchPayload = {
+				...listEnvelopeFor('search', resultList, toNumber(searchRecord.get('totalRowCount'))),
+				overFetchWindow,
+			};
+			if (sourceList && resultList.length < SEARCH_PAGE_SIZE) {
+				searchPayload.shortPageNote = `only ${resultList.length} of the ${overFetchWindow} nearest nodes belong to ${sourceList.join(', ')}; the page is short, not the standard`;
+			}
+			callback('', searchPayload);
+		});
 	});
 };
 
@@ -447,23 +478,65 @@ const INSTANCE_FIELD_NAME_LIST = [
 const INSTANCE_GROUP_LIST_NAME_LIST = ['instanceGroupList', 'viaInstanceGroupList'];
 const INSTANCE_GROUP_LIST_CAP = 25;
 
+// W-D-6 (campaign P1): a node matches findMappings by name (contains, any case) or EXACTLY by any identifier in
+// FIND_MAPPINGS_IDENTIFIER_FIELD_LIST — cedsId among them, so a CEDS Global ID (P000033, OV…) finds its CEDS leaf, and
+// the incoming arm then reaches every source element mapped to it
+const findMappingsMatchPredicateFor = (nodeVariable) => [
+	`toLower(${nodeVariable}.name) CONTAINS toLower($name)`,
+	...FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.map((identifierFieldName) => `${nodeVariable}.${identifierFieldName} = $name`),
+].join(' OR ');
+
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('findMappings', 'emptyName', emptyNameRefusal));
 		return;
 	}
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')} RETURN count(n) AS matchedNodeCount`,
+		{ name: nameOrId }, (err, countResult) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, matchedNodeCount: toNumber(countResult.records[0].get('matchedNodeCount')) });
+		}));
+	taskList.push((args, next) => {
+		if (args.matchedNodeCount === 0) {
+			next('', args);
+			return;
+		}
+		runFindMappingsQuery(session, nameOrId, args.hubIdentity, mergeArgs(args, next, 'mappingResult'));
+	});
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		if (args.matchedNodeCount === 0) {
+			callback('', refusalFor('findMappings', 'nothingMatched',
+				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; a ${args.hubIdentity.hubName} Global ID looks like P000033 (property) or OV001637175776 (value) — read one from dme_search or dme_explore.`));
+			return;
+		}
+		callback('', { ...shapeFindMappingsResult(args.mappingResult), matchedNodeCount: args.matchedNodeCount });
+	});
+};
+
+// W-D-5: the incoming arm reads EVERY hub slot, built from the one declared list. W-D-7: each arm returns the element's
+// stableId (fromStableId) and the rows are folded to ONE per mapping (FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST) before
+// they are counted, so two matched nodes reaching one (element, hub, relation) no longer count twice.
+const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callback) => {
+	const incomingHubEdgePattern = hubDecompositionEdgeTypeList(hubName).join('|');
 	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
-		WHERE toLower(n.name) CONTAINS toLower($name) OR n._id = $name
-		   OR n.path = $name OR n.stableId = $name
+		WHERE ${findMappingsMatchPredicateFor('n')}
 		// An instance whose declaration ALSO matched is reported through that declaration (the
 		// outgoingViaInstance arm, grouped), not again as one loose same-named row per instance.
 		WITH n
 		WHERE NOT EXISTS {
 			MATCH (matchedDeclaration:ForgedNode)-[:HAS_INSTANCE]->(n)
-			WHERE toLower(matchedDeclaration.name) CONTAINS toLower($name) OR matchedDeclaration._id = $name
-			   OR matchedDeclaration.path = $name OR matchedDeclaration.stableId = $name
+			WHERE ${findMappingsMatchPredicateFor('matchedDeclaration')}
 		}
 		CALL {
 			WITH n
@@ -476,8 +549,8 @@ const findMappings = (session, nameOrId, callback) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
 			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
-			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName,
-			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName, n.stableId AS fromStableId,
+			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.mappingConfidence AS confidence,
 			       m.predicate AS matchPredicate,
 			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
@@ -515,8 +588,8 @@ const findMappings = (session, nameOrId, callback) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
 			RETURN ${sharedHubDirectionOf('type(mNear)', 'farMatchType')} AS direction,
-			       farElement._source AS fromSource, farElement.name AS fromName,
-			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       farElement._source AS fromSource, farElement.name AS fromName, farElement.stableId AS fromStableId,
+			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
 			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
@@ -531,10 +604,10 @@ const findMappings = (session, nameOrId, callback) => {
 			       null AS viaInstanceGroupList, null AS viaInstanceCount
 	UNION
 			WITH n
-			// incoming: when n is a CEDS leaf, the source elements that resolve to a tuple
-			// containing it. The hub decomposes like every other arm (no n.name stand-ins).
+			// incoming: when n is a hub leaf (class, property, range, value or qualifier — any slot), the source
+			// elements that resolve to a tuple containing it. The hub decomposes like every other arm (no n.name stand-ins).
 			// A source INSTANCE is reported as its declaration, its instances grouped and counted.
-			MATCH (n)<-[:HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
+			MATCH (n)<-[:${incomingHubEdgePattern}]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
 			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
 			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
 			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource,
@@ -546,8 +619,8 @@ const findMappings = (session, nameOrId, callback) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName,
-			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
+			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       srcMatchType AS mappingType, srcConfidence AS confidence,
 			       srcPredicate AS matchPredicate,
 			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource,
@@ -575,8 +648,8 @@ const findMappings = (session, nameOrId, callback) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
-			RETURN 'outgoingViaInstance' AS direction, n._source AS fromSource, n.name AS fromName,
-			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			RETURN 'outgoingViaInstance' AS direction, n._source AS fromSource, n.name AS fromName, n.stableId AS fromStableId,
+			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       instMatchType AS mappingType, instConfidence AS confidence,
 			       instPredicate AS matchPredicate,
 			       instMappingConfidence AS mappingConfidence, instMappingKind AS mappingKind, instMappingSource AS mappingSource,
@@ -613,8 +686,8 @@ const findMappings = (session, nameOrId, callback) => {
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
 			RETURN ${sharedHubDirectionOf('nearMatchType', 'farMatchType')} AS direction,
-			       farElement._source AS fromSource, farElement.name AS fromName,
-			       'CEDS' AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       farElement._source AS fromSource, farElement.name AS fromName, farElement.stableId AS fromStableId,
+			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
 			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
@@ -637,10 +710,12 @@ const findMappings = (session, nameOrId, callback) => {
 		             WHEN mappingType = 'CLOSE_MATCH' OR viaMatchType = 'CLOSE_MATCH' THEN 'CLOSE_MATCH'
 		             ELSE 'EXACT_MATCH' END AS rowRelation
 		ORDER BY confidence DESC
-		WITH rowRelation, fromSource AS rowStandard, collect({
+		// one row per mapping (FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST): the best-confidence evidence is kept
+		WITH rowRelation, direction, fromStableId, toId, mappingType, viaMatchType, head(collect({
 			direction: direction,
 			fromSource: fromSource,
 			fromName: fromName,
+			fromStableId: fromStableId,
 			toSource: toSource,
 			toName: toName,
 			toId: toId,
@@ -667,20 +742,17 @@ const findMappings = (session, nameOrId, callback) => {
 			instanceCount: instanceCount,
 			viaInstanceGroupList: viaInstanceGroupList,
 			viaInstanceCount: viaInstanceCount
-		}) AS standardRowList
+		})) AS mappingRow
+		WITH rowRelation, mappingRow ORDER BY mappingRow.confidence DESC
+		WITH rowRelation, mappingRow.fromSource AS rowStandard, collect(mappingRow) AS standardRowList
 		RETURN rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount
 	`, {
 		name: nameOrId,
+		hubSource,
 		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
 		nonComposingMatchEdgeTypeList: MATCH_EDGE_TYPE_LIST.filter((edgeType) => !COMPOSING_MATCH_EDGE_TYPE_LIST.includes(edgeType)),
 		findMappingsRowCap: neo4j.int(FIND_MAPPINGS_ROW_CAP),
-	}, (err, result) => {
-		if (err) {
-			callback(err);
-			return;
-		}
-		callback('', shapeFindMappingsResult(result));
-	});
+	}, callback);
 };
 
 const shapeFindMappingsResult = (result) => {
@@ -710,6 +782,7 @@ const shapeFindMappingsResult = (result) => {
 			direction: rec.get('direction'),
 			fromSource: rec.get('fromSource'),
 			fromName: rec.get('fromName'),
+			fromStableId: rec.get('fromStableId'),
 			toSource: rec.get('toSource'),
 			toName: rec.get('toName'),
 			toId: rec.get('toId'),
@@ -751,8 +824,9 @@ const shapeFindMappingsResult = (result) => {
 		});
 		return mappingRow;
 	});
+	const sumOf = (countByRelation) => Object.values(countByRelation).reduce((runningTotal, oneCount) => runningTotal + oneCount, 0);
 	return {
-		mappingRowList,
+		...listEnvelopeFor('findMappings', mappingRowList, sumOf(totalRowCountByRelation)),
 		totalRowCountByRelation,
 		truncatedRowCountByRelation,
 		totalRowCountByRelationAndStandard,
@@ -760,82 +834,161 @@ const shapeFindMappingsResult = (result) => {
 	};
 };
 
+// W-D-8 (campaign P1; DME half of G9): whether the build judged option values at all is read from the graph
+// (VALUE_TIER_JUDGMENT_COUNT_CYPHER), never assumed. With none, a null matchType means NOT JUDGED — the payload's
+// verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hub is read from
+// :HubDefinition (it was the literal 'CEDS').
 const compareCodesets = (session, name, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('compareCodesets', 'emptyName', emptyNameRefusal));
 		return;
 	}
-	// Codeset comparison in the equivalence model: each source option VALUE resolves to a
-	// value-tier HubReference (the canonical CEDS option value); values from other standards that
-	// land on the same HubReference are the cross-standard equivalents. Unmatched values (matchType
-	// null) show where a codeset does NOT align to CEDS.
-	runCypherQuery(session, `
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
-		WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> 'CEDS'
-		MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
-		OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference {referenceTier: 'value'})
-		OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-		OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
-		WHERE ov._source <> os._source
-		RETURN os._source AS sourceStandard, os.name AS optionSetName,
-		       v.name AS sourceValue, type(m) AS matchType, m.mappingConfidence AS confidence,
-		       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
-		       cv.name AS cedsValue, hub.canonicalKey AS cedsValueKey,
-		       collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
-		ORDER BY os._source, os.name, v.name
-		LIMIT 100
-	`, { name }, (err, result) => {
+		WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> $hubSource
+		RETURN count(os) AS matchedOptionSetCount
+	`, { name, hubSource: args.hubIdentity.hubSource }, (err, countResult) => {
+		if (err) {
+			next(err, args);
+			return;
+		}
+		next('', { ...args, matchedOptionSetCount: toNumber(countResult.records[0].get('matchedOptionSetCount')) });
+	}));
+	taskList.push((args, next) => runCypherQuery(session, VALUE_TIER_JUDGMENT_COUNT_CYPHER, {}, (err, countResult) => {
+		if (err) {
+			next(err, args);
+			return;
+		}
+		next('', { ...args, valueTierJudgmentCount: toNumber(countResult.records[0].get('valueTierJudgmentCount')) });
+	}));
+	taskList.push((args, next) => {
+		if (args.matchedOptionSetCount === 0) {
+			next('', args);
+			return;
+		}
+		// Each source option VALUE resolves to a value-tier HubReference; values from other standards on the same hub
+		// are its cross-standard equivalents.
+		runCypherQuery(session, `
+			MATCH (os:ForgedNode {role: 'DmeOptionSet'})
+			WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> $hubSource
+			MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+			OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference {referenceTier: 'value'})
+			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
+			OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
+			WHERE ov._source <> os._source
+			WITH os, v, m, hub, cv, collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
+			ORDER BY os._source, os.name, v.name
+			WITH collect({ sourceStandard: os._source, optionSetName: os.name, sourceValue: v.name, matchType: type(m),
+			               confidence: m.mappingConfidence, mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind,
+			               mappingSource: m.mappingSource, cedsValue: cv.name, cedsValueKey: hub.canonicalKey,
+			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList
+			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount
+		`, { name, hubSource: args.hubIdentity.hubSource, rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, mergeArgs(args, next, 'valueResult'));
+	});
+	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
 			return;
 		}
-		callback('', shapeCompareCodesetsResult(result));
+		if (args.matchedOptionSetCount === 0) {
+			callback('', refusalFor('compareCodesets', 'noOptionSetMatched',
+				`'${name}' matches no option set by name in any non-hub standard (SIF option sets carry no name in this build and cannot be found by name).`));
+			return;
+		}
+		callback('', shapeCompareCodesetsResult(args));
 	});
 };
 
-const shapeCompareCodesetsResult = (result) =>
-	result.records.map(rec => ({
-		sourceStandard: rec.get('sourceStandard'),
-		optionSetName: rec.get('optionSetName'),
-		sourceValue: rec.get('sourceValue'),
-		matchType: rec.get('matchType'),
-		confidence: rec.get('confidence') != null ? Number(rec.get('confidence')) : null,
-		...(rec.get('mappingConfidence') !== null ? { mappingConfidence: Number(rec.get('mappingConfidence')) } : {}),
-		...(rec.get('mappingKind') !== null ? { mappingKind: rec.get('mappingKind') } : {}),
-		...(rec.get('mappingSource') !== null ? { mappingSource: rec.get('mappingSource') } : {}),
-		cedsValue: rec.get('cedsValue'),
-		cedsValueKey: rec.get('cedsValueKey'),
-		crossStandardEquivalents: rec.get('crossStandardEquivalents').filter(s => s && !s.startsWith('null')),
-	}));
+const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, matchedOptionSetCount }) => {
+	const valueRecord = valueResult.records[0];
+	const valuesJudged = valueTierJudgmentCount > 0;
+	const valueRowList = valueRecord.get('valueRowList').map((oneRow) => {
+		const plainRow = serializeValue(oneRow);
+		const shapedRow = {
+			sourceStandard: plainRow.sourceStandard,
+			optionSetName: plainRow.optionSetName,
+			sourceValue: plainRow.sourceValue,
+			matchType: plainRow.matchType,
+			confidence: plainRow.confidence != null ? Number(plainRow.confidence) : null,
+			...(plainRow.mappingConfidence != null ? { mappingConfidence: Number(plainRow.mappingConfidence) } : {}),
+			...(plainRow.mappingKind != null ? { mappingKind: plainRow.mappingKind } : {}),
+			...(plainRow.mappingSource != null ? { mappingSource: plainRow.mappingSource } : {}),
+			cedsValue: plainRow.cedsValue,
+			cedsValueKey: plainRow.cedsValueKey,
+		};
+		if (valuesJudged) {
+			shapedRow.crossStandardEquivalents = plainRow.crossStandardEquivalents.filter((equivalentText) => equivalentText && !equivalentText.startsWith('null'));
+		}
+		return shapedRow;
+	});
+	return {
+		verdict: valuesJudged ? 'judged' : 'valuesNotJudgedInThisBuild',
+		...(valuesJudged ? {} : { verdictText: "This build contains no value-level judgments (0 match edges leave an option value); matchType null means NOT JUDGED, not 'does not align'." }),
+		valueTierJudgmentCount,
+		matchedOptionSetCount,
+		...listEnvelopeFor('compareCodesets', valueRowList, toNumber(valueRecord.get('totalRowCount'))),
+	};
+};
+
+// W-D-9 (campaign P1; A10 ruled excludeHub): the hub does not map to itself, so the backlog of the NON-hub standards is
+// listed; the hub is named in the result. UNMAPPED_HUB_POLICY picks the clause from this table (data, not a branch).
+const HUB_POLICY_PROPERTY_FILTER_BY_NAME = Object.freeze({
+	excludeHub: 'f._source <> $hubSource',
+	reportHubSeparately: 'true',
+});
+const hubPolicyPropertyFilter = () => {
+	const propertyFilterText = HUB_POLICY_PROPERTY_FILTER_BY_NAME[UNMAPPED_HUB_POLICY];
+	if (!propertyFilterText) {
+		throw new Error(`UNMAPPED_HUB_POLICY '${UNMAPPED_HUB_POLICY}' is not one of ${Object.keys(HUB_POLICY_PROPERTY_FILTER_BY_NAME).join(', ')}`);
+	}
+	return propertyFilterText;
+};
 
 const unmappedFields = (session, params, callback) => {
-	const limit = params.limit ? parseInt(params.limit) : 50;
-	const standard = params.standard || null;
-
-	runCypherQuery(session, `
-		MATCH (f:ForgedNode {role: 'DmeProperty'})
-		WHERE ($standard IS NULL OR f._source = $standard)
-		  // ANY edge into a HubReference counts (only match edges point at hubs), so an element mapped by a
-		  // relation type this reader does not know is never reported as unmapped
-		  AND NOT (f)-->(:HubReference)
-		  // a SIF Question / PESC element is mapped when any of its HAS_INSTANCE instances is
-		  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
-		RETURN f._source AS standard, f.name AS fieldName, f.path AS path,
-		       f.description AS description
-		ORDER BY f._source, f.name
-		LIMIT $limit
-	`, { limit: neo4j.int(limit), standard }, (err, result) => {
-		if (err) {
-			callback(err);
+	const limit = parseInt(params.limit, 10);
+	resolveStandardFilter(session, 'unmappedFields', params.standard, (filterError, standardFilter) => {
+		if (filterError) {
+			callback(filterError);
 			return;
 		}
-		callback('', result.records.map(rec => ({
-			standard: rec.get('standard'),
-			fieldName: rec.get('fieldName'),
-			path: rec.get('path'),
-			description: rec.get('description'),
-		})));
+		if (standardFilter.refusal) {
+			callback('', standardFilter.refusal);
+			return;
+		}
+		resolveHubIdentity(session, (hubError, hubIdentity) => {
+			if (hubError) {
+				callback(hubError);
+				return;
+			}
+			runCypherQuery(session, `
+				MATCH (f:ForgedNode {role: 'DmeProperty'})
+				WHERE ($sourceList IS NULL OR f._source IN $sourceList)
+				  AND ${hubPolicyPropertyFilter()}
+				  // ANY edge into a HubReference counts (only match edges point at hubs), so an element mapped by a
+				  // relation type this reader does not know is never reported as unmapped
+				  AND NOT (f)-->(:HubReference)
+				  // a SIF Question / PESC element is mapped when any of its HAS_INSTANCE instances is
+				  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
+				WITH f ORDER BY f._source, f.name
+				WITH collect({ standard: f._source, fieldName: f.name, path: f.path, description: f.description,
+				               isHubStandard: f._source = $hubSource }) AS rowList
+				RETURN rowList[..$limit] AS unmappedRowList, size(rowList) AS totalRowCount
+			`, { limit: neo4j.int(limit), sourceList: standardFilter.sourceList, hubSource: hubIdentity.hubSource }, (err, result) => {
+				if (err) {
+					callback(err);
+					return;
+				}
+				const unmappedRecord = result.records[0];
+				callback('', {
+					...listEnvelopeFor('unmappedFields', unmappedRecord.get('unmappedRowList').map(serializeValue), toNumber(unmappedRecord.get('totalRowCount'))),
+					hubStandard: hubIdentity.hubSource,
+					hubPolicy: UNMAPPED_HUB_POLICY,
+				});
+			});
+		});
 	});
 };
 
@@ -874,21 +1027,24 @@ const getStats = (session, callback) => {
 
 	// Mapping coverage over DmeProperty nodes. A SIF Question / PESC element counts as mapped when
 	// its mapping lives on one of its HAS_INSTANCE instances (the bridges fan verdicts out there).
+	// W-D-9 (A10 excludeHub): the hub's own properties are counted apart, never in the denominator.
+	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
-		WITH count(f) AS totalProperties,
-		     count(CASE WHEN (f)-->(:HubReference)
-		                  OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
-		                THEN 1 END) AS mappedProperties
-		RETURN totalProperties, mappedProperties
-	`, {}, mergeArgs(args, next, 'coverageResult')));
+		WITH f, f._source = $hubSource AS isHubProperty,
+		     ((f)-->(:HubReference) OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)) AS isMapped
+		WITH count(CASE WHEN ${hubPolicyPropertyFilter()} THEN 1 END) AS totalProperties,
+		     count(CASE WHEN ${hubPolicyPropertyFilter()} AND isMapped THEN 1 END) AS mappedProperties,
+		     count(CASE WHEN isHubProperty THEN 1 END) AS hubPropertyCount
+		RETURN totalProperties, mappedProperties, hubPropertyCount
+	`, { hubSource: args.hubIdentity.hubSource }, mergeArgs(args, next, 'coverageResult')));
 
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
 			return;
 		}
-		const { bySourceResult, byRoleResult, mappingResult, otherMatchEdgeResult, coverageResult } = args;
+		const { bySourceResult, byRoleResult, mappingResult, otherMatchEdgeResult, coverageResult, hubIdentity } = args;
 		const bySource = {};
 		bySourceResult.records.forEach((rec) => {
 			bySource[rec.get('source')] = toNumber(rec.get('count'));
@@ -905,14 +1061,14 @@ const getStats = (session, callback) => {
 		otherMatchEdgeResult.records.forEach((rec) => {
 			mappings.otherMatchEdgeCountByType[rec.get('relType')] = toNumber(rec.get('count'));
 		});
-		let coverage = {};
-		if (coverageResult.records.length > 0) {
-			const rec = coverageResult.records[0];
-			coverage = {
-				totalProperties: toNumber(rec.get('totalProperties')),
-				mappedProperties: toNumber(rec.get('mappedProperties')),
-			};
-		}
+		const coverageRecord = coverageResult.records[0];
+		const coverage = {
+			totalProperties: toNumber(coverageRecord.get('totalProperties')),
+			mappedProperties: toNumber(coverageRecord.get('mappedProperties')),
+			hubStandard: hubIdentity.hubSource,
+			hubPropertyCount: toNumber(coverageRecord.get('hubPropertyCount')),
+			hubPolicy: UNMAPPED_HUB_POLICY,
+		};
 		callback('', { bySource, byRole, mappings, coverage });
 	});
 };
@@ -928,39 +1084,73 @@ const getStats = (session, callback) => {
 // :DmeStandardRoot, the per-standard passport node emitted by every forge
 // during -export, and counts the ForgedNodes sharing its _source.
 
+// W-D-13 / PLAN A4 edits 3-4 (campaign P1): the tool counts, so the model never counts. totals.standardCount and
+// totals.familyList come from the tool's own queries; a family is StandardDefinition.standardFamily (stamped by the forges
+// from P3) and NEVER derived from a _source prefix — until it exists familyList is [] and familyNote says why.
 const getListStandards = (session, callback) => {
-	runCypherQuery(session, `
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (r:DmeStandardRoot)
+		OPTIONAL MATCH (d:StandardDefinition {sourceKey: r._source})
 		CALL {
 			WITH r
 			MATCH (n:ForgedNode {_source: r._source})
 			RETURN count(n) AS nodeCount
 		}
 		RETURN r._source AS source,
+		       r.standardKey AS standardKey,
 		       r.name AS name,
 		       r.standardName AS standardName,
 		       r.description AS description,
 		       r.version AS version,
 		       r.sourceUrl AS sourceUrl,
+		       d.standardFamily AS standardFamily,
+		       d.releaseLabel AS releaseLabel,
 		       nodeCount
 		ORDER BY source
-	`, {}, (err, result) => {
+	`, {}, mergeArgs(args, next, 'standardResult')));
+	taskList.push((args, next) => runCypherQuery(session, 'MATCH (r:DmeStandardRoot) RETURN count(r) AS standardCount', {}, mergeArgs(args, next, 'standardCountResult')));
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL
+		WITH d.standardFamily AS family, collect(d.sourceKey) AS sourceList
+		RETURN family, size(sourceList) AS releaseCount, sourceList ORDER BY family
+	`, {}, mergeArgs(args, next, 'familyResult')));
+	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
 			return;
 		}
-		const standards = result.records.map(rec => ({
+		const standards = args.standardResult.records.map((rec) => ({
 			source: rec.get('source'),
+			standardKey: rec.get('standardKey'),
 			name: rec.get('name'),
 			standardName: rec.get('standardName'),
 			description: rec.get('description'),
 			version: rec.get('version'),
 			sourceUrl: rec.get('sourceUrl'),
-			nodeCount: toNumber(rec.get('nodeCount'))
+			standardFamily: rec.get('standardFamily'),
+			releaseLabel: rec.get('releaseLabel'),
+			nodeCount: toNumber(rec.get('nodeCount')),
 		}));
-		callback('', { standards, count: standards.length });
+		const familyList = args.familyResult.records.map((rec) => ({
+			family: rec.get('family'),
+			releaseCount: toNumber(rec.get('releaseCount')),
+			sourceList: rec.get('sourceList'),
+		}));
+		const totals = {
+			standardCount: toNumber(args.standardCountResult.records[0].get('standardCount')),
+			familyList,
+			familyFieldPresent: familyList.length > 0,
+			...(familyList.length > 0 ? {} : { familyNote: "this build's StandardDefinitions carry no standardFamily; family totals are unavailable (the forges declare the family — W-C-4, rebuild P3)" }),
+		};
+		callback('', { standards, count: standards.length, totals });
 	});
 };
+
+// W-D-11 / W-D-12 (campaign P1): ONE entry per node, keyed by stableId (same-named nodes were merged by labels + name and
+// kept the last record's edges), with matchedNodeCount. The name match is exact unless nameMatch says caseInsensitive,
+// and an exact lookup ALWAYS reports its case-variant siblings (SIF splits BirthDate / birthDate) so the model can widen.
+const EXPLORE_NAME_MATCH_PREDICATE = "(($nameMatch = 'exact' AND n.name = $name) OR ($nameMatch = 'caseInsensitive' AND toLower(n.name) = toLower($name)))";
 
 const exploreNode = (session, params, callback) => {
 	const name = params.name;
@@ -969,87 +1159,110 @@ const exploreNode = (session, params, callback) => {
 		callback('', refusalFor('explore', 'emptyName', emptyNameRefusal));
 		return;
 	}
-	const standard = params.standard || null;
-	// L7: bound the per-node edge lists — a standard root or popular hub explodes the JSON
-	// otherwise. Truncation is REPORTED via the totals, never silent.
-	const edgeCap = params.limit ? parseInt(params.limit) : EXPLORE_EDGE_CAP;
-
-	const taskList = new taskListPlus();
-
-	// Get outgoing relationships
-	taskList.push((args, next) => runCypherQuery(session, `
-		MATCH (n:ForgedNode)
-		WHERE n.name = $name
-		  AND ($standard IS NULL OR n._source = $standard)
-		WITH n
-		OPTIONAL MATCH (n)-[r]->(m:ForgedNode)
-		RETURN n {.*, _labels: labels(n)} AS node,
-		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
-	`, { name, standard }, mergeArgs(args, next, 'outgoingResult')));
-
-	// Get incoming relationships
-	taskList.push((args, next) => runCypherQuery(session, `
-		MATCH (n:ForgedNode)
-		WHERE n.name = $name
-		  AND ($standard IS NULL OR n._source = $standard)
-		WITH n
-		OPTIONAL MATCH (m:ForgedNode)-[r]->(n)
-		RETURN n {.*, _labels: labels(n)} AS node,
-		  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStandard: m._source, sourceLabels: labels(m)} ELSE NULL END) AS incoming
-	`, { name, standard }, mergeArgs(args, next, 'incomingResult')));
-
-	pipeRunner(taskList.getList(), {}, (err, args) => {
-		if (err) {
-			callback(err);
+	const nameMatch = params.nameMatch;
+	if (NAME_MATCH_MODE_LIST.indexOf(nameMatch) === -1) {
+		callback('', refusalFor('explore', 'invalidNameMatch', `explore nameMatch must be one of ${NAME_MATCH_MODE_LIST.join(', ')}; got '${nameMatch}'.`, NAME_MATCH_MODE_LIST));
+		return;
+	}
+	resolveStandardFilter(session, 'explore', params.standard, (filterError, standardFilter) => {
+		if (filterError) {
+			callback(filterError);
 			return;
 		}
-		callback('', shapeExploreResult(args.outgoingResult, args.incomingResult, edgeCap));
+		if (standardFilter.refusal) {
+			callback('', standardFilter.refusal);
+			return;
+		}
+		const queryParams = { name, nameMatch, sourceList: standardFilter.sourceList };
+		const taskList = new taskListPlus();
+		// L7: the per-node edge lists are bounded (a standard root explodes the JSON); truncation is REPORTED by the totals
+		taskList.push((args, next) => runCypherQuery(session, `
+			MATCH (n:ForgedNode)
+			WHERE ${EXPLORE_NAME_MATCH_PREDICATE}
+			  AND ($sourceList IS NULL OR n._source IN $sourceList)
+			WITH n
+			OPTIONAL MATCH (n)-[r]->(m:ForgedNode)
+			RETURN n.stableId AS nodeStableId, n {.*, _labels: labels(n)} AS node,
+			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetStableId: m.stableId, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
+		`, queryParams, mergeArgs(args, next, 'outgoingResult')));
+		taskList.push((args, next) => runCypherQuery(session, `
+			MATCH (n:ForgedNode)
+			WHERE ${EXPLORE_NAME_MATCH_PREDICATE}
+			  AND ($sourceList IS NULL OR n._source IN $sourceList)
+			WITH n
+			OPTIONAL MATCH (m:ForgedNode)-[r]->(n)
+			RETURN n.stableId AS nodeStableId,
+			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStableId: m.stableId, sourceStandard: m._source, sourceLabels: labels(m)} ELSE NULL END) AS incoming
+		`, queryParams, mergeArgs(args, next, 'incomingResult')));
+		taskList.push((args, next) => runCypherQuery(session, `
+			MATCH (s:ForgedNode)
+			WHERE toLower(s.name) = toLower($name) AND s.name <> $name
+			  AND ($sourceList IS NULL OR s._source IN $sourceList)
+			RETURN count(s) AS caseVariantNodeCount, collect(DISTINCT s.name) AS caseVariantNameList
+		`, queryParams, mergeArgs(args, next, 'caseVariantResult')));
+
+		pipeRunner(taskList.getList(), {}, (err, args) => {
+			if (err) {
+				callback(err);
+				return;
+			}
+			const { unkeyedNodeText, entryList } = shapeExploreEntryList(args.outgoingResult, args.incomingResult);
+			if (unkeyedNodeText) {
+				callback(`explore: node without stableId cannot be keyed — ${unkeyedNodeText}`);
+				return;
+			}
+			const caseVariantRecord = args.caseVariantResult.records[0];
+			const caseVariantNodeCount = toNumber(caseVariantRecord.get('caseVariantNodeCount'));
+			if (entryList.length === 0) {
+				callback('', refusalFor('explore', 'nothingMatched',
+					`no node${standardFilter.sourceList ? ` in ${standardFilter.sourceList.join(', ')}` : ''} is named '${name}' (${nameMatch} match)${caseVariantNodeCount > 0 ? `; ${caseVariantNodeCount} node(s) bear a case variant (${caseVariantRecord.get('caseVariantNameList').join(', ')}) — retry with nameMatch=caseInsensitive` : '; dme_search finds nodes by meaning'}.`));
+				return;
+			}
+			callback('', {
+				...listEnvelopeFor('explore', entryList, entryList.length),
+				matchedNodeCount: entryList.length,
+				nameMatchMode: nameMatch,
+				caseVariantNodeCount,
+				caseVariantNameList: caseVariantRecord.get('caseVariantNameList'),
+			});
+		});
 	});
 };
 
-const shapeExploreResult = (outgoingResult, incomingResult, edgeCap) => {
-	const nodes = new Map();
-
-	const cleanNode = (node) => {
-		const cleaned = Object.assign({}, node);
-		delete cleaned.embedding;
-		return cleaned;
-	};
-
-	for (const rec of outgoingResult.records) {
-		const node = rec.get('node');
-		const nodeIdentityText = JSON.stringify(node._labels) + ':' + node.name;
-		if (!nodes.has(nodeIdentityText)) {
-			nodes.set(nodeIdentityText, { node: cleanNode(node), outgoing: [], incoming: [] });
-		}
-		const out = rec.get('outgoing').filter(o => o !== null);
-		const entry = nodes.get(nodeIdentityText);
-		entry.outgoingTotal = out.length;
-		entry.outgoing = out.slice(0, edgeCap).map(serializeValue);
+// one entry per node, in _source, role, path order; a node without stableId cannot be keyed and is an error by name
+const shapeExploreEntryList = (outgoingResult, incomingResult) => {
+	const incomingByStableId = {};
+	incomingResult.records.forEach((rec) => {
+		incomingByStableId[rec.get('nodeStableId')] = rec.get('incoming').filter((incomingEdge) => incomingEdge !== null);
+	});
+	const unkeyedRecord = outgoingResult.records.find((rec) => !rec.get('nodeStableId'));
+	if (unkeyedRecord) {
+		return { unkeyedNodeText: String(unkeyedRecord.get('node')._id), entryList: [] };
 	}
-
-	for (const rec of incomingResult.records) {
-		const node = rec.get('node');
-		const nodeIdentityText = JSON.stringify(node._labels) + ':' + node.name;
-		if (!nodes.has(nodeIdentityText)) {
-			nodes.set(nodeIdentityText, { node: cleanNode(node), outgoing: [], incoming: [] });
-		}
-		const inc = rec.get('incoming').filter(i => i !== null);
-		const entry = nodes.get(nodeIdentityText);
-		entry.incomingTotal = inc.length;
-		entry.incoming = inc.slice(0, edgeCap).map(serializeValue);
-	}
-
-	return [...nodes.values()].map((entry) => ({
-		...entry,
-		edgesTruncated:
-			(entry.outgoingTotal || 0) > edgeCap || (entry.incomingTotal || 0) > edgeCap,
-	}));
+	const entryList = outgoingResult.records
+		.map((rec) => {
+			const node = Object.assign({}, rec.get('node'));
+			delete node.embedding;
+			const outgoingEdgeList = rec.get('outgoing').filter((outgoingEdge) => outgoingEdge !== null);
+			const incomingEdgeList = incomingByStableId[rec.get('nodeStableId')] || [];
+			return {
+				stableId: rec.get('nodeStableId'),
+				node: serializeValue(node),
+				outgoingTotal: outgoingEdgeList.length,
+				outgoing: outgoingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(serializeValue),
+				incomingTotal: incomingEdgeList.length,
+				incoming: incomingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(serializeValue),
+				edgesTruncated: outgoingEdgeList.length > EXPLORE_EDGE_CAP || incomingEdgeList.length > EXPLORE_EDGE_CAP,
+			};
+		})
+		.sort((entryA, entryB) => [entryA.node._source, entryA.node.role, entryA.node.path, entryA.stableId].join('\u0000')
+			.localeCompare([entryB.node._source, entryB.node.role, entryB.node.path, entryB.stableId].join('\u0000')));
+	return { unkeyedNodeText: '', entryList };
 };
 
 const historyEvents = (session, params, callback) => {
-	// L7: the limit param is now actually applied (it was accepted and ignored).
-	const limit = params.limit ? parseInt(params.limit) : 20;
+	// L7: the limit param is applied; the CLI table walk has already refused a non-integer (W-D-20)
+	const limit = parseInt(params.limit, 10);
 	runCypherQuery(session, `
 		MATCH (g:GraphProvenance)
 		RETURN g.graphName AS graphName, g.manifestKey AS manifestKey,
@@ -1155,6 +1368,64 @@ const graphRetriever = (session, query, config, params, callback) => {
 };
 
 // =====================================================================
+// CALCULATE (A14, campaign P1) — arithmetic the model must not do itself
+// =====================================================================
+//
+// The model is bad at arithmetic (askMilo said "six PESC documents" and listed seven). Every number it states comes
+// from a tool result, a Cypher count, or this verb over numbers it already holds. Pure: no graph session. The operation
+// names and arities are declared in toolPayloadContract.CALCULATE_OPERATION_ARITY_BY_NAME; the arithmetic is here, one
+// function per name, and the two lists must agree (checked at load).
+
+const CALCULATION_BY_OPERATION_NAME = Object.freeze({
+	count: (numberList) => numberList.length,
+	sum: (numberList) => numberList.reduce((runningTotal, oneNumber) => runningTotal + oneNumber, 0),
+	average: (numberList) => numberList.reduce((runningTotal, oneNumber) => runningTotal + oneNumber, 0) / numberList.length,
+	minimum: (numberList) => Math.min(...numberList),
+	maximum: (numberList) => Math.max(...numberList),
+	difference: ([minuend, subtrahend]) => minuend - subtrahend,
+	ratio: ([numerator, denominator]) => numerator / denominator,
+	percent: ([part, whole]) => (part / whole) * 100,
+});
+const DIVIDING_OPERATION_NAME_LIST = Object.freeze(['ratio', 'percent']);
+if (Object.keys(CALCULATION_BY_OPERATION_NAME).sort().join() !== Object.keys(CALCULATE_OPERATION_ARITY_BY_NAME).sort().join()) {
+	throw new Error('dataModelExplorerSearch: CALCULATION_BY_OPERATION_NAME and CALCULATE_OPERATION_ARITY_BY_NAME name different operations');
+}
+const PLAIN_NUMBER_PATTERN = /^-?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$/;
+
+const calculate = (params, callback) => {
+	const operationName = params.operation;
+	const operationArity = CALCULATE_OPERATION_ARITY_BY_NAME[operationName];
+	if (!operationArity) {
+		callback('', refusalFor('calculate', 'unknownOperation', `calculate operation must be one of ${Object.keys(CALCULATE_OPERATION_ARITY_BY_NAME).join(', ')}; got '${operationName}'.`, Object.keys(CALCULATE_OPERATION_ARITY_BY_NAME)));
+		return;
+	}
+	if (typeof params.numberList !== 'string' || params.numberList.trim() === '') {
+		callback('', refusalFor('calculate', 'emptyNumberList', `calculate ${operationName} needs numberList: plain numbers, comma separated (no thousands separators).`));
+		return;
+	}
+	const numberTextList = params.numberList.split(',').map((numberText) => numberText.trim());
+	const badNumberTextList = numberTextList.filter((numberText) => !PLAIN_NUMBER_PATTERN.test(numberText));
+	if (badNumberTextList.length > 0) {
+		callback('', refusalFor('calculate', 'invalidNumberList', `calculate numberList holds ${badNumberTextList.length} item(s) that are not plain numbers: ${badNumberTextList.slice(0, 5).map((numberText) => `'${numberText}'`).join(', ')} (no thousands separators, units or percent signs).`));
+		return;
+	}
+	const numberList = numberTextList.map(Number);
+	const countRefusalText = operationArity.exactNumberCount !== undefined && numberList.length !== operationArity.exactNumberCount
+		? `exactly ${operationArity.exactNumberCount}`
+		: (operationArity.minimumNumberCount !== undefined && numberList.length < operationArity.minimumNumberCount ? `at least ${operationArity.minimumNumberCount}` : '');
+	if (countRefusalText) {
+		callback('', refusalFor('calculate', 'invalidNumberList', `calculate ${operationName} takes ${countRefusalText} number(s); got ${numberList.length}.`));
+		return;
+	}
+	if (DIVIDING_OPERATION_NAME_LIST.indexOf(operationName) !== -1 && numberList[1] === 0) {
+		callback('', refusalFor('calculate', 'divisionByZero', `calculate ${operationName}: the second number (the denominator) is 0.`));
+		return;
+	}
+	const result = CALCULATION_BY_OPERATION_NAME[operationName](numberList);
+	callback('', { operation: operationName, numberList, result, resultRoundedToTwoDecimals: Math.round(result * 100) / 100 });
+};
+
+// =====================================================================
 // SEARCH API (module interface)
 // =====================================================================
 
@@ -1180,7 +1451,16 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 const WRITE_CAPABLE_QUERY_TYPE_LIST = Object.freeze([]);
 const sessionAccessModeFor = (queryType) => (WRITE_CAPABLE_QUERY_TYPE_LIST.indexOf(queryType) === -1 ? neo4j.session.READ : neo4j.session.WRITE);
 
+// a verb that needs no graph runs without config or a session
+const GRAPHLESS_HANDLER_BY_QUERY_TYPE = Object.freeze({
+	calculate: (params, callback) => calculate(params, callback),
+});
+
 const search = (queryType, params, callback) => {
+	if (GRAPHLESS_HANDLER_BY_QUERY_TYPE[queryType]) {
+		GRAPHLESS_HANDLER_BY_QUERY_TYPE[queryType](params, callback);
+		return;
+	}
 	loadConfig((configError, config) => {
 		if (configError) {
 			callback(`Config error: ${configError}`);
@@ -1208,83 +1488,88 @@ const search = (queryType, params, callback) => {
 // CLI ENTRY POINT
 // =====================================================================
 
-if (require.main === module) {
-	const args = process.argv.slice(2);
-	const flags = {};
-	const positionalArgs = [];
-
-	for (const arg of args) {
-		if (arg.startsWith('--')) {
-			const [key, ...valueParts] = arg.slice(2).split('=');
-			flags[key] = valueParts.join('=') || true;
-		} else if (arg.startsWith('-') && !arg.startsWith('--')) {
-			flags[arg.slice(1)] = true;
+// W-D-20 (campaign P1): the command line is read through VERB_INPUT_CONTRACT — the one registry provider.json is held
+// to — instead of an if/else chain that silently ignored any flag a verb did not read. A flag, switch or argument the
+// verb does not take is REFUSED by name (stdout JSON, exit 0, no graph session); a declared integer flag is refused when
+// it is not a positive integer. A flag given with no value ('--query=') arrives as the boolean true, and the verb's own
+// empty-argument refusal answers it.
+const parseCommandLine = (argumentList) => {
+	const switchNameList = [];
+	const flagValueByName = {};
+	const positionalArgumentList = [];
+	argumentList.forEach((argumentText) => {
+		if (argumentText.startsWith('--')) {
+			const [flagName, ...valuePartList] = argumentText.slice(2).split('=');
+			flagValueByName[flagName] = valuePartList.join('=') || true;
+		} else if (argumentText.startsWith('-')) {
+			switchNameList.push(argumentText.slice(1));
 		} else {
-			positionalArgs.push(arg);
+			positionalArgumentList.push(argumentText);
 		}
+	});
+	return { switchNameList, flagValueByName, positionalArgumentList };
+};
+
+const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
+const INTEGER_FLAG_REFUSAL_NAME_BY_FLAG = Object.freeze({ limit: 'invalidLimit' });
+
+// answers { queryType, params } or { refusal }; the verb is the one switch VERB_INPUT_CONTRACT names
+const resolveVerbInvocation = ({ switchNameList, flagValueByName, positionalArgumentList }) => {
+	const verbNameList = switchNameList.filter((switchName) => VERB_INPUT_CONTRACT[switchName]);
+	const queryType = verbNameList[0];
+	const inputRow = VERB_INPUT_CONTRACT[queryType];
+	const takesText = `it takes: ${[...inputRow.positionalList.map((positionalName) => `<${positionalName}>`), ...inputRow.flagList.map((flagName) => `--${flagName}=`)].join(' ') || 'nothing'}`;
+	const strayText = [
+		...switchNameList.filter((switchName) => switchName !== queryType).map((switchName) => `-${switchName}`),
+		...Object.keys(flagValueByName).filter((flagName) => inputRow.flagList.indexOf(flagName) === -1 && !(inputRow.retiredFlagRefusalByName || {})[flagName]).map((flagName) => `--${flagName}`),
+		...positionalArgumentList.slice(inputRow.positionalList.length).map((argumentText) => `'${argumentText}'`),
+	];
+	const retiredFlagName = Object.keys(flagValueByName).find((flagName) => (inputRow.retiredFlagRefusalByName || {})[flagName]);
+	if (retiredFlagName) {
+		return { refusal: refusalFor(queryType, inputRow.retiredFlagRefusalByName[retiredFlagName], `${queryType} --${retiredFlagName} was removed (got '${flagValueByName[retiredFlagName]}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`) };
 	}
+	if (strayText.length > 0) {
+		return { refusal: refusalFor(queryType, 'unknownFlag', `-${queryType} does not take ${strayText.join(', ')}; ${takesText}.`) };
+	}
+	const params = { ...(VERB_FLAG_DEFAULT_BY_VERB[queryType] || {}) };
+	inputRow.positionalList.forEach((positionalName, positionalIndex) => {
+		params[positionalName] = positionalArgumentList[positionalIndex] === undefined ? '' : positionalArgumentList[positionalIndex];
+	});
+	inputRow.flagList.forEach((flagName) => {
+		if (flagValueByName[flagName] !== undefined) params[flagName] = flagValueByName[flagName];
+	});
+	const badIntegerFlagName = (inputRow.integerFlagList || []).find((flagName) => params[flagName] !== undefined && !POSITIVE_INTEGER_PATTERN.test(String(params[flagName])));
+	if (badIntegerFlagName) {
+		return { refusal: refusalFor(queryType, INTEGER_FLAG_REFUSAL_NAME_BY_FLAG[badIntegerFlagName], `${queryType} ${badIntegerFlagName} must be a positive integer; got ${params[badIntegerFlagName]}.`) };
+	}
+	return { queryType, params };
+};
 
-	let queryType;
-	let params = {};
+const usageText = () => Object.keys(VERB_INPUT_CONTRACT).map((verbName) => {
+	const inputRow = VERB_INPUT_CONTRACT[verbName];
+	const defaultByFlag = VERB_FLAG_DEFAULT_BY_VERB[verbName] || {};
+	return `  ${moduleName} -${verbName} ${[
+		...inputRow.positionalList.map((positionalName) => `"<${positionalName}>"`),
+		...inputRow.flagList.map((flagName) => `[--${flagName}=${defaultByFlag[flagName] !== undefined ? defaultByFlag[flagName] : `<${flagName}>`}]`),
+	].join(' ')}`;
+}).join('\n');
 
-	if (flags.search) {
-		queryType = 'search';
-		params.query = flags.query || positionalArgs[0] || '';
-		if (flags.standard) params.standard = flags.standard;
-	} else if (flags.explore) {
-		queryType = 'explore';
-		params.name = flags.name || positionalArgs[0] || '';
-		if (flags.standard) params.standard = flags.standard;
-	} else if (flags.history) {
-		queryType = 'history';
-		params.limit = flags.limit || '20';
-		if (flags.standard) params.standard = flags.standard;
-	} else if (flags.findMappings) {
-		queryType = 'findMappings';
-		params.name = positionalArgs[0] || '';
-	} else if (flags.compareCodesets) {
-		queryType = 'compareCodesets';
-		params.name = positionalArgs[0] || '';
-	} else if (flags.unmappedFields) {
-		queryType = 'unmappedFields';
-		params.limit = flags.limit || '50';
-	} else if (flags.stats) {
-		queryType = 'stats';
-	} else if (flags.describeGraph) {
-		queryType = 'describeGraph';
-		if (flags.limit) params.limit = flags.limit;
-	} else if (flags.listStandards) {
-		queryType = 'listStandards';
-	} else if (flags.graphRetriever) {
-		queryType = 'graphRetriever';
-		params.query = positionalArgs[0] || '';
-		params.limit = flags.limit || '10';
-		if (flags.traversalMode !== undefined) params.traversalMode = flags.traversalMode;
-		params.searchMode = flags.searchMode || 'hybrid';
-	} else if (flags.rawCypher) {
-		queryType = 'rawCypher';
-		params.query = flags.query || positionalArgs[0] || '';
-	} else if (flags.help) {
-		process.stderr.write(`Usage:
-  ${moduleName} -search "query text" [--standard=PESC]
-  ${moduleName} -graphRetriever "query text" [--limit=10] [--searchMode=hybrid|vector]
-  ${moduleName} -explore --name="NodeName" [--standard=PESC]
-  ${moduleName} -history [--standard=PESC] [--limit=20]
-  ${moduleName} -findMappings "field name or xpath"
-  ${moduleName} -compareCodesets "concept name"
-  ${moduleName} -unmappedFields [--limit=50]
-  ${moduleName} -stats
-  ${moduleName} -listStandards
-  ${moduleName} -describeGraph [--limit=200]     (the graph card: passport, recipe, lineage, per-standard definitions)
-  ${moduleName} -rawCypher --query="CYPHER"
-`);
+if (require.main === module) {
+	const commandLine = parseCommandLine(process.argv.slice(2));
+	if (commandLine.switchNameList.indexOf('help') !== -1) {
+		process.stderr.write(`Usage (a standard is a _source value from -listStandards; -describeGraph is the graph card):\n${usageText()}\n`);
 		process.exit(0);
-	} else {
+	}
+	if (!commandLine.switchNameList.some((switchName) => VERB_INPUT_CONTRACT[switchName])) {
 		process.stderr.write(`${moduleName}: No action specified. Use -help for usage.\n`);
 		process.exit(1);
 	}
-
-	search(queryType, params, (err, results) => {
+	const invocation = resolveVerbInvocation(commandLine);
+	if (invocation.refusal) {
+		console.log(JSON.stringify(invocation.refusal, null, 2));
+		process.exit(0);
+	}
+	search(invocation.queryType, invocation.params, (err, results) => {
 		if (err) {
 			process.stderr.write(`Error: ${err}\n`);
 			process.exit(1);
