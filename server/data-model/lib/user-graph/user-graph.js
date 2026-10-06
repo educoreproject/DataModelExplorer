@@ -185,17 +185,17 @@ const getUserGraph = (
 	// references (standard endpoints that no longer resolve in the current golden) —
 	// surfaced on the handle, never silently dropped. Skipped for a brand-new version.
 	taskList.push((args, next) => {
-		const { descriptor, stateScript } = args;
+		const { descriptor, stateScript } = args; // userRefId is the getUserGraph parameter (closure); args start empty
 		if (!stateScript) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: no stateScript — skipping replay (new/empty version)`); next('', { ...args, danglingRefs: [] }); return; }
 		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replaying stateScript (${stateScript.length} chars) into ${descriptor.boltUri}`);
 		neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
 				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay connect FAILED: ${connErr}`); next(`replay connect failed: ${connErr}`, args); return; }
-				replayStateScript({ userGraphDb: db, stateScript }, (rErr, res) => {
+				replayStateScript({ userGraphDb: db, stateScript, userRefId }, (rErr, res) => {
 					db.close();
 					if (rErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay FAILED: ${rErr}`); next(rErr, args); return; }
-					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length}`);
+					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length} scriptStandardKeyName=${res.scriptStandardKeyName} legacyEdgeStamped=${res.legacyEdgeStampedCount} vectorStripped=${res.vectorStrippedCount}`);
 					next('', { ...args, danglingRefs: res.danglingRefs });
 				});
 			},

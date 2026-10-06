@@ -24,7 +24,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { sqlDb, dataMapping, accessPointsDotD } = passThroughParameters;
 
 	const { readVersionRow, setLiveDirty } = require('../../lib/user-graph/user-graph');
-	const { EMBEDDING_MODEL } = require('../../lib/user-graph/write-executor');
+	const { USER_EMBEDDING_RULE } = require('../../lib/user-graph/user-layer-contract');
 	const { reEmit } = require('../../lib/user-graph/re-emit');
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({ unused: true });
 
@@ -55,33 +55,44 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				cloneConnection,
 				(err, db) => {
 					if (err) { next(`save connect failed: ${err}`, args); return; }
-					reEmit(
-						{ userGraphDb: db, embeddingModelVersion: EMBEDDING_MODEL, goldenVersionAuthoredAgainst: '' },
-						(rErr, res) => {
+					// the clone is a copy of the golden, so its passport names the build this layer was authored against (W-E-5)
+					db.runQuery('MATCH (p:GraphProvenance) RETURN p.manifestRefId AS manifestRefId', {}, (pErr, provenanceRowList) => {
+						if (pErr) { db.close(); next(`save passport read failed: ${pErr}`, args); return; }
+						const manifestRefIdList = (provenanceRowList || []).map((row) => row.manifestRefId).filter(Boolean);
+						if (manifestRefIdList.length !== 1) {
+							db.close();
+							next(`dme-user-graph-save: the clone's passport must name exactly one manifestRefId (found ${manifestRefIdList.length}); refusing to save a layer with no golden version`, args);
+							return;
+						}
+						const goldenVersionAuthoredAgainst = manifestRefIdList[0];
+						reEmit({ userGraphDb: db, goldenVersionAuthoredAgainst }, (rErr, res) => {
 							db.close();
 							if (rErr) { next(rErr, args); return; }
 							next('', {
 								...args,
+								goldenVersionAuthoredAgainst,
 								stateScript: res.stateScript,
 								userNodeCount: res.userNodeCount,
 								relationshipCount: res.relationshipCount,
 							});
-						},
-					);
+						});
+					});
 				},
 			);
 		});
 
 		// STAGE 3: persist the re-emitted script + metadata via the Phase 4 store
 		taskList.push((args, next) => {
-			const { accessPointsDotD, userRefId, versionRefId, userNodeCount, stateScript } = args;
+			const { accessPointsDotD, userRefId, versionRefId, userNodeCount, stateScript, goldenVersionAuthoredAgainst } = args;
 			accessPointsDotD['graph-state-version-save'](
 				{
 					userRefId,
 					refId: versionRefId,
 					stateScript,
 					userNodeCount,
-					embeddingModelVersion: EMBEDDING_MODEL,
+					// text-only layer: the column records the policy, not a model (no vector exists to have one)
+					embeddingModelVersion: USER_EMBEDDING_RULE.userVectorPolicy,
+					goldenVersionAuthoredAgainst,
 				},
 				(err, result) => {
 					if (err) { next(err, args); return; }

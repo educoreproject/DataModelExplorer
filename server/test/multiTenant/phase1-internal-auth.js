@@ -145,7 +145,7 @@ series([
 		st.userNodeId = row && row.userNodeId;
 		ok('T1.1 internal write accepted (status 200)', r && r.status === 200);
 		ok('T1.1 internal write returns userNodeId', !!st.userNodeId);
-		ok('T1.1 internal write stamped voyage-3 embedding', row && row.embeddingModelVersion === 'voyage-3');
+		ok('T1.1 internal write reports the text-only user layer (no vector)', row && row.userVectorPolicy === 'textOnly' && row.embeddingModelVersion === undefined);
 		cb(e);
 	}),
 

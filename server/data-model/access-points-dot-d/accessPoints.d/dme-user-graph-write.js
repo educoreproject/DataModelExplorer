@@ -23,30 +23,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
 	const { sqlDb, dataMapping } = passThroughParameters;
 
-	const path = require('path');
-	const configFileProcessor = require('qtools-config-file-processor');
 	const { readVersionRow, setLiveDirty } = require('../../lib/user-graph/user-graph');
 	const { executeWrite } = require('../../lib/user-graph/write-executor');
 	const neo4jInstanceGen = require('../../lib/neo4j-instance/neo4j-instance')({ unused: true });
-
-	// The server's assembled config resolves neo4j* (global substitutions) but not the
-	// DME-local voyageApiKey; read it straight from the ini, where its own
-	// [_substitutions] resolve correctly. getConfig is preferred when it has the value.
-	const resolveVoyageApiKey = () => {
-		const fromCfg = (getConfig('dataModelExplorerSearch') || {}).voyageApiKey;
-		if (fromCfg && fromCfg.indexOf('<!') === -1) {
-			return fromCfg;
-		}
-		const srcFile = process.global.configurationSourceFilePath;
-		if (!srcFile) return undefined;
-		try {
-			const dir = path.dirname(srcFile) + '/';
-			const c = configFileProcessor.getConfig('dataModelExplorerSearch.ini', dir, { resolve: true });
-			return (c.dataModelExplorerSearch || {}).voyageApiKey;
-		} catch (e) {
-			return undefined;
-		}
-	};
 
 	const serviceFunction = (inputData, callback) => {
 		const taskList = new taskListPlus();
@@ -82,9 +61,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 		// STAGE 3: execute the structured write (server-enforced invariants)
 		taskList.push((args, next) => {
-			const { userGraphDb, action, params } = args;
-			const voyageApiKey = resolveVoyageApiKey();
-			executeWrite({ userGraphDb, voyageApiKey, action, params }, (err, result) => {
+			const { userGraphDb, userRefId, action, params } = args;
+			executeWrite({ userGraphDb, userRefId, action, params }, (err, result) => {
 				if (err) { next(err, args); return; }
 				next('', { ...args, writeResult: result });
 			});
