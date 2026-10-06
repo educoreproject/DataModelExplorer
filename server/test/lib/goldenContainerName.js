@@ -25,4 +25,17 @@ const readGoldenContainerName = () => {
 	return goldenContainerName;
 };
 
-module.exports = { readGoldenContainerName };
+// goldenDmeConfigForTests — the [dataModelExplorerSearch] keys a test's process.global.getConfig hands the code under test:
+// the declared golden NAME (clone-manager reads goldenContainerName) and the connection the resolver derives from it.
+// The multiTenant suites used to hand a literal bolt URI and password of a retired container, and no name at all.
+const goldenDmeConfigForTests = () => {
+	const goldenContainerName = readGoldenContainerName();
+	const { resolveContainerConnection } = require('../../data-model/lib/user-graph/container-connection-resolver');
+	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
+	if (error) {
+		throw new Error(`goldenDmeConfigForTests: ${goldenContainerName} does not resolve: ${error}`);
+	}
+	return { goldenContainerName, neo4jBoltUri: boltUri, neo4jUser: user, neo4jPassword: password };
+};
+
+module.exports = { readGoldenContainerName, goldenDmeConfigForTests };

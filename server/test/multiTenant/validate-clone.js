@@ -14,7 +14,7 @@ const { execSync } = require('child_process');
 
 process.global = {
 	getConfig: (name) => name === 'dataModelExplorerSearch'
-		? { neo4jBoltUri: 'bolt://localhost:7706', neo4jUser: 'neo4j', neo4jPassword: '99d0615d205eead0ea65b3f642ffb3d5' }
+		? { ...require('../lib/goldenContainerName').goldenDmeConfigForTests(), }
 		: {},
 	xLog: { status: () => {}, error: (m) => console.error('xLog.error:', m) },
 };
