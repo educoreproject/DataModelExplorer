@@ -22,7 +22,9 @@ const forgeVocabularyFilePath = path.join(webdevDirPath, 'educoreForge', 'system
 const declaredEdgeTypeList = contract.hubDecompositionEdgeTypeList ? contract.hubDecompositionEdgeTypeList('CEDS') : [];
 const sortedText = (oneList) => JSON.stringify([...oneList].sort());
 const forgeVocabulary = require(forgeVocabularyFilePath);
-assert('the DME copy equals educoreForge HUB_DECOMPOSITION_SLOTS (interim until graphContract.json)', JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST) === JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS), `${JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST)} vs ${JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS)}`);
+assert('the DME slot list equals educoreForge HUB_DECOMPOSITION_SLOTS', JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST) === JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS), `${JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST)} vs ${JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS)}`);
+// ⟪campaign P2⟫ and it is READ from graphContract.json (hubSlotList), not held as a literal copy
+assert('  read from graphContract.json hubSlotList, not a literal', /require\('\.\.\/contract\/graphContract\.json'\)\.hubSlotList/.test(readText(path.join(harness.dmeDirPath, 'lib', 'toolPayloadContract.js'))));
 assert('  and hubDecompositionEdgeTypeList matches the forge hubEdgeType()', sortedText(declaredEdgeTypeList) === sortedText(forgeVocabulary.HUB_DECOMPOSITION_SLOTS.map((slotName) => forgeVocabulary.hubEdgeType('CEDS', slotName))));
 
 const traversalIncomingMatch = readText(path.join(harness.dmeDirPath, 'traversal.cypher')).match(/OPTIONAL MATCH \(node\)<-\[:([A-Z_|]+)\]-\(hub:HubReference\)<-\[m:/);

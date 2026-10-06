@@ -22,6 +22,9 @@ const path = require('path');
 const neo4j = require('neo4j-driver');
 const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
 const { runCypherQuery } = require('./lib/runCypherQuery');
+// ⟪campaign P2⟫ the passport, read by contract (V2-C01/C04), and the embedder check every vector verb makes first (V2-C28)
+const { readPassport } = require('./lib/passportReader');
+const { checkGraphEmbeddingContract } = require('./lib/graphEmbeddingContract');
 // W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
 // JSON with exit 0; an ERROR (the tool could not run) stays callback(errorText) -> stderr, exit 1 (supervisor ruling 1)
 const {
@@ -93,10 +96,12 @@ const loadConfig = (callback) => {
 	// An unresolved ini token ('<!voyageApiKey!>') means the Voyage API key is absent — no embedder
 	if (moduleConfig.voyageApiKey && !moduleConfig.voyageApiKey.startsWith('<!')) {
 		const { embeddingClient } = require('qtools-graph-forge-core');
+		// ⟪campaign P2, V2-C28⟫ the query embedder is the reader's ONE declaration, checked against the passport before use
+		const { QUERY_EMBEDDER_CONTRACT } = require('./lib/queryEmbedderContract');
 		moduleConfig.embedder = embeddingClient.create({
-			provider: 'voyage',
-			model: 'voyage-4-large',
-			dimension: 1024,
+			provider: QUERY_EMBEDDER_CONTRACT.provider,
+			model: QUERY_EMBEDDER_CONTRACT.model,
+			dimension: QUERY_EMBEDDER_CONTRACT.dimension,
 			apiKey: moduleConfig.voyageApiKey,
 			batchSize: 20
 		});
@@ -257,6 +262,16 @@ const hybridSearch = (session, query, config, params, callback) => {
 		callback('No embedder configured — vector search cannot run. Check voyageApiKey in dataModelExplorerSearch.ini.');
 		return;
 	}
+	// ⟪campaign P2, V2-C28⟫ the passport must say this graph's vectors are the query embedder's, before anything is embedded
+	checkGraphEmbeddingContract({ session, verbName: 'search' }, (contractError, contractVerdict) => {
+	if (contractError) {
+		callback(contractError);
+		return;
+	}
+	if (contractVerdict.refusal) {
+		callback('', contractVerdict.refusal);
+		return;
+	}
 	resolveStandardFilter(session, 'search', params.standard, (filterError, standardFilter) => {
 		if (filterError) {
 			callback(filterError);
@@ -318,6 +333,7 @@ const hybridSearch = (session, query, config, params, callback) => {
 			}
 			callback('', searchPayload);
 		});
+	});
 	});
 };
 
@@ -1260,34 +1276,22 @@ const shapeExploreEntryList = (outgoingResult, incomingResult) => {
 	return { unkeyedNodeText: '', entryList };
 };
 
+// ⟪campaign P2, V2-C04⟫ dme_history answers THE passport — one row, read by contract through passportReader. It is not an
+// event log (no load/embed/bridge history is recorded anywhere); until P2 it read nine retired passport names and turned
+// every null into 0, so it reported 'nodeCount 0' for a graph of 243,796 nodes.
+const HISTORY_PASSPORT_FIELD_NAME_LIST = Object.freeze(['graphName', 'scratchGraphName', 'manifestRefId', 'builtAt', 'standardsIncluded', 'contentNodeCount', 'contentEdgeCount', 'trustworthyForMeaning', 'trustBasis', 'recipeName', 'recipeHash', 'engineVersions']);
 const historyEvents = (session, params, callback) => {
-	// L7: the limit param is applied; the CLI table walk has already refused a non-integer (W-D-20)
-	const limit = parseInt(params.limit, 10);
-	runCypherQuery(session, `
-		MATCH (g:GraphProvenance)
-		RETURN g.graphName AS graphName, g.manifestKey AS manifestKey,
-		       toString(g.builtAt) AS builtAt, g.builtBy AS builtBy,
-		       g.standardsIncluded AS standardsIncluded,
-		       g.nodeCountAtBuild AS nodeCount, g.edgeCountAtBuild AS edgeCount,
-		       g.status AS status, g.provenanceTierComplete AS provenanceTierComplete
-		ORDER BY builtAt DESC
-		LIMIT $limit
-	`, { limit: neo4j.int(limit) }, (err, result) => {
+	readPassport({ session, verbName: 'history' }, (err, passportRead) => {
 		if (err) {
 			callback(err);
 			return;
 		}
-		callback('', result.records.map(rec => ({
-			graphName: rec.get('graphName'),
-			manifestKey: rec.get('manifestKey'),
-			builtAt: rec.get('builtAt'),
-			builtBy: rec.get('builtBy'),
-			standardsIncluded: rec.get('standardsIncluded'),
-			nodeCount: toNumber(rec.get('nodeCount')),
-			edgeCount: toNumber(rec.get('edgeCount')),
-			status: rec.get('status'),
-			provenanceTierComplete: rec.get('provenanceTierComplete'),
-		})));
+		if (passportRead.refusal) {
+			callback('', passportRead.refusal);
+			return;
+		}
+		const passportRow = HISTORY_PASSPORT_FIELD_NAME_LIST.reduce((soFar, fieldName) => (passportRead.passport[fieldName] === undefined ? soFar : { ...soFar, [fieldName]: passportRead.passport[fieldName] }), {});
+		callback('', listEnvelopeFor('history', [passportRow], 1));
 	});
 };
 
@@ -1357,14 +1361,25 @@ const graphRetriever = (session, query, config, params, callback) => {
 		return;
 	}
 
-	retrieve({
-		neo4jSession: session,
-		queryText: query,
-		embedder: config.embedder,
-		traversalFilePath: path.join(__dirname, 'traversal.cypher'),
-		limit: Number(params.limit),
-		searchMode: params.searchMode,
-	}, callback);
+	// ⟪campaign P2, V2-C28⟫ the passport must say this graph's vectors are the query embedder's, before anything is embedded
+	checkGraphEmbeddingContract({ session, verbName: 'graphRetriever' }, (contractError, contractVerdict) => {
+		if (contractError) {
+			callback(contractError);
+			return;
+		}
+		if (contractVerdict.refusal) {
+			callback('', contractVerdict.refusal);
+			return;
+		}
+		retrieve({
+			neo4jSession: session,
+			queryText: query,
+			embedder: config.embedder,
+			traversalFilePath: path.join(__dirname, 'traversal.cypher'),
+			limit: Number(params.limit),
+			searchMode: params.searchMode,
+		}, callback);
+	});
 };
 
 // =====================================================================

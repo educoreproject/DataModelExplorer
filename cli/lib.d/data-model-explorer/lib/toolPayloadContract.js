@@ -22,16 +22,19 @@ const LIVE_SOURCE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n._source IS NOT NUL
 // verb -> the field its rows live under and the refusals it may answer, by name. Every verb may answer unknownFlag: the
 // CLI refuses a flag, switch or argument VERB_INPUT_CONTRACT does not give the verb (W-D-20).
 const VERB_PAYLOAD_CONTRACT = Object.freeze({
-	search: Object.freeze({ rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'unknownStandard']) }),
-	graphRetriever: Object.freeze({ rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved']) }),
+	// ⟪campaign P2, V2-C28⟫ the two vector verbs also answer graphEmbeddingContract's refusals (the passport and the embedder)
+	search: Object.freeze({ rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'unknownStandard', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport']) }),
+	graphRetriever: Object.freeze({ rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport']) }),
 	findMappings: Object.freeze({ rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched']) }),
 	compareCodesets: Object.freeze({ rowListFieldName: 'valueRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'noOptionSetMatched']) }),
 	unmappedFields: Object.freeze({ rowListFieldName: 'unmappedRowList', refusalNameList: Object.freeze(['unknownFlag', 'unknownStandard', 'invalidLimit']) }),
 	stats: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag']) }),
 	listStandards: Object.freeze({ rowListFieldName: 'standards', refusalNameList: Object.freeze(['unknownFlag']) }),
 	explore: Object.freeze({ rowListFieldName: 'entryList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'unknownStandard', 'nothingMatched', 'invalidNameMatch', 'invalidLimit']) }),
-	history: Object.freeze({ rowListFieldName: 'passportList', refusalNameList: Object.freeze(['unknownFlag', 'unknownPassportField', 'invalidLimit']) }), // shape owned by V2-C04 (P2)
-	describeGraph: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'passportShapeNotRecognised', 'standardDefinitionShapeNotRecognised', 'invalidLimit']) }), // passport half owned by V2-C01 (P2)
+	// ⟪campaign P2, V2-C04⟫ history answers the ONE passport (it is not an event log); its refusals are passportReader's
+	history: Object.freeze({ rowListFieldName: 'passportList', refusalNameList: Object.freeze(['unknownFlag', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch']) }),
+	// ⟪campaign P2, V2-C01..C03⟫ describeGraph reads the passport, recipe, lineage, standards and attestations by contract
+	describeGraph: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'recipeShapeNotRecognised', 'standardDefinitionShapeNotRecognised', 'attestationShapeNotRecognised', 'invalidLimit']) }),
 	rawCypher: Object.freeze({ rowListFieldName: 'records', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'notReadOnly']) }), // notReadOnly: X1, the read-only validator
 	calculate: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'unknownOperation', 'invalidNumberList', 'emptyNumberList', 'divisionByZero']) }), // A14
 });
@@ -44,7 +47,8 @@ const VERB_INPUT_CONTRACT = Object.freeze({
 	search: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['standard']) }),
 	graphRetriever: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['limit', 'searchMode']), integerFlagList: Object.freeze(['limit']), retiredFlagRefusalByName: Object.freeze({ traversalMode: Object.freeze({ refusalName: 'traversalModeRemoved', reasonText: "the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher" }) }) }),
 	explore: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['name', 'standard', 'nameMatch']) }),
-	history: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['limit']), integerFlagList: Object.freeze(['limit']) }),
+	// ⟪campaign P2, V2-C04⟫ history answers the ONE passport: a limit over one row would be a flag that does nothing
+	history: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze([]), integerFlagList: Object.freeze([]) }),
 	findMappings: Object.freeze({ positionalList: Object.freeze(['name']), flagList: Object.freeze([]) }),
 	compareCodesets: Object.freeze({ positionalList: Object.freeze(['name']), flagList: Object.freeze([]) }),
 	unmappedFields: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['standard', 'limit']), integerFlagList: Object.freeze(['limit']) }),
@@ -58,7 +62,7 @@ const VERB_INPUT_CONTRACT = Object.freeze({
 const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
 	graphRetriever: Object.freeze({ limit: '10', searchMode: 'hybrid' }),
 	explore: Object.freeze({ nameMatch: 'exact' }),
-	history: Object.freeze({ limit: '20' }),
+	history: Object.freeze({}),
 	unmappedFields: Object.freeze({ limit: '50' }),
 });
 
@@ -75,9 +79,10 @@ const HUB_STANDARD_SOURCE_CYPHER = 'MATCH (h:HubDefinition) RETURN h._source AS 
 const UNMAPPED_HUB_POLICY = 'excludeHub';
 
 // W-D-5: the hub decomposes through one edge per slot, HAS_<HUBNAME>_<SLOT>. Both incoming arms (traversal.cypher and
-// findMappings) read ALL slots. INTERIM copy of educoreForge vocabulary.js HUB_DECOMPOSITION_SLOTS until
-// graphContract.json carries hubSlotList (P2); test/hub-slot-list-shared.test.js holds the two equal.
-const HUB_DECOMPOSITION_SLOT_LIST = Object.freeze(['DOMAIN', 'PROPERTY', 'RANGE', 'VALUE', 'QUALIFIER']);
+// findMappings) read ALL slots; test/hub-slot-list-shared.test.js holds the list equal to the forge's.
+// ⟪campaign P2⟫ no longer an interim copy: the graph contract carries the hub slot list (graphContract.json hubSlotList,
+// emitted from educoreForge vocabulary HUB_DECOMPOSITION_SLOTS), so the DME reads the forge's own declaration
+const HUB_DECOMPOSITION_SLOT_LIST = Object.freeze(require('../contract/graphContract.json').hubSlotList.slice());
 const hubDecompositionEdgeTypeList = (hubName) => {
 	if (typeof hubName !== 'string' || !/^[A-Za-z][A-Za-z0-9]*$/.test(hubName)) {
 		throw new Error(`toolPayloadContract.hubDecompositionEdgeTypeList: hubName must be a plain identifier from HubDefinition.hubName (got ${JSON.stringify(hubName)})`);

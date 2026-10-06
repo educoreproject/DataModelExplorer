@@ -7,43 +7,51 @@
 	"attestationFieldList": [
 		{
 			"channel": "all",
+			"meaning": "buildAttestation:<gate>: the row's address, derived from the gate name alone (no pid, no clock)",
 			"name": "stableId",
 			"type": "string"
 		},
 		{
 			"channel": "all",
+			"meaning": "the gate whose verdict this row records; rows MERGE on it",
 			"name": "gate",
 			"type": "string"
 		},
 		{
 			"channel": "all",
+			"meaning": "what the gate said: pass, fail, notRun or passWithAllowedLoss; notRun never means pass",
 			"name": "verdict",
 			"type": "string",
 			"valueListName": "BUILD_ATTESTATION_VERDICT_LIST"
 		},
 		{
 			"channel": "all",
+			"meaning": "true when a producer supplied the verdict; false when the row is the expected-list default (notRun)",
 			"name": "verdictSupplied",
 			"type": "boolean"
 		},
 		{
 			"channel": "all",
+			"meaning": "true when the gate is on its channel's expected list (ATTESTATION_GATE_LIST_BY_CHANNEL)",
 			"name": "expected",
 			"type": "boolean"
 		},
 		{
 			"channel": "all",
+			"meaning": "the gate's own words for its verdict, with the counts it measured",
 			"name": "detail",
 			"type": "string"
 		},
 		{
 			"channel": "all",
+			"meaning": "the token of the channel that wrote the row: channelA, channelB or promotionStamp",
 			"name": "writtenOnChannel",
 			"type": "string",
 			"valueListName": "ATTESTATION_CHANNEL_LIST"
 		},
 		{
 			"channel": "all",
+			"meaning": "the channel's prose: why the row is written where it is",
 			"name": "writtenOnChannelNote",
 			"type": "string"
 		},
@@ -53,6 +61,7 @@
 				"fidelity",
 				"roundTrip"
 			],
+			"meaning": "statements the gate found in the graph that its source does not hold",
 			"name": "inventedTotal",
 			"type": "integer"
 		},
@@ -61,6 +70,7 @@
 			"gateList": [
 				"roundTrip"
 			],
+			"meaning": "true when every standard that ran round-tripped clean, losing and inventing nothing",
 			"name": "roundTripClean",
 			"type": "boolean"
 		},
@@ -69,6 +79,7 @@
 			"gateList": [
 				"roundTrip"
 			],
+			"meaning": "source statements the round trip could not find again, summed over the standards that ran",
 			"name": "lostTotal",
 			"type": "integer"
 		},
@@ -77,6 +88,7 @@
 			"gateList": [
 				"roundTrip"
 			],
+			"meaning": "source statements a forge declares it does not carry, summed over the standards that ran",
 			"name": "explicitlyOmittedTotal",
 			"type": "integer"
 		},
@@ -85,6 +97,7 @@
 			"gateList": [
 				"roundTrip"
 			],
+			"meaning": "how many standards the round trip ran over",
 			"name": "standardCount",
 			"type": "integer"
 		},
@@ -93,6 +106,7 @@
 			"gateList": [
 				"usagePatternVerification"
 			],
+			"meaning": "usage-pattern exemplars re-executed against the finished graph",
 			"name": "exemplarCount",
 			"type": "integer"
 		},
@@ -101,16 +115,28 @@
 			"gateList": [
 				"usagePatternVerification"
 			],
+			"meaning": "exemplars that returned rows against the finished graph",
 			"name": "verifiedCount",
 			"type": "integer"
 		},
 		{
+			"channel": "channelA",
+			"gateList": [
+				"embeddingCoverage"
+			],
+			"meaning": "nodes, cards and texts lacking the vector their embed input requires, plus vectors with no embed input",
+			"name": "missingVectorTotal",
+			"type": "integer"
+		},
+		{
 			"channel": "promotionStamp",
+			"meaning": "the evidence file a promotion-stamp verdict was read from",
 			"name": "evidencePath",
 			"type": "string"
 		},
 		{
 			"channel": "promotionStamp",
+			"meaning": "sha256 of that evidence file",
 			"name": "evidenceSha256",
 			"type": "string"
 		}
@@ -146,6 +172,8 @@
 			"GraphMeta"
 		]
 	},
+	"bridgePairLabelPatternSource": "^BridgedRelation_[A-Z0-9]+_[A-Z0-9]+$",
+	"bridgePairLabelPrefix": "BridgedRelation",
 	"buildAttestationVerdictList": [
 		"pass",
 		"fail",
@@ -160,6 +188,13 @@
 		"bridgeFramework"
 	],
 	"graphContractVersion": "1",
+	"hubSlotList": [
+		"DOMAIN",
+		"PROPERTY",
+		"RANGE",
+		"VALUE",
+		"QUALIFIER"
+	],
 	"integerValuedPropertyNameList": [
 		"byteCount",
 		"classCount",
@@ -183,6 +218,7 @@
 		"inventedTotal",
 		"lostTotal",
 		"meaningBearingEdgeCount",
+		"missingVectorTotal",
 		"optionValueCount",
 		"position",
 		"propertyCount",
@@ -230,60 +266,72 @@
 		"rootChangeLogLineList",
 		"objectNameList",
 		"objectNameSampleList",
-		"requiresSchemaBlockRefIdList"
+		"requiresSchemaBlockRefIdList",
+		"gateList"
 	],
 	"manifestRecipeFieldList": [
 		{
+			"meaning": "the content address of the manifest this graph was replayed from (64 hex)",
 			"name": "manifestRefId",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the manifest's name in the store",
 			"name": "name",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the recipe's description, carried to the manifest",
 			"name": "description",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the recipe that composed the manifest (its file basename)",
 			"name": "recipeName",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "sha256 of the recipe file the build read",
 			"name": "recipeHash",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the recipe file's name",
 			"name": "recipeFileName",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the manifest the operator named as this build's parent; absent when none was named",
 			"name": "basedOnManifestRefId",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "operatorNamed, or none named at build: why basedOnManifestRefId is or is not present",
 			"name": "basedOnManifestRefIdBasis",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "when the manifest was saved to the store",
 			"name": "createdAt",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "true on the recipe this graph was BUILT_FROM; false on an ancestor reached by BASED_ON",
 			"name": "isRootOfThisGraph",
 			"required": true,
 			"type": "boolean"
 		},
 		{
+			"meaning": "honestly null: no store records the previous build",
 			"name": "previousManifestId",
 			"required": false,
 			"type": "string"
@@ -565,73 +613,92 @@
 			"replacedBy": "none: retired capability flag"
 		}
 	],
+	"producerLocalLabelPatternSourceList": [
+		"^(Ceds|Edfi|Sif260928|Pesc[A-Za-z0-9]+)[A-Z]",
+		"^StandardBase$",
+		"^BridgedRelation_"
+	],
 	"recipeBlockFieldList": [
 		{
+			"meaning": "the member block's content address (64 hex)",
 			"name": "schemaBlockRefId",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the block kind: standardBase or relationship",
 			"name": "kind",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the block subject: <standardKey>@<version>_base or a relationship pair subject",
 			"name": "subject",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the block's version column",
 			"name": "version",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "the member's position in the manifest",
 			"name": "position",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "carried text saying why the block is in the recipe; not a warrant",
 			"name": "purpose",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "where the purpose text came from (machine-generated by the builder on this store generation)",
 			"name": "purposeSource",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the template that generated the purpose text",
 			"name": "purposeTemplateSite",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the recipe whose build added this block to this manifest",
 			"name": "producedByRecipeName",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "the base blocks a relationship block requires, sorted",
 			"name": "requiresSchemaBlockRefIdList",
 			"required": false,
 			"type": "stringList"
 		},
 		{
+			"meaning": "a relationship block's first standard",
 			"name": "pairA",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "its version",
 			"name": "pairAVersion",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "a relationship block's second standard",
 			"name": "pairB",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "its version",
 			"name": "pairBVersion",
 			"required": false,
 			"type": "string"
@@ -665,121 +732,145 @@
 	},
 	"standardDefinitionFieldList": [
 		{
+			"meaning": "the standard's _source: THE filter vocabulary every standard filter takes",
 			"name": "sourceKey",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the forge token, used in block subjects and labels",
 			"name": "standardKey",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the standard's display name",
 			"name": "standardName",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the version the forge stamped, which entered the content address",
 			"name": "version",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "where the version came from",
 			"name": "versionSource",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the version the standard publishes",
 			"name": "publishedVersion",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "true when version and publishedVersion deliberately differ",
 			"name": "versionDisagreement",
 			"required": true,
 			"type": "boolean"
 		},
 		{
+			"meaning": "why they differ, when they do",
 			"name": "versionNote",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "the source snapshot on disk the forge read",
 			"name": "snapshotKey",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the source's format (RDF, XSD, MetaEd model, …)",
 			"name": "sourceFormat",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "where the source is published",
 			"name": "sourceUrl",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "the standard's property-role nodes",
 			"name": "propertyCount",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "its class-role nodes",
 			"name": "classCount",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "its option-value-role nodes",
 			"name": "optionValueCount",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "its properties carrying an EXACT_MATCH to the hub",
 			"name": "exactMappedProperties",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "its properties carrying a CLOSE_MATCH to the hub",
 			"name": "closeMappedProperties",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "the distinct mappingKind values its match edges carry",
 			"name": "mappingKindList",
 			"required": true,
 			"type": "stringList"
 		},
 		{
+			"meaning": "the distinct mappingSource values its match edges carry",
 			"name": "mappingSourceList",
 			"required": true,
 			"type": "stringList"
 		},
 		{
+			"meaning": "the match edge types its edges use",
 			"name": "mappingEdgeTypes",
 			"required": true,
 			"type": "stringList"
 		},
 		{
+			"meaning": "match edges carrying no mappingKind",
 			"name": "unkindedMappingEdgeCount",
 			"required": false,
 			"type": "integer"
 		},
 		{
+			"meaning": "what kind of standard it is, as its forge declares",
 			"name": "standardKind",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "how to read the standard in this graph, as its forge declares",
 			"name": "standardUsageTips",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the family the standard belongs to (CEDS, EdFi, SIF, PESC)",
 			"name": "standardFamily",
 			"required": false,
 			"type": "string"
 		},
 		{
+			"meaning": "the release within the family, version-free",
 			"name": "releaseLabel",
 			"required": false,
 			"type": "string"
@@ -787,44 +878,93 @@
 	],
 	"usagePatternFieldList": [
 		{
+			"meaning": "the exemplar's name",
 			"name": "patternName",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the question a consumer actually has",
 			"name": "question",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the Cypher that answers it",
 			"name": "cypher",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "what the answer must not be taken to mean",
 			"name": "caveat",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "the label the Cypher enters from",
 			"name": "entryLabel",
 			"required": true,
 			"type": "string"
 		},
 		{
+			"meaning": "rows at emit time: provenance of the query-validity check, not proof",
 			"name": "emitTimeRowCount",
 			"required": true,
 			"type": "integer"
 		},
 		{
+			"meaning": "rows against the finished graph: the count that carries weight",
 			"name": "finishTimeRowCount",
 			"required": false,
 			"type": "integer"
 		},
 		{
+			"meaning": "defect (zero rows fails the build) or finding (zero rows is a true answer)",
 			"name": "zeroRowMeaning",
 			"required": true,
 			"type": "string"
 		}
-	]
+	],
+	"userEdgeRule": {
+		"matchRelationPolicy": "refuse",
+		"matchRelationTypeList": [
+			"EXACT_MATCH",
+			"CLOSE_MATCH",
+			"BROAD_MATCH",
+			"NARROW_MATCH"
+		]
+	},
+	"userEdgeStampFieldList": [
+		"userAuthored",
+		"userRefId",
+		"userEdgeRefId",
+		"authoredAt"
+	],
+	"userEmbeddingRule": {
+		"userVectorPolicy": "textOnly"
+	},
+	"userLinkTargetRule": {
+		"linkableRoleList": [
+			"DmeClass",
+			"DmeOptionSet",
+			"DmeOptionValue",
+			"DmeProperty"
+		],
+		"retiredStandardKeyNameList": [
+			"uri"
+		],
+		"standardKeyName": "stableId",
+		"targetLabel": "ForgedNode"
+	},
+	"vectorIndexSlotTable": {
+		"embedding": {
+			"indexNameSuffix": "_vector",
+			"label": "ForgedNode"
+		},
+		"textEmbedding": {
+			"indexNameSuffix": "_embedText_vector",
+			"label": "DmeEmbedText"
+		}
+	}
 }
