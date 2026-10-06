@@ -77,6 +77,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					neo4jBoltUri: versionRow.liveBoltUri,
 					neo4jUser: 'neo4j',
 					neo4jPassword: versionRow.liveBoltPassword,
+					// W-E-10 (X2): the user's query runs in a READ session with the golden handle's timeout; the
+					// validator is a filter, the session is the wall (it used to open write-capable, untimed)
+					readOnly: true,
+					queryTimeoutMs: 30000,
 				},
 				(err, userGraphDb) => {
 					if (err) {
@@ -89,7 +93,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		// --------------------------------------------------------------------------------
-		// STAGE 3: DISPATCH ON ACTION (read-only enforced this phase)
+		// STAGE 3: DISPATCH ON ACTION (the connection above is READ-ONLY; the validator below is the filter in front of it)
 
 		taskList.push((args, next) => {
 			const { queryData, userGraphDb } = args;

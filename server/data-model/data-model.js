@@ -216,8 +216,9 @@ const moduleFunction =
 			}
 			// The golden DME connection is the hardened READ seam: sessions open in
 			// READ mode and auto-commit transactions carry a wall-clock timeout
-			// (dataModelExplorerSearch queryTimeoutMs, default 30s). Writes to the
-			// golden graph go through runTransaction, which this does not affect.
+			// (dataModelExplorerSearch queryTimeoutMs, default 30s). It does NOT pass
+			// writeCapable, so it has no runTransaction either (W-E-10): the golden
+			// graph has no write path from this server.
 			const neo4jConfig = {
 				neo4jBoltUri: conn.boltUri,
 				neo4jUser: conn.user,

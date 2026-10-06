@@ -66,27 +66,6 @@
 				"positionalArgs": ["name"],
 				"flagArgs": {}
 			}
-		},
-		{
-			"definition": {
-				"name": "ceds14_raw_cypher",
-				"description": "Execute a raw Cypher query against the CEDS v14 ontology graph. The graph contains :CedsClass, :CedsProperty, :CedsOptionSet, :CedsOptionValue nodes (all with :CEDS label) connected by :HAS_PROPERTY, :HAS_OPTION_SET, :HAS_VALUE, :SUBCLASS_OF, :PART_OF relationships. Properties have cedsId, label, description, notation, and type-specific fields.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "A Cypher query to execute against the CEDS v14 Neo4j graph"
-						}
-					},
-					"required": ["query"]
-				}
-			},
-			"cli": {
-				"command": "node cedsOntology14Search.js -rawCypher",
-				"positionalArgs": [],
-				"flagArgs": { "query": "--query" }
-			}
 		}
 	]
 }

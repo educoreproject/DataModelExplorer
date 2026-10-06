@@ -87,18 +87,18 @@ const loadConfig = (callback) => {
 
 // The session and driver are closed whether or not the handler failed; a close failure is reported in place
 // of the handler's result, as the earlier try/finally did.
-const withNeo4jSession = (config, { readOnly }, queryHandler, callback) => {
+const withNeo4jSession = (config, { accessMode }, queryHandler, callback) => {
+	if (accessMode !== neo4j.session.READ && accessMode !== neo4j.session.WRITE) {
+		callback(`withNeo4jSession: accessMode must be neo4j.session.READ or neo4j.session.WRITE, named explicitly (got ${JSON.stringify(accessMode)})`);
+		return;
+	}
 	const driver = neo4j.driver(
 		config.neo4jBoltUri,
 		neo4j.auth.basic(config.neo4jUser, config.neo4jPassword),
 		{ encrypted: false }
 	);
-	// Wave B carry-forward (CRIMSON gate 7): new query types are born READ-ONLY — the session itself
-	// refuses writes, not just the query text. Existing verbs keep their prior behavior (the deferred
-	// C2 read-only migration is a separate item, not silently changed here).
-	const session = readOnly
-		? driver.session({ defaultAccessMode: neo4j.session.READ })
-		: driver.session();
+	// the mode is always EXPLICIT (sessionAccessModeFor), so a grep for session.WRITE finds every write session
+	const session = driver.session({ defaultAccessMode: accessMode });
 
 	queryHandler(session, (queryError, queryResult) => {
 		session.close()
@@ -1150,8 +1150,12 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 	describeGraph: (session, params, config, callback) => require('./lib/describeGraph').describeGraph(session, params, callback),
 };
 
-// Wave B (CRIMSON gate 7): describeGraph runs in a READ-ONLY session from birth.
-const READ_ONLY_QUERY_TYPES = ['describeGraph'];
+// W-E-10 (X2, campaign P0, 2026-10-06): READ is the default and WRITE the exception that must be declared BY NAME. The
+// DME CLI has no write verb, so the list is empty and every verb's session refuses writes at Neo4j itself, whatever a
+// filter upstream let through. (Until 2026-10-06 the inverse list held only describeGraph, and ten verbs opened write
+// sessions on the golden graph — rawCypher among them; measured on a scratch graph: all ten wrote.)
+const WRITE_CAPABLE_QUERY_TYPE_LIST = Object.freeze([]);
+const sessionAccessModeFor = (queryType) => (WRITE_CAPABLE_QUERY_TYPE_LIST.indexOf(queryType) === -1 ? neo4j.session.READ : neo4j.session.WRITE);
 
 const search = (queryType, params, callback) => {
 	loadConfig((configError, config) => {
@@ -1160,7 +1164,7 @@ const search = (queryType, params, callback) => {
 			return;
 		}
 		const queryHandler = QUERY_HANDLER_BY_QUERY_TYPE[queryType];
-		withNeo4jSession(config, { readOnly: READ_ONLY_QUERY_TYPES.indexOf(queryType) !== -1 }, (session, sessionCallback) => {
+		withNeo4jSession(config, { accessMode: sessionAccessModeFor(queryType) }, (session, sessionCallback) => {
 			if (!queryHandler) {
 				// an unknown type is answered by name as the result, as it always was
 				sessionCallback('', { error: `Unknown query type: ${queryType}` });
@@ -1266,4 +1270,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search };
+module.exports = { search, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };

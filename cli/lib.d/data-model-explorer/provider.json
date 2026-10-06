@@ -353,31 +353,6 @@
 		},
 		{
 			"definition": {
-				"name": "usecase_graph_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. UseCases labels: :DataReference, :ExternalReference, :UseCase, :UseCaseActor, :UseCaseCategory, :UseCaseModel, :UseCaseStep (all :ForgedNode). Edge types: CATEGORIZED_AS, HAS_DATA_REFERENCE, HAS_REFERENCE, HAS_STEP, INVOLVES_ACTOR, PERFORMED_BY, REFERENCES_DATA.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "A Cypher query to execute"
-						}
-					},
-					"required": [
-						"query"
-					]
-				}
-			},
-			"cli": {
-				"command": "node usecase_graphSearch.js -rawCypher",
-				"positionalArgs": [],
-				"flagArgs": {
-					"query": "--query"
-				}
-			}
-		},
-		{
-			"definition": {
 				"name": "usecase_graph_history",
 				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
 				"input_schema": {
@@ -467,31 +442,6 @@
 		},
 		{
 			"definition": {
-				"name": "lif_graph_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. LIF labels: :LifComposite, :LifEntity, :LifModel, :LifOptionSet, :LifOptionValue, :LifProperty, :LifRoot (all :ForgedNode). Edge types: HAS_COMPOSITE, HAS_ENTITY, HAS_OPTION_SET, HAS_PROPERTY, HAS_VALUE, MAPS_TO, REFERENCES, STRUCTURALLY_MAPS_TO.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "A Cypher query to execute"
-						}
-					},
-					"required": [
-						"query"
-					]
-				}
-			},
-			"cli": {
-				"command": "node lif_graphSearch.js -rawCypher",
-				"positionalArgs": [],
-				"flagArgs": {
-					"query": "--query"
-				}
-			}
-		},
-		{
-			"definition": {
 				"name": "lif_graph_history",
 				"description": "Show graph build history — timestamped events for every load, embed, bridge, and wipe operation.",
 				"input_schema": {
@@ -577,31 +527,6 @@
 				"command": "node clr_graphSearch.js -stats",
 				"positionalArgs": [],
 				"flagArgs": {}
-			}
-		},
-		{
-			"definition": {
-				"name": "clr_graph_raw_cypher",
-				"description": "Execute raw Cypher against the unified graph. CLR labels: :ClrClass, :ClrModel, :ClrOptionSet, :ClrOptionValue, :ClrProperty, :ClrRoot (all :ForgedNode). Edge types: HAS_CLASS, HAS_OPTION_SET, HAS_PROPERTY, HAS_VALUE, MAPS_TO, REFERENCES, STRUCTURALLY_MAPS_TO.",
-				"input_schema": {
-					"type": "object",
-					"properties": {
-						"query": {
-							"type": "string",
-							"description": "A Cypher query to execute"
-						}
-					},
-					"required": [
-						"query"
-					]
-				}
-			},
-			"cli": {
-				"command": "node clr_graphSearch.js -rawCypher",
-				"positionalArgs": [],
-				"flagArgs": {
-					"query": "--query"
-				}
 			}
 		},
 		{

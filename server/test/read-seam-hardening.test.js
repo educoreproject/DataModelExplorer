@@ -4,8 +4,8 @@
 //   1. a write through the hardened runQuery seam is refused by Neo4j itself
 //      (READ access mode), not just the validator denylist
 //   2. a deliberately heavy query dies at the transaction timeout
-//   3. runTransaction remains write-capable (exercised with a rollback so the
-//      golden graph is never actually modified)
+//   3. runTransaction on the golden handle REFUSES BY NAME (W-E-10: no write path
+//      without writeCapable; nothing is written to golden, not even in a rollback)
 //   4. the dme-cypher-query access point enforces a real LIMIT before execution
 //   5. the access point rejects non-allowlisted CALL through the same seam
 //
@@ -148,24 +148,22 @@ series(
 		},
 
 		// ------------------------------------------------------------------
-		// 3. runTransaction is still write-capable (rollback keeps golden clean)
+		// 3. W-E-10 (X2, 2026-10-06): the golden handle has NO write path. Its runTransaction refuses by
+		//    name before the caller's function runs, so this gate no longer writes to golden even inside a
+		//    rolled-back transaction (it used to, and that write path was the defect).
 		(next) => {
+			let userFunctionRan = false;
 			hardenedDb.runTransaction((tx, done) => {
-				tx.run(
-					'CREATE (n:__ReadSeamHardeningTestNode__ {stamp: $stamp}) RETURN n.stamp AS stamp',
-					{ stamp: 'tx-test' },
-					(err, records) => {
-						const wroteInsideTx =
-							!err && records && records[0] && records[0].stamp === 'tx-test';
-						ok(
-							'runTransaction write executes inside tx',
-							wroteInsideTx,
-							err ? String(err).slice(0, 90) : undefined,
-						);
-						done('deliberate-rollback-keep-golden-clean');
-					},
+				userFunctionRan = true;
+				done('the caller function must never run on the golden handle');
+			}, (transactionError) => {
+				ok(
+					'runTransaction on the golden handle REFUSES BY NAME (no writeCapable)',
+					/opened read-only; pass writeCapable:true by name/.test(transactionError || '') && !userFunctionRan,
+					transactionError ? String(transactionError).slice(0, 90) : 'it ran',
 				);
-			}, () => next());
+				next();
+			});
 		},
 
 		// confirm the rollback left nothing behind
@@ -175,7 +173,7 @@ series(
 				{},
 				(err, records) => {
 					ok(
-						'rollback left golden unchanged',
+						'golden holds no test node (nothing was written)',
 						!err && records && records[0] && records[0].c === 0,
 					);
 					next();
