@@ -90,6 +90,23 @@ const NEW_SENTENCE = 'A tool result is one of three things: rows, an empty list 
 	assert(`  and no longer says "If a tool returns no rows, say the graph contains no such data"`, !promptText.includes('If a tool returns no rows, say the graph contains no such data'));
 });
 
+// ---- P1 prompts (W-D-14 A4 edits 1-2 + A14, W-D-16, W-D-2, W-D-12, W-D-19): one text, both prompt files, byte-identical
+const NUMBERS_RULE_PARAGRAPH = 'NUMBERS COME FROM THE DATABASE, NEVER FROM YOU. You are bad at arithmetic. Every number you state — a count, total, sum, average, percentage or "how many" — must be copied from a tool result or computed by a Cypher query (dme_raw_cypher with count(), sum(), avg(), size()). Never count the rows of a list yourself, never add or average numbers yourself, and never state a number you have not obtained this way. If you need a number you cannot get, say that you do not have it.';
+const promptTextByFileName = {};
+['DataModelExplorer.ini', 'DataModelExplorerSlack.ini'].forEach((oneFileName) => { promptTextByFileName[oneFileName] = fs.readFileSync(path.join(globalPromptsDirPath, oneFileName), 'utf8'); });
+const structureParagraphOf = (promptText) => (promptText.match(/\n- DmeClass nodes[\s\S]*?\n- HubReference nodes[^\n]*\n/) || [''])[0];
+Object.entries(promptTextByFileName).forEach(([oneFileName, promptText]) => {
+	assert(`${oneFileName}: carries the A4 numbers rule verbatim`, promptText.includes(NUMBERS_RULE_PARAGRAPH));
+	assert('  and sends arithmetic on numbers it holds to dme_calculate (A14)', /dme_calculate/.test(promptText));
+	assert('  structure: no DmeProperty line claims HAS_SUPPORT; HAS_SUPPORT starts only at a standard root; the card says the per-standard shape', !/DmeProperty nodes[^\n]*\(HAS_SUPPORT\)/.test(promptText) && /HAS_SUPPORT edges start only at a DmeStandardRoot/.test(promptText) && /the card says/.test(structureParagraphOf(promptText)));
+	assert('  the standard filter takes a source from dme_list_standards (W-D-2)', /the value is a `source` from dme_list_standards/.test(promptText));
+	assert('  an exact lookup with case variants widens (W-D-12)', /caseVariantNodeCount/.test(promptText));
+	assert('  no absent per-standard tools are promised (W-D-19)', /Per-standard tools exist only for standards in the live inventory/.test(promptText) && !/usecase_\* tools/.test(promptText));
+});
+assert('the structure paragraph is byte-identical in both prompt files', structureParagraphOf(promptTextByFileName['DataModelExplorer.ini']).length > 0 && structureParagraphOf(promptTextByFileName['DataModelExplorer.ini']) === structureParagraphOf(promptTextByFileName['DataModelExplorerSlack.ini']));
+const rawCypherTool = providerToolList.find((oneTool) => oneTool.definition.name === 'dme_raw_cypher');
+assert('dme_raw_cypher description ends with the A4 edit-2 sentence', /Use this for any count, total or average you need to state; do not compute numbers yourself\.$/.test(rawCypherTool.definition.description.replace(/ If the result is an object carrying refusedByName[\s\S]*$/, '')) || rawCypherTool.definition.description.endsWith('Use this for any count, total or average you need to state; do not compute numbers yourself.'));
+
 // ---- LIVE: refusals on stdout, exit 0
 console.log(`\n--- live (dev graph; ${configName || 'default config'}; nothing written) ---`);
 const runVerb = (argumentList) => {
