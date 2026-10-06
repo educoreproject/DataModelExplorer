@@ -1,25 +1,16 @@
 'use strict';
 // Phase 9 gate — production runtime (LOCAL): snapshot-source + pointer flip (T9.4),
 // warm-pool fast path (T9.1), spike cold fallback (T9.3), overshoot tolerance (T9.2),
-// embedding migration (T9.5). T9.6 is validate-clone.js. Real clones; always tears down.
+// text-only user layer and the retired migration (T9.5). T9.6 is validate-clone.js. Real clones; always tears down.
 
 const fs = require('fs');
 const path = require('path');
-// The Voyage key comes from the established ini — never a literal in source.
-const dmeIniSection = require('qtools-config-file-processor').getConfig(
-	'dataModelExplorerSearch.ini',
-	path.join(__dirname, '../../../../configs/instanceSpecific/qbook/'),
-	{ resolve: true }
-).dataModelExplorerSearch;
-if (!dmeIniSection || !dmeIniSection.voyageApiKey || dmeIniSection.voyageApiKey.startsWith('<!')) {
-	console.error('Missing voyageApiKey in dataModelExplorerSearch.ini [dataModelExplorerSearch] — cannot run this test.');
-	process.exit(1);
-}
+// The user layer is text-only (W-E-6): this gate needs no Voyage key.
 const os = require('os');
 
 process.global = {
 	getConfig: (name) => name === 'dataModelExplorerSearch'
-		? { ...require('../lib/goldenContainerName').goldenDmeConfigForTests(), voyageApiKey: dmeIniSection.voyageApiKey, }
+		? require('../lib/goldenContainerName').goldenDmeConfigForTests()
 		: {},
 	xLog: { status: () => {}, error: (m) => console.error('xLog.error:', m), verbose: () => {}, result: () => {} },
 	rawConfig: {}, commandLineParameters: { switches: {}, values: {} },
@@ -50,7 +41,7 @@ const countNonUser = (conn, cb) => neo4jGen.initDatabaseInstance({ neo4jBoltUri:
 sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 	if (dbErr) { finish(`db init: ${dbErr}`); return; }
 	const ptp = { sqlDb, dataMapping, accessPointsDotD: lib };
-	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-loadScript', 'dme-user-graph-write']
+	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-loadScript', 'dme-user-graph-write', 'dme-user-graph-save']
 		.forEach((f) => require(`../../data-model/access-points-dot-d/accessPoints.d/${f}`)({ dotD: dotD(), passThroughParameters: ptp }));
 	const USER = '__TEST_uR';
 	const st = {};
@@ -59,7 +50,9 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 		// ---- T9.4 snapshot-source + pointer flip ----
 		(cb) => { console.log('creating golden snapshot (one quiesce)...'); cloneManager.createSnapshot((e, r) => { st.snap1 = r && r.snapName; ok('T9.4 snapshot created + pointer set', !!st.snap1 && !!cloneManager.currentSnapshotDir()); cb(e); }); },
 		(cb) => { console.log('provision clone FROM snapshot (golden NOT quiesced)...'); cloneManager.provisionClone({ userRefId: '__TEST_snap', versionRefId: 's1' }, (e, d) => { if (e) { cb(e); return; } st.snapClone = d; owned.push({ containerName: d.containerName, cloneDir: d.cloneDir }); ok('T9.4 golden stayed RUNNING during clone (no quiesce)', cloneManager.isContainerRunning(require('../lib/goldenContainerName').readGoldenContainerName())); cb(); }); },
-		(cb) => countNonUser(st.snapClone, (e, c) => { ok('T9.4 snapshot clone carries golden standards (75882)', String(c) === '75882'); cb(e); }),
+		// the golden's own count, measured live — never a literal (the old '75882' was a retired golden's)
+		(cb) => { const golden = process.global.getConfig('dataModelExplorerSearch'); countNonUser({ boltUri: golden.neo4jBoltUri, user: golden.neo4jUser, password: golden.neo4jPassword }, (e, c) => { st.goldenNonUserCount = c; cb(e); }); },
+		(cb) => countNonUser(st.snapClone, (e, c) => { ok(`T9.4 snapshot clone carries the golden's ${st.goldenNonUserCount} non-user nodes`, Number(c) > 0 && String(c) === String(st.goldenNonUserCount)); cb(e); }),
 		(cb) => { cloneManager.teardownClone(st.snapClone, () => { owned.length = 0; cb(); }); },
 		(cb) => { cloneManager.createSnapshot((e, r) => { st.snap2 = r && r.snapName; ok('T9.4 pointer FLIPPED to a new snapshot atomically', st.snap2 && st.snap2 !== st.snap1 && cloneManager.currentSnapshotDir().indexOf(st.snap2) !== -1); cb(e); }); },
 
