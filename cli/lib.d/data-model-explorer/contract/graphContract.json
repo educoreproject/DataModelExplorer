@@ -858,9 +858,9 @@
 			"type": "string"
 		},
 		{
-			"meaning": "how to read the standard in this graph, as its forge declares",
+			"meaning": "how to read the standard in this graph, as its forge declares; absent when the forge declares null (forgeDeclarationContract allows it: sif, pesc260805)",
 			"name": "standardUsageTips",
-			"required": true,
+			"required": false,
 			"type": "string"
 		},
 		{
