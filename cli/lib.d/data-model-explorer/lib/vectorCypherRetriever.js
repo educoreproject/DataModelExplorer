@@ -232,4 +232,4 @@ const retrieve = ({ neo4jSession, queryText, embedder, traversalFilePath, limit,
 	staticTraversal({ neo4jSession, queryText, embedder, traversalFilePath, limit }, callback);
 };
 
-module.exports = { retrieve };
+module.exports = { retrieve, RUNNABLE_SEARCH_MODE_LIST };

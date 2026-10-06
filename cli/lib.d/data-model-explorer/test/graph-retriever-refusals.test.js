@@ -153,12 +153,15 @@ CASE_LIST.forEach(([caseName, specificationOf, assertionsOf]) => {
 	});
 });
 
-// -graphRetriever through the module's search(): what askMilo's CLI call meets before the retriever runs.
+// -graphRetriever through the module's search(): what askMilo's CLI call meets before the retriever runs. W-D-1 (supervisor
+// ruling 1, 2026-10-06): an INPUT refusal is a RESULT, { refusedByName, refusalName, reason }, written to stdout with exit 0;
+// still by name, still never [] — only the channel moved.
+const refusalOf = (searchResult) => (searchResult && typeof searchResult === 'object' && !Array.isArray(searchResult) ? searchResult : {});
 const SEARCH_CASE_LIST = [
 	['an empty query is refused by name, not answered with []', { query: '', limit: '3', searchMode: 'hybrid' },
-		(errorText, searchResult) => assert('empty query → "Query failed: -graphRetriever requires a non-empty argument…"', /^Query failed: -graphRetriever requires a non-empty argument/.test(errorText || ''), answerTextOf(errorText, searchResult))],
+		(errorText, searchResult) => assert('empty query → { refusedByName: graphRetriever, refusalName: emptyQuery, reason: "-graphRetriever requires a non-empty argument…" }', !errorText && refusalOf(searchResult).refusalName === 'emptyQuery' && /^-graphRetriever requires a non-empty argument/.test(refusalOf(searchResult).reason || ''), answerTextOf(errorText, searchResult))],
 	['traversalMode (the never-built dynamic mode\'s switch) is refused by name', { query: 'birth date', limit: '3', searchMode: 'hybrid', traversalMode: 'dynamic' },
-		(errorText, searchResult) => assert('traversalMode supplied → "Query failed: graphRetriever traversalMode was removed…"', /^Query failed: graphRetriever traversalMode was removed/.test(errorText || ''), answerTextOf(errorText, searchResult))],
+		(errorText, searchResult) => assert('traversalMode supplied → { refusalName: traversalModeRemoved, reason: "graphRetriever traversalMode was removed…" }', !errorText && refusalOf(searchResult).refusalName === 'traversalModeRemoved' && /^graphRetriever traversalMode was removed/.test(refusalOf(searchResult).reason || ''), answerTextOf(errorText, searchResult))],
 ];
 SEARCH_CASE_LIST.forEach(([caseName, searchParams, assertionsOf]) => {
 	taskList.push((args, next) => {

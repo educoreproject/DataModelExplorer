@@ -22,6 +22,12 @@ const path = require('path');
 const neo4j = require('neo4j-driver');
 const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
 const { runCypherQuery } = require('./lib/runCypherQuery');
+// W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
+// JSON with exit 0; an ERROR (the tool could not run) stays callback(errorText) -> stderr, exit 1 (supervisor ruling 1)
+const { refusalFor } = require('./lib/toolPayloadContract');
+// X1 via the CLI: dme_raw_cypher is the model's own Cypher, so it passes the same read-only validator the HTTP / MCP /
+// Slack seam uses (the READ session is the wall; this is the filter that also stops reads that fetch, LOAD CSV / apoc)
+const validateReadOnly = require('../../../server/lib/cypher-validator');
 
 const moduleName = path.basename(__filename).replace(/.js$/, '');
 
@@ -137,9 +143,11 @@ const toNumber = (val) => {
 
 // L8: an empty positional arg used to reach CONTAINS '' — matching EVERY node and running
 // the three-branch findMappings subquery graph-wide before LIMIT. Reject empty names/queries
-// with an explicit error instead. Returns the refusal text, or '' when the argument is usable.
+// with an explicit refusal instead. Returns the refusal text, or '' when the argument is usable.
+// A flag given with no value ('--query=') reaches here as the BOOLEAN true from the CLI parser, which is not text: it used
+// to pass as the string 'true' and crash the driver (measured 2026-10-06, -rawCypher --query=), so non-strings refuse too.
 const emptyArgumentRefusal = (value, whatFor) =>
-	value === null || value === undefined || `${value}`.trim() === ''
+	typeof value !== 'string' || value.trim() === ''
 		? `${whatFor} requires a non-empty argument — an empty value would match every node in the graph.`
 		: '';
 
@@ -222,7 +230,7 @@ const resolveVectorIndex = (session, callback) => {
 const hybridSearch = (session, query, config, params, callback) => {
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-search'); // L8
 	if (emptyQueryRefusal) {
-		callback(emptyQueryRefusal);
+		callback('', refusalFor('search', 'emptyQuery', emptyQueryRefusal));
 		return;
 	}
 	const limit = 20;
@@ -442,7 +450,7 @@ const INSTANCE_GROUP_LIST_CAP = 25;
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
 	if (emptyNameRefusal) {
-		callback(emptyNameRefusal);
+		callback('', refusalFor('findMappings', 'emptyName', emptyNameRefusal));
 		return;
 	}
 	runCypherQuery(session, `
@@ -755,7 +763,7 @@ const shapeFindMappingsResult = (result) => {
 const compareCodesets = (session, name, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
 	if (emptyNameRefusal) {
-		callback(emptyNameRefusal);
+		callback('', refusalFor('compareCodesets', 'emptyName', emptyNameRefusal));
 		return;
 	}
 	// Codeset comparison in the equivalence model: each source option VALUE resolves to a
@@ -958,7 +966,7 @@ const exploreNode = (session, params, callback) => {
 	const name = params.name;
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-explore'); // L8
 	if (emptyNameRefusal) {
-		callback(emptyNameRefusal);
+		callback('', refusalFor('explore', 'emptyName', emptyNameRefusal));
 		return;
 	}
 	const standard = params.standard || null;
@@ -1073,7 +1081,12 @@ const historyEvents = (session, params, callback) => {
 const rawCypher = (session, query, callback) => {
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-rawCypher'); // L8
 	if (emptyQueryRefusal) {
-		callback(emptyQueryRefusal);
+		callback('', refusalFor('rawCypher', 'emptyQuery', emptyQueryRefusal));
+		return;
+	}
+	const readOnlyVerdict = validateReadOnly(query);
+	if (!readOnlyVerdict.valid) {
+		callback('', refusalFor('rawCypher', 'notReadOnly', `-rawCypher runs read-only Cypher only: ${readOnlyVerdict.reason}`));
 		return;
 	}
 	runCypherQuery(session, query, {}, (err, result) => {
@@ -1109,15 +1122,25 @@ const rawCypher = (session, query, callback) => {
 // never-built 'dynamic' traversal mode was deleted, and with it traversalMode: supplying it is refused by name.
 // limit and searchMode carry their declared CLI defaults (-help); the retriever refuses either when invalid.
 const graphRetriever = (session, query, config, params, callback) => {
-	const { retrieve } = require('./lib/vectorCypherRetriever');
+	const { retrieve, RUNNABLE_SEARCH_MODE_LIST } = require('./lib/vectorCypherRetriever');
 
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-graphRetriever');
 	if (emptyQueryRefusal) {
-		callback(emptyQueryRefusal);
+		callback('', refusalFor('graphRetriever', 'emptyQuery', emptyQueryRefusal));
 		return;
 	}
 	if (params.traversalMode !== undefined) {
-		callback(`graphRetriever traversalMode was removed (got '${params.traversalMode}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`);
+		callback('', refusalFor('graphRetriever', 'traversalModeRemoved', `graphRetriever traversalMode was removed (got '${params.traversalMode}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`));
+		return;
+	}
+	// limit and searchMode are INPUT, so a bad one is a refusal on stdout here; the retriever keeps its own guard (ruling C)
+	const limitNumber = Number(params.limit);
+	if (!Number.isInteger(limitNumber) || limitNumber < 1) {
+		callback('', refusalFor('graphRetriever', 'invalidLimit', `graphRetriever limit must be a positive integer; got ${params.limit}.`));
+		return;
+	}
+	if (RUNNABLE_SEARCH_MODE_LIST.indexOf(params.searchMode) === -1) {
+		callback('', refusalFor('graphRetriever', 'invalidSearchMode', `graphRetriever searchMode '${params.searchMode}' cannot run: this graph carries only the vector index on :ForgedNode(embedding) and no fulltext index, so searchMode must be one of ${RUNNABLE_SEARCH_MODE_LIST.join(', ')}.`, RUNNABLE_SEARCH_MODE_LIST));
 		return;
 	}
 
