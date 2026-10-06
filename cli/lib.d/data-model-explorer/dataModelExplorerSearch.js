@@ -1526,7 +1526,8 @@ const resolveVerbInvocation = ({ switchNameList, flagValueByName, positionalArgu
 	];
 	const retiredFlagName = Object.keys(flagValueByName).find((flagName) => (inputRow.retiredFlagRefusalByName || {})[flagName]);
 	if (retiredFlagName) {
-		return { refusal: refusalFor(queryType, inputRow.retiredFlagRefusalByName[retiredFlagName], `${queryType} --${retiredFlagName} was removed (got '${flagValueByName[retiredFlagName]}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`) };
+		const { refusalName, reasonText } = inputRow.retiredFlagRefusalByName[retiredFlagName];
+		return { refusal: refusalFor(queryType, refusalName, `${queryType} --${retiredFlagName} was removed (got '${flagValueByName[retiredFlagName]}'): ${reasonText}.`) };
 	}
 	if (strayText.length > 0) {
 		return { refusal: refusalFor(queryType, 'unknownFlag', `-${queryType} does not take ${strayText.join(', ')}; ${takesText}.`) };

@@ -38,11 +38,11 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 
 // W-D-20: what each verb takes. The CLI parser walks this table (no if/else chain) and refuses any other flag by name;
 // provider.json's input_schema for the verb's tool must name exactly positionalList ∪ flagList. A flag listed in
-// retiredFlagRefusalByName is refused with its own refusal name. integerFlagList values are refused when not a positive
+// retiredFlagRefusalByName is refused with its own refusal name and reason. integerFlagList values are refused when not a positive
 // integer.
 const VERB_INPUT_CONTRACT = Object.freeze({
 	search: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['standard']) }),
-	graphRetriever: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['limit', 'searchMode']), integerFlagList: Object.freeze(['limit']), retiredFlagRefusalByName: Object.freeze({ traversalMode: 'traversalModeRemoved' }) }),
+	graphRetriever: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['limit', 'searchMode']), integerFlagList: Object.freeze(['limit']), retiredFlagRefusalByName: Object.freeze({ traversalMode: Object.freeze({ refusalName: 'traversalModeRemoved', reasonText: "the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher" }) }) }),
 	explore: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['name', 'standard', 'nameMatch']) }),
 	history: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['limit']), integerFlagList: Object.freeze(['limit']) }),
 	findMappings: Object.freeze({ positionalList: Object.freeze(['name']), flagList: Object.freeze([]) }),
@@ -65,6 +65,7 @@ const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
 // W-D-2 / A5 (ruled 2026-10-06): a `standard` filter takes a live `_source` value. A family name (StandardDefinition
 // .standardFamily) expands to its releases; until the forges stamp standardFamily (P3) no family exists, so a family name
 // is refused by name with the valid list. A family is NEVER derived from a _source prefix.
+const STANDARD_FILTER_FAMILY_RULE_LIST = Object.freeze(['expandFamilyToReleases', 'refuseFamilyNamingReleases']);
 const STANDARD_FILTER_FAMILY_RULE = 'expandFamilyToReleases';
 const STANDARD_FAMILY_LIST_CYPHER = 'MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL RETURN d.standardFamily AS family, collect(d.sourceKey) AS sourceList ORDER BY family';
 // W-D-9 / W-D-8 / W-D-5: the hub is read from the graph, never assumed; exactly one HubDefinition or a refusal
@@ -174,6 +175,7 @@ module.exports = Object.freeze({
 	VERB_INPUT_CONTRACT,
 	VERB_FLAG_DEFAULT_BY_VERB,
 	STANDARD_FILTER_FAMILY_RULE,
+	STANDARD_FILTER_FAMILY_RULE_LIST,
 	STANDARD_FAMILY_LIST_CYPHER,
 	HUB_STANDARD_SOURCE_CYPHER,
 	UNMAPPED_HUB_POLICY,

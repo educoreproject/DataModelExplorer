@@ -11,9 +11,14 @@ const {
 	LIVE_SOURCE_LIST_CYPHER,
 	STANDARD_FAMILY_LIST_CYPHER,
 	STANDARD_FILTER_FAMILY_RULE,
+	STANDARD_FILTER_FAMILY_RULE_LIST,
 	HUB_STANDARD_SOURCE_CYPHER,
 	refusalFor,
 } = require('./toolPayloadContract');
+
+if (STANDARD_FILTER_FAMILY_RULE_LIST.indexOf(STANDARD_FILTER_FAMILY_RULE) === -1) {
+	throw new Error(`liveInventory: STANDARD_FILTER_FAMILY_RULE '${STANDARD_FILTER_FAMILY_RULE}' is not one of ${STANDARD_FILTER_FAMILY_RULE_LIST.join(', ')}`);
+}
 
 // resolveStandardFilter — callback('', { sourceList }) with sourceList null (no filter) or the _source values to keep;
 // callback('', { refusal }) when the text names no live _source and no declared family
