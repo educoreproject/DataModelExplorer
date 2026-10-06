@@ -16,7 +16,7 @@
 //   const result = validateReadOnly('MATCH (n) RETURN n');
 //   // { valid: true }
 //   const bad = validateReadOnly('CREATE (n:Bad) RETURN n');
-//   // { valid: false, reason: 'Write operations are not permitted: CREATE' }
+//   // { valid: false, reason: 'Not permitted on this read-only path (writes, admin and database switching are refused): CREATE' }
 // ============================================================================
 
 const {
@@ -52,7 +52,7 @@ const validateReadOnly = (cypherString) => {
 	if (violations.length > 0) {
 		return {
 			valid: false,
-			reason: `Write operations are not permitted: ${violations.join(', ')}`,
+			reason: `Not permitted on this read-only path (writes, admin and database switching are refused): ${violations.join(', ')}`,
 		};
 	}
 
