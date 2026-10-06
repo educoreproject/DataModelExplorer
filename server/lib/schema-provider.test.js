@@ -44,6 +44,9 @@ const stubResultByQueryFragment = [
 		records: stubRelationshipTypeList.map((relationshipType) => ({ relationshipType })),
 	},
 	{ queryFragment: 'db.schema.nodeTypeProperties()', records: [{ label: 'CedsProperty', properties: ['name'] }] },
+	// W-D-17 (campaign P1): the role and _source lines are read from the graph
+	{ queryFragment: 'DISTINCT n.role', records: [{ role: 'DmeProperty' }, { role: 'HubReference' }] },
+	{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },
 	{
 		queryFragment: 'db.schema.relTypeProperties()',
 		records: [

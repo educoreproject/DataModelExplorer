@@ -20,6 +20,28 @@
 
 const { pipeRunner, taskListPlus } =
 	new (require('qtools-asynchronous-pipe-plus'))();
+// W-D-17 (campaign P1, 2026-10-06): the live _source list is the DME's one declared query, shared with every dme_* verb
+const { LIVE_SOURCE_LIST_CYPHER, OPTION_SET_EDGE_TYPE_LIST } = require('../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+
+const LIVE_ROLE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n.role IS NOT NULL RETURN DISTINCT n.role AS role ORDER BY role';
+
+// the structural edge types the guidance explains, each with what it means; the section lists those the live graph
+// holds (an edge type the graph lacks is not described as if it existed)
+const STRUCTURAL_EDGE_MEANING_BY_TYPE = {
+	HAS_CLASS: 'a standard root owns a class (not in SIF)',
+	SUBCLASS_OF: 'class to parent class',
+	HAS_PROPERTY: 'a class owns a property (CEDS, Ed-Fi; PESC from DmeSupport; none in SIF)',
+	HAS_OPTION_SET: 'a property owns its code list (CEDS, Ed-Fi, PESC)',
+	CONSTRAINED_BY: 'SIF: a Field (the Question\'s instance) is constrained by its Codeset — read SIF code lists through the instances',
+	HAS_VALUE: 'an option set owns its values',
+	HAS_SUPPORT: 'from a standard root only, to its support/type scaffolding',
+	REFERENCES: 'intra-standard cross reference',
+	REFERENCES_TYPE: 'a property refers to its type (Ed-Fi, PESC)',
+	REFERENCES_OBJECT: 'SIF: a Field refers to the Object it holds',
+	HAS_INSTANCE: 'SIF/PESC: an element stands for each of its occurrences',
+	HAS_FIELD: 'SIF: an Object has a Field',
+	HAS_CHILD: 'element contains element (SIF nesting, PESC occurrences)',
+};
 
 // ----------------------------------------------------------------------------
 // Standards prefix mapping. Order matters for display.
@@ -133,6 +155,8 @@ const renderSchema = ({
 	relationshipTypes,
 	propertiesByLabel,
 	propertiesByRelationshipType,
+	liveRoleList,
+	liveSourceList,
 }) => {
 	const { grouped, infrastructure, other } = groupLabels(labels);
 
@@ -202,7 +226,12 @@ const renderSchema = ({
 		lines.push('');
 	}
 
-	lines.push(CURATED_GUIDANCE);
+	// example native labels: the first live label of each standard group, never a literal list
+	const sampleLabelList = grouped.map((labelGroup) => labelGroup.labels.find((labelName) => !/^(CEDS|Ceds)$/.test(labelName)) || labelGroup.labels[0]).filter(Boolean).slice(0, 4);
+	const structuralEdgeLineList = Object.keys(STRUCTURAL_EDGE_MEANING_BY_TYPE)
+		.filter((edgeType) => relationshipTypes.includes(edgeType))
+		.map((edgeType) => `- **${edgeType}** — ${STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType]}`);
+	lines.push(curatedGuidanceFor({ liveRoleList, liveSourceList, sampleLabelList, structuralEdgeLineList }));
 
 	return lines.join('\n');
 };
@@ -211,14 +240,14 @@ const renderSchema = ({
 // Curated prose appendix — describes the cross-cutting structure and gives
 // canonical query patterns. Hand-edited; survives forge additions.
 
-const CURATED_GUIDANCE = `## The Universal Forge Contract
+const curatedGuidanceFor = ({ liveRoleList, liveSourceList, sampleLabelList, structuralEdgeLineList }) => `## The Universal Forge Contract
 
 Every node in the graph carries a uniform contract:
 
 - **Super-label** \`:ForgedNode\` on every node.
-- **\`role\` property** — one of DmeClass, DmeProperty, DmeOptionSet, DmeOptionValue, DmeSupport, DmeStandardRoot. The role tells you what a node IS, independent of which standard it came from.
-- **\`_source\` property** — the standard the node belongs to (e.g. CEDS, LIF, SIF). The inventory grows as standards are forged in; never assume a fixed list.
-- **Native labels are retained** — a node may also carry its standard-specific label (CedsProperty, SifField, LifProperty, …) alongside :ForgedNode. Prefer matching on \`:ForgedNode\` + \`role\` + \`_source\` for portable queries.
+- **\`role\` property** — one of ${liveRoleList.join(', ')} (live: MATCH (n:ForgedNode) RETURN DISTINCT n.role). The role tells you what a node IS, independent of which standard it came from.
+- **\`_source\` property** — the standard the node belongs to; the live values are ${liveSourceList.join(', ')}. The inventory grows as standards are forged in; never assume a fixed list (dme_list_standards reads it).
+- **Native labels are retained** — a node may also carry its standard-specific label (${sampleLabelList.join(', ')}, …) alongside :ForgedNode. Prefer matching on \`:ForgedNode\` + \`role\` + \`_source\` for portable queries.
 - **Key properties:** \`_id\`, \`_source\`, \`name\`, \`description\`, \`path\`, \`parentId\`, \`stableId\`, \`role\`. A DmeOptionValue's value text lives in \`name\`.
 
 ## Cross-Standard Relationships
@@ -250,18 +279,20 @@ Match edges originate from source-standard elements (DmeProperty; in SIF and PES
 
 ## Node Structural Categories (by role)
 
-- **DmeStandardRoot** — the per-standard passport node. Props: _source, name, standardName, description, version, sourceUrl, stableId. Owns classes via HAS_CLASS.
-- **DmeClass** — structural hubs. Connect to parent classes (SUBCLASS_OF) and child properties (HAS_PROPERTY).
-- **DmeProperty** — the richest traversal targets. Connect to parent classes, option sets (HAS_OPTION_SET), supports (HAS_SUPPORT), and cross-standard mapping edges.
+- **DmeStandardRoot** — the per-standard root node. Props: _source, name, standardName, description, version, sourceUrl, stableId. Owns classes via HAS_CLASS in most standards (not in SIF) and its scaffolding via HAS_SUPPORT; HAS_SUPPORT edges start only at a standard root.
+- **DmeClass** — structural hubs. In most standards they own properties (HAS_PROPERTY) and sit under parents (SUBCLASS_OF); SIF objects own Fields by HAS_FIELD and have no HAS_PROPERTY. The standard's StandardDefinition card (standardUsageTips) says what its classes own.
+- **DmeProperty** — the richest traversal targets. They carry match edges to :HubReference (directly, or on their HAS_INSTANCE instances) and may own option sets: HAS_OPTION_SET in CEDS, Ed-Fi and PESC; in SIF the code list hangs off the Question's Fields by CONSTRAINED_BY. No DmeProperty has HAS_SUPPORT.
 - **DmeOptionSet** — connect to allowed values via HAS_VALUE; may carry cross-standard mappings to other option sets.
 - **DmeOptionValue** — traversal-terminal. The value text is in \`name\`.
 - **DmeSupport** — supplementary detail attached to a node via HAS_SUPPORT. In SIF and PESC also the instance nodes (SIF Fields and Containers, PESC occurrences); the instances reached by HAS_INSTANCE carry those standards' mapping edges.
 
 ## Structural Edges
 
-HAS_PROPERTY, HAS_OPTION_SET, HAS_VALUE, HAS_SUPPORT, HAS_CLASS, SUBCLASS_OF, and REFERENCES (intra-standard cross references).
+The structural edge types this graph holds (from db.relationshipTypes()), and what each means — not every standard uses every one:
 
-SIF and PESC add three more: **HAS_INSTANCE** (an element stands for each of its occurrences — a SIF Question to one Field per object it appears in; a PESC element declaration to one occurrence per place it appears in the document), **HAS_FIELD** (SIF: an Object has a Field), and **HAS_CHILD** (element contains element — SIF Object/Container nesting, PESC occurrence nesting).
+${structuralEdgeLineList.join('\n')}
+
+A SIF Question stands for one Field per object it appears in (HAS_INSTANCE); a PESC element declaration for one occurrence per place it appears in the document.
 
 ## Instance Nodes Carry the Mappings (SIF, PESC)
 
@@ -306,14 +337,20 @@ RETURN decl._source AS standard, decl.name AS element,
        collect(DISTINCT coalesce(obj.name, inst.sectionPath)) AS instanceGroups, count(inst) AS instanceCount
 \`\`\`
 
-### Codeset values for a property
+### Codeset values for a property (directly, or — SIF — through its instance Fields)
 \`\`\`cypher
-MATCH (p:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET]->(:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+MATCH (p:ForgedNode {role: 'DmeProperty'})
 WHERE toLower(p.name) CONTAINS toLower($name)
-RETURN v.name AS value, v.description AS description
+OPTIONAL MATCH (p)-[:${OPTION_SET_EDGE_TYPE_LIST.join('|')}]->(os:ForgedNode {role: 'DmeOptionSet'})
+OPTIONAL MATCH (p)-[:HAS_INSTANCE]->()-[:${OPTION_SET_EDGE_TYPE_LIST.join('|')}]->(ios:ForgedNode {role: 'DmeOptionSet'})
+WITH p, coalesce(os, ios) AS optionSet
+WHERE optionSet IS NOT NULL
+MATCH (optionSet)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+RETURN p._source AS standard, coalesce(optionSet.name, optionSet.path) AS optionSet, v.name AS value, v.description AS description
 \`\`\`
 
 ### Class hierarchy walk for a standard
+(SIF: the root has no HAS_CLASS; walk \`(o:ForgedNode {role: 'DmeClass', _source: $source})-[:HAS_FIELD]->(f)\` instead.)
 \`\`\`cypher
 MATCH (root:DmeStandardRoot {_source: $source})-[:HAS_CLASS]->(c:ForgedNode {role: 'DmeClass'})
 OPTIONAL MATCH (c)-[:HAS_PROPERTY]->(p:ForgedNode {role: 'DmeProperty'})
@@ -429,6 +466,26 @@ const moduleFunction = ({ neo4jDb }) => (callback) => {
 				next('', { ...args, propertiesByRelationshipType });
 			},
 		);
+	});
+
+	taskList.push((args, next) => {
+		neo4jDb.runQuery(LIVE_ROLE_LIST_CYPHER, {}, (err, records) => {
+			if (err) {
+				next(`schema-provider: live role list failed: ${err}`, args);
+				return;
+			}
+			next('', { ...args, liveRoleList: records.map((r) => r.role) });
+		});
+	});
+
+	taskList.push((args, next) => {
+		neo4jDb.runQuery(LIVE_SOURCE_LIST_CYPHER, {}, (err, records) => {
+			if (err) {
+				next(`schema-provider: live _source list failed: ${err}`, args);
+				return;
+			}
+			next('', { ...args, liveSourceList: records.map((r) => r.source) });
+		});
 	});
 
 	pipeRunner(taskList.getList(), {}, (err, args) => {
