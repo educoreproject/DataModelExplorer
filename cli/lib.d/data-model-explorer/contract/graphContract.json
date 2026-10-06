@@ -1,0 +1,830 @@
+{
+	"attestationChannelList": [
+		"channelA",
+		"channelB",
+		"promotionStamp"
+	],
+	"attestationFieldList": [
+		{
+			"channel": "all",
+			"name": "stableId",
+			"type": "string"
+		},
+		{
+			"channel": "all",
+			"name": "gate",
+			"type": "string"
+		},
+		{
+			"channel": "all",
+			"name": "verdict",
+			"type": "string",
+			"valueListName": "BUILD_ATTESTATION_VERDICT_LIST"
+		},
+		{
+			"channel": "all",
+			"name": "verdictSupplied",
+			"type": "boolean"
+		},
+		{
+			"channel": "all",
+			"name": "expected",
+			"type": "boolean"
+		},
+		{
+			"channel": "all",
+			"name": "detail",
+			"type": "string"
+		},
+		{
+			"channel": "all",
+			"name": "writtenOnChannel",
+			"type": "string",
+			"valueListName": "ATTESTATION_CHANNEL_LIST"
+		},
+		{
+			"channel": "all",
+			"name": "writtenOnChannelNote",
+			"type": "string"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"fidelity",
+				"roundTrip"
+			],
+			"name": "inventedTotal",
+			"type": "integer"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"roundTrip"
+			],
+			"name": "roundTripClean",
+			"type": "boolean"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"roundTrip"
+			],
+			"name": "lostTotal",
+			"type": "integer"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"roundTrip"
+			],
+			"name": "explicitlyOmittedTotal",
+			"type": "integer"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"roundTrip"
+			],
+			"name": "standardCount",
+			"type": "integer"
+		},
+		{
+			"channel": "channelB",
+			"gateList": [
+				"usagePatternVerification"
+			],
+			"name": "exemplarCount",
+			"type": "integer"
+		},
+		{
+			"channel": "channelB",
+			"gateList": [
+				"usagePatternVerification"
+			],
+			"name": "verifiedCount",
+			"type": "integer"
+		},
+		{
+			"channel": "promotionStamp",
+			"name": "evidencePath",
+			"type": "string"
+		},
+		{
+			"channel": "promotionStamp",
+			"name": "evidenceSha256",
+			"type": "string"
+		}
+	],
+	"attestationGateListByChannel": {
+		"channelA": [
+			"fidelity",
+			"roundTrip",
+			"goldEvalCheck",
+			"embeddingCoverage",
+			"forgeCensus"
+		],
+		"channelB": [
+			"usagePatternVerification"
+		],
+		"promotionStamp": [
+			"goldEvalCheck",
+			"replay"
+		]
+	},
+	"attestationLabelSetByChannel": {
+		"channelA": [
+			"ForgedNode",
+			"BuildAttestation",
+			"GraphMeta"
+		],
+		"channelB": [
+			"BuildAttestation",
+			"GraphMeta"
+		],
+		"promotionStamp": [
+			"BuildAttestation",
+			"GraphMeta"
+		]
+	},
+	"buildAttestationVerdictList": [
+		"pass",
+		"fail",
+		"notRun",
+		"passWithAllowedLoss"
+	],
+	"engineVersionsNameList": [
+		"replayManager",
+		"replayEngine",
+		"serializer",
+		"forgeFramework",
+		"bridgeFramework"
+	],
+	"graphContractVersion": "1",
+	"integerValuedPropertyNameList": [
+		"byteCount",
+		"classCount",
+		"closeMappedProperties",
+		"codeCount",
+		"codePosition",
+		"contentEdgeCount",
+		"contentNodeCount",
+		"contextPathCount",
+		"depth",
+		"documentDepth",
+		"documentPosition",
+		"embeddingDims",
+		"emitTimeRowCount",
+		"exactMappedProperties",
+		"exemplarCount",
+		"explicitlyOmittedTotal",
+		"fieldCount",
+		"finishTimeRowCount",
+		"instanceCount",
+		"inventedTotal",
+		"lostTotal",
+		"meaningBearingEdgeCount",
+		"optionValueCount",
+		"position",
+		"propertyCount",
+		"sequence",
+		"sequenceOrdinal",
+		"sequencePosition",
+		"siblingCount",
+		"sourceLineNumber",
+		"standardCount",
+		"subdomainPosition",
+		"totalDigits",
+		"unkindedMappingEdgeCount",
+		"valueCount",
+		"valueOrdinal",
+		"verifiedCount",
+		"xpathDepth"
+	],
+	"listNameRuleExemptionByName": {
+		"fileAnnotationList": "JSON string (pesc-release-forge walk.js)",
+		"importList": "JSON string (pesc-release-forge walk.js)",
+		"schemaAttributeList": "JSON string (pesc-release-forge walk.js)",
+		"standardsIncluded": "a Cypher literal list on the passport, never through pgToStored"
+	},
+	"listValuedPropertyNameList": [
+		"attestationChannelList",
+		"propertyNameList",
+		"qualifierKeys",
+		"qualifierNames",
+		"mappingKindList",
+		"mappingSourceList",
+		"mappingEdgeTypes",
+		"properties",
+		"sourceFiles",
+		"declaredTypes",
+		"allDomainIds",
+		"allDomainNames",
+		"alternative",
+		"additionalDescriptionList",
+		"contextPathSampleList",
+		"occurrenceSectionList",
+		"reachableViaList",
+		"documentationValueList",
+		"derivationDocumentationValueList",
+		"librariesNamed",
+		"rootChangeLogLineList",
+		"objectNameList",
+		"objectNameSampleList",
+		"requiresSchemaBlockRefIdList"
+	],
+	"manifestRecipeFieldList": [
+		{
+			"name": "manifestRefId",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "name",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "description",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "recipeName",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "recipeHash",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "recipeFileName",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "basedOnManifestRefId",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "basedOnManifestRefIdBasis",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "createdAt",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "isRootOfThisGraph",
+			"required": true,
+			"type": "boolean"
+		},
+		{
+			"name": "previousManifestId",
+			"required": false,
+			"type": "string"
+		}
+	],
+	"meaningTierRowFieldListByShape": {
+		"mappingEdge": [
+			"edgeType",
+			"mappingKind",
+			"mappingSource",
+			"tierCount"
+		],
+		"tieredEdge": [
+			"edgeType",
+			"provenanceTier",
+			"tierCount"
+		]
+	},
+	"passportFieldList": [
+		{
+			"meaning": "constant discriminator graphProvenance (ruled -Key exception)",
+			"name": "passportKey",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "ISO-8601 instant finish ran; the verb's only clock",
+			"name": "builtAt",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the manifest this graph was replayed from (64 hex)",
+			"name": "manifestRefId",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "container name; the stamp overwrites with the promoted name",
+			"name": "graphName",
+			"required": true,
+			"type": "string",
+			"writer": "finish+stamp"
+		},
+		{
+			"meaning": "the name finish saw",
+			"name": "scratchGraphName",
+			"required": false,
+			"type": "string",
+			"writer": "stamp"
+		},
+		{
+			"meaning": "nodes carrying _source",
+			"name": "contentNodeCount",
+			"required": true,
+			"type": "integer",
+			"writer": "finish"
+		},
+		{
+			"meaning": "edges with no :GraphMeta endpoint",
+			"name": "contentEdgeCount",
+			"required": true,
+			"type": "integer",
+			"writer": "finish"
+		},
+		{
+			"meaning": "distinct _source values",
+			"name": "standardCount",
+			"required": true,
+			"type": "integer",
+			"writer": "finish"
+		},
+		{
+			"meaning": "sorted distinct _source values",
+			"name": "standardsIncluded",
+			"required": true,
+			"type": "stringList",
+			"writer": "finish"
+		},
+		{
+			"meaning": "mapping edges + non-structural tiered edges",
+			"name": "meaningBearingEdgeCount",
+			"required": true,
+			"type": "integer",
+			"writer": "finish"
+		},
+		{
+			"meaning": "array of {edgeType, mappingKind, mappingSource, tierCount} | {edgeType, provenanceTier, tierCount}",
+			"name": "meaningTierBreakdown",
+			"parse": "MEANING_TIER_ROW_FIELD_LIST_BY_SHAPE",
+			"required": true,
+			"type": "jsonString",
+			"writer": "finish"
+		},
+		{
+			"meaning": "provenance verdict",
+			"name": "trustworthyForMeaning",
+			"required": true,
+			"type": "boolean",
+			"writer": "finish"
+		},
+		{
+			"meaning": "noMeaningBearingEdges | invalidDebugPresent | allMeaningBearingEdgesCarryAValidTier",
+			"name": "trustBasis",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the verdict in words; provenance, not correctness",
+			"name": "trustNote",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "why no previous build is recorded",
+			"name": "previousManifestRefIdBasis",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "{ replayManager, replayEngine, serializer, forgeFramework, bridgeFramework }",
+			"name": "engineVersions",
+			"parse": "ENGINE_VERSIONS_NAME_LIST",
+			"required": true,
+			"type": "jsonString",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the one distinct embeddingModelVersion over :ForgedNode; refused when ≠ 1",
+			"name": "embeddingModelVersion",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the one distinct vector width over embedding and textEmbedding; refused when ≠ 1",
+			"name": "embeddingDims",
+			"required": true,
+			"type": "integer",
+			"writer": "finish"
+		},
+		{
+			"meaning": "present ONLY when the graph carries no vector (--vectorize=false): names that fact; then the two fields above are absent by declaration",
+			"name": "embeddingBasis",
+			"required": false,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "sorted distinct judge identities over mapping edges; [] when none",
+			"name": "judgeIdentityList",
+			"required": true,
+			"type": "stringList",
+			"writer": "finish"
+		},
+		{
+			"meaning": "sorted distinct renderer versions over mapping edges; [] when none",
+			"name": "rendererVersionList",
+			"required": true,
+			"type": "stringList",
+			"writer": "finish"
+		},
+		{
+			"meaning": "copied from the ManifestRecipe this graph was BUILT_FROM",
+			"name": "recipeHash",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "copied from the same row",
+			"name": "recipeName",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the VECTOR index names as created, rewritten by the stamp after the rename (§10)",
+			"name": "vectorIndexNameList",
+			"required": true,
+			"type": "stringList",
+			"writer": "finish+stamp"
+		},
+		{
+			"meaning": "sha256 of the canonical graphContract.json this build ran with",
+			"name": "graphContractSha256",
+			"required": true,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the one frameworkFingerprint every bridge run report carried; absent when none or when they disagree",
+			"name": "frameworkFingerprint",
+			"required": false,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "present iff frameworkFingerprint is absent: why",
+			"name": "frameworkFingerprintBasis",
+			"required": false,
+			"type": "string",
+			"writer": "finish"
+		}
+	],
+	"passportRetiredFieldNameList": [
+		{
+			"name": "replayEngineVersion",
+			"replacedBy": "engineVersions.replayEngine"
+		},
+		{
+			"name": "serializerVersion",
+			"replacedBy": "engineVersions.serializer"
+		},
+		{
+			"name": "nodeCountAtBuild",
+			"replacedBy": "contentNodeCount"
+		},
+		{
+			"name": "edgeCountAtBuild",
+			"replacedBy": "contentEdgeCount"
+		},
+		{
+			"name": "manifestKey",
+			"replacedBy": "manifestRefId"
+		},
+		{
+			"name": "standardsBreakdown",
+			"replacedBy": "DESCRIBES -> StandardDefinition"
+		},
+		{
+			"name": "provenanceTierComplete",
+			"replacedBy": "trustworthyForMeaning + trustBasis"
+		},
+		{
+			"name": "status",
+			"replacedBy": "none: retired"
+		},
+		{
+			"name": "graphType",
+			"replacedBy": "none: the GNC-001 prefix of graphName"
+		},
+		{
+			"name": "owner",
+			"replacedBy": "none: retired"
+		},
+		{
+			"name": "builtBy",
+			"replacedBy": "none: retired"
+		},
+		{
+			"name": "description",
+			"replacedBy": "ManifestRecipe.description"
+		},
+		{
+			"name": "classRangeModeled",
+			"replacedBy": "none: retired capability flag"
+		},
+		{
+			"name": "codesetMatching",
+			"replacedBy": "none: retired capability flag"
+		},
+		{
+			"name": "equivalenceLayer",
+			"replacedBy": "none: retired capability flag"
+		},
+		{
+			"name": "legacyEdgeCount",
+			"replacedBy": "none: retired capability flag"
+		},
+		{
+			"name": "legacyEdgesPresent",
+			"replacedBy": "none: retired capability flag"
+		}
+	],
+	"recipeBlockFieldList": [
+		{
+			"name": "schemaBlockRefId",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "kind",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "subject",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "version",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "position",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "purpose",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "purposeSource",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "purposeTemplateSite",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "producedByRecipeName",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "requiresSchemaBlockRefIdList",
+			"required": false,
+			"type": "stringList"
+		},
+		{
+			"name": "pairA",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "pairAVersion",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "pairB",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "pairBVersion",
+			"required": false,
+			"type": "string"
+		}
+	],
+	"selfDocRetiredFieldNameByLabel": {
+		"ManifestRecipe": {
+			"basedOn": "basedOnManifestRefId",
+			"isBuildManifest": "isRootOfThisGraph",
+			"label": "name",
+			"manifestKey": "manifestRefId",
+			"note": "description"
+		},
+		"RecipeBlock": {
+			"blockId": "schemaBlockRefId",
+			"blockType": "kind",
+			"producedBy": "none: the manifest recipeName"
+		},
+		"StandardDefinition": {
+			"closeEdgeCount": "closeMappedProperties",
+			"description": "none",
+			"displayName": "standardName",
+			"exactEdgeCount": "exactMappedProperties",
+			"mappingDisposition": "mappingKindList + mappingSourceList",
+			"nodeCount": "none",
+			"objectVersions": "none",
+			"optionSetCount": "none",
+			"source": "sourceKey",
+			"subjectVersions": "none"
+		}
+	},
+	"standardDefinitionFieldList": [
+		{
+			"name": "sourceKey",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "standardKey",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "standardName",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "version",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "versionSource",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "publishedVersion",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "versionDisagreement",
+			"required": true,
+			"type": "boolean"
+		},
+		{
+			"name": "versionNote",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "snapshotKey",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "sourceFormat",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "sourceUrl",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "propertyCount",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "classCount",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "optionValueCount",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "exactMappedProperties",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "closeMappedProperties",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "mappingKindList",
+			"required": true,
+			"type": "stringList"
+		},
+		{
+			"name": "mappingSourceList",
+			"required": true,
+			"type": "stringList"
+		},
+		{
+			"name": "mappingEdgeTypes",
+			"required": true,
+			"type": "stringList"
+		},
+		{
+			"name": "unkindedMappingEdgeCount",
+			"required": false,
+			"type": "integer"
+		},
+		{
+			"name": "standardKind",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "standardUsageTips",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "standardFamily",
+			"required": false,
+			"type": "string"
+		},
+		{
+			"name": "releaseLabel",
+			"required": false,
+			"type": "string"
+		}
+	],
+	"usagePatternFieldList": [
+		{
+			"name": "patternName",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "question",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "cypher",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "caveat",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "entryLabel",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"name": "emitTimeRowCount",
+			"required": true,
+			"type": "integer"
+		},
+		{
+			"name": "finishTimeRowCount",
+			"required": false,
+			"type": "integer"
+		},
+		{
+			"name": "zeroRowMeaning",
+			"required": true,
+			"type": "string"
+		}
+	]
+}
