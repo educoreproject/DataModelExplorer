@@ -661,7 +661,10 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource, m.mappingRationale AS instMappingRationale,
 			     ${instanceGroupOf('instanceNode')} AS instGroupName
-			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource, instMappingRationale,
+			// the rationale is per-instance evidence, not part of the verdict: grouping by it split one verdict into
+			// fragments with partial counts. min() keeps one recorded text, deterministically (null only when none is)
+			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource,
+			     min(instMappingRationale) AS instMappingRationale,
 			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)

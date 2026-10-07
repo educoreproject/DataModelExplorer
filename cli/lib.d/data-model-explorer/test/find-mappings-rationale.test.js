@@ -29,6 +29,27 @@ taskList.push((args, next) => runVerb(['-findMappings', args.fixture.subjectStab
 	assert('every row carries the mappingRationale and viaMappingRationale keys (null when no rationale is recorded, never absent)', rowList.length > 0 && rowList.every((oneRow) => Object.prototype.hasOwnProperty.call(oneRow, 'mappingRationale') && Object.prototype.hasOwnProperty.call(oneRow, 'viaMappingRationale')), `${rowList.length} rows`);
 	next('', args);
 }, cliFilePath));
+// an instance-carried mapping: one SIF Question whose instances reach ONE hub by one verdict, each instance judged on its
+// own and so carrying its own rationale. The rationale is evidence, not identity: the verdict is ONE row counting every
+// instance, and its mappingRationale is one of the instances' recorded texts (until the P3 fix it split the row by text)
+taskList.push((args, next) => runQuery(`MATCH (q:ForgedNode {_source: 'SIF260928', role: 'DmeProperty'})-[:HAS_INSTANCE]->(i:ForgedNode)-[r:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(h:HubReference)
+	WITH q, h, type(r) AS matchType, r.mappingConfidence AS mappingConfidence, r.predicate AS matchPredicate, r.mappingKind AS mappingKind, r.mappingSource AS mappingSource,
+	     count(i) AS instanceCount, collect(DISTINCT r.mappingRationale) AS rationaleList
+	WHERE size(rationaleList) > 1
+	WITH q, h, matchType, instanceCount, rationaleList ORDER BY q.stableId, h.canonicalKey LIMIT 1
+	RETURN q.stableId AS questionStableId, h.canonicalKey AS hubKey, matchType, instanceCount, rationaleList`, {}, (err, rowList) => {
+	if (err) { next(err, args); return; }
+	if (!rowList[0]) { next('no SIF Question reaches one hub by one verdict through instances with differing rationales', args); return; }
+	next('', { ...args, instanceFixture: rowList[0] });
+}));
+taskList.push((args, next) => runVerb(['-findMappings', args.instanceFixture.questionStableId], (err, outcome) => {
+	const { hubKey, matchType, instanceCount, rationaleList } = args.instanceFixture;
+	const rowList = ((outcome.parsedStdout || {}).mappingRowList || []).filter((oneRow) => oneRow.direction === 'outgoingViaInstance' && oneRow.toId === hubKey && oneRow.mappingType === matchType);
+	assert(`instance verdict ${matchType} -> ${hubKey} is ONE row (${rationaleList.length} distinct rationales do not split it)`, rowList.length === 1, `${rowList.length} rows`);
+	assert(`  its instanceCount is every instance carrying it (${instanceCount})`, !!rowList[0] && rowList[0].instanceCount === instanceCount, rowList[0] ? `${rowList[0].instanceCount}` : 'no row');
+	assert('  its mappingRationale is one of the instances\' recorded texts, quoted verbatim', !!rowList[0] && rationaleList.indexOf(rowList[0].mappingRationale) !== -1, rowList[0] ? JSON.stringify(rowList[0].mappingRationale).slice(0, 120) : 'no row');
+	next('', args);
+}, cliFilePath));
 taskList.push((args, next) => runQuery(`MATCH ()-[r:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->() WHERE r.mappingKind = 'inferred'
 	RETURN count(r) AS judgedCount, count(r.mappingRationale) AS rationaleCount`, {}, (err, rowList) => {
 	if (err) { next(err, args); return; }

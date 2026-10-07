@@ -263,8 +263,9 @@ CALL {
        m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource, m.mappingRationale AS mappingRationale,
        coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName,
        inst
+  // the rationale is per-instance evidence, not part of the verdict: min() keeps one recorded text without splitting the row
   WITH hub, matchType, confidence, matchPredicate,
-       mappingConfidence, mappingKind, mappingSource, mappingRationale,
+       mappingConfidence, mappingKind, mappingSource, min(mappingRationale) AS mappingRationale,
        collect(DISTINCT instGroupName) AS instanceGroupList, count(inst) AS instanceCount
   WHERE hub IS NOT NULL
   WITH hub, matchType, confidence, matchPredicate, mappingConfidence, mappingKind, mappingSource, mappingRationale, instanceGroupList, instanceCount, matchType AS rowRelation
