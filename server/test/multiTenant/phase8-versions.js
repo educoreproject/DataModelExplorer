@@ -1,5 +1,5 @@
 'use strict';
-// Phase 8 backend gate — soft-lock read-only (T8.2), reaper (T8.3), dangling-ref remap
+// Phase 8 backend gate — owner reclaim on reopen (T8.2; was a soft-lock read-only, retired by BUG-1 0831d55), reaper (T8.3), dangling-ref remap
 // (T8.4). The version-selector UI (T8.1) is exercised by Playwright separately; T8.5
 // (standard regression) is an HTTP check. Provisions REAL clones; always tears down.
 
@@ -40,9 +40,16 @@ const dotD = () => ({ logList: [], library: { add: (n, f) => { lib[n] = f; } } }
 const results = [];
 const ok = (name, cond) => results.push([name, !!cond]);
 const provisioned = [];
-const URI_A = 'https://w3id.org/CEDStandards/terms/C000000';
-const URI_B = 'https://w3id.org/CEDStandards/terms/C200411';
+// ⟪campaign P4a⟫ T8.4 links by stableId (ruling A12, W-E-5): the two link targets are read from the golden at start —
+// the first two CEDS nodes in a linkable role, by stableId — never literals (the URI literals here were refused by name
+// since P2: uri is a retired key)
+const { USER_LINK_TARGET_RULE } = require('../../data-model/lib/user-graph/user-layer-contract');
 
+// a container's docker id by name or id, '' when none answers (argument array, no shell — W-E-12)
+const containerIdOf = (containerNameOrId) => {
+	const inspected = require('child_process').spawnSync('docker', ['inspect', '--format', '{{.Id}}', String(containerNameOrId || '')], { encoding: 'utf8' });
+	return inspected.status === 0 ? inspected.stdout.trim() : '';
+};
 const series = (steps, done) => { let i = 0; const n = (e) => { if (e) { done(e); return; } if (i >= steps.length) { done(); return; } steps[i++](n); }; n(); };
 const cleanupAll = (cb) => { let i = 0; const n = () => { if (i >= provisioned.length) { cb(); return; } cloneManager.teardownClone(provisioned[i++], () => n()); }; n(); };
 const finish = (err) => { cleanupAll(() => { try { fs.unlinkSync(TEST_DB); } catch (e) {} if (err) console.error('FLOW ERROR:', err); let p = !err; results.forEach(([n, g]) => { if (!g) p = false; console.log(`${g ? 'PASS' : 'FAIL'} - ${n}`); }); console.log(p ? 'ALL_PASS' : 'SOME_FAIL'); process.exit(p ? 0 : 1); }); };
@@ -50,30 +57,59 @@ const finish = (err) => { cleanupAll(() => { try { fs.unlinkSync(TEST_DB); } cat
 sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 	if (dbErr) { finish(`db init: ${dbErr}`); return; }
 	const ptp = { sqlDb, dataMapping, accessPointsDotD: lib };
-	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-list', 'graph-state-version-loadScript', 'graph-state-version-setLive', 'graph-state-version-rename', 'graph-state-version-stampHeartbeat', 'dme-user-graph-open', 'dme-user-graph-write', 'dme-user-graph-remap']
+	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-list', 'graph-state-version-loadScript', 'graph-state-version-setLive', 'graph-state-version-rename', 'graph-state-version-stampHeartbeat', 'dme-user-graph-open', 'dme-user-graph-write', 'dme-user-graph-save', 'dme-user-graph-remap']
 		.forEach((f) => require(`../../data-model/access-points-dot-d/accessPoints.d/${f}`)({ dotD: dotD(), passThroughParameters: ptp }));
 
 	const USER = '__TEST_uV';
 	const st = {};
 
 	series([
-		// ---- T8.2 soft-lock: second open of a live version is read-only ----
+		(cb) => {
+			const golden = require('../../data-model/lib/user-graph/container-connection-resolver').resolveContainerConnection(require('../lib/goldenContainerName').readGoldenContainerName());
+			if (golden.error) { cb(`golden: ${golden.error}`); return; }
+			require(`${LIB}/neo4j-instance/neo4j-instance`)({ unused: true }).initDatabaseInstance({ neo4jBoltUri: golden.boltUri, neo4jUser: golden.user, neo4jPassword: golden.password }, (ce, goldenDb) => {
+				if (ce) { cb(ce); return; }
+				goldenDb.runQuery(`MATCH (s:${USER_LINK_TARGET_RULE.targetLabel}) WHERE s._source = 'CEDS' AND s.role IN $linkableRoleList RETURN s.${USER_LINK_TARGET_RULE.standardKeyName} AS targetStableId ORDER BY targetStableId LIMIT 20`, { linkableRoleList: USER_LINK_TARGET_RULE.linkableRoleList }, (qe, rows) => {
+					goldenDb.close();
+					// B must not contain A nor A contain B: the remap is a text substitution and the check reads indexOf
+					const stableIdA = rows && rows[0] && rows[0].targetStableId;
+					const rowB = (rows || []).find((row) => !row.targetStableId.includes(stableIdA) && !stableIdA.includes(row.targetStableId));
+					if (qe || !rowB) { cb(qe || 'the golden holds no two unrelated linkable CEDS stableIds'); return; }
+					st.stableIdA = stableIdA; st.stableIdB = rowB.targetStableId;
+					cb();
+				});
+			});
+		},
+		// ---- T8.2 owner reclaim (campaign P4a): a second open of a live version by its OWNER reclaims it READ-WRITE ----
+		// BUG-1 (0831d55) retired the soft lock: a version has one owner, so a live lock at open is that owner's own
+		// unclosed session; the open tears it down and opens fresh (new clone, replay, new lock). The read-only branch no
+		// longer exists in dme-user-graph-open, so 'second open is READ-ONLY' was a stale expectation (P1 carry, code fact).
 		(cb) => lib['graph-state-version-new']({ userRefId: USER, versionName: 'V1' }, (e, r) => { st.v1 = r && r.refId; cb(e); }),
-		(cb) => { console.log('open v1 (live)...'); lib['dme-user-graph-open']({ userRefId: USER, username: 'alice', versionRefId: st.v1 }, (e, r) => { if (e) { cb(e); return; } st.h1container = r.identityMarker; ok('T8.2 first open is read-write', r && r.readOnly === false); cb(); }); },
-		(cb) => lib['dme-user-graph-open']({ userRefId: USER, username: 'alice', versionRefId: st.v1 }, (e, r) => { ok('T8.2 second concurrent open is READ-ONLY (soft lock)', r && r.readOnly === true); cb(e); }),
-		// capture the live container for cleanup, then close v1
-		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v1 }, (e, row) => { if (row && row.liveContainerName) provisioned.push({ containerName: row.liveContainerName, cloneDir: cloneManager.cloneDirFor(USER, st.v1) }); cb(e); }),
+		(cb) => { console.log('open v1 (live)...'); lib['dme-user-graph-open']({ userRefId: USER, username: 'alice', versionRefId: st.v1 }, (e, r) => { if (e) { cb(e); return; } ok('T8.2 first open is read-write', r && r.readOnly === false); cb(); }); },
+		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v1 }, (e, row) => { st.v1FirstRow = row; st.v1FirstContainerId = row && containerIdOf(row.liveContainerName); if (row && row.liveContainerName) provisioned.push({ containerName: row.liveContainerName, cloneDir: cloneManager.cloneDirFor(USER, st.v1) }); ok('T8.2 first open holds a lock on a live clone', !!(row && row.lockToken && row.liveContainerName)); cb(e); }),
+		(cb) => { console.log('reopen v1 as its owner (reclaim)...'); lib['dme-user-graph-open']({ userRefId: USER, username: 'alice', versionRefId: st.v1 }, (e, r) => { ok('T8.2 the owner\'s second open RECLAIMS read-write (readOnly === false)', r && r.readOnly === false); cb(e); }); },
+		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v1 }, (e, row) => {
+			if (row && row.liveContainerName) provisioned.push({ containerName: row.liveContainerName, cloneDir: cloneManager.cloneDirFor(USER, st.v1) });
+			ok('T8.2 the reclaim took a NEW lock', !!(row && row.lockToken && st.v1FirstRow && row.lockToken !== st.v1FirstRow.lockToken));
+			ok('T8.2 the reclaim serves a live clone', !!(row && row.liveContainerName && cloneManager.containerExists(row.liveContainerName)));
+			// clone names are per user and version, so the reclaimed clone may carry the first one's NAME: identity is the docker id
+			const reclaimedContainerId = row && containerIdOf(row.liveContainerName);
+			ok('T8.2 the first session\'s clone was torn down (its docker id is gone; the reclaim serves a different container)', !!(st.v1FirstContainerId && reclaimedContainerId && reclaimedContainerId !== st.v1FirstContainerId && containerIdOf(st.v1FirstContainerId) === ''), JSON.stringify({ first: st.v1FirstContainerId.slice(0, 12), reclaimed: (reclaimedContainerId || '').slice(0, 12) }));
+			cb(e);
+		}),
 
-		// ---- T8.4 remap: build a layer referencing URI_A, save, remap A->B in the stored script ----
+		// ---- T8.4 remap: build a layer referencing stableId A, save, remap A->B in the stored script ----
 		(cb) => lib['graph-state-version-new']({ userRefId: USER, versionName: 'V2' }, (e, r) => { st.v2 = r && r.refId; cb(e); }),
 		(cb) => { console.log('open v2 (build + remap)...'); seam.getUserGraph({ userRefId: USER, versionRefId: st.v2, username: 'alice', sqlDb, dataMapping }, (e, h) => { if (e) { cb(e); return; } st.h2 = h; provisioned.push({ containerName: h.containerName, cloneDir: h.cloneDir }); cb(); }); },
 		(cb) => lib['dme-user-graph-write']({ userRefId: USER, versionRefId: st.v2, action: 'createNode', params: { labels: ['Course'], properties: { name: 'Algebra' } } }, (e, r) => { st.n = r && r.userNodeId; cb(e); }),
-		(cb) => lib['dme-user-graph-write']({ userRefId: USER, versionRefId: st.v2, action: 'connectToStandard', params: { userNodeId: st.n, relType: 'ALIGNS_WITH', standardKey: URI_A } }, (e) => cb(e)),
-		// Save via reEmit -> store
-		(cb) => { const { reEmit } = require(`${LIB}/user-graph/re-emit`); const g = require(`${LIB}/neo4j-instance/neo4j-instance`)({ unused: true }); g.initDatabaseInstance({ neo4jBoltUri: st.h2.graphConnection.boltUri, neo4jUser: 'neo4j', neo4jPassword: st.h2.graphConnection.password }, (ce, db) => { if (ce) { cb(ce); return; } reEmit({ userGraphDb: db, embeddingModelVersion: 'voyage-3' }, (re, res) => { db.close(); if (re) { cb(re); return; } lib['graph-state-version-save']({ userRefId: USER, refId: st.v2, stateScript: res.stateScript, userNodeCount: res.userNodeCount, embeddingModelVersion: 'voyage-3' }, (se) => cb(se)); }); }); },
-		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v2 }, (e, row) => { ok('T8.4 setup: saved script references URI_A', row && row.stateScript.indexOf(URI_A) !== -1); cb(e); }),
-		(cb) => lib['dme-user-graph-remap']({ userRefId: USER, versionRefId: st.v2, oldKey: URI_A, newKey: URI_B }, (e, r) => { ok('T8.4 remap reports success', r && r.remapped); cb(e); }),
-		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v2 }, (e, row) => { ok('T8.4 stored script now references URI_B', row && row.stateScript.indexOf(URI_B) !== -1); ok('T8.4 stored script no longer references URI_A', row && row.stateScript.indexOf(URI_A) === -1); cb(e); }),
+		(cb) => lib['dme-user-graph-write']({ userRefId: USER, versionRefId: st.v2, action: 'connectToStandard', params: { userNodeId: st.n, relType: 'ALIGNS_WITH', standardStableId: st.stableIdA } }, (e) => cb(e)),
+		// Save through the real save access point (it re-emits against the clone's own manifest). ⟪campaign P4a⟫ until P4a
+		// this step called reEmit with embeddingModelVersion, a shape W-E-5/6 (P2) retired: reEmit now REQUIRES
+		// goldenVersionAuthoredAgainst, so this step refused before T8.4 could run.
+		(cb) => lib['dme-user-graph-save']({ userRefId: USER, versionRefId: st.v2 }, (e, r) => { ok('T8.4 setup: save reports saved', r && r.saved); cb(e); }),
+		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v2 }, (e, row) => { ok('T8.4 setup: saved script references stableId A', row && row.stateScript.indexOf(st.stableIdA) !== -1); cb(e); }),
+		(cb) => lib['dme-user-graph-remap']({ userRefId: USER, versionRefId: st.v2, oldKey: st.stableIdA, newKey: st.stableIdB }, (e, r) => { ok('T8.4 remap reports success', r && r.remapped); cb(e); }),
+		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.v2 }, (e, row) => { ok('T8.4 stored script now references stableId B', row && row.stateScript.indexOf(st.stableIdB) !== -1); ok('T8.4 stored script no longer references stableId A', row && row.stateScript.indexOf(st.stableIdA) === -1); cb(e); }),
 		(cb) => seam.releaseUserGraph(st.h2, { sqlDb, dataMapping }, (e) => cb(e)),
 
 		// ---- T8.3 reaper: abandoned live session (stale heartbeat) is reclaimed ----
