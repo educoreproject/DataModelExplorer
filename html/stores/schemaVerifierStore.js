@@ -11,8 +11,8 @@
 //      file is the authoritative source for HR Open property paths.
 //
 //   2. CEDS (and every other standard) equivalence — looked up LIVE from the
-//      EDUcore knowledge graph via POST /api/dmeCypherQuery (the same engine the
-//      EDUcore MCP server exposes as cypherQuery).
+//      EDUcore knowledge graph via POST /api/schemaEquivalents (the browser sends
+//      words; the server's schema-equivalents mapper owns the query).
 //
 // The tool can either browse the crosswalk directly (a better-than-spreadsheet
 // view) or load an arbitrary OpenAPI document, break it into its component
@@ -145,26 +145,6 @@ function parseOpenApi(doc) {
 	};
 }
 
-// -------------------------------------------------------------------------
-// Standard label / colour helpers shared with the UI.
-
-const STANDARD_FROM_LABEL = (labels = []) => {
-	const l = labels.find((x) => /Property|Field|Class|Element|Entity/.test(x)) || labels[0] || '';
-	if (l.startsWith('Ceds')) return 'CEDS';
-	if (l.startsWith('Jedx')) return 'JEDx';
-	if (l.startsWith('EduApi')) return 'Ed-API';
-	if (l.startsWith('Sif')) return 'SIF';
-	if (l.startsWith('Edfi')) return 'Ed-Fi';
-	if (l.startsWith('Ctdl')) return 'CTDL';
-	if (l.startsWith('Pesc')) return 'PESC';
-	if (l.startsWith('Sedm')) return 'SEDM';
-	if (l.startsWith('Lif')) return 'LIF';
-	if (l.startsWith('Clr')) return 'CLR';
-	if (l.startsWith('OpenBadges')) return 'Open Badges';
-	if (l.startsWith('Case')) return 'CASE';
-	return l.replace(/(Property|Field|Class|Element|Entity)$/, '') || 'Other';
-};
-
 // =========================================================================
 
 export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
@@ -278,100 +258,44 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		},
 
 		// ------------------------------------------------------------
-		// CEDS / cross-standard equivalents — LIVE graph lookup.
-		// Searches property/field/class nodes whose name matches the term,
-		// then collects each match's cross-standard MAPS_TO / IMPLIED_MAPPING
-		// neighbours (the actual "equivalents").
+		// CEDS / cross-standard equivalents — LIVE graph lookup (ported to the current graph, campaign P4b, A11).
+		// Sends the term's significant WORDS to POST /api/schemaEquivalents; the server runs the schema-equivalents
+		// mapper's query on the golden graph. Each row's `related` list holds JUDGMENTS (EXACT/CLOSE/BROAD/NARROW
+		// match edges through the CEDS hub), each with its mappingConfidence, mappingKind and mappingSource — none
+		// is authoritative. A refusal (for example a graph that lacks a label the query reads) is shown as-is.
 
 		async lookupGraph(term) {
-			const tokens = significantTokens(term);
-			const key = tokens.join(' ');
-			if (!key) return [];
-			if (this.graphCache[key]) return this.graphCache[key];
+			const wordList = significantTokens(term);
+			const cacheRefId = wordList.join(' ');
+			if (!cacheRefId) return [];
+			if (this.graphCache[cacheRefId]) return this.graphCache[cacheRefId];
 
 			this.graphLoading = true;
 			this.graphError = '';
-
-			// Relevance-ranked, parameterised, read-only.
-			//
-			// Strict "all tokens present" misses real equivalents whenever the
-			// standard names the concept slightly differently (e.g. the element
-			// "Position Job Title" vs. CEDS "Position Title"). Instead we keep any
-			// node sharing at least `minHits` significant tokens and rank by:
-			//   hits*100   — coverage of the query's tokens (primary)
-			//   + prec     — tightness: fewer extra words ranks higher (capped at 1.0
-			//                so a no-space name like "PositionTitle" can't over-score)
-			//   + 1        — prefer Property/Field leaves over Class hubs
-			//   + 2        — surface CEDS first (the headline equivalence)
-			const minHits = Math.max(1, Math.ceil(tokens.length / 2));
-			const query = `
-				WITH $words AS words, $minHits AS minHits
-				MATCH (n)
-				WHERE (n:CedsProperty OR n:CedsClass OR n:JedxField OR n:EduApiProperty
-				       OR n:SifField OR n:CtdlProperty OR n:EdfiField OR n:LifProperty)
-				  AND size(words) > 0
-				  AND size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) >= minHits
-				WITH n,
-				     size([w IN words WHERE toLower(coalesce(n.name,'')) CONTAINS w]) AS hits,
-				     size(split(trim(toLower(coalesce(n.name,''))), ' ')) AS candWords
-				WITH n, hits, (CASE WHEN candWords > hits THEN candWords ELSE hits END) AS denom
-				WITH n, hits, toInteger(round(10.0 * hits / denom)) AS prec
-				WITH n, hits,
-				     (hits * 100 + prec
-				      + CASE WHEN (n:CedsProperty OR n:JedxField OR n:EduApiProperty
-				                   OR n:SifField OR n:CtdlProperty OR n:EdfiField OR n:LifProperty)
-				             THEN 1 ELSE 0 END
-				      + CASE WHEN n:CedsProperty OR n:CedsClass THEN 2 ELSE 0 END) AS score
-				ORDER BY score DESC LIMIT 20
-				OPTIONAL MATCH (n)-[r:MAPS_TO|IMPLIED_MAPPING]-(m)
-				WHERE m:CedsProperty OR m:CedsClass OR m:JedxField OR m:EduApiProperty
-				      OR m:SifField OR m:CtdlProperty OR m:EdfiField OR m:LifProperty
-				RETURN labels(n) AS labels,
-				       n.name AS name,
-				       coalesce(n.description, n.definition, '') AS description,
-				       coalesce(n.cedsId, n.persistentId, '') AS sourceId,
-				       score,
-				       collect(DISTINCT {
-				         rel: type(r),
-				         name: m.name,
-				         labels: labels(m),
-				         confidence: r.confidence
-				       })[0..10] AS related
-				ORDER BY score DESC
-			`;
-
 			try {
 				const loginStore = useLoginStore();
-				const headers = { 'Content-Type': 'application/json' };
-				if (loginStore.authtoken) Object.assign(headers, loginStore.getAuthTokenProperty);
-
-				const res = await axios.post(
-					'/api/dme-cypher-query',
-					{ action: 'query', query, params: { words: tokens, minHits } },
-					{ headers },
-				);
-
-				const rows = (Array.isArray(res.data) ? res.data : []).map((row) => ({
-					standard: STANDARD_FROM_LABEL(row.labels),
-					labels: row.labels,
-					name: row.name,
-					description: row.description,
-					sourceId: row.sourceId,
-					related: (row.related || [])
-						.filter((r) => r && r.name)
-						.map((r) => ({
-							standard: STANDARD_FROM_LABEL(r.labels),
-							name: r.name,
-							rel: r.rel,
-							authoritative: r.rel === 'MAPS_TO',
-							confidence: r.confidence,
-						})),
+				const headers = { 'Content-Type': 'application/json', ...loginStore.getAuthTokenProperty };
+				const response = await axios.post('/api/schemaEquivalents', { wordList }, { headers });
+				const equivalentRowList = (Array.isArray(response.data) ? response.data : []).map((oneRow) => ({
+					standard: oneRow.standardFamily || oneRow.source,
+					source: oneRow.source,
+					name: oneRow.name,
+					description: oneRow.description,
+					sourceId: oneRow.sourceId,
+					related: (oneRow.related || []).map((oneRelated) => ({
+						standard: oneRelated.source,
+						name: oneRelated.name,
+						relation: oneRelated.relation,
+						mappingConfidence: oneRelated.mappingConfidence,
+						mappingKind: oneRelated.mappingKind,
+						mappingSource: oneRelated.mappingSource,
+						edgeCount: oneRelated.edgeCount,
+					})),
 				}));
-
-				this.graphCache[key] = rows;
-				return rows;
-			} catch (err) {
-				this.graphError = err.response?.data || err.message || 'Graph lookup failed';
+				this.graphCache[cacheRefId] = equivalentRowList;
+				return equivalentRowList;
+			} catch (error) {
+				this.graphError = error.response?.data || error.message || 'Schema equivalents lookup failed';
 				return [];
 			} finally {
 				this.graphLoading = false;

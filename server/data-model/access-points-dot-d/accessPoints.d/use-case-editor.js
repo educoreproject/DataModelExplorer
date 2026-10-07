@@ -22,6 +22,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const schemas = require('../../schemas/useCase');
+const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
 // Note: `pipeRunner` / `taskListPlus` / `forwardArgs` required by serviceFunction below
 // (defined via the qtools-asynchronous-pipe-plus import at module top).
 
@@ -32,6 +33,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const { neo4jDb, dataMapping } = passThroughParameters;
 	const uceMapper = dataMapping['use-case-editor'];
+
+	// A11 / W-E-8 (campaign P4b): every graph action first proves the graph carries the use-case labels. On the
+	// current golden it does not (use cases are not forged, PLAN E2), so list/get/save refuse BY NAME, naming the
+	// absent labels. Saving can never reach the golden anyway: its handle is read-only and runTransaction refuses
+	// unless the connection was opened writeCapable (W-E-10).
+	const probeRequiredLabels = makeRequiredLabelProbe({
+		neo4jDb,
+		ownerName: moduleName,
+		requiredLabelList: uceMapper.requiredLabelList,
+		absentReason: 'use cases are not forged into the current graph (PLAN E2), so the editor has nothing to read or write',
+	});
 
 	// ================================================================================
 	// HELPERS — run a named Cypher query and return its records.
@@ -443,6 +455,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
+	// the dispatch registry: which handler serves an action, and whether it touches the graph (schema is the bundled
+	// manifest and does not)
+	const ACTION_ENTRY_BY_ACTION = Object.freeze({
+		schema: { actionHandler: doSchema, readsGraph: false },
+		list: { actionHandler: doList, readsGraph: true },
+		get: { actionHandler: doGet, readsGraph: true },
+		save: { actionHandler: doSave, readsGraph: true },
+	});
+
 	// ================================================================================
 	// SERVICE FUNCTION — thin dispatcher.
 
@@ -453,14 +474,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		}
 
 		const action = xQuery && xQuery.action;
-		switch (action) {
-			case 'schema':   return doSchema(xQuery, callback);
-			case 'list':     return doList(xQuery, callback);
-			case 'get':      return doGet(xQuery, callback);
-			case 'save':     return doSave(xQuery, callback);
-			default:
-				callback(`Unknown action: ${action}. Known actions: schema, list, get, save.`, []);
+		const actionEntry = ACTION_ENTRY_BY_ACTION[action];
+		if (!actionEntry) {
+			callback(`Unknown action: ${action}. Known actions: ${Object.keys(ACTION_ENTRY_BY_ACTION).join(', ')}.`, []);
+			return;
 		}
+		if (!actionEntry.readsGraph) {
+			actionEntry.actionHandler(xQuery, callback);
+			return;
+		}
+		probeRequiredLabels((probeError) => {
+			if (probeError) {
+				callback(probeError, []);
+				return;
+			}
+			actionEntry.actionHandler(xQuery, callback);
+		});
 	};
 
 	// ================================================================================

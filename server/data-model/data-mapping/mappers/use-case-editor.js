@@ -49,6 +49,11 @@ const parseIssueNumberFromId = (id) => {
 	return Number.isFinite(n) ? n : null;
 };
 
+// requiredLabelList — the labels this mapper's Cypher reads (campaign P4b, A11 / W-E-8). The current graph carries
+// NO use cases (they are not forged into it, PLAN E2), so the access point refuses by name on every graph action
+// rather than answering [] as if a graph of use cases were empty.
+const requiredLabelList = Object.freeze(['UseCase', 'UseCaseStep', 'UseCaseActor', 'DataReference', 'ExternalReference', 'UseCaseCategory']);
+
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = ({ moduleName }) => (deps) => {
@@ -483,6 +488,7 @@ const moduleFunction = ({ moduleName }) => (deps) => {
 	});
 
 	return {
+		requiredLabelList,
 		getCypher,
 		splitProperties,
 		deriveLogicalId,

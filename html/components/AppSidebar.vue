@@ -89,11 +89,6 @@ const isAdmin = computed(() =>
 				title="Alignment"
 			/>
 			<v-list-item
-				to="/dm/lookup"
-				prepend-icon="mdi-swap-horizontal"
-				title="Ontology"
-			/>
-			<v-list-item
 				to="/dm/explorer"
 				prepend-icon="mdi-graph-outline"
 				title="Data Model Explorer"

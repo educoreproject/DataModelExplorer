@@ -115,7 +115,7 @@ const fallbackPromptOptions = [
 
 <template>
 	<div class="explorer-page">
-		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
+		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }]" />
 
 			<v-alert
 					v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"

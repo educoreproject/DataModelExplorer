@@ -33,6 +33,7 @@ const STANDARD_COLORS = {
 	'Ed-API': 'deep-purple',
 	SIF: 'blue',
 	'Ed-Fi': 'cyan',
+	EdFi: 'cyan',
 	CTDL: 'green',
 	PESC: 'brown',
 	SEDM: 'orange',
@@ -42,6 +43,16 @@ const STANDARD_COLORS = {
 	CASE: 'blue-grey',
 };
 const stdColor = (s) => STANDARD_COLORS[s] || 'grey';
+
+// Every graph equivalent is a JUDGED match edge (campaign P4b, A11): colour and label say which SKOS relation it is.
+const RELATION_DISPLAY_BY_RELATION = {
+	EXACT_MATCH: { relationLabel: 'exact', relationColor: 'success' },
+	CLOSE_MATCH: { relationLabel: 'close', relationColor: 'teal' },
+	BROAD_MATCH: { relationLabel: 'broad', relationColor: 'amber-darken-2' },
+	NARROW_MATCH: { relationLabel: 'narrow', relationColor: 'deep-orange' },
+};
+const relationLabel = (relation) => (RELATION_DISPLAY_BY_RELATION[relation] || { relationLabel: relation }).relationLabel;
+const relationColor = (relation) => (RELATION_DISPLAY_BY_RELATION[relation] || { relationColor: 'grey' }).relationColor;
 
 // The two broad information types in the dictionary. Colour-coding the group on
 // each match makes it obvious at a glance whether a suggestion is an
@@ -212,16 +223,12 @@ watch(
 									:key="j"
 									size="x-small"
 									class="mr-1 mb-1"
-									:color="rel.authoritative ? 'success' : 'amber-darken-2'"
-									:variant="rel.authoritative ? 'flat' : 'tonal'"
-									:title="rel.authoritative
-										? 'MAPS_TO — authoritative, spec-annotated'
-										: 'IMPLIED_MAPPING — inferred from similarity'"
+									:color="relationColor(rel.relation)"
+									variant="tonal"
+									:title="`${rel.relation} — a judgment, not a fact: confidence ${rel.mappingConfidence}, kind ${rel.mappingKind}, source ${rel.mappingSource}${rel.edgeCount > 1 ? ` (${rel.edgeCount} edges)` : ''}`"
 								>
-									<v-icon start size="12">
-										{{ rel.authoritative ? 'mdi-check-decagram' : 'mdi-lightbulb-outline' }}
-									</v-icon>
-									{{ rel.standard }}: {{ rel.name }}
+									<v-icon start size="12">mdi-scale-balance</v-icon>
+									{{ relationLabel(rel.relation) }} {{ rel.standard }}: {{ rel.name }} · {{ rel.mappingConfidence }}
 								</v-chip>
 							</div>
 						</v-card-text>
