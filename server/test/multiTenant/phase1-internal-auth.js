@@ -15,8 +15,7 @@ const path = require('path');
 
 const HOST = '127.0.0.1';
 const PORT = 7790;
-const USER = 'tqwhite';
-const PASS = 'shairWord!0';
+const { loginUsername: USER, loginPassword: PASS } = require('./testLoginCredentials').primaryTestLogin();
 
 // Read the internal secret from server config at runtime — never hardcode it into the
 // (pushable) code repo. Mirrors how the server reads [dmeUserGraphInternalAuth].

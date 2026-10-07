@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const HOST = '127.0.0.1';
+const PRIMARY_LOGIN = require('./testLoginCredentials').primaryTestLogin();
 const PORT = 7790;
 const API_BASE = `http://127.0.0.1:${PORT}`;
 const WRITE_TOOL = path.resolve(__dirname, '../../../cli/lib.d/dme-user-write/dmeUserWriteTool.js');
@@ -56,7 +57,7 @@ const finish = (err) => {
 const listVersions = (token, cb) => httpRequest({ method: 'GET', path: '/api/dme-user-graph-list', headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }, cb);
 
 series([
-	(cb) => httpRequest({ method: 'GET', path: `/api/login?username=tqwhite&password=${encodeURIComponent('shairWord!0')}`, timeout: 20000 }, (e, r) => { st.token = r && r.headers && r.headers.authtoken; ok('login', !!st.token); cb(e); }),
+	(cb) => httpRequest({ method: 'GET', path: `/api/login?username=${encodeURIComponent(PRIMARY_LOGIN.loginUsername)}&password=${encodeURIComponent(PRIMARY_LOGIN.loginPassword)}`, timeout: 20000 }, (e, r) => { st.token = r && r.headers && r.headers.authtoken; ok('login', !!st.token); cb(e); }),
 
 	// token-untouched (pre): the browser JWT works before any user write
 	(cb) => listVersions(st.token, (e, r) => { ok('T6.2 token valid before write (list 200)', r && r.status === 200); cb(); }),

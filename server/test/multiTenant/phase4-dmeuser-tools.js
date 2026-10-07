@@ -14,6 +14,9 @@ const fs = require('fs');
 const path = require('path');
 
 const HOST = '127.0.0.1';
+const { primaryTestLogin, secondTestLogin } = require('./testLoginCredentials');
+const PRIMARY_LOGIN = primaryTestLogin();
+const SECOND_LOGIN = secondTestLogin();
 const PORT = 7790;
 const API_BASE = `http://127.0.0.1:${PORT}`;
 const STANDARD_URI = 'https://w3id.org/CEDStandards/terms/C000000'; // a real CEDS element; its stableId equals its uri, and stableId is the link key (W-E-5)
@@ -94,7 +97,7 @@ series([
 	}),
 
 	// --- setup: login + open a version (tqwhite) ---
-	(cb) => login('tqwhite', 'shairWord!0', (e, r) => { if (e) { cb(e); return; } st.token = r.token; st.userRefId = r.userRefId; ok('login tqwhite', !!st.token); cb(); }),
+	(cb) => login(PRIMARY_LOGIN.loginUsername, PRIMARY_LOGIN.loginPassword, (e, r) => { if (e) { cb(e); return; } st.token = r.token; st.userRefId = r.userRefId; ok('login primary user', !!st.token); cb(); }),
 	(cb) => { console.log('opening clone (quiesces golden)...'); httpRequest({ method: 'POST', path: '/api/dme-user-graph-open', headers: { Authorization: `Bearer ${st.token}` }, body: { new: true, versionName: '__TEST_phase4_tools' }, timeout: 180000 }, (e, r) => {
 		const row = r && r.body && r.body[0]; st.versionRefId = row && row.versionRefId;
 		ok('open version (JWT)', !!st.versionRefId); cb(e || (st.versionRefId ? '' : 'open failed'));
@@ -154,7 +157,7 @@ series([
 		ok('C1 owner sees own version in list', mine.indexOf(st.versionRefId) !== -1);
 		cb();
 	}),
-	(cb) => login('debbiedo', 'shairWord!0', (e, r) => { if (e) { cb(e); return; } st.otherToken = r.token; ok('login debbiedo (second user)', !!st.otherToken); cb(); }),
+	(cb) => login(SECOND_LOGIN.loginUsername, SECOND_LOGIN.loginPassword, (e, r) => { if (e) { cb(e); return; } st.otherToken = r.token; ok('login second user', !!st.otherToken); cb(); }),
 	(cb) => httpRequest({ method: 'GET', path: '/api/dme-user-graph-list', headers: { Authorization: `Bearer ${st.otherToken}` }, timeout: 20000 }, (e, r) => {
 		const theirs = Array.isArray(r.body) ? r.body.map((v) => v.refId) : [];
 		ok("C1 another user's list does NOT contain the owner's versionRefId", theirs.indexOf(st.versionRefId) === -1);
