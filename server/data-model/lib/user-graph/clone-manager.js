@@ -35,6 +35,20 @@ const { CLONE_AUTH_ENV_NAME } = require('./container-connection-resolver');
 const MAX_CONCURRENT_CLONES = 3; // resource hygiene (ONYX / plan §0.12)
 const NEO4J_IMAGE = 'neo4j:5-community';
 
+// CLONE_CONTAINER_SECURITY_ENV_LIST — X5 (campaign P4b, ruled B by VIOLET_VALLEY 2026-10-07). The SAME security env
+// educoreForge's replayManager gives every graph container (NEO4J_CONTAINER_SECURITY_ENV_LIST there; two repos, so two
+// declarations, kept equal by hand and each held by its own test):
+//   * APOC allowed ONLY as apoc.merge.*: the DME runtime calls no APOC procedure and the forge only
+//     apoc.merge.relationship, so apoc.load.* / apoc.import.* / apoc.cypher.* are absent, and nothing is unrestricted;
+//   * internal.dbms.cypher_ip_blocklist covers every IPv4 and IPv6 address, so LOAD CSV FROM <url> is refused by Neo4j
+//     (the public name dbms.security.cypher_ip_blocklist is refused by 5.26's strict config validation).
+// No import directory is mounted any more: nothing in the DME reads one, and an empty LOAD CSV source is one less door.
+const CLONE_CONTAINER_SECURITY_ENV_LIST = Object.freeze([
+	'NEO4J_PLUGINS=["apoc"]',
+	'NEO4J_dbms_security_procedures_allowlist=apoc.merge.*',
+	'NEO4J_internal_dbms_cypher__ip__blocklist=0.0.0.0/0,::/0',
+]);
+
 // The golden container NAME is the SINGLE SOURCE OF TRUTH (config key goldenContainerName in
 // dataModelExplorerSearch.ini). Everything else about golden's connection — boltUri, user,
 // password, host bolt port — is DERIVED from it at runtime by container-connection-resolver;
@@ -582,7 +596,7 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 	}
 	try { fs.rmSync(cloneDir, { recursive: true, force: true }); } catch (e) {}
 
-	['data', 'logs', 'plugins', 'import'].forEach((sub) => {
+	['data', 'logs', 'plugins'].forEach((sub) => {
 		fs.mkdirSync(path.join(cloneDir, sub), { recursive: true });
 	});
 
@@ -646,12 +660,10 @@ const provisionCloneImpl = ({ userRefId, versionRefId }, callback) => {
 			const dockerRunArgumentList = [
 				'run', '-d', '--name', dockerSafeContainerName(containerName),
 				'-p', `${Number(boltPort)}:7687`, '-p', `${Number(httpPort)}:7474`,
-				'-e', 'NEO4J_PLUGINS=["apoc"]',
-				'-e', 'NEO4J_dbms_security_procedures_unrestricted=apoc.*',
-				'-e', 'NEO4J_dbms_security_procedures_allowlist=apoc.*',
+				...CLONE_CONTAINER_SECURITY_ENV_LIST.reduce((soFar, oneEnv) => soFar.concat(['-e', oneEnv]), []),
 				'-e', `${CLONE_AUTH_ENV_NAME}=neo4j/${password}`,
 				'-v', `${cloneDir}/data:/data`, '-v', `${cloneDir}/logs:/logs`,
-				'-v', `${cloneDir}/plugins:/plugins`, '-v', `${cloneDir}/import:/var/lib/neo4j/import`,
+				'-v', `${cloneDir}/plugins:/plugins`,
 				NEO4J_IMAGE,
 			];
 
@@ -759,6 +771,7 @@ module.exports = {
 	getUserGraphsBase,
 	getGoldenMounts,
 	MAX_CONCURRENT_CLONES,
+	CLONE_CONTAINER_SECURITY_ENV_LIST,
 	createSnapshot,
 	currentSnapshotDir,
 	flipPointer,
