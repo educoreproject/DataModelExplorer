@@ -455,6 +455,10 @@ const JUDGMENT_FIELD_NAME_LIST = [
 	'viaMappingConfidence',
 	'viaMappingKind',
 	'viaMappingSource',
+	// ⟪campaign P3, W-B-4 (a)⟫ the judge's own stated reason, on the edge since P3: a reader QUOTES it rather than
+	// inventing one (PLAN A3: askMilo invented reasons for confidence values)
+	'mappingRationale',
+	'viaMappingRationale',
 ];
 const JUDGMENT_CONFIDENCE_FIELD_NAME_LIST = ['mappingConfidence', 'viaMappingConfidence'];
 
@@ -463,9 +467,9 @@ const JUDGMENT_CONFIDENCE_FIELD_NAME_LIST = ['mappingConfidence', 'viaMappingCon
 // =====================================================================
 //
 // SIF and PESC write their CEDS mapping edges onto INSTANCE nodes, not onto the element the
-// DME finds. A SIF Question (DmeProperty) -[:HAS_INSTANCE]-> one Field (DmeSupport) per object it
+// DME finds. A SIF Question (DmeProperty) -[:HAS_INSTANCE]-> one Field (DmeInstance since P3) per object it
 // appears in; a PESC element declaration (DmeProperty) -[:HAS_INSTANCE]-> one occurrence
-// (DmeSupport) per place it appears in the document. The bridges fan their verdicts out onto
+// (DmeInstance since P3) per place it appears in the document. The bridges fan their verdicts out onto
 // those instances, so the declaration itself carries no mapping edge. CEDS and Ed-Fi have no
 // HAS_INSTANCE edges, and every arm below reduces to its old self on them.
 //
@@ -569,9 +573,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       type(m) AS mappingType, m.mappingConfidence AS confidence,
 			       m.predicate AS matchPredicate,
-			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource,
+			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource, m.mappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE n._id END AS fromElementId,
@@ -594,9 +598,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			WITH n, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WHERE NOT (farElement)-[:HAS_INSTANCE]->(n)
 			WITH n, mNear, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
-			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
+			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource, m.mappingRationale AS farMappingRationale,
 			     CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
-			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource,
+			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource, farMappingRationale,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
@@ -608,9 +612,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
-			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
+			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource, farMappingRationale AS mappingRationale,
 			       type(mNear) AS viaMatchType, mNear.mappingConfidence AS viaConfidence, mNear.predicate AS viaPredicate,
-			       mNear.mappingConfidence AS viaMappingConfidence, mNear.mappingKind AS viaMappingKind, mNear.mappingSource AS viaMappingSource,
+			       mNear.mappingConfidence AS viaMappingConfidence, mNear.mappingKind AS viaMappingKind, mNear.mappingSource AS viaMappingSource, mNear.mappingRationale AS viaMappingRationale,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN farIsInstanced THEN farElement._id ELSE null END AS fromElementId,
@@ -626,9 +630,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			MATCH (n)<-[:${incomingHubEdgePattern}]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
 			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
 			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
-			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource,
+			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource, m.mappingRationale AS srcMappingRationale,
 			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
-			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource,
+			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
 			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
@@ -639,9 +643,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       srcMatchType AS mappingType, srcConfidence AS confidence,
 			       srcPredicate AS matchPredicate,
-			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource,
+			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
@@ -655,9 +659,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
 			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
-			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource,
+			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource, m.mappingRationale AS instMappingRationale,
 			     ${instanceGroupOf('instanceNode')} AS instGroupName
-			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource,
+			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource, instMappingRationale,
 			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
@@ -668,9 +672,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       instMatchType AS mappingType, instConfidence AS confidence,
 			       instPredicate AS matchPredicate,
-			       instMappingConfidence AS mappingConfidence, instMappingKind AS mappingKind, instMappingSource AS mappingSource,
+			       instMappingConfidence AS mappingConfidence, instMappingKind AS mappingKind, instMappingSource AS mappingSource, instMappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       n._id AS fromElementId,
@@ -688,12 +692,12 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			WITH n, nearInstance, mNear, hub, m, other, otherDeclaration, coalesce(otherDeclaration, other) AS farElement
 			WITH n, hub, farElement, otherDeclaration IS NOT NULL AS farIsInstanced,
 			     type(mNear) AS nearMatchType, mNear.mappingConfidence AS nearConfidence, mNear.predicate AS nearPredicate,
-			     mNear.mappingConfidence AS nearMappingConfidence, mNear.mappingKind AS nearMappingKind, mNear.mappingSource AS nearMappingSource,
-			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource,
+			     mNear.mappingConfidence AS nearMappingConfidence, mNear.mappingKind AS nearMappingKind, mNear.mappingSource AS nearMappingSource, mNear.mappingRationale AS nearMappingRationale,
+			     type(m) AS farMatchType, m.mappingConfidence AS farConfidence, m.predicate AS farPredicate, m.mappingConfidence AS farMappingConfidence, m.mappingKind AS farMappingKind, m.mappingSource AS farMappingSource, m.mappingRationale AS farMappingRationale,
 			     nearInstance, ${instanceGroupOf('nearInstance')} AS nearGroupName,
 			     other, CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
-			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearMappingConfidence, nearMappingKind, nearMappingSource,
-			     farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource,
+			WITH n, hub, farElement, farIsInstanced, nearMatchType, nearConfidence, nearPredicate, nearMappingConfidence, nearMappingKind, nearMappingSource, nearMappingRationale,
+			     farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource, farMappingRationale,
 			     collect(DISTINCT nearGroupName) AS nearGroupList, count(DISTINCT nearInstance) AS nearInstanceCount,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(DISTINCT other) AS farInstanceCount
 			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
@@ -706,9 +710,9 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
-			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource,
+			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource, farMappingRationale AS mappingRationale,
 			       nearMatchType AS viaMatchType, nearConfidence AS viaConfidence, nearPredicate AS viaPredicate,
-			       nearMappingConfidence AS viaMappingConfidence, nearMappingKind AS viaMappingKind, nearMappingSource AS viaMappingSource,
+			       nearMappingConfidence AS viaMappingConfidence, nearMappingKind AS viaMappingKind, nearMappingSource AS viaMappingSource, nearMappingRationale AS viaMappingRationale,
 			       cd.name AS cedsDomain, cp.name AS cedsProperty,
 			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
 			       farElement._id AS fromElementId,
@@ -741,12 +745,14 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			mappingConfidence: mappingConfidence,
 			mappingKind: mappingKind,
 			mappingSource: mappingSource,
+			mappingRationale: mappingRationale,
 			viaMatchType: viaMatchType,
 			viaConfidence: viaConfidence,
 			viaPredicate: viaPredicate,
 			viaMappingConfidence: viaMappingConfidence,
 			viaMappingKind: viaMappingKind,
 			viaMappingSource: viaMappingSource,
+			viaMappingRationale: viaMappingRationale,
 			cedsDomain: cedsDomain,
 			cedsProperty: cedsProperty,
 			cedsRange: cedsRange,

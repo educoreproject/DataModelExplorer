@@ -3,10 +3,10 @@
 
 // traversal-sif-codeset.test.js — W-D-4 (campaign P1, 2026-10-06; DME half of S3, V2-C27). The traversal must read the
 // edges SIF and Ed-Fi/PESC actually write:
-//   - option sets: SIF hangs a code set off the INSTANCE (Question -[:HAS_INSTANCE]-> Field -[:CONSTRAINED_BY]-> Codeset),
-//     never off the Question the search hits, so optionSets needs an instance hop whatever the edge is called (S3 ruled
-//     F+Q: the forge normalises to HAS_OPTION_SET in P3; the hop stays). Every SIF code set lacks `name`, so entries carry
-//     path and valueCount, and optionSetCount is the list's total.
+//   - option sets: SIF hangs a code set off the INSTANCE (Question -[:HAS_INSTANCE]-> Field -[:HAS_OPTION_SET]-> Codeset;
+//     CONSTRAINED_BY until campaign P3, S3), never off the Question the search hits, so optionSets keeps the instance hop.
+//     Since P3 (G18) every SIF code set carries a name; entries also carry path and valueCount, and optionSetCount is the
+//     list's total.
 //   - intra-standard references: REFERENCES_TYPE (Ed-Fi, PESC) and REFERENCES_OBJECT (SIF) beside REFERENCES, each entry
 //     naming its edge type.
 // Each fixture is picked by the test's own Cypher and seeded with its own stored embedding.
@@ -14,7 +14,7 @@
 //   node cli/lib.d/data-model-explorer/test/traversal-sif-codeset.test.js [pathToTraversal.cypher]
 
 const path = require('path');
-const harness = require('./lib/liveGraphHarness')({ gateTitle: 'W-D-4 traversal reads CONSTRAINED_BY through instances, REFERENCES_TYPE and REFERENCES_OBJECT' });
+const harness = require('./lib/liveGraphHarness')({ gateTitle: 'W-D-4 traversal reads SIF code sets through instances (HAS_OPTION_SET since P3), REFERENCES_TYPE and REFERENCES_OBJECT' });
 const { assert, runQuery, finish, neo4j, taskListPlus, pipeRunner, readText } = harness;
 const traversalFilePath = process.argv[2] || path.join(harness.dmeDirPath, 'traversal.cypher');
 
@@ -24,7 +24,7 @@ const FIXTURE_CYPHER_BY_NAME = {
 	// Question by stableId shared its text with four others and was not among its own hits, though it was on the gold
 	sifQuestionWithCodeset: `MATCH (s:ForgedNode {role: 'DmeProperty', _source: 'SIF260928'}) WHERE s.embedding IS NOT NULL
 		WITH s.searchText AS sharedSearchText, collect(s) AS sameTextList WHERE size(sameTextList) = 1 WITH sameTextList[0] AS q
-		MATCH (q)-[:HAS_INSTANCE]->(:ForgedNode)-[:CONSTRAINED_BY]->(c:ForgedNode {role: 'DmeOptionSet'})
+		MATCH (q)-[:HAS_INSTANCE]->(:ForgedNode)-[:HAS_OPTION_SET]->(c:ForgedNode {role: 'DmeOptionSet'})
 		WITH q, count(DISTINCT c) AS expectedOptionSetCount ORDER BY q.stableId LIMIT 1
 		RETURN q.stableId AS stableId, q.embedding AS embedding, expectedOptionSetCount`,
 	cedsPropertyWithOptionSet: `MATCH (p:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})-[:HAS_OPTION_SET]->(os:ForgedNode {role: 'DmeOptionSet'})
@@ -58,7 +58,7 @@ taskList.push((args, next) => runTraversalFor(args, 'sifQuestionWithCodeset', (e
 	if (err) { next(err, args); return; }
 	const optionSetList = fixtureHit.optionSets || [];
 	assert(`SIF Question ${fixtureRow.stableId.slice(0, 40)}…: optionSets lists its Fields' code set(s)`, optionSetList.length >= 1, JSON.stringify(optionSetList).slice(0, 200));
-	assert('  every entry is viaInstance: true, _source SIF260928, with a non-null path', optionSetList.length > 0 && optionSetList.every((oneSet) => oneSet.viaInstance === true && oneSet._source === 'SIF260928' && oneSet.path), JSON.stringify(optionSetList).slice(0, 300));
+	assert('  every entry is viaInstance: true, _source SIF260928, with a non-null path and (P3, G18) a non-empty name', optionSetList.length > 0 && optionSetList.every((oneSet) => oneSet.viaInstance === true && oneSet._source === 'SIF260928' && oneSet.path && oneSet.name), JSON.stringify(optionSetList).slice(0, 300));
 	assert(`  optionSetCount === ${fixtureRow.expectedOptionSetCount} (the test's count) and >= the list`, fixtureHit.optionSetCount === fixtureRow.expectedOptionSetCount && fixtureHit.optionSetCount >= optionSetList.length, `${fixtureHit.optionSetCount}`);
 	next('', args);
 }));
@@ -76,7 +76,7 @@ taskList.push((args, next) => runTraversalFor(args, 'edfiPropertyWithReferencesT
 	next('', args);
 }));
 taskList.push((args, next) => {
-	// SIF's REFERENCES_OBJECT starts at a Field (DmeSupport, no embedding, never a vector hit), so that arm is held by text
+	// SIF's REFERENCES_OBJECT starts at a Field (DmeInstance since P3, no embedding, never a vector hit), so that arm is held by text
 	const traversalText = readText(traversalFilePath);
 	assert('both reference arms read REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT', (traversalText.match(/\[r:REFERENCES\|REFERENCES_TYPE\|REFERENCES_OBJECT\]/g) || []).length === 2);
 	next('', args);

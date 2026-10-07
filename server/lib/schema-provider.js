@@ -28,11 +28,10 @@ const LIVE_ROLE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n.role IS NOT NULL RET
 // the structural edge types the guidance explains, each with what it means; the section lists those the live graph
 // holds (an edge type the graph lacks is not described as if it existed)
 const STRUCTURAL_EDGE_MEANING_BY_TYPE = {
-	HAS_CLASS: 'a standard root owns a class (not in SIF)',
+	HAS_CLASS: 'a standard root owns a class',
 	SUBCLASS_OF: 'class to parent class',
-	HAS_PROPERTY: 'a class owns a property (CEDS, Ed-Fi; PESC from DmeSupport; none in SIF)',
-	HAS_OPTION_SET: 'a property owns its code list (CEDS, Ed-Fi, PESC)',
-	CONSTRAINED_BY: 'SIF: a Field (the Question\'s instance) is constrained by its Codeset — read SIF code lists through the instances',
+	HAS_PROPERTY: 'a class owns a property (CEDS, Ed-Fi; PESC from DmeSupport); in SIF the root owns each Question',
+	HAS_OPTION_SET: 'a property owns its code list (CEDS, Ed-Fi, PESC); in SIF the Question\'s instance Field points at its Codeset (read SIF code lists through the instances), and the root owns each Codeset',
 	HAS_VALUE: 'an option set owns its values',
 	HAS_SUPPORT: 'from a standard root only, to its support/type scaffolding',
 	REFERENCES: 'intra-standard cross reference',
@@ -275,16 +274,17 @@ Two source elements that resolve to the SAME HubReference are related through CE
 
 A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER — so a match reads back as an ordinary CEDS property/value target.
 
-Match edges originate from source-standard elements (DmeProperty; in SIF and PESC, the DmeSupport instances described below; DmeOptionSet/DmeOptionValue where a build judges codesets) and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at CEDS leaf nodes, are retired in the equivalence graph.)
+Match edges originate from source-standard elements (DmeProperty; in SIF and PESC, the DmeInstance nodes described below; DmeOptionSet/DmeOptionValue where a build judges codesets) and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at CEDS leaf nodes, are retired in the equivalence graph.)
 
 ## Node Structural Categories (by role)
 
-- **DmeStandardRoot** — the per-standard root node. Props: _source, name, standardName, description, version, sourceUrl, stableId. Owns classes via HAS_CLASS in most standards (not in SIF) and its scaffolding via HAS_SUPPORT; HAS_SUPPORT edges start only at a standard root.
+- **DmeStandardRoot** — the per-standard root node. Props: _source, name, standardName, description, version, sourceUrl, stableId. Owns classes via HAS_CLASS (in SIF also its Questions via HAS_PROPERTY and its Codesets via HAS_OPTION_SET) and its scaffolding via HAS_SUPPORT; HAS_SUPPORT edges start only at a standard root.
 - **DmeClass** — structural hubs. In most standards they own properties (HAS_PROPERTY) and sit under parents (SUBCLASS_OF); SIF objects own Fields by HAS_FIELD and have no HAS_PROPERTY. The standard's StandardDefinition card (standardUsageTips) says what its classes own.
-- **DmeProperty** — the richest traversal targets. They carry match edges to :HubReference (directly, or on their HAS_INSTANCE instances) and may own option sets: HAS_OPTION_SET in CEDS, Ed-Fi and PESC; in SIF the code list hangs off the Question's Fields by CONSTRAINED_BY. No DmeProperty has HAS_SUPPORT.
+- **DmeProperty** — the richest traversal targets. They carry match edges to :HubReference (directly, or on their HAS_INSTANCE instances) and may own option sets: HAS_OPTION_SET in CEDS, Ed-Fi and PESC; in SIF the code list hangs off the Question's Fields (its DmeInstance nodes) by HAS_OPTION_SET, and every SIF code set carries a name built from the elements that use it. No DmeProperty has HAS_SUPPORT.
 - **DmeOptionSet** — connect to allowed values via HAS_VALUE; may carry cross-standard mappings to other option sets.
 - **DmeOptionValue** — traversal-terminal. The value text is in \`name\`.
-- **DmeSupport** — supplementary detail attached to a node via HAS_SUPPORT. In SIF and PESC also the instance nodes (SIF Fields and Containers, PESC occurrences); the instances reached by HAS_INSTANCE carry those standards' mapping edges.
+- **DmeSupport** — supplementary detail and scaffolding (HAS_SUPPORT targets, SIF Containers, PESC schema files and groups). Never a mapping unit.
+- **DmeInstance** — one occurrence of a DmeProperty in a concrete context: a SIF Field inside an Object, a PESC element occurrence inside a document section. Reached from its declaration by HAS_INSTANCE; it carries that declaration's mapping edges and no vector of its own.
 
 ## Structural Edges
 
@@ -296,7 +296,7 @@ A SIF Question stands for one Field per object it appears in (HAS_INSTANCE); a P
 
 ## Instance Nodes Carry the Mappings (SIF, PESC)
 
-In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** match edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeSupport nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
+In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** match edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeInstance nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
 
 ## Conventions
 

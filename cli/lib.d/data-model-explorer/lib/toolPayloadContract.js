@@ -92,9 +92,9 @@ const hubDecompositionEdgeTypeList = (hubName) => {
 
 // W-D-3: a traversal mapping list holds only real match edges — toId / hubKey is never null in any entry
 const TRAVERSAL_MAPPING_LIST_NAME_LIST = Object.freeze(['mappingsOutgoing', 'crossStandardEquivalents', 'mappingsIncoming', 'instanceView.mappingsViaInstances']);
-// W-D-4 (S3 ruled F+Q: the forge normalises CONSTRAINED_BY to HAS_OPTION_SET in P3, then this list shrinks; the
-// instance hop stays)
-const OPTION_SET_EDGE_TYPE_LIST = Object.freeze(['HAS_OPTION_SET', 'CONSTRAINED_BY']);
+// W-D-4 / campaign P3 (S3 as ruled: the forge normalises SIF's Field -> Codeset to HAS_OPTION_SET and names the codesets;
+// the DME keeps the instance hop). CONSTRAINED_BY no longer exists in any graph this DME reads.
+const OPTION_SET_EDGE_TYPE_LIST = Object.freeze(['HAS_OPTION_SET']);
 const INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST = Object.freeze(['REFERENCES', 'REFERENCES_TYPE', 'REFERENCES_OBJECT']);
 
 // W-D-6 / W-D-7: findMappings matches a node by any of these; two rows are the same mapping when these agree. The
@@ -137,7 +137,7 @@ const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confi
 const SLACK_CARD_CARRIED_BY_LIST = Object.freeze(['own', 'instance']); // 'own' = edge on the carded node; 'instance' = on a HAS_INSTANCE child
 const SLACK_LOOKUP_LIMITS = Object.freeze({ searchPageSize: 8, cardLimit: 3, tupleLinesShown: 4, peerLinesShown: 6 });
 const SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST = Object.freeze(['stableId', 'name', 'source', 'role', 'description']);
-const SLACK_CARDABLE_ROLE_LIST = Object.freeze(['DmeProperty', 'DmeClass', 'DmeOptionSet', 'DmeOptionValue']); // declarations, never instances (DmeSupport)
+const SLACK_CARDABLE_ROLE_LIST = Object.freeze(['DmeProperty', 'DmeClass', 'DmeOptionSet', 'DmeOptionValue']); // declarations, never instances (DmeInstance since campaign P3)
 
 // W-E-3: askMilo's single-call JSON report (formatters/json.js writes it; the Slack relay refuses a report lacking any of
 // these). Why the model stopped is open-ended (the API's stop_reason, or askMilo's own maxToolIterations); which stops

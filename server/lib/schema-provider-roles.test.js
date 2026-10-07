@@ -41,7 +41,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: connection.boltUri, neo4jUser: con
 				ok('the _source line lists exactly the live _source values', liveSourceList.length > 0 && liveSourceList.every((sourceName) => sourceLine.includes(sourceName)) && !/\bLIF\b/.test(sourceLine), sourceLine.slice(0, 220));
 				ok('no literal label or source the graph does not hold (LIF, SifField, LifProperty)', !/\bLIF\b|SifField|LifProperty/.test(schemaText || ''));
 				ok('DmeProperty is no longer said to own HAS_SUPPORT', !/DmeProperty\*\*[^\n]*HAS_SUPPORT\)/.test(schemaText || '') && /HAS_SUPPORT[^\n]*standard root/.test(schemaText || ''));
-				ok('the codeset example reaches SIF code sets (CONSTRAINED_BY, through instances)', /HAS_INSTANCE\]->\(\)-\[:HAS_OPTION_SET\|CONSTRAINED_BY\]/.test(schemaText || ''));
+				ok('the codeset example reaches SIF code sets through instances by HAS_OPTION_SET alone (campaign P3, S3: CONSTRAINED_BY retired)', /HAS_INSTANCE\]->\(\)-\[:HAS_OPTION_SET\]/.test(schemaText || '') && !/CONSTRAINED_BY/.test(schemaText || ''));
 				ok('the Structural Edges section names REFERENCES_TYPE and REFERENCES_OBJECT', /## Structural Edges[^#]*REFERENCES_TYPE[^#]*REFERENCES_OBJECT/.test(schemaText || ''));
 				neo4jDb.close();
 				console.log(`\n=== W-D-17 — Results: ${passed} passed, ${failed} failed ===\n`);
