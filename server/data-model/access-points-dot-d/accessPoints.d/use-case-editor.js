@@ -474,7 +474,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		}
 
 		const action = xQuery && xQuery.action;
-		const actionEntry = ACTION_ENTRY_BY_ACTION[action];
+		// own properties only: an inherited name ('constructor', '__proto__') is an unknown action, not Object.prototype's
+		const actionEntry = Object.prototype.hasOwnProperty.call(ACTION_ENTRY_BY_ACTION, action) ? ACTION_ENTRY_BY_ACTION[action] : null;
 		if (!actionEntry) {
 			callback(`Unknown action: ${action}. Known actions: ${Object.keys(ACTION_ENTRY_BY_ACTION).join(', ')}.`, []);
 			return;

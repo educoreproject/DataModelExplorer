@@ -181,6 +181,27 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				});
 			},
 			(next) => {
+				// self-audit finding (P4b): the action registry is a plain object, so an inherited name ('constructor',
+				// '__proto__') must be refused as an unknown action, never dispatched to Object.prototype
+				if (typeof useCaseAccessPoint !== 'function') { next(); return; }
+				const inheritedNameVerdictList = [];
+				const sendInheritedName = (inheritedNameList) => {
+					if (inheritedNameList.length === 0) {
+						ok('use-case-editor refuses an inherited property name as an unknown action (constructor, __proto__, toString)', inheritedNameVerdictList.every((oneVerdict) => oneVerdict.refusedAsUnknown), JSON.stringify(inheritedNameVerdictList));
+						next();
+						return;
+					}
+					const inheritedName = inheritedNameList[0];
+					let thrownText = '';
+					const answer = (answerError) => {
+						inheritedNameVerdictList.push({ inheritedName, refusedAsUnknown: /Unknown action/.test(String(answerError)), answerError: String(answerError).slice(0, 80), thrownText });
+						sendInheritedName(inheritedNameList.slice(1));
+					};
+					try { useCaseAccessPoint({ action: inheritedName }, answer); } catch (thrownError) { thrownText = String(thrownError).slice(0, 80); answer(''); }
+				};
+				sendInheritedName(['constructor', '__proto__', 'toString']);
+			},
+			(next) => {
 				if (typeof useCaseAccessPoint !== 'function') { ok('use-case-editor access point exists', false); next(); return; }
 				useCaseAccessPoint({ action: 'list' }, (useCaseError, useCaseResult) => {
 					ok('LIVE use-case-editor on a graph without use cases: refused by name, naming the absent labels — never [] with success', /use-case-editor/.test(String(useCaseError)) && /UseCase/.test(String(useCaseError)), `error: ${useCaseError}; result: ${JSON.stringify(useCaseResult)}`);
