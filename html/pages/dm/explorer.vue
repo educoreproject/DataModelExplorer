@@ -11,7 +11,9 @@ definePageMeta({ middleware: 'auth' });
 import { useLoginStore } from '@/stores/loginStore';
 import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { personas } from '@/data/personas';
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
+import { useDmeStandardListStore } from '@/stores/dmeStandardListStore';
+import { dmeExamplePromptList } from '@/data/dmeExamplePromptList';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -40,27 +42,21 @@ const useGraphStore = createEdunatorStore({
 });
 const graphStore = useGraphStore();
 
-// Example prompts for the 16-standard equivalence graph (gf_allStandards1 era).
-// Every prompt was tested against the live graph before shipping — each exercises
-// a real capability: cross-standard comparison, HubReference tuples, authored vs
-// inferred (candidate) mappings with confidence, codeset alignment, and the
-// honestly-unmapped islands. The canonical component takes them via prop.
-const cedsExamplePrompts = [
-	'Describe this graph from its self-documentation: identity, provenance, and the recipe it was built from. Then list every standard it currently contains with element counts and mapping statistics.',
-	'Compare how SIF and Ed-Fi model grade level — show the CEDS concept each maps to.',
-	'How do the different standards represent a student’s English learner status?',
-	'Show me the codeset for exit reasons in SEDM and what CEDS values they align to.',
-	'Show me the full CEDS tuple — domain, property, range, and value — that ‘Tenth grade’ resolves to, and every standard that lands on it.',
-	'What is the canonical CEDS address (the HubReference tuple) for a student’s birthdate, and which standards map to it?',
-	'Show candidate equivalences from PESC to CEDS with confidence below 0.8 — where are the mappings most uncertain?',
-	'Which LIF fields have only inferred (not authored) CEDS mappings, and how confident are they?',
-	'Which standards have nothing mapped to CEDS at all? List the islands.',
-	'How do the standards handle occupational classification? Compare SOC, CIP, JEDx, CTDL, and CEDS.',
-	'What does SEDM contribute for special education (IDEA) data, and how does it connect to CEDS?',
-	'SIF turned out to carry authored CEDS crosswalks. Show me examples of SIF elements with EXACT matches to CEDS tuples.',
-	'Pick a concept — student attendance — and show which standards model it and whether their mappings are established or candidate.',
-	'Which cross-standard equivalences are established (authored at both ends) versus candidate (inferred)? Explain the difference with examples.',
-];
+// The standards list and the example prompts come from the graph (WEL, 2026-10-07): the list is askMilo's own
+// dme_list_standards read on load, and a prompt is offered only when every standard family it needs is loaded now.
+// When the list is unavailable the page says so, and offers only the prompts that are about the graph itself.
+const standardListStore = useDmeStandardListStore();
+onMounted(() => {
+	standardListStore.fetchStandardInventory();
+});
+
+const graphExamplePromptList = computed(() =>
+	dmeExamplePromptList
+		.filter((oneExamplePrompt) => oneExamplePrompt.requiredFamilyList.every((familyName) => standardListStore.loadedFamilyNameList.includes(familyName)))
+		.map((oneExamplePrompt) => oneExamplePrompt.promptText),
+);
+
+const formatCount = (countNumber) => Number(countNumber).toLocaleString();
 
 const activeTab = 'explore';
 
@@ -129,52 +125,59 @@ const fallbackPromptOptions = [
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
-				:example-prompts="cedsExamplePrompts"
+				:example-prompts="graphExamplePromptList"
 				download-prefix="explorer-output"
 			>
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						<strong>The mapping layer has been rebuilt.</strong> Every cross-standard connection now resolves to a full CEDS <em>tuple</em> &mdash; domain class &middot; property &middot; range, down to the individual code value &mdash; instead of a bare element reference. Authored mappings (written into the standards themselves) and inferred mappings (calculated, with a calibrated confidence) both land on the same tuples, so they can be compared honestly. Ask about anything and the answer will tell you which kind of evidence it rests on.
+						<strong>The mapping layer has been rebuilt.</strong> Every cross-standard connection now resolves to a full CEDS <em>tuple</em> &mdash; domain class &middot; property &middot; range &mdash; instead of a bare element reference. Each connection is a <em>judgment</em>: one of four relations (exact, close, broad, narrow), carrying its own confidence and the source that made it. Ask about anything and the answer will tell you which relation it rests on and how confident the judgment was.
 					</p>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
-					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. Currently supported standards (as of 7/4/26):</p>
-					<ul style="margin: 0.8em 0 0.8em 1.5em;">
-						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology; the semantic hub)</li>
-						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
-						<li><strong>LIF</strong> &mdash; Learner Information Framework (OpenAPI)</li>
-						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
-						<li><strong>PESC</strong> &mdash; Postsecondary Electronic Standards Council (XML Schema)</li>
-						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
-						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
-						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
-						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (1EdTech)</li>
-						<li><strong>Open Badges</strong> &mdash; digital credential specification (1EdTech)</li>
-						<li><strong>CASE</strong> &mdash; Competencies and Academic Standards Exchange (1EdTech)</li>
-						<li><strong>Edu-API</strong> &mdash; higher-education data API (1EdTech)</li>
-						<li><strong>MedBiquitous</strong> &mdash; health-professions education standards</li>
-						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
-						<li><strong>SOC</strong> &mdash; Standard Occupational Classification (BLS)</li>
-						<li><strong>DCTAP</strong> &mdash; Dublin Core Tabular Application Profile (meta-vocabulary for application profiles)</li>
-					</ul>
-					<p style="font-style: italic;">For the most current list, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. The standards in this graph, read from the graph itself when this page opened:</p>
+					<p v-if="standardListStore.standardListLoading" style="font-style: italic;">Reading the standards list from the graph&hellip;</p>
+					<p v-else-if="standardListStore.standardListUnavailableReason" style="color: #B71C1C; font-weight: 600;">standards list unavailable: {{ standardListStore.standardListUnavailableReason }}</p>
+					<template v-else-if="standardListStore.standardInventory">
+						<ul style="margin: 0.8em 0 0.8em 1.5em;">
+							<li v-for="familyGroup in standardListStore.standardFamilyGroupList" :key="familyGroup.standardFamily">
+								<template v-if="familyGroup.standardList.length === 1">
+									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList[0].standardName }} {{ familyGroup.standardList[0].version }}
+									<span style="color: #888;">
+										&middot; {{ formatCount(familyGroup.standardList[0].nodeCount) }} nodes
+										&middot; <template v-if="familyGroup.standardList[0].isHub">the semantic hub</template><template v-else-if="familyGroup.standardList[0].mappedToHub">{{ formatCount(familyGroup.standardList[0].hubMatchEdgeCount) }} judged mappings to {{ standardListStore.standardInventory.totals.hubSource }}</template><template v-else>not mapped to {{ standardListStore.standardInventory.totals.hubSource }}</template>
+									</span>
+								</template>
+								<template v-else>
+									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList.length }} releases
+									<ul style="margin: 0.2em 0 0.2em 1.5em;">
+										<li v-for="oneStandard in familyGroup.standardList" :key="oneStandard.source">
+											{{ oneStandard.standardName }}
+											<span style="color: #888;">
+												&middot; {{ formatCount(oneStandard.nodeCount) }} nodes
+												&middot; <template v-if="oneStandard.isHub">the semantic hub</template><template v-else-if="oneStandard.mappedToHub">{{ formatCount(oneStandard.hubMatchEdgeCount) }} judged mappings to {{ standardListStore.standardInventory.totals.hubSource }}</template><template v-else>not mapped to {{ standardListStore.standardInventory.totals.hubSource }}</template>
+											</span>
+										</li>
+									</ul>
+								</template>
+							</li>
+						</ul>
+						<p style="color: #888;">{{ standardListStore.standardInventory.totals.standardCount }} standards in {{ standardListStore.standardFamilyGroupList.length }} families.</p>
+					</template>
+					<p style="font-style: italic;">For element counts and mapping coverage in the conversation, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
-					<p>Cross-standard meaning is anchored on CEDS &mdash; the common semantic backbone. Every mapped element resolves to a <strong>CEDS tuple</strong>: the domain class, the property, its range, and (where it matters) the individual code value. Two elements from different standards that resolve to the same tuple are talking about the same thing &mdash; and the graph is careful about how confidently it says so:</p>
+					<p>Cross-standard meaning is anchored on CEDS &mdash; the common semantic backbone. A mapped element resolves to a <strong>CEDS tuple</strong>: the domain class, the property and its range. Two elements from different standards that resolve to the same tuple may be talking about the same thing &mdash; and the graph is careful about how confidently it says so:</p>
 
-					<h4 style="margin-top: 1em;">Authored mappings &mdash; EXACT_MATCH <span style="color: #888;">(confidence 1.0, spec-authoritative)</span></h4>
-					<p>Some standards publish explicit CEDS references in their own specifications &mdash; decisions made by each standard's governance body. These become authored EXACT_MATCH edges: the strongest evidence in the graph.</p>
+					<h4 style="margin-top: 1em;">Four relations, each a judgment</h4>
+					<p>Every mapping names one of the four SKOS relations between an element and its CEDS tuple: <strong>exact</strong> (EXACT_MATCH &mdash; the same concept), <strong>close</strong> (CLOSE_MATCH &mdash; near enough to use with care), <strong>broad</strong> (BROAD_MATCH &mdash; the CEDS concept is broader) and <strong>narrow</strong> (NARROW_MATCH &mdash; the CEDS concept is narrower). None of them is a fact. Each is a judgment that carries its own <span style="color: #888;">confidence</span> and its <span style="color: #888;">source</span> &mdash; in this build, bridge-jev, the judge that read each element's definition beside its CEDS candidates. Relation and confidence are independent: an exact match can be held with modest confidence.</p>
 
-					<h4 style="margin-top: 1em;">Inferred mappings &mdash; CLOSE_MATCH <span style="color: #888;">(calibrated confidence + SKOS predicate)</span></h4>
-					<p>Where no authored mapping exists, candidates are inferred: semantic retrieval over element definitions, adjudicated one-by-one with the option to decline &mdash; an element with no good match is honestly left unmapped rather than force-fit. Each accepted candidate carries a calibrated confidence and a SKOS relationship type. <strong>Inferred matches now resolve to the same full CEDS tuples as authored ones</strong> &mdash; an upgrade from the earlier leaf-node approach &mdash; so a hypothesis and an authored fact can be compared slot for slot.</p>
+					<h4 style="margin-top: 1em;">The judge may abstain</h4>
+					<p>Candidates are found by semantic retrieval over element definitions and then judged one by one, with &ldquo;none of these&rdquo; always among the choices. An element with no good CEDS match is left unmapped rather than force-fit, and the Explorer will say when something is unmapped instead of guessing.</p>
 
 					<h4 style="margin-top: 1em;">Equivalence is conservative</h4>
-					<p>Two elements are reported as <em>equivalent</em> only when <strong>both</strong> resolve to the same tuple by authored EXACT_MATCH. If either side is inferred, the pair is presented as a <em>candidate</em> equivalence &mdash; a promising hypothesis with its evidence shown, never dressed up as established fact.</p>
-
-					<h4 style="margin-top: 1em;">Classification crosswalks are not equivalence</h4>
-					<p>Some connections express relatedness rather than sameness: the CIP&rarr;SOC crosswalk records which occupations an instructional program prepares graduates for, straight from the published federal table. These edges never mix with the equivalence machinery, and the Explorer will say so if you ask.</p>
+					<p>Two elements from different standards are reported as <em>equivalent</em> only when <strong>both</strong> are judged EXACT_MATCH to the same tuple &mdash; two judgments, each shown with its confidence. If either hop is CLOSE_MATCH the pair is a <em>candidate</em> equivalence; a BROAD or NARROW hop makes them only <em>related</em>. A hypothesis is shown with its evidence, never dressed up as established fact.</p>
 
 					<h4 style="margin-top: 1em;">The graph documents itself</h4>
 					<p>Ask &ldquo;What is this graph, how was it built, and what can it do?&rdquo; and the Explorer reads the answer from the graph's own build records &mdash; the standards loaded, their versions, the recipe it was assembled from, and what each standard's mapping coverage looks like.</p>

@@ -1221,6 +1221,15 @@ const getListStandards = (session, callback) => {
 		ORDER BY source
 	`, {}, mergeArgs(args, next, 'standardResult')));
 	taskList.push((args, next) => runCypherQuery(session, 'MATCH (r:DmeStandardRoot) RETURN count(r) AS standardCount', {}, mergeArgs(args, next, 'standardCountResult')));
+	// WEL (2026-10-07): the DME welcome screen renders this list, so each row says whether it IS the hub (read from the
+	// one :HubDefinition, never a literal) and how many match edges carry its nodes to the hub. A hub row's count is 0
+	// by construction: the hub does not map to itself.
+	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (r:DmeStandardRoot)
+		OPTIONAL MATCH (n:ForgedNode {_source: r._source})-[m:${MATCH_EDGE_PATTERN}]->(:HubReference)
+		RETURN r._source AS source, count(m) AS hubMatchEdgeCount
+	`, {}, mergeArgs(args, next, 'hubMatchEdgeResult')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL
 		WITH d.standardFamily AS family, collect(d.sourceKey) AS sourceList
@@ -1231,6 +1240,7 @@ const getListStandards = (session, callback) => {
 			callback(err);
 			return;
 		}
+		const hubMatchEdgeCountBySource = Object.fromEntries(args.hubMatchEdgeResult.records.map((rec) => [rec.get('source'), toNumber(rec.get('hubMatchEdgeCount'))]));
 		const standards = args.standardResult.records.map((rec) => ({
 			source: rec.get('source'),
 			standardKey: rec.get('standardKey'),
@@ -1242,6 +1252,9 @@ const getListStandards = (session, callback) => {
 			standardFamily: rec.get('standardFamily'),
 			releaseLabel: rec.get('releaseLabel'),
 			nodeCount: toNumber(rec.get('nodeCount')),
+			isHub: rec.get('source') === args.hubIdentity.hubSource,
+			hubMatchEdgeCount: hubMatchEdgeCountBySource[rec.get('source')],
+			mappedToHub: hubMatchEdgeCountBySource[rec.get('source')] > 0,
 		}));
 		const familyList = args.familyResult.records.map((rec) => ({
 			family: rec.get('family'),
@@ -1250,6 +1263,7 @@ const getListStandards = (session, callback) => {
 		}));
 		const totals = {
 			standardCount: toNumber(args.standardCountResult.records[0].get('standardCount')),
+			hubSource: args.hubIdentity.hubSource,
 			familyList,
 			familyFieldPresent: familyList.length > 0,
 			...(familyList.length > 0 ? {} : { familyNote: "this build's StandardDefinitions carry no standardFamily; family totals are unavailable (the forges declare the family — W-C-4, rebuild P3)" }),

@@ -21,6 +21,24 @@ taskList.push((args, next) => runQuery(`MATCH (r:DmeStandardRoot) WITH count(r) 
 	if (err) { next(err, args); return; }
 	next('', { ...args, expected: rowList[0] });
 }));
+// WEL (2026-10-07): the welcome screen reads this same verb, so each row also says whether it IS the hub and how many
+// match edges carry it to the hub — counted here by the test's own Cypher, never by the tool's
+taskList.push((args, next) => runQuery(`MATCH (h:HubDefinition) MATCH (r:DmeStandardRoot)
+	OPTIONAL MATCH (n:ForgedNode {_source: r._source})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference)
+	RETURN r._source AS source, r._source = h._source AS isHub, count(m) AS hubMatchEdgeCount`, {}, (err, rowList) => {
+	if (err) { next(err, args); return; }
+	next('', { ...args, expectedHubRowBySource: Object.fromEntries(rowList.map((oneRow) => [oneRow.source, oneRow])) });
+}));
+taskList.push((args, next) => runVerb(['-listStandards'], (err, outcome) => {
+	const standardList = (outcome.parsedStdout || {}).standards || [];
+	const disagreeingSourceList = standardList.filter((oneStandard) => {
+		const expectedRow = args.expectedHubRowBySource[oneStandard.source] || {};
+		return oneStandard.isHub !== expectedRow.isHub || oneStandard.hubMatchEdgeCount !== expectedRow.hubMatchEdgeCount || oneStandard.mappedToHub !== (expectedRow.hubMatchEdgeCount > 0);
+	}).map((oneStandard) => oneStandard.source);
+	assert('  each row\'s isHub, hubMatchEdgeCount and mappedToHub equal the test\'s Cypher', standardList.length > 0 && disagreeingSourceList.length === 0, `disagreeing: ${disagreeingSourceList.join(', ') || '(no rows)'}`);
+	assert('  exactly one row is the hub, and totals.hubSource names it', standardList.filter((oneStandard) => oneStandard.isHub === true).length === 1 && ((outcome.parsedStdout || {}).totals || {}).hubSource === (standardList.find((oneStandard) => oneStandard.isHub === true) || {}).source);
+	next('', args);
+}, cliFilePath));
 taskList.push((args, next) => runVerb(['-listStandards'], (err, outcome) => {
 	const payload = outcome.parsedStdout || {};
 	const totals = payload.totals || {};
