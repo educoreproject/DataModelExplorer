@@ -37,7 +37,7 @@ const substitutionAnswer = resolveContainerConnection(`$(touch ${markerPathB})`)
 ok('a name carrying "$(touch <marker>)" runs NOTHING', !fs.existsSync(markerPathB));
 ok('  and is refused BY NAME', /is not a valid docker container name/.test(substitutionAnswer.error || ''), substitutionAnswer.error);
 const absentAnswer = resolveContainerConnection('DEV_P0_noSuchContainer_shellSafety');
-ok('a plain name that is not a container still answers its ordinary refusal (the guard is not refusing everything)', /is absent, not inspectable, or has no published 7687\/tcp bolt port/.test(absentAnswer.error || ''), absentAnswer.error);
+ok('a plain name that is not a container still answers its ordinary refusal (the guard is not refusing everything)', absentAnswer.errorName === 'containerAbsent' && /there is no container named/.test(absentAnswer.error || ''), absentAnswer.error);
 
 const shellStringCallPattern = /\b(execSync|exec)\(\s*(`|[a-zA-Z_][a-zA-Z0-9_]*Cmd\b|'docker|"docker)/;
 ['data-model/lib/user-graph/container-connection-resolver.js', 'data-model/lib/user-graph/clone-manager.js'].forEach((relativePath) => {

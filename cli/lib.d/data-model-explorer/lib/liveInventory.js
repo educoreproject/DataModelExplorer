@@ -81,4 +81,14 @@ const resolveHubIdentity = (session, callback) => {
 	});
 };
 
-module.exports = Object.freeze({ resolveStandardFilter, resolveHubIdentity });
+// ⟪campaign P4a, STANDDOWN-CARDINAL_HORIZON docket 3⟫ the fields a verb adds to its payload when its standard filter
+// EXPANDED a family to its releases — none when the filter was an exact _source or absent — so the model can say so
+const familyExpansionFieldsFor = (standardFilter) => (standardFilter.expandedFromFamily
+	? {
+		expandedFromFamily: standardFilter.expandedFromFamily,
+		expandedToSourceList: standardFilter.sourceList,
+		standardFilterNote: `'${standardFilter.expandedFromFamily}' is a family, not one standard: it was expanded to its ${standardFilter.sourceList.length} release(s) ${standardFilter.sourceList.join(', ')}, and the result covers all of them`,
+	}
+	: {});
+
+module.exports = Object.freeze({ resolveStandardFilter, resolveHubIdentity, familyExpansionFieldsFor });

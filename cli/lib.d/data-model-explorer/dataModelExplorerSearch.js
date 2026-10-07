@@ -35,6 +35,11 @@ const {
 	UNMAPPED_HUB_POLICY,
 	hubDecompositionEdgeTypeList,
 	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
+	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+	INSTANCE_CONTEXT_PATH_RULE_LIST,
+	MATCHED_INSTANCE_GROUP_LIST_CAP,
+	HUB_TUPLE_SUMMARY_CAP,
+	HUB_TUPLE_SUMMARY_CYPHER,
 	COMPARE_CODESETS_ROW_CAP,
 	VALUE_TIER_JUDGMENT_COUNT_CYPHER,
 	SEARCH_PAGE_SIZE,
@@ -45,7 +50,7 @@ const {
 	CALCULATE_OPERATION_ARITY_BY_NAME,
 } = require('./lib/toolPayloadContract');
 // W-D-2 / W-D-5 / W-D-8 / W-D-9 (campaign P1): the live _source list and the hub standard are read from the graph
-const { resolveStandardFilter, resolveHubIdentity } = require('./lib/liveInventory');
+const { resolveStandardFilter, resolveHubIdentity, familyExpansionFieldsFor } = require('./lib/liveInventory');
 // X1 via the CLI: dme_raw_cypher is the model's own Cypher, so it passes the same read-only validator the HTTP / MCP /
 // Slack seam uses (the READ session is the wall; this is the filter that also stops reads that fetch, LOAD CSV / apoc)
 const validateReadOnly = require('../../../server/lib/cypher-validator');
@@ -327,6 +332,7 @@ const hybridSearch = (session, query, config, params, callback) => {
 			const searchPayload = {
 				...listEnvelopeFor('search', resultList, toNumber(searchRecord.get('totalRowCount'))),
 				overFetchWindow,
+				...familyExpansionFieldsFor(standardFilter),
 			};
 			if (sourceList && resultList.length < SEARCH_PAGE_SIZE) {
 				searchPayload.shortPageNote = `only ${resultList.length} of the ${overFetchWindow} nearest nodes belong to ${sourceList.join(', ')}; the page is short, not the standard`;
@@ -501,10 +507,17 @@ const INSTANCE_GROUP_LIST_CAP = 25;
 // W-D-6 (campaign P1): a node matches findMappings by name (contains, any case) or EXACTLY by any identifier in
 // FIND_MAPPINGS_IDENTIFIER_FIELD_LIST — cedsId among them, so a CEDS Global ID (P000033, OV…) finds its CEDS leaf, and
 // the incoming arm then reaches every source element mapped to it
-const findMappingsMatchPredicateFor = (nodeVariable) => [
+const findMappingsNameOrIdentifierPredicateFor = (nodeVariable) => [
 	`toLower(${nodeVariable}.name) CONTAINS toLower($name)`,
 	...FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.map((identifierFieldName) => `${nodeVariable}.${identifierFieldName} = $name`),
 ].join(' OR ');
+// ⟪campaign P4a, Q9⟫ an instance also matches by a segment of its context path above its own name (the first
+// INSTANCE_CONTEXT_PATH_RULE_LIST rule whose field it carries), so SIF …/RaceList/Race/Code is found by 'race'
+const instanceContextSegmentListOf = (nodeVariable) => `CASE ${INSTANCE_CONTEXT_PATH_RULE_LIST.map(({ pathFieldName, leadingSegmentDropCount }) =>
+	`WHEN ${nodeVariable}.${pathFieldName} IS NOT NULL THEN split(${nodeVariable}.${pathFieldName}, '/')[${leadingSegmentDropCount}..-1]`).join(' ')} ELSE [] END`;
+const instanceContextPathPredicateFor = (nodeVariable) =>
+	`(${nodeVariable}.role = 'DmeInstance' AND any(contextSegment IN ${instanceContextSegmentListOf(nodeVariable)} WHERE toLower(contextSegment) CONTAINS toLower($name)))`;
+const findMappingsMatchPredicateFor = (nodeVariable) => `${findMappingsNameOrIdentifierPredicateFor(nodeVariable)} OR ${instanceContextPathPredicateFor(nodeVariable)}`;
 
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
@@ -514,13 +527,18 @@ const findMappings = (session, nameOrId, callback) => {
 	}
 	const taskList = new taskListPlus();
 	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
-	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')} RETURN count(n) AS matchedNodeCount`,
+	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')}
+		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n')} THEN null ELSE 1 END) AS instancePathMatchedNodeCount`,
 		{ name: nameOrId }, (err, countResult) => {
 			if (err) {
 				next(err, args);
 				return;
 			}
-			next('', { ...args, matchedNodeCount: toNumber(countResult.records[0].get('matchedNodeCount')) });
+			next('', {
+				...args,
+				matchedNodeCount: toNumber(countResult.records[0].get('matchedNodeCount')),
+				instancePathMatchedNodeCount: toNumber(countResult.records[0].get('instancePathMatchedNodeCount')),
+			});
 		}));
 	taskList.push((args, next) => {
 		if (args.matchedNodeCount === 0) {
@@ -528,6 +546,35 @@ const findMappings = (session, nameOrId, callback) => {
 			return;
 		}
 		runFindMappingsQuery(session, nameOrId, args.hubIdentity, mergeArgs(args, next, 'mappingResult'));
+	});
+	// ⟪campaign P4a, Q9⟫ where the matched instances sit: per standard, the groups (SIF objects, PESC sections) holding an
+	// instance the input matched directly or through its declaration, whether or not it carries a mapping
+	taskList.push((args, next) => {
+		if (args.matchedNodeCount === 0) {
+			next('', args);
+			return;
+		}
+		runCypherQuery(session, `
+			MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')}
+			OPTIONAL MATCH (n)-[:HAS_INSTANCE]->(declaredInstance:ForgedNode)
+			WITH n, collect(declaredInstance) AS declaredInstanceList
+			WITH CASE WHEN n.role = 'DmeInstance' THEN [n] ELSE declaredInstanceList END AS instanceList
+			UNWIND instanceList AS instanceNode
+			WITH DISTINCT instanceNode
+			WITH instanceNode._source AS source, ${instanceGroupOf('instanceNode')} AS groupName
+			WITH source, count(*) AS matchedInstanceCount, collect(DISTINCT groupName) AS groupList
+			RETURN source, matchedInstanceCount, size(groupList) AS matchedInstanceGroupCount, groupList[..$groupListCap] AS groupList
+			ORDER BY source
+		`, { name: nameOrId, groupListCap: neo4j.int(MATCHED_INSTANCE_GROUP_LIST_CAP) }, mergeArgs(args, next, 'matchedInstanceGroupResult'));
+	});
+	// ⟪campaign P4a, Q1⟫ the EDGES and ELEMENTS behind every tuple the rows reach, counted from the graph: rows are views
+	taskList.push((args, next) => {
+		if (args.matchedNodeCount === 0) {
+			next('', args);
+			return;
+		}
+		const toIdList = [...new Set(args.mappingResult.records.reduce((soFar, standardRecord) => soFar.concat(standardRecord.get('toIdList')), []))];
+		runCypherQuery(session, HUB_TUPLE_SUMMARY_CYPHER, { toIdList }, mergeArgs(args, next, 'hubTupleResult'));
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
@@ -539,7 +586,19 @@ const findMappings = (session, nameOrId, callback) => {
 				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; a ${args.hubIdentity.hubName} Global ID looks like P000033 (property) or OV001637175776 (value) — read one from dme_search or dme_explore.`));
 			return;
 		}
-		callback('', { ...shapeFindMappingsResult(args.mappingResult), matchedNodeCount: args.matchedNodeCount });
+		callback('', {
+			...shapeFindMappingsResult(args.mappingResult),
+			...shapeHubTupleSummary(args.hubTupleResult),
+			matchedNodeCount: args.matchedNodeCount,
+			instancePathMatchedNodeCount: args.instancePathMatchedNodeCount,
+			matchedInstanceGroupSummaryList: args.matchedInstanceGroupResult.records.map((sourceRecord) => ({
+				source: sourceRecord.get('source'),
+				matchedInstanceCount: toNumber(sourceRecord.get('matchedInstanceCount')),
+				matchedInstanceGroupCount: toNumber(sourceRecord.get('matchedInstanceGroupCount')),
+				groupList: sourceRecord.get('groupList'),
+			})),
+			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+		});
 	});
 };
 
@@ -770,7 +829,8 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 		})) AS mappingRow
 		WITH rowRelation, mappingRow ORDER BY mappingRow.confidence DESC
 		WITH rowRelation, mappingRow.fromSource AS rowStandard, collect(mappingRow) AS standardRowList
-		RETURN rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount
+		RETURN rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount,
+		       [standardRow IN standardRowList | standardRow.direction] AS directionList, [standardRow IN standardRowList | standardRow.toId] AS toIdList
 	`, {
 		name: nameOrId,
 		hubSource,
@@ -849,6 +909,10 @@ const shapeFindMappingsResult = (result) => {
 		});
 		return mappingRow;
 	});
+	const totalRowCountByDirection = {};
+	result.records.forEach((standardRecord) => standardRecord.get('directionList').forEach((direction) => {
+		totalRowCountByDirection[direction] = (totalRowCountByDirection[direction] || 0) + 1;
+	}));
 	const sumOf = (countByRelation) => Object.values(countByRelation).reduce((runningTotal, oneCount) => runningTotal + oneCount, 0);
 	return {
 		...listEnvelopeFor('findMappings', mappingRowList, sumOf(totalRowCountByRelation)),
@@ -856,7 +920,28 @@ const shapeFindMappingsResult = (result) => {
 		truncatedRowCountByRelation,
 		totalRowCountByRelationAndStandard,
 		truncatedRowCountByRelationAndStandard,
+		totalRowCountByDirection,
 	};
+};
+
+// ⟪campaign P4a, Q1⟫ one summary per CEDS tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
+// from the graph, most edges first, at most HUB_TUPLE_SUMMARY_CAP (hubTupleCount says how many there are)
+const shapeHubTupleSummary = (hubTupleResult) => {
+	const summaryByToId = {};
+	hubTupleResult.records.forEach((relationRecord) => {
+		const toId = relationRecord.get('toId');
+		const summary = summaryByToId[toId] = summaryByToId[toId] || { toId, toName: relationRecord.get('toName'), edgeCount: 0, edgeCountByRelation: {}, elementCount: 0, elementCountByRelation: {}, instanceEdgeCount: 0, elementStableIdSet: new Set() };
+		const relation = relationRecord.get('relation');
+		summary.edgeCountByRelation[relation] = toNumber(relationRecord.get('edgeCount'));
+		summary.elementCountByRelation[relation] = toNumber(relationRecord.get('elementCount'));
+		summary.edgeCount += summary.edgeCountByRelation[relation];
+		summary.instanceEdgeCount += toNumber(relationRecord.get('instanceEdgeCount'));
+		relationRecord.get('elementStableIdList').forEach((elementStableId) => summary.elementStableIdSet.add(elementStableId));
+	});
+	const summaryList = Object.values(summaryByToId)
+		.map(({ elementStableIdSet, ...summary }) => ({ ...summary, elementCount: elementStableIdSet.size }))
+		.sort((summaryA, summaryB) => summaryB.edgeCount - summaryA.edgeCount || (summaryA.toId < summaryB.toId ? -1 : 1));
+	return { hubTupleCount: summaryList.length, hubTupleSummaryList: summaryList.slice(0, HUB_TUPLE_SUMMARY_CAP) };
 };
 
 // W-D-8 (campaign P1; DME half of G9): whether the build judged option values at all is read from the graph
@@ -1011,6 +1096,7 @@ const unmappedFields = (session, params, callback) => {
 					...listEnvelopeFor('unmappedFields', unmappedRecord.get('unmappedRowList').map(serializeValue), toNumber(unmappedRecord.get('totalRowCount'))),
 					hubStandard: hubIdentity.hubSource,
 					hubPolicy: UNMAPPED_HUB_POLICY,
+					...familyExpansionFieldsFor(standardFilter),
 				});
 			});
 		});
@@ -1249,6 +1335,7 @@ const exploreNode = (session, params, callback) => {
 				nameMatchMode: nameMatch,
 				caseVariantNodeCount,
 				caseVariantNameList: caseVariantRecord.get('caseVariantNameList'),
+				...familyExpansionFieldsFor(standardFilter),
 			});
 		});
 	});

@@ -69,7 +69,10 @@ providerToolList.forEach((oneTool) => {
 	if (ENVELOPED_VERB_LIST.includes(verbOfTool(oneTool))) assert(`  and names totalRowCount`, oneTool.definition.description.includes('totalRowCount'));
 });
 const builtEnvelope = listEnvelopeFor('search', [1, 2], 5);
-assert('listEnvelopeFor builds { resultList, totalRowCount, returnedRowCount, truncatedRowCount }', JSON.stringify(builtEnvelope) === JSON.stringify({ resultList: [1, 2], totalRowCount: 5, returnedRowCount: 2, truncatedRowCount: 3 }), JSON.stringify(builtEnvelope));
+// ⟪campaign P4a, Q1⟫ the envelope also says what its rows ARE (rowUnit, from the verb's declared rowUnitText)
+assert('listEnvelopeFor builds { resultList, totalRowCount, returnedRowCount, truncatedRowCount, rowUnit }', JSON.stringify(builtEnvelope) === JSON.stringify({ resultList: [1, 2], totalRowCount: 5, returnedRowCount: 2, truncatedRowCount: 3, rowUnit: VERB_PAYLOAD_CONTRACT.search.rowUnitText }), JSON.stringify(builtEnvelope));
+const unitlessVerbList = Object.keys(VERB_PAYLOAD_CONTRACT).filter((oneVerb) => VERB_PAYLOAD_CONTRACT[oneVerb].rowListFieldName && !(typeof VERB_PAYLOAD_CONTRACT[oneVerb].rowUnitText === 'string' && VERB_PAYLOAD_CONTRACT[oneVerb].rowUnitText.length > 0));
+assert('  and every verb with a row list declares rowUnitText (a total says what it counts)', unitlessVerbList.length === 0, unitlessVerbList.join(', '));
 let smallTotalText = '';
 try { listEnvelopeFor('search', [1, 2], 1); } catch (envelopeError) { smallTotalText = envelopeError.message; }
 assert('  and refuses a total smaller than the rows shown', /is not an integer >= the 2 rows returned/.test(smallTotalText), smallTotalText);
