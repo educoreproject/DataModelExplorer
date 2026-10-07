@@ -97,6 +97,15 @@
 			"gateList": [
 				"roundTrip"
 			],
+			"meaning": "one line per standard that ran: what its round trip omitted by declaration, by kind with counts, the rule (module) that declares it, and the rule's caveat — e.g. \"pesccollegetranscript1v8v0: whitespace 28,428, comment 907, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); comments may carry content (PLAN G20)\" (G21)",
+			"name": "explicitOmissionDeclarationList",
+			"type": "stringList"
+		},
+		{
+			"channel": "channelA",
+			"gateList": [
+				"roundTrip"
+			],
 			"meaning": "how many standards the round trip ran over",
 			"name": "standardCount",
 			"type": "integer"
@@ -250,6 +259,7 @@
 	"listValuedPropertyNameList": [
 		"attestationChannelList",
 		"propertyNameList",
+		"explicitOmissionDeclarationList",
 		"qualifierKeys",
 		"qualifierNames",
 		"mappingKindList",

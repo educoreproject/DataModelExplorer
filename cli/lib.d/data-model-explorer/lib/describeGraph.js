@@ -14,7 +14,10 @@
 //     is printed as "none recorded", NEVER as "root manifest";
 //   - the standards by §5 verbatim (every stringList field must arrive as a list: the loader keeps declared lists as lists
 //     since P2's W-A-1, so the old one-value re-widening is gone);
-//   - the attestations through (:GraphProvenance)-[:ATTESTS]->(:BuildAttestation), each checked against §4's common fields.
+//   - the attestations through (:GraphProvenance)-[:ATTESTS]->(:BuildAttestation), each checked against §4's common fields;
+//   - ⟪G21⟫ the round trip's OMISSION DECLARATION from the roundTrip row's explicitOmissionDeclarationList (§4): one line per
+//     standard naming what it omitted by kind, the rule that declares it and the rule's caveat, under its own heading — a
+//     measured roundTrip row without the list is refused by name; a notRun row says it declared nothing.
 // A shape the contract does not admit is REFUSED BY NAME (refusalFor), never shown with blanks.
 //
 // CONTRACT (CRIMSON gate 7): READ-ONLY (the caller's session is READ) and PARAMETERIZED (no data interpolated into Cypher;
@@ -67,6 +70,17 @@ const ATTESTATION_CYPHER = `
 
 const requiredNameListOf = (fieldList) => fieldList.filter((oneField) => oneField.required).map((oneField) => oneField.name);
 const ATTESTATION_COMMON_FIELD_NAME_LIST = contract.attestationFieldList.filter((oneField) => oneField.channel === 'all').map((oneField) => oneField.name);
+// ⟪G21⟫ the omission declaration: the §4 field, read by name, and refused at load if the contract does not declare it as a
+// gate's stringList — and every stringList attestation field is one this card renders as its own section (none dropped)
+const OMISSION_DECLARATION_FIELD = contract.attestationFieldList.find((oneField) => oneField.name === 'explicitOmissionDeclarationList');
+if (!OMISSION_DECLARATION_FIELD || OMISSION_DECLARATION_FIELD.type !== 'stringList' || !Array.isArray(OMISSION_DECLARATION_FIELD.gateList)) {
+	throw new Error('describeGraph: graphContract.json does not declare explicitOmissionDeclarationList as a gate\'s stringList attestation field (§4, G21) — this reader renders it');
+}
+const OMISSION_DECLARATION_HEADING = 'Omission declaration (round trip)';
+const unrenderedListFieldList = contract.attestationFieldList.filter((oneField) => oneField.type === 'stringList' && oneField !== OMISSION_DECLARATION_FIELD);
+if (unrenderedListFieldList.length) {
+	throw new Error(`describeGraph: graphContract.json declares attestation list field(s) ${unrenderedListFieldList.map((oneField) => oneField.name).join(', ')} that this card does not render`);
+}
 
 // shapeFaultTextFor — the required names a stored map lacks, and the stringList fields that did not arrive as lists
 const shapeFaultTextFor = ({ storedMap, fieldList, requiredNameList, label }) => {
@@ -133,7 +147,10 @@ const describeGraph = (session, params, callback) => {
 			.map((oneAttestation) => {
 				const missingNameList = ATTESTATION_COMMON_FIELD_NAME_LIST.filter((fieldName) => fieldName !== 'writtenOnChannelNote' && (oneAttestation[fieldName] === null || oneAttestation[fieldName] === undefined));
 				const badVerdict = contract.buildAttestationVerdictList.indexOf(oneAttestation.verdict) === -1;
-				return missingNameList.length || badVerdict ? `BuildAttestation ${oneAttestation.gate || oneAttestation.stableId}${missingNameList.length ? ` lacks ${missingNameList.join(', ')}` : ''}${badVerdict ? ` has verdict ${JSON.stringify(oneAttestation.verdict)}` : ''}` : '';
+				const listFaultText = omissionListFaultTextFor(oneAttestation);
+				return missingNameList.length || badVerdict || listFaultText
+					? `BuildAttestation ${oneAttestation.gate || oneAttestation.stableId}${missingNameList.length ? ` lacks ${missingNameList.join(', ')}` : ''}${badVerdict ? ` has verdict ${JSON.stringify(oneAttestation.verdict)}` : ''}${listFaultText}`
+					: '';
 			})
 			.filter(Boolean)
 			.join('; ');
@@ -187,8 +204,29 @@ const deepPlain = (storedValue) => {
 const shortText = (oneText, characterCount) => `${oneText}`.slice(0, characterCount);
 const flag = (oneValue) => (oneValue === true ? '✓' : '✗');
 
-// one line per declared attestation detail field the row carries (the contract decides which fields are details)
-const ATTESTATION_DETAIL_FIELD_LIST = contract.attestationFieldList.filter((oneField) => oneField.channel !== 'all');
+// one line per declared attestation detail field the row carries (the contract decides which fields are details); a list
+// field is a section of its own (the omission declaration), never squeezed into this line
+const ATTESTATION_DETAIL_FIELD_LIST = contract.attestationFieldList.filter((oneField) => oneField.channel !== 'all' && oneField.type !== 'stringList');
+
+// ⟪G21⟫ omissionListFaultTextFor — '' | the fault of a MEASURED row of a gate the field names that does not carry the list
+const omissionListFaultTextFor = (oneAttestation) => {
+	if (OMISSION_DECLARATION_FIELD.gateList.indexOf(oneAttestation.gate) === -1 || oneAttestation.verdict === 'notRun') return '';
+	const declarationList = oneAttestation[OMISSION_DECLARATION_FIELD.name];
+	return Array.isArray(declarationList) && declarationList.every((oneLine) => typeof oneLine === 'string')
+		? ''
+		: ` (verdict ${oneAttestation.verdict}) lacks ${OMISSION_DECLARATION_FIELD.name} as a list of strings (§4, G21: a measured round trip declares its omissions)`;
+};
+// ⟪G21⟫ omissionDeclarationLineListFor — the card section: the heading and one line per standard, verbatim from the row
+const omissionDeclarationLineListFor = (attestations) => {
+	const roundTripAttestation = attestations.find((oneAttestation) => OMISSION_DECLARATION_FIELD.gateList.indexOf(oneAttestation.gate) !== -1);
+	if (!roundTripAttestation) {
+		return [`${OMISSION_DECLARATION_HEADING}: none — the graph carries no ${OMISSION_DECLARATION_FIELD.gateList.join('/')} attestation`];
+	}
+	if (roundTripAttestation.verdict === 'notRun') {
+		return [`${OMISSION_DECLARATION_HEADING}: none — the round trip did not run (${roundTripAttestation.verdict}), so it declared nothing`];
+	}
+	return [`${OMISSION_DECLARATION_HEADING}: omitted by declared rule, not lost`].concat(roundTripAttestation[OMISSION_DECLARATION_FIELD.name].map((oneLine) => `  ${oneLine}`));
+};
 const attestationDetailText = (oneAttestation) =>
 	ATTESTATION_DETAIL_FIELD_LIST.filter((oneField) => oneAttestation[oneField.name] !== undefined && oneAttestation[oneField.name] !== null)
 		.map((oneField) => `${oneField.name} ${oneField.name === 'evidenceSha256' ? shortText(oneAttestation[oneField.name], 12) : oneAttestation[oneField.name]}`)
@@ -241,6 +279,7 @@ const renderCard = ({ passport, readerContractSha256, recipe, blocks, blockTotal
 		lines.push(`Attestations (${attestations.length}): ${attestations.map((oneAttestation) => `${oneAttestation.gate} ${oneAttestation.verdict}${oneAttestation.verdictSupplied === false ? ' (no verdict supplied by the producer)' : ''}${attestationDetailText(oneAttestation) ? ` (${attestationDetailText(oneAttestation)})` : ''}`).join(' · ')}`);
 		const verdictCountByVerdict = attestations.reduce((soFar, oneAttestation) => ({ ...soFar, [oneAttestation.verdict]: (soFar[oneAttestation.verdict] || 0) + 1 }), {});
 		lines.push(`Verdicts: ${contract.buildAttestationVerdictList.map((oneVerdict) => `${oneVerdict} ${verdictCountByVerdict[oneVerdict] || 0}`).join(' · ')}`);
+		lines.push(...omissionDeclarationLineListFor(attestations));
 	} else {
 		lines.push('Attestations: none — the passport carries no ATTESTS edge');
 	}
