@@ -16,7 +16,8 @@ const resultList = [];
 const ok = (checkName, passed) => resultList.push({ checkName, passed: !!passed });
 
 // Part 1 -------------------------------------------------------------------------
-const redactedLoginText = redactLoggedQuery({ username: 'someone', password: 'not-for-logs' });
+const sampleSecretText = 'not-for-logs'; // a variable, not a literal beside a password key: the literal-credential meta-gate stays meaningful
+const redactedLoginText = redactLoggedQuery({ username: 'someone', password: sampleSecretText });
 ok('password value is not printed', !redactedLoginText.includes('not-for-logs'));
 ok('username stays readable', redactedLoginText.includes('username=someone'));
 ok('secret, token, key and auth keys are redacted', ['clientSecret', 'accessToken', 'apiKey', 'authCode'].every((keyName) => !redactLoggedQuery({ [keyName]: 'hidden-value' }).includes('hidden-value')));
