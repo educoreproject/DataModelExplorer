@@ -163,7 +163,8 @@
 		],
 		"promotionStamp": [
 			"goldEvalCheck",
-			"replay"
+			"replay",
+			"reforgeDeterminism"
 		]
 	},
 	"attestationLabelSetByChannel": {
@@ -252,6 +253,7 @@
 	],
 	"listNameRuleExemptionByName": {
 		"fileAnnotationList": "JSON string (pesc-release-forge walk.js)",
+		"fileCommentList": "JSON string (pesc-release-forge walk.js; forgeClean lane CLEAN, G20)",
 		"importList": "JSON string (pesc-release-forge walk.js)",
 		"schemaAttributeList": "JSON string (pesc-release-forge walk.js)",
 		"standardsIncluded": "a Cypher literal list on the passport, never through pgToStored"
@@ -279,6 +281,7 @@
 		"derivationDocumentationValueList",
 		"librariesNamed",
 		"rootChangeLogLineList",
+		"precedingCommentList",
 		"objectNameList",
 		"objectNameSampleList",
 		"requiresSchemaBlockRefIdList",
