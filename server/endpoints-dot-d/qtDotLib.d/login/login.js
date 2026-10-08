@@ -303,7 +303,10 @@ const moduleFunction = function ({
 		// 
 		// TO MODIFY: Adjust initialData properties and response formatting
 
-		const xQuery = xReq.qtGetSurePath('query', {});
+		// POST carries the credentials in the body, where no request or proxy log sees them (2026-10-08); GET stays for
+		// old callers and reads the query string. A POST never reads the query string, so a password left in a URL is
+		// not used.
+		const xQuery = xReq.method === 'POST' ? xReq.qtGetSurePath('body', {}) : xReq.qtGetSurePath('query', {});
 		const initialData = { accessTokenHeaderTools, accessPointsDotD, xQuery, permissionValidator };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			const { user } = args;
@@ -395,6 +398,16 @@ const moduleFunction = function ({
 	addEndpoint({
 		name,
 		method,
+		routePath,
+		serviceFunction,
+		expressApp,
+		endpointsDotD,
+		permissionValidator,
+	});
+	// the same login by POST, credentials in the body: what the browser uses (2026-10-08)
+	addEndpoint({
+		name: `${name} (post)`,
+		method: 'post',
 		routePath,
 		serviceFunction,
 		expressApp,

@@ -39,7 +39,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const querystring = require('querystring');
+const { redactLoggedQuery } = require('./lib/redact-logged-query');
 
 // --------------------------------------------------------------------------------
 // OTHER MODULES
@@ -112,10 +112,8 @@ const moduleFunction =
 				next();
 				return;
 			}
-			const queryString =
-				allowQueryStringInLog && Object.keys(xReq.query).length
-					? '?' + querystring.stringify(xReq.query)
-					: '';
+			// credentials are redacted whatever allowQueryStringInLog says (2026-10-08)
+			const queryString = allowQueryStringInLog ? redactLoggedQuery(xReq.query) : '';
 			console.log(
 				`Request: ${xReq.method.toUpperCase()} ${xReq.path}${queryString} via nginx/${xReq.headers['tq-config-id']} [startApiServer.js]`,
 			);
