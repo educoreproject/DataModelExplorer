@@ -1217,6 +1217,7 @@ const getListStandards = (session, callback) => {
 		       r.sourceUrl AS sourceUrl,
 		       d.standardFamily AS standardFamily,
 		       d.releaseLabel AS releaseLabel,
+		       d.descriptionSource AS descriptionSource,
 		       nodeCount
 		ORDER BY source
 	`, {}, mergeArgs(args, next, 'standardResult')));
@@ -1251,6 +1252,8 @@ const getListStandards = (session, callback) => {
 			sourceUrl: rec.get('sourceUrl'),
 			standardFamily: rec.get('standardFamily'),
 			releaseLabel: rec.get('releaseLabel'),
+			// educoreForge lane FIX, Fix 3 (TQ): the provenance of the standard's description text, from its card
+			descriptionSource: rec.get('descriptionSource'),
 			nodeCount: toNumber(rec.get('nodeCount')),
 			isHub: rec.get('source') === args.hubIdentity.hubSource,
 			hubMatchEdgeCount: hubMatchEdgeCountBySource[rec.get('source')],

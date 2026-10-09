@@ -190,6 +190,16 @@
 		"notRun",
 		"passWithAllowedLoss"
 	],
+	"dmeTextFieldRule": {
+		"declarationRoleList": [
+			"DmeClass",
+			"DmeProperty"
+		],
+		"sourceTextPropertyNameList": [
+			"documentation"
+		],
+		"textPropertyName": "description"
+	},
 	"engineVersionsNameList": [
 		"replayManager",
 		"replayEngine",
@@ -890,6 +900,12 @@
 		{
 			"meaning": "which member of its family the standard is, version-free (CollegeTranscript, not CollegeTranscript-1.8.0); a one-member family repeats the family name",
 			"name": "releaseLabel",
+			"required": true,
+			"type": "string"
+		},
+		{
+			"meaning": "where in the standard's SOURCE its description text is read from (PESC xs:documentation, CEDS dc:description, ...), declared by its forge (lane FIX, Fix 3)",
+			"name": "descriptionSource",
 			"required": true,
 			"type": "string"
 		}

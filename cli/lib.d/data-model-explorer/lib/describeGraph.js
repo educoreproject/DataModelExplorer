@@ -260,6 +260,8 @@ const renderCard = ({ passport, readerContractSha256, recipe, blocks, blockTotal
 			);
 			// standardKind and standardUsageTips (lane Q, 2026-10-04): askMilo is told to read a standard's card before answering
 			lines.push(`    kind: ${oneStd.standardKind} · usage tips: ${oneStd.standardUsageTips}`);
+			// descriptionSource (educoreForge lane FIX, Fix 3, 2026-10-09; TQ): where in the standard's source its description text comes from
+			lines.push(`    description text from: ${oneStd.descriptionSource}`);
 		});
 	} else {
 		lines.push('Standards: none — the graph carries no StandardDefinition');
