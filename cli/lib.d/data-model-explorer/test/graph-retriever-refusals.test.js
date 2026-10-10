@@ -1,26 +1,25 @@
 #!/usr/bin/env node
 'use strict';
 
-// graph-retriever-refusals.test.js — ruling C (TQ, 2026-10-05) for lib/vectorCypherRetriever.js and -graphRetriever.
-// A real error must reach the caller BY NAME — never a degraded result, never an empty list standing in for the
-// failure. The one alternative path (no traversal file configured or present) runs a flat vector search and the
-// RESULT says so (retrievalMode 'flat', retrievalNote). Each refusal below is asserted by its message, so a twin
-// that answers with rows or [] instead fails.
+// graph-retriever-refusals.test.js — ruling C (TQ, 2026-10-05) for the graph retriever: a real error must reach the caller
+// BY NAME — never a degraded result, never an empty list standing in for the failure. The one alternative path (no
+// traversal file configured or present) returns the search hits flat and the RESULT says so (retrievalMode 'flat',
+// retrievalNote). Each refusal below is asserted by its message, so a twin that answers with rows or [] instead fails.
 //
-// Live for the cases that need the graph (traversal that fails in Neo4j, flat-with-note, bm25, the success control);
-// the others drive the retriever with a stub session or stub embedder. The live cases embed nothing: a recorded
-// embedder serves the CEDS Birthdate property's OWN embedding, so no embedding service is called and nothing jitters.
+// ⟪lane BM25, 2026-10-10⟫ The search moved out of lib/vectorCypherRetriever.js into lib/hybridRetrieval.js (a keyword BM25
+// leg and a vector leg, fused by reciprocal rank), so the cases follow it: the search's failures (embedder, each leg's
+// query, an unknown mode, the fulltext index check) are asserted on hybridRetrieval with stub sessions; the traversal's
+// (a failing traversal.cypher, an unreadable path, the flat alternative path, the success control) on the retriever,
+// live, from a hit list seeded with the CEDS Birthdate property — so nothing is embedded and nothing jitters.
 //
 //   node cli/lib.d/data-model-explorer/test/graph-retriever-refusals.test.js [dmeDirPath]
-//
-// dmeDirPath (default: this test's parent) is the directory holding dataModelExplorerSearch.js and lib/; pass a
-// baseline copy's directory to watch the twins fail on code from before ruling C (its promise API is adapted below).
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const dmeDirPath = path.resolve(process.argv[2] || path.join(__dirname, '..'));
 const retrieverModulePath = path.join(dmeDirPath, 'lib', 'vectorCypherRetriever.js');
+const hybridRetrieval = require(path.join(dmeDirPath, 'lib', 'hybridRetrieval.js'));
 const neo4j = require(path.join(dmeDirPath, 'node_modules', 'neo4j-driver'));
 const configFileProcessor = require(path.join(dmeDirPath, 'node_modules', 'qtools-config-file-processor'));
 const codeRootPath = path.join(dmeDirPath, '..', '..', '..');
@@ -40,32 +39,18 @@ const assert = (testName, condition, detailText) => {
 	failed++;
 	console.log(`  FAIL: ${testName}${detailText ? ' — ' + detailText : ''}`);
 };
-const answerTextOf = (errorText, retrievedResult) => (errorText ? `error '${errorText}'` : `result ${JSON.stringify(retrievedResult).slice(0, 160)}`);
-
-// A fresh module per case: the retriever caches the discovered vector index per process, and a stub index name
-// cached by one case must not leak into the next. Code from before ruling C answered with a promise; it is adapted
-// to callback(errorText, result) so its answer can be measured against the same assertions.
-const retrieveFresh = (retrievalSpecification, callback) => {
-	delete require.cache[require.resolve(retrieverModulePath)];
-	const { retrieve } = require(retrieverModulePath);
-	const promiseOrNothing = retrieve(retrievalSpecification, callback);
-	if (promiseOrNothing && typeof promiseOrNothing.then === 'function') {
-		promiseOrNothing.then((retrievedResult) => callback('', retrievedResult), (retrieveError) => callback(retrieveError.message));
-	}
-};
+const answerTextOf = (errorText, retrievedResult) => (errorText ? `error '${errorText}'` : `result ${JSON.stringify(retrievedResult).slice(0, 200)}`);
+const { retrieve } = require(retrieverModulePath);
 
 // ---- stubs -----------------------------------------------------------------------------------------------------
 const stubRecordOf = (fieldByName) => ({ keys: Object.keys(fieldByName), get: (fieldName) => fieldByName[fieldName] });
-const forgedNodeIndexRecordOf = (indexName) => stubRecordOf({ name: indexName, type: 'VECTOR', entityType: 'NODE', labelsOrTypes: ['ForgedNode'], properties: ['embedding'] });
-const stubSessionOf = ({ showIndexesAnswer, otherQueryRejectionText }) => ({
-	run: (cypherText) => {
-		if (/SHOW INDEXES/.test(cypherText)) return showIndexesAnswer();
-		return Promise.reject(new Error(otherQueryRejectionText));
-	},
-});
-const oneForgedNodeIndex = () => Promise.resolve({ records: [forgedNodeIndexRecordOf('stubVectorIndex')] });
-const stubEmbedderOf = (embedding) => ({ embed: (textList, callback) => callback('', [embedding]) });
+const rejectingSessionOf = (rejectionText) => ({ run: () => Promise.reject(new Error(rejectionText)) });
+const showIndexesSessionOf = (indexRowList) => ({ run: () => Promise.resolve({ records: indexRowList.map(stubRecordOf) }) });
+const declaration = require(path.join(dmeDirPath, 'lib', 'graphContract.js')).contract.fulltextIndexDeclaration;
+const declaredFulltextRow = (indexName) => ({ name: indexName, entityType: 'NODE', labelsOrTypes: [declaration.label], properties: declaration.propertyNameList.slice(), analyzer: declaration.analyzer });
 const failingEmbedder = { embed: (textList, callback) => callback('stub embedder down') };
+const stubEmbedder = { embed: (textList, callback) => callback('', [[0.1, 0.2]]) };
+const searchSpecificationOf = (overrideByName) => ({ queryText: 'birth date', legWindowSize: 10, sourceList: null, vectorIndexName: 'stubVectorIndex', fulltextIndexName: 'stubFulltextIndex', ...overrideByName });
 
 // ---- live ------------------------------------------------------------------------------------------------------
 const driver = neo4j.driver(connection.boltUri, neo4j.auth.basic(connection.user, connection.password));
@@ -76,78 +61,96 @@ fs.writeFileSync(failingTraversalFilePath, 'MATCH (n:ForgedNode RETURN n'); // a
 const absentTraversalFilePath = path.join(scratchDirPath, 'absentTraversal.cypher');
 const realTraversalFilePath = path.join(dmeDirPath, 'traversal.cypher');
 
-console.log(`\n=== graph retriever refusals (ruling C) — ${dmeDirPath} ===\n`);
+console.log(`\n=== graph retriever refusals (ruling C; lane BM25) — ${dmeDirPath} ===\n`);
 const taskList = new taskListPlus();
 
+// the seeded hit list: the CEDS Birthdate property first, then two more CEDS properties, as fuseRankedLegs shapes a hit
 taskList.push((args, next) => {
-	liveSession.run(`MATCH (n:ForgedNode {role: 'DmeProperty', _source: 'CEDS'}) WHERE n.name = 'Birthdate' AND n.embedding IS NOT NULL
-		RETURN n.embedding AS embedding LIMIT 1`).then(
+	liveSession.run(`MATCH (n:ForgedNode {role: 'DmeProperty', _source: 'CEDS'}) WHERE n.embedding IS NOT NULL AND n.name IN ['Birthdate', 'Last or Surname', 'First Name']
+		RETURN n.stableId AS stableId, n.name AS name ORDER BY CASE n.name WHEN 'Birthdate' THEN 0 ELSE 1 END, n.name`).then(
 		(queryResult) => {
-			if (!queryResult.records[0]) { next('CEDS Birthdate property with an embedding not found', args); return; }
-			next('', { ...args, recordedEmbedder: stubEmbedderOf(queryResult.records[0].get('embedding')) });
+			if (queryResult.records.length !== 3 || queryResult.records[0].get('name') !== 'Birthdate') { next(`the three seed CEDS properties were not found (${queryResult.records.length})`, args); return; }
+			const seededHitList = queryResult.records.map((oneRecord, recordIndex) => ({ stableId: oneRecord.get('stableId'), name: oneRecord.get('name'), standard: 'CEDS', fusedScore: 1 / (60 + recordIndex + 1), foundByLegList: ['keyword'], keywordRank: recordIndex + 1, keywordScore: 9 - recordIndex, vectorRank: null, vectorScore: null }));
+			next('', { ...args, seededHitList });
 		},
 		(queryError) => next(`seed query failed: ${queryError.message}`, args),
 	);
 });
 
-// Every case: [caseName, (args) => retrievalSpecification, (errorText, retrievedResult) => assertions]
-const CASE_LIST = [
+// THE SEARCH (lib/hybridRetrieval.js): [caseName, (args, done) => run, assertions]
+const SEARCH_CASE_LIST = [
 	['embedder failure is refused by name',
-		(args) => ({ neo4jSession: stubSessionOf({ showIndexesAnswer: oneForgedNodeIndex, otherQueryRejectionText: 'unused' }), queryText: 'birth date', embedder: failingEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('embedder failure → "Embedding the query failed: stub embedder down"', errorText === 'Embedding the query failed: stub embedder down', answerTextOf(errorText, retrievedResult))],
-	['missing vector index is refused by name',
-		(args) => ({ neo4jSession: stubSessionOf({ showIndexesAnswer: () => Promise.resolve({ records: [stubRecordOf({ name: 'otherIndex', type: 'RANGE', entityType: 'NODE', labelsOrTypes: ['ForgedNode'], properties: ['name'] })] }), otherQueryRejectionText: 'unused' }), queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('no :ForgedNode(embedding) VECTOR index → "No VECTOR index on :ForgedNode(embedding) exists…"', /^No VECTOR index on :ForgedNode\(embedding\) exists on this graph/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
-	['ambiguous vector index is refused by name',
-		(args) => ({ neo4jSession: stubSessionOf({ showIndexesAnswer: () => Promise.resolve({ records: [forgedNodeIndexRecordOf('indexA'), forgedNodeIndexRecordOf('indexB')] }), otherQueryRejectionText: 'unused' }), queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('two :ForgedNode(embedding) VECTOR indexes → "Ambiguous VECTOR indexes … indexA, indexB"', /^Ambiguous VECTOR indexes on :ForgedNode\(embedding\): indexA, indexB/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
-	['index listing failure is refused by name',
-		(args) => ({ neo4jSession: stubSessionOf({ showIndexesAnswer: () => Promise.reject(new Error('stub SHOW INDEXES refused')), otherQueryRejectionText: 'unused' }), queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('SHOW INDEXES failing → "Listing the graph\'s indexes failed: stub SHOW INDEXES refused"', errorText === "Listing the graph's indexes failed: stub SHOW INDEXES refused", answerTextOf(errorText, retrievedResult))],
+		(args, done) => hybridRetrieval.runSearchLegs(searchSpecificationOf({ session: rejectingSessionOf('unused'), embedder: failingEmbedder, searchMode: 'vector' }), done),
+		(errorText, searchResult) => assert('embedder failure → "Embedding the query failed: stub embedder down"', errorText === 'Embedding the query failed: stub embedder down', answerTextOf(errorText, searchResult))],
+	['a failing vector leg query is refused by name',
+		(args, done) => hybridRetrieval.runSearchLegs(searchSpecificationOf({ session: rejectingSessionOf('stub vector query refused'), embedder: stubEmbedder, searchMode: 'vector' }), done),
+		(errorText, searchResult) => assert('vector leg failing → "the vector leg failed on stubVectorIndex: stub vector query refused"', errorText === 'the vector leg failed on stubVectorIndex: stub vector query refused', answerTextOf(errorText, searchResult))],
+	['a failing keyword leg query is refused by name',
+		(args, done) => hybridRetrieval.runSearchLegs(searchSpecificationOf({ session: rejectingSessionOf('stub fulltext query refused'), embedder: stubEmbedder, searchMode: 'hybrid' }), done),
+		(errorText, searchResult) => assert('keyword leg failing → "the keyword (BM25) leg failed on stubFulltextIndex: stub fulltext query refused"', errorText === 'the keyword (BM25) leg failed on stubFulltextIndex: stub fulltext query refused', answerTextOf(errorText, searchResult))],
+	['an unknown searchMode is refused by name, not run as some leg',
+		(args, done) => hybridRetrieval.runSearchLegs(searchSpecificationOf({ session: rejectingSessionOf('unused'), embedder: stubEmbedder, searchMode: 'bm25' }), done),
+		(errorText, searchResult) => assert('searchMode bm25 → "hybridRetrieval.runSearchLegs: searchMode \'bm25\' is not one of hybrid, keyword, vector"', errorText === "hybridRetrieval.runSearchLegs: searchMode 'bm25' is not one of hybrid, keyword, vector", answerTextOf(errorText, searchResult))],
+	['a graph with no fulltext index is refused by name (fulltextIndexAbsent)',
+		(args, done) => hybridRetrieval.checkFulltextIndex({ session: showIndexesSessionOf([]), verbName: 'search' }, done),
+		(errorText, checkResult) => assert('no FULLTEXT index → refusal fulltextIndexAbsent naming the declaration and "found: none"', !errorText && checkResult.refusal && checkResult.refusal.refusalName === 'fulltextIndexAbsent' && /found: none\) — the keyword \(BM25\) leg cannot run on it/.test(checkResult.refusal.reason), answerTextOf(errorText, checkResult))],
+	['a second fulltext index is refused by name, not chosen',
+		(args, done) => hybridRetrieval.checkFulltextIndex({ session: showIndexesSessionOf([declaredFulltextRow('G_fulltext'), declaredFulltextRow('H_fulltext')]), verbName: 'search' }, done),
+		(errorText, checkResult) => assert('two FULLTEXT indexes → refusal fulltextIndexAbsent naming both', !errorText && checkResult.refusal && checkResult.refusal.refusalName === 'fulltextIndexAbsent' && /G_fulltext .*H_fulltext/.test(checkResult.refusal.reason), answerTextOf(errorText, checkResult))],
+	['the declared fulltext index is found',
+		(args, done) => hybridRetrieval.checkFulltextIndex({ session: showIndexesSessionOf([declaredFulltextRow('G_fulltext')]), verbName: 'search' }, done),
+		(errorText, checkResult) => assert('one declared FULLTEXT index → { fulltextIndexName: G_fulltext }', !errorText && checkResult.fulltextIndexName === 'G_fulltext', answerTextOf(errorText, checkResult))],
+	['an index listing failure is refused by name',
+		(args, done) => hybridRetrieval.checkFulltextIndex({ session: rejectingSessionOf('stub SHOW INDEXES refused'), verbName: 'search' }, done),
+		(errorText, checkResult) => assert('SHOW INDEXES failing → "listing the graph\'s fulltext indexes failed: stub SHOW INDEXES refused"', errorText === "listing the graph's fulltext indexes failed: stub SHOW INDEXES refused", answerTextOf(errorText, checkResult))],
+];
+
+// THE TRAVERSAL (lib/vectorCypherRetriever.js): [caseName, (args) => retrievalSpecification, assertions]
+const RETRIEVER_CASE_LIST = [
+	['a hit list that is not a list is refused by name',
+		(args) => ({ neo4jSession: liveSession, hitList: undefined, traversalFilePath: realTraversalFilePath }),
+		(errorText, retrievedResult) => assert('hitList undefined → "graphRetriever: hitList must be the search\'s fused hit list (an array); got undefined."', errorText === "graphRetriever: hitList must be the search's fused hit list (an array); got undefined.", answerTextOf(errorText, retrievedResult))],
 	['a traversal file that exists but fails in Neo4j is refused by name (live)',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: failingTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: failingTraversalFilePath }),
 		(errorText, retrievedResult) => assert('traversal Cypher error → "failingTraversal.cypher failed: <Neo4j message>"', /^failingTraversal\.cypher failed: Invalid input/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
 	['a traversal path that cannot be read is refused by name',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: scratchDirPath, limit: 3, searchMode: 'hybrid' }),
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: scratchDirPath }),
 		(errorText, retrievedResult) => assert('traversal path is a directory → "Reading <name> failed: EISDIR…"', new RegExp(`^Reading ${path.basename(scratchDirPath)} failed: EISDIR`).test(errorText || ''), answerTextOf(errorText, retrievedResult))],
-	['inside flat search, a vector failure is refused by name',
-		(args) => ({ neo4jSession: stubSessionOf({ showIndexesAnswer: oneForgedNodeIndex, otherQueryRejectionText: 'stub vector query refused' }), queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: absentTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('flat vector query failing → "Flat vector search failed (index stubVectorIndex): stub vector query refused"', errorText === 'Flat vector search failed (index stubVectorIndex): stub vector query refused', answerTextOf(errorText, retrievedResult))],
-	['searchMode bm25 is refused by name (live; no fulltext index exists)',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'bm25' }),
-		(errorText, retrievedResult) => assert('searchMode bm25 → "graphRetriever searchMode \'bm25\' cannot run…"', /^graphRetriever searchMode 'bm25' cannot run: this graph carries only the vector index/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
-	['a limit that is not a positive integer is refused by name',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: NaN, searchMode: 'hybrid' }),
-		(errorText, retrievedResult) => assert('limit NaN → "graphRetriever limit must be a positive integer; got NaN."', errorText === 'graphRetriever limit must be a positive integer; got NaN.', answerTextOf(errorText, retrievedResult))],
-	['no traversal file present → flat search, and the result says so (live)',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: absentTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
+	['no traversal file present → the hits flat, and the result says so',
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: absentTraversalFilePath }),
 		(errorText, retrievedResult) => {
 			assert('absent traversal file answers without error', !errorText, answerTextOf(errorText, retrievedResult));
-			assert('retrievalMode is flat', !!retrievedResult && retrievedResult.retrievalMode === 'flat', answerTextOf(errorText, retrievedResult));
-			assert('retrievalNote names the absent file', !!retrievedResult && retrievedResult.retrievalNote === 'traversal file absentTraversal.cypher not present; flat vector search without graph traversal', answerTextOf(errorText, retrievedResult));
+			assert('retrievalMode is flat, retrievalNote names the absent file', !!retrievedResult && retrievedResult.retrievalMode === 'flat' && retrievedResult.retrievalNote === 'traversal file absentTraversal.cypher not present; the search hits without graph traversal', answerTextOf(errorText, retrievedResult));
 			const resultList = (retrievedResult && retrievedResult.results) || [];
-			assert('flat results hold limit (3) rows, counted in resultCount', resultList.length === 3 && retrievedResult.resultCount === 3, answerTextOf(errorText, retrievedResult));
-			assert('the seeded CEDS Birthdate property is the first flat row', !!resultList[0] && resultList[0].node.name === 'Birthdate' && resultList[0].node._source === 'CEDS', answerTextOf(errorText, retrievedResult));
+			assert('flat results are the 3 hits in order, counted, each with its provenance and hitRank', resultList.length === 3 && retrievedResult.resultCount === 3 && resultList[0].name === 'Birthdate' && resultList.every((oneRow, rowIndex) => oneRow.hitRank === rowIndex + 1 && Array.isArray(oneRow.foundByLegList)), answerTextOf(errorText, retrievedResult));
 		}],
-	['no traversal file configured → flat search, and the result says so (live)',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: '', limit: 2, searchMode: 'vector' }),
-		(errorText, retrievedResult) => {
-			assert('unconfigured traversal answers without error', !errorText, answerTextOf(errorText, retrievedResult));
-			assert('retrievalNote says no traversal file is configured', !!retrievedResult && retrievedResult.retrievalMode === 'flat' && retrievedResult.retrievalNote === 'no traversal file configured; flat vector search without graph traversal', answerTextOf(errorText, retrievedResult));
-		}],
-	['control: the real traversal still answers with its row list (live)',
-		(args) => ({ neo4jSession: liveSession, queryText: 'birth date', embedder: args.recordedEmbedder, traversalFilePath: realTraversalFilePath, limit: 3, searchMode: 'hybrid' }),
+	['no traversal file configured → the hits flat, and the result says so',
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList.slice(0, 2), traversalFilePath: '' }),
+		(errorText, retrievedResult) => assert('retrievalNote says no traversal file is configured', !errorText && !!retrievedResult && retrievedResult.retrievalMode === 'flat' && retrievedResult.resultCount === 2 && retrievedResult.retrievalNote === 'no traversal file configured; the search hits without graph traversal', answerTextOf(errorText, retrievedResult))],
+	['control: the real traversal answers its row list, each row carrying the hit\'s provenance unchanged (live)',
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: realTraversalFilePath }),
 		(errorText, retrievedResult) => {
 			assert('traversal answers without error', !errorText, answerTextOf(errorText, retrievedResult));
 			// W-D-10 (campaign P1): the traversal answers { retrievalMode, requestedHitCount, returnedHitCount, hitList }
-			assert('traversal answers hitList: 3 rows carrying graph context, counted', !!retrievedResult && retrievedResult.retrievalMode === 'traversal' && retrievedResult.requestedHitCount === 3 && retrievedResult.returnedHitCount === 3 && Array.isArray(retrievedResult.hitList) && retrievedResult.hitList.length === 3 && retrievedResult.hitList.every((row) => 'mappingsIncoming' in row), answerTextOf(errorText, retrievedResult));
+			const hitList = (retrievedResult && retrievedResult.hitList) || [];
+			assert('traversal answers hitList: 3 rows carrying graph context, counted', !!retrievedResult && retrievedResult.retrievalMode === 'traversal' && retrievedResult.requestedHitCount === 3 && retrievedResult.returnedHitCount === 3 && hitList.length === 3 && hitList.every((row) => 'mappingsIncoming' in row), answerTextOf(errorText, retrievedResult));
+			assert('rows keep the hit order (hitRank 1..3, Birthdate first) and the hit provenance (foundByLegList, keywordRank, vectorRank null)', hitList.length === 3 && hitList.every((row, rowIndex) => row.hitRank === rowIndex + 1 && JSON.stringify(row.foundByLegList) === '["keyword"]' && row.keywordRank === rowIndex + 1 && row.vectorRank === null) && hitList[0].node.name === 'Birthdate', answerTextOf(errorText, retrievedResult));
 		}],
 ];
 
-CASE_LIST.forEach(([caseName, specificationOf, assertionsOf]) => {
+SEARCH_CASE_LIST.forEach(([caseName, runCase, assertionsOf]) => {
 	taskList.push((args, next) => {
 		console.log(`- ${caseName}`);
-		retrieveFresh(specificationOf(args), (errorText, retrievedResult) => {
+		runCase(args, (errorText, caseResult) => {
+			assertionsOf(errorText, caseResult);
+			next('', args);
+		});
+	});
+});
+RETRIEVER_CASE_LIST.forEach(([caseName, specificationOf, assertionsOf]) => {
+	taskList.push((args, next) => {
+		console.log(`- ${caseName}`);
+		retrieve(specificationOf(args), (errorText, retrievedResult) => {
 			assertionsOf(errorText, retrievedResult);
 			next('', args);
 		});
@@ -158,13 +161,15 @@ CASE_LIST.forEach(([caseName, specificationOf, assertionsOf]) => {
 // ruling 1, 2026-10-06): an INPUT refusal is a RESULT, { refusedByName, refusalName, reason }, written to stdout with exit 0;
 // still by name, still never [] — only the channel moved.
 const refusalOf = (searchResult) => (searchResult && typeof searchResult === 'object' && !Array.isArray(searchResult) ? searchResult : {});
-const SEARCH_CASE_LIST = [
+const VERB_CASE_LIST = [
 	['an empty query is refused by name, not answered with []', { query: '', limit: '3', searchMode: 'hybrid' },
 		(errorText, searchResult) => assert('empty query → { refusedByName: graphRetriever, refusalName: emptyQuery, reason: "-graphRetriever requires a non-empty argument…" }', !errorText && refusalOf(searchResult).refusalName === 'emptyQuery' && /^-graphRetriever requires a non-empty argument/.test(refusalOf(searchResult).reason || ''), answerTextOf(errorText, searchResult))],
 	['traversalMode (the never-built dynamic mode\'s switch) is refused by name', { query: 'birth date', limit: '3', searchMode: 'hybrid', traversalMode: 'dynamic' },
 		(errorText, searchResult) => assert('traversalMode supplied → { refusalName: traversalModeRemoved, reason: "graphRetriever traversalMode was removed…" }', !errorText && refusalOf(searchResult).refusalName === 'traversalModeRemoved' && /^graphRetriever traversalMode was removed/.test(refusalOf(searchResult).reason || ''), answerTextOf(errorText, searchResult))],
+	['searchMode bm25 is refused by name, with the valid modes', { query: 'birth date', limit: '3', searchMode: 'bm25' },
+		(errorText, searchResult) => assert('searchMode bm25 → { refusalName: invalidSearchMode, validValueList: [hybrid, keyword, vector] }', !errorText && refusalOf(searchResult).refusalName === 'invalidSearchMode' && JSON.stringify(refusalOf(searchResult).validValueList) === '["hybrid","keyword","vector"]', answerTextOf(errorText, searchResult))],
 ];
-SEARCH_CASE_LIST.forEach(([caseName, searchParams, assertionsOf]) => {
+VERB_CASE_LIST.forEach(([caseName, searchParams, assertionsOf]) => {
 	taskList.push((args, next) => {
 		console.log(`- ${caseName}`);
 		require(path.join(dmeDirPath, 'dataModelExplorerSearch.js')).search('graphRetriever', searchParams, (errorText, searchResult) => {

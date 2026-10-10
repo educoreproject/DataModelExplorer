@@ -1,8 +1,8 @@
 // traversal.cypher — DataModelExplorer (forge pure-graph contract)
-// Vector: single unified index on :ForgedNode(embedding), COSINE, 1024-dim. The
-//   builder names it <graphName>_vector, so the name is DISCOVERED at runtime by
-//   the caller and passed in as $indexName — never hardcoded here.
-// No fulltext index exists in the forge graph.
+// Search: this file ranks nothing. The hits arrive as $hitList, ranked by lib/hybridRetrieval.js (lane BM25, 2026-10-10):
+//   a keyword (BM25) leg over the <graphName>_fulltext index and/or a vector leg over <graphName>_vector, per searchMode,
+//   fused by reciprocal rank. Each hit names its node by stableId and carries hitRank, fusedScore, foundByLegList and
+//   both legs' ranks and scores, returned unchanged so every row says which leg found it.
 // Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
 //   DmeOptionValue, DmeSupport, DmeInstance, DmeStandardRoot, …) and _source (the live inventory: dme_list_standards).
 // Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
@@ -26,20 +26,15 @@
 //   HAS_CLASS, SUBCLASS_OF, REFERENCES / REFERENCES_TYPE / REFERENCES_OBJECT; SIF/PESC add HAS_INSTANCE, HAS_FIELD,
 //   HAS_CHILD (see instanceView).
 // Every confidence shown is the edge's mappingConfidence (the duplicate `confidence` property retires, W-B-2).
-// Updated: 2026-10-06 campaign P3 (CONSTRAINED_BY retired, S3: SIF Field -> Codeset is HAS_OPTION_SET; mappingRationale carried, W-B-4); 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
+// Updated: 2026-10-10 lane BM25 (the search preamble became $hitList: keyword + vector legs fused upstream); 2026-10-06 campaign P3 (CONSTRAINED_BY retired, S3: SIF Field -> Codeset is HAS_OPTION_SET; mappingRationale carried, W-B-4); 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
 //   instances and the REFERENCES_* family, W-D-4; mappingConfidence read, W-B-2 step A); 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
 //   2026-07-01 equivalence-model rewrite)
-// Parameters: $embedding (list<float>), $limit (int), $query (string), $indexName (string)
+// Parameters: $hitList (list of {stableId, hitRank, fusedScore, foundByLegList, keywordRank, keywordScore, vectorRank, vectorScore})
 
-// === Search preamble: single unified vector query over the discovered index ===
-CALL db.index.vector.queryNodes($indexName, $limit, $embedding) YIELD node, score
-WITH node, score AS vecScore, 0.0 AS ftScore
-
-// === Rank ===
-WITH node, vecScore, ftScore,
-     (CASE WHEN ftScore > 0 THEN 0.5 ELSE 0 END) +
-     (CASE WHEN vecScore > 0 THEN vecScore * 0.5 ELSE 0 END) AS combinedScore
-ORDER BY combinedScore DESC LIMIT $limit
+// === Hits: the fused search result, one row per hit (lib/hybridRetrieval.js) ===
+UNWIND $hitList AS hit
+MATCH (node:ForgedNode {stableId: hit.stableId})
+WITH node, hit
 
 // === Traversal: forge-contract structural neighborhood ===
 
@@ -332,9 +327,13 @@ WITH *,
 // === Return ===
 RETURN
   node,
-  combinedScore,
-  vecScore,
-  ftScore,
+  hit.hitRank AS hitRank,
+  hit.fusedScore AS fusedScore,
+  hit.foundByLegList AS foundByLegList,
+  hit.keywordRank AS keywordRank,
+  hit.keywordScore AS keywordScore,
+  hit.vectorRank AS vectorRank,
+  hit.vectorScore AS vectorScore,
   labels(node) AS nodeLabels,
   node.role AS role,
   node._source AS source,
@@ -357,3 +356,4 @@ RETURN
   mappingsIncomingTruncatedByRelation,
   mappingsIncomingTruncatedByRelationAndStandard,
   instanceView
+ORDER BY hitRank

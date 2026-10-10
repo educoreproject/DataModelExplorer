@@ -207,6 +207,16 @@
 		"forgeFramework",
 		"bridgeFramework"
 	],
+	"fulltextIndexDeclaration": {
+		"analyzer": "standard",
+		"indexNameSuffix": "_fulltext",
+		"label": "ForgedNode",
+		"propertyNameList": [
+			"name",
+			"description"
+		],
+		"searchedVectorSlotPropertyName": "embedding"
+	},
 	"graphContractVersion": "1",
 	"hubSlotList": [
 		"DOMAIN",

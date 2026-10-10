@@ -4,7 +4,7 @@
 // dataModelExplorerSearch.js — Multi-tool search across unified education data standards graph
 //
 // Query types (via CLI flags):
-//   -search "query"        Vector search (index discovered at runtime) across ALL standards
+//   -search "query"        Hybrid search (keyword BM25 + vector, fused; --searchMode=hybrid|keyword|vector) across ALL standards
 //   -findMappings "name"   Find an element's CEDS concept (HubReference) + cross-standard equivalents
 //   -compareCodesets "name" Compare codeset values between standards
 //   -unmappedFields        DmeProperty nodes with no cross-standard mapping
@@ -24,7 +24,8 @@ const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronou
 const { runCypherQuery } = require('./lib/runCypherQuery');
 // ⟪campaign P2⟫ the passport, read by contract (V2-C01/C04), and the embedder check every vector verb makes first (V2-C28)
 const { readPassport } = require('./lib/passportReader');
-const { checkGraphEmbeddingContract } = require('./lib/graphEmbeddingContract');
+// ⟪lane BM25⟫ the search's legs (keyword BM25, vector), their graph checks and their fusion: one module for both search verbs
+const { searchLegListFor, resolveSearchIndexes, searchAndFuse } = require('./lib/hybridRetrieval');
 // W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
 // JSON with exit 0; an ERROR (the tool could not run) stays callback(errorText) -> stderr, exit 1 (supervisor ruling 1)
 const {
@@ -45,6 +46,10 @@ const {
 	SEARCH_PAGE_SIZE,
 	SEARCH_OVER_FETCH_FACTOR,
 	SEARCH_OVER_FETCH_CAP,
+	SEARCH_MODE_LEG_LIST_BY_NAME,
+	SEARCH_RRF_CONSTANT,
+	SEARCH_LEG_WINDOW_SIZE,
+	SEARCH_SCORE_UNIT_BY_FIELD,
 	EXPLORE_EDGE_CAP,
 	NAME_MATCH_MODE_LIST,
 	CALCULATE_OPERATION_ARITY_BY_NAME,
@@ -145,20 +150,6 @@ const withNeo4jSession = (config, { accessMode }, queryHandler, callback) => {
 };
 
 // =====================================================================
-// QUERY EMBEDDING (via embedder object)
-// =====================================================================
-
-const embedQuery = (text, embedder, callback) => {
-	embedder.embed([text], (err, embeddings) => {
-		if (err) {
-			callback(`Embedding failed: ${err}`);
-			return;
-		}
-		callback('', embeddings[0]);
-	});
-};
-
-// =====================================================================
 // HELPERS
 // =====================================================================
 
@@ -208,138 +199,95 @@ const RAW_CYPHER_ROW_CAP = 1000;
 // =====================================================================
 
 // =====================================================================
-// HYBRID SEARCH (single unified vector index, discovered at runtime)
+// SEARCH — keyword (BM25) and vector legs, fused (lane BM25, 2026-10-10)
 // =====================================================================
 //
-// The forge graph carries ONE vector index on :ForgedNode(embedding) and no
-// fulltext index. All standards share that index, distinguished by the
-// _source property. The builder names the index <graphName>_vector
-// (replay-engine contract), so the name changes on every rebuild — it is
-// discovered live from SHOW INDEXES, cached per process, never hardcoded.
+// TQ: "No BM25/fulltext is a bug." The forge graph now carries a fulltext index beside the vector index (graph-contract
+// §10b); lib/hybridRetrieval.js runs the legs a searchMode names and fuses them by reciprocal rank. searchMode is INPUT
+// with a declared default (VERB_FLAG_DEFAULT_BY_VERB: hybrid); keyword and vector run one leg. Every row says which leg
+// found it, and both legs' ranks and raw scores; the payload carries what each score is measured in.
+//
+// W-D-10 (campaign P1): a filtered search over-fetches SEARCH_OVER_FETCH_FACTOR x the page (capped) in EACH leg so a small
+// standard still fills it, and answers the §14 envelope. totalRowCount counts the distinct nodes the legs found inside
+// their windows (overFetchWindow each), the most the search can say; a short filtered page says so in shortPageNote.
 
-let discoveredVectorIndex = null;
+// searchModeRefusalFor — '' when the mode names a leg list, else the refusal (with the valid modes)
+const searchModeRefusalFor = (verbName, searchMode) =>
+	searchLegListFor(searchMode) ? '' : refusalFor(verbName, 'invalidSearchMode', `${verbName} searchMode '${searchMode}' is not one of ${Object.keys(SEARCH_MODE_LEG_LIST_BY_NAME).join(', ')}: hybrid fuses the keyword (BM25) and vector legs, keyword and vector run one`, Object.keys(SEARCH_MODE_LEG_LIST_BY_NAME));
 
-const resolveVectorIndex = (session, callback) => {
-	if (discoveredVectorIndex) {
-		callback('', discoveredVectorIndex);
-		return;
-	}
-	runCypherQuery(session, 'SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties', {}, (err, result) => {
-		if (err) {
-			callback(err);
-			return;
-		}
-		const candidates = result.records
-			.map(rec => ({
-				name: rec.get('name'),
-				type: rec.get('type'),
-				entityType: rec.get('entityType'),
-				labels: rec.get('labelsOrTypes') || [],
-				properties: rec.get('properties') || [],
-			}))
-			.filter(row =>
-				row.type === 'VECTOR' && row.entityType === 'NODE' &&
-				row.labels.includes('ForgedNode') && row.properties.includes('embedding')
-			);
-		if (candidates.length === 0) {
-			callback('No VECTOR index on :ForgedNode(embedding) exists on this graph — vector search cannot run.');
-			return;
-		}
-		if (candidates.length > 1) {
-			callback(`Ambiguous VECTOR indexes on :ForgedNode(embedding): ${candidates.map(row => row.name).join(', ')} — cannot choose safely.`);
-			return;
-		}
-		discoveredVectorIndex = candidates[0].name;
-		callback('', discoveredVectorIndex);
-	});
-};
+// the vector leg cannot run without the query embedder; a keyword-only search needs none
+const embedderErrorFor = (searchMode, config) =>
+	searchLegListFor(searchMode).includes('vector') && !config.embedder ? 'No embedder configured — the vector leg cannot run. Check voyageApiKey in dataModelExplorerSearch.ini (searchMode keyword needs none).' : '';
 
-// W-D-10 (campaign P1): a filtered search over-fetches SEARCH_OVER_FETCH_FACTOR x the page (capped) so a small standard
-// still fills it, and answers the §14 envelope. totalRowCount counts the matches inside the over-fetch window (the
-// nearest overFetchWindow nodes), the most the vector index can say; a short filtered page says so in shortPageNote.
-const hybridSearch = (session, query, config, params, callback) => {
+const searchAllStandards = (session, query, config, params, callback) => {
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-search'); // L8
 	if (emptyQueryRefusal) {
 		callback('', refusalFor('search', 'emptyQuery', emptyQueryRefusal));
 		return;
 	}
-	if (!config.embedder) {
-		callback('No embedder configured — vector search cannot run. Check voyageApiKey in dataModelExplorerSearch.ini.');
+	const modeRefusal = searchModeRefusalFor('search', params.searchMode);
+	if (modeRefusal) {
+		callback('', modeRefusal);
 		return;
 	}
-	// ⟪campaign P2, V2-C28⟫ the passport must say this graph's vectors are the query embedder's, before anything is embedded
-	checkGraphEmbeddingContract({ session, verbName: 'search' }, (contractError, contractVerdict) => {
-	if (contractError) {
-		callback(contractError);
+	const embedderError = embedderErrorFor(params.searchMode, config);
+	if (embedderError) {
+		callback(embedderError);
 		return;
 	}
-	if (contractVerdict.refusal) {
-		callback('', contractVerdict.refusal);
-		return;
-	}
-	resolveStandardFilter(session, 'search', params.standard, (filterError, standardFilter) => {
-		if (filterError) {
-			callback(filterError);
+	const taskList = new taskListPlus();
+	// ⟪campaign P2, V2-C28; lane BM25⟫ each leg's graph checks (passport, embedder, the two indexes) before anything is embedded
+	taskList.push((args, next) => resolveSearchIndexes({ session, verbName: 'search', searchMode: params.searchMode }, (indexError, searchIndexes) => (indexError ? next(indexError, args) : next('', { ...args, searchIndexes }))));
+	taskList.push((args, next) => {
+		if (args.searchIndexes.refusal) {
+			next('', args);
 			return;
 		}
-		if (standardFilter.refusal) {
-			callback('', standardFilter.refusal);
-			return;
-		}
-		const { sourceList } = standardFilter;
-		const overFetchWindow = sourceList ? Math.min(SEARCH_PAGE_SIZE * SEARCH_OVER_FETCH_FACTOR, SEARCH_OVER_FETCH_CAP) : SEARCH_PAGE_SIZE;
-
-		const taskList = new taskListPlus();
-		taskList.push((args, next) => {
-			embedQuery(query, config.embedder, (err, queryEmbedding) => {
-				if (err) {
-					next(`Embedding the query failed: ${err}`, args);
-					return;
-				}
-				next('', { ...args, queryEmbedding });
-			});
-		});
-		taskList.push((args, next) => resolveVectorIndex(session, mergeArgs(args, next, 'vectorIndexName')));
-		taskList.push((args, next) => {
-			runCypherQuery(session, `
-			CALL db.index.vector.queryNodes($indexName, $overFetchWindow, $embedding)
-			YIELD node, score
-			WITH node, score
-			WHERE $sourceList IS NULL OR node._source IN $sourceList
-			WITH node, score ORDER BY score DESC
-			WITH collect({ standard: node._source, id: node._id, stableId: node.stableId, role: node.role,
-			               labels: labels(node), name: node.name, description: node.description, score: score }) AS rowList
-			RETURN rowList[..$pageSize] AS resultList, size(rowList) AS totalRowCount
-		`, {
-				indexName: args.vectorIndexName,
-				overFetchWindow: neo4j.int(overFetchWindow),
-				pageSize: neo4j.int(SEARCH_PAGE_SIZE),
-				embedding: args.queryEmbedding,
-				sourceList,
-			}, mergeArgs(args, next, 'vecResult'));
-		});
-
-		pipeRunner(taskList.getList(), {}, (err, args) => {
-			if (err) {
-				callback(err);
-				return;
-			}
-			const searchRecord = args.vecResult.records[0];
-			const resultList = searchRecord.get('resultList').map((oneRow) => ({
-				...serializeValue(oneRow),
-				labels: oneRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
-			}));
-			const searchPayload = {
-				...listEnvelopeFor('search', resultList, toNumber(searchRecord.get('totalRowCount'))),
-				overFetchWindow,
-				...familyExpansionFieldsFor(standardFilter),
-			};
-			if (sourceList && resultList.length < SEARCH_PAGE_SIZE) {
-				searchPayload.shortPageNote = `only ${resultList.length} of the ${overFetchWindow} nearest nodes belong to ${sourceList.join(', ')}; the page is short, not the standard`;
-			}
-			callback('', searchPayload);
-		});
+		resolveStandardFilter(session, 'search', params.standard, (filterError, standardFilter) => (filterError ? next(filterError, args) : next('', { ...args, standardFilter })));
 	});
+	taskList.push((args, next) => {
+		if (args.searchIndexes.refusal || args.standardFilter.refusal) {
+			next('', args);
+			return;
+		}
+		const { sourceList } = args.standardFilter;
+		const overFetchWindow = sourceList ? Math.min(SEARCH_PAGE_SIZE * SEARCH_OVER_FETCH_FACTOR, SEARCH_OVER_FETCH_CAP) : SEARCH_LEG_WINDOW_SIZE;
+		searchAndFuse({ session, queryText: query, embedder: config.embedder, searchMode: params.searchMode, legWindowSize: overFetchWindow, sourceList, vectorIndexName: args.searchIndexes.vectorIndexName, fulltextIndexName: args.searchIndexes.fulltextIndexName }, (searchError, searchResult) =>
+			searchError ? next(searchError, args) : next('', { ...args, overFetchWindow, searchResult }));
+	});
+
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		if (args.searchIndexes.refusal) {
+			callback('', args.searchIndexes.refusal);
+			return;
+		}
+		if (args.standardFilter.refusal) {
+			callback('', args.standardFilter.refusal);
+			return;
+		}
+		const { fusedRowList, legHitCountByName } = args.searchResult;
+		const { sourceList } = args.standardFilter;
+		const resultList = fusedRowList.slice(0, SEARCH_PAGE_SIZE).map((oneRow) => ({
+			...serializeValue(oneRow),
+			labels: oneRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
+		}));
+		const searchPayload = {
+			...listEnvelopeFor('search', resultList, fusedRowList.length),
+			searchMode: params.searchMode,
+			legHitCountByName,
+			rrfConstant: SEARCH_RRF_CONSTANT,
+			scoreUnitByField: SEARCH_SCORE_UNIT_BY_FIELD,
+			overFetchWindow: args.overFetchWindow,
+			...familyExpansionFieldsFor(args.standardFilter),
+		};
+		if (sourceList && resultList.length < SEARCH_PAGE_SIZE) {
+			searchPayload.shortPageNote = `only ${resultList.length} of the nodes the search legs found within their ${args.overFetchWindow}-node windows belong to ${sourceList.join(', ')}; the page is short, not the standard`;
+		}
+		callback('', searchPayload);
 	});
 };
 
@@ -1444,15 +1392,16 @@ const rawCypher = (session, query, callback) => {
 };
 
 // =====================================================================
-// GRAPH RETRIEVER (VectorCypherRetriever)
+// GRAPH RETRIEVER (the hybrid search, then traversal.cypher)
 // =====================================================================
 
 // Ruling C (TQ, 2026-10-05): the retriever answers a real error by name, never with an empty or degraded list; when
-// traversal.cypher is absent it runs a flat vector search and its result says so (retrievalMode 'flat'). The
+// traversal.cypher is absent it returns the search hits flat and its result says so (retrievalMode 'flat'). The
 // never-built 'dynamic' traversal mode was deleted, and with it traversalMode: supplying it is refused by name.
-// limit and searchMode carry their declared CLI defaults (-help); the retriever refuses either when invalid.
+// limit and searchMode carry their declared CLI defaults (-help); a bad one is refused by name. ⟪lane BM25⟫ The hits are
+// the same fused search dme_search runs (lib/hybridRetrieval.js), the top `limit` of it; traversal.cypher walks from them.
 const graphRetriever = (session, query, config, params, callback) => {
-	const { retrieve, RUNNABLE_SEARCH_MODE_LIST } = require('./lib/vectorCypherRetriever');
+	const { retrieve } = require('./lib/vectorCypherRetriever');
 
 	const emptyQueryRefusal = emptyArgumentRefusal(query, '-graphRetriever');
 	if (emptyQueryRefusal) {
@@ -1463,35 +1412,51 @@ const graphRetriever = (session, query, config, params, callback) => {
 		callback('', refusalFor('graphRetriever', 'traversalModeRemoved', `graphRetriever traversalMode was removed (got '${params.traversalMode}'): the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher.`));
 		return;
 	}
-	// limit and searchMode are INPUT, so a bad one is a refusal on stdout here; the retriever keeps its own guard (ruling C)
+	// limit and searchMode are INPUT, so a bad one is a refusal on stdout here (ruling C)
 	const limitNumber = Number(params.limit);
 	if (!Number.isInteger(limitNumber) || limitNumber < 1) {
 		callback('', refusalFor('graphRetriever', 'invalidLimit', `graphRetriever limit must be a positive integer; got ${params.limit}.`));
 		return;
 	}
-	if (RUNNABLE_SEARCH_MODE_LIST.indexOf(params.searchMode) === -1) {
-		callback('', refusalFor('graphRetriever', 'invalidSearchMode', `graphRetriever searchMode '${params.searchMode}' cannot run: this graph carries only the vector index on :ForgedNode(embedding) and no fulltext index, so searchMode must be one of ${RUNNABLE_SEARCH_MODE_LIST.join(', ')}.`, RUNNABLE_SEARCH_MODE_LIST));
+	const modeRefusal = searchModeRefusalFor('graphRetriever', params.searchMode);
+	if (modeRefusal) {
+		callback('', modeRefusal);
+		return;
+	}
+	const embedderError = embedderErrorFor(params.searchMode, config);
+	if (embedderError) {
+		callback(embedderError);
 		return;
 	}
 
-	// ⟪campaign P2, V2-C28⟫ the passport must say this graph's vectors are the query embedder's, before anything is embedded
-	checkGraphEmbeddingContract({ session, verbName: 'graphRetriever' }, (contractError, contractVerdict) => {
-		if (contractError) {
-			callback(contractError);
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => resolveSearchIndexes({ session, verbName: 'graphRetriever', searchMode: params.searchMode }, (indexError, searchIndexes) => (indexError ? next(indexError, args) : next('', { ...args, searchIndexes }))));
+	taskList.push((args, next) => {
+		if (args.searchIndexes.refusal) {
+			next('', args);
 			return;
 		}
-		if (contractVerdict.refusal) {
-			callback('', contractVerdict.refusal);
+		searchAndFuse({ session, queryText: query, embedder: config.embedder, searchMode: params.searchMode, legWindowSize: Math.max(SEARCH_LEG_WINDOW_SIZE, limitNumber), sourceList: null, vectorIndexName: args.searchIndexes.vectorIndexName, fulltextIndexName: args.searchIndexes.fulltextIndexName }, (searchError, searchResult) =>
+			searchError ? next(searchError, args) : next('', { ...args, searchResult }));
+	});
+	taskList.push((args, next) => {
+		if (args.searchIndexes.refusal) {
+			next('', args);
 			return;
 		}
-		retrieve({
-			neo4jSession: session,
-			queryText: query,
-			embedder: config.embedder,
-			traversalFilePath: path.join(__dirname, 'traversal.cypher'),
-			limit: Number(params.limit),
-			searchMode: params.searchMode,
-		}, callback);
+		retrieve({ neo4jSession: session, hitList: args.searchResult.fusedRowList.slice(0, limitNumber), traversalFilePath: path.join(__dirname, 'traversal.cypher') }, (retrieveError, retrievedResult) =>
+			retrieveError ? next(retrieveError, args) : next('', { ...args, retrievedResult }));
+	});
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		if (args.searchIndexes.refusal) {
+			callback('', args.searchIndexes.refusal);
+			return;
+		}
+		callback('', { ...args.retrievedResult, searchMode: params.searchMode, legHitCountByName: args.searchResult.legHitCountByName, rrfConstant: SEARCH_RRF_CONSTANT, scoreUnitByField: SEARCH_SCORE_UNIT_BY_FIELD });
 	});
 };
 
@@ -1559,7 +1524,7 @@ const calculate = (params, callback) => {
 
 // queryType -> handler. Every handler is (session, params, config, callback).
 const QUERY_HANDLER_BY_QUERY_TYPE = {
-	search: (session, params, config, callback) => hybridSearch(session, params.query, config, params, callback),
+	search: (session, params, config, callback) => searchAllStandards(session, params.query, config, params, callback),
 	graphRetriever: (session, params, config, callback) => graphRetriever(session, params.query, config, params, callback),
 	findMappings: (session, params, config, callback) => findMappings(session, params.name, callback),
 	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, callback),

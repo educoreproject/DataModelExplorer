@@ -7,7 +7,7 @@
 		{
 			"definition": {
 				"name": "dme_search",
-				"description": "Semantic vector search across ALL standards in the unified graph (the live inventory comes from dme_list_standards). Vector-only — the graph carries a single vector index on :ForgedNode(embedding) and no fulltext/BM25 index. Returns results ranked by cosine relevance. Accepts an optional standard (a `source` value from dme_list_standards). RETURNS AN OBJECT: resultList (at most 20 rows, nearest first, each with stableId), totalRowCount (matches among the nearest overFetchWindow nodes), returnedRowCount, truncatedRowCount; a filtered page that is short carries shortPageNote — the page is short, not the standard. Before embedding, the graph's passport is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Search across ALL standards in the unified graph (the live inventory comes from dme_list_standards). Hybrid by default: a keyword (BM25) leg over element names and descriptions — every word of the query must appear, so an exact element name or code (NCESId, localId, a PESC element name) is found even when the meaning search ranks it low — fused with a vector (meaning) leg by reciprocal rank; searchMode keyword or vector runs one leg. Accepts an optional standard (a `source` value from dme_list_standards). RETURNS AN OBJECT: resultList (at most 20 rows, best fused rank first, each with stableId, fusedScore, foundByLegList ('keyword', 'vector' or both) and each leg's rank and raw score, null where that leg did not find the node), totalRowCount (distinct nodes the legs found inside their overFetchWindow-node windows), returnedRowCount, truncatedRowCount, searchMode, legHitCountByName, rrfConstant and scoreUnitByField (what each score is measured in — say which leg found a result when it matters); a filtered page that is short carries shortPageNote — the page is short, not the standard. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (it cannot be searched that way), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -18,6 +18,16 @@
 						"standard": {
 							"type": "string",
 							"description": "Optional: limit to one standard. Give a `source` value exactly as dme_list_standards returns it (e.g. SIF260928, PESC-CollegeTranscript-1.8.0); an unknown value is refused by name with the valid list. A FAMILY name (a standardFamily from dme_list_standards, e.g. SIF or PESC) is expanded to all its releases, and the result then carries expandedFromFamily, expandedToSourceList and standardFilterNote: when it does, say that the family was expanded and to which releases."
+						},
+						"searchMode": {
+							"type": "string",
+							"enum": [
+								"hybrid",
+								"keyword",
+								"vector"
+							],
+							"description": "Optional (default hybrid): hybrid fuses the keyword (BM25) and vector legs; keyword runs only the exact-word leg (no embedding); vector runs only the meaning leg. Any other value is refused by name.",
+							"default": "hybrid"
 						}
 					},
 					"required": [
@@ -31,14 +41,15 @@
 					"query"
 				],
 				"flagArgs": {
-					"standard": "--standard"
+					"standard": "--standard",
+					"searchMode": "--searchMode"
 				}
 			}
 		},
 		{
 			"definition": {
 				"name": "dme_graph_retriever",
-				"description": "Semantic search with graph context enrichment. Finds similar nodes by meaning, then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (HAS_OPTION_SET; viaInstance: true; each code set carries name, path and valueCount), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows carry no graph context: tell the user so, quoting the retrievalNote. Before embedding, the graph's passport is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"description": "Search with graph context enrichment. Finds nodes with the same hybrid search dme_search runs (keyword BM25 + vector, fused by reciprocal rank; each hit carries hitRank, fusedScore, foundByLegList and both legs' ranks and scores), then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (HAS_OPTION_SET; viaInstance: true; each code set carries name, path and valueCount), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows are the search hits with no graph context: tell the user so, quoting the retrievalNote. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
 					"type": "object",
 					"properties": {
@@ -55,9 +66,10 @@
 							"type": "string",
 							"enum": [
 								"hybrid",
+								"keyword",
 								"vector"
 							],
-							"description": "Both values run the graph's one vector index (there is no fulltext index, so no BM25 leg); any other value is refused.",
+							"description": "Optional (default hybrid): hybrid fuses the keyword (BM25) and vector legs; keyword runs only the exact-word leg; vector runs only the meaning leg. Any other value is refused by name.",
 							"default": "hybrid"
 						}
 					},

@@ -301,7 +301,8 @@ In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, 
 ## Conventions
 
 - **Match on the contract**, not native labels: \`(:ForgedNode {role: 'DmeProperty', _source: 'CEDS'})\`.
-- **Searchable nodes carry a vector embedding** in the \`embedding\` property, indexed by one vector index on \`:ForgedNode(embedding)\` (COSINE, 1024-dim). Its name varies by build: discover it with \`SHOW VECTOR INDEXES\`. A build may add a second, on \`:DmeEmbedText(textEmbedding)\`. There is NO fulltext index.
+- **Searchable nodes carry a vector embedding** in the \`embedding\` property, indexed by one vector index on \`:ForgedNode(embedding)\` (COSINE, 1024-dim). Its name varies by build: discover it with \`SHOW VECTOR INDEXES\`. A build may add a second, on \`:DmeEmbedText(textEmbedding)\`.
+- **Names and descriptions are also keyword-searchable**: one FULLTEXT (BM25) index on \`:ForgedNode\` over \`name\` and \`description\`, named \`<graphName>_fulltext\` (graphName is the passport's, shown by dme_describe_graph; query it with \`CALL db.index.fulltext.queryNodes(<name>, $text)\`). dme_search and dme_graph_retriever already fuse it with the vector index (hybrid search, the default); use it directly only for an exact-word lookup the tools do not cover.
 - **Use parameterized queries** (\`$param\` syntax) for any user-supplied filter values.
 
 ## Example Cypher Patterns

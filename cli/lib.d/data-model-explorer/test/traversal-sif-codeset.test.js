@@ -14,6 +14,7 @@
 //   node cli/lib.d/data-model-explorer/test/traversal-sif-codeset.test.js [pathToTraversal.cypher]
 
 const path = require('path');
+const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const harness = require('./lib/liveGraphHarness')({ gateTitle: 'W-D-4 traversal reads SIF code sets through instances (HAS_OPTION_SET since P3), REFERENCES_TYPE and REFERENCES_OBJECT' });
 const { assert, runQuery, finish, neo4j, taskListPlus, pipeRunner, readText } = harness;
 const traversalFilePath = process.argv[2] || path.join(harness.dmeDirPath, 'traversal.cypher');
@@ -41,7 +42,7 @@ const runTraversalFor = (args, fixtureName, callback) => runQuery(FIXTURE_CYPHER
 	// k = 50, not 5 (campaign P2, R1, measured): the vector index is APPROXIMATE (HNSW, quantized), and on the R1 replay a
 	// seed's own vector was missing from its top 5 (best hit 0.878) yet present at k = 50 (0.99989); the gold found it at 5.
 	// This gate is about what traversal READS from a hit, not about recall — recall at small k is a P3 finding (DEVLOG-P2).
-	runQuery(readText(traversalFilePath), { embedding: rawRecordList[0].get('embedding'), limit: neo4j.int(50), query: fixtureName, indexName: args.indexName }, (traversalError, hitRowList) => {
+	runTraversalFromVectorSeed(runQuery, readText(traversalFilePath), { embedding: rawRecordList[0].get('embedding'), limit: neo4j.int(50), indexName: args.indexName }, (traversalError, hitRowList) => {
 		if (traversalError) { callback(traversalError); return; }
 		const fixtureHit = hitRowList.find((oneRow) => oneRow.node && oneRow.node.stableId === rowList[0].stableId);
 		if (!fixtureHit) { callback(`${fixtureName} fixture ${rowList[0].stableId} not among its own hits`); return; }

@@ -12,6 +12,7 @@
 //   node cli/lib.d/data-model-explorer/test/traversal-no-mapping-hit.test.js [pathToTraversal.cypher]
 
 const path = require('path');
+const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const harness = require('./lib/liveGraphHarness')({ gateTitle: 'W-D-3 traversal: a hit without mappings has no phantom entries' });
 const { assert, runQuery, finish, neo4j, taskListPlus, pipeRunner, readText } = harness;
 const traversalFilePath = process.argv[2] || path.join(harness.dmeDirPath, 'traversal.cypher');
@@ -41,7 +42,7 @@ taskList.push((args, next) => runQuery("SHOW INDEXES YIELD name, type, labelsOrT
 	if (err) { next(err, args); return; }
 	next('', { ...args, indexName: rowList[0].name });
 }));
-taskList.push((args, next) => runQuery(readText(traversalFilePath), { embedding: args.seedEmbedding, limit: neo4j.int(5), query: 'BirthDate', indexName: args.indexName }, (err, rowList) => {
+taskList.push((args, next) => runTraversalFromVectorSeed(runQuery, readText(traversalFilePath), { embedding: args.seedEmbedding, limit: neo4j.int(5), indexName: args.indexName }, (err, rowList) => {
 	if (err) { next(err, args); return; }
 	const fixtureRow = rowList.find((oneRow) => oneRow.node && oneRow.node.stableId === FIXTURE_STABLE_ID);
 	assert('the fixture is among the hits', !!fixtureRow);

@@ -23,8 +23,9 @@ const LIVE_SOURCE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n._source IS NOT NUL
 // CLI refuses a flag, switch or argument VERB_INPUT_CONTRACT does not give the verb (W-D-20).
 const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	// ⟪campaign P2, V2-C28⟫ the two vector verbs also answer graphEmbeddingContract's refusals (the passport and the embedder)
-	search: Object.freeze({ rowUnitText: 'a node the vector index returned: one row per node, nearest first', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'unknownStandard', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport']) }),
-	graphRetriever: Object.freeze({ rowUnitText: 'a node the vector search hit, with its traversal context: one row per hit node', rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport']) }),
+	// ⟪lane BM25⟫ and, for a mode with a keyword leg, fulltextIndexAbsent (hybridRetrieval.checkFulltextIndex)
+	search: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode): one row per node, best fused rank first', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidSearchMode', 'unknownStandard', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
+	graphRetriever: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode), with its traversal context: one row per hit node, best fused rank first', rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
 	findMappings: Object.freeze({ rowUnitText: "a mapping VIEW: one row per (direction, element, CEDS tuple, relation, via-relation). Rows are not edges: one graph edge can be more than one row (as 'incoming' through the CEDS leaf AND as 'equivalent' through another matched element), and an instanced element (SIF Question, PESC element) is ONE row for all of its instances. hubTupleSummaryList counts the edges and the elements", rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched']) }),
 	compareCodesets: Object.freeze({ rowUnitText: 'an option value of a matched option set: one row per value', rowListFieldName: 'valueRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'noOptionSetMatched']) }),
 	unmappedFields: Object.freeze({ rowUnitText: 'a DmeProperty with no match edge on itself or on any of its instances: one row per property', rowListFieldName: 'unmappedRowList', refusalNameList: Object.freeze(['unknownFlag', 'unknownStandard', 'invalidLimit']) }),
@@ -44,7 +45,7 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 // retiredFlagRefusalByName is refused with its own refusal name and reason. integerFlagList values are refused when not a positive
 // integer.
 const VERB_INPUT_CONTRACT = Object.freeze({
-	search: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['standard']) }),
+	search: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['standard', 'searchMode']) }),
 	graphRetriever: Object.freeze({ positionalList: Object.freeze(['query']), flagList: Object.freeze(['limit', 'searchMode']), integerFlagList: Object.freeze(['limit']), retiredFlagRefusalByName: Object.freeze({ traversalMode: Object.freeze({ refusalName: 'traversalModeRemoved', reasonText: "the 'dynamic' mode was never built, and graphRetriever always runs traversal.cypher" }) }) }),
 	explore: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['name', 'standard', 'nameMatch']) }),
 	// ⟪campaign P2, V2-C04⟫ history answers the ONE passport: a limit over one row would be a flag that does nothing
@@ -60,6 +61,7 @@ const VERB_INPUT_CONTRACT = Object.freeze({
 });
 // the default a verb's flag takes when it is not given (declared, so -help and the parser read one source)
 const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
+	search: Object.freeze({ searchMode: 'hybrid' }),
 	graphRetriever: Object.freeze({ limit: '10', searchMode: 'hybrid' }),
 	explore: Object.freeze({ nameMatch: 'exact' }),
 	history: Object.freeze({}),
@@ -164,6 +166,26 @@ const VALUE_TIER_JUDGMENT_COUNT_CYPHER = "MATCH (:ForgedNode {role: 'DmeOptionVa
 const SEARCH_PAGE_SIZE = 20;
 const SEARCH_OVER_FETCH_FACTOR = 50;
 const SEARCH_OVER_FETCH_CAP = 1000;
+// ⟪lane BM25, 2026-10-10⟫ the search's legs and their fusion (lib/hybridRetrieval.js). A mode names the legs it runs; hybrid
+// fuses them by reciprocal rank (fusedScore = sum of 1 / (SEARCH_RRF_CONSTANT + rank)). An unfiltered search lets each leg
+// rank SEARCH_LEG_WINDOW_SIZE nodes before fusing, so a node one leg ranks well and the other ranks just below the page is
+// still fused; a filtered search uses the over-fetch window above for each leg. Measured: DEVLOG-BM25 (benchmark).
+const SEARCH_MODE_LEG_LIST_BY_NAME = Object.freeze({
+	hybrid: Object.freeze(['keyword', 'vector']),
+	keyword: Object.freeze(['keyword']),
+	vector: Object.freeze(['vector']),
+});
+const SEARCH_RRF_CONSTANT = 60;
+const SEARCH_LEG_WINDOW_SIZE = 100;
+// what each score on a search row is measured in, said once and carried in every search payload
+const SEARCH_SCORE_UNIT_BY_FIELD = Object.freeze({
+	fusedScore: `reciprocal rank fusion: the sum, over the legs that found the node, of 1 / (${SEARCH_RRF_CONSTANT} + rank); comparable only within one result`,
+	keywordRank: "1-based rank in the keyword (BM25) leg after the standard filter; null when that leg did not find the node",
+	keywordScore: 'Lucene BM25 score from the fulltext index: unbounded and relative to this query; null when the keyword leg did not find the node',
+	vectorRank: '1-based rank in the vector leg after the standard filter; null when that leg did not find the node',
+	vectorScore: 'cosine similarity as Neo4j reports it, (1 + cosine) / 2 in [0, 1]; null when the vector leg did not find the node',
+	foundByLegList: "the legs that found the node: 'keyword', 'vector' or both",
+});
 
 // W-D-11 / W-D-12: explore answers ONE entry per node, keyed by stableId; a name lookup is exact unless asked otherwise,
 // and an exact lookup always reports its case-variant siblings
@@ -258,6 +280,10 @@ module.exports = Object.freeze({
 	SEARCH_PAGE_SIZE,
 	SEARCH_OVER_FETCH_FACTOR,
 	SEARCH_OVER_FETCH_CAP,
+	SEARCH_MODE_LEG_LIST_BY_NAME,
+	SEARCH_RRF_CONSTANT,
+	SEARCH_LEG_WINDOW_SIZE,
+	SEARCH_SCORE_UNIT_BY_FIELD,
 	EXPLORE_ENTRY_IDENTITY_FIELD,
 	EXPLORE_EDGE_CAP,
 	NAME_MATCH_MODE_LIST,

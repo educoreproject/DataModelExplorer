@@ -15,6 +15,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const dmeDirPath = path.join(__dirname, '..');
 const traversalFilePath = process.argv[2] || path.join(dmeDirPath, 'traversal.cypher');
 const neo4j = require(path.join(dmeDirPath, 'node_modules', 'neo4j-driver'));
@@ -102,7 +103,7 @@ LIST_CHECK_LIST.forEach((listCheck) => {
 	});
 
 	taskList.push((args, next) => {
-		runQuery(fs.readFileSync(traversalFilePath, 'utf8'), { embedding: args.seedEmbedding, limit: neo4j.int(5), query: listCheck.seedName, indexName: args.indexName }, (err, records) => {
+		runTraversalFromVectorSeed(runQuery, fs.readFileSync(traversalFilePath, 'utf8'), { embedding: args.seedEmbedding, limit: neo4j.int(5), indexName: args.indexName }, (err, records) => {
 			if (err) { next(err, args); return; }
 			const seedRecord = records.find((record) => record.get('node').elementId === args.seedElementId);
 			assert('the seeded node is among the hits', !!seedRecord);
