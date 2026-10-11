@@ -22,6 +22,7 @@
 const {
 	BLOCKED_CLAUSE_PATTERN_LIST,
 	BLOCKED_FUNCTION_PREFIX_LIST,
+	APOC_PURE_TEXT_FUNCTION_NAME_LIST,
 	ALLOWED_CALL_PROCEDURE_LIST,
 } = require('./cypher-validator-rules');
 
@@ -34,8 +35,33 @@ const UNTERMINATED_OPENER_PATTERN = /['"`]|\/\*/;
 
 const stripLiteralsAndComments = (cypher) => cypher.replace(LITERAL_OR_COMMENT_PATTERN, ' ');
 
-const escapeForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const BLOCKED_FUNCTION_PATTERN = new RegExp(`\\b((?:${BLOCKED_FUNCTION_PREFIX_LIST.map(escapeForPattern).join('|')})[a-zA-Z0-9_.]*)\\s*\\(`, 'i');
+// ⟪lane GREP, 2026-10-11⟫ FUNCTION NAMES are read from their own normalisation of the query, because Neo4j accepts a
+// qualified name spelled in pieces: apoc.`text`.clean( and apoc . text . clean( both call apoc.text.clean (measured). The
+// literal blanking above turns a backtick-quoted segment into a space, which hid the apoc. prefix (B13); and the old prefix
+// pattern wanted 'apoc.' unbroken (B14). Here comments and string literals are blanked as before, but a backtick-quoted
+// identifier is replaced by its own text when that text is a plain identifier (no other kind can spell an apoc name, so
+// the rest become QUOTED_NON_PLAIN_IDENTIFIER), whitespace around a dot is closed up, and EVERY qualified call is read —
+// not only the first, so an allowed call cannot carry a blocked one inside it (B11).
+const PLAIN_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const QUOTED_NON_PLAIN_IDENTIFIER_TEXT = 'QUOTED_NON_PLAIN_IDENTIFIER';
+const functionNameTextOf = (cypher) =>
+	cypher
+		.replace(LITERAL_OR_COMMENT_PATTERN, (literalText) => {
+			if (!literalText.startsWith('`')) {
+				return ' ';
+			}
+			const identifierText = literalText.slice(1, -1).replace(/``/g, '`');
+			return PLAIN_IDENTIFIER_PATTERN.test(identifierText) ? identifierText : QUOTED_NON_PLAIN_IDENTIFIER_TEXT;
+		})
+		.replace(/\s*\.\s*/g, '.');
+// a qualified name (two or more dotted identifiers) followed, after any whitespace, by an opening parenthesis
+const QUALIFIED_CALL_PATTERN = /(?<![A-Za-z0-9_.])([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\(/g;
+const blockedFunctionNameListOf = (cypher) =>
+	Array.from(functionNameTextOf(cypher).matchAll(QUALIFIED_CALL_PATTERN), (callMatch) => callMatch[1]).filter(
+		(functionName) =>
+			BLOCKED_FUNCTION_PREFIX_LIST.some((blockedPrefix) => functionName.toLowerCase().startsWith(blockedPrefix.toLowerCase())) &&
+			APOC_PURE_TEXT_FUNCTION_NAME_LIST.indexOf(functionName) === -1,
+	);
 
 const validateReadOnly = (cypherString) => {
 	if (!cypherString || typeof cypherString !== 'string') {
@@ -56,9 +82,9 @@ const validateReadOnly = (cypherString) => {
 		};
 	}
 
-	const functionMatch = BLOCKED_FUNCTION_PATTERN.exec(stripped);
-	if (functionMatch) {
-		return { valid: false, reason: `function ${functionMatch[1]} is not permitted` };
+	const blockedFunctionNameList = blockedFunctionNameListOf(cypherString);
+	if (blockedFunctionNameList.length > 0) {
+		return { valid: false, reason: `function ${blockedFunctionNameList.join(', ')} is not permitted (of the ${BLOCKED_FUNCTION_PREFIX_LIST.join(', ')} functions only these are: ${APOC_PURE_TEXT_FUNCTION_NAME_LIST.join(', ')})` };
 	}
 
 	// CALL gating: every CALL must name an allowlisted procedure. A CALL

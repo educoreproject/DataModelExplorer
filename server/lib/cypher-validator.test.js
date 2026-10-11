@@ -5,7 +5,8 @@
 // cypher-validator.test.js — Tests for read-only Cypher validation
 // ============================================================================
 
-const validateReadOnly = require('./cypher-validator');
+// a twin run passes another validator's path (e.g. the pre-lane-GREP one, to watch the new cases go red against it)
+const validateReadOnly = require(process.argv[2] || './cypher-validator');
 
 let passed = 0;
 let failed = 0;
@@ -224,6 +225,17 @@ console.log('\nValidator bypasses (W-E-9, should fail):');
 const { VALIDATOR_BYPASS_CASE_LIST } = require('./cypher-validator-rules');
 VALIDATOR_BYPASS_CASE_LIST.forEach(({ caseId, cypher }) => {
 	assert(`${caseId} bypass refused: ${cypher}`, validateReadOnly(cypher), false);
+});
+
+// --- lane GREP (2026-10-11): the seven pure apoc.text functions are allowed BY NAME, however spelled; nothing else is ---
+console.log('\nAllowed apoc.text functions and harmless literals (lane GREP, should pass):');
+
+const { ALLOWED_FUNCTION_READ_CASE_LIST, APOC_PURE_TEXT_FUNCTION_NAME_LIST } = require('./cypher-validator-rules');
+ALLOWED_FUNCTION_READ_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} allowed: ${cypher}`, validateReadOnly(cypher), true);
+});
+APOC_PURE_TEXT_FUNCTION_NAME_LIST.forEach((functionName) => {
+	assert(`each allowed name alone: ${functionName}`, validateReadOnly(`RETURN ${functionName}('a', 'b') AS v`), true);
 });
 
 console.log('\nLegitimate reads beside the new rules (should pass):');
