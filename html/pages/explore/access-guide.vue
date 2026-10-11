@@ -417,14 +417,6 @@ const { response } = await res.json();`;
 						</td>
 					</tr>
 					<tr>
-						<td class="text-body-2">Browse CEDS and SIF element trees side by side</td>
-						<td>
-							<v-btn variant="text" size="small" to="/dm/lookup" prepend-icon="mdi-swap-horizontal">
-								Crosswalk
-							</v-btn>
-						</td>
-					</tr>
-					<tr>
 						<td class="text-body-2">Ask an AI about cross-standard mappings</td>
 						<td>
 							<v-btn variant="text" size="small" to="/dm/explorer" prepend-icon="mdi-robot-outline">

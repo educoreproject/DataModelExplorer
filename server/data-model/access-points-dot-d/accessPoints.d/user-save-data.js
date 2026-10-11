@@ -41,6 +41,44 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		);
 
 		// --------------------------------------------------------------------------------
+		// SECURITY: DERIVE ROLE FROM THE STORED RECORD, NEVER FROM THE REQUEST
+		//
+		// This self-service endpoint must not be usable to escalate privilege.
+		// The role written to the database is taken from the target user's
+		// currently-stored role (looked up by refId), with 'firstTime' removed.
+		// Any role supplied in the request is discarded. The only role change
+		// possible here is the legacy first-time -> normal transition (dropping
+		// 'firstTime'); all other role changes go through the admin tools
+		// (admin-update-user).
+
+		taskList.push((args, next) => {
+			const { xQuery, userTable } = args;
+
+			const localCallback = (err, users = []) => {
+				if (err) {
+					next(err, args);
+					return;
+				}
+
+				const storedUser = users.qtLast() || {};
+				const storedRole = storedUser.role || '';
+
+				const revisedRole = storedRole
+					.split(/,/)
+					.filter((item) => item && item != 'firstTime')
+					.join(',');
+
+				const safeXQuery = { ...xQuery, role: revisedRole };
+
+				next('', { ...args, xQuery: safeXQuery });
+			};
+
+			const query = `select * from  <!tableName!> where refId='${xQuery.refId}'`;
+
+			userTable.getData(query, { suppressStatementLog: true }, localCallback);
+		});
+
+		// --------------------------------------------------------------------------------
 		// TASKLIST ITEM TEMPLATE
 
 		taskList.push((args, next) => {

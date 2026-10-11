@@ -14,7 +14,7 @@
  * BUSINESS LOGIC: Authenticates users by username/password with hybrid data sources:
  * - Primary: Database users table (persistent storage)
  * - Fallback: Built-in user list from configuration (admin/testing)
- * - Override: Root password accepts for any user (emergency access)
+ * - (The former any-username rootPassword override was REMOVED in dmeMcpOAuth Phase 1.)
  * 
  * ARCHITECTURE PATTERN:
  * 1. Configuration setup and dependency injection
@@ -61,7 +61,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// TO ADD NEW CONFIG: Add to systemParameters.ini under [user-login] section
 
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
-	const { rootPassword, builtinUserList, builtinsOnly, addBuiltinsToDatabase} = getConfig(moduleName); //moduleName is closure
+	// rootPassword REMOVED (dmeMcpOAuth Phase 1, 2026-07-13): the any-username override
+	// was an internet-facing account-takeover backdoor once the OAuth login path reuses
+	// this machinery. Break-glass is now the DB-hashed super account (verified). The
+	// config key is left inert here; its deletion from prod INIs happens in the Phase-5
+	// demo-first deploy, not from this access point.
+	const { builtinUserList, builtinsOnly, addBuiltinsToDatabase} = getConfig(moduleName); //moduleName is closure
 
 	const { sqlDb, hxAccess, dataMapping } = passThroughParameters;
 	const { verifyPassword } = dataMapping['profile-user'];
@@ -203,14 +208,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		taskList.push((args, next) => {
 			const { xQuery, userTable, dataMapping, tableExists } = args;
 
-console.log(`\n=-=============   tableExists  ========================= [user-login.js.moduleFunction]\n`);
-
-
-console.log(`tableExists=${tableExists}`);
-
-console.log(`\n=-=============   tableExists  ========================= [user-login.js.moduleFunction]\n`);
-
-
 			// Check if table exists before attempting query
 			if (!tableExists) {
 				// Table doesn't exist, skip database query and continue to built-in fallback
@@ -228,8 +225,10 @@ console.log(`\n=-=============   tableExists  ========================= [user-lo
 					return;
 				}
 				
+				// Do NOT log the user object here — it carries the password hash:salt.
+				// (dmeMcpOAuth Phase 1: debug console.dir removed before this path
+				// carries OAuth auth traffic.)
 				const user = userList.qtLast();
-console.dir({['user']:user}, { showHidden: false, depth: 4, colors: true });
 
 				next('', { ...args, user });
 			};
@@ -250,8 +249,8 @@ console.dir({['user']:user}, { showHidden: false, depth: 4, colors: true });
 		// AUTHENTICATION HIERARCHY:
 		// 1. Database users (hashed passwords) - HIGHEST PRIORITY
 		// 2. Built-in users (from config) - FALLBACK ONLY
-		// 3. Root password override - EMERGENCY ACCESS
-		// 
+		// (rootPassword override REMOVED — dmeMcpOAuth Phase 1)
+		//
 		// BUSINESS LOGIC: Provides fallback authentication for admin/emergency access
 		// when users haven't been migrated to database yet or for initial system setup.
 		// 
@@ -308,19 +307,17 @@ console.dir({['user']:user}, { showHidden: false, depth: 4, colors: true });
 			hxAccess,
 			dataMapping,
 			xQuery,
-			rootPassword,
 			builtinUserList,
 			builtinsOnly,
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { user = {}, rootPassword, xQuery } = args;
+			const { user = {}, xQuery } = args;
 
-			// AUTHENTICATION HIERARCHY:
+			// AUTHENTICATION HIERARCHY (rootPassword override REMOVED — dmeMcpOAuth Phase 1):
 			// 1. Database users (secure hashed passwords) - HIGHEST PRIORITY
-			// 2. Built-in users from config (may be plaintext) - FALLBACK ONLY  
-			// 3. Root password override (plaintext in config) - EMERGENCY ACCESS
+			// 2. Built-in users from config (may be plaintext) - FALLBACK ONLY
 			let authenticated = false;
-			
+
 			// Check user password - handles both hashed (database) and plaintext (built-in) passwords
 			if (user.password) {
 				if (user.source === 'addedBuiltin' || user.refId) {
@@ -331,12 +328,6 @@ console.dir({['user']:user}, { showHidden: false, depth: 4, colors: true });
 					// TODO: Consider hashing all built-in passwords at startup for consistency
 					authenticated = (xQuery.password === user.password) || verifyPassword(xQuery.password, user.password);
 				}
-			}
-			
-			// Check root password override (emergency access)
-			// Root password is stored as plaintext in config, so compare directly
-			if (!authenticated && rootPassword && xQuery.password === rootPassword) {
-				authenticated = true;
 			}
 
 			if (authenticated) {

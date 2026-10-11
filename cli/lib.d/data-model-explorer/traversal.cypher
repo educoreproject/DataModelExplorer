@@ -1,217 +1,359 @@
-// traversal.cypher — DataModelExplorer (5 standards)
-// Vector: ceds_vector, sif_vector, edfi_vector, jedx_vector, edmatrix_vector
-// BM25: ceds_fulltext, sif_fulltext, edfi_fulltext, jedx_fulltext, edmatrix_fulltext
-// Updated: 2026-04-01
-// Parameters: $embedding (list<float>), $limit (int), $query (string)
+// traversal.cypher — DataModelExplorer (forge pure-graph contract)
+// Search: this file ranks nothing. The hits arrive as $hitList, ranked by lib/hybridRetrieval.js (lane BM25, 2026-10-10):
+//   a keyword (BM25) leg over the <graphName>_fulltext index and/or a vector leg over <graphName>_vector, per searchMode,
+//   fused by reciprocal rank. Each hit names its node by stableId and carries hitRank, fusedScore, foundByLegList and
+//   both legs' ranks and scores, returned unchanged so every row says which leg found it.
+// Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
+//   DmeOptionValue, DmeSupport, DmeInstance, DmeStandardRoot, …) and _source (the live inventory: dme_list_standards).
+// Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
+//   match edges, one per SKOS relation (EXACT/CLOSE/BROAD/NARROW_MATCH). Every one is a
+//   judgment carrying mappingConfidence/mappingKind/mappingSource; none is authored fact.
+//   mappingSource 'bridge-debug' marks a debug judge's edge (match edges carry no provenanceTier).
+//   Two elements sharing a hub are 'equivalent' ONLY when both hops are EXACT_MATCH; an
+//   EXACT/CLOSE pair with a CLOSE hop is a candidateEquivalent; any BROAD/NARROW hop makes
+//   the pair 'related', never equivalent. Each mapping list is capped at 20 entries SHARED
+//   per relation: every relation present first gets up to 5 entries (best confidence first),
+//   then the rest fill in relation order; <list>TruncatedByRelation names what was left out,
+//   so no relation is ever silently dropped (ruling 2026-10-04). Fill entries are counted by a carried
+//   rowRelation, never by `entry IN list`: map equality with null values is null, so IN never matches.
+//   Within a relation, crossStandardEquivalents and mappingsIncoming share entries across STANDARDS first:
+//   round-robin by standard (standards ordered by their best confidence, then name), then by confidence,
+//   so one standard never crowds out the others (TQ, 2026-10-05: Birthdate showed no Ed-Fi entry);
+//   <list>TruncatedByRelationAndStandard names what was left out per relation and standard. The other
+//   two lists hold one standard's entries (the node's own), so there is nothing to share there.
+//   SPECIFIED/IMPLIED_MAPPING retired.
+// Structural edges: HAS_PROPERTY, HAS_OPTION_SET (in SIF from the Field, the instance), HAS_VALUE, HAS_SUPPORT,
+//   HAS_CLASS, SUBCLASS_OF, REFERENCES / REFERENCES_TYPE / REFERENCES_OBJECT; SIF/PESC add HAS_INSTANCE, HAS_FIELD,
+//   HAS_CHILD (see instanceView).
+// Every confidence shown is the edge's mappingConfidence (the duplicate `confidence` property retires, W-B-2).
+// Updated: 2026-10-10 lane BM25 (the search preamble became $hitList: keyword + vector legs fused upstream); 2026-10-06 campaign P3 (CONSTRAINED_BY retired, S3: SIF Field -> Codeset is HAS_OPTION_SET; mappingRationale carried, W-B-4); 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
+//   instances and the REFERENCES_* family, W-D-4; mappingConfidence read, W-B-2 step A); 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
+//   2026-07-01 equivalence-model rewrite)
+// Parameters: $hitList (list of {stableId, hitRank, fusedScore, foundByLegList, keywordRank, keywordScore, vectorRank, vectorScore})
 
-// === Search preamble: hybrid across all indexes ===
-CALL {
-  CALL db.index.vector.queryNodes('ceds_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('sif_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('edfi_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('jedx_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.vector.queryNodes('edmatrix_vector', $limit, $embedding) YIELD node, score
-  RETURN node, score AS vecScore, 0.0 AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('ceds_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('sif_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('edfi_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('jedx_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-  UNION ALL
-  CALL db.index.fulltext.queryNodes('edmatrix_fulltext', $query) YIELD node, score
-  RETURN node, 0.0 AS vecScore, score AS ftScore
-}
+// === Hits: the fused search result, one row per hit (lib/hybridRetrieval.js) ===
+UNWIND $hitList AS hit
+MATCH (node:ForgedNode {stableId: hit.stableId})
+WITH node, hit
 
-// === Dedup and rank ===
-WITH node, max(vecScore) AS vecScore, max(ftScore) AS ftScore
-WITH node, vecScore, ftScore,
-     (CASE WHEN ftScore > 0 THEN 0.5 ELSE 0 END) +
-     (CASE WHEN vecScore > 0 THEN vecScore * 0.5 ELSE 0 END) AS combinedScore
-ORDER BY combinedScore DESC LIMIT $limit
+// === Traversal: forge-contract structural neighborhood ===
 
-// === Traversal: label-filtered OPTIONAL MATCHes ===
-
-// CedsProperty context (only fires when node is CedsProperty)
-OPTIONAL MATCH (node:CedsProperty)-[:HAS_OPTION_SET]->(cedsOptionSet:CedsOptionSet)
+// Parent classes that own this property (role-filtered)
 CALL {
   WITH node
-  OPTIONAL MATCH (s:CedsClass)-[:HAS_PROPERTY]->(node:CedsProperty)
-  RETURN collect(DISTINCT s { .* })[..10] AS cedsClassHASPROPERTYList
+  OPTIONAL MATCH (c:ForgedNode {role: 'DmeClass'})-[:HAS_PROPERTY]->(node:ForgedNode {role: 'DmeProperty'})
+  RETURN collect(DISTINCT c { ._id, ._source, .name, .path })[..10] AS parentClasses
 }
 
-// SifField context (only fires when node is SifField)
-OPTIONAL MATCH (node:SifField)-[:MEMBER_OF]->(sifComplexType:SifComplexType)
-OPTIONAL MATCH (node:SifField)-[:HAS_TYPE]->(sifPrimitiveType:SifPrimitiveType)
-OPTIONAL MATCH (node:SifField)-[:HAS_TYPE]->(sifSimpleType:SifSimpleType)
-OPTIONAL MATCH (node:SifField)-[:CONSTRAINED_BY]->(sifCodeset:SifCodeset)
+// Option set attached to this property — directly (HAS_OPTION_SET: CEDS, Ed-Fi, PESC) or through the property's
+// instances (SIF: Question -[:HAS_INSTANCE]-> Field -[:HAS_OPTION_SET]-> Codeset; it was CONSTRAINED_BY until campaign P3, S3).
+// SIF code sets are named since P3 (G18) from the elements that carry them; each entry also carries path and valueCount;
+// optionSetCount is the total behind the capped list (W-D-4, S3).
 CALL {
   WITH node
-  OPTIONAL MATCH (s:SifObject)-[:HAS_FIELD]->(node:SifField)
-  RETURN collect(DISTINCT s { .* })[..10] AS sifObjectHASFIELDList
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s:SifXmlElement)-[:REALIZED_BY]->(node:SifField)
-  RETURN collect(DISTINCT s { .* })[..10] AS sifXmlElementREALIZEDBYList
+  OPTIONAL MATCH (node:ForgedNode {role: 'DmeProperty'})-[:HAS_OPTION_SET]->(os:ForgedNode {role: 'DmeOptionSet'})
+  WITH node, collect(DISTINCT os { ._id, ._source, .name, .path, .valueCount, viaInstance: false }) AS directOptionSets
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(:ForgedNode)-[:HAS_OPTION_SET]->(ios:ForgedNode {role: 'DmeOptionSet'})
+  WITH directOptionSets, collect(DISTINCT ios { ._id, ._source, .name, .path, .valueCount, viaInstance: true }) AS instanceOptionSets
+  RETURN (directOptionSets + instanceOptionSets)[..10] AS optionSets, size(directOptionSets + instanceOptionSets) AS optionSetCount
 }
 
-// EdfiField context (only fires when node is EdfiField)
+// Allowed values when this node is an option set (DmeOptionValue.value text is in name)
 CALL {
   WITH node
-  OPTIONAL MATCH (e:EdfiEntity)-[:HAS_FIELD]->(node:EdfiField)
-  RETURN collect(DISTINCT e { .* })[..10] AS edfiEntityHASFIELDList
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdfiField)-[:CONSTRAINED_BY]->(d:EdfiDescriptor)
-  RETURN collect(DISTINCT d { .name })[..10] AS edfiFieldConstrainedByDescriptor
+  OPTIONAL MATCH (node:ForgedNode {role: 'DmeOptionSet'})-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
+  RETURN collect(DISTINCT v { ._id, .name, .description })[..50] AS optionValues
 }
 
-// EdfiDescriptor context (only fires when node is EdfiDescriptor)
+// Supports attached to this node
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdfiDescriptor)-[:HAS_VALUE]->(v:EdfiDescriptorValue)
-  RETURN collect(DISTINCT v { .name, .description })[..20] AS edfiDescriptorValues
+  OPTIONAL MATCH (node)-[:HAS_SUPPORT]->(sup:ForgedNode {role: 'DmeSupport'})
+  RETURN collect(DISTINCT sup { ._id, ._source, .name, .description })[..10] AS supports
 }
 
-// JedxField context (only fires when node is JedxField)
+// Subclass / superclass relationships
 CALL {
   WITH node
-  OPTIONAL MATCH (je:JedxEntity)-[:HAS_FIELD]->(node:JedxField)
-  RETURN collect(DISTINCT je { .* })[..10] AS jedxEntityHASFIELDList
+  OPTIONAL MATCH (node)-[:SUBCLASS_OF]->(parent:ForgedNode)
+  RETURN collect(DISTINCT parent { ._id, ._source, .name })[..10] AS superClasses
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (node:JedxField)-[:CONSTRAINED_BY]->(jc:JedxCodeSet)
-  RETURN collect(DISTINCT jc { .name })[..10] AS jedxFieldConstrainedByCodeSet
-}
-
-// EdMatrix EdStandard context (only fires when node is EdStandard)
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:PUBLISHED_BY]->(org:Organization)
-  RETURN collect(DISTINCT org { .name })[..5] AS edmatrixPublishedBy
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:AT_LAYER]->(layer:SpecLayer)
-  RETURN collect(DISTINCT layer { .name })[..5] AS edmatrixAtLayer
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (node:EdStandard)-[:IN_USE_CASE]->(uc:UseCaseCategory)
-  RETURN collect(DISTINCT uc { .name })[..5] AS edmatrixInUseCase
+  OPTIONAL MATCH (child:ForgedNode)-[:SUBCLASS_OF]->(node)
+  RETURN collect(DISTINCT child { ._id, ._source, .name })[..10] AS subClasses
 }
 
-// Cross-standard bridge traversals (SIF <-> CEDS)
+// Classes owned by this standard root / properties owned by a class
 CALL {
   WITH node
-  OPTIONAL MATCH (node:SifField)-[m:MAPS_TO]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, confidence: m.confidence, source: m.source })[..5] AS sifFieldMapsToCedsProperty
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s:SifField)-[m:MAPS_TO]->(node:CedsProperty)
-  OPTIONAL MATCH (obj:SifObject)-[:HAS_FIELD]->(s)
-  RETURN collect({ object: obj.name, field: s.name, confidence: m.confidence })[..5] AS cedsPropertyMappedFromSifField
+  OPTIONAL MATCH (node)-[:HAS_CLASS]->(cls:ForgedNode {role: 'DmeClass'})
+  RETURN collect(DISTINCT cls { ._id, ._source, .name })[..20] AS ownedClasses
 }
 
-// Cross-standard bridge traversals (EdFi <-> CEDS)
+// Intra-standard cross references
 CALL {
   WITH node
-  OPTIONAL MATCH (node:EdfiField)-[m:MAPS_TO]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, confidence: m.confidence, source: m.source })[..5] AS edfiFieldMapsToCedsProperty
+  OPTIONAL MATCH (node)-[r:REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT]->(ref:ForgedNode)
+  RETURN collect(DISTINCT ref { ._id, ._source, .name, .role, referenceEdgeType: type(r) })[..10] AS referencesTo
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (ef:EdfiField)-[m:MAPS_TO]->(node:CedsProperty)
-  OPTIONAL MATCH (ee:EdfiEntity)-[:HAS_FIELD]->(ef)
-  RETURN collect({ entity: ee.name, field: ef.name, confidence: m.confidence })[..5] AS cedsPropertyMappedFromEdfiField
-}
-
-// Cross-standard implied mapping traversals
-CALL {
-  WITH node
-  OPTIONAL MATCH (node)-[im:IMPLIED_MAPPING]->(t:CedsProperty)
-  RETURN collect({ cedsId: t.cedsId, label: t.label, score: im.score, method: im.method })[..5] AS impliedMappingsToCeds
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (s)-[im:IMPLIED_MAPPING]->(node:CedsProperty)
-  RETURN collect({ source: s._source, name: s.name, score: im.score, method: im.method })[..5] AS impliedMappingsFromOtherStandards
+  OPTIONAL MATCH (referrer:ForgedNode)-[r:REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT]->(node)
+  RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role, referenceEdgeType: type(r) })[..10] AS referencedBy
 }
 
-// SIF reference network
+// CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference),
+// each a judgment (relation + mappingConfidence + mappingSource).
 CALL {
   WITH node
-  OPTIONAL MATCH (sifObj:SifObject)-[:HAS_FIELD]->(node:SifField)
-  OPTIONAL MATCH (referrer:SifObject)-[:REFERENCES]->(sifObj)
-  RETURN collect(DISTINCT referrer.name)[..10] AS sifReferencedBy
-}
-CALL {
-  WITH node
-  OPTIONAL MATCH (sifObj:SifObject)-[:HAS_FIELD]->(node:SifField)
-  OPTIONAL MATCH (sifObj)-[:REFERENCES]->(referenced:SifObject)
-  RETURN collect(DISTINCT referenced.name)[..10] AS sifReferencesTo
+  OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
+  WITH m, hub, type(m) AS rowRelation
+  WHERE hub IS NOT NULL
+  WITH m, hub, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
+  ORDER BY m.mappingConfidence DESC
+  WITH rowRelation, relationOrder, collect({
+    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
+    mappingType: type(m), confidence: m.mappingConfidence,
+    matchPredicate: m.predicate,
+    mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource, mappingRationale: m.mappingRationale
+  }) AS relationEntryList
+  ORDER BY relationOrder
+  WITH collect({rowRelation: rowRelation, entryList: relationEntryList}) AS relationGroupList
+  WITH relationGroupList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.entryList[..5]) AS guaranteedEntryList,
+       reduce(keptList = [], relationGroup IN relationGroupList |
+              keptList + [leftoverEntry IN relationGroup.entryList[5..] | {rowRelation: relationGroup.rowRelation, entry: leftoverEntry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedEntryList, leftoverPairList[..(20 - size(guaranteedEntryList))] AS fillPairList
+  RETURN guaranteedEntryList + [fillPair IN fillPairList | fillPair.entry] AS mappingsOutgoing,
+         [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
+            {relation: relationGroup.rowRelation,
+             truncatedCount: size(relationGroup.entryList) - size(relationGroup.entryList[..5])
+                             - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
+          WHERE truncation.truncatedCount > 0] AS mappingsOutgoingTruncatedByRelation
 }
 
-// CEDS class context
+// Cross-standard pairs (shared hub) — other standards' elements resolving to the SAME
+// CEDS tuple. equivalence = 'equivalent' ONLY for EXACT×EXACT (two judgments); an
+// EXACT/CLOSE pair with a CLOSE hop = 'candidateEquivalent'; any BROAD/NARROW hop =
+// 'related' (never equivalent). Both hops' evidence is carried — never a combined score.
 CALL {
   WITH node
-  OPTIONAL MATCH (cedsClass:CedsClass)-[:HAS_PROPERTY]->(node:CedsProperty)
-  RETURN collect(DISTINCT cedsClass.label) AS cedsClasses
+  OPTIONAL MATCH (node)-[mNear:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)<-[mFar:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(other:ForgedNode)
+  WHERE other <> node
+  WITH mNear, hub, mFar, other
+  WHERE hub IS NOT NULL
+  WITH mNear, hub, mFar, other, CASE WHEN type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mFar) WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN type(mNear) WHEN type(mNear) = 'CLOSE_MATCH' OR type(mFar) = 'CLOSE_MATCH' THEN 'CLOSE_MATCH' ELSE 'EXACT_MATCH' END AS rowRelation
+  WITH mNear, hub, mFar, other, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
+  ORDER BY mFar.mappingConfidence DESC
+  WITH rowRelation, relationOrder, other._source AS rowStandard, collect({
+    otherSource: other._source, otherName: other.name, otherId: other._id,
+    hubName: hub.name, hubKey: hub.canonicalKey,
+    equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalent'
+                      WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] OR type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN 'related'
+                      ELSE 'candidateEquivalent' END,
+    nearMatchType: type(mNear), nearConfidence: mNear.mappingConfidence, nearPredicate: mNear.predicate,
+    farMatchType: type(mFar), farConfidence: mFar.mappingConfidence, farPredicate: mFar.predicate,
+    nearMappingConfidence: mNear.mappingConfidence, nearMappingKind: mNear.mappingKind, nearMappingSource: mNear.mappingSource,
+    farMappingConfidence: mFar.mappingConfidence, farMappingKind: mFar.mappingKind, farMappingSource: mFar.mappingSource
+  }) AS standardEntryList
+  ORDER BY relationOrder, standardEntryList[0].farConfidence DESC, rowStandard
+  WITH rowRelation, relationOrder, collect({rowStandard: rowStandard, entryList: standardEntryList}) AS standardGroupList
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(longestSize = 0, standardGroup IN standardGroupList | CASE WHEN size(standardGroup.entryList) > longestSize THEN size(standardGroup.entryList) ELSE longestSize END) AS longestStandardListSize
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(interleavedPairList = [], roundIndex IN range(0, longestStandardListSize - 1) |
+              interleavedPairList + [standardGroup IN standardGroupList WHERE size(standardGroup.entryList) > roundIndex |
+                                     {rowStandard: standardGroup.rowStandard, entry: standardGroup.entryList[roundIndex]}]) AS relationPairList
+  ORDER BY relationOrder
+  WITH collect({rowRelation: rowRelation, pairList: relationPairList, standardGroupList: standardGroupList}) AS relationGroupList
+  WITH relationGroupList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.pairList[..5]) AS guaranteedPairList,
+       reduce(keptList = [], relationGroup IN relationGroupList |
+              keptList + [leftoverPair IN relationGroup.pairList[5..] | {rowRelation: relationGroup.rowRelation, rowStandard: leftoverPair.rowStandard, entry: leftoverPair.entry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedPairList, leftoverPairList[..(20 - size(guaranteedPairList))] AS fillPairList
+  RETURN [guaranteedPair IN guaranteedPairList | guaranteedPair.entry] + [fillPair IN fillPairList | fillPair.entry] AS crossStandardEquivalents,
+         [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
+            {relation: relationGroup.rowRelation,
+             truncatedCount: size(relationGroup.pairList) - size(relationGroup.pairList[..5])
+                             - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
+          WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelation,
+         [truncation IN reduce(standardTruncationList = [], relationGroup IN [presentGroup IN relationGroupList WHERE presentGroup.rowRelation IS NOT NULL] |
+              standardTruncationList + [standardGroup IN relationGroup.standardGroupList |
+                {relation: relationGroup.rowRelation, standard: standardGroup.rowStandard,
+                 truncatedCount: size(standardGroup.entryList)
+                                 - size([guaranteedPair IN relationGroup.pairList[..5] WHERE guaranteedPair.rowStandard = standardGroup.rowStandard])
+                                 - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation AND fillPair.rowStandard = standardGroup.rowStandard])}])
+          WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelationAndStandard
+}
+
+// Source elements resolving here (incoming) — when this node is a CEDS leaf, the
+// standards' elements whose tuple contains it.
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(src:ForgedNode)
+  WITH hub, m, src, type(m) AS rowRelation
+  WHERE hub IS NOT NULL
+  WITH hub, m, src, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
+  ORDER BY m.mappingConfidence DESC
+  WITH rowRelation, relationOrder, src._source AS rowStandard, collect({
+    fromSource: src._source, fromName: src.name, fromId: src._id,
+    hubName: hub.name, hubKey: hub.canonicalKey,
+    mappingType: type(m), confidence: m.mappingConfidence,
+    matchPredicate: m.predicate,
+    mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource, mappingRationale: m.mappingRationale
+  }) AS standardEntryList
+  ORDER BY relationOrder, standardEntryList[0].confidence DESC, rowStandard
+  WITH rowRelation, relationOrder, collect({rowStandard: rowStandard, entryList: standardEntryList}) AS standardGroupList
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(longestSize = 0, standardGroup IN standardGroupList | CASE WHEN size(standardGroup.entryList) > longestSize THEN size(standardGroup.entryList) ELSE longestSize END) AS longestStandardListSize
+  WITH rowRelation, relationOrder, standardGroupList,
+       reduce(interleavedPairList = [], roundIndex IN range(0, longestStandardListSize - 1) |
+              interleavedPairList + [standardGroup IN standardGroupList WHERE size(standardGroup.entryList) > roundIndex |
+                                     {rowStandard: standardGroup.rowStandard, entry: standardGroup.entryList[roundIndex]}]) AS relationPairList
+  ORDER BY relationOrder
+  WITH collect({rowRelation: rowRelation, pairList: relationPairList, standardGroupList: standardGroupList}) AS relationGroupList
+  WITH relationGroupList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.pairList[..5]) AS guaranteedPairList,
+       reduce(keptList = [], relationGroup IN relationGroupList |
+              keptList + [leftoverPair IN relationGroup.pairList[5..] | {rowRelation: relationGroup.rowRelation, rowStandard: leftoverPair.rowStandard, entry: leftoverPair.entry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedPairList, leftoverPairList[..(20 - size(guaranteedPairList))] AS fillPairList
+  RETURN [guaranteedPair IN guaranteedPairList | guaranteedPair.entry] + [fillPair IN fillPairList | fillPair.entry] AS mappingsIncoming,
+         [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
+            {relation: relationGroup.rowRelation,
+             truncatedCount: size(relationGroup.pairList) - size(relationGroup.pairList[..5])
+                             - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
+          WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelation,
+         [truncation IN reduce(standardTruncationList = [], relationGroup IN [presentGroup IN relationGroupList WHERE presentGroup.rowRelation IS NOT NULL] |
+              standardTruncationList + [standardGroup IN relationGroup.standardGroupList |
+                {relation: relationGroup.rowRelation, standard: standardGroup.rowStandard,
+                 truncatedCount: size(standardGroup.entryList)
+                                 - size([guaranteedPair IN relationGroup.pairList[..5] WHERE guaranteedPair.rowStandard = standardGroup.rowStandard])
+                                 - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation AND fillPair.rowStandard = standardGroup.rowStandard])}])
+          WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelationAndStandard
+}
+
+// Instance view (lane D, 2026-10-01) — SIF and PESC put their CEDS mappings on INSTANCE nodes:
+// SIF Question -[:HAS_INSTANCE]-> Field (one per object), PESC element -[:HAS_INSTANCE]-> occurrence
+// (one per document position). The vector hit is the declaration, which carries no mapping edge,
+// so its mappings are read through its instances and grouped by where each instance sits: the
+// owning SIF Object (HAS_FIELD), else the PESC occurrence's sectionPath. SIF structure rides along:
+// HAS_FIELD (object owns field) and HAS_CHILD (element contains element). instanceView is null
+// when the node has none of these, and the caller omits a null instanceView, so CEDS and Ed-Fi
+// results carry no new key.
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)
+  WITH node, inst,
+       coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName
+  WITH node, instGroupName, count(inst) AS groupInstanceCount, collect(inst.path)[..3] AS groupPathSampleList
+  WHERE groupInstanceCount > 0
+  RETURN collect({ group: instGroupName, instanceCount: groupInstanceCount, pathSampleList: groupPathSampleList })[..30] AS instancesByGroup,
+         sum(groupInstanceCount) AS instanceTotal
 }
 CALL {
   WITH node
-  OPTIONAL MATCH (node:CedsProperty)-[:HAS_OPTION_SET]->(os:CedsOptionSet)
-  RETURN collect(DISTINCT os.label) AS cedsOptionSets
+  OPTIONAL MATCH (node)-[:HAS_INSTANCE]->(inst:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
+  WITH hub, type(m) AS matchType, m.mappingConfidence AS confidence, m.predicate AS matchPredicate,
+       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource, m.mappingRationale AS mappingRationale,
+       coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(inst) | groupObject.name]), inst.sectionPath) AS instGroupName,
+       inst
+  // the rationale is per-instance evidence, not part of the verdict: min() keeps one recorded text without splitting the row
+  WITH hub, matchType, confidence, matchPredicate,
+       mappingConfidence, mappingKind, mappingSource, min(mappingRationale) AS mappingRationale,
+       collect(DISTINCT instGroupName) AS instanceGroupList, count(inst) AS instanceCount
+  WHERE hub IS NOT NULL
+  WITH hub, matchType, confidence, matchPredicate, mappingConfidence, mappingKind, mappingSource, mappingRationale, instanceGroupList, instanceCount, matchType AS rowRelation
+  WITH hub, matchType, confidence, matchPredicate, mappingConfidence, mappingKind, mappingSource, mappingRationale, instanceGroupList, instanceCount, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
+  ORDER BY confidence DESC
+  WITH rowRelation, relationOrder, collect({
+    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
+    mappingType: matchType, confidence: confidence, matchPredicate: matchPredicate,
+    mappingConfidence: mappingConfidence, mappingKind: mappingKind, mappingSource: mappingSource, mappingRationale: mappingRationale,
+    instanceGroupList: instanceGroupList[..25], instanceGroupCount: size(instanceGroupList), instanceCount: instanceCount
+  }) AS relationEntryList
+  ORDER BY relationOrder
+  WITH collect({rowRelation: rowRelation, entryList: relationEntryList}) AS relationGroupList
+  WITH relationGroupList,
+       reduce(keptList = [], relationGroup IN relationGroupList | keptList + relationGroup.entryList[..5]) AS guaranteedEntryList,
+       reduce(keptList = [], relationGroup IN relationGroupList |
+              keptList + [leftoverEntry IN relationGroup.entryList[5..] | {rowRelation: relationGroup.rowRelation, entry: leftoverEntry}]) AS leftoverPairList
+  WITH relationGroupList, guaranteedEntryList, leftoverPairList[..(20 - size(guaranteedEntryList))] AS fillPairList
+  RETURN guaranteedEntryList + [fillPair IN fillPairList | fillPair.entry] AS mappingsViaInstances,
+         [truncation IN [relationGroup IN relationGroupList WHERE relationGroup.rowRelation IS NOT NULL |
+            {relation: relationGroup.rowRelation,
+             truncatedCount: size(relationGroup.entryList) - size(relationGroup.entryList[..5])
+                             - size([fillPair IN fillPairList WHERE fillPair.rowRelation = relationGroup.rowRelation])}]
+          WHERE truncation.truncatedCount > 0] AS mappingsViaInstancesTruncatedByRelation
 }
+CALL {
+  WITH node
+  OPTIONAL MATCH (declaration:ForgedNode)-[:HAS_INSTANCE]->(node)
+  RETURN head(collect(declaration { ._id, ._source, .name, .role })) AS instanceOf
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_FIELD]->(ownedField:ForgedNode)
+  RETURN collect(ownedField { ._id, .name, .path })[..20] AS ownedFields, count(ownedField) AS ownedFieldCount
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (owningObject:ForgedNode)-[:HAS_FIELD]->(node)
+  RETURN collect(owningObject { ._id, ._source, .name })[..10] AS owningObjects
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (structuralParent:ForgedNode)-[:HAS_CHILD]->(node)
+  RETURN collect(structuralParent { ._id, .name, .path, .role })[..10] AS structuralParents
+}
+CALL {
+  WITH node
+  OPTIONAL MATCH (node)-[:HAS_CHILD]->(structuralChild:ForgedNode)
+  RETURN collect(structuralChild { ._id, .name, .path, .role })[..20] AS structuralChildren, count(structuralChild) AS structuralChildCount
+}
+WITH *,
+     CASE WHEN instanceTotal = 0 AND instanceOf IS NULL AND ownedFieldCount = 0
+               AND size(owningObjects) = 0 AND size(structuralParents) = 0 AND structuralChildCount = 0
+          THEN null
+          ELSE {
+            instanceOf: instanceOf, instanceTotal: instanceTotal, instancesByGroup: instancesByGroup,
+            mappingsViaInstances: mappingsViaInstances, mappingsViaInstancesTruncatedByRelation: mappingsViaInstancesTruncatedByRelation,
+            ownedFieldCount: ownedFieldCount, ownedFields: ownedFields, owningObjects: owningObjects,
+            structuralParents: structuralParents,
+            structuralChildCount: structuralChildCount, structuralChildren: structuralChildren
+          }
+     END AS instanceView
 
 // === Return ===
 RETURN
   node,
-  combinedScore,
-  vecScore,
-  ftScore,
+  hit.hitRank AS hitRank,
+  hit.fusedScore AS fusedScore,
+  hit.foundByLegList AS foundByLegList,
+  hit.keywordRank AS keywordRank,
+  hit.keywordScore AS keywordScore,
+  hit.vectorRank AS vectorRank,
+  hit.vectorScore AS vectorScore,
   labels(node) AS nodeLabels,
-  cedsOptionSet,
-  cedsClassHASPROPERTYList,
-  sifComplexType,
-  sifPrimitiveType,
-  sifSimpleType,
-  sifCodeset,
-  sifObjectHASFIELDList,
-  sifXmlElementREALIZEDBYList,
-  edfiEntityHASFIELDList,
-  edfiFieldConstrainedByDescriptor,
-  edfiDescriptorValues,
-  jedxEntityHASFIELDList,
-  jedxFieldConstrainedByCodeSet,
-  edmatrixPublishedBy,
-  edmatrixAtLayer,
-  edmatrixInUseCase,
-  sifFieldMapsToCedsProperty,
-  cedsPropertyMappedFromSifField,
-  edfiFieldMapsToCedsProperty,
-  cedsPropertyMappedFromEdfiField,
-  impliedMappingsToCeds,
-  impliedMappingsFromOtherStandards,
-  sifReferencedBy,
-  sifReferencesTo,
-  cedsClasses,
-  cedsOptionSets
+  node.role AS role,
+  node._source AS source,
+  parentClasses,
+  optionSets,
+  optionSetCount,
+  optionValues,
+  supports,
+  superClasses,
+  subClasses,
+  ownedClasses,
+  referencesTo,
+  referencedBy,
+  mappingsOutgoing,
+  mappingsOutgoingTruncatedByRelation,
+  crossStandardEquivalents,
+  crossStandardEquivalentsTruncatedByRelation,
+  crossStandardEquivalentsTruncatedByRelationAndStandard,
+  mappingsIncoming,
+  mappingsIncomingTruncatedByRelation,
+  mappingsIncomingTruncatedByRelationAndStandard,
+  instanceView
+ORDER BY hitRank

@@ -36,7 +36,7 @@ Data Loading (requires running container):
   indexDataModelExplorer -rebuild         # forceInit + start + loadCeds + loadSif + buildBridges
 
 Traversal Generation (VectorCypherRetriever):
-  indexDataModelExplorer -generateTraversal              # Generate schema + traversal files
+  indexDataModelExplorer -generateTraversal              # Compare traversal.cypher with the template
   indexDataModelExplorer -generateTraversal --preview     # Show diff only
   indexDataModelExplorer -generateTraversal --apply       # Overwrite traversal.cypher (with backup)
 
@@ -319,23 +319,13 @@ Options:
 		const preview = commandLineParameters.switches.preview || false;
 		const apply = commandLineParameters.switches.apply || false;
 
-		const { exportSchema } = require('./lib/schemaExporter');
 		const { generateTraversal } = require('./lib/traversalGenerator');
 
 		const runPipeline = async () => {
 			xLog.status('[indexDataModelExplorer] === GENERATING TRAVERSAL ARTIFACTS ===');
 
-			// Step 1: Export schema
-			xLog.status('[indexDataModelExplorer] Step 1/2: Exporting schema...');
-			await exportSchema({
-				...neo4jConfig,
-				outputDir: outputProviderDir,
-			});
-
-			// Step 2: Generate traversal
-			xLog.status('[indexDataModelExplorer] Step 2/2: Generating traversal Cypher...');
+			// W-D-18 (2026-10): no schema export — schema-summary.json is retired; the generator emits the one template
 			generateTraversal({
-				schemaPath: path.join(outputProviderDir, 'schema-summary.json'),
 				outputDir: outputProviderDir,
 				apply,
 				preview,

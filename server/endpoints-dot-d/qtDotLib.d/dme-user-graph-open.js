@@ -70,6 +70,16 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 				return;
 			}
 			const { result } = args;
+			// A pipeline that finished without producing a result is a FAILURE, not a success
+			// with an empty payload. Wrapping undefined sent `[null]` as HTTP 200; the client
+			// read data[0] as falsy, kept activeVersionRefId null, showed nothing, and the user
+			// only discovered it at the next prompt ("No graph open — choose a version first").
+			if (!result) {
+				const errorId = makeRefId(12);
+				xLog.error(`dme-user-graph-open error (${errorId}): pipeline produced no result`);
+				xRes.status(500).send(`open produced no graph (${errorId})`);
+				return;
+			}
 			xLog.status(
 				`[dmeOpenTrace] endpoint: HTTP 200 sent (result is ${Array.isArray(result) ? 'array' : 'object'})`,
 			);

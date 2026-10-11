@@ -29,6 +29,35 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const maxResultRecords = parseInt(mcpConfig.maxResultRecords, 10) || 100;
 
 	// ================================================================================
+	// SERVER-SIDE LIMIT ENFORCEMENT
+	//
+	// Puts a real LIMIT into the cypher before it runs: appends one when the query
+	// has none; clamps an oversized trailing numeric LIMIT to the cap. The
+	// post-execution truncation in the query stage remains as the second layer for
+	// shapes this cannot see (LIMIT inside UNION arms, LIMIT $param).
+
+	const enforceLimit = (cypherText) => {
+		const trimmed = cypherText.replace(/;\s*$/, '').trimEnd();
+
+		const trailingNumericLimit = trimmed.match(/\bLIMIT\s+(\d+)\s*$/i);
+		if (trailingNumericLimit) {
+			if (parseInt(trailingNumericLimit[1], 10) > maxResultRecords) {
+				return trimmed.replace(
+					/\bLIMIT\s+\d+\s*$/i,
+					`LIMIT ${maxResultRecords}`,
+				);
+			}
+			return trimmed;
+		}
+
+		if (/\bLIMIT\s+\$[a-zA-Z0-9_]+\s*$/i.test(trimmed)) {
+			return trimmed;
+		}
+
+		return `${trimmed}\nLIMIT ${maxResultRecords}`;
+	};
+
+	// ================================================================================
 	// SERVICE FUNCTION
 
 	const serviceFunction = (queryData, callback) => {
@@ -80,7 +109,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					return;
 				}
 
-				next('', { ...args, query, queryParams: params || {} });
+				next('', { ...args, query: enforceLimit(query), queryParams: params || {} });
 				return;
 			}
 

@@ -1,41 +1,37 @@
 'use strict';
 
-// vectorCypherRetriever.js — Shared retrieval engine for VectorCypherRetriever pattern
+// vectorCypherRetriever.js — the graph retriever's traversal step: the search hits, enriched with their graph context.
 //
-// Chains vector similarity search with Cypher graph traversal:
-//   1. Embed query via embedder object (provider-agnostic)
-//   2. Load traversal.cypher (or generate dynamically)
-//   3. Execute against Neo4j
-//   4. Return enriched results with graph context
+// ⟪lane BM25, 2026-10-10⟫ This module no longer searches. The hits arrive ranked by lib/hybridRetrieval.js (a keyword BM25
+// leg and/or a vector leg, per searchMode, fused by reciprocal rank), and this module walks traversal.cypher from them:
+//   1. Read traversal.cypher
+//   2. Run it with $hitList — one row per hit, by stableId, carrying its rank, fused score and both legs' provenance
+//   3. Return the rows, each still saying which leg found it and how
+// (The file keeps its name, which every caller and gate requires; the vector search it was named for moved upstream.)
 //
-// Implements fallback chain: dynamic -> static -> flat hybrid search
+// Ruling C (TQ, 2026-10-05). A real error — a Neo4j/query error, a traversal.cypher that exists but fails — reaches the
+// callback BY NAME; it is never answered with a degraded result or with an empty list standing in for the failure. There
+// is ONE alternative path: when no traversal file is configured or present, the hits are returned as they are (flat, no
+// graph context) and the RESULT says so.
 //
-// The embedder object is created by embeddingClient.create() and passed in.
-// It provides embed(texts, callback), dimension, batchSize, and metadata().
+// retrieve({ neo4jSession, hitList, traversalFilePath }, callback) answers callback(errorText) or callback('', retrievedResult):
+//   traversal ran  -> retrievedResult is { retrievalMode: 'traversal', requestedHitCount, returnedHitCount, hitList }, one
+//                     hitList entry per traversal.cypher record (W-D-10, campaign P1: the bare list carried no count);
+//   flat           -> retrievedResult is { retrievalMode: 'flat', retrievalNote, resultCount, results }.
+//
+// neo4j-driver promises are met only in ./runCypherQuery.
 
 const fs = require('fs');
+const path = require('path');
+const { pipeRunner, taskListPlus } = new (require('qtools-asynchronous-pipe-plus'))();
+const { runCypherQuery } = require('./runCypherQuery');
 
-// =====================================================================
-// EMBEDDING (via embedder object)
-// =====================================================================
-
-const embedQuery = (text, embedder) => new Promise((resolve, reject) => {
-	embedder.embed([text], (err, embeddings) => {
-		if (err) { reject(new Error(`Embedding failed: ${err}`)); return; }
-		resolve(embeddings[0]);
-	});
-});
+// the fields of a fused hit traversal.cypher receives and returns unchanged (lib/hybridRetrieval.js fuseRankedLegs)
+const HIT_PROVENANCE_FIELD_LIST = Object.freeze(['stableId', 'hitRank', 'fusedScore', 'foundByLegList', 'keywordRank', 'keywordScore', 'vectorRank', 'vectorScore']);
 
 // =====================================================================
 // RESULT SERIALIZATION
 // =====================================================================
-
-const toNumber = (val) => {
-	if (val === null || val === undefined) return 0;
-	if (typeof val === 'number') return val;
-	if (typeof val.toNumber === 'function') return val.toNumber();
-	return Number(val);
-};
 
 const serializeNeo4jValue = (val) => {
 	if (val === null || val === undefined) return null;
@@ -45,133 +41,65 @@ const serializeNeo4jValue = (val) => {
 	if (val.properties) return serializeNeo4jValue(val.properties);
 	if (typeof val === 'object') {
 		const result = {};
-		for (const [k, v] of Object.entries(val)) {
-			if (k === 'embedding') continue; // Skip large embedding arrays
-			result[k] = serializeNeo4jValue(v);
+		for (const [propertyName, propertyValue] of Object.entries(val)) {
+			if (propertyName === 'embedding') continue; // Skip large embedding arrays
+			result[propertyName] = serializeNeo4jValue(propertyValue);
 		}
 		return result;
 	}
 	return val;
 };
 
-// =====================================================================
-// FLAT HYBRID SEARCH (fallback)
-// =====================================================================
-
-const flatHybridSearch = async ({ neo4jSession, queryText, embedder, limit, searchMode, schemaFilePath }) => {
-	const neo4j = require('neo4j-driver');
-
-	let schema = null;
-	if (schemaFilePath && fs.existsSync(schemaFilePath)) {
-		schema = JSON.parse(fs.readFileSync(schemaFilePath, 'utf8'));
-	}
-
-	const results = new Map();
-	const limitInt = neo4j.int(limit);
-
-	// BM25 fulltext search
-	if (searchMode !== 'vector' && schema) {
-		for (const ftIdx of schema.fulltextIndexes) {
-			try {
-				const ftResult = await neo4jSession.run(`
-					CALL db.index.fulltext.queryNodes($idxName, $query) YIELD node, score
-					RETURN node, labels(node) AS labels, score AS ftScore LIMIT $limit
-				`, { idxName: ftIdx.name, query: queryText, limit: limitInt });
-
-				for (const rec of ftResult.records) {
-					const node = rec.get('node');
-					const id = node.identity.toString();
-					if (results.has(id)) {
-						results.get(id).ftScore = Math.max(results.get(id).ftScore, toNumber(rec.get('ftScore')));
-					} else {
-						results.set(id, {
-							node: serializeNeo4jValue(node.properties),
-							labels: rec.get('labels'),
-							vecScore: 0,
-							ftScore: toNumber(rec.get('ftScore')),
-						});
-					}
-				}
-			} catch (err) {
-				process.stderr.write(`[vectorCypherRetriever] BM25 error (${ftIdx.name}): ${err.message}\n`);
-			}
-		}
-	}
-
-	// Vector search
-	if (searchMode !== 'bm25' && embedder && schema) {
-		const queryEmbedding = await embedQuery(queryText, embedder);
-
-		for (const vecIdx of schema.vectorIndexes) {
-			try {
-				const vecResult = await neo4jSession.run(`
-					CALL db.index.vector.queryNodes($idxName, $limit, $embedding) YIELD node, score
-					RETURN node, labels(node) AS labels, score AS vecScore
-				`, { idxName: vecIdx.name, limit: limitInt, embedding: queryEmbedding });
-
-				for (const rec of vecResult.records) {
-					const node = rec.get('node');
-					const id = node.identity.toString();
-					if (results.has(id)) {
-						results.get(id).vecScore = Math.max(results.get(id).vecScore, toNumber(rec.get('vecScore')));
-					} else {
-						results.set(id, {
-							node: serializeNeo4jValue(node.properties),
-							labels: rec.get('labels'),
-							vecScore: toNumber(rec.get('vecScore')),
-							ftScore: 0,
-						});
-					}
-				}
-			} catch (err) {
-				process.stderr.write(`[vectorCypherRetriever] Vector error (${vecIdx.name}): ${err.message}\n`);
-			}
-		}
-	}
-
-	// Rank
-	const ranked = [...results.values()]
-		.map(r => ({
-			...r,
-			combinedScore: (r.ftScore > 0 ? 0.5 : 0) + (r.vecScore > 0 ? r.vecScore * 0.5 : 0),
-			_fallback: 'flat',
-		}))
-		.sort((a, b) => b.combinedScore - a.combinedScore)
-		.slice(0, limit);
-
-	return ranked;
-};
+// hitParameterListOf — the fused rows as traversal.cypher's $hitList: each hit's provenance and its 1-based rank, nothing else
+const hitParameterListOf = (hitList) =>
+	hitList.map((oneHit, hitIndex) => HIT_PROVENANCE_FIELD_LIST.reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: fieldName === 'hitRank' ? hitIndex + 1 : oneHit[fieldName] === undefined ? null : oneHit[fieldName] }), {}));
 
 // =====================================================================
 // STATIC TRAVERSAL (read and execute traversal.cypher)
 // =====================================================================
 
-const staticTraversal = async ({ neo4jSession, queryText, embedder, traversalFilePath, limit, searchMode }) => {
-	const neo4j = require('neo4j-driver');
+// instanceView (traversal.cypher): present only for SIF/PESC nodes with instances or structure.
+const OMIT_WHEN_NULL_COLUMN_LIST = ['instanceView'];
 
-	if (!traversalFilePath || !fs.existsSync(traversalFilePath)) {
-		return null; // Trigger fallback
-	}
+const staticTraversal = ({ neo4jSession, hitList, traversalFilePath }, callback) => {
+	const traversalFileName = path.basename(traversalFilePath);
 
-	const cypher = fs.readFileSync(traversalFilePath, 'utf8');
-
-	// Embed query
-	const embedding = await embedQuery(queryText, embedder);
-
-	// Execute the complete traversal query
-	const result = await neo4jSession.run(cypher, {
-		embedding,
-		limit: neo4j.int(limit),
-		query: queryText,
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => {
+		fs.readFile(traversalFilePath, 'utf8', (readError, traversalCypher) => {
+			if (readError) {
+				next(`Reading ${traversalFileName} failed: ${readError.message}`, args);
+				return;
+			}
+			next('', { ...args, traversalCypher });
+		});
+	});
+	taskList.push((args, next) => {
+		runCypherQuery(neo4jSession, args.traversalCypher, { hitList: hitParameterListOf(hitList) }, (queryError, queryResult) => {
+			if (queryError) {
+				next(`${traversalFileName} failed: ${queryError}`, args);
+				return;
+			}
+			next('', { ...args, traversalResult: queryResult });
+		});
 	});
 
-	// Serialize results
-	return result.records.map(rec => {
-		const obj = {};
-		for (const key of rec.keys) {
-			obj[key] = serializeNeo4jValue(rec.get(key));
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
 		}
-		return obj;
+		// A column named in OMIT_WHEN_NULL_COLUMN_LIST is left out when null, so a traversal column that only
+		// some standards populate adds no property to the others' results.
+		const traversedHitList = args.traversalResult.records.map(rec => {
+			const obj = {};
+			for (const columnName of rec.keys) {
+				if (OMIT_WHEN_NULL_COLUMN_LIST.includes(columnName) && rec.get(columnName) === null) continue;
+				obj[columnName] = serializeNeo4jValue(rec.get(columnName));
+			}
+			return obj;
+		});
+		callback('', { retrievalMode: 'traversal', requestedHitCount: hitList.length, returnedHitCount: traversedHitList.length, hitList: traversedHitList });
 	});
 };
 
@@ -179,62 +107,22 @@ const staticTraversal = async ({ neo4jSession, queryText, embedder, traversalFil
 // MAIN ENTRY POINT
 // =====================================================================
 
-const retrieve = async ({
-	neo4jSession,
-	queryText,
-	embedder,
-	traversalFilePath,
-	schemaFilePath,
-	limit = 10,
-	traversalMode = 'static',
-	searchMode = 'hybrid',
-}) => {
-	// Fallback chain: dynamic -> static -> flat
-	let results = null;
-	let mode = traversalMode;
+const flatResultOf = ({ hitList, retrievalNote }) => ({ retrievalMode: 'flat', retrievalNote, resultCount: hitList.length, results: hitList.map((oneHit, hitIndex) => ({ ...oneHit, hitRank: hitIndex + 1 })) });
 
-	// Dynamic mode: TODO — stub for now, fall through to static
-	if (mode === 'dynamic') {
-		process.stderr.write('[vectorCypherRetriever] Dynamic mode not yet implemented. Falling back to static.\n');
-		mode = 'static';
+const retrieve = ({ neo4jSession, hitList, traversalFilePath }, callback) => {
+	if (!Array.isArray(hitList)) {
+		callback(`graphRetriever: hitList must be the search's fused hit list (an array); got ${typeof hitList}.`);
+		return;
 	}
-
-	// Static mode
-	if (mode === 'static') {
-		try {
-			results = await staticTraversal({
-				neo4jSession,
-				queryText,
-				embedder,
-				traversalFilePath,
-				limit,
-				searchMode,
-			});
-		} catch (err) {
-			process.stderr.write(`[vectorCypherRetriever] Static traversal failed: ${err.message}. Falling back to flat.\n`);
-			results = null;
-		}
+	if (!traversalFilePath) {
+		callback('', flatResultOf({ hitList, retrievalNote: 'no traversal file configured; the search hits without graph traversal' }));
+		return;
 	}
-
-	// Flat fallback
-	if (!results) {
-		process.stderr.write('[vectorCypherRetriever] Using flat hybrid search (no traversal).\n');
-		try {
-			results = await flatHybridSearch({
-				neo4jSession,
-				queryText,
-				embedder,
-				limit,
-				searchMode,
-				schemaFilePath,
-			});
-		} catch (err) {
-			process.stderr.write(`[vectorCypherRetriever] Flat search also failed: ${err.message}\n`);
-			results = [];
-		}
+	if (!fs.existsSync(traversalFilePath)) {
+		callback('', flatResultOf({ hitList, retrievalNote: `traversal file ${path.basename(traversalFilePath)} not present; the search hits without graph traversal` }));
+		return;
 	}
-
-	return results;
+	staticTraversal({ neo4jSession, hitList, traversalFilePath }, callback);
 };
 
-module.exports = { retrieve, embedQuery };
+module.exports = { retrieve, HIT_PROVENANCE_FIELD_LIST };

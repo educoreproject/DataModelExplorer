@@ -1,15 +1,16 @@
 'use strict';
 // Phase 9 gate — production runtime (LOCAL): snapshot-source + pointer flip (T9.4),
 // warm-pool fast path (T9.1), spike cold fallback (T9.3), overshoot tolerance (T9.2),
-// embedding migration (T9.5). T9.6 is validate-clone.js. Real clones; always tears down.
+// text-only user layer and the retired migration (T9.5). T9.6 is validate-clone.js. Real clones; always tears down.
 
 const fs = require('fs');
 const path = require('path');
+// The user layer is text-only (W-E-6): this gate needs no Voyage key.
 const os = require('os');
 
 process.global = {
 	getConfig: (name) => name === 'dataModelExplorerSearch'
-		? { neo4jBoltUri: 'bolt://localhost:7706', neo4jUser: 'neo4j', neo4jPassword: '99d0615d205eead0ea65b3f642ffb3d5', voyageApiKey: 'pa-3W7FFeGKVZ4xEN9Lh2ceXMATTpbLbK-b2nwg6TbqF3o' }
+		? require('../lib/goldenContainerName').goldenDmeConfigForTests()
 		: {},
 	xLog: { status: () => {}, error: (m) => console.error('xLog.error:', m), verbose: () => {}, result: () => {} },
 	rawConfig: {}, commandLineParameters: { switches: {}, values: {} },
@@ -40,7 +41,7 @@ const countNonUser = (conn, cb) => neo4jGen.initDatabaseInstance({ neo4jBoltUri:
 sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 	if (dbErr) { finish(`db init: ${dbErr}`); return; }
 	const ptp = { sqlDb, dataMapping, accessPointsDotD: lib };
-	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-loadScript', 'dme-user-graph-write']
+	['graph-state-version-new', 'graph-state-version-save', 'graph-state-version-loadScript', 'dme-user-graph-write', 'dme-user-graph-save']
 		.forEach((f) => require(`../../data-model/access-points-dot-d/accessPoints.d/${f}`)({ dotD: dotD(), passThroughParameters: ptp }));
 	const USER = '__TEST_uR';
 	const st = {};
@@ -48,8 +49,10 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 	series([
 		// ---- T9.4 snapshot-source + pointer flip ----
 		(cb) => { console.log('creating golden snapshot (one quiesce)...'); cloneManager.createSnapshot((e, r) => { st.snap1 = r && r.snapName; ok('T9.4 snapshot created + pointer set', !!st.snap1 && !!cloneManager.currentSnapshotDir()); cb(e); }); },
-		(cb) => { console.log('provision clone FROM snapshot (golden NOT quiesced)...'); cloneManager.provisionClone({ userRefId: '__TEST_snap', versionRefId: 's1' }, (e, d) => { if (e) { cb(e); return; } st.snapClone = d; owned.push({ containerName: d.containerName, cloneDir: d.cloneDir }); ok('T9.4 golden stayed RUNNING during clone (no quiesce)', cloneManager.isContainerRunning('rag_DataModelExplorer')); cb(); }); },
-		(cb) => countNonUser(st.snapClone, (e, c) => { ok('T9.4 snapshot clone carries golden standards (75882)', String(c) === '75882'); cb(e); }),
+		(cb) => { console.log('provision clone FROM snapshot (golden NOT quiesced)...'); cloneManager.provisionClone({ userRefId: '__TEST_snap', versionRefId: 's1' }, (e, d) => { if (e) { cb(e); return; } st.snapClone = d; owned.push({ containerName: d.containerName, cloneDir: d.cloneDir }); ok('T9.4 golden stayed RUNNING during clone (no quiesce)', cloneManager.isContainerRunning(require('../lib/goldenContainerName').readGoldenContainerName())); cb(); }); },
+		// the golden's own count, measured live — never a literal (the old '75882' was a retired golden's)
+		(cb) => { const golden = process.global.getConfig('dataModelExplorerSearch'); countNonUser({ boltUri: golden.neo4jBoltUri, user: golden.neo4jUser, password: golden.neo4jPassword }, (e, c) => { st.goldenNonUserCount = c; cb(e); }); },
+		(cb) => countNonUser(st.snapClone, (e, c) => { ok(`T9.4 snapshot clone carries the golden's ${st.goldenNonUserCount} non-user nodes`, Number(c) > 0 && String(c) === String(st.goldenNonUserCount)); cb(e); }),
 		(cb) => { cloneManager.teardownClone(st.snapClone, () => { owned.length = 0; cb(); }); },
 		(cb) => { cloneManager.createSnapshot((e, r) => { st.snap2 = r && r.snapName; ok('T9.4 pointer FLIPPED to a new snapshot atomically', st.snap2 && st.snap2 !== st.snap1 && cloneManager.currentSnapshotDir().indexOf(st.snap2) !== -1); cb(e); }); },
 
@@ -69,23 +72,23 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {
 		(cb) => { const start = Date.now(); const wait = () => { if (warmPool.poolDepth() >= 2 || Date.now() - start > 120000) { ok('T9.2 overshoot tolerated: pool reached target without exceeding it or crashing', warmPool.poolDepth() === 2); cb(); return; } setTimeout(wait, 1000); }; wait(); },
 		(cb) => warmPool.drainPool(() => { ok('T9.2 pool drained cleanly', warmPool.poolDepth() === 0); cb(); }),
 
-		// ---- T9.5 embedding migration (re-embed + bump stamp; replay still works) ----
-		(cb) => lib['dme-user-graph-write']({ userRefId: USER, versionRefId: st.vw, action: 'createNode', params: { labels: ['Course'], properties: { name: 'Migrate Me', description: 'a node to re-embed' } } }, (e, r) => { st.mn = r && r.userNodeId; cb(e); }),
-		(cb) => { const { reEmit } = require(`${LIB}/user-graph/re-emit`); neo4jGen.initDatabaseInstance({ neo4jBoltUri: st.hw.graphConnection.boltUri, neo4jUser: 'neo4j', neo4jPassword: st.hw.graphConnection.password }, (ce, db) => { if (ce) { cb(ce); return; } reEmit({ userGraphDb: db, embeddingModelVersion: 'voyage-3' }, (re, res) => { db.close(); if (re) { cb(re); return; } lib['graph-state-version-save']({ userRefId: USER, refId: st.vw, stateScript: res.stateScript, userNodeCount: res.userNodeCount, embeddingModelVersion: 'voyage-3' }, (se) => cb(se)); }); }); },
+		// ---- T9.5 text-only user layer (campaign P2 W-E-6, ruling A12): no vector is written, the migration refuses by
+		// policy, and save + re-open reconstructs the node with no vector and the clone passport's golden version ----
+		(cb) => lib['dme-user-graph-write']({ userRefId: USER, versionRefId: st.vw, action: 'createNode', params: { labels: ['Course'], properties: { name: 'Text Only', description: 'a node with no vector' } } }, (e, r) => { st.mn = r && r.userNodeId; cb(e); }),
+		(cb) => lib['dme-user-graph-save']({ userRefId: USER, versionRefId: st.vw }, (e) => cb(e)),
 		(cb) => seam.releaseUserGraph(st.hw, { sqlDb, dataMapping }, () => { owned.length = 0; cb(); }),
-		(cb) => migration.migrateVersion({ sqlDb, dataMapping, accessPointsDotD: lib, userRefId: USER, versionRefId: st.vw, newModelVersion: 'voyage-3', voyageApiKey: process.global.getConfig('dataModelExplorerSearch').voyageApiKey, dryRun: true }, (e, sum) => { ok('T9.5 migration dry-run reports the node count without writing', sum && sum.dryRun === true && sum.wouldReEmbed === 1); cb(e); }),
-		(cb) => { console.log('migration real run (re-embed + bump stamp)...'); migration.migrateVersion({ sqlDb, dataMapping, accessPointsDotD: lib, userRefId: USER, versionRefId: st.vw, newModelVersion: 'voyage-3-migrated', voyageApiKey: process.global.getConfig('dataModelExplorerSearch').voyageApiKey, dryRun: false }, (e, sum) => { ok('T9.5 migration re-embedded 1 node + bumped stamp', sum && sum.reEmbedded === 1 && sum.newModelVersion === 'voyage-3-migrated'); cb(e); }); },
-		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.vw }, (e, row) => { ok('T9.5 stored stamp bumped to voyage-3-migrated', row && row.embeddingModelVersion === 'voyage-3-migrated'); cb(e); }),
-		(cb) => { console.log('re-open after migration (replay still works)...'); seam.getUserGraph({ userRefId: USER, versionRefId: st.vw, username: 'alice', sqlDb, dataMapping }, (e, h) => { if (e) { cb(e); return; } owned.push({ containerName: h.containerName, cloneDir: h.cloneDir }); cb(); }); },
-		(cb) => { // verify the re-opened clone has the migrated node with the new stamp
+		(cb) => migration.migrateVersion({ sqlDb, dataMapping, accessPointsDotD: lib, userRefId: USER, versionRefId: st.vw, newModelVersion: 'voyage-4-large', dryRun: true }, (e) => { ok('T9.5 the embedding migration refuses, naming the text-only policy', /textOnly/.test(e || '')); cb(); }),
+		(cb) => lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.vw }, (e, row) => { ok('T9.5 stored row records the policy and a golden version', row && row.embeddingModelVersion === 'textOnly' && /^[0-9a-f]{64}$/.test(row.goldenVersionAuthoredAgainst || '')); cb(e); }),
+		(cb) => { console.log('re-open after save (replay of a text-only layer)...'); seam.getUserGraph({ userRefId: USER, versionRefId: st.vw, username: 'alice', sqlDb, dataMapping }, (e, h) => { if (e) { cb(e); return; } owned.push({ containerName: h.containerName, cloneDir: h.cloneDir }); cb(); }); },
+		(cb) => { // verify the re-opened clone has the node and no vector
 			lib['graph-state-version-loadScript']({ userRefId: USER, refId: st.vw }, (e, row) => {
-				if (e || !row || !row.liveBoltUri) { ok('T9.5 replay after migration reconstructed the node', false); cb(); return; }
-				neo4jGen.initDatabaseInstance({ neo4jBoltUri: row.liveBoltUri, neo4jUser: 'neo4j', neo4jPassword: row.liveBoltPassword }, (ce, db) => {
-					if (ce) { ok('T9.5 replay after migration reconstructed the node', false); cb(); return; }
-					db.runQuery('MATCH (n:UserContent {userNodeId:$id}) RETURN n.embeddingModelVersion AS emv, size(n.embedding) AS dim', { id: st.mn }, (qe, rows) => {
+				if (e || !row || !row.liveBoltUri) { ok('T9.5 replay reconstructed the node with no vector', false); cb(); return; }
+				neo4jGen.initDatabaseInstance(seam.liveCloneConnectionFor(row), (ce, db) => { // W-E-12: the clone's own credential
+					if (ce) { ok('T9.5 replay reconstructed the node with no vector', false); cb(); return; }
+					db.runQuery('MATCH (n:UserContent {userNodeId:$id}) RETURN n.embedding IS NULL AS vectorless, n.embeddingModelVersion IS NULL AS stampless', { id: st.mn }, (qe, rows) => {
 						db.close();
 						const n = rows && rows[0];
-						ok('T9.5 replay after migration reconstructed the node with the new stamp', n && n.emv === 'voyage-3-migrated' && Number(n.dim) === 1024);
+						ok('T9.5 replay reconstructed the node with no vector', n && n.vectorless === true && n.stampless === true);
 						cb();
 					});
 				});

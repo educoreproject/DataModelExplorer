@@ -9,15 +9,24 @@
 
 const fs = require('fs');
 const path = require('path');
+// The Voyage key comes from the established ini — never a literal in source.
+const dmeIniSection = require('qtools-config-file-processor').getConfig(
+	'dataModelExplorerSearch.ini',
+	path.join(__dirname, '../../../../configs/instanceSpecific/qbook/'),
+	{ resolve: true }
+).dataModelExplorerSearch;
+if (!dmeIniSection || !dmeIniSection.voyageApiKey || dmeIniSection.voyageApiKey.startsWith('<!')) {
+	console.error('Missing voyageApiKey in dataModelExplorerSearch.ini [dataModelExplorerSearch] — cannot run this test.');
+	process.exit(1);
+}
 const os = require('os');
 
 process.global = {
 	getConfig: (name) =>
 		name === 'dataModelExplorerSearch'
 			? {
-					neo4jBoltUri: 'bolt://localhost:7706', neo4jUser: 'neo4j',
-					neo4jPassword: '99d0615d205eead0ea65b3f642ffb3d5',
-					voyageApiKey: 'pa-3W7FFeGKVZ4xEN9Lh2ceXMATTpbLbK-b2nwg6TbqF3o',
+					...require('../lib/goldenContainerName').goldenDmeConfigForTests(),
+					voyageApiKey: dmeIniSection.voyageApiKey,
 			  }
 			: {},
 	xLog: { status: () => {}, error: (m) => console.error('xLog.error:', m), verbose: () => {}, result: () => {} },
@@ -67,7 +76,8 @@ const queryConn = (conn, cypher, params, cb) => {
 	});
 };
 
-const GOLDEN = { boltUri: 'bolt://localhost:7706', user: 'neo4j', password: '99d0615d205eead0ea65b3f642ffb3d5' };
+// W-E-11 (campaign P1): the golden connection is resolved from its declared container name, never a literal URI/password
+const GOLDEN = require('../../data-model/lib/user-graph/container-connection-resolver').resolveContainerConnection(require('../lib/goldenContainerName').readGoldenContainerName());
 const STANDARD_URI = 'https://w3id.org/CEDStandards/terms/C000000'; // a real CEDS element uri
 
 sqliteInstance.initDatabaseInstance(TEST_DB, (dbErr, sqlDb) => {

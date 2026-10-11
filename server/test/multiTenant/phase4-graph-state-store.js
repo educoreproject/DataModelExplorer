@@ -147,15 +147,23 @@ sqliteInstance.initDatabaseInstance(TEST_DB, (err, sqlDb) => {
 		}),
 
 		// --- setLive round-trip ---
+		// W-E-12 (ruling B, 2026-10-06): the clone's credential is NOT stored in this table any more (it travels with
+		// the clone as DME_CLONE_NEO4J_AUTH); a setLive that still offers one is refused by name, never silently dropped
 		(cb) => ap('setLive')({
 			userRefId: USER_A, refId: state.a1,
 			liveBoltUri: 'bolt://localhost:7711', liveBoltPassword: 'SECRET_PW',
 			liveContainerName: 'usr_x', livePort: 7711, lockToken: 'LOCK_A1',
 			lastHeartbeatAt: freshIso,
+		}, (e) => { ok('T4.4 setLive REFUSES a liveBoltPassword by name (W-E-12)', /liveBoltPassword is no longer stored/.test(e || ''), e); cb(''); }),
+		(cb) => ap('setLive')({
+			userRefId: USER_A, refId: state.a1,
+			liveBoltUri: 'bolt://localhost:7711',
+			liveContainerName: 'usr_x', livePort: 7711, lockToken: 'LOCK_A1',
+			lastHeartbeatAt: freshIso,
 		}, (e, r) => { ok('T4.4 setLive ok', r && r.live); cb(e); }),
 		(cb) => ap('loadScript')({ userRefId: USER_A, refId: state.a1 }, (e, row) => {
 			ok('T4.4 setLive round-trips liveBoltUri', row && row.liveBoltUri === 'bolt://localhost:7711');
-			ok('T4.4 setLive round-trips liveBoltPassword', row && row.liveBoltPassword === 'SECRET_PW');
+			ok('T4.4 the row carries NO liveBoltPassword (W-E-12)', row && !('liveBoltPassword' in row), row && Object.keys(row).join(','));
 			ok('T4.4 setLive round-trips livePort', row && String(row.livePort) === '7711');
 			ok('T4.4 setLive round-trips lockToken', row && row.lockToken === 'LOCK_A1');
 			ok('T4.4 setLive round-trips lastHeartbeatAt', row && row.lastHeartbeatAt === freshIso);

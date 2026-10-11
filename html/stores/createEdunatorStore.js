@@ -538,7 +538,10 @@ export function createEdunatorStore({
 					});
 					console.log(`[dmeOpenTrace] store._openCall: HTTP ${response.status} response.data=`, response.data);
 					const result = response.data && response.data[0];
-					if (result) {
+					// versionRefId, not mere truthiness: if a proxy ever answers 200 with an HTML
+					// page, response.data is a STRING and data[0] is the character '<', which is
+					// truthy — that path set activeVersionRefId to undefined and looked successful.
+					if (result && result.versionRefId) {
 						this.activeVersionRefId = result.versionRefId;
 						this.activeVersionName = (result.identityMarker && result.identityMarker.versionName) || '';
 						this.isReadOnly = !!result.readOnly;
@@ -548,7 +551,17 @@ export function createEdunatorStore({
 						this.isDirty = false;
 						console.log(`[dmeOpenTrace] store._openCall: result OK -> activeVersionRefId=${this.activeVersionRefId} activeVersionName="${this.activeVersionName}" isReadOnly=${this.isReadOnly}`);
 					} else {
-						console.warn(`[dmeOpenTrace] store._openCall: response had NO result object (response.data[0] falsy) — activeVersionRefId stays ${this.activeVersionRefId}`);
+						// A 200 with no usable result is a FAILED open, and it must say so HERE.
+						// Logging to the console and carrying on left the panel reading "Opening…"
+						// with activeVersionRefId null, so the failure only surfaced later as
+						// "No graph open — choose a version first" — a message that points at the
+						// user rather than at the server. Note result may be truthy-but-wrong
+						// (an HTML error page makes data[0] the character '<'), so the guard is
+						// on versionRefId, not on the object.
+						console.warn(`[dmeOpenTrace] store._openCall: response had NO usable result (response.data[0]=${JSON.stringify(result)}) — treating as FAILED open`);
+						this.versionStatusMsg = 'Open failed — server returned no graph';
+						this.openInFlight = false;
+						return null;
 					}
 					await this.listVersions();
 					console.log(`[dmeOpenTrace] store._openCall: RETURNING result=`, result ? JSON.parse(JSON.stringify(result)) : result);

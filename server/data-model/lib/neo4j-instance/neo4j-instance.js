@@ -19,37 +19,55 @@ const moduleFunction = function ({ unused }) {
 
 	// ================================================================================
 	// QUERY EXECUTION
+	//
+	// runQuery hardening is PER-CONNECTION, opted into via initDatabaseInstance
+	// config: readOnly opens sessions with defaultAccessMode READ (Neo4j itself
+	// refuses writes even if a write keyword slips past a validator upstream);
+	// queryTimeoutMs puts a wall-clock timeout on each auto-commit transaction so
+	// a runaway query dies at the server. The golden DME connection sets both
+	// (data-model.js); the multi-tenant user-graph clones write through runQuery
+	// (identity marker MERGE, embedding SET, write-executor) and stay unhardened.
+	// runTransaction (below) is the explicit WRITE path, and a connection has it ONLY
+	// when it was opened with writeCapable: true BY NAME (W-E-10, X2, 2026-10-06).
 
-	const runQueryActual = (driver) => (cypher, params, callback) => {
-		if (typeof params === 'function') {
-			callback = params;
-			params = {};
-		}
+	const runQueryActual =
+		(driver, { readOnly, queryTimeoutMs } = {}) =>
+		(cypher, params, callback) => {
+			if (typeof params === 'function') {
+				callback = params;
+				params = {};
+			}
 
-		const session = driver.session();
+			const session = readOnly
+				? driver.session({ defaultAccessMode: neo4j.session.READ })
+				: driver.session();
 
-		session
-			.run(cypher, params || {})
-			.then((result) => {
-				session.close();
-				const records = result.records.map((record) => {
-					const obj = {};
-					record.keys.forEach((key) => {
-						const val = record.get(key);
-						obj[key] = neo4jValueToJs(val);
+			const transactionConfig = queryTimeoutMs
+				? { timeout: queryTimeoutMs }
+				: {};
+
+			session
+				.run(cypher, params || {}, transactionConfig)
+				.then((result) => {
+					session.close();
+					const records = result.records.map((record) => {
+						const obj = {};
+						record.keys.forEach((key) => {
+							const val = record.get(key);
+							obj[key] = neo4jValueToJs(val);
+						});
+						return obj;
 					});
-					return obj;
+					callback('', records);
+				})
+				.catch((err) => {
+					session.close();
+					xLog.error(
+						`${''.padEnd(50, '-')}\nNeo4j Error: ${err.toString()}\nBad Cypher:\n\t${cypher}\n${''.padEnd(50, '-')}\n`,
+					);
+					callback(err.toString(), []);
 				});
-				callback('', records);
-			})
-			.catch((err) => {
-				session.close();
-				xLog.error(
-					`${''.padEnd(50, '-')}\nNeo4j Error: ${err.toString()}\nBad Cypher:\n\t${cypher}\n${''.padEnd(50, '-')}\n`,
-				);
-				callback(err.toString(), []);
-			});
-	};
+		};
 
 	// ================================================================================
 	// NEO4J VALUE CONVERSION
@@ -111,9 +129,19 @@ const moduleFunction = function ({ unused }) {
 	//
 	// This sits alongside runQuery; existing callers of runQuery are unaffected.
 	// Used by the Use Case Editor save path for atomic root+children updates.
+	//
+	// W-E-10 (X2, campaign P0, 2026-10-06): runTransaction exists only on a connection opened with
+	// writeCapable: true. Any other connection gets a runTransaction that refuses by name BEFORE the
+	// caller's function runs. The golden DME handle (data-model.js) never asks, so golden has no write
+	// path; until 2026-10-06 its runTransaction opened a default (WRITE) session beside the READ seam,
+	// and on a scratch graph a golden-shaped handle committed a CREATE through it (measured).
+
+	const refusedRunTransaction = (userFn, callback) => {
+		callback('runTransaction: this connection was opened read-only; pass writeCapable:true by name');
+	};
 
 	const runTransactionActual = (driver) => (userFn, callback) => {
-		const session = driver.session();
+		const session = driver.session({ defaultAccessMode: neo4j.session.WRITE });
 		let tx;
 		try {
 			tx = session.beginTransaction();
@@ -194,7 +222,8 @@ const moduleFunction = function ({ unused }) {
 	// INITIALIZE DATABASE INSTANCE
 
 	const initDatabaseInstance = (config, callback) => {
-		const { neo4jBoltUri, neo4jUser, neo4jPassword } = config;
+		const { neo4jBoltUri, neo4jUser, neo4jPassword, readOnly, queryTimeoutMs, writeCapable } =
+			config;
 
 		if (!neo4jBoltUri || !neo4jUser || !neo4jPassword) {
 			callback('neo4j-instance: missing required config (neo4jBoltUri, neo4jUser, neo4jPassword)');
@@ -207,8 +236,11 @@ const moduleFunction = function ({ unused }) {
 			{ encrypted: false },
 		);
 
-		const runQuery = runQueryActual(driver);
-		const runTransaction = runTransactionActual(driver);
+		const runQuery = runQueryActual(driver, {
+			readOnly: !!readOnly,
+			queryTimeoutMs: parseInt(queryTimeoutMs, 10) || undefined,
+		});
+		const runTransaction = writeCapable === true ? runTransactionActual(driver) : refusedRunTransaction;
 		const close = closeActual(driver);
 
 		const localCallback = (err) => {

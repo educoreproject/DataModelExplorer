@@ -8,13 +8,13 @@
 // write actions to the educore executor (/api/dme-user-graph-write) over the server-
 // internal auth path (Option A). Session context from env (set by ws-graphinator ->
 // askMilo -> toolHandler): DME_API_BASE, DME_INTERNAL_SECRET, DME_VERSION_REF_ID. No
-// bolt, no invariant logic here — the executor stamps :UserContent + userNodeId +
-// embedding, enforces additive-only (refuses golden writes), and resolves the user's live
+// bolt, no invariant logic here — the executor stamps :UserContent + userNodeId and the
+// user-edge stamp, refuses the four match relation types, enforces additive-only (refuses golden writes), and resolves the user's live
 // clone from versionRefId. Self-contained (Node builtins only).
 //
 // Usage (driven by provider.json), e.g.:
 //   node dmeUserWriteTool.js -createNode --name=Course --labels=Course --description=...
-//   node dmeUserWriteTool.js -connectToStandard --userNodeId=.. --relType=ALIGNS_WITH --standardUri=..
+//   node dmeUserWriteTool.js -connectToStandard --userNodeId=.. --relType=ALIGNS_WITH --standardStableId=..
 //   node dmeUserWriteTool.js -setProperty --userNodeId=.. --propName=credits --propValue=3
 //   node dmeUserWriteTool.js -deleteNode --userNodeId=..
 
@@ -99,7 +99,7 @@ if (switches.createNode) {
 	params = { labels, properties };
 } else if (switches.connectToStandard) {
 	action = 'connectToStandard';
-	params = { userNodeId: need('userNodeId'), relType: need('relType'), standardKey: need('standardUri') };
+	params = { userNodeId: need('userNodeId'), relType: need('relType'), standardStableId: need('standardStableId') };
 } else if (switches.connectUserNodes) {
 	action = 'connectUserNodes';
 	params = { fromUserNodeId: need('fromUserNodeId'), toUserNodeId: need('toUserNodeId'), relType: need('relType') };

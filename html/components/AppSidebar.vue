@@ -62,6 +62,11 @@ const isAdmin = computed(() =>
 				title="Standards"
 			/>
 			<v-list-item
+				to="/explore/schema-verifier"
+				prepend-icon="mdi-table-search"
+				title="Schema Verifier"
+			/>
+			<v-list-item
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"
@@ -82,11 +87,6 @@ const isAdmin = computed(() =>
 				to="/uc/matrix"
 				prepend-icon="mdi-grid"
 				title="Alignment"
-			/>
-			<v-list-item
-				to="/dm/lookup"
-				prepend-icon="mdi-swap-horizontal"
-				title="Ontology"
 			/>
 			<v-list-item
 				to="/dm/explorer"

@@ -32,6 +32,8 @@ const accumulateCost = (totalCost, usage, model) => {
 };
 
 const MAX_TOOL_ITERATIONS = 30;
+// W-D-21: every answer leaves through finalAnswerFor, carrying why the model stopped (a cut-off answer is marked)
+const { finalAnswerFor } = require('../lib/stopReason');
 
 const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, config, tools, toolHandler, timing, onEvent }) => {
 	const emitEvent = onEvent || (() => {});
@@ -124,7 +126,8 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 			xLog.status(`[SingleCallTools] Tokens — input: ${response.usage.input_tokens} | output: ${response.usage.output_tokens} | running cost: $${totalCost.usd.toFixed(4)}`);
 		}
 
-		// If stop_reason is NOT tool_use, this is the final response
+		// If stop_reason is NOT tool_use, this is the final response — whole (end_turn) or cut off (max_tokens): the
+		// stop reason travels with it and finalAnswerFor marks a cut-off one (W-D-21)
 		if (response.stop_reason !== 'tool_use') {
 			// Extract text blocks (skip thinking blocks)
 			const textParts = response.content
@@ -140,7 +143,7 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 			}
 
 			emitEvent({ type: 'done', cost: totalCost, iterations: iteration + 1 });
-			return { responseText, cost: totalCost };
+			return finalAnswerFor({ responseText, cost: totalCost, stopReason: response.stop_reason });
 		}
 
 		// stop_reason is 'tool_use' - extract and execute tool calls
@@ -203,10 +206,11 @@ const singleCallWithTools = async ({ prompt, systemPrompt, sessionContext, confi
 		xLog.status(`[SingleCallTools] WARNING: Max tool iterations (${MAX_TOOL_ITERATIONS}) reached.`);
 	}
 
-	return {
+	return finalAnswerFor({
 		responseText: `[MAX TOOL ITERATIONS REACHED (${MAX_TOOL_ITERATIONS})] The model continued requesting tool calls beyond the iteration limit.`,
 		cost: totalCost,
-	};
+		stopReason: 'maxToolIterations',
+	});
 };
 
 export { singleCallWithTools };

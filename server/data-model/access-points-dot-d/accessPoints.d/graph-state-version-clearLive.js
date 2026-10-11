@@ -73,7 +73,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const saveObj = {
 				refId,
 				liveBoltUri: '',
-				liveBoltPassword: '',
 				liveContainerName: '',
 				livePort: '',
 				lockToken: '',

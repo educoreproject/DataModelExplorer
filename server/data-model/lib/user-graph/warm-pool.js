@@ -80,6 +80,29 @@ const reconcileAndPrime = (depth, callback) => {
 	const cb = typeof callback === 'function' ? callback : () => {};
 	setTargetDepth(depth);
 	const existing = cloneManager.describeWarmContainers();
+
+	// A warm spare is a copy of the CURRENT SNAPSHOT, which is a copy of the golden. So a spare
+	// is only current if the snapshot is — and currentSnapshotDir() returns null whenever the
+	// snapshot is missing, incomplete, or stamped with a DIFFERENT golden than the one now
+	// configured. Adopting spares across a golden flip was what made "edit the ini and restart"
+	// silently keep serving the previous graph: the spares outlived the change they were
+	// supposed to receive. Discard rather than adopt; the pool refills from the new golden.
+	if (existing.length && !cloneManager.currentSnapshotDir()) {
+		if (xLog) xLog.status(`[dmeOpenTrace] warm-pool: reconcile — snapshot is absent or was cut from a different golden; DISCARDING ${existing.length} stale spare(s) instead of adopting.`);
+		let i = 0;
+		const tearNext = () => {
+			if (i >= existing.length) {
+				refillAsync();
+				cb('', { adopted: 0, discarded: existing.length, pool: pool.length, target: targetDepth });
+				return;
+			}
+			const d = existing[i++];
+			cloneManager.teardownClone({ containerName: d.containerName, cloneDir: d.cloneDir }, () => tearNext());
+		};
+		tearNext();
+		return;
+	}
+
 	const have = new Set(pool.map((d) => d.containerName));
 	let adopted = 0;
 	existing.forEach((d) => {

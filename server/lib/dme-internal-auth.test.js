@@ -105,6 +105,23 @@ ok('isLoopbackAddress 127.0.0.1', isLoopbackAddress('127.0.0.1') === true);
 ok('isLoopbackAddress 10.0.0.5 false', isLoopbackAddress('10.0.0.5') === false);
 ok('isLoopbackAddress empty false', isLoopbackAddress('') === false);
 
+// 11. W-E-12 (X4 mechanics, 2026-10-06): the secret comparison is constant-time
+const lastByteDiffers = SECRET.slice(0, -1) + (SECRET.slice(-1) === 'x' ? 'y' : 'x');
+ok(
+	'a secret differing only in its LAST byte -> internal:false',
+	resolveInternalAuth({ xReq: mkReq({ headers: { 'x-dme-internal-secret': lastByteDiffers }, peer: '127.0.0.1' }), configuredSecret: SECRET }).internal === false,
+);
+let differentLengthOutcome = null;
+try {
+	differentLengthOutcome = resolveInternalAuth({ xReq: mkReq({ headers: { 'x-dme-internal-secret': `${SECRET}-longer` }, peer: '127.0.0.1' }), configuredSecret: SECRET });
+} catch (thrownError) {
+	differentLengthOutcome = { thrown: thrownError.message };
+}
+ok('a secret of a DIFFERENT length is refused without throwing (timingSafeEqual throws on unequal lengths)', differentLengthOutcome && differentLengthOutcome.internal === false, JSON.stringify(differentLengthOutcome));
+// a STRUCTURAL gate, declared as such: no behavioural test can time a comparison reliably, so the source is read
+const authSourceText = require('fs').readFileSync(require('path').join(__dirname, 'dme-internal-auth.js'), 'utf8');
+ok('STRUCTURAL: the comparison is crypto.timingSafeEqual, and no !== compares the presented secret', /crypto\.timingSafeEqual\(/.test(authSourceText) && !/presented\s*!==\s*configuredSecret/.test(authSourceText));
+
 let allPass = true;
 results.forEach(([n, g]) => {
 	if (!g) allPass = false;

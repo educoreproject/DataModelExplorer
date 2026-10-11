@@ -10,7 +10,7 @@ const fs = require('fs');
 const {pipeRunner, taskListPlus, mergeArgs, forwardArgs} = new require('qtools-asynchronous-pipe-plus')();
 
 //START OF moduleFunction() ============================================================
-const moduleFunction = ({ expressApp, accessTokenHeaderTools, accessPointsDotD }, callback) => {
+const moduleFunction = ({ expressApp, accessTokenHeaderTools, accessPointsDotD, slackAccess }, callback) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 	const localConfig = getConfig(moduleName); //moduleName is closure
 
@@ -76,7 +76,7 @@ const moduleFunction = ({ expressApp, accessTokenHeaderTools, accessPointsDotD }
 		const localCallback = (err, newValue) => {
 			next(err, { ...args, newValue });
 		};
-		const passThroughParameters = { expressApp, accessTokenHeaderTools, accessPointsDotD, routingPrefix: '/api/' };
+		const passThroughParameters = { expressApp, accessTokenHeaderTools, accessPointsDotD, slackAccess, routingPrefix: '/api/' };
 		endpointsDotD.loadModules({ passThroughParameters }, localCallback);
 	});
 

@@ -202,6 +202,14 @@ const moduleFunction =
 						emailAdr, phone, source, role
 					FROM <!tableName!>
 					WHERE 1=1
+				`,
+				// byUsernameForAuth: the exact-username lookup used by the OIDC
+				// credential hook (dmeMcpOAuth). SELECT * (not an explicit column
+				// list) so the hook sees the security columns `disabled` and
+				// `accessRevokedAfter` as soon as they exist, without this query
+				// erroring while they don't. Auth must see the whole row.
+				'byUsernameForAuth': `
+					SELECT * FROM <!tableName!> WHERE username = <!username!>
 				`
 				// ADD NEW QUERIES HERE:
 				// 'byRole': `SELECT * FROM <!tableName!> WHERE role = <!role!>`,

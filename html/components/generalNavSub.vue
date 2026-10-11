@@ -66,11 +66,6 @@
 		return router.currentRoute.value.path.startsWith('/dm');
 	});
 
-	// Check if we're on any utilities page
-	const isUtilitiesPage = computed(() => {
-		return router.currentRoute.value.path.startsWith('/util');
-	});
-
 	// Check if we're on any profile page
 	const isProfilePage = computed(() => {
 		return router.currentRoute.value.path.startsWith('/profile');
@@ -99,7 +94,6 @@
 			<template v-if="isAdminPage">Admin Tools</template>
 			<template v-else-if="isDataModelsPage">Data Models</template>
 			<template v-else-if="isUseCasesPage">Use Cases</template>
-			<template v-else-if="isUtilitiesPage">Utilities</template>
 			<template v-else-if="isLibraryPage">Library</template>
 			<template v-else-if="isProfilePage">Profile</template>
 			<template v-else-if="isWorkPage">Work</template>
@@ -180,16 +174,6 @@
 				:disabled="isLibraryPage"
 			>
 				Library
-			</v-btn>
-
-			<v-btn
-				variant="text"
-				prepend-icon="mdi-tools"
-				title="Utilities - Reports and Tools"
-				:to="{ path: '/util/edmatrix' }"
-				:disabled="isUtilitiesPage"
-			>
-				Utilities
 			</v-btn>
 
 			<v-btn

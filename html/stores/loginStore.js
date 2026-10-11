@@ -75,12 +75,10 @@ export const useLoginStore = defineStore('loginStore', {
 			const url = '/api/login';
 
 			try {
-				// Send GET request to the login API with username and password
-				const response = await axios.get(url, {
-					params: {
-						username: this.loggedInUser.username,
-						password: this.loggedInUser.password,
-					},
+				// POST, credentials in the body: a GET query string lands in the request and nginx logs (2026-10-08)
+				const response = await axios.post(url, {
+					username: this.loggedInUser.username,
+					password: this.loggedInUser.password,
 				});
 
 				// Get user data from response

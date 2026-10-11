@@ -15,8 +15,7 @@ const path = require('path');
 
 const HOST = '127.0.0.1';
 const PORT = 7790;
-const USER = 'tqwhite';
-const PASS = 'shairWord!0';
+const { loginUsername: USER, loginPassword: PASS } = require('./testLoginCredentials').primaryTestLogin();
 
 // Read the internal secret from server config at runtime — never hardcode it into the
 // (pushable) code repo. Mirrors how the server reads [dmeUserGraphInternalAuth].
@@ -145,7 +144,7 @@ series([
 		st.userNodeId = row && row.userNodeId;
 		ok('T1.1 internal write accepted (status 200)', r && r.status === 200);
 		ok('T1.1 internal write returns userNodeId', !!st.userNodeId);
-		ok('T1.1 internal write stamped voyage-3 embedding', row && row.embeddingModelVersion === 'voyage-3');
+		ok('T1.1 internal write reports the text-only user layer (no vector)', row && row.userVectorPolicy === 'textOnly' && row.embeddingModelVersion === undefined);
 		cb(e);
 	}),
 

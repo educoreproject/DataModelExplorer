@@ -1,17 +1,17 @@
 {
 	"providerName": "DmeUserWrite",
-	"description": "Build the signed-in user's OWN data model: create nodes, link them to the 18 standards by uri, link the user's nodes to each other, set properties on the user's nodes, and delete the user's nodes. Every write is additive and isolated to the user's workspace; golden standard nodes can never be modified or deleted. Nodes are auto-tagged :UserContent and embedded for search.",
+	"description": "Build the signed-in user's OWN data model: create nodes, link them to standard elements by stableId, link the user's nodes to each other, set properties on the user's nodes, and delete the user's nodes. Every write is additive and isolated to the user's workspace; golden standard nodes can never be modified or deleted. Nodes are auto-tagged :UserContent; the user layer is text-only (no embeddings), and every link the user makes is stamped as theirs (userAuthored, userRefId, userEdgeRefId, authoredAt).",
 	"_note": "No startup needed. POSTs over HTTP to the educore executor (/api/dme-user-graph-write) using server-internal auth from env (DME_API_BASE, DME_INTERNAL_SECRET, DME_VERSION_REF_ID). User mode only. All invariants enforced server-side.",
 	"startupTimeout": 15,
 	"tools": [
 		{
 			"definition": {
 				"name": "dme_user_create_node",
-				"description": "Create a new node in the user's graph. It is automatically tagged :UserContent, given a stable userNodeId, and embedded (voyage-3). Returns the new userNodeId — keep it to link or edit the node later.",
+				"description": "Create a new node in the user's graph. It is automatically tagged :UserContent, and given a stable userNodeId. The user layer is text-only: no embedding is made. Returns the new userNodeId — keep it to link or edit the node later.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
-						"name": { "type": "string", "description": "The node's name/title (used for the node's name property and its embedding)" },
+						"name": { "type": "string", "description": "The node's name/title" },
 						"labels": { "type": "string", "description": "Optional comma-separated labels, e.g. 'Course' or 'Course,Offering'" },
 						"description": { "type": "string", "description": "Optional longer description" }
 					},
@@ -27,21 +27,21 @@
 		{
 			"definition": {
 				"name": "dme_user_connect_to_standard",
-				"description": "Link one of the user's nodes to a STANDARD element by the element's stable uri. Find the uri first with a dme_user_query (e.g. match the CEDS element by name and RETURN its uri). The target must be a standard element with a uri; linking to a non-existent uri returns a clear error.",
+				"description": "Link one of the user's nodes to a STANDARD element by the element's stableId. Find the stableId first with a dme_user_query (e.g. MATCH (n:ForgedNode) WHERE n.role IN ['DmeClass','DmeProperty','DmeOptionSet','DmeOptionValue'] AND toLower(n.name) CONTAINS 'birth' RETURN n.name, n._source, n.stableId LIMIT 25). Any standard in the build can be linked. The target must be a :ForgedNode in a declared element role (class, property, option set, option value); anything else returns a clear error. EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH and NARROW_MATCH are the judge's relations and are refused: use your own, e.g. ALIGNS_WITH.",
 				"input_schema": {
 					"type": "object",
 					"properties": {
 						"userNodeId": { "type": "string", "description": "The userNodeId of the user's node (the source of the relationship)" },
-						"relType": { "type": "string", "description": "Relationship type, e.g. ALIGNS_WITH or MAPS_TO (UPPER_SNAKE_CASE)" },
-						"standardUri": { "type": "string", "description": "The stable uri of the standard element to link to" }
+						"relType": { "type": "string", "description": "Relationship type, e.g. ALIGNS_WITH or MAPS_TO (UPPER_SNAKE_CASE); the four match relation types are refused" },
+						"standardStableId": { "type": "string", "description": "The stableId of the standard element to link to" }
 					},
-					"required": ["userNodeId", "relType", "standardUri"]
+					"required": ["userNodeId", "relType", "standardStableId"]
 				}
 			},
 			"cli": {
 				"command": "node dmeUserWriteTool.js -connectToStandard",
 				"positionalArgs": [],
-				"flagArgs": { "userNodeId": "--userNodeId", "relType": "--relType", "standardUri": "--standardUri" }
+				"flagArgs": { "userNodeId": "--userNodeId", "relType": "--relType", "standardStableId": "--standardStableId" }
 			}
 		},
 		{
@@ -53,7 +53,7 @@
 					"properties": {
 						"fromUserNodeId": { "type": "string", "description": "userNodeId of the source node" },
 						"toUserNodeId": { "type": "string", "description": "userNodeId of the target node" },
-						"relType": { "type": "string", "description": "Relationship type (UPPER_SNAKE_CASE)" }
+						"relType": { "type": "string", "description": "Relationship type (UPPER_SNAKE_CASE); the four match relation types are refused" }
 					},
 					"required": ["fromUserNodeId", "toUserNodeId", "relType"]
 				}

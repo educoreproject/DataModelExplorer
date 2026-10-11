@@ -6,6 +6,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+const { resolveInternalAuth } = require('../../lib/dme-internal-auth');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -29,9 +30,40 @@ const moduleFunction = function ({
 	} = passThroughParameters;
 
 	// ================================================================================
+	// SEC-2 GATE (2026-07-13, DME/Slack plan v3 task 1.9, DAWN_RIVER ruling)
+	//
+	// This endpoint was public; it is now internal-only: the x-dme-internal-secret
+	// header + loopback origin + no forwarding header (dme-internal-auth.js).
+	// Secret: [dmeUserGraphInternalAuth].internalAuthSecret — the server's one
+	// internal-secret concept, shared with the user-graph executor endpoints.
+	// The Slack bridge is unaffected (it calls the access point in-process).
+
+	const { internalAuthSecret } = getConfig('dmeUserGraphInternalAuth') || {};
+
+	const passesInternalGate = (xReq, xRes, label) => {
+		const authDecision = resolveInternalAuth({
+			xReq,
+			configuredSecret: internalAuthSecret,
+		});
+		if (!authDecision.internal) {
+			const errorId = makeRefId(12);
+			xLog.error(
+				`dme-cypher-query ${label} SEC-2 reject (${errorId}): ${authDecision.reason}`,
+			);
+			xRes.status(401).send(`unauthorized (${errorId})`);
+			return false;
+		}
+		return true;
+	};
+
+	// ================================================================================
 	// SERVICE FUNCTION (GET — schema retrieval)
 
 	const getServiceFunction = (permissionValidator) => (xReq, xRes, next) => {
+		if (!passesInternalGate(xReq, xRes, 'GET')) {
+			return;
+		}
+
 		const taskList = new taskListPlus();
 
 		// --------------------------------------------------------------------------------
@@ -91,6 +123,10 @@ const moduleFunction = function ({
 	// SERVICE FUNCTION (POST — query execution)
 
 	const postServiceFunction = (permissionValidator) => (xReq, xRes, next) => {
+		if (!passesInternalGate(xReq, xRes, 'POST')) {
+			return;
+		}
+
 		const taskList = new taskListPlus();
 
 		// --------------------------------------------------------------------------------

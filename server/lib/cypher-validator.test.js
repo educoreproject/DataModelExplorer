@@ -5,7 +5,8 @@
 // cypher-validator.test.js — Tests for read-only Cypher validation
 // ============================================================================
 
-const validateReadOnly = require('./cypher-validator');
+// a twin run passes another validator's path (e.g. the pre-lane-GREP one, to watch the new cases go red against it)
+const validateReadOnly = require(process.argv[2] || './cypher-validator');
 
 let passed = 0;
 let failed = 0;
@@ -121,6 +122,160 @@ assert(
 	'Mixed case CrEaTe',
 	validateReadOnly('CrEaTe (n:MixedCase)'),
 	false,
+);
+
+// --- CALL gating (allowlist) ---
+console.log('\nCALL gating — allowlisted procedures (should pass):');
+
+assert(
+	'CALL db.labels()',
+	validateReadOnly('CALL db.labels() YIELD label RETURN label'),
+	true,
+);
+
+assert(
+	'CALL db.schema.visualization()',
+	validateReadOnly('CALL db.schema.visualization()'),
+	true,
+);
+
+assert(
+	'CALL db.index.vector.queryNodes',
+	validateReadOnly(
+		"CALL db.index.vector.queryNodes('golden_vector', 10, $embedding) YIELD node, score RETURN node.name, score",
+	),
+	true,
+);
+
+assert(
+	'CALL db.index.fulltext.queryNodes',
+	validateReadOnly(
+		"CALL db.index.fulltext.queryNodes('someIndex', $query) YIELD node RETURN node",
+	),
+	true,
+);
+
+assert(
+	'Mixed case CALL DB.LABELS()',
+	validateReadOnly('CALL DB.LABELS() YIELD label RETURN label'),
+	true,
+);
+
+assert(
+	'String literal containing CALL apoc',
+	validateReadOnly("MATCH (n) WHERE n.name = 'CALL apoc.load.json' RETURN n"),
+	true,
+);
+
+console.log('\nCALL gating — non-allowlisted (should fail):');
+
+assert(
+	'CALL apoc.load.json',
+	validateReadOnly("CALL apoc.load.json('https://bad.example/x') YIELD value RETURN value"),
+	false,
+);
+
+assert(
+	'CALL apoc.periodic.iterate',
+	validateReadOnly("CALL apoc.periodic.iterate('MATCH (n) RETURN n', 'RETURN 1', {})"),
+	false,
+);
+
+assert(
+	'CALL dbms.listConfig',
+	validateReadOnly('CALL dbms.listConfig() YIELD name RETURN name'),
+	false,
+);
+
+assert(
+	'CALL dbms.components',
+	validateReadOnly('CALL dbms.components() YIELD name, versions RETURN name, versions'),
+	false,
+);
+
+assert(
+	'CALL { subquery }',
+	validateReadOnly('MATCH (n) CALL { WITH n MATCH (n)-[r]->(m) RETURN m } RETURN n, m'),
+	false,
+);
+
+assert(
+	'CALL { } IN TRANSACTIONS',
+	validateReadOnly('CALL { MATCH (n) RETURN n } IN TRANSACTIONS OF 100 ROWS RETURN 1'),
+	false,
+);
+
+assert(
+	'CALL db.createLabel (not allowlisted)',
+	validateReadOnly("CALL db.createLabel('Sneaky')"),
+	false,
+);
+
+assert(
+	'Allowlisted CALL followed by disallowed CALL',
+	validateReadOnly(
+		'CALL db.labels() YIELD label CALL dbms.listConfig() YIELD name RETURN label, name',
+	),
+	false,
+);
+
+// --- W-E-9 (X1, 2026-10-06): every reproduced bypass is refused ---
+console.log('\nValidator bypasses (W-E-9, should fail):');
+
+const { VALIDATOR_BYPASS_CASE_LIST } = require('./cypher-validator-rules');
+VALIDATOR_BYPASS_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} bypass refused: ${cypher}`, validateReadOnly(cypher), false);
+});
+
+// --- lane GREP (2026-10-11): the seven pure apoc.text functions are allowed BY NAME, however spelled; nothing else is ---
+console.log('\nAllowed apoc.text functions and harmless literals (lane GREP, should pass):');
+
+const { ALLOWED_FUNCTION_READ_CASE_LIST, APOC_PURE_TEXT_FUNCTION_NAME_LIST } = require('./cypher-validator-rules');
+ALLOWED_FUNCTION_READ_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} allowed: ${cypher}`, validateReadOnly(cypher), true);
+});
+APOC_PURE_TEXT_FUNCTION_NAME_LIST.forEach((functionName) => {
+	assert(`each allowed name alone: ${functionName}`, validateReadOnly(`RETURN ${functionName}('a', 'b') AS v`), true);
+});
+
+console.log('\nLegitimate reads beside the new rules (should pass):');
+
+assert(
+	'a property literally named in a string after a comment',
+	validateReadOnly("MATCH (n) // a comment that says CREATE\nWHERE n.name = 'SHOW' RETURN n"),
+	true,
+);
+
+assert(
+	'a backtick-quoted label holding a keyword is an identifier, not a clause',
+	validateReadOnly('MATCH (n:`CREATE`) RETURN count(n)'),
+	true,
+);
+
+assert(
+	'a function that is not on the blocked prefix list',
+	validateReadOnly('MATCH (n) RETURN toLower(n.name), size(n.name) LIMIT 5'),
+	true,
+);
+
+assert(
+	'an unterminated string literal is refused, never guessed at',
+	validateReadOnly("MATCH (n) WHERE n.name = 'unclosed RETURN n"),
+	false,
+);
+
+// --- TQ ruling (2026-10-11): =~ is refused on this path; a regex belongs to dme_grep, which can stop one ---
+console.log('\nRegular-expression operator (should fail; the literal case should pass):');
+
+const { REFUSED_OPERATOR_CASE_LIST } = require('./cypher-validator-rules');
+REFUSED_OPERATOR_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} refused: ${cypher}`, validateReadOnly(cypher), false);
+});
+
+assert(
+	'=~ inside a string literal is text, not the operator',
+	validateReadOnly("MATCH (n) WHERE n.description CONTAINS '=~' RETURN n.name"),
+	true,
 );
 
 // --- Summary ---

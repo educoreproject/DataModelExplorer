@@ -6,12 +6,19 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
 	const localConfig = getConfig(moduleName);
 
-	const formatSingleCallJson = ({ promptName, prompt, responseText, cost, model, elapsedSeconds }) => {
+	// W-E-3 (campaign P1): the report says why the model stopped and whether the answer was cut off, so the Slack relay
+	// reads the answer itself (response) instead of the text report's banner, and can mark a cut-off answer
+	const formatSingleCallJson = ({ promptName, prompt, responseText, stopReason, answerCutOff, cost, model, elapsedSeconds }) => {
+		if (typeof stopReason !== 'string' || stopReason === '') {
+			throw new Error('formatSingleCallJson: stopReason missing (every single-call driver returns it through finalAnswerFor)');
+		}
 		return {
 			mode: 'singleCall',
 			promptName: promptName || 'default',
 			prompt,
 			response: responseText,
+			stopReason,
+			answerCutOff: answerCutOff === true,
 			model,
 			cost: cost || { inputTokens: 0, outputTokens: 0, usd: 0 },
 			elapsedSeconds: elapsedSeconds || 0,

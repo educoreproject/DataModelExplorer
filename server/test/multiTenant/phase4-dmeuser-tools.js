@@ -14,9 +14,12 @@ const fs = require('fs');
 const path = require('path');
 
 const HOST = '127.0.0.1';
+const { primaryTestLogin, secondTestLogin } = require('./testLoginCredentials');
+const PRIMARY_LOGIN = primaryTestLogin();
+const SECOND_LOGIN = secondTestLogin();
 const PORT = 7790;
 const API_BASE = `http://127.0.0.1:${PORT}`;
-const STANDARD_URI = 'https://w3id.org/CEDStandards/terms/C000000'; // a real CEDS element uri
+const STANDARD_URI = 'https://w3id.org/CEDStandards/terms/C000000'; // a real CEDS element; its stableId equals its uri, and stableId is the link key (W-E-5)
 
 const READ_TOOL = path.resolve(__dirname, '../../../cli/lib.d/dme-user-read/dmeUserReadTool.js');
 const WRITE_TOOL = path.resolve(__dirname, '../../../cli/lib.d/dme-user-write/dmeUserWriteTool.js');
@@ -94,7 +97,7 @@ series([
 	}),
 
 	// --- setup: login + open a version (tqwhite) ---
-	(cb) => login('tqwhite', 'shairWord!0', (e, r) => { if (e) { cb(e); return; } st.token = r.token; st.userRefId = r.userRefId; ok('login tqwhite', !!st.token); cb(); }),
+	(cb) => login(PRIMARY_LOGIN.loginUsername, PRIMARY_LOGIN.loginPassword, (e, r) => { if (e) { cb(e); return; } st.token = r.token; st.userRefId = r.userRefId; ok('login primary user', !!st.token); cb(); }),
 	(cb) => { console.log('opening clone (quiesces golden)...'); httpRequest({ method: 'POST', path: '/api/dme-user-graph-open', headers: { Authorization: `Bearer ${st.token}` }, body: { new: true, versionName: '__TEST_phase4_tools' }, timeout: 180000 }, (e, r) => {
 		const row = r && r.body && r.body[0]; st.versionRefId = row && row.versionRefId;
 		ok('open version (JWT)', !!st.versionRefId); cb(e || (st.versionRefId ? '' : 'open failed'));
@@ -108,12 +111,12 @@ series([
 		cb();
 	}),
 
-	// --- T4.2: createNode stamps :UserContent + userNodeId + voyage-3 embedding ---
+	// --- T4.2: createNode stamps :UserContent + userNodeId; the user layer is text-only (W-E-6) ---
 	(cb) => runTool(WRITE_TOOL, ['-createNode', '--name=Intro to Algebra', '--labels=Course', '--description=A first course in algebra'], userEnv(), (r) => {
 		const rows = parseRows(r.out); const row = rows && rows[0]; st.userNodeId = row && row.userNodeId;
 		ok('T4.2 createNode succeeds (exit 0)', r.code === 0);
 		ok('T4.2 createNode returns userNodeId', !!st.userNodeId);
-		ok('T4.2 createNode stamped voyage-3 embedding', row && row.embeddingModelVersion === 'voyage-3');
+		ok('T4.2 createNode reports the text-only user layer', row && row.userVectorPolicy === 'textOnly');
 		cb();
 	}),
 	(cb) => runTool(READ_TOOL, ['-query', `--query=MATCH (n:UserContent {userNodeId:'${st.userNodeId}'}) RETURN n.name AS name, ('UserContent' IN labels(n)) AS isUser, ('Course' IN labels(n)) AS isCourse`], userEnv(), (r) => {
@@ -123,26 +126,26 @@ series([
 		cb();
 	}),
 
-	// --- T4.3: connect to a standard by uri; non-existent uri -> clear error ---
-	(cb) => runTool(WRITE_TOOL, ['-connectToStandard', `--userNodeId=${st.userNodeId}`, '--relType=ALIGNS_WITH', `--standardUri=${STANDARD_URI}`], userEnv(), (r) => {
+	// --- T4.3: connect to a standard by stableId; non-existent stableId -> clear error ---
+	(cb) => runTool(WRITE_TOOL, ['-connectToStandard', `--userNodeId=${st.userNodeId}`, '--relType=ALIGNS_WITH', `--standardStableId=${STANDARD_URI}`], userEnv(), (r) => {
 		const row = (parseRows(r.out) || [])[0];
 		ok('T4.3 connectToStandard succeeds (exit 0)', r.code === 0);
-		ok('T4.3 relationship resolved the standard by uri', row && row.targetKey === STANDARD_URI);
+		ok('T4.3 relationship resolved the standard by stableId', row && row.targetStableId === STANDARD_URI);
 		cb();
 	}),
-	(cb) => runTool(READ_TOOL, ['-query', `--query=MATCH (u:UserContent {userNodeId:'${st.userNodeId}'})-[:ALIGNS_WITH]->(s) RETURN s.uri AS uri`], userEnv(), (r) => {
+	(cb) => runTool(READ_TOOL, ['-query', `--query=MATCH (u:UserContent {userNodeId:'${st.userNodeId}'})-[:ALIGNS_WITH]->(s) RETURN s.stableId AS stableId`], userEnv(), (r) => {
 		const row = (parseRows(r.out) || [])[0];
-		ok('T4.3 relationship lands on the right standard uri', row && row.uri === STANDARD_URI);
+		ok('T4.3 relationship lands on the right standard stableId', row && row.stableId === STANDARD_URI);
 		cb();
 	}),
-	(cb) => runTool(WRITE_TOOL, ['-connectToStandard', `--userNodeId=${st.userNodeId}`, '--relType=ALIGNS_WITH', '--standardUri=urn:bogus:does-not-exist'], userEnv(), (r) => {
-		ok('T4.3 connecting to a non-existent uri errors (non-zero exit)', r.code !== 0);
+	(cb) => runTool(WRITE_TOOL, ['-connectToStandard', `--userNodeId=${st.userNodeId}`, '--relType=ALIGNS_WITH', '--standardStableId=urn:bogus:does-not-exist'], userEnv(), (r) => {
+		ok('T4.3 connecting to a non-existent stableId errors (non-zero exit)', r.code !== 0);
 		cb();
 	}),
 
 	// --- T4.4: modifying a golden node is refused (direct executor POST — the tool itself
 	// cannot even target golden, since modify/delete select by userNodeId only) ---
-	(cb) => httpRequest({ method: 'POST', path: '/api/dme-user-graph-write', headers: { 'x-dme-internal-secret': SECRET }, body: { versionRefId: st.versionRefId, action: 'modifyNode', params: { selector: { uri: STANDARD_URI }, properties: { hacked: true } } }, timeout: 30000 }, (e, r) => {
+	(cb) => httpRequest({ method: 'POST', path: '/api/dme-user-graph-write', headers: { 'x-dme-internal-secret': SECRET }, body: { versionRefId: st.versionRefId, action: 'modifyNode', params: { selector: { standardStableId: STANDARD_URI }, properties: { hacked: true } } }, timeout: 30000 }, (e, r) => {
 		ok('T4.4 modifying a golden node is refused (executor 401)', r && r.status === 401);
 		ok('T4.4 refusal is the additive-only guard', r && /additive-only/i.test(r.raw || ''));
 		cb();
@@ -154,7 +157,7 @@ series([
 		ok('C1 owner sees own version in list', mine.indexOf(st.versionRefId) !== -1);
 		cb();
 	}),
-	(cb) => login('debbiedo', 'shairWord!0', (e, r) => { if (e) { cb(e); return; } st.otherToken = r.token; ok('login debbiedo (second user)', !!st.otherToken); cb(); }),
+	(cb) => login(SECOND_LOGIN.loginUsername, SECOND_LOGIN.loginPassword, (e, r) => { if (e) { cb(e); return; } st.otherToken = r.token; ok('login second user', !!st.otherToken); cb(); }),
 	(cb) => httpRequest({ method: 'GET', path: '/api/dme-user-graph-list', headers: { Authorization: `Bearer ${st.otherToken}` }, timeout: 20000 }, (e, r) => {
 		const theirs = Array.isArray(r.body) ? r.body.map((v) => v.refId) : [];
 		ok("C1 another user's list does NOT contain the owner's versionRefId", theirs.indexOf(st.versionRefId) === -1);

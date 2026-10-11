@@ -40,14 +40,16 @@ const VERSIONS_TABLE = 'graph_state_versions';
 const buildGraphConnection = () => {
 	const { getConfig } = process.global;
 	const cfg = getConfig('dataModelExplorerSearch') || {};
-	if (!cfg.neo4jBoltUri) {
+	if (!cfg.goldenContainerName) {
 		return null;
 	}
-	return {
-		boltUri: cfg.neo4jBoltUri,
-		user: cfg.neo4jUser,
-		password: cfg.neo4jPassword,
-	};
+	// Single source of truth: derive the standard golden connection from the container NAME.
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const { boltUri, user, password, error } = resolveContainerConnection(cfg.goldenContainerName);
+	if (error) {
+		return null;
+	}
+	return { boltUri, user, password };
 };
 
 // ---------------------------------------------------------------------------
@@ -183,17 +185,17 @@ const getUserGraph = (
 	// references (standard endpoints that no longer resolve in the current golden) —
 	// surfaced on the handle, never silently dropped. Skipped for a brand-new version.
 	taskList.push((args, next) => {
-		const { descriptor, stateScript } = args;
+		const { descriptor, stateScript } = args; // userRefId is the getUserGraph parameter (closure); args start empty
 		if (!stateScript) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: no stateScript — skipping replay (new/empty version)`); next('', { ...args, danglingRefs: [] }); return; }
 		xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replaying stateScript (${stateScript.length} chars) into ${descriptor.boltUri}`);
 		neo4jInstanceGen.initDatabaseInstance(
 			{ neo4jBoltUri: descriptor.boltUri, neo4jUser: descriptor.user, neo4jPassword: descriptor.password },
 			(connErr, db) => {
 				if (connErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay connect FAILED: ${connErr}`); next(`replay connect failed: ${connErr}`, args); return; }
-				replayStateScript({ userGraphDb: db, stateScript }, (rErr, res) => {
+				replayStateScript({ userGraphDb: db, stateScript, userRefId }, (rErr, res) => {
 					db.close();
 					if (rErr) { xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay FAILED: ${rErr}`); next(rErr, args); return; }
-					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length}`);
+					xLog.status(`[dmeOpenTrace] getUserGraph STAGE3.5: replay OK — danglingRefs=${(res.danglingRefs || []).length} scriptStandardKeyName=${res.scriptStandardKeyName} legacyEdgeStamped=${res.legacyEdgeStampedCount} vectorStripped=${res.vectorStrippedCount}`);
 					next('', { ...args, danglingRefs: res.danglingRefs });
 				});
 			},
@@ -237,7 +239,6 @@ const getUserGraph = (
 			versionRefId,
 			fields: {
 				liveBoltUri: descriptor.boltUri,
-				liveBoltPassword: descriptor.password,
 				liveContainerName: descriptor.containerName,
 				livePort: descriptor.boltPort,
 				lockToken,
@@ -320,7 +321,7 @@ const releaseUserGraph = (handle, deps, callback) => {
 		{ containerName: handle.containerName, cloneDir: handle.cloneDir },
 		(tearErr) => {
 			const clearedFields = {
-				liveBoltUri: '', liveBoltPassword: '', liveContainerName: '',
+				liveBoltUri: '', liveContainerName: '',
 				livePort: '', lockToken: '', openedAt: '', lastHeartbeatAt: '',
 				liveDirty: 0, // no live clone, nothing unsaved (doc 12)
 			};
@@ -353,7 +354,21 @@ const setLiveDirty = ({ sqlDb, versionRefId, dirty }, callback) => {
 	);
 };
 
+// liveCloneConnectionFor — the neo4j connection to a version's LIVE clone (W-E-12, ruling B, 2026-10-06). The credential
+// is resolved from the clone's own container (DME_CLONE_NEO4J_AUTH), never read from graph_state_versions, which no longer
+// stores it. A clone opened before 2026-10-06 carries no such variable: refused by name, 'reopen this graph', not guessed.
+// Returns { neo4jBoltUri, neo4jUser, neo4jPassword } or { error }.
+const liveCloneConnectionFor = (versionRow) => {
+	const { resolveContainerConnection } = require('./container-connection-resolver');
+	const resolved = resolveContainerConnection(versionRow && versionRow.liveContainerName);
+	if (resolved.error) {
+		return { error: `the live clone '${versionRow && versionRow.liveContainerName}' has no credential this server can read (${resolved.error}); reopen this graph` };
+	}
+	return { neo4jBoltUri: versionRow.liveBoltUri, neo4jUser: resolved.user, neo4jPassword: resolved.password };
+};
+
 module.exports = {
+	liveCloneConnectionFor,
 	getUserGraph,
 	releaseUserGraph,
 	buildGraphConnection,

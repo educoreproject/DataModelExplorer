@@ -42,6 +42,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('graph-state-version-setLive: refId and userRefId are required', args);
 				return;
 			}
+			if (inputData.liveBoltPassword !== undefined) {
+				next('graph-state-version-setLive: liveBoltPassword is no longer stored (W-E-12): a clone\'s credential travels with the clone (DME_CLONE_NEO4J_AUTH) and is resolved from liveContainerName', args);
+				return;
+			}
 
 			const query = dataMapping['graph-state-version'].getSql('getByIdForUser', {
 				refId,
@@ -71,7 +75,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				versionsTable,
 				refId,
 				liveBoltUri,
-				liveBoltPassword,
 				liveContainerName,
 				livePort,
 				lockToken,
@@ -84,7 +87,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const saveObj = {
 				refId,
 				liveBoltUri: liveBoltUri || '',
-				liveBoltPassword: liveBoltPassword || '',
 				liveContainerName: liveContainerName || '',
 				livePort: typeof livePort === 'number' ? livePort : livePort || '',
 				lockToken: lockToken || '',
@@ -105,7 +107,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			refId: inputData.refId,
 			userRefId: inputData.userRefId,
 			liveBoltUri: inputData.liveBoltUri,
-			liveBoltPassword: inputData.liveBoltPassword,
 			liveContainerName: inputData.liveContainerName,
 			livePort: inputData.livePort,
 			lockToken: inputData.lockToken,

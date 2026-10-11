@@ -11,7 +11,9 @@ definePageMeta({ middleware: 'auth' });
 import { useLoginStore } from '@/stores/loginStore';
 import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { personas } from '@/data/personas';
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
+import { useDmeStandardListStore } from '@/stores/dmeStandardListStore';
+import { dmeExamplePromptList } from '@/data/dmeExamplePromptList';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -40,13 +42,21 @@ const useGraphStore = createEdunatorStore({
 });
 const graphStore = useGraphStore();
 
-// The CEDS-flavored example prompts that previously lived hardcoded inside
-// EdunatorPanel.vue. The canonical component now takes them via prop.
-const cedsExamplePrompts = [
-	"Which educore use cases reference the CEDS property 'Has Credential Definition Criteria Definition'",
-	"I'm looking at the CEDS property 'Has Credential Definition Criteria Definition'. Show me which educore use cases depend on it, and for each one, tell me what the use case is about and which step in that use case involves this criterion.",
-	"For the LER Issuance use case (issue #2), list every CEDS data model element it references — classes and properties. I expect to see seven classes plus one property.",
-];
+// The standards list and the example prompts come from the graph (WEL, 2026-10-07): the list is askMilo's own
+// dme_list_standards read on load, and a prompt is offered only when every standard family it needs is loaded now.
+// When the list is unavailable the page says so, and offers only the prompts that are about the graph itself.
+const standardListStore = useDmeStandardListStore();
+onMounted(() => {
+	standardListStore.fetchStandardInventory();
+});
+
+const graphExamplePromptList = computed(() =>
+	dmeExamplePromptList
+		.filter((oneExamplePrompt) => oneExamplePrompt.requiredFamilyList.every((familyName) => standardListStore.loadedFamilyNameList.includes(familyName)))
+		.map((oneExamplePrompt) => oneExamplePrompt.promptText),
+);
+
+const formatCount = (countNumber) => Number(countNumber).toLocaleString();
 
 const activeTab = 'explore';
 
@@ -101,7 +111,7 @@ const fallbackPromptOptions = [
 
 <template>
 	<div class="explorer-page">
-		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }, { label: 'Lookup', value: 'lookup', to: '/dm/lookup' }]" />
+		<SubPageNav :model-value="activeTab" :tabs="[{ label: 'Explore', value: 'explore', to: '/dm/explorer' }]" />
 
 			<v-alert
 					v-if="graphStore.roleResolved && graphStore.availableTools.length === 0"
@@ -115,51 +125,62 @@ const fallbackPromptOptions = [
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
-				:example-prompts="cedsExamplePrompts"
+				:example-prompts="graphExamplePromptList"
 				download-prefix="explorer-output"
 			>
 				<template #welcome>
 					<h2>Welcome to the Data Model Explorer</h2>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						NEW: Click the info icon in the bottom right for example prompts to get you started.
+						<strong>The mapping layer has been rebuilt.</strong> Every cross-standard connection now resolves to a full CEDS <em>tuple</em> &mdash; domain class &middot; property &middot; range &mdash; instead of a bare element reference. Each connection is a <em>judgment</em>: one of four relations (exact, close, broad, narrow), carrying its own confidence and the source that made it. Ask about anything and the answer will tell you which relation it rests on and how confident the judgment was.
 					</p>
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
-						Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
+						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
-					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. This is a work in progress &mdash; more standards and features are being added all the time. Currently supported standards (as of 4/16/26):</p>
-					<ul style="margin: 0.8em 0 0.8em 1.5em;">
-						<li><strong>CEDS</strong> &mdash; Common Education Data Standards (RDF ontology)</li>
-						<li><strong>SIF</strong> &mdash; Schools Interoperability Framework</li>
-						<li><strong>LIF</strong> &mdash; Learner Information Framework (OpenAPI)</li>
-						<li><strong>Ed-Fi</strong> &mdash; Ed-Fi Data Standard</li>
-						<li><strong>PESC</strong> &mdash; Postsecondary Electronic Standards Council (XML Schema)</li>
-						<li><strong>CTDL</strong> &mdash; Credential Transparency Description Language</li>
-						<li><strong>SEDM</strong> &mdash; Special Education Data Model (IDEA compliance)</li>
-						<li><strong>JEDx</strong> &mdash; Job and Education Data Exchange</li>
-						<li><strong>EdMatrix</strong> &mdash; Education Standards Directory</li>
-						<li><strong>CIP</strong> &mdash; Classification of Instructional Programs</li>
-						<li><strong>CLR</strong> &mdash; Comprehensive Learner Record (IMS Global v2.0)</li>
-						<li><strong>CASE</strong> &mdash; Competencies and Academic Standards Exchange (1EdTech)</li>
-						<li><strong>SOC</strong> &mdash; Standard Occupational Classification (BLS)</li>
-						<li><strong>DCTAP</strong> &mdash; Dublin Core Tabular Application Profile (meta-vocabulary for application profiles)</li>
-					</ul>
-					<p><strong>Use Cases</strong> live in the graph too: a library of real-world processes, each linked to the exact data model elements it depends on.</p>
-					<p style="font-style: italic;">For the most current list of data models, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
+					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. The standards in this graph, read from the graph itself when this page opened:</p>
+					<p v-if="standardListStore.standardListLoading" style="font-style: italic;">Reading the standards list from the graph&hellip;</p>
+					<p v-else-if="standardListStore.standardListUnavailableReason" style="color: #B71C1C; font-weight: 600;">standards list unavailable: {{ standardListStore.standardListUnavailableReason }}</p>
+					<template v-else-if="standardListStore.standardInventory">
+						<ul style="margin: 0.8em 0 0.8em 1.5em;">
+							<li v-for="familyGroup in standardListStore.standardFamilyGroupList" :key="familyGroup.standardFamily">
+								<template v-if="familyGroup.standardList.length === 1">
+									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList[0].standardName }} {{ familyGroup.standardList[0].version }}
+									<span style="color: #888;">
+										&middot; {{ formatCount(familyGroup.standardList[0].nodeCount) }} nodes
+										&middot; <template v-if="familyGroup.standardList[0].isHub">the semantic hub</template><template v-else-if="familyGroup.standardList[0].mappedToHub">{{ formatCount(familyGroup.standardList[0].hubMatchEdgeCount) }} judged mappings to {{ standardListStore.standardInventory.totals.hubSource }}</template><template v-else>not mapped to {{ standardListStore.standardInventory.totals.hubSource }}</template>
+									</span>
+								</template>
+								<template v-else>
+									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList.length }} releases
+									<ul style="margin: 0.2em 0 0.2em 1.5em;">
+										<li v-for="oneStandard in familyGroup.standardList" :key="oneStandard.source">
+											{{ oneStandard.standardName }}
+											<span style="color: #888;">
+												&middot; {{ formatCount(oneStandard.nodeCount) }} nodes
+												&middot; <template v-if="oneStandard.isHub">the semantic hub</template><template v-else-if="oneStandard.mappedToHub">{{ formatCount(oneStandard.hubMatchEdgeCount) }} judged mappings to {{ standardListStore.standardInventory.totals.hubSource }}</template><template v-else>not mapped to {{ standardListStore.standardInventory.totals.hubSource }}</template>
+											</span>
+										</li>
+									</ul>
+								</template>
+							</li>
+						</ul>
+						<p style="color: #888;">{{ standardListStore.standardInventory.totals.standardCount }} standards in {{ standardListStore.standardFamilyGroupList.length }} families.</p>
+					</template>
+					<p style="font-style: italic;">For element counts and mapping coverage in the conversation, ask: &ldquo;What standards do you currently support and how many elements does each one have?&rdquo;</p>
 
 					<h3 style="margin-top: 1.2em;">How the standards are connected</h3>
-					<p>All standards in the graph are connected to CEDS &mdash; the common semantic backbone &mdash; through a multi-phase bridge-building process. The bridge builder creates cross-standard edges using a combination of authoritative annotations, semantic inference, and structural analysis:</p>
+					<p>Cross-standard meaning is anchored on CEDS &mdash; the common semantic backbone. A mapped element resolves to a <strong>CEDS tuple</strong>: the domain class, the property and its range. Two elements from different standards that resolve to the same tuple may be talking about the same thing &mdash; and the graph is careful about how confidently it says so:</p>
 
-					<h4 style="margin-top: 1em;">Phase 1 &mdash; Spec-Annotation MAPS_TO <span style="color: #888;">(confidence=1.0)</span></h4>
-					<p>Some standards include explicit CEDS references in their specifications &mdash; field-level annotations that identify the corresponding CEDS element by Global ID. These are authoritative mappings decided by each standard's governance body. When present, the builder creates high-confidence MAPS_TO edges directly to the matching CEDS property.</p>
+					<h4 style="margin-top: 1em;">Four relations, each a judgment</h4>
+					<p>Every mapping names one of the four SKOS relations between an element and its CEDS tuple: <strong>exact</strong> (EXACT_MATCH &mdash; the same concept), <strong>close</strong> (CLOSE_MATCH &mdash; near enough to use with care), <strong>broad</strong> (BROAD_MATCH &mdash; the CEDS concept is broader) and <strong>narrow</strong> (NARROW_MATCH &mdash; the CEDS concept is narrower). None of them is a fact. Each is a judgment that carries its own <span style="color: #888;">confidence</span> and its <span style="color: #888;">source</span> &mdash; in this build, bridge-jev, the judge that read each element's definition beside its CEDS candidates. Relation and confidence are independent: an exact match can be held with modest confidence.</p>
 
-					<h4 style="margin-top: 1em;">Phase 2 &mdash; Embedding-Inferred MAPS_TO <span style="color: #888;">(confidence=cosine score)</span></h4>
-					<p>For fields without explicit annotations, the builder uses vector embeddings to find semantically similar CEDS properties. Each field's description is compared against the CEDS vector index using cosine similarity. Matches above 0.6 create provisional MAPS_TO edges, with up to 3 candidates per field. This is how standards without built-in CEDS references still get connected to the common backbone.</p>
+					<h4 style="margin-top: 1em;">The judge may abstain</h4>
+					<p>Candidates are found by semantic retrieval over element definitions and then judged one by one, with &ldquo;none of these&rdquo; always among the choices. An element with no good CEDS match is left unmapped rather than force-fit, and the Explorer will say when something is unmapped instead of guessing.</p>
 
-					<h4 style="margin-top: 1em;">Phase 3 &mdash; ALIGNS_WITH <span style="color: #888;">(codeset comparison)</span></h4>
-					<p>When a mapped field and its corresponding CEDS property both have value lists (codesets or enumerations), the builder compares them: exact match, subset, superset, partial overlap, or disjoint. The edge records alignment type and coverage percentage. This answers questions like &ldquo;does this standard's grade level codeset match CEDS's?&rdquo;</p>
+					<h4 style="margin-top: 1em;">Equivalence is conservative</h4>
+					<p>Two elements from different standards are reported as <em>equivalent</em> only when <strong>both</strong> are judged EXACT_MATCH to the same tuple &mdash; two judgments, each shown with its confidence. If either hop is CLOSE_MATCH the pair is a <em>candidate</em> equivalence; a BROAD or NARROW hop makes them only <em>related</em>. A hypothesis is shown with its evidence, never dressed up as established fact.</p>
 
-					<h4 style="margin-top: 1em;">Phase 4 &mdash; STRUCTURALLY_MAPS_TO <span style="color: #888;">(class-level inference)</span></h4>
-					<p>Standards often define complex types (Address, Demographics, Person) that are structural analogs to CEDS classes. The builder aggregates field-level MAPS_TO edges and asks: &ldquo;If most fields inside complex type X map to properties of CEDS class Y, then X structurally maps to Y.&rdquo; This enables class-level questions like &ldquo;which CEDS class corresponds to this standard's Person structure?&rdquo;</p>
+					<h4 style="margin-top: 1em;">The graph documents itself</h4>
+					<p>Ask &ldquo;What is this graph, how was it built, and what can it do?&rdquo; and the Explorer reads the answer from the graph's own build records &mdash; the standards loaded, their versions, the recipe it was assembled from, and what each standard's mapping coverage looks like.</p>
 				</template>
 			</EdunatorPanel>
 	</div>

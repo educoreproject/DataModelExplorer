@@ -4,11 +4,13 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "oidc-provider": "^9.9.1",
     "qtools-asynchronous-pipe-plus": "^1.0.4",
     "qtools-config-file-processor": "^1.0.18",
     "qtools-functional-library": "^2.0.4",
     "qtools-library-dot-d": "^1.0.4",
     "qtools-parse-command-line": "^1.0.9",
+    "sqlstring-sqlite": "0.1.1",
     "ws": "^8.19.0"
   }
 }

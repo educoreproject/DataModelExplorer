@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const HOST = '127.0.0.1';
+const PRIMARY_LOGIN = require('./testLoginCredentials').primaryTestLogin();
 const PORT = 7790;
 const API_BASE = `http://127.0.0.1:${PORT}`;
 const EDU_CFG = '/Users/tqwhite/Documents/webdev/educore/system/configs/instanceSpecific/qbook';
@@ -98,7 +99,7 @@ const finish = (err) => {
 const NODE_Q = "MATCH (n:UserContent) WHERE toLower(n.name) CONTAINS 'algebra' OPTIONAL MATCH (n)-[r]->(s) WHERE s.uri IS NOT NULL RETURN n.name AS name, n.userNodeId AS id, type(r) AS rel, s.uri AS targetUri, s.name AS targetName";
 
 series([
-	(cb) => login('tqwhite', 'shairWord!0', (e, r) => { if (e) { cb(e); return; } st.token = r.token; ok('login', !!st.token); cb(); }),
+	(cb) => login(PRIMARY_LOGIN.loginUsername, PRIMARY_LOGIN.loginPassword, (e, r) => { if (e) { cb(e); return; } st.token = r.token; ok('login', !!st.token); cb(); }),
 	(cb) => { console.log('opening clone...'); httpRequest({ method: 'POST', path: '/api/dme-user-graph-open', headers: { Authorization: `Bearer ${st.token}` }, body: { new: true, versionName: '__TEST_phase5_conversation' }, timeout: 180000 }, (e, r) => { const row = r && r.body && r.body[0]; st.versionRefId = row && row.versionRefId; ok('open version', !!st.versionRefId); cb(e || (st.versionRefId ? '' : 'open failed')); }); },
 
 	// --- T5.1a: the conversation builds the model (one real askMilo tool-use run) ---

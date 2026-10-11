@@ -9,60 +9,36 @@
 // WOULD call; per the parent's ruling (Option A), the ownership invariant and the
 // additive-only guardrail are enforced HERE in hard server code, not trusted to a prompt.
 //
-// Invariants enforced (doc 04):
-//   - Every created node is stamped :UserContent + a stable userNodeId + an inline
-//     embedding (voyage-3, the SAME model golden's forge uses) + embeddingModelVersion.
+// Invariants enforced (doc 04; graph-contract §14 via user-layer-contract.js, campaign P2 W-E-5/6/7):
+//   - Every created node is stamped :UserContent + a stable userNodeId. The user layer is
+//     TEXT-ONLY (userEmbeddingRule.userVectorPolicy): no vector is made, so no embedding model
+//     can disagree with the build's.
 //   - Additive-only: the executor refuses to SET/DELETE/REMOVE on any node lacking
 //     :UserContent (i.e. any golden node), with a clear error.
-//   - user->standard links resolve the standard by its stable business key `uri`
-//     (the property the real golden graph actually carries; the spec's "sourceUri").
-//     Pending parent confirmation of the key; isolated to resolveStandardKeyName().
+//   - user->standard links name the standard by userLinkTargetRule.standardKeyName (stableId,
+//     carried by every standard) on a :ForgedNode in a declared linkable role; 'uri' (CEDS-only)
+//     is retired and refused by name.
+//   - every user-made edge carries the declared stamp (userEdgeStampFieldList); the four match
+//     relation types are judge relations and are refused (userEdgeRule.matchRelationPolicy).
 
-const https = require('https');
 const makeRefId = require('../../../lib/make-ref-id');
+const {
+	USER_LINK_TARGET_RULE,
+	USER_EMBEDDING_RULE,
+	matchRelationRefusalFor,
+	userEdgeStampOf,
+} = require('./user-layer-contract');
 
-// Same model golden's forge uses (cli/.../ceds/embedder.js: 'voyage-3', 1024-dim).
-const EMBEDDING_MODEL = 'voyage-3';
-
-// The stable business key on standard ELEMENTS in the real golden graph. The spec says
-// "sourceUri"; the live graph carries `uri` (globally unique on the ~24k linkable
-// elements). One place to change if the parent rules differently.
-const resolveStandardKeyName = () => 'uri';
+const resolveStandardKeyName = () => USER_LINK_TARGET_RULE.standardKeyName;
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const validIdent = (s) => typeof s === 'string' && IDENT.test(s);
 
+// Old writers stamped embedding/embeddingModelVersion on user nodes; under the text-only rule a caller may not set them.
 const RESERVED_PROPS = ['userNodeId', 'embedding', 'embeddingModelVersion'];
 
-// ---------------------------------------------------------------------------
-// embedText — Voyage embedding (callback style). Returns a 1024-float vector.
-const embedText = (text, apiKey, callback) => {
-	if (!apiKey) { callback('write-executor: missing voyageApiKey'); return; }
-	const body = JSON.stringify({ model: EMBEDDING_MODEL, input: [text || ''], input_type: 'document' });
-	const req = https.request(
-		{
-			hostname: 'api.voyageai.com',
-			path: '/v1/embeddings',
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-		},
-		(res) => {
-			let data = '';
-			res.on('data', (c) => (data += c));
-			res.on('end', () => {
-				if (res.statusCode !== 200) { callback(`Voyage API ${res.statusCode}: ${data}`); return; }
-				let parsed;
-				try { parsed = JSON.parse(data); } catch (e) { callback(`Voyage parse: ${e.message}`); return; }
-				const vec = parsed && parsed.data && parsed.data[0] && parsed.data[0].embedding;
-				if (!Array.isArray(vec)) { callback('Voyage: no embedding in response'); return; }
-				callback('', vec);
-			});
-		},
-	);
-	req.on('error', (e) => callback(`Voyage request failed: ${e.message}`));
-	req.write(body);
-	req.end();
-};
+// Payload names a retired key wore; each is refused by name rather than read (W-E-5).
+const RETIRED_STANDARD_PAYLOAD_NAME_LIST = ['standardKey', 'standardUri', 'uri'];
 
 const cleanProps = (properties) => {
 	const out = {};
@@ -76,44 +52,39 @@ const cleanProps = (properties) => {
 };
 
 // ---------------------------------------------------------------------------
-// createNode — stamp + create a :UserContent node with an inline embedding.
-const createNode = ({ userGraphDb, voyageApiKey, labels, properties }, callback) => {
+// createNode — stamp + create a :UserContent node (text only).
+const createNode = ({ userGraphDb, labels, properties }, callback) => {
 	const props = cleanProps(properties);
 	const userLabels = (labels || []).filter(validIdent).filter((l) => l !== 'UserContent');
 	const userNodeId = makeRefId(20);
-	const text = ['name', 'title', 'description', 'text']
-		.map((k) => props[k]).filter(Boolean).join(' ').trim() || (props.name || 'user node');
-
-	embedText(text, voyageApiKey, (eErr, vector) => {
-		if (eErr) { callback(eErr); return; }
-		const labelClause = [':UserContent', ...userLabels.map((l) => `:${l}`)].join('');
-		const cypher =
-			`CREATE (n${labelClause} {userNodeId:$userNodeId, embedding:$embedding, embeddingModelVersion:$emv}) ` +
-			`SET n += $props RETURN n.userNodeId AS userNodeId`;
-		userGraphDb.runQuery(
-			cypher,
-			{ userNodeId, embedding: vector, emv: EMBEDDING_MODEL, props },
-			(qErr) => {
-				if (qErr) { callback(`createNode failed: ${qErr}`); return; }
-				callback('', { userNodeId, embeddingDim: vector.length, embeddingModelVersion: EMBEDDING_MODEL });
-			},
-		);
+	const labelClause = [':UserContent', ...userLabels.map((l) => `:${l}`)].join('');
+	const cypher = `CREATE (n${labelClause} {userNodeId:$userNodeId}) SET n += $props RETURN n.userNodeId AS userNodeId`;
+	userGraphDb.runQuery(cypher, { userNodeId, props }, (qErr) => {
+		if (qErr) { callback(`createNode failed: ${qErr}`); return; }
+		callback('', { userNodeId, userVectorPolicy: USER_EMBEDDING_RULE.userVectorPolicy });
 	});
 };
 
 // ---------------------------------------------------------------------------
-// connectToStandard — link a user node to a standard element by its stable key.
-const connectToStandard = ({ userGraphDb, fromUserNodeId, relType, standardKey }, callback) => {
+// connectToStandard — link a user node to a standard element by its stableId, in a linkable role.
+const connectToStandard = ({ userGraphDb, userRefId, fromUserNodeId, relType, standardStableId }, callback) => {
 	if (!validIdent(relType)) { callback(`connectToStandard: invalid relType '${relType}'`); return; }
-	const keyName = resolveStandardKeyName();
+	const matchRelationRefusal = matchRelationRefusalFor({ verbName: 'connectToStandard', relType });
+	if (matchRelationRefusal) { callback(matchRelationRefusal); return; }
+	if (!standardStableId) { callback('connectToStandard: standardStableId is required'); return; }
+	const { userEdgeStamp, refusal } = userEdgeStampOf({ userRefId });
+	if (refusal) { callback(`connectToStandard: ${refusal}`); return; }
+
+	const { standardKeyName, targetLabel, linkableRoleList } = USER_LINK_TARGET_RULE;
 	const cypher =
-		`MATCH (u:UserContent {userNodeId:$uid}) ` +
-		`MATCH (s {${keyName}:$key}) ` +
-		`MERGE (u)-[r:${relType}]->(s) RETURN type(r) AS relType, s.${keyName} AS targetKey`;
-	userGraphDb.runQuery(cypher, { uid: fromUserNodeId, key: standardKey }, (qErr, rows) => {
+		`MATCH (u:UserContent {userNodeId:$userNodeId}) ` +
+		`MATCH (s:${targetLabel} {${standardKeyName}:$standardStableId}) WHERE s.role IN $linkableRoleList ` +
+		`MERGE (u)-[r:${relType}]->(s) SET r += $userEdgeStamp ` +
+		`RETURN type(r) AS relType, s.${standardKeyName} AS targetStableId`;
+	userGraphDb.runQuery(cypher, { userNodeId: fromUserNodeId, standardStableId, linkableRoleList, userEdgeStamp }, (qErr, rows) => {
 		if (qErr) { callback(`connectToStandard failed: ${qErr}`); return; }
 		if (!rows || rows.length === 0) {
-			callback(`connectToStandard: user node not found, or no standard with ${keyName}='${standardKey}'`);
+			callback(`connectToStandard: no :${targetLabel} with ${standardKeyName}='${standardStableId}' in role ${linkableRoleList.join('|')}, or user node not found`);
 			return;
 		}
 		callback('', rows[0]);
@@ -122,12 +93,16 @@ const connectToStandard = ({ userGraphDb, fromUserNodeId, relType, standardKey }
 
 // ---------------------------------------------------------------------------
 // connectUserNodes — link two user nodes (both :UserContent, by userNodeId).
-const connectUserNodes = ({ userGraphDb, fromUserNodeId, toUserNodeId, relType }, callback) => {
+const connectUserNodes = ({ userGraphDb, userRefId, fromUserNodeId, toUserNodeId, relType }, callback) => {
 	if (!validIdent(relType)) { callback(`connectUserNodes: invalid relType '${relType}'`); return; }
+	const matchRelationRefusal = matchRelationRefusalFor({ verbName: 'connectUserNodes', relType });
+	if (matchRelationRefusal) { callback(matchRelationRefusal); return; }
+	const { userEdgeStamp, refusal } = userEdgeStampOf({ userRefId });
+	if (refusal) { callback(`connectUserNodes: ${refusal}`); return; }
 	const cypher =
 		`MATCH (a:UserContent {userNodeId:$a}) MATCH (b:UserContent {userNodeId:$b}) ` +
-		`MERGE (a)-[r:${relType}]->(b) RETURN type(r) AS relType`;
-	userGraphDb.runQuery(cypher, { a: fromUserNodeId, b: toUserNodeId }, (qErr, rows) => {
+		`MERGE (a)-[r:${relType}]->(b) SET r += $userEdgeStamp RETURN type(r) AS relType`;
+	userGraphDb.runQuery(cypher, { a: fromUserNodeId, b: toUserNodeId, userEdgeStamp }, (qErr, rows) => {
 		if (qErr) { callback(`connectUserNodes failed: ${qErr}`); return; }
 		if (!rows || rows.length === 0) { callback('connectUserNodes: a user node was not found'); return; }
 		callback('', rows[0]);
@@ -135,13 +110,27 @@ const connectUserNodes = ({ userGraphDb, fromUserNodeId, toUserNodeId, relType }
 };
 
 // ---------------------------------------------------------------------------
+// A selector names a node by userNodeId or by standardStableId (keyed on the contract's standardKeyName). Either can
+// only ever match a UserContent node in practice — the additive-only check below refuses everything else.
+const selectorMatchFor = ({ verbName, selector }) => {
+	if (selector && selector.uri !== undefined) {
+		return { refusal: `${verbName}: selector.uri is a retired key; pass selector.standardStableId` };
+	}
+	if (selector && selector.userNodeId) {
+		return { matchClause: '(n {userNodeId:$sel})', sel: selector.userNodeId };
+	}
+	if (selector && selector.standardStableId) {
+		return { matchClause: `(n {${resolveStandardKeyName()}:$sel})`, sel: selector.standardStableId };
+	}
+	return { refusal: `${verbName}: selector requires userNodeId or standardStableId` };
+};
+
+// ---------------------------------------------------------------------------
 // modifyNode — GUARDED mutate: SET props only on a :UserContent node. Refuses golden.
 const modifyNode = ({ userGraphDb, selector, properties }, callback) => {
-	let matchClause;
-	const params = { props: cleanProps(properties) };
-	if (selector && selector.userNodeId) { matchClause = '(n {userNodeId:$sel})'; params.sel = selector.userNodeId; }
-	else if (selector && selector.uri) { matchClause = `(n {${resolveStandardKeyName()}:$sel})`; params.sel = selector.uri; }
-	else { callback('modifyNode: selector requires userNodeId or uri'); return; }
+	const { matchClause, sel, refusal } = selectorMatchFor({ verbName: 'modifyNode', selector });
+	if (refusal) { callback(refusal); return; }
+	const params = { sel, props: cleanProps(properties) };
 
 	userGraphDb.runQuery(`MATCH ${matchClause} RETURN 'UserContent' IN labels(n) AS isUser LIMIT 1`, params, (cErr, rows) => {
 		if (cErr) { callback(`modifyNode check failed: ${cErr}`); return; }
@@ -155,13 +144,11 @@ const modifyNode = ({ userGraphDb, selector, properties }, callback) => {
 };
 
 // ---------------------------------------------------------------------------
-// deleteNode — GUARDED delete: only :UserContent nodes (by userNodeId). Refuses golden.
+// deleteNode — GUARDED delete: only :UserContent nodes. Refuses golden.
 const deleteNode = ({ userGraphDb, selector }, callback) => {
-	const params = {};
-	let matchClause;
-	if (selector && selector.userNodeId) { matchClause = '(n {userNodeId:$sel})'; params.sel = selector.userNodeId; }
-	else if (selector && selector.uri) { matchClause = `(n {${resolveStandardKeyName()}:$sel})`; params.sel = selector.uri; }
-	else { callback('deleteNode: selector requires userNodeId or uri'); return; }
+	const { matchClause, sel, refusal } = selectorMatchFor({ verbName: 'deleteNode', selector });
+	if (refusal) { callback(refusal); return; }
+	const params = { sel };
 
 	userGraphDb.runQuery(`MATCH ${matchClause} RETURN 'UserContent' IN labels(n) AS isUser LIMIT 1`, params, (cErr, rows) => {
 		if (cErr) { callback(`deleteNode check failed: ${cErr}`); return; }
@@ -175,33 +162,39 @@ const deleteNode = ({ userGraphDb, selector }, callback) => {
 };
 
 // ---------------------------------------------------------------------------
+// The action registry: each structured action maps its payload onto one guarded writer.
+const WRITE_ACTION_BY_NAME = {
+	createNode: ({ userGraphDb, params }, callback) => createNode({ userGraphDb, labels: params.labels, properties: params.properties }, callback),
+	connectToStandard: ({ userGraphDb, userRefId, params }, callback) => {
+		const retiredNameList = RETIRED_STANDARD_PAYLOAD_NAME_LIST.filter((onePayloadName) => params[onePayloadName] !== undefined);
+		if (retiredNameList.length > 0) {
+			callback(`connectToStandard: pass standardStableId; ${retiredNameList.join(', ')} is a retired key`);
+			return;
+		}
+		connectToStandard({ userGraphDb, userRefId, fromUserNodeId: params.userNodeId, relType: params.relType, standardStableId: params.standardStableId }, callback);
+	},
+	connectUserNodes: ({ userGraphDb, userRefId, params }, callback) => connectUserNodes({ userGraphDb, userRefId, fromUserNodeId: params.fromUserNodeId, toUserNodeId: params.toUserNodeId, relType: params.relType }, callback),
+	modifyNode: ({ userGraphDb, params }, callback) => modifyNode({ userGraphDb, selector: params.selector, properties: params.properties }, callback),
+	deleteNode: ({ userGraphDb, params }, callback) => deleteNode({ userGraphDb, selector: params.selector }, callback),
+};
+
+// ---------------------------------------------------------------------------
 // executeWrite — dispatch one structured write action against a live clone connection.
-const executeWrite = ({ userGraphDb, voyageApiKey, action, params }, callback) => {
-	const p = params || {};
-	switch (action) {
-		case 'createNode':
-			createNode({ userGraphDb, voyageApiKey, labels: p.labels, properties: p.properties }, callback);
-			return;
-		case 'connectToStandard':
-			connectToStandard({ userGraphDb, fromUserNodeId: p.userNodeId, relType: p.relType, standardKey: p.standardKey || p.standardUri || p.uri }, callback);
-			return;
-		case 'connectUserNodes':
-			connectUserNodes({ userGraphDb, fromUserNodeId: p.fromUserNodeId, toUserNodeId: p.toUserNodeId, relType: p.relType }, callback);
-			return;
-		case 'modifyNode':
-			modifyNode({ userGraphDb, selector: p.selector, properties: p.properties }, callback);
-			return;
-		case 'deleteNode':
-			deleteNode({ userGraphDb, selector: p.selector }, callback);
-			return;
-		default:
-			callback(`write-executor: unknown action '${action}'`);
+const executeWrite = ({ userGraphDb, userRefId, action, params }, callback) => {
+	const writeAction = WRITE_ACTION_BY_NAME[action];
+	if (!writeAction) {
+		callback(`write-executor: unknown action '${action}' (known: ${Object.keys(WRITE_ACTION_BY_NAME).join(', ')})`);
+		return;
 	}
+	if (!params || typeof params !== 'object') {
+		callback(`write-executor: action '${action}' requires a params object`);
+		return;
+	}
+	writeAction({ userGraphDb, userRefId, params }, callback);
 };
 
 module.exports = {
 	executeWrite,
-	embedText,
-	EMBEDDING_MODEL,
 	resolveStandardKeyName,
+	WRITE_ACTION_BY_NAME,
 };
