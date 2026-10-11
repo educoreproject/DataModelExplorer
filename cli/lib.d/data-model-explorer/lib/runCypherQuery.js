@@ -12,4 +12,16 @@ const runCypherQuery = (neo4jSession, cypherText, cypherParameters, callback) =>
 	);
 };
 
-module.exports = { runCypherQuery };
+// ⟪lane GREP, 2026-10-11⟫ the same, bounded by a transaction timeout. Neo4j ending the transaction for its time limit is an
+// OUTCOME the caller answers by name (callback('', { timedOut: true })), not an error; any other failure is the message text.
+// Neo4j checks the limit BETWEEN operations: a single long evaluation (one regex =~ backtracking) is not interrupted by it
+// (measured, DEVLOG-GREP §8), so this bounds work made of many short steps, such as a per-node similarity function.
+const TRANSACTION_TIMEOUT_CODE_LIST = Object.freeze(['Neo.ClientError.Transaction.TransactionTimedOut', 'Neo.ClientError.Transaction.TransactionTimedOutClientConfiguration']);
+const runCypherQueryWithinTimeLimit = (neo4jSession, cypherText, cypherParameters, timeLimitMilliseconds, callback) => {
+	neo4jSession.run(cypherText, cypherParameters, { timeout: timeLimitMilliseconds }).then(
+		(queryResult) => callback('', { queryResult }),
+		(queryError) => (TRANSACTION_TIMEOUT_CODE_LIST.indexOf(queryError.code) !== -1 ? callback('', { timedOut: true }) : callback(queryError.message)),
+	);
+};
+
+module.exports = { runCypherQuery, runCypherQueryWithinTimeLimit, TRANSACTION_TIMEOUT_CODE_LIST };

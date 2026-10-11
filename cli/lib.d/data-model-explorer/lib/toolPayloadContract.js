@@ -38,6 +38,8 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	describeGraph: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'recipeShapeNotRecognised', 'standardDefinitionShapeNotRecognised', 'attestationShapeNotRecognised', 'invalidLimit']) }),
 	rawCypher: Object.freeze({ rowUnitText: 'a record your Cypher returned', rowListFieldName: 'records', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'notReadOnly']) }), // notReadOnly: X1, the read-only validator
 	calculate: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'unknownOperation', 'invalidNumberList', 'emptyNumberList', 'divisionByZero']) }), // A14
+	// ⟪lane GREP, 2026-10-11⟫ pattern and fuzzy-name search: the shape of a name, not its meaning (GREP_* below)
+	grep: Object.freeze({ rowUnitText: 'a content node (:ForgedNode, never :GraphMeta) whose field matched: one row per node; regex mode orders rows by name, fuzzy mode by similarityScore (best first)', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyPattern', 'invalidGrepMode', 'invalidGrepField', 'invalidCaseSensitive', 'flagNotForGrepMode', 'invalidRegex', 'patternTooLong', 'grepTimeout', 'apocTextUnavailable', 'unknownStandard']) }),
 });
 
 // W-D-20: what each verb takes. The CLI parser walks this table (no if/else chain) and refuses any other flag by name;
@@ -58,6 +60,8 @@ const VERB_INPUT_CONTRACT = Object.freeze({
 	describeGraph: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['limit']), integerFlagList: Object.freeze(['limit']) }),
 	rawCypher: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['query']) }),
 	calculate: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['operation', 'numberList']) }),
+	// the pattern is a FLAG, not a positional: the CLI reads any argument starting with '-' as a switch, and a regex may
+	grep: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['pattern', 'mode', 'field', 'caseSensitive', 'standard']) }),
 });
 // the default a verb's flag takes when it is not given (declared, so -help and the parser read one source)
 const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
@@ -66,6 +70,7 @@ const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
 	explore: Object.freeze({ nameMatch: 'exact' }),
 	history: Object.freeze({}),
 	unmappedFields: Object.freeze({ limit: '50' }),
+	grep: Object.freeze({ mode: 'regex', field: 'name', caseSensitive: 'false' }),
 });
 
 // W-D-2 / A5 (ruled 2026-10-06): a `standard` filter takes a live `_source` value. A family name (StandardDefinition
@@ -187,6 +192,42 @@ const SEARCH_SCORE_UNIT_BY_FIELD = Object.freeze({
 	foundByLegList: "the legs that found the node: 'keyword', 'vector' or both",
 });
 
+// ⟪lane GREP, 2026-10-11⟫ dme_grep — finds an element by the SHAPE of its name (or description), never by meaning. Two modes:
+//   regex: a JavaScript regular expression, matched ANYWHERE in the field (grep semantics; anchor with ^ and $), every content
+//          node in scope read. It runs in a worker thread the DME can stop, NOT as Cypher =~ in Neo4j: measured on
+//          GOLD_EVAL_261010_forgeClean, a backtracking regex inside one =~ evaluation ignores the transaction timeout and
+//          TERMINATE TRANSACTIONS alike and held a CPU core until the container was restarted (DEVLOG-GREP §8).
+//   fuzzy: every content name in scope ranked by GREP_FUZZY_SIMILARITY_FUNCTION_NAME over GREP_FUZZY_NORMALISER_FUNCTION_NAME of
+//          both names, those at or above GREP_FUZZY_MINIMUM_SIMILARITY kept. Chosen by measurement (evidence/GREP/
+//          fuzzyFunctionChoice-*.json): levenshteinSimilarity ranked the meant name FIRST for 8 of 8 misspellings,
+//          sorensenDiceSimilarity 7 of 8; apoc.text.jaroWinklerDistance is a DISTANCE (0 = identical) and ranked none first.
+//          The lowest similarity a meant name scored was 0.778 (BrithDate -> BirthDate); 0.75 keeps every one of them.
+const GREP_MODE_LIST = Object.freeze(['regex', 'fuzzy']);
+const GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD = Object.freeze({
+	name: Object.freeze(['name']),
+	description: Object.freeze(['description']),
+	both: Object.freeze(['name', 'description']),
+});
+const GREP_CASE_SENSITIVE_VALUE_LIST = Object.freeze(['false', 'true']);
+// the flags each mode reads; a flag GIVEN with another value than its default is refused (flagNotForGrepMode) for a mode
+// that does not read it, so a fuzzy search over descriptions is never silently a fuzzy search over names
+const GREP_FLAG_LIST_BY_MODE = Object.freeze({
+	regex: Object.freeze(['pattern', 'field', 'caseSensitive', 'standard']),
+	fuzzy: Object.freeze(['pattern', 'standard']),
+});
+const GREP_PATTERN_LENGTH_CAP = 200; // characters; the longest content name in the ct17 gold is 150
+const GREP_TIME_LIMIT_MILLISECONDS = 10000; // EACH stage: the graph read, and the regex worker (measured: an ordinary pattern over every name takes under 1 s)
+const GREP_PAGE_SIZE = 50;
+const GREP_MATCHED_NAME_SUMMARY_CAP = 20;
+const GREP_FUZZY_SIMILARITY_FUNCTION_NAME = 'apoc.text.levenshteinSimilarity';
+const GREP_FUZZY_NORMALISER_FUNCTION_NAME = 'apoc.text.clean';
+const GREP_FUZZY_MINIMUM_SIMILARITY = 0.75;
+const GREP_REGEX_FLAVOUR_TEXT = 'JavaScript (ECMAScript) regular expression, matched anywhere in the field like grep: anchor with ^ and $; case-insensitive unless caseSensitive is true';
+const GREP_SCORE_UNIT_BY_FIELD = Object.freeze({
+	similarityScore: `fuzzy mode only: ${GREP_FUZZY_SIMILARITY_FUNCTION_NAME} of the two names after ${GREP_FUZZY_NORMALISER_FUNCTION_NAME} (lower case, letters and digits only), 1 - edit distance / longer length, in [0, 1]; 1 is the same name, rows below ${GREP_FUZZY_MINIMUM_SIMILARITY} are not returned`,
+	matchedFieldList: "the fields the pattern matched: 'name', 'description' or both",
+});
+
 // W-D-11 / W-D-12: explore answers ONE entry per node, keyed by stableId; a name lookup is exact unless asked otherwise,
 // and an exact lookup always reports its case-variant siblings
 const EXPLORE_ENTRY_IDENTITY_FIELD = 'stableId';
@@ -288,6 +329,19 @@ module.exports = Object.freeze({
 	EXPLORE_EDGE_CAP,
 	NAME_MATCH_MODE_LIST,
 	CALCULATE_OPERATION_ARITY_BY_NAME,
+	GREP_MODE_LIST,
+	GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD,
+	GREP_CASE_SENSITIVE_VALUE_LIST,
+	GREP_FLAG_LIST_BY_MODE,
+	GREP_PATTERN_LENGTH_CAP,
+	GREP_TIME_LIMIT_MILLISECONDS,
+	GREP_PAGE_SIZE,
+	GREP_MATCHED_NAME_SUMMARY_CAP,
+	GREP_FUZZY_SIMILARITY_FUNCTION_NAME,
+	GREP_FUZZY_NORMALISER_FUNCTION_NAME,
+	GREP_FUZZY_MINIMUM_SIMILARITY,
+	GREP_REGEX_FLAVOUR_TEXT,
+	GREP_SCORE_UNIT_BY_FIELD,
 	SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST,
 	SLACK_CARD_CARRIED_BY_LIST,
 	SLACK_LOOKUP_LIMITS,

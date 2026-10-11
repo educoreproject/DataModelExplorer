@@ -48,6 +48,67 @@
 		},
 		{
 			"definition": {
+				"name": "dme_grep",
+				"description": "Find elements by the SHAPE of their name, not its meaning. Use it instead of dme_search when the question is about spelling or form: every element whose name starts with, ends with or contains something (\"every SIF element ending in RefId\", \"PESC names matching ^Student.*Identifier$\"), or a name the user may have misspelt (\"BrithDate\", \"StudentIdentifer\"). It does NOT search meaning: \"date of birth\" will not find BirthDate here (use dme_search). Two modes. regex (the default): a JavaScript regular expression matched anywhere in the field (anchor with ^ and $), case-insensitive unless caseSensitive is 'true', over the name (default), the description, or both; EVERY content node in scope is read, so totalRowCount is the exact number of matching nodes. fuzzy: the pattern is a name; every content name in scope is compared with it by apoc.text.levenshteinSimilarity after apoc.text.clean (case, spaces and punctuation ignored), and names scoring at least minimumSimilarity (0.75) are returned best first with their similarityScore. Accepts an optional standard (a `source` value from dme_list_standards, or a family name). RETURNS AN OBJECT: resultList (at most 50 rows, each with stableId, name, standard, role, description, matchedFieldList and, in fuzzy mode, similarityScore), totalRowCount, returnedRowCount, truncatedRowCount, scannedNodeCount, matchedNodeCountByStandard, distinctMatchedNameCount and matchedNameSummaryList (the matched names with how many nodes bear each: one name is often many nodes, e.g. a SIF field in every object that carries it) — quote those counts rather than counting rows yourself; a short page carries shortPageNote and is the whole answer. A refusal named invalidRegex means the pattern does not compile (say so, it is not 'no results'); grepTimeout means the pattern took longer than the time limit (simplify it or narrow it); apocTextUnavailable means this graph cannot run fuzzy mode (regex still works). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"pattern": {
+							"type": "string",
+							"description": "mode regex: a JavaScript regular expression, e.g. RefId$ or ^Student.*Identifier$ (at most 200 characters). mode fuzzy: the name as the user wrote it, e.g. BrithDate."
+						},
+						"mode": {
+							"type": "string",
+							"enum": [
+								"regex",
+								"fuzzy"
+							],
+							"description": "Optional (default regex): regex matches the pattern anywhere in the field; fuzzy ranks names by spelling similarity to the pattern. Any other value is refused by name.",
+							"default": "regex"
+						},
+						"field": {
+							"type": "string",
+							"enum": [
+								"name",
+								"description",
+								"both"
+							],
+							"description": "Optional, regex mode only (default name): which text the pattern is matched against. Fuzzy mode always compares names; giving it another field is refused by name.",
+							"default": "name"
+						},
+						"caseSensitive": {
+							"type": "string",
+							"enum": [
+								"false",
+								"true"
+							],
+							"description": "Optional, regex mode only (default 'false'): 'true' matches letter case exactly.",
+							"default": "false"
+						},
+						"standard": {
+							"type": "string",
+							"description": "Optional: limit to one standard. Give a `source` value exactly as dme_list_standards returns it (e.g. SIF260928, PESC-CollegeTranscript-1.8.0); an unknown value is refused by name with the valid list. A FAMILY name (a standardFamily from dme_list_standards, e.g. SIF or PESC) is expanded to all its releases, and the result then carries expandedFromFamily, expandedToSourceList and standardFilterNote: when it does, say that the family was expanded and to which releases."
+						}
+					},
+					"required": [
+						"pattern"
+					]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -grep",
+				"positionalArgs": [],
+				"flagArgs": {
+					"pattern": "--pattern",
+					"mode": "--mode",
+					"field": "--field",
+					"caseSensitive": "--caseSensitive",
+					"standard": "--standard"
+				}
+			}
+		},
+		{
+			"definition": {
 				"name": "dme_graph_retriever",
 				"description": "Search with graph context enrichment. Finds nodes with the same hybrid search dme_search runs (keyword BM25 + vector, fused by reciprocal rank; each hit carries hitRank, fusedScore, foundByLegList and both legs' ranks and scores), then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (HAS_OPTION_SET; viaInstance: true; each code set carries name, path and valueCount), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows are the search hits with no graph context: tell the user so, quoting the retrievalNote. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {
@@ -264,7 +325,7 @@
 		{
 			"definition": {
 				"name": "dme_raw_cypher",
-				"description": "Execute read-only Cypher against the unified graph. RETURNS { recordCount, totalRecordCount, truncated, records } (at most 1000 records; truncated says when more existed). Content nodes are :ForgedNode with a _source property naming the standard (read the inventory from dme_list_standards; never assume a fixed list). Self-documentation nodes (:GraphProvenance, :BuildAttestation, :ManifestRecipe, …) carry :GraphMeta and no _source. Cross-standard mapping: a source :ForgedNode connects to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey — through one of four match edges, one per SKOS relation: EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH (CEDS broader), NARROW_MATCH (CEDS narrower). Every match edge is a judgment carrying predicate, mappingConfidence (THE confidence; the older duplicate `confidence` property is retiring — never read it), mappingKind ('inferred' | 'authored') / mappingSource ('bridge-<judge>', 'crosswalk-<name>', 'standard-<name>'); a judged edge is not fact, and relation and confidence are independent. Match edges carry no provenanceTier: detect debug edges by mappingSource = 'bridge-debug'. Read them with [m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements sharing a HubReference are equivalent only when both hops are EXACT_MATCH (two judgments); a CLOSE hop makes them a candidate; a BROAD/NARROW hop makes them only related. A graph holding classification standards may also link them by CLASSIFICATION_CROSSWALK edges (NCES crosswalk; NOT equivalence — never compose them with match-edge hub resolutions). INSTANCE NODES: SIF and PESC carry mappings on instances, not on the element search finds — (decl:ForgedNode {role:'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode {role:'DmeInstance'})-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference). A SIF instance's group is its owning Object, (obj)-[:HAS_FIELD]->(inst); a PESC instance's group is inst.sectionPath. SIF nesting: Object -[:HAS_CHILD]-> Container -[:HAS_CHILD]-> Container|Field. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". Use this for any count, total or average you need to state; do not compute numbers yourself.",
+				"description": "Execute read-only Cypher against the unified graph. RETURNS { recordCount, totalRecordCount, truncated, records } (at most 1000 records; truncated says when more existed). Content nodes are :ForgedNode with a _source property naming the standard (read the inventory from dme_list_standards; never assume a fixed list). Self-documentation nodes (:GraphProvenance, :BuildAttestation, :ManifestRecipe, …) carry :GraphMeta and no _source. Cross-standard mapping: a source :ForgedNode connects to a :HubReference — the canonical CEDS tuple, keyed by canonicalKey — through one of four match edges, one per SKOS relation: EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH (CEDS broader), NARROW_MATCH (CEDS narrower). Every match edge is a judgment carrying predicate, mappingConfidence (THE confidence; the older duplicate `confidence` property is retiring — never read it), mappingKind ('inferred' | 'authored') / mappingSource ('bridge-<judge>', 'crosswalk-<name>', 'standard-<name>'); a judged edge is not fact, and relation and confidence are independent. Match edges carry no provenanceTier: detect debug edges by mappingSource = 'bridge-debug'. Read them with [m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]. A HubReference decomposes to its CEDS leaves via HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER. Two source elements sharing a HubReference are equivalent only when both hops are EXACT_MATCH (two judgments); a CLOSE hop makes them a candidate; a BROAD/NARROW hop makes them only related. A graph holding classification standards may also link them by CLASSIFICATION_CROSSWALK edges (NCES crosswalk; NOT equivalence — never compose them with match-edge hub resolutions). INSTANCE NODES: SIF and PESC carry mappings on instances, not on the element search finds — (decl:ForgedNode {role:'DmeProperty'})-[:HAS_INSTANCE]->(inst:ForgedNode {role:'DmeInstance'})-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference). A SIF instance's group is its owning Object, (obj)-[:HAS_FIELD]->(inst); a PESC instance's group is inst.sectionPath. SIF nesting: Object -[:HAS_CHILD]-> Container -[:HAS_CHILD]-> Container|Field. Of APOC, ONLY seven pure text functions may be called, each by its exact name: apoc.text.levenshteinSimilarity, apoc.text.levenshteinDistance, apoc.text.jaroWinklerDistance (a DISTANCE: 0 means identical), apoc.text.sorensenDiceSimilarity, apoc.text.fuzzyMatch, apoc.text.clean, apoc.text.compareCleaned; every other apoc.* function and every apoc procedure is refused (notReadOnly). For spelling-similar or pattern-shaped names, dme_grep already does this. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". Use this for any count, total or average you need to state; do not compute numbers yourself.",
 				"input_schema": {
 					"type": "object",
 					"properties": {

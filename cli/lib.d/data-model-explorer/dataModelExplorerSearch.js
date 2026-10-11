@@ -10,6 +10,7 @@
 //   -unmappedFields        DmeProperty nodes with no cross-standard mapping
 //   -stats                 Counts by standard and role, mapping coverage
 //   -rawCypher --query="..." Passthrough Cypher
+//   -grep --pattern="..."  Pattern (regex) or fuzzy-name search over names / descriptions (--mode=regex|fuzzy)
 //
 // Outputs JSON to stdout, diagnostics to stderr.
 //
@@ -21,7 +22,9 @@ const os = require('os');
 const path = require('path');
 const neo4j = require('neo4j-driver');
 const { pipeRunner, taskListPlus, mergeArgs } = new (require('qtools-asynchronous-pipe-plus'))();
-const { runCypherQuery } = require('./lib/runCypherQuery');
+const { runCypherQuery, runCypherQueryWithinTimeLimit } = require('./lib/runCypherQuery');
+// ⟪lane GREP⟫ the regex mode's matcher: a worker thread stopped at the time limit (why not Cypher =~: lib/grepRegex.js)
+const { matchRowsByRegex } = require('./lib/grepRegex');
 // ⟪campaign P2⟫ the passport, read by contract (V2-C01/C04), and the embedder check every vector verb makes first (V2-C28)
 const { readPassport } = require('./lib/passportReader');
 // ⟪lane BM25⟫ the search's legs (keyword BM25, vector), their graph checks and their fusion: one module for both search verbs
@@ -53,6 +56,19 @@ const {
 	EXPLORE_EDGE_CAP,
 	NAME_MATCH_MODE_LIST,
 	CALCULATE_OPERATION_ARITY_BY_NAME,
+	GREP_MODE_LIST,
+	GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD,
+	GREP_CASE_SENSITIVE_VALUE_LIST,
+	GREP_FLAG_LIST_BY_MODE,
+	GREP_PATTERN_LENGTH_CAP,
+	GREP_TIME_LIMIT_MILLISECONDS,
+	GREP_PAGE_SIZE,
+	GREP_MATCHED_NAME_SUMMARY_CAP,
+	GREP_FUZZY_SIMILARITY_FUNCTION_NAME,
+	GREP_FUZZY_NORMALISER_FUNCTION_NAME,
+	GREP_FUZZY_MINIMUM_SIMILARITY,
+	GREP_REGEX_FLAVOUR_TEXT,
+	GREP_SCORE_UNIT_BY_FIELD,
 } = require('./lib/toolPayloadContract');
 // W-D-2 / W-D-5 / W-D-8 / W-D-9 (campaign P1): the live _source list and the hub standard are read from the graph
 const { resolveStandardFilter, resolveHubIdentity, familyExpansionFieldsFor } = require('./lib/liveInventory');
@@ -1392,6 +1408,250 @@ const rawCypher = (session, query, callback) => {
 };
 
 // =====================================================================
+// GREP — the shape of a name, not its meaning (lane GREP, 2026-10-11)
+// =====================================================================
+//
+// dme_search finds an element by meaning (vector) or by its exact words (BM25). It cannot answer "every SIF element whose
+// name ends in RefId" or "names like BrithDate". dme_grep can: regex mode reads EVERY content node in scope (a scan, not a
+// window, so totalRowCount is exact) and matches a JavaScript regex anywhere in the chosen field; fuzzy mode ranks every
+// content name in scope by its similarity to the given name. The population is :ForgedNode content, never :GraphMeta — the
+// nodes carrying the field, which includes the SIF Fields and PESC occurrences (DmeInstance) the vector index does not hold.
+// Every input is a refusal by name before the graph is read; the pattern and the name reach Cypher only as parameters.
+
+const GREP_FIELD_TEXT_CYPHER = `
+	MATCH (node:ForgedNode)
+	WHERE NOT node:GraphMeta AND ($sourceList IS NULL OR node._source IN $sourceList)
+		AND any(propertyName IN $propertyNameList WHERE node[propertyName] IS NOT NULL)
+	RETURN node.stableId AS stableId, node.name AS name, node._source AS standard, [propertyName IN $propertyNameList | node[propertyName]] AS fieldTextList`;
+// the function names are declared constants (toolPayloadContract), never input, so they are written into the text
+const GREP_FUZZY_CYPHER = `
+	WITH ${GREP_FUZZY_NORMALISER_FUNCTION_NAME}($pattern) AS normalisedPattern
+	MATCH (node:ForgedNode)
+	WHERE NOT node:GraphMeta AND node.name IS NOT NULL AND ($sourceList IS NULL OR node._source IN $sourceList)
+	WITH node, ${GREP_FUZZY_SIMILARITY_FUNCTION_NAME}(${GREP_FUZZY_NORMALISER_FUNCTION_NAME}(node.name), normalisedPattern) AS similarityScore
+	RETURN count(node) AS scannedNodeCount,
+		collect(CASE WHEN similarityScore >= $minimumSimilarity THEN { stableId: node.stableId, name: node.name, standard: node._source, similarityScore: similarityScore } END) AS matchedRowList`;
+const GREP_FUZZY_FUNCTION_NAME_LIST = Object.freeze([GREP_FUZZY_SIMILARITY_FUNCTION_NAME, GREP_FUZZY_NORMALISER_FUNCTION_NAME]);
+const GREP_LOADED_FUNCTION_CYPHER = 'SHOW FUNCTIONS YIELD name WHERE name IN $functionNameList RETURN collect(name) AS loadedFunctionNameList';
+const GREP_PAGE_DETAIL_CYPHER = `
+	UNWIND $stableIdList AS pageStableId
+	MATCH (node:ForgedNode {stableId: pageStableId})
+	RETURN node.stableId AS stableId, node._id AS id, node.role AS role, labels(node) AS labels, node.description AS description`;
+const LETTER_OR_DIGIT_PATTERN = /[\p{L}\p{N}]/u;
+
+// grepInputRefusalFor — the refusal for the first input that cannot run, '' when all can (no graph read yet)
+const grepInputRefusalFor = (params) => {
+	if (typeof params.pattern !== 'string' || params.pattern === '') {
+		return refusalFor('grep', 'emptyPattern', 'grep needs --pattern: a regex (mode regex) or a name (mode fuzzy). An empty pattern would match every node.');
+	}
+	if (params.pattern.length > GREP_PATTERN_LENGTH_CAP) {
+		return refusalFor('grep', 'patternTooLong', `grep pattern is ${params.pattern.length} characters; the cap is ${GREP_PATTERN_LENGTH_CAP}.`);
+	}
+	if (GREP_MODE_LIST.indexOf(params.mode) === -1) {
+		return refusalFor('grep', 'invalidGrepMode', `grep mode '${params.mode}' is not one of ${GREP_MODE_LIST.join(', ')}: regex matches a pattern anywhere in a field, fuzzy ranks names by spelling similarity.`, GREP_MODE_LIST);
+	}
+	const defaultByFlag = VERB_FLAG_DEFAULT_BY_VERB.grep;
+	const unreadFlagName = Object.keys(defaultByFlag).find((flagName) => GREP_FLAG_LIST_BY_MODE[params.mode].indexOf(flagName) === -1 && flagName !== 'mode' && params[flagName] !== defaultByFlag[flagName]);
+	if (unreadFlagName) {
+		return refusalFor('grep', 'flagNotForGrepMode', `grep mode ${params.mode} does not read --${unreadFlagName} (got '${params[unreadFlagName]}'); it reads ${GREP_FLAG_LIST_BY_MODE[params.mode].map((flagName) => `--${flagName}`).join(', ')}. Fuzzy mode compares names only, ignoring case.`, GREP_FLAG_LIST_BY_MODE[params.mode]);
+	}
+	if (!GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD[params.field]) {
+		return refusalFor('grep', 'invalidGrepField', `grep field '${params.field}' is not one of ${Object.keys(GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD).join(', ')}.`, Object.keys(GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD));
+	}
+	if (GREP_CASE_SENSITIVE_VALUE_LIST.indexOf(params.caseSensitive) === -1) {
+		return refusalFor('grep', 'invalidCaseSensitive', `grep caseSensitive '${params.caseSensitive}' is not one of ${GREP_CASE_SENSITIVE_VALUE_LIST.join(', ')}.`, GREP_CASE_SENSITIVE_VALUE_LIST);
+	}
+	if (params.mode === 'fuzzy' && !LETTER_OR_DIGIT_PATTERN.test(params.pattern)) {
+		return refusalFor('grep', 'emptyPattern', `grep fuzzy compares names by their letters and digits; '${params.pattern}' has none.`);
+	}
+	return '';
+};
+
+const grepTimeoutRefusalFor = (stageText) => refusalFor('grep', 'grepTimeout', `grep stopped: ${stageText} did not finish within the time limit of ${GREP_TIME_LIMIT_MILLISECONDS} ms (each stage has its own). A pattern that backtracks heavily (nested quantifiers such as (\\w+\\s?)* ) can take that long on one long text; simplify it, narrow --field to name, or name a --standard.`);
+
+// GREP_MATCHER_BY_MODE — one matcher per mode. THE MATCHER INTERFACE: matcher({ session, params, sourceList }, callback(errorText,
+// { refusal } | { scannedNodeCount, matchedRowList })) where matchedRowList is in the order the rows are shown, each
+// { stableId, name, standard, matchedFieldList, similarityScore? }; a time limit reached is { refusal: grepTimeout }.
+const GREP_MATCHER_BY_MODE = Object.freeze({
+	regex: ({ session, params, sourceList }, callback) => {
+		const propertyNameList = GREP_FIELD_PROPERTY_NAME_LIST_BY_FIELD[params.field];
+		const flagText = params.caseSensitive === 'true' ? '' : 'i';
+		const taskList = new taskListPlus();
+		// compile first, against no rows, so a pattern that does not compile never reads the graph
+		taskList.push((args, next) => matchRowsByRegex({ patternText: params.pattern, flagText, rowFieldTextListList: [], timeLimitMilliseconds: GREP_TIME_LIMIT_MILLISECONDS }, (compileError, compileOutcome) => {
+			if (compileError) {
+				next(compileError, args);
+				return;
+			}
+			next('', compileOutcome.compileErrorText ? { ...args, refusal: refusalFor('grep', 'invalidRegex', `grep pattern is not a valid ${GREP_REGEX_FLAVOUR_TEXT.split(',')[0]}: ${compileOutcome.compileErrorText}`) } : args);
+		}));
+		taskList.push((args, next) => {
+			if (args.refusal) {
+				next('', args);
+				return;
+			}
+			runCypherQueryWithinTimeLimit(session, GREP_FIELD_TEXT_CYPHER, { sourceList, propertyNameList }, GREP_TIME_LIMIT_MILLISECONDS, (readError, readOutcome) => {
+				if (readError) {
+					next(`grep reading the field texts failed: ${readError}`, args);
+					return;
+				}
+				next('', readOutcome.timedOut ? { ...args, refusal: grepTimeoutRefusalFor('reading the field texts from the graph') } : { ...args, fieldRowList: readOutcome.queryResult.records.map((oneRecord) => oneRecord.toObject()) });
+			});
+		});
+		taskList.push((args, next) => {
+			if (args.refusal) {
+				next('', args);
+				return;
+			}
+			matchRowsByRegex({ patternText: params.pattern, flagText, rowFieldTextListList: args.fieldRowList.map((oneRow) => oneRow.fieldTextList), timeLimitMilliseconds: GREP_TIME_LIMIT_MILLISECONDS }, (matchError, matchOutcome) => {
+				if (matchError) {
+					next(matchError, args);
+					return;
+				}
+				next('', matchOutcome.timedOut ? { ...args, refusal: grepTimeoutRefusalFor(`matching the pattern against ${args.fieldRowList.length} nodes`) } : { ...args, matchList: matchOutcome.matchList });
+			});
+		});
+		pipeRunner(taskList.getList(), {}, (err, args) => {
+			if (err) {
+				callback(err);
+				return;
+			}
+			if (args.refusal) {
+				callback('', { refusal: args.refusal });
+				return;
+			}
+			const lowerCaseNameOf = (oneRow) => `${oneRow.name === null ? '' : oneRow.name}`.toLowerCase();
+			const matchedRowList = args.matchList
+				.map(([rowIndex, matchedFieldIndexList]) => {
+					const { stableId, name, standard } = args.fieldRowList[rowIndex];
+					return { stableId, name, standard, matchedFieldList: matchedFieldIndexList.map((fieldIndex) => propertyNameList[fieldIndex]) };
+				})
+				.sort((rowA, rowB) => (lowerCaseNameOf(rowA) < lowerCaseNameOf(rowB) ? -1 : lowerCaseNameOf(rowA) > lowerCaseNameOf(rowB) ? 1 : 0) || (rowA.standard < rowB.standard ? -1 : rowA.standard > rowB.standard ? 1 : 0) || (rowA.stableId < rowB.stableId ? -1 : 1));
+			callback('', { scannedNodeCount: args.fieldRowList.length, matchedRowList });
+		});
+	},
+	fuzzy: ({ session, params, sourceList }, callback) => {
+		runCypherQuery(session, GREP_LOADED_FUNCTION_CYPHER, { functionNameList: GREP_FUZZY_FUNCTION_NAME_LIST }, (functionError, functionResult) => {
+			if (functionError) {
+				callback(`grep listing the graph's functions failed: ${functionError}`);
+				return;
+			}
+			const loadedFunctionNameList = functionResult.records[0].get('loadedFunctionNameList');
+			const absentFunctionNameList = GREP_FUZZY_FUNCTION_NAME_LIST.filter((functionName) => loadedFunctionNameList.indexOf(functionName) === -1);
+			if (absentFunctionNameList.length > 0) {
+				callback('', { refusal: refusalFor('grep', 'apocTextUnavailable', `this graph does not load ${absentFunctionNameList.join(', ')} (a graph launched before educoreForge fca4246e allows no apoc.text function), so fuzzy mode cannot run on it; mode regex can.`, GREP_MODE_LIST) });
+				return;
+			}
+			runCypherQueryWithinTimeLimit(session, GREP_FUZZY_CYPHER, { pattern: params.pattern, sourceList, minimumSimilarity: GREP_FUZZY_MINIMUM_SIMILARITY }, GREP_TIME_LIMIT_MILLISECONDS, (fuzzyError, fuzzyOutcome) => {
+				if (fuzzyError) {
+					callback(`grep fuzzy scoring failed: ${fuzzyError}`);
+					return;
+				}
+				if (fuzzyOutcome.timedOut) {
+					callback('', { refusal: grepTimeoutRefusalFor('scoring every name in scope') });
+					return;
+				}
+				const fuzzyRecord = fuzzyOutcome.queryResult.records[0];
+				const matchedRowList = fuzzyRecord.get('matchedRowList')
+					.map((oneRow) => ({ ...oneRow, matchedFieldList: ['name'] }))
+					.sort((rowA, rowB) => rowB.similarityScore - rowA.similarityScore || (rowA.name < rowB.name ? -1 : rowA.name > rowB.name ? 1 : 0) || (rowA.standard < rowB.standard ? -1 : rowA.standard > rowB.standard ? 1 : 0) || (rowA.stableId < rowB.stableId ? -1 : 1));
+				callback('', { scannedNodeCount: toNumber(fuzzyRecord.get('scannedNodeCount')), matchedRowList });
+			});
+		});
+	},
+});
+
+// the names among the matched rows, in the rows' order, with how many matched nodes bear each (the first CAP of them)
+const matchedNameSummaryOf = (matchedRowList) => {
+	const summaryRowByName = {};
+	const summaryRowList = [];
+	matchedRowList.forEach((oneRow) => {
+		if (!summaryRowByName[oneRow.name]) {
+			summaryRowByName[oneRow.name] = { name: oneRow.name, nodeCount: 0, ...(oneRow.similarityScore === undefined ? {} : { similarityScore: oneRow.similarityScore }) };
+			summaryRowList.push(summaryRowByName[oneRow.name]);
+		}
+		summaryRowByName[oneRow.name].nodeCount += 1;
+	});
+	return { distinctMatchedNameCount: summaryRowList.length, matchedNameSummaryList: summaryRowList.slice(0, GREP_MATCHED_NAME_SUMMARY_CAP) };
+};
+
+const grep = (session, params, callback) => {
+	const inputRefusal = grepInputRefusalFor(params);
+	if (inputRefusal) {
+		callback('', inputRefusal);
+		return;
+	}
+	const taskList = new taskListPlus();
+	taskList.push((args, next) => resolveStandardFilter(session, 'grep', params.standard, (filterError, standardFilter) => (filterError ? next(filterError, args) : next('', { ...args, standardFilter, refusal: standardFilter.refusal }))));
+	taskList.push((args, next) => {
+		if (args.refusal) {
+			next('', args);
+			return;
+		}
+		GREP_MATCHER_BY_MODE[params.mode]({ session, params, sourceList: args.standardFilter.sourceList }, (matchError, matchOutcome) => (matchError ? next(matchError, args) : next('', { ...args, refusal: matchOutcome.refusal, matchOutcome })));
+	});
+	taskList.push((args, next) => {
+		if (args.refusal) {
+			next('', args);
+			return;
+		}
+		const stableIdList = args.matchOutcome.matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => oneRow.stableId);
+		runCypherQuery(session, GREP_PAGE_DETAIL_CYPHER, { stableIdList }, (detailError, detailResult) => {
+			if (detailError) {
+				next(`grep reading the page's nodes failed: ${detailError}`, args);
+				return;
+			}
+			const detailRowByStableId = {};
+			detailResult.records.forEach((oneRecord) => { detailRowByStableId[oneRecord.get('stableId')] = oneRecord.toObject(); });
+			next('', { ...args, detailRowByStableId });
+		});
+	});
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err) {
+			callback(err);
+			return;
+		}
+		if (args.refusal) {
+			callback('', args.refusal);
+			return;
+		}
+		const { scannedNodeCount, matchedRowList } = args.matchOutcome;
+		const resultList = matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => {
+			const detailRow = args.detailRowByStableId[oneRow.stableId];
+			return {
+				standard: oneRow.standard,
+				id: serializeValue(detailRow.id),
+				stableId: oneRow.stableId,
+				role: detailRow.role,
+				labels: detailRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
+				name: oneRow.name,
+				description: serializeValue(detailRow.description),
+				matchedFieldList: oneRow.matchedFieldList,
+				...(oneRow.similarityScore === undefined ? {} : { similarityScore: oneRow.similarityScore }),
+			};
+		});
+		const matchedNodeCountByStandard = {};
+		matchedRowList.forEach((oneRow) => { matchedNodeCountByStandard[oneRow.standard] = (matchedNodeCountByStandard[oneRow.standard] || 0) + 1; });
+		const grepPayload = {
+			...listEnvelopeFor('grep', resultList, matchedRowList.length),
+			grepMode: params.mode,
+			pattern: params.pattern,
+			...(params.mode === 'regex' ? { field: params.field, caseSensitive: params.caseSensitive === 'true', regexFlavour: GREP_REGEX_FLAVOUR_TEXT } : { similarityFunctionName: GREP_FUZZY_SIMILARITY_FUNCTION_NAME, normaliserFunctionName: GREP_FUZZY_NORMALISER_FUNCTION_NAME, minimumSimilarity: GREP_FUZZY_MINIMUM_SIMILARITY }),
+			scannedNodeCount,
+			matchedNodeCountByStandard,
+			...matchedNameSummaryOf(matchedRowList),
+			scoreUnitByField: GREP_SCORE_UNIT_BY_FIELD,
+			timeLimitMilliseconds: GREP_TIME_LIMIT_MILLISECONDS,
+			...familyExpansionFieldsFor(args.standardFilter),
+		};
+		if (resultList.length < GREP_PAGE_SIZE) {
+			grepPayload.shortPageNote = `all ${resultList.length} matching node(s) are shown: grep reads every content node in scope (${scannedNodeCount} scanned), so a short page is the whole answer, not a window`;
+		}
+		callback('', grepPayload);
+	});
+};
+
+// =====================================================================
 // GRAPH RETRIEVER (the hybrid search, then traversal.cypher)
 // =====================================================================
 
@@ -1535,6 +1795,7 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 	explore: (session, params, config, callback) => exploreNode(session, params, callback),
 	history: (session, params, config, callback) => historyEvents(session, params, callback),
 	describeGraph: (session, params, config, callback) => require('./lib/describeGraph').describeGraph(session, params, callback),
+	grep: (session, params, config, callback) => grep(session, params, callback),
 };
 
 // W-E-10 (X2, campaign P0, 2026-10-06): READ is the default and WRITE the exception that must be declared BY NAME. The
