@@ -98,6 +98,25 @@ const ALLOWED_FUNCTION_READ_CASE_LIST = Object.freeze([
 	{ caseId: 'A6', cypher: `RETURN 'apoc.cypher.runFirstColumnSingle(' AS t, "apoc.load.json('http://x')" AS u` },
 ].map((oneRow) => Object.freeze(oneRow)));
 
+// ⟪TQ ruling, 2026-10-11⟫ operators refused on this path though they write nothing. =~ : measured by lane GREP on
+// GOLD_EVAL_261010_forgeClean, a backtracking pattern inside one =~ evaluation ignores the transaction timeout AND
+// TERMINATE TRANSACTIONS and holds a CPU core until the container restarts. dme_grep runs regex in a worker it can stop.
+const REFUSED_OPERATOR_LIST = Object.freeze([
+	{
+		name: '=~',
+		pattern: /=~/,
+		reason: 'the regular-expression operator =~ is refused here (a backtracking pattern is not stopped by the query timeout and can hold the graph); use the dme_grep tool, which runs a regex inside a time limit',
+	},
+].map((oneRow) => Object.freeze(oneRow)));
+
+// queries each refused operator must turn away, spelled the ways a query might write it
+const REFUSED_OPERATOR_CASE_LIST = Object.freeze([
+	{ caseId: 'R1', cypher: `MATCH (n) WHERE n.name =~ '(a+)+$' RETURN n` },
+	{ caseId: 'R2', cypher: `MATCH (n) WHERE n.name=~'.*RefId' RETURN count(n)` },
+	{ caseId: 'R3', cypher: `MATCH (n) WITH n, '(?i).*student.*' AS p WHERE n.description =~ p RETURN n.name` },
+	{ caseId: 'R4', cypher: `MATCH (n) RETURN [x IN n.aliases WHERE x =~ "(\\w+\\s?)*"] AS hits` },
+].map((oneRow) => Object.freeze(oneRow)));
+
 module.exports = Object.freeze({
 	BLOCKED_CLAUSE_PATTERN_LIST,
 	BLOCKED_FUNCTION_PREFIX_LIST,
@@ -105,4 +124,6 @@ module.exports = Object.freeze({
 	ALLOWED_CALL_PROCEDURE_LIST,
 	VALIDATOR_BYPASS_CASE_LIST,
 	ALLOWED_FUNCTION_READ_CASE_LIST,
+	REFUSED_OPERATOR_LIST,
+	REFUSED_OPERATOR_CASE_LIST,
 });

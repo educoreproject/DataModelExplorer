@@ -264,6 +264,20 @@ assert(
 	false,
 );
 
+// --- TQ ruling (2026-10-11): =~ is refused on this path; a regex belongs to dme_grep, which can stop one ---
+console.log('\nRegular-expression operator (should fail; the literal case should pass):');
+
+const { REFUSED_OPERATOR_CASE_LIST } = require('./cypher-validator-rules');
+REFUSED_OPERATOR_CASE_LIST.forEach(({ caseId, cypher }) => {
+	assert(`${caseId} refused: ${cypher}`, validateReadOnly(cypher), false);
+});
+
+assert(
+	'=~ inside a string literal is text, not the operator',
+	validateReadOnly("MATCH (n) WHERE n.description CONTAINS '=~' RETURN n.name"),
+	true,
+);
+
 // --- Summary ---
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

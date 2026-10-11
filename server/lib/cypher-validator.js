@@ -24,6 +24,7 @@ const {
 	BLOCKED_FUNCTION_PREFIX_LIST,
 	APOC_PURE_TEXT_FUNCTION_NAME_LIST,
 	ALLOWED_CALL_PROCEDURE_LIST,
+	REFUSED_OPERATOR_LIST,
 } = require('./cypher-validator-rules');
 
 // one alternation, matched in ENCOUNTER ORDER: block comment, line comment, single-quoted, double-quoted, backtick-quoted
@@ -80,6 +81,11 @@ const validateReadOnly = (cypherString) => {
 			valid: false,
 			reason: `Not permitted on this read-only path (writes, admin and database switching are refused): ${violations.join(', ')}`,
 		};
+	}
+
+	const refusedOperatorList = REFUSED_OPERATOR_LIST.filter((oneRule) => oneRule.pattern.test(stripped));
+	if (refusedOperatorList.length > 0) {
+		return { valid: false, reason: refusedOperatorList.map((oneRule) => oneRule.reason).join('; ') };
 	}
 
 	const blockedFunctionNameList = blockedFunctionNameListOf(cypherString);
