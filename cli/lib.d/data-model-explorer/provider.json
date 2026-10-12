@@ -109,6 +109,47 @@
 		},
 		{
 			"definition": {
+				"name": "dme_structure",
+				"description": "CEDS's OWN organising structure, which dme_search and the other tools deliberately leave out: the CEDS Domain Entity Schema (DES, Version 13: DES domains such as K12 or Postsecondary, DES entities such as K12 Student, DES categories such as Enrollment, and the placement of each element in them) and the Conceptual Model of the CEDS Ontology Guide V14 (each class's primary and secondary concept: Person, Organization, Resource, Membership, Asset, Event, Claim, Provenance). A DES domain is an AREA of the DES, NOT the rdfs domain of a property (the property's class, which dme_find_mappings calls the domain in a CEDS tuple): always say 'DES domain' for the former. Four modes. listAreas: the DES domains (no name), or the DES entities and categories under one DES domain (name = the DES domain), each with its placement and distinct-property counts. areaProperties: the CEDS V14 properties placed under a DES domain, entity or category (name = its name or path, e.g. 'K12 Student' or 'K12 -> K12 Student -> Enrollment'; domain narrows an entity name shared by several DES domains, such as Course Section): one row per placement, with the V14 property (joined by Global ID only) and the DES V13 element name. propertyPlacements: where one CEDS property sits in the DES (name = its P-id, e.g. P000255, or its name) with what the DES V13 says of it (alternate name, usage notes, use-case links: V13 text, label it so, never present it as V14) and, for a date property, the Ontology Guide V14 event concepts. classConcepts: a CEDS class's Conceptual Model concepts (name = its C-id or name). RETURNS AN OBJECT: rowList, totalRowCount, returnedRowCount, truncatedRowCount, mode, desVersion and note — quote totalRowCount rather than counting rows. A refusal named noDesLayer means the graph was built without the DES layer. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+				"input_schema": {
+					"type": "object",
+					"properties": {
+						"mode": {
+							"type": "string",
+							"enum": [
+								"listAreas",
+								"areaProperties",
+								"propertyPlacements",
+								"classConcepts"
+							],
+							"description": "Which question: listAreas (DES domains, or the DES areas under one), areaProperties (the CEDS properties under a DES area), propertyPlacements (where a CEDS property sits in the DES), classConcepts (a class's Conceptual Model concepts). Any other value is refused by name."
+						},
+						"name": {
+							"type": "string",
+							"description": "listAreas: optional, a DES domain name (absent lists the DES domains). areaProperties: a DES domain, entity or category name or path. propertyPlacements: a CEDS property P-id or name. classConcepts: a CEDS class C-id or name."
+						},
+						"domain": {
+							"type": "string",
+							"description": "Optional, areaProperties only: a DES domain name to narrow an entity or category name that several DES domains share (e.g. 'K12' for 'Course Section'). Not the rdfs domain."
+						}
+					},
+					"required": [
+						"mode"
+					]
+				}
+			},
+			"cli": {
+				"command": "node dataModelExplorerSearch.js -structure",
+				"positionalArgs": [],
+				"flagArgs": {
+					"mode": "--mode",
+					"name": "--name",
+					"domain": "--domain"
+				}
+			}
+		},
+		{
+			"definition": {
 				"name": "dme_graph_retriever",
 				"description": "Search with graph context enrichment. Finds nodes with the same hybrid search dme_search runs (keyword BM25 + vector, fused by reciprocal rank; each hit carries hitRank, fusedScore, foundByLegList and both legs' ranks and scores), then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (HAS_OPTION_SET; viaInstance: true; each code set carries name, path and valueCount), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries shared across the four match relations (each present relation first gets up to 5) and has a companion <list>TruncatedByRelation naming how many entries of each relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's CEDS mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows are the search hits with no graph context: tell the user so, quoting the retrievalNote. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 				"input_schema": {

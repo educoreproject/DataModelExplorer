@@ -97,7 +97,7 @@
 			"gateList": [
 				"roundTrip"
 			],
-			"meaning": "one line per standard that ran: what its round trip omitted by declaration, by kind with counts, the rule (module) that declares it, and the rule's caveat — e.g. \"pesccollegetranscript1v8v0: whitespace 28,428, comment 907, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); comments may carry content (PLAN G20)\" (G21)",
+			"meaning": "one line per standard that ran, and one per standard LAYER that ran (token '<standard>:<layerKey>', e.g. 'ceds:des'; lane DES): what its round trip omitted by declaration, by kind with counts, the rule (module) that declares it, and the rule's caveat — e.g. \"pesccollegetranscript1v8v0: whitespace 28,428, comment 907, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); comments may carry content (PLAN G20)\" (G21)",
 			"name": "explicitOmissionDeclarationList",
 			"type": "stringList"
 		},
@@ -106,7 +106,7 @@
 			"gateList": [
 				"roundTrip"
 			],
-			"meaning": "how many standards the round trip ran over",
+			"meaning": "how many standards the round trip ran over; a standard's layers are not counted (they add lines to explicitOmissionDeclarationList)",
 			"name": "standardCount",
 			"type": "integer"
 		},
@@ -271,6 +271,24 @@
 		"verifiedCount",
 		"xpathDepth"
 	],
+	"layerScopeRule": {
+		"layerLabel": "StandardLayer",
+		"layerRoleList": [
+			"DmeLayerRoot",
+			"DmeArea",
+			"DmeLayerElement",
+			"DmePlacement",
+			"DmeConcept",
+			"DmeTextRepair"
+		],
+		"rule": "a node labelled StandardLayer belongs to a LAYER of its standard (a separately published companion such as the CEDS Domain Entity Schema V13), not to the standard itself: exclude it from a standard's counts, searches and name lookups, and reach it through the layer edges (HAS_LAYER, HAS_DES_*, PLACES_PROPERTY, REPAIRS_TEXT_OF)",
+		"schemaBlockKindList": [
+			"standardBase",
+			"hub",
+			"relationship",
+			"layer"
+		]
+	},
 	"listNameRuleExemptionByName": {
 		"fileAnnotationList": "JSON string (pesc-release-forge walk.js)",
 		"fileCommentList": "JSON string (pesc-release-forge walk.js; forgeClean lane CLEAN, G20)",
@@ -654,6 +672,7 @@
 	"producerLocalLabelPatternSourceList": [
 		"^(Ceds|Edfi|Sif|Sif260928|Pesc[A-Za-z0-9]+)[A-Z]",
 		"^StandardBase$",
+		"^StandardLayer$",
 		"^BridgedRelation_"
 	],
 	"recipeBlockFieldList": [
@@ -664,7 +683,7 @@
 			"type": "string"
 		},
 		{
-			"meaning": "the block kind: standardBase or relationship",
+			"meaning": "the block kind: standardBase, relationship or layer (a separately published companion of one standard, lane DES 2026-10-12)",
 			"name": "kind",
 			"required": true,
 			"type": "string"

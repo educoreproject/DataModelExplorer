@@ -41,6 +41,8 @@ const { contract } = require('./graphContract');
 const { refusalFor, SEARCH_MODE_LEG_LIST_BY_NAME, SEARCH_RRF_CONSTANT } = require('./toolPayloadContract');
 const { checkGraphEmbeddingContract } = require('./graphEmbeddingContract');
 const { readPassport } = require('./passportReader');
+// ⟪lane DES, 2026-10-12⟫ a LAYER node is out of search by declaration (design Q3), not merely by carrying no vector today
+const { notLayerNodeText } = require('./layerScope');
 
 const FULLTEXT_INDEX_DECLARATION = contract.fulltextIndexDeclaration;
 if (!FULLTEXT_INDEX_DECLARATION || !Array.isArray(FULLTEXT_INDEX_DECLARATION.propertyNameList)) {
@@ -53,13 +55,13 @@ const NODE_ROW_FIELD_TEXT = 'standard: node._source, id: node._id, stableId: nod
 const KEYWORD_LEG_CYPHER = `
 	CALL db.index.fulltext.queryNodes($fulltextIndexName, $luceneQueryText) YIELD node, score
 	WITH node, score
-	WHERE node[$searchedVectorSlotPropertyName] IS NOT NULL AND ($sourceList IS NULL OR node._source IN $sourceList)
+	WHERE node[$searchedVectorSlotPropertyName] IS NOT NULL AND ${notLayerNodeText('node')} AND ($sourceList IS NULL OR node._source IN $sourceList)
 	WITH node, score ORDER BY score DESC, node.stableId LIMIT $legWindowSize
 	RETURN collect({ ${NODE_ROW_FIELD_TEXT}, legScore: score }) AS rowList`;
 const VECTOR_LEG_CYPHER = `
 	CALL db.index.vector.queryNodes($vectorIndexName, $legWindowSize, $embedding) YIELD node, score
 	WITH node, score
-	WHERE $sourceList IS NULL OR node._source IN $sourceList
+	WHERE ${notLayerNodeText('node')} AND ($sourceList IS NULL OR node._source IN $sourceList)
 	WITH node, score ORDER BY score DESC, node.stableId
 	RETURN collect({ ${NODE_ROW_FIELD_TEXT}, legScore: score }) AS rowList`;
 const FULLTEXT_INDEX_CYPHER = "SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties, options WHERE type = 'FULLTEXT' RETURN name, entityType, labelsOrTypes, properties, options.indexConfig.`fulltext.analyzer` AS analyzer";

@@ -27,6 +27,9 @@ const { runCypherQuery, runCypherQueryWithinTimeLimit } = require('./lib/runCyph
 const { matchRowsByRegex } = require('./lib/grepRegex');
 // ⟪campaign P2⟫ the passport, read by contract (V2-C01/C04), and the embedder check every vector verb makes first (V2-C28)
 const { readPassport } = require('./lib/passportReader');
+// ⟪lane DES, 2026-10-12⟫ a LAYER node (StandardLayer) is not part of its standard's population: excluded from every count,
+// name lookup and scan below, and reached through dme_structure (amendment B; DEVLOG-DES population audit)
+const { LAYER_LABEL, notLayerNodeText } = require('./lib/layerScope');
 // ⟪lane BM25⟫ the search's legs (keyword BM25, vector), their graph checks and their fusion: one module for both search verbs
 const { searchLegListFor, resolveSearchIndexes, searchAndFuse } = require('./lib/hybridRetrieval');
 // W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
@@ -481,7 +484,7 @@ const instanceContextSegmentListOf = (nodeVariable) => `CASE ${INSTANCE_CONTEXT_
 	`WHEN ${nodeVariable}.${pathFieldName} IS NOT NULL THEN split(${nodeVariable}.${pathFieldName}, '/')[${leadingSegmentDropCount}..-1]`).join(' ')} ELSE [] END`;
 const instanceContextPathPredicateFor = (nodeVariable) =>
 	`(${nodeVariable}.role = 'DmeInstance' AND any(contextSegment IN ${instanceContextSegmentListOf(nodeVariable)} WHERE toLower(contextSegment) CONTAINS toLower($name)))`;
-const findMappingsMatchPredicateFor = (nodeVariable) => `${findMappingsNameOrIdentifierPredicateFor(nodeVariable)} OR ${instanceContextPathPredicateFor(nodeVariable)}`;
+const findMappingsMatchPredicateFor = (nodeVariable) => `(${notLayerNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
 
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
@@ -1072,7 +1075,7 @@ const getStats = (session, callback) => {
 
 	// Node counts by standard (_source)
 	taskList.push((args, next) => runCypherQuery(session, `
-		MATCH (n:ForgedNode)
+		MATCH (n:ForgedNode) WHERE ${notLayerNodeText('n')}
 		RETURN coalesce(n._source, 'UNSCOPED') AS source, count(n) AS count
 		ORDER BY count DESC
 	`, {}, mergeArgs(args, next, 'bySourceResult')));
@@ -1080,10 +1083,17 @@ const getStats = (session, callback) => {
 	// Node counts by universal-contract role
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (n:ForgedNode)
-		WHERE n.role IS NOT NULL
+		WHERE n.role IS NOT NULL AND ${notLayerNodeText('n')}
 		RETURN n.role AS role, count(n) AS count
 		ORDER BY count DESC
 	`, {}, mergeArgs(args, next, 'byRoleResult')));
+
+	// ⟪lane DES⟫ the layers, counted APART from their standards (amendment B: a standard's count does not grow by them)
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (n:ForgedNode:\`${LAYER_LABEL}\`)
+		RETURN n._source AS source, n.layerKey AS layerKey, n.layerVersion AS layerVersion, count(n) AS count
+		ORDER BY source, layerKey
+	`, {}, mergeArgs(args, next, 'layerResult')));
 
 	// Cross-standard mapping edge counts
 	taskList.push((args, next) => runCypherQuery(session, `
@@ -1119,7 +1129,8 @@ const getStats = (session, callback) => {
 			callback(err);
 			return;
 		}
-		const { bySourceResult, byRoleResult, mappingResult, otherMatchEdgeResult, coverageResult, hubIdentity } = args;
+		const { bySourceResult, byRoleResult, layerResult, mappingResult, otherMatchEdgeResult, coverageResult, hubIdentity } = args;
+		const layerNodeCountList = layerResult.records.map((rec) => ({ standard: rec.get('source'), layerKey: rec.get('layerKey'), layerVersion: rec.get('layerVersion'), nodeCount: toNumber(rec.get('count')) }));
 		const bySource = {};
 		bySourceResult.records.forEach((rec) => {
 			bySource[rec.get('source')] = toNumber(rec.get('count'));
@@ -1144,7 +1155,7 @@ const getStats = (session, callback) => {
 			hubPropertyCount: toNumber(coverageRecord.get('hubPropertyCount')),
 			hubPolicy: UNMAPPED_HUB_POLICY,
 		};
-		callback('', { bySource, byRole, mappings, coverage });
+		callback('', { bySource, byRole, layerNodeCountList, mappings, coverage });
 	});
 };
 
@@ -1169,7 +1180,7 @@ const getListStandards = (session, callback) => {
 		OPTIONAL MATCH (d:StandardDefinition {sourceKey: r._source})
 		CALL {
 			WITH r
-			MATCH (n:ForgedNode {_source: r._source})
+			MATCH (n:ForgedNode {_source: r._source}) WHERE ${notLayerNodeText('n')}
 			RETURN count(n) AS nodeCount
 		}
 		RETURN r._source AS source,
@@ -1271,25 +1282,27 @@ const exploreNode = (session, params, callback) => {
 		taskList.push((args, next) => runCypherQuery(session, `
 			MATCH (n:ForgedNode)
 			WHERE ${EXPLORE_NAME_MATCH_PREDICATE}
-			  AND ($sourceList IS NULL OR n._source IN $sourceList)
+			  AND ($sourceList IS NULL OR n._source IN $sourceList) AND ${notLayerNodeText('n')}
 			WITH n
-			OPTIONAL MATCH (n)-[r]->(m:ForgedNode)
+			OPTIONAL MATCH (n)-[r]->(m:ForgedNode) WHERE ${notLayerNodeText('m')}
 			RETURN n.stableId AS nodeStableId, n {.*, _labels: labels(n)} AS node,
 			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetStableId: m.stableId, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
 		`, queryParams, mergeArgs(args, next, 'outgoingResult')));
 		taskList.push((args, next) => runCypherQuery(session, `
 			MATCH (n:ForgedNode)
 			WHERE ${EXPLORE_NAME_MATCH_PREDICATE}
-			  AND ($sourceList IS NULL OR n._source IN $sourceList)
+			  AND ($sourceList IS NULL OR n._source IN $sourceList) AND ${notLayerNodeText('n')}
 			WITH n
-			OPTIONAL MATCH (m:ForgedNode)-[r]->(n)
+			// a text REPAIR is shown beside the node it repairs (the faithful text stays the node's own); other layer nodes are
+			// reached through dme_structure
+			OPTIONAL MATCH (m:ForgedNode)-[r]->(n) WHERE ${notLayerNodeText('m')} OR type(r) = 'REPAIRS_TEXT_OF'
 			RETURN n.stableId AS nodeStableId,
-			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStableId: m.stableId, sourceStandard: m._source, sourceLabels: labels(m)} ELSE NULL END) AS incoming
+			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStableId: m.stableId, sourceStandard: m._source, sourceLabels: labels(m), repairedPropertyName: m.repairedPropertyName, repairedText: m.repairedText, faithfulText: m.faithfulText, repairSource: CASE WHEN m.repairSourceFileName IS NULL THEN null ELSE m.repairSourceFileName + ' line ' + toString(m.repairSourceLineNumber) + ' (' + m.repairSourceTableName + ' ' + m.repairSourceCode + ')' END} ELSE NULL END) AS incoming
 		`, queryParams, mergeArgs(args, next, 'incomingResult')));
 		taskList.push((args, next) => runCypherQuery(session, `
 			MATCH (s:ForgedNode)
 			WHERE toLower(s.name) = toLower($name) AND s.name <> $name
-			  AND ($sourceList IS NULL OR s._source IN $sourceList)
+			  AND ($sourceList IS NULL OR s._source IN $sourceList) AND ${notLayerNodeText('s')}
 			RETURN count(s) AS caseVariantNodeCount, collect(DISTINCT s.name) AS caseVariantNameList
 		`, queryParams, mergeArgs(args, next, 'caseVariantResult')));
 
@@ -1420,14 +1433,14 @@ const rawCypher = (session, query, callback) => {
 
 const GREP_FIELD_TEXT_CYPHER = `
 	MATCH (node:ForgedNode)
-	WHERE NOT node:GraphMeta AND ($sourceList IS NULL OR node._source IN $sourceList)
+	WHERE NOT node:GraphMeta AND ${notLayerNodeText('node')} AND ($sourceList IS NULL OR node._source IN $sourceList)
 		AND any(propertyName IN $propertyNameList WHERE node[propertyName] IS NOT NULL)
 	RETURN node.stableId AS stableId, node.name AS name, node._source AS standard, [propertyName IN $propertyNameList | node[propertyName]] AS fieldTextList`;
 // the function names are declared constants (toolPayloadContract), never input, so they are written into the text
 const GREP_FUZZY_CYPHER = `
 	WITH ${GREP_FUZZY_NORMALISER_FUNCTION_NAME}($pattern) AS normalisedPattern
 	MATCH (node:ForgedNode)
-	WHERE NOT node:GraphMeta AND node.name IS NOT NULL AND ($sourceList IS NULL OR node._source IN $sourceList)
+	WHERE NOT node:GraphMeta AND ${notLayerNodeText('node')} AND node.name IS NOT NULL AND ($sourceList IS NULL OR node._source IN $sourceList)
 	WITH node, ${GREP_FUZZY_SIMILARITY_FUNCTION_NAME}(${GREP_FUZZY_NORMALISER_FUNCTION_NAME}(node.name), normalisedPattern) AS similarityScore
 	RETURN count(node) AS scannedNodeCount,
 		collect(CASE WHEN similarityScore >= $minimumSimilarity THEN { stableId: node.stableId, name: node.name, standard: node._source, similarityScore: similarityScore } END) AS matchedRowList`;
@@ -1796,6 +1809,8 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 	history: (session, params, config, callback) => historyEvents(session, params, callback),
 	describeGraph: (session, params, config, callback) => require('./lib/describeGraph').describeGraph(session, params, callback),
 	grep: (session, params, config, callback) => grep(session, params, callback),
+	// ⟪lane DES⟫ CEDS's own structure (DES V13 areas, placements, Guide V14 concepts); lib/structure.js
+	structure: (session, params, config, callback) => require('./lib/structure').runStructure({ session, params, runCypherQuery, refusalFor, listEnvelopeFor, toNumber }, callback),
 };
 
 // W-E-10 (X2, campaign P0, 2026-10-06): READ is the default and WRITE the exception that must be declared BY NAME. The
