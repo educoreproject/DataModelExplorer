@@ -21,7 +21,10 @@ const harness = require('./lib/liveGraphHarness')({ gateTitle: 'lane GREP dme_gr
 const { assert, runQuery, runVerb, finish, taskListPlus, pipeRunner, dmeDirPath } = harness;
 const cliFilePath = process.argv[2];
 
-const CONTENT_POPULATION_TEXT = 'MATCH (node:ForgedNode) WHERE NOT node:GraphMeta';
+// ⟪lane DES, cedsRichness-101226⟫ grep's population is the standards' own content: a standard LAYER's nodes are out (amendment B),
+// the label read from the contract as the verb reads it
+const { notLayerNodeText } = require('../lib/layerScope');
+const CONTENT_POPULATION_TEXT = `MATCH (node:ForgedNode) WHERE NOT node:GraphMeta AND ${notLayerNodeText('node')}`;
 const payloadSummaryOf = (payload) => JSON.stringify({ ...payload, resultList: (payload.resultList || []).slice(0, 3).map((oneRow) => [oneRow.name, oneRow.standard, oneRow.role, oneRow.similarityScore]), scoreUnitByField: undefined }).slice(0, 400);
 
 const taskList = new taskListPlus();

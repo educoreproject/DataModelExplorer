@@ -48,7 +48,9 @@ taskList.push((args, next) => runVerb(['-findMappings', FIXTURE_TERM], (err, out
 	assert(`  and matchedInstanceCount equals the ${args.cypherFieldCount} SIF Fields (Cypher) — the Code, Proportion and @Codeset Fields under Race among them`, !!sifSummary && sifSummary.matchedInstanceCount === args.cypherFieldCount, JSON.stringify(sifSummary && sifSummary.matchedInstanceCount));
 	next('', { ...args, termPayload: payload });
 }, cliFilePath));
-taskList.push((args, next) => runQuery(`MATCH (n:ForgedNode) WHERE toLower(n.name) CONTAINS $term
+// ⟪lane DES, cedsRichness-101226⟫ findMappings matches standard nodes only: a standard LAYER's nodes are out (amendment B), so the
+// test's own name count leaves them out the same way, the label read from the contract as the verb reads it
+taskList.push((args, next) => runQuery(`MATCH (n:ForgedNode) WHERE toLower(n.name) CONTAINS $term AND ${require('../lib/layerScope').notLayerNodeText('n')}
 	RETURN count(n) AS nameMatchedNodeCount`, { term: FIXTURE_TERM }, (err, rowList) => {
 	if (err) { next(err, args); return; }
 	const payload = args.termPayload;
