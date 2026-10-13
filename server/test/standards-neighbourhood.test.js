@@ -5,7 +5,8 @@
 //   2. the version oracle (spec §4): College Transcript 1.8.0 classes 206 unchanged / 4 changed / 12 new against
 //      1.7.0, 0 only-in-1.7, and the spec's own key cross-checked here with this test's Cypher;
 //   3. NameType: every property's strongest mapping equals this test's Cypher; all four match kinds present;
-//      property-level badges answer (no collision refusal); FirstName folds, CompositeName does not;
+//      property-level badges answer (no collision refusal); FirstName folds; a property whose occurrences map
+//      differently (found by this test's Cypher) does not;
 //   4. the First Name anchor: grouped by owning standard, SIF + EdFi + PESC present, Σ elements = this test's Cypher;
 //      drilling the SIF group lists exactly its elements;
 //   5. an Ed-Fi element reached through the anchor resolves, with property-level mappings and an EdFi ancestor chain;
@@ -244,7 +245,6 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				const firstNameItem = found.nameTypeProperties.find((oneItem) => oneItem.name === 'FirstName') || {};
 				found.firstNamePropertyStableId = firstNameItem.stableId;
 				found.firstNameAnchorStableId = firstNameItem.mapping && firstNameItem.mapping.anchor.stableId;
-				found.compositeNameStableId = (found.nameTypeProperties.find((oneItem) => oneItem.name === 'CompositeName') || {}).stableId;
 				done();
 			},
 		),
@@ -254,10 +254,28 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			ok('FirstName: the folded occurrence group is flagged folded', groupOf(propertyLevel, 'HAS_INSTANCE').folded === true);
 			done();
 		}),
-		(done) => ask({ action: 'node', stableId: found.compositeNameStableId }, (nodeError, propertyLevel) => {
-			ok('CompositeName: occurrences map differently, so they are shown', !nodeError && propertyLevel.instanceFolding.folded === false && groupOf(propertyLevel, 'HAS_INSTANCE').folded === false, nodeError || JSON.stringify(propertyLevel.instanceFolding));
-			done();
-		}),
+		// a property whose occurrences map differently, found by this test's own Cypher (which one varies by golden)
+		(done) => cypher(
+			`MATCH (:DmeStandardRoot {standardKey: 'pesccollegetranscript1v8v0'})-[:HAS_CLASS]->()-[:HAS_PROPERTY]->(propertyNode)-[:HAS_INSTANCE]->(occurrence)
+			 OPTIONAL MATCH (occurrence)-[matchEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(anchor:HubReference)
+			 WITH propertyNode, occurrence, collect(type(matchEdge) + '|' + anchor.stableId + '|' + toString(matchEdge.mappingConfidence)) AS judgmentList
+			 RETURN propertyNode.stableId AS stableId, propertyNode.name AS name, count(occurrence) AS occurrenceCount, collect(judgmentList) AS judgmentListByOccurrence
+			 ORDER BY name LIMIT 2000`,
+			{},
+			(propertyRowList) => {
+				const signatureOf = (judgmentList) => [...judgmentList].sort().join(',');
+				const differingRow = propertyRowList.find((oneRow) => oneRow.occurrenceCount > 1 && new Set(oneRow.judgmentListByOccurrence.map(signatureOf)).size > 1);
+				if (!differingRow) {
+					ok('this golden has a College Transcript 1.8.0 property whose occurrences map differently', false);
+					done();
+					return;
+				}
+				ask({ action: 'node', stableId: differingRow.stableId }, (nodeError, propertyLevel) => {
+					ok(`${differingRow.name}: occurrences map differently (this test's Cypher), so they are shown`, !nodeError && propertyLevel.instanceFolding.folded === false && groupOf(propertyLevel, 'HAS_INSTANCE').folded === false, nodeError || JSON.stringify(propertyLevel.instanceFolding));
+					done();
+				});
+			},
+		),
 
 		// ---- 4. the First Name anchor
 		(done) => cypher(
