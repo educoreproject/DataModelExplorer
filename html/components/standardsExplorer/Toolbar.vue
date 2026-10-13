@@ -15,7 +15,7 @@ const levelSummaryText = computed(() => {
 		countByKind[oneRow.kind] = (countByKind[oneRow.kind] || 0) + 1;
 	});
 	const kindText = Object.entries(countByKind)
-		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind).toLowerCase() : pluralKindNameOf(nodeKind)}`)
+		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase()) : pluralKindNameOf(nodeKind)}`)
 		.join(', ');
 	const versionComparison = store.neighbourhood.versionComparison;
 	const badgeText = versionComparison

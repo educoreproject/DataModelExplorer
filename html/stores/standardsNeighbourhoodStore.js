@@ -24,7 +24,7 @@ const standardsNeighbourhoodStoreInitObject = {
 	nodeSummaryByStableId: {},
 	neighbourhoodLoading: false,
 	statusMsg: '',
-	viewModeChoice: 'table',
+	viewModeChoice: 'diagram',
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
 	filterText: '',
@@ -105,12 +105,12 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		filteredRowList() {
 			const filterText = this.filterText.trim().toLowerCase();
 			if (!filterText) return this.levelRowList;
-			return this.levelRowList.filter((oneRow) => `${oneRow.displayName} ${oneRow.description} ${oneRow.path}`.toLowerCase().includes(filterText));
+			return this.levelRowList.filter((oneRow) => `${oneRow.displayName} ${oneRow.name}`.toLowerCase().includes(filterText));
 		},
 
 		rowMatchesFilter() {
 			const filterText = this.filterText.trim().toLowerCase();
-			return (oneRow) => !filterText || `${oneRow.displayName} ${oneRow.description} ${oneRow.path}`.toLowerCase().includes(filterText);
+			return (oneRow) => !filterText || `${oneRow.displayName} ${oneRow.name}`.toLowerCase().includes(filterText);
 		},
 
 		truncatedGroupList: (state) => (state.neighbourhood ? state.neighbourhood.childGroupList.filter((oneGroup) => oneGroup.truncated) : []),
@@ -224,7 +224,9 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			});
 			(neighbourhood.childGroupList || []).forEach((oneGroup) =>
 				oneGroup.itemList.forEach((oneItem) => {
-					this.nodeSummaryByStableId[oneItem.stableId] = summaryOf({ ...oneItem, standardFamily: oneItem.standardFamily || focusNode.standardFamily });
+					// an item without its own standard lives in the focus's (a class's properties, a property's occurrences)
+					const inheritedFieldList = oneItem.standardKey ? {} : { standardKey: focusNode.standardKey, releaseLabel: focusNode.releaseLabel, version: focusNode.version };
+					this.nodeSummaryByStableId[oneItem.stableId] = summaryOf({ ...inheritedFieldList, ...oneItem, standardFamily: oneItem.standardFamily || focusNode.standardFamily });
 				}),
 			);
 			(neighbourhood.mappingList || []).forEach((oneMapping) => {

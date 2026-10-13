@@ -77,7 +77,7 @@ const pluralKindNameByKind = Object.freeze({
 	optionValue: 'codes',
 });
 
-export const pluralKindNameOf = (nodeKind) => pluralKindNameByKind[nodeKind] || `${kindDisplayNameOf(nodeKind).toLowerCase()}s`;
+export const pluralKindNameOf = (nodeKind) => pluralKindNameByKind[nodeKind] || `${kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase())}s`;
 
 export const relationshipDisplayNameByType = Object.freeze({
 	HAS_STANDARD: 'Messages',
