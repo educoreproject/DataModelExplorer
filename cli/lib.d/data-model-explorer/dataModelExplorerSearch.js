@@ -1809,7 +1809,7 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 	history: (session, params, config, callback) => historyEvents(session, params, callback),
 	describeGraph: (session, params, config, callback) => require('./lib/describeGraph').describeGraph(session, params, callback),
 	grep: (session, params, config, callback) => grep(session, params, callback),
-	// ⟪lane DES⟫ CEDS's own structure (DES V13 areas, placements, Guide V14 concepts); lib/structure.js
+	// ⟪lane DES; lane UNDES⟫ CEDS's Conceptual Model (Guide V14 concepts of classes and event-date properties); lib/structure.js
 	structure: (session, params, config, callback) => require('./lib/structure').runStructure({ session, params, runCypherQuery, refusalFor, listEnvelopeFor, toNumber }, callback),
 };
 

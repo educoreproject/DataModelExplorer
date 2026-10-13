@@ -41,15 +41,7 @@ const STRUCTURAL_EDGE_MEANING_BY_TYPE = {
 	HAS_FIELD: 'SIF: an Object has a Field',
 	HAS_CHILD: 'element contains element (SIF nesting, PESC occurrences)',
 	// ⟪lane DES, 2026-10-12⟫ the CEDS LAYER edges (see "CEDS Layers" below); listed only when the graph holds them
-	HAS_LAYER: 'a standard root to one of its LAYERS (a separately published companion: for CEDS the DES V13, the Ontology Guide V14 Appendix A, the U+FFFD text repairs)',
-	HAS_DES_DOMAIN: 'CEDS DES layer root to a DES domain (an area of the Domain Entity Schema V13; NOT the rdfs domain of a property)',
-	HAS_DES_ENTITY: 'DES domain to a DES entity (domain-scoped: Course Section under K12 is not Course Section under Postsecondary)',
-	HAS_DES_CATEGORY: 'DES entity or category to a DES sub-category',
-	HAS_DES_PLACEMENT: 'DES entity or category to a placement (one DES Data Model ID row)',
-	PLACES_ELEMENT: 'DES placement to the DES V13 element it places',
-	PLACES_PROPERTY: 'DES placement to the CEDS V14 property with the same Global ID (id join only)',
-	SAME_GLOBAL_ID_PROPERTY: 'DES V13 element to the CEDS V14 property with the same Global ID',
-	DECLARES_ELEMENT: 'a layer root to an element it publishes',
+	HAS_LAYER: 'a standard root to one of its LAYERS (a separately published companion: for CEDS the Ontology Guide V14 Appendix A and the U+FFFD text repairs)',
 	HAS_PRIMARY_CONCEPT: 'CEDS class to its primary Conceptual Model concept (Ontology Guide V14, Table A-1)',
 	HAS_SECONDARY_CONCEPT: 'CEDS class to its secondary Conceptual Model concept (Ontology Guide V14, Table A-1)',
 	HAS_EVENT_DATE_CONCEPT: 'CEDS date property to the concepts Ontology Guide V14 Table A-2 lists for it (an Event date)',
@@ -302,7 +294,7 @@ Match edges originate from source-standard elements (DmeProperty; in SIF and PES
 - **DmeSupport** — supplementary detail and scaffolding (HAS_SUPPORT targets, SIF Containers, PESC schema files and groups). Never a mapping unit.
 - **DmeInstance** — one occurrence of a DmeProperty in a concrete context: a SIF Field inside an Object, a PESC element occurrence inside a document section. Reached from its declaration by HAS_INSTANCE; it carries that declaration's mapping edges and no vector of its own.
 
-- **CEDS layer roles** — DmeLayerRoot, DmeArea, DmeLayerElement, DmePlacement, DmeConcept, DmeTextRepair. Nodes in these roles carry the label \`StandardLayer\` and \`_source\` CEDS but are NOT CEDS V14 content; see "CEDS Layers" below.
+- **CEDS layer roles** — DmeLayerRoot, DmeConcept, DmeTextRepair. Nodes in these roles carry the label \`StandardLayer\` and \`_source\` CEDS but are NOT CEDS V14 content; see "CEDS Layers" below.
 
 ## Structural Edges
 
@@ -316,26 +308,12 @@ A SIF Question stands for one Field per object it appears in (HAS_INSTANCE); a P
 
 In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, the PESC element declaration) carries **no** match edge. The bridges fan each verdict out onto the element's HAS_INSTANCE instances (DmeInstance nodes), so read its mappings THROUGH them and group them by where each instance sits: the owning SIF Object (\`(obj)-[:HAS_FIELD]->(inst)\`) or the PESC occurrence's \`sectionPath\`. Report one line per CEDS tuple with the groups that hold it — never one repeated line per instance. CEDS, Ed-Fi and the other standards have no instances; their mappings sit on the element itself.
 
-## CEDS Layers: the Domain Entity Schema, the Conceptual Model, the text repairs
+## CEDS Layers: the Conceptual Model and the text repairs
 
-CEDS publishes more than its V14 ontology, and this graph carries three of those publications as LAYERS beside it (block kind \`layer\`), never written onto a V14 node. Every layer node carries the label \`StandardLayer\` and \`_source\` CEDS; **exclude \`StandardLayer\` whenever you count or list CEDS itself** (\`AND NOT n:StandardLayer\`). Use the dme_structure tool first; it answers the common questions without Cypher.
+CEDS publishes more than its V14 ontology, and this graph carries two of those publications as LAYERS beside it (block kind \`layer\`), never written onto a V14 node. Every layer node carries the label \`StandardLayer\` and \`_source\` CEDS; **exclude \`StandardLayer\` whenever you count or list CEDS itself** (\`AND NOT n:StandardLayer\`). Use the dme_structure tool first; it answers the concept questions without Cypher.
 
-- **The Domain Entity Schema (DES), Version 13** (layerKey des, desVersion '13' on every node). CEDS organises its elements by DES domain (K12, Early Learning, Postsecondary, ...) -> DES entity (K12 Student, PS Institution, ...) -> DES category, and places each element there (a placement, with CEDS's own Data Model ID). **Always say "DES domain".** A DES domain is NOT the rdfs domain of a property: the "domain" in a CEDS tuple (HubReference.domainName, HAS_CEDS_DOMAIN) is the property's CLASS. The DES is one version behind the ontology: a DES element's name, definition, alternate name, usage notes and use-case links are **V13 text — say so**; a placement reaches the V14 property by Global ID only (PLACES_PROPERTY), and 28 DES V13 elements have no V14 property. No edge links a DES entity to a CEDS class.
 - **The Conceptual Model** (CEDS Ontology Guide V14, Appendix A; layerKey guide): every class's primary (and sometimes secondary) concept among Person, Organization, Resource, Membership, Asset, Event, Claim and Provenance (HAS_PRIMARY_CONCEPT, HAS_SECONDARY_CONCEPT), and the 204 date properties that record an Event (HAS_EVENT_DATE_CONCEPT).
 - **Text repairs** (layerKey textRepair): some 950 CEDS terms carry U+FFFD replacement characters in the ontology itself (e.g. 'C\uFFFDTE D\'IVOIRE'). Where the CEDS IDS v14 reference data spells the same coded value correctly, a DmeTextRepair node rides BESIDE the CEDS node (REPAIRS_TEXT_OF) with faithfulText, repairedText and its source line. Show the repaired text beside the faithful one and say which is which; never silently replace the CEDS text.
-
-### Which CEDS properties sit under a DES domain, entity or category
-\`\`\`cypher
-MATCH (area:StandardLayer {role: 'DmeArea'}) WHERE area.name = $areaName
-MATCH (area)-[:HAS_DES_ENTITY|HAS_DES_CATEGORY*0..5]->()-[:HAS_DES_PLACEMENT]->(placement)-[:PLACES_PROPERTY]->(property)
-RETURN area.desAreaPathText AS desArea, placement.desAreaPathText AS placedAt, property.cedsId AS propertyId, property.name AS propertyName
-\`\`\`
-
-### Where a CEDS property sits in the DES
-\`\`\`cypher
-MATCH (property:ForgedNode {role: 'DmeProperty', cedsId: $propertyId})<-[:PLACES_PROPERTY]-(placement)
-RETURN placement.desAreaPathText AS desPlacement, placement.dataModelId AS dataModelId
-\`\`\`
 
 ## Conventions
 

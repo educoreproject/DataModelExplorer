@@ -1,8 +1,8 @@
 'use strict';
 
 // layerScope.js — how the DME tells a LAYER node from its standard's own (lane DES, educoreForge campaign cedsRichness-101226,
-// 2026-10-12; COPPER_RIVER amendment B). A layer is a separately published companion of one standard (for CEDS: the Domain
-// Entity Schema V13, the Ontology Guide V14 Appendix A, the U+FFFD text repairs). Its nodes carry the standard's _source and
+// 2026-10-12; COPPER_RIVER amendment B). A layer is a separately published companion of one standard (for CEDS: the Ontology
+// Guide V14 Appendix A and the U+FFFD text repairs). Its nodes carry the standard's _source and
 // ForgedNode, so every verb that counts or selects by _source, ForgedNode or standard would silently grow the standard by
 // them; the contract names the label that tells them apart (graphContract.json layerScopeRule), and this module is the ONE
 // place the DME reads it.

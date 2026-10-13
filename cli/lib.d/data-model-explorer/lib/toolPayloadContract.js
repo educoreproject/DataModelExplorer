@@ -39,8 +39,8 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	rawCypher: Object.freeze({ rowUnitText: 'a record your Cypher returned', rowListFieldName: 'records', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'notReadOnly']) }), // notReadOnly: X1, the read-only validator
 	calculate: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'unknownOperation', 'invalidNumberList', 'emptyNumberList', 'divisionByZero']) }), // A14
 	// ⟪lane GREP, 2026-10-11⟫ pattern and fuzzy-name search: the shape of a name, not its meaning (GREP_* below)
-	// ⟪lane DES, 2026-10-12⟫ CEDS's own structure (the DES V13 and Ontology Guide V14 layers), read through its own verb
-	structure: Object.freeze({ rowUnitText: 'per --mode: a DES area (listAreas), a DES placement under the matched DES area (areaProperties), a matched CEDS property with its DES placements (propertyPlacements), or a matched CEDS class with its concepts (classConcepts)', rowListFieldName: 'rowList', refusalNameList: Object.freeze(['unknownFlag', 'invalidStructureMode', 'emptyName', 'flagNotForStructureMode', 'noDesLayer', 'nothingMatched']) }),
+	// ⟪lane DES, 2026-10-12; lane UNDES, 2026-10-13⟫ CEDS's Conceptual Model (the Ontology Guide V14 layer), read through its own verb
+	structure: Object.freeze({ rowUnitText: 'per --mode: a matched CEDS class with its Conceptual Model concepts (classConcepts), or a matched CEDS property with the event-date concepts the guide lists for it (propertyConcepts)', rowListFieldName: 'rowList', refusalNameList: Object.freeze(['unknownFlag', 'invalidStructureMode', 'emptyName', 'noGuideLayer', 'nothingMatched']) }),
 	grep: Object.freeze({ rowUnitText: 'a content node (:ForgedNode, never :GraphMeta) whose field matched: one row per node; regex mode orders rows by name, fuzzy mode by similarityScore (best first)', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyPattern', 'invalidGrepMode', 'invalidGrepField', 'invalidCaseSensitive', 'flagNotForGrepMode', 'invalidRegex', 'patternTooLong', 'grepTimeout', 'apocTextUnavailable', 'unknownStandard']) }),
 });
 
@@ -64,7 +64,7 @@ const VERB_INPUT_CONTRACT = Object.freeze({
 	calculate: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['operation', 'numberList']) }),
 	// the pattern is a FLAG, not a positional: the CLI reads any argument starting with '-' as a switch, and a regex may
 	grep: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['pattern', 'mode', 'field', 'caseSensitive', 'standard']) }),
-	structure: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['mode', 'name', 'domain']) }),
+	structure: Object.freeze({ positionalList: Object.freeze([]), flagList: Object.freeze(['mode', 'name']) }),
 });
 // the default a verb's flag takes when it is not given (declared, so -help and the parser read one source)
 const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
