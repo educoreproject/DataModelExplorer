@@ -179,7 +179,6 @@ const styleList = [
 			'border-color': 'data(familyColor)',
 		},
 	},
-	{ selector: 'node[?isFocus]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700, 'border-width': 4 } },
 	{ selector: 'node[kind = "family"]', style: { 'background-color': 'data(familyColor)', color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0 } },
 	{ selector: 'node[kind = "standard"], node[kind = "release"]', style: { 'border-width': 3 } },
 	{ selector: 'node[kind = "class"]', style: { 'background-color': 'data(familyTint)', 'pie-size': '100%', 'pie-hole': '78%', 'pie-1-background-color': '#00B5B8', 'pie-1-background-size': 'data(mappedPercent)', 'pie-2-background-color': '#C9D3E8', 'pie-2-background-size': 'data(unmappedPercent)', 'border-width': 0 } },
@@ -197,6 +196,9 @@ const styleList = [
 	{ selector: 'node[kind = "support"], node[kind = "unclassified"]', style: { shape: 'round-rectangle', 'background-color': '#F3F4F6', 'border-color': '#D1D5DB', 'border-width': 1, width: 50, height: 30, 'font-size': 11, 'font-weight': 400 } },
 	{ selector: 'node[kind = "more"]', style: { 'background-color': '#FFFFFF', 'border-style': 'dashed', 'border-width': 2, 'border-color': 'data(familyColor)', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0, 'font-weight': 700 } },
 	{ selector: 'node[kind = "drillBadge"]', style: { width: 18, height: 18, 'background-color': '#072A6C', 'border-color': '#FFFFFF', 'border-width': 2, color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': -1, 'text-background-opacity': 0, 'font-size': 13, 'font-weight': 700, 'z-index': 20 } },
+	// the focus is always the big bubble in the middle, whatever its kind (after the kind rules, so it wins)
+	{ selector: 'node[?isFocus][kind != "cedsAnchor"][kind != "standardGroup"]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700 } },
+	{ selector: 'node[?isFocus]', style: { 'font-size': 15, 'font-weight': 700 } },
 	{ selector: 'node[?isHome]', style: { 'underlay-color': '#FFAB40', 'underlay-opacity': 0.65, 'underlay-padding': 10, 'underlay-shape': 'ellipse' } },
 	{ selector: 'node:selected', style: { 'overlay-color': '#072A6C', 'overlay-opacity': 0.12, 'overlay-padding': 8, 'overlay-shape': 'ellipse' } },
 	{ selector: 'node[!isMatching]', style: { opacity: 0.2 } },
