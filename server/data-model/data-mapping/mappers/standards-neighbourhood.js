@@ -16,8 +16,9 @@
 //   - releaseIndependentId embeds the namespace version (':v1.19.0') and, for properties, the element's POSITION
 //     ('/el/4:'), so the cross-version identity strips both (see versionIdentityOf).
 //
-// Two synthetic node ids exist only on the wire, never in the graph: 'family:<standardFamily>' (the catalog as a
-// node) and 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one CEDS anchor).
+// Three synthetic node ids exist only on the wire, never in the graph: 'family:<standardFamily>' (the catalog as a
+// node), 'release:<standardFamily>/<releaseLabel>' (a message offered in several versions: the version picker) and
+// 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one CEDS anchor).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 
@@ -76,6 +77,7 @@ const matchKindByEdgeType = Object.freeze({
 // the synthetic node ids; a registry, so the access point dispatches on data, not on string tests scattered about
 const syntheticIdPrefixList = Object.freeze([
 	{ idPrefix: 'family:', nodeKind: 'family' },
+	{ idPrefix: 'release:', nodeKind: 'release' },
 	{ idPrefix: 'standardGroup:', nodeKind: 'standardGroup' },
 ]);
 
@@ -237,9 +239,18 @@ const moduleFunction =
 				cypher: `
 					MATCH (root:DmeStandardRoot {standardKey: $standardKey})
 					MATCH (peer:DmeStandardRoot {standardFamily: root.standardFamily, releaseLabel: root.releaseLabel})
-					RETURN peer.standardKey AS standardKey, peer.version AS version, peer.stableId AS stableId
+					RETURN peer.standardKey AS standardKey, peer.version AS version, peer.stableId AS stableId,
+					       peer.standardFamily AS standardFamily, peer.releaseLabel AS releaseLabel
 				`,
 				params: { standardKey },
+			}),
+
+			rootSummaryByStandardKeyList: ({ standardKeyList }) => ({
+				cypher: `
+					MATCH (root:DmeStandardRoot) WHERE root.standardKey IN $standardKeyList
+					RETURN root.standardKey AS standardKey, root.standardFamily AS standardFamily, root.releaseLabel AS releaseLabel, root.version AS version
+				`,
+				params: { standardKeyList },
 			}),
 
 			classDigestsByStandardKey: ({ standardKey }) => ({
@@ -282,6 +293,16 @@ const moduleFunction =
 		};
 
 		const familyIdOf = (standardFamily) => `family:${standardFamily}`;
+
+		// release:<standardFamily>/<releaseLabel> — one message offered in more than one version (the version picker)
+		const releaseIdOf = ({ standardFamily, releaseLabel }) => `release:${standardFamily}/${releaseLabel}`;
+		const parseReleaseRemainder = (remainderText) => {
+			const dividerIndex = remainderText.indexOf('/');
+			if (dividerIndex < 1 || dividerIndex === remainderText.length - 1) {
+				return null;
+			}
+			return { standardFamily: remainderText.slice(0, dividerIndex), releaseLabel: remainderText.slice(dividerIndex + 1) };
+		};
 
 		// standardGroup:<standardKey>@<anchorStableId> — standardKeys are [a-z0-9]+, so the first '@' divides
 		const standardGroupIdOf = ({ standardKey, anchorStableId }) => `standardGroup:${standardKey}@${anchorStableId}`;
@@ -527,6 +548,37 @@ const moduleFunction =
 			return chosenChain.slice(0, -1).map((chainNode) => ({ stableId: chainNode.stableId, name: chainNode.name, kind: nodeKindOf(chainNode.labelList) }));
 		};
 
+		const mapStandardItem = (catalogRecord) => ({
+			stableId: catalogRecord.stableId,
+			name: catalogRecord.name,
+			kind: 'standard',
+			description: catalogRecord.description,
+			hasChildren: catalogRecord.classCount > 0,
+			standardKey: catalogRecord.standardKey,
+			standardFamily: catalogRecord.standardFamily,
+			releaseLabel: catalogRecord.releaseLabel,
+			version: catalogRecord.version,
+			classCount: catalogRecord.classCount,
+		});
+
+		// the family's children: a one-version message is its standard; a many-version message is a release to pick from
+		const mapFamilyItemList = (catalogRecordList) =>
+			mapCatalogRecordList(catalogRecordList).map((oneRelease) => {
+				if (oneRelease.versionList.length === 1) {
+					return mapStandardItem(catalogRecordList.find((oneRecord) => oneRecord.stableId === oneRelease.versionList[0].stableId));
+				}
+				return {
+					stableId: releaseIdOf(oneRelease),
+					name: oneRelease.releaseLabel,
+					kind: 'release',
+					description: '',
+					hasChildren: true,
+					standardFamily: oneRelease.standardFamily,
+					releaseLabel: oneRelease.releaseLabel,
+					versionList: oneRelease.versionList.map((oneVersion) => ({ stableId: oneVersion.stableId, version: oneVersion.version, classCount: oneVersion.classCount })),
+				};
+			});
+
 		const mapCatalogRecordList = (catalogRecordList) => {
 			const releaseByLabel = {};
 			catalogRecordList.forEach((oneRecord) => {
@@ -543,6 +595,10 @@ const moduleFunction =
 			nodeKindOf,
 			parseSyntheticId,
 			familyIdOf,
+			releaseIdOf,
+			parseReleaseRemainder,
+			mapStandardItem,
+			mapFamilyItemList,
 			standardGroupIdOf,
 			parseStandardGroupRemainder,
 			collapseMappingList,

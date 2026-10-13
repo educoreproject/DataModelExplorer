@@ -67,6 +67,11 @@ const isAdmin = computed(() =>
 				title="Schema Verifier"
 			/>
 			<v-list-item
+				to="/explore/pesc"
+				prepend-icon="mdi-graph-outline"
+				title="PESC Explorer"
+			/>
+			<v-list-item
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"

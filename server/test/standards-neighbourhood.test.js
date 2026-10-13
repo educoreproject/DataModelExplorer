@@ -159,9 +159,18 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			});
 		}),
 		(done) => ask({ action: 'node', stableId: 'family:PESC' }, (familyError, family) => {
-			ok('family node: family:PESC lists every PESC version as a standard', !familyError && family.node.kind === 'family' && groupOf(family, 'HAS_STANDARD').itemList.every((oneItem) => oneItem.kind === 'standard' && oneItem.standardFamily === 'PESC') && groupOf(family, 'HAS_STANDARD').count >= 8, familyError);
+			const itemList = groupOf(family || {}, 'HAS_STANDARD').itemList;
+			const releaseItem = itemList.find((oneItem) => oneItem.kind === 'release') || {};
+			ok('family node: one item per message; a one-version message is its standard', !familyError && itemList.length === 7 && itemList.filter((oneItem) => oneItem.kind === 'standard').length === 6, familyError || `${itemList.length}`);
+			ok('family node: College Transcript is a release offering 1.7.0 and 1.8.0', releaseItem.stableId === 'release:PESC/CollegeTranscript' && releaseItem.versionList.map((oneVersion) => oneVersion.version).join() === '1.7.0,1.8.0');
 			done();
 		}),
+		(done) => ask({ action: 'node', stableId: 'release:PESC/CollegeTranscript' }, (releaseError, release) => {
+			const versionList = groupOf(release || {}, 'HAS_VERSION').itemList;
+			ok('release node: the version picker lists 1.8.0 then 1.7.0, each a drillable standard', !releaseError && versionList.map((oneItem) => oneItem.version).join() === '1.8.0,1.7.0' && versionList.every((oneItem) => oneItem.kind === 'standard' && oneItem.hasChildren), releaseError);
+			done();
+		}),
+		(done) => ask({ action: 'node', stableId: 'release:PESC/NoSuchMessage' }, (refusalText) => { ok('refusal: a release the family does not have', /family 'PESC' has no message 'NoSuchMessage'/.test(refusalText || ''), refusalText); done(); }),
 
 		// ---- 2. the version oracle
 		(done) => ask({ action: 'node', stableId: found.ct18RootStableId, compareVersion: true }, (nodeError, standardLevel) => {
@@ -295,8 +304,8 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		}),
 
 		// ---- path summary
-		(done) => ask({ action: 'pathSummary', stableIdList: ['family:PESC', found.ct18RootStableId, found.nameTypeStableId, found.firstNameAnchorStableId, found.sifGroup.stableId] }, (summaryError, summary) => {
-			ok('pathSummary: names and kinds every crumb of a crossing path', !summaryError && summary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join() === 'family,standard,class,cedsAnchor,standardGroup', summaryError || JSON.stringify(summary));
+		(done) => ask({ action: 'pathSummary', stableIdList: ['family:PESC', 'release:PESC/CollegeTranscript', found.ct18RootStableId, found.nameTypeStableId, found.firstNameAnchorStableId, found.sifGroup.stableId] }, (summaryError, summary) => {
+			ok('pathSummary: names and kinds every crumb of a crossing path', !summaryError && summary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join() === 'family,release,standard,class,cedsAnchor,standardGroup' && summary.nodeSummaryList[5].standardFamily === 'SIF', summaryError || JSON.stringify(summary));
 			done();
 		}),
 

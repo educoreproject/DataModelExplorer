@@ -172,24 +172,39 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(catalogError);
 				return;
 			}
-			const itemList = catalog.catalogRecordList.map((oneRecord) => ({
-				stableId: oneRecord.stableId,
-				name: oneRecord.name,
-				kind: 'standard',
-				description: oneRecord.description,
-				hasChildren: oneRecord.classCount > 0,
-				standardKey: oneRecord.standardKey,
-				standardFamily: oneRecord.standardFamily,
-				releaseLabel: oneRecord.releaseLabel,
-				version: oneRecord.version,
-				classCount: oneRecord.classCount,
-			}));
+			const itemList = mapper.mapFamilyItemList(catalog.catalogRecordList);
 			callback('', {
 				node: { stableId: mapper.familyIdOf(standardFamily), name: standardFamily, kind: 'family', standardFamily, description: '' },
 				ancestorList: [],
 				childGroupList: [{ relationshipType: 'HAS_STANDARD', count: itemList.length, truncated: false, itemList }],
 				mappingList: [],
 				releaseList: catalog.releaseList,
+			});
+		});
+	};
+
+	const readReleaseNode = ({ stableId, remainderText }, callback) => {
+		const releaseIdentity = mapper.parseReleaseRemainder(remainderText);
+		if (!releaseIdentity) {
+			callback(`${moduleName}: '${stableId}' is not a release id (expected release:<standardFamily>/<releaseLabel>)`);
+			return;
+		}
+		readCatalog({ standardFamily: releaseIdentity.standardFamily }, (catalogError, catalog) => {
+			if (catalogError) {
+				callback(catalogError);
+				return;
+			}
+			const versionRecordList = catalog.catalogRecordList.filter((oneRecord) => oneRecord.releaseLabel === releaseIdentity.releaseLabel);
+			if (!versionRecordList.length) {
+				callback(`${moduleName}: family '${releaseIdentity.standardFamily}' has no message '${releaseIdentity.releaseLabel}'`);
+				return;
+			}
+			const itemList = versionRecordList.map(mapper.mapStandardItem).reverse();
+			callback('', {
+				node: { stableId, name: releaseIdentity.releaseLabel, kind: 'release', standardFamily: releaseIdentity.standardFamily, releaseLabel: releaseIdentity.releaseLabel, description: '' },
+				ancestorList: [],
+				childGroupList: [{ relationshipType: 'HAS_VERSION', count: itemList.length, truncated: false, itemList }],
+				mappingList: [],
 			});
 		});
 	};
@@ -252,6 +267,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					kind: 'standardGroup',
 					description: `Elements of this standard mapped to the CEDS element ${anchorName}`,
 					standardKey: groupIdentity.standardKey,
+					standardFamily: ownPeer.standardFamily || null,
+					releaseLabel: ownPeer.releaseLabel || null,
 					version: ownPeer.version || null,
 					rootStableId: ownPeer.stableId || null,
 					anchor: { stableId: groupIdentity.anchorStableId, name: anchorName },
@@ -347,6 +364,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// the handler for each synthetic id kind (mapper's syntheticIdPrefixList)
 	const handlerBySyntheticKind = {
 		family: ({ remainderText }, callback) => readFamilyNode({ standardFamily: remainderText }, callback),
+		release: readReleaseNode,
 		standardGroup: readStandardGroupNode,
 	};
 
@@ -384,13 +402,31 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			return;
 		}
 		const graphStableIdList = stableIdList.filter((oneId) => !mapper.parseSyntheticId(oneId));
-		runNamedQuery('nodeSummaryByStableIdList', { stableIdList: graphStableIdList }, (queryError, summaryRecordList) => {
-			if (queryError) {
-				callback(queryError);
+		const groupIdentityByStableId = {};
+		stableIdList.forEach((oneId) => {
+			const syntheticId = mapper.parseSyntheticId(oneId);
+			if (syntheticId && syntheticId.nodeKind === 'standardGroup') {
+				groupIdentityByStableId[oneId] = mapper.parseStandardGroupRemainder(syntheticId.remainderText) || {};
+			}
+		});
+		const taskList = new taskListPlus();
+
+		taskList.push((args, next) =>
+			runNamedQuery('nodeSummaryByStableIdList', { stableIdList: graphStableIdList }, (queryError, summaryRecordList) => next(queryError, { ...args, summaryRecordList })),
+		);
+		taskList.push((args, next) =>
+			runNamedQuery('rootSummaryByStandardKeyList', { standardKeyList: Object.values(groupIdentityByStableId).map((oneIdentity) => oneIdentity.standardKey).filter(Boolean) }, (queryError, rootRecordList) =>
+				next(queryError, { ...args, rootRecordList }),
+			),
+		);
+
+		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
 				return;
 			}
 			const summaryByStableId = {};
-			summaryRecordList.forEach((oneRecord) => {
+			args.summaryRecordList.forEach((oneRecord) => {
 				summaryByStableId[oneRecord.stableId] = mapper.mapNodeSummaryRecord(oneRecord);
 			});
 			const unknownIdList = graphStableIdList.filter((oneId) => !summaryByStableId[oneId]);
@@ -406,8 +442,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				if (syntheticId.nodeKind === 'family') {
 					return { stableId: oneId, name: syntheticId.remainderText, kind: 'family', standardFamily: syntheticId.remainderText };
 				}
-				const groupIdentity = mapper.parseStandardGroupRemainder(syntheticId.remainderText) || {};
-				return { stableId: oneId, name: groupIdentity.standardKey, kind: 'standardGroup', standardKey: groupIdentity.standardKey };
+				if (syntheticId.nodeKind === 'release') {
+					const releaseIdentity = mapper.parseReleaseRemainder(syntheticId.remainderText) || {};
+					return { stableId: oneId, name: releaseIdentity.releaseLabel, kind: 'release', standardFamily: releaseIdentity.standardFamily, releaseLabel: releaseIdentity.releaseLabel };
+				}
+				const groupIdentity = groupIdentityByStableId[oneId];
+				const rootRecord = args.rootRecordList.find((oneRecord) => oneRecord.standardKey === groupIdentity.standardKey) || {};
+				return { stableId: oneId, name: groupIdentity.standardKey, kind: 'standardGroup', standardKey: groupIdentity.standardKey, standardFamily: rootRecord.standardFamily || null, releaseLabel: rootRecord.releaseLabel || null, version: rootRecord.version || null };
 			});
 			callback('', { nodeSummaryList });
 		});
