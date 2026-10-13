@@ -22,7 +22,7 @@ const emit = defineEmits(['drill']);
 const canvasElement = ref(null);
 let cyInstance = null;
 
-const SAMPLE_ITEM_COUNT = 24;
+const SAMPLE_ITEM_COUNT = 16;
 const MAXIMUM_FIT_ZOOM = 1.15;
 const STRUCTURAL_EDGE_COLOR = '#A3ACBD';
 const MORE_NODE_ID = 'explorer-more';
@@ -261,8 +261,7 @@ onMounted(() => {
 	cyInstance.on('tap', 'node', (tapEvent) => {
 		const tappedNode = tapEvent.target;
 		if (tappedNode.id() === MORE_NODE_ID) {
-			store.setViewModeChoice('table');
-			store.diagramRequestedForStableId = '';
+			store.returnToTable();
 			return;
 		}
 		if (tappedNode.data('isFocus')) {

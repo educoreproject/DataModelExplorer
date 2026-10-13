@@ -247,6 +247,12 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			if (viewMode === 'diagram' && this.focusNode) this.diagramRequestedForStableId = this.focusNode.stableId;
 		},
 
+		// the "+N more" bubble: back to the table, and a large level opens in the table again next time
+		returnToTable() {
+			this.viewModeChoice = 'table';
+			this.diagramRequestedForStableId = '';
+		},
+
 		setFilterText(filterText) {
 			this.filterText = filterText || '';
 		},

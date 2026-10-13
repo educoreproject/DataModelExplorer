@@ -8,9 +8,13 @@
 // chosen from handlerByActionName:
 //   catalog      { standardFamily }            → { standardFamily, releaseList }
 //   node         { stableId, compareVersion }  → { node, ancestorList, childGroupList, mappingList, ... }
+//                stableId is a graph stableId or a synthetic id (family:, release:, standardGroup:; see the mapper);
+//                compareVersion is optional: true badges a standard's classes or a class's properties against the
+//                nearest other version of the same message, anything else leaves badges out
 //   pathSummary  { stableIdList }              → { nodeSummaryList } (the breadcrumb of a reloaded URL)
 // Runs on the golden READ-ONLY handle. Refuses by name: an absent or unknown action, an absent or unknown stableId,
-// a family the graph does not hold, and a graph lacking a label the mapper reads. Nothing here is PESC-specific.
+// a family or release the graph does not hold, a malformed synthetic id, a version-identity collision, and a graph
+// lacking a label the mapper reads. Nothing here is PESC-specific.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
