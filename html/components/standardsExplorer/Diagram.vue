@@ -12,6 +12,7 @@ import {
 	confidenceTierOf,
 	displayNameOf,
 	familyStyleOf,
+	isOpenAtOnceClick,
 	matchStyleByKind,
 	versionBadgeTextOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
@@ -266,6 +267,11 @@ onMounted(() => {
 		}
 		if (tappedNode.data('isFocus')) {
 			store.selectRow('');
+			return;
+		}
+		const ownerNode = cyInstance.getElementById(ownerStableIdOf(tappedNode));
+		if (isOpenAtOnceClick(tapEvent.originalEvent) && ownerNode.data('hasChildren')) {
+			emit('drill', ownerNode.id());
 			return;
 		}
 		store.selectRow(ownerStableIdOf(tappedNode));

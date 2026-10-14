@@ -4,7 +4,7 @@
 
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyStyleOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const emit = defineEmits(['drill']);
@@ -89,7 +89,13 @@ const rowPropsOf = ({ item }) => ({
 	'data-testid': `row-${item.name}`,
 });
 
-const selectRow = (clickEvent, { item }) => store.selectRow(item.stableId);
+const selectRow = (clickEvent, { item }) => {
+	if (isOpenAtOnceClick(clickEvent) && item.hasChildren) {
+		emit('drill', item.stableId);
+		return;
+	}
+	store.selectRow(item.stableId);
+};
 const drillRow = (clickEvent, { item }) => {
 	if (item.hasChildren) emit('drill', item.stableId);
 };

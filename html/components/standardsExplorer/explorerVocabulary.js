@@ -159,6 +159,9 @@ export const counterpartPathOf = ({ standardFamily, releaseLabel, counterpart })
 	counterpart.stableId,
 ];
 
+// cmd-click (macOS) or ctrl-click (Windows, Linux) opens an item at once, as its panel's Open button would
+export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));
+
 // a level with more items than this opens in the table (spec §6.4)
 export const LARGE_LEVEL_ITEM_COUNT = 40;
 
