@@ -41,6 +41,16 @@ const differenceTextList = computed(() => {
 		return [`Its definition differs in a part this page does not show`];
 	});
 });
+
+// each difference as a bold title line and, where the sentence carries a list or values after its colon, a detail line
+const differenceEntryList = computed(() =>
+	differenceTextList.value.map((differenceText) => {
+		const colonIndex = differenceText.indexOf(': ');
+		return colonIndex === -1
+			? { differenceText, titleText: differenceText, detailText: '' }
+			: { differenceText, titleText: differenceText.slice(0, colonIndex), detailText: differenceText.slice(colonIndex + 2) };
+	}),
+);
 </script>
 
 <template>
@@ -66,7 +76,10 @@ const differenceTextList = computed(() => {
 			<p v-else-if="counterpart.kind === 'property' || counterpart.kind === 'instance'" class="version-tile-note">Not mapped to CEDS.</p>
 
 			<ul v-if="differenceTextList.length" class="version-tile-differences" data-testid="version-tile-differences">
-				<li v-for="differenceText in differenceTextList" :key="differenceText">{{ differenceText }}</li>
+				<li v-for="oneEntry in differenceEntryList" :key="oneEntry.differenceText">
+					<span class="version-tile-difference-title">{{ oneEntry.titleText }}</span>
+					<span v-if="oneEntry.detailText" class="version-tile-difference-detail">{{ oneEntry.detailText }}</span>
+				</li>
 			</ul>
 
 			<button type="button" class="version-tile-open" data-testid="version-tile-open" @click="emit('open-counterpart', versionEntry)">Open in {{ versionEntry.version }} ›</button>
@@ -151,6 +164,16 @@ const differenceTextList = computed(() => {
 	color: #8a5200;
 	font-size: 13px;
 	line-height: 1.45;
+}
+.version-tile-differences li + li {
+	margin-top: 8px;
+}
+.version-tile-difference-title {
+	display: block;
+	font-weight: 700;
+}
+.version-tile-difference-detail {
+	display: block;
 }
 .version-tile-open {
 	align-self: flex-start;
