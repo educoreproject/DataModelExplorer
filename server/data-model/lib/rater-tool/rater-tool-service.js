@@ -35,7 +35,7 @@ const SEARCHES_TYPED_CAP = 50;
 const QUERY_TEXT_LENGTH_CAP = 500;
 const CEDS_ID_PATTERN = /^P\d{6}$/;
 
-const RATER_REFUSAL_NAME_LIST = Object.freeze(['notARater', 'itemNumberInvalid', 'elementNotInSurvey', 'answersLocked', 'addedCardInvalid', 'searchModeInvalid', 'queryTextEmpty', 'cedsIdInvalid', 'browseModeInvalid', 'unknownConcept', 'unknownClass', 'notAllItemsSaved', 'noEmbedder', 'searchIndexAbsent']);
+const RATER_REFUSAL_NAME_LIST = Object.freeze(['notARater', 'itemNumberInvalid', 'elementNotInSurvey', 'answersLocked', 'addedCardInvalid', 'searchModeInvalid', 'queryTextEmpty', 'cedsIdInvalid', 'browseModeInvalid', 'unknownConcept', 'unknownClass', 'secondsOnItemInvalid', 'searchesTypedInvalid', 'notAllItemsSaved', 'noEmbedder', 'searchIndexAbsent']);
 const refusalOf = (refusalName, refusalText) => {
 	if (RATER_REFUSAL_NAME_LIST.indexOf(refusalName) === -1) {
 		throw new Error(`rater-tool-service: '${refusalName}' is not one of ${RATER_REFUSAL_NAME_LIST.join(', ')}`);
@@ -181,6 +181,17 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 				done('', refusalOf('addedCardInvalid', `An added card needs its cedsTupleId and foundBy (one of ${ADDED_CARD_FOUND_BY_LIST.join(', ')}).`));
 				return;
 			}
+			// the record-keeping fields are optional; when present they must be what they say, never quietly corrected
+			const secondsOnItemGiven = submission.secondsOnItem !== undefined && submission.secondsOnItem !== null;
+			if (secondsOnItemGiven && !(Number.isFinite(submission.secondsOnItem) && submission.secondsOnItem >= 0)) {
+				done('', refusalOf('secondsOnItemInvalid', `secondsOnItem must be a number of seconds, 0 or more; got ${JSON.stringify(submission.secondsOnItem)}.`));
+				return;
+			}
+			const searchesTypedGiven = submission.searchesTyped !== undefined && submission.searchesTyped !== null;
+			if (searchesTypedGiven && !(Array.isArray(submission.searchesTyped) && submission.searchesTyped.every((searchText) => typeof searchText === 'string'))) {
+				done('', refusalOf('searchesTypedInvalid', 'searchesTyped must be a list of the texts searched for.'));
+				return;
+			}
 			const suggestedTupleIdList = suggestedCardListOf(rater, element.elementStableId).map((card) => card.cedsTupleId);
 			const addedTupleIdList = addedSubmissionList.map((addedCard) => addedCard.cedsTupleId);
 			const verdict = validateAnswer({ answerSubmission: submission, allowedCedsTupleIdList: suggestedTupleIdList.concat(addedTupleIdList) });
@@ -217,8 +228,8 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 					readError ? next(readError, args) : next('', { ...args, historyCount: rowList.length })));
 			taskList.push((args, next) => {
 				const savedAt = nowText();
-				const searchesTyped = Array.isArray(submission.searchesTyped) ? submission.searchesTyped.filter((searchText) => typeof searchText === 'string').slice(0, SEARCHES_TYPED_CAP).map((searchText) => searchText.slice(0, QUERY_TEXT_LENGTH_CAP)) : [];
-				const secondsOnItem = Number.isFinite(Number(submission.secondsOnItem)) && Number(submission.secondsOnItem) >= 0 ? Math.round(Number(submission.secondsOnItem)) : null;
+				const searchesTyped = searchesTypedGiven ? submission.searchesTyped.slice(0, SEARCHES_TYPED_CAP).map((searchText) => searchText.slice(0, QUERY_TEXT_LENGTH_CAP)) : [];
+				const secondsOnItem = secondsOnItemGiven ? Math.round(submission.secondsOnItem) : null;
 				const answer = { ...verdict.validAnswer, addedCardList: args.addedCardList, searchesTyped, secondsOnItem };
 				const answerJson = raterMapper.encodeJsonColumn(answer);
 				const currentRow = { raterUserName: rater.raterUserName, elementStableId: element.elementStableId, answerJson, savedAt, ...(args.currentRow ? { refId: args.currentRow.refId } : {}) };

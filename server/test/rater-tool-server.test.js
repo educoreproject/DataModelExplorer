@@ -171,6 +171,8 @@ const stepList = [
 			{ caseName: 'Same without Best', body: { elementStableId: stableIdOf(4), answerKind: 'cards', sameCedsTupleIdList: [tupleOf(4, 0)] }, expected: 'sameWithoutBest' },
 			{ caseName: 'Same on the Best card', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: tupleOf(4, 0), sameCedsTupleIdList: [tupleOf(4, 0)] }, expected: 'sameOnBest' },
 			{ caseName: 'two Bests', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: [tupleOf(4, 0), tupleOf(4, 1)] }, expected: 'bestNotOne' },
+			{ caseName: 'secondsOnItem not a non-negative number', body: { elementStableId: stableIdOf(4), answerKind: 'noMatch', secondsOnItem: -5 }, expected: 'secondsOnItemInvalid' },
+			{ caseName: 'searchesTyped not a list of text', body: { elementStableId: stableIdOf(4), answerKind: 'noMatch', searchesTyped: 'birth date' }, expected: 'searchesTypedInvalid' },
 			{ caseName: 'a card not in the list', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: tupleOf(5, 0) === tupleOf(4, 0) ? 'https://example.org/not-a-tuple' : tupleOf(5, 0) }, expected: 'bestNotInList' },
 		];
 		const runCaseAt = (position) => {
