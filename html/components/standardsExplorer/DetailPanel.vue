@@ -9,6 +9,9 @@ import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodS
 import { counterpartPathOf, displayNameOf, familyStyleOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
+
+// the family the walk began in (the path's first crumb, eg family:PESC); other families get the outlined Standard fact
+const homeStandardFamily = computed(() => String(store.pathStableIdList[0] || '').replace(/^family:/, ''));
 const emit = defineEmits(['drill', 'go-to-path']);
 
 watch(
@@ -49,7 +52,12 @@ const factList = computed(() => {
 	const familyName = oneNode.standardFamily ? familyStyleOf(oneNode.standardFamily).displayName : '';
 	const ancestorText = isFocus.value ? (store.neighbourhood.ancestorList || []).map((oneAncestor) => displayNameOf(store.nodeSummaryByStableId[oneAncestor.stableId] || oneAncestor)).join(' › ') : '';
 	return [
-		{ factName: 'Standard', factText: [familyName, oneNode.releaseLabel && oneNode.releaseLabel !== oneNode.standardFamily && !/^[a-z]+\d+$/.test(oneNode.releaseLabel) ? humanizeName(oneNode.releaseLabel) : '', oneNode.version || ''].filter(Boolean).join(' ') },
+		{
+			factName: 'Standard',
+			factText: [familyName, oneNode.releaseLabel && oneNode.releaseLabel !== oneNode.standardFamily && !/^[a-z]+\d+$/.test(oneNode.releaseLabel) ? humanizeName(oneNode.releaseLabel) : '', oneNode.version || ''].filter(Boolean).join(' '),
+			// outside the family the walk began in, the standard is outlined in its family colour so a crossing is plain
+			outlineColor: oneNode.standardFamily && oneNode.standardFamily !== homeStandardFamily.value ? familyStyleOf(oneNode.standardFamily).color : '',
+		},
 		{ factName: 'Inside', factText: ancestorText },
 		{ factName: 'Path', factText: ['instance', 'property'].includes(oneNode.kind) && oneNode.path && !/^(type|element|group)\//.test(oneNode.path) ? oneNode.path : '' },
 		{ factName: 'Property of', factText: oneNode.ownerName || '' },
@@ -99,8 +107,14 @@ const definitionText = computed(() => {
 
 		<dl v-if="factList.length" class="detail-facts">
 			<template v-for="oneFact in factList" :key="oneFact.factName">
-				<dt>{{ oneFact.factName }}</dt>
-				<dd>{{ oneFact.factText }}</dd>
+				<div v-if="oneFact.outlineColor" class="detail-fact-outlined" :style="{ borderColor: oneFact.outlineColor }" data-testid="detail-standard-outlined">
+					<dt>{{ oneFact.factName }}</dt>
+					<dd>{{ oneFact.factText }}</dd>
+				</div>
+				<template v-else>
+					<dt>{{ oneFact.factName }}</dt>
+					<dd>{{ oneFact.factText }}</dd>
+				</template>
 			</template>
 		</dl>
 
@@ -209,6 +223,19 @@ const definitionText = computed(() => {
 .detail-facts dd {
 	margin: 0;
 	overflow-wrap: anywhere;
+}
+.detail-fact-outlined {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: subgrid;
+	border: 2px solid;
+	border-radius: 6px;
+	padding: 4px 8px;
+	margin: 0 -10px;
+	font-weight: 700;
+}
+.detail-fact-outlined dt {
+	font-weight: 400;
 }
 .detail-badge {
 	align-self: flex-start;
