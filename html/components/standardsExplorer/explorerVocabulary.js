@@ -116,11 +116,24 @@ export const versionBadgeStyleByState = Object.freeze({
 	new: { background: '#DDF5F5', border: 'none', color: '#005E61' },
 });
 
-// "New in 1.8": the major.minor of the version the badge belongs to
+const majorMinorOf = (version) => String(version).split('.').slice(0, 2).join('.');
+
+const newerVersionOf = (versionA, versionB) => {
+	const partListA = String(versionA).split('.').map(Number);
+	const partListB = String(versionB).split('.').map(Number);
+	for (let partIndex = 0; partIndex < Math.max(partListA.length, partListB.length); partIndex++) {
+		const difference = (partListA[partIndex] || 0) - (partListB[partIndex] || 0);
+		if (difference) return difference > 0 ? versionA : versionB;
+	}
+	return versionA;
+};
+
+// "New in 1.8": the version the badge belongs to. "Different in 1.8": the newer of the two
+// versions compared, whichever one is on screen, since a change is read as the later version's.
 export const versionBadgeTextOf = (versionBadge) => {
 	if (!versionBadge) return '';
-	if (versionBadge.badgeState === 'new') return `New in ${String(versionBadge.thisVersion).split('.').slice(0, 2).join('.')}`;
-	if (versionBadge.badgeState === 'changed') return 'Changed';
+	if (versionBadge.badgeState === 'new') return `New in ${majorMinorOf(versionBadge.thisVersion)}`;
+	if (versionBadge.badgeState === 'changed') return `Different in ${majorMinorOf(newerVersionOf(versionBadge.thisVersion, versionBadge.comparedVersion))}`;
 	return 'unchanged';
 };
 

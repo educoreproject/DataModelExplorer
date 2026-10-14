@@ -48,7 +48,7 @@ const LEGEND_KIND_LIST = [
 			<span class="legend-head">Marks</span>
 			<span class="legend-row"><span aria-hidden="true" class="legend-more">›</span>Has more inside</span>
 			<span class="legend-row"><span aria-hidden="true" class="legend-ring" />Ring: share mapped to CEDS</span>
-			<span class="legend-row"><span class="legend-badge legend-badge-changed">Changed</span><span class="legend-badge legend-badge-new">New in 1.8</span> against the other version</span>
+			<span class="legend-row"><span class="legend-badge legend-badge-changed">Different in 1.8</span><span class="legend-badge legend-badge-new">New in 1.8</span> against the other version</span>
 			<span class="legend-row"><span class="legend-badge legend-badge-home">You started here</span></span>
 		</div>
 	</div>
