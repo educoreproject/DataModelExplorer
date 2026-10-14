@@ -8,6 +8,8 @@
 // POST /api/standards-neighbourhood answered it, names for every breadcrumb, and the shared view state (Diagram or
 // Table, selection, filter, legend). The page owns the URL and the router; this store only loads what a path names.
 // Every row the table and the diagram draw comes from the levelRowList getter, so the two views cannot disagree.
+// The detail panel's version tiles (the same item in the message's other versions) load lazily, once per stableId,
+// into versionTileStateByStableId; a failure there stays in its entry and never blanks the panel.
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -29,6 +31,7 @@ const standardsNeighbourhoodStoreInitObject = {
 	selectedStableId: '',
 	filterText: '',
 	legendVisible: true,
+	versionTileStateByStableId: {},
 };
 
 const NEIGHBOURHOOD_URL = '/api/standards-neighbourhood';
@@ -52,6 +55,7 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	ownerName: oneItem.ownerName || '',
 	mapping: oneItem.mapping || null,
 	versionBadge: oneItem.versionBadge || null,
+	hasVersionIdentity: Boolean(oneItem.hasVersionIdentity),
 	hasChildren: Boolean(oneItem.hasChildren),
 	propertyCount: oneItem.propertyCount,
 	mappedPropertyCount: oneItem.mappedPropertyCount,
@@ -127,6 +131,21 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		selectedRow() {
 			return this.levelRowList.find((oneRow) => oneRow.stableId === this.selectedStableId) || null;
+		},
+
+		// the item whose other versions the panel tiles: the selected row, else the focus. Asked for only when the
+		// item carries a version identity and its message has another version (a one-version standard asks nothing)
+		versionTileSubject() {
+			const focusNode = this.focusNode;
+			if (!focusNode || !(focusNode.otherVersionList || []).length) return null;
+			const subjectNode = this.selectedRow || focusNode;
+			const inFocusStandard = !subjectNode.standardKey || subjectNode.standardKey === focusNode.standardKey;
+			if (!subjectNode.hasVersionIdentity || !inFocusStandard) return null;
+			return { stableId: subjectNode.stableId, standardFamily: focusNode.standardFamily, releaseLabel: focusNode.releaseLabel, version: focusNode.version };
+		},
+
+		versionTileState() {
+			return this.versionTileSubject ? this.versionTileStateByStableId[this.versionTileSubject.stableId] || null : null;
 		},
 
 		// the breadcrumb: one entry per path step, named from what the server told us
@@ -236,6 +255,28 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		retry() {
 			return this.loadPath([...this.pathStableIdList]);
+		},
+
+		// the version tiles of one item: fetched once, cached by stableId; an error is kept in the entry so the panel
+		// can say so in the tile area and offer the request again
+		async loadVersionCounterparts(stableId) {
+			const existingState = this.versionTileStateByStableId[stableId];
+			if (existingState && (existingState.loading || existingState.versionCounterparts)) return Boolean(existingState.versionCounterparts);
+			const loginStore = useLoginStore();
+			this.versionTileStateByStableId[stableId] = { loading: true, statusMsg: '', versionCounterparts: null };
+			try {
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'versionCounterparts', stableId }, { headers: { ...loginStore.getAuthTokenProperty } });
+				const versionCounterparts = Array.isArray(response.data) ? response.data[0] : null;
+				if (!versionCounterparts || !Array.isArray(versionCounterparts.counterpartList)) {
+					this.versionTileStateByStableId[stableId] = { loading: false, statusMsg: 'the server answered without version counterparts', versionCounterparts: null };
+					return false;
+				}
+				this.versionTileStateByStableId[stableId] = { loading: false, statusMsg: '', versionCounterparts };
+				return true;
+			} catch (error) {
+				this.versionTileStateByStableId[stableId] = { loading: false, statusMsg: refusalTextOf(error, 'other versions'), versionCounterparts: null };
+				return false;
+			}
 		},
 
 		selectRow(stableId) {

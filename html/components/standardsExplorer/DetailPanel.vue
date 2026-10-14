@@ -1,14 +1,28 @@
 <script setup>
 // The detail panel: the selected row, or the focus node when nothing is selected. Kind, name, definition, how it
 // maps to CEDS (kind and confidence, or the mix of kinds for a standard group), the facts, the version badge, and
-// either Open or "end of the line".
+// either Open or "end of the line". Beneath it, one version tile per other version of the item's message, loaded
+// lazily; their loading and error states stay inside the tile area.
 
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { displayNameOf, familyStyleOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
+import { counterpartPathOf, displayNameOf, familyStyleOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
-const emit = defineEmits(['drill']);
+const emit = defineEmits(['drill', 'go-to-path']);
+
+watch(
+	() => store.versionTileSubject?.stableId,
+	(subjectStableId) => {
+		if (subjectStableId) store.loadVersionCounterparts(subjectStableId);
+	},
+	{ immediate: true },
+);
+
+const openCounterpart = (versionEntry) => {
+	const tileSubject = store.versionTileSubject;
+	emit('go-to-path', counterpartPathOf({ standardFamily: tileSubject.standardFamily, releaseLabel: tileSubject.releaseLabel, counterpart: versionEntry.counterpart }));
+};
 
 const isFocus = computed(() => !store.selectedRow);
 
@@ -96,6 +110,24 @@ const definitionText = computed(() => {
 		<p v-else-if="!isFocus" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else class="detail-note">You are here. Click anything on this level for its details.</p>
+
+		<section v-if="store.versionTileSubject" class="detail-versions" aria-label="Other versions" data-testid="detail-versions">
+			<span class="detail-box-head">In other versions</span>
+			<p v-if="!store.versionTileState || store.versionTileState.loading" class="detail-note" data-testid="version-tiles-loading">Looking in the other versions…</p>
+			<div v-else-if="store.versionTileState.statusMsg" class="detail-versions-error" data-testid="version-tiles-error">
+				<span>The other versions could not be read: {{ store.versionTileState.statusMsg }}</span>
+				<v-btn size="small" variant="text" color="primary" @click="store.loadVersionCounterparts(store.versionTileSubject.stableId)">Try again</v-btn>
+			</div>
+			<template v-else>
+				<StandardsExplorerVersionTile
+					v-for="versionEntry in store.versionTileState.versionCounterparts.counterpartList"
+					:key="versionEntry.standardKey"
+					:version-entry="versionEntry"
+					:this-version="store.versionTileSubject.version"
+					@open-counterpart="openCounterpart"
+				/>
+			</template>
+		</section>
 	</aside>
 </template>
 
@@ -183,6 +215,21 @@ const definitionText = computed(() => {
 }
 .detail-open {
 	align-self: flex-start;
+}
+.detail-versions {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-top: 14px;
+	border-top: 1px solid #e3e7ef;
+}
+.detail-versions-error {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	color: #4b5563;
 }
 .detail-leaf {
 	margin: 0;

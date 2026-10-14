@@ -107,7 +107,7 @@ const showLevel = computed(() => !store.neighbourhoodLoading && Boolean(store.ne
 				<StandardsExplorerLegend v-if="store.legendVisible" />
 			</section>
 
-			<StandardsExplorerDetailPanel class="explorer-panel" @drill="drillInto" />
+			<StandardsExplorerDetailPanel class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>

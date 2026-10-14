@@ -137,6 +137,28 @@ export const versionBadgeTextOf = (versionBadge) => {
 	return 'unchanged';
 };
 
+// ================================================================================
+// VERSION TILES — the selected item as it stands in the message's other versions (the detail panel)
+
+// the tile's relation to the selected item; 'absent' has no counterpart at all. Colours are the badges' own
+export const versionTileRelationByState = Object.freeze({
+	unchanged: { relationText: 'Same', badgeStyle: versionBadgeStyleByState.unchanged },
+	changed: { relationText: 'Different', badgeStyle: versionBadgeStyleByState.changed },
+});
+
+// what a definition's members are called on the tile ("Properties only in 1.8.0: ..."); a kind not listed is
+// named by the neutral word, deliberately: the page must read for any standard
+const versionMemberNounByKind = Object.freeze({ class: 'Properties', optionSet: 'Codes', support: 'Members' });
+export const versionMemberNounOf = (nodeKind) => versionMemberNounByKind[nodeKind] || 'Members';
+
+// the walk to a counterpart in its own version's tree: family › release › the counterpart's ancestors › itself
+export const counterpartPathOf = ({ standardFamily, releaseLabel, counterpart }) => [
+	`family:${standardFamily}`,
+	`release:${standardFamily}/${releaseLabel}`,
+	...(counterpart.ancestorList || []).map((oneAncestor) => oneAncestor.stableId),
+	counterpart.stableId,
+];
+
 // a level with more items than this opens in the table (spec §6.4)
 export const LARGE_LEVEL_ITEM_COUNT = 40;
 

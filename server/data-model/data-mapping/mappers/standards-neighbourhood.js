@@ -74,6 +74,40 @@ const matchKindByEdgeType = Object.freeze({
 	BROAD_MATCH: { matchKind: 'broad', strengthRank: 4 },
 });
 
+// VERSION COUNTERPARTS — what definitionDigest covers, as the graph shows it (educoreForge pesc-release-forge
+// walk.js, read 2026-10-14). The forge hashes the parser's model of a definition: for a type, its documentation,
+// derivation and content model INCLUDING every local element's declaration; for an element, its declaration plus
+// its resolved type's own definition (one level). So "different" can live in a field of the node, in a member
+// (a class's properties, a code list's values) or in the type a property points at. Each is named here as data.
+//   valueForm: 'verbatim' compares as stored; 'versionStripped' drops ':vX.Y.Z' first (a QName carries its
+//   namespace version, which differs between any two releases and is not in the hashed model)
+//   showsValues: short scalars print both values on the tile; long or structured fields are only named
+const versionDifferenceFieldList = Object.freeze([
+	{ fieldName: 'documentationValueList', fieldLabel: 'documentation', valueForm: 'verbatim', showsValues: false },
+	{ fieldName: 'typeAsWritten', fieldLabel: 'type as written', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'minOccursAsWritten', fieldLabel: 'minimum occurrences', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'maxOccursAsWritten', fieldLabel: 'maximum occurrences', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'nillableAsWritten', fieldLabel: 'nillable', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'formAsWritten', fieldLabel: 'form', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'defaultAsWritten', fieldLabel: 'default value', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'fixedAsWritten', fieldLabel: 'fixed value', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'useAsWritten', fieldLabel: 'use', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'sequencePosition', fieldLabel: 'position in its type', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'value', fieldLabel: 'code value', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'substitutionGroupQName', fieldLabel: 'substitution group', valueForm: 'versionStripped', showsValues: true },
+	{ fieldName: 'baseTypeQName', fieldLabel: 'base type', valueForm: 'versionStripped', showsValues: true },
+	{ fieldName: 'derivationVariety', fieldLabel: 'derivation', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'contentStyle', fieldLabel: 'content style', valueForm: 'verbatim', showsValues: true },
+	{ fieldName: 'facets', fieldLabel: 'facets', valueForm: 'verbatim', showsValues: false },
+	{ fieldName: 'derivationDocumentationValueList', fieldLabel: 'derivation documentation', valueForm: 'verbatim', showsValues: false },
+	{ fieldName: 'contentModelShape', fieldLabel: 'content model', valueForm: 'verbatim', showsValues: false },
+]);
+
+// the members a definition's digest covers (a class's properties, a code list's values), and the edges to the
+// type a property's digest covers one level of (named or anonymous)
+const versionMemberRelationshipTypeList = Object.freeze(['HAS_PROPERTY', 'HAS_VALUE']);
+const versionTypeRelationshipTypeList = Object.freeze(['REFERENCES_TYPE', 'HAS_OPTION_SET']);
+
 // the synthetic node ids; a registry, so the access point dispatches on data, not on string tests scattered about
 const syntheticIdPrefixList = Object.freeze([
 	{ idPrefix: 'family:', nodeKind: 'family' },
@@ -240,9 +274,34 @@ const moduleFunction =
 					MATCH (root:DmeStandardRoot {standardKey: $standardKey})
 					MATCH (peer:DmeStandardRoot {standardFamily: root.standardFamily, releaseLabel: root.releaseLabel})
 					RETURN peer.standardKey AS standardKey, peer.version AS version, peer.stableId AS stableId,
-					       peer.standardFamily AS standardFamily, peer.releaseLabel AS releaseLabel
+					       peer.standardFamily AS standardFamily, peer.releaseLabel AS releaseLabel, peer._source AS standardSourceName
 				`,
 				params: { standardKey },
+			}),
+
+			// the nodes of one standard that could be a counterpart: same name, carrying a version identity; the
+			// identity itself is decided in JS (versionIdentityMatchOf), the one rule the badges use
+			counterpartCandidates: ({ standardSourceName, name }) => ({
+				cypher: `
+					MATCH (candidate:ForgedNode {_source: $standardSourceName, name: $name})
+					WHERE candidate.releaseIndependentId IS NOT NULL
+					RETURN candidate.stableId AS stableId, candidate.releaseIndependentId AS releaseIndependentId, candidate.definitionDigest AS definitionDigest
+				`,
+				params: { standardSourceName, name },
+			}),
+
+			// what one node's digest covers, as the graph shows it: its hashed fields, its members, its types
+			versionComparisonFacts: ({ stableId }) => ({
+				cypher: `
+					MATCH (subject:ForgedNode {stableId: $stableId})
+					RETURN subject.stableId AS stableId, subject.definitionDigest AS definitionDigest,
+					       subject { ${versionDifferenceFieldList.map((oneField) => `.${oneField.fieldName}`).join(', ')} } AS fieldByName,
+					       [(subject)-[memberEdge]->(member:ForgedNode) WHERE type(memberEdge) IN $memberRelationshipTypeList |
+					         { name: member.name, releaseIndependentId: member.releaseIndependentId, definitionDigest: member.definitionDigest }] AS memberList,
+					       [(subject)-[typeEdge]->(typeNode:ForgedNode) WHERE type(typeEdge) IN $typeRelationshipTypeList |
+					         { relationshipType: type(typeEdge), name: typeNode.name, releaseIndependentId: typeNode.releaseIndependentId, definitionDigest: typeNode.definitionDigest }] AS typeList
+				`,
+				params: { stableId, memberRelationshipTypeList: [...versionMemberRelationshipTypeList], typeRelationshipTypeList: [...versionTypeRelationshipTypeList] },
 			}),
 
 			rootSummaryByStandardKeyList: ({ standardKeyList }) => ({
@@ -435,6 +494,82 @@ const moduleFunction =
 			return identityText === null ? null : (comparisonDigestRowList || []).find((oneRow) => versionIdentityOf(oneRow.releaseIndependentId) === identityText) || null;
 		};
 
+		// the other versions of a node's message, newest first: what the browser needs to know before it asks for tiles
+		const otherVersionListOf = ({ peerList, standardKey }) =>
+			(peerList || [])
+				.filter((onePeer) => onePeer.standardKey !== standardKey)
+				.sort((left, right) => compareVersionText(right.version, left.version))
+				.map((onePeer) => ({ version: onePeer.version, standardKey: onePeer.standardKey, standardStableId: onePeer.stableId }));
+
+		// ================================================================================
+		// VERSION DIFFERENCES — why two counterparts' digests differ, from what the graph shows (registries above).
+		// Answers a list of { differenceKind: 'field' | 'members' | 'type' | 'unexplained', ... }; empty when the
+		// digests agree. 'unexplained' means the digest moved and nothing the page can show did: the tile says so
+		// rather than show two identical-looking tiles under a "Different" badge.
+
+		const versionValueFormByName = {
+			verbatim: (fieldValue) => JSON.stringify(fieldValue === undefined ? null : fieldValue),
+			versionStripped: (fieldValue) => JSON.stringify(typeof fieldValue === 'string' ? fieldValue.replace(/:v\d+\.\d+\.\d+/g, '') : fieldValue === undefined ? null : fieldValue),
+		};
+
+		const fieldDifferenceListOf = ({ thisFacts, counterpartFacts }) =>
+			versionDifferenceFieldList
+				.filter((oneField) => {
+					const comparableOf = versionValueFormByName[oneField.valueForm];
+					return comparableOf((thisFacts.fieldByName || {})[oneField.fieldName]) !== comparableOf((counterpartFacts.fieldByName || {})[oneField.fieldName]);
+				})
+				.map((oneField) => {
+					const fieldDifference = { differenceKind: 'field', fieldName: oneField.fieldName, fieldLabel: oneField.fieldLabel };
+					return oneField.showsValues
+						? { ...fieldDifference, thisValue: (thisFacts.fieldByName || {})[oneField.fieldName] ?? null, counterpartValue: (counterpartFacts.fieldByName || {})[oneField.fieldName] ?? null }
+						: fieldDifference;
+				});
+
+		// members by version identity: added here, missing here (present only in the counterpart), defined differently
+		const memberDifferenceOf = ({ thisFacts, counterpartFacts }) => {
+			const counterpartMemberByIdentity = {};
+			(counterpartFacts.memberList || []).forEach((oneMember) => {
+				const identityText = versionIdentityOf(oneMember.releaseIndependentId);
+				if (identityText !== null) counterpartMemberByIdentity[identityText] = oneMember;
+			});
+			const thisIdentitySet = new Set();
+			const addedNameList = [];
+			const differingNameList = [];
+			(thisFacts.memberList || []).forEach((oneMember) => {
+				const identityText = versionIdentityOf(oneMember.releaseIndependentId);
+				if (identityText === null) return;
+				thisIdentitySet.add(identityText);
+				const counterpartMember = counterpartMemberByIdentity[identityText];
+				if (!counterpartMember) addedNameList.push(oneMember.name);
+				else if (counterpartMember.definitionDigest !== oneMember.definitionDigest) differingNameList.push(oneMember.name);
+			});
+			const missingNameList = Object.keys(counterpartMemberByIdentity).filter((identityText) => !thisIdentitySet.has(identityText)).map((identityText) => counterpartMemberByIdentity[identityText].name);
+			if (!addedNameList.length && !missingNameList.length && !differingNameList.length) return null;
+			const byName = (left, right) => String(left).localeCompare(String(right));
+			return { differenceKind: 'members', addedNameList: addedNameList.sort(byName), missingNameList: missingNameList.sort(byName), differingNameList: differingNameList.sort(byName) };
+		};
+
+		// the type a property points at, matched by version identity; a differing digest means the type changed
+		const typeDifferenceListOf = ({ thisFacts, counterpartFacts }) =>
+			(thisFacts.typeList || [])
+				.map((oneType) => {
+					const counterpartType = versionIdentityMatchOf({ releaseIndependentId: oneType.releaseIndependentId, comparisonDigestRowList: counterpartFacts.typeList });
+					if (counterpartType && counterpartType.definitionDigest === oneType.definitionDigest) return null;
+					return { differenceKind: 'type', typeName: oneType.name, counterpartTypeName: counterpartType ? counterpartType.name : null };
+				})
+				.filter(Boolean);
+
+		const versionDifferenceListOf = ({ thisFacts, counterpartFacts }) => {
+			if (thisFacts.definitionDigest === counterpartFacts.definitionDigest) {
+				return [];
+			}
+			const memberDifference = memberDifferenceOf({ thisFacts, counterpartFacts });
+			const differenceList = fieldDifferenceListOf({ thisFacts, counterpartFacts })
+				.concat(memberDifference ? [memberDifference] : [])
+				.concat(typeDifferenceListOf({ thisFacts, counterpartFacts }));
+			return differenceList.length ? differenceList : [{ differenceKind: 'unexplained' }];
+		};
+
 		// ================================================================================
 		// RESULT TRANSFORMATION
 
@@ -450,6 +585,7 @@ const moduleFunction =
 			version: nodeRecord.version,
 			rootStableId: nodeRecord.rootStableId,
 			rootName: nodeRecord.rootName,
+			hasVersionIdentity: versionIdentityOf(nodeRecord.releaseIndependentId) !== null,
 		});
 
 		const mapNodeSummaryRecord = (summaryRecord) => ({
@@ -471,6 +607,7 @@ const moduleFunction =
 				kind: itemKind,
 				description: childRecord.description,
 				hasChildren: Boolean(childRecord.hasStructuralChildren) || mappingList.length > 0,
+				hasVersionIdentity: versionIdentityOf(childRecord.releaseIndependentId) !== null,
 			};
 			if (childRecord.path !== undefined && childRecord.path !== null) {
 				childItem.path = childRecord.path;
@@ -607,6 +744,9 @@ const moduleFunction =
 			comparisonPeerOf,
 			versionBadgeByStableId,
 			versionIdentityMatchOf,
+			versionDifferenceListOf,
+			otherVersionListOf,
+			versionDifferenceFieldList,
 			mapNodeRecord,
 			mapNodeSummaryRecord,
 			mapChildItem,

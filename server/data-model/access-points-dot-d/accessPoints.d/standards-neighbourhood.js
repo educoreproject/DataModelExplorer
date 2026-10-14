@@ -12,6 +12,10 @@
 //                compareVersion is optional: true badges a standard's classes or a class's properties against the
 //                nearest other version of the same message, anything else leaves badges out
 //   pathSummary  { stableIdList }              → { nodeSummaryList } (the breadcrumb of a reloaded URL)
+//   versionCounterparts { stableId }           → { stableId, version, versionIdentity, counterpartList }: for every
+//                other version of the node's message, { version, standardKey, standardStableId, counterpart } where
+//                counterpart is null when that version has no node of the same version identity, else the node with
+//                its mappings (summarised as the node action summarises them), versionBadgeState and differenceList
 // Runs on the golden READ-ONLY handle. Refuses by name: an absent or unknown action, an absent or unknown stableId,
 // a family or release the graph does not hold, a malformed synthetic id, a version-identity collision, and a graph
 // lacking a label the mapper reads. Nothing here is PESC-specific.
@@ -276,6 +280,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					version: ownPeer.version || null,
 					rootStableId: ownPeer.stableId || null,
 					anchor: { stableId: groupIdentity.anchorStableId, name: anchorName },
+					otherVersionList: mapper.otherVersionListOf({ peerList: args.peerList, standardKey: groupIdentity.standardKey }),
 				},
 				ancestorList: [],
 				childGroupList: [{ relationshipType: 'MAPPED_TO_ANCHOR', count: args.memberRecord.itemCount, truncated: args.memberRecord.itemCount > itemList.length, itemList }],
@@ -331,6 +336,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			runNamedQuery('ancestorChainsByStableId', { stableId: focusNode.stableId }, (queryError, chainRecordList) => next(queryError, { ...args, ancestorList: queryError ? [] : mapper.chooseAncestorChain(chainRecordList) })),
 		);
 
+		// the message's other versions, so the browser knows whether version tiles are worth a request
+		taskList.push((args, next) => {
+			if (!focusNode.standardKey) {
+				next('', { ...args, otherVersionList: [] });
+				return;
+			}
+			runNamedQuery('versionPeerRoots', { standardKey: focusNode.standardKey }, (queryError, peerList) =>
+				next(queryError, { ...args, otherVersionList: queryError ? [] : mapper.otherVersionListOf({ peerList, standardKey: focusNode.standardKey }) }),
+			);
+		});
+
 		// version badges at the two levels the spec badges: a standard's classes, a class's properties
 		taskList.push((args, next) => {
 			if (!compareVersion || (focusNode.kind !== 'standard' && focusNode.kind !== 'class')) {
@@ -350,7 +366,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const instanceFolding = focusNode.kind === 'property' ? mapper.instanceFoldingOf({ mappingRowList, occurrenceStableIdList }) : null;
 			const childGroupList = instanceFolding ? args.childGroupList.map((oneGroup) => (oneGroup.relationshipType === 'HAS_INSTANCE' ? { ...oneGroup, folded: instanceFolding.folded } : oneGroup)) : args.childGroupList;
 			callback('', {
-				node: args.focusVersionBadge ? { ...focusNode, versionBadge: args.focusVersionBadge } : focusNode,
+				node: { ...focusNode, otherVersionList: args.otherVersionList, ...(args.focusVersionBadge ? { versionBadge: args.focusVersionBadge } : {}) },
 				ancestorList: args.ancestorList,
 				childGroupList,
 				mappingList: mapper.collapseMappingList(mappingRowList),
@@ -459,6 +475,146 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	};
 
 	// ================================================================================
+	// VERSION COUNTERPARTS — the same item in every other version of its message (the detail panel's version tiles)
+
+	// one counterpart as the panel shows it: the node, its mappings folded as readElementNode folds them, its ancestors
+	const readCounterpart = ({ counterpartStableId, focusFacts }, callback) => {
+		const taskList = new taskListPlus();
+
+		taskList.push((args, next) =>
+			runNamedQuery('nodeByStableId', { stableId: counterpartStableId }, (queryError, nodeRecordList) => next(queryError, { ...args, counterpartNode: queryError ? null : mapper.mapNodeRecord(nodeRecordList[0]) })),
+		);
+		taskList.push((args, next) =>
+			runNamedQuery('mappingsByStableId', { stableId: counterpartStableId }, (queryError, mappingRecordList) => next(queryError, { ...args, mappingRecord: mappingRecordList && mappingRecordList[0] })),
+		);
+		taskList.push((args, next) =>
+			runNamedQuery('versionComparisonFacts', { stableId: counterpartStableId }, (queryError, factRecordList) => next(queryError, { ...args, counterpartFacts: factRecordList && factRecordList[0] })),
+		);
+		taskList.push((args, next) =>
+			runNamedQuery('ancestorChainsByStableId', { stableId: counterpartStableId }, (queryError, chainRecordList) => next(queryError, { ...args, ancestorList: queryError ? [] : mapper.chooseAncestorChain(chainRecordList) })),
+		);
+
+		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
+				return;
+			}
+			const mappingRowList = args.mappingRecord ? args.mappingRecord.mappingRowList : [];
+			const occurrenceStableIdList = args.mappingRecord ? args.mappingRecord.occurrenceStableIdList : [];
+			const differenceList = mapper.versionDifferenceListOf({ thisFacts: focusFacts, counterpartFacts: args.counterpartFacts });
+			callback('', {
+				stableId: args.counterpartNode.stableId,
+				name: args.counterpartNode.name,
+				kind: args.counterpartNode.kind,
+				description: args.counterpartNode.description,
+				mappingList: mapper.collapseMappingList(mappingRowList),
+				instanceFolding: args.counterpartNode.kind === 'property' ? mapper.instanceFoldingOf({ mappingRowList, occurrenceStableIdList }) : null,
+				versionBadgeState: differenceList.length ? 'changed' : 'unchanged',
+				differenceList,
+				ancestorList: args.ancestorList,
+			});
+		});
+	};
+
+	// one other version: find the node of the same version identity there (a second one is a collision, refused)
+	const readVersionCounterpart = ({ focusNode, focusRecord, focusFacts, onePeer }, callback) => {
+		runNamedQuery('counterpartCandidates', { standardSourceName: onePeer.standardSourceName, name: focusNode.name }, (queryError, candidateList) => {
+			if (queryError) {
+				callback(queryError);
+				return;
+			}
+			const focusIdentity = mapper.versionIdentityOf(focusRecord.releaseIndependentId);
+			const matchList = candidateList.filter((oneCandidate) => mapper.versionIdentityOf(oneCandidate.releaseIndependentId) === focusIdentity);
+			const versionEntry = { version: onePeer.version, standardKey: onePeer.standardKey, standardStableId: onePeer.stableId };
+			if (matchList.length > 1) {
+				callback(`${moduleName}: the version identity '${focusIdentity}' collides in ${onePeer.standardKey} (${matchList.map((oneMatch) => oneMatch.stableId).join(', ')}); refusing to pick a counterpart rather than guess`);
+				return;
+			}
+			if (matchList.length === 0) {
+				callback('', { ...versionEntry, counterpart: null });
+				return;
+			}
+			readCounterpart({ counterpartStableId: matchList[0].stableId, focusFacts }, (counterpartError, counterpart) => callback(counterpartError, counterpartError ? undefined : { ...versionEntry, counterpart }));
+		});
+	};
+
+	const readVersionCounterparts = ({ stableId }, callback) => {
+		if (typeof stableId !== 'string' || stableId.trim() === '') {
+			callback(`${moduleName}: versionCounterparts requires stableId as a non-empty string (received ${JSON.stringify(stableId)})`);
+			return;
+		}
+		if (mapper.parseSyntheticId(stableId)) {
+			callback(`${moduleName}: '${stableId}' is a synthetic id, not a graph node; only graph nodes have version counterparts`);
+			return;
+		}
+		const taskList = new taskListPlus();
+
+		taskList.push((args, next) =>
+			runNamedQuery('nodeByStableId', { stableId }, (queryError, nodeRecordList) => {
+				if (queryError) {
+					next(queryError, args);
+					return;
+				}
+				if (!nodeRecordList.length) {
+					next(`${moduleName}: no node in this graph has stableId '${stableId}'`, args);
+					return;
+				}
+				next('', { ...args, focusRecord: nodeRecordList[0], focusNode: mapper.mapNodeRecord(nodeRecordList[0]) });
+			}),
+		);
+
+		// a node without a version identity, or outside any standard, has no counterparts to look for
+		taskList.push((args, next) => {
+			if (!args.focusNode.hasVersionIdentity || !args.focusNode.standardKey) {
+				next('', { ...args, otherPeerList: [] });
+				return;
+			}
+			runNamedQuery('versionPeerRoots', { standardKey: args.focusNode.standardKey }, (queryError, peerList) => {
+				if (queryError) {
+					next(queryError, args);
+					return;
+				}
+				const otherStandardKeyList = mapper.otherVersionListOf({ peerList, standardKey: args.focusNode.standardKey }).map((oneVersion) => oneVersion.standardKey);
+				next('', { ...args, otherPeerList: otherStandardKeyList.map((standardKey) => peerList.find((onePeer) => onePeer.standardKey === standardKey)) });
+			});
+		});
+
+		taskList.push((args, next) => {
+			if (!args.otherPeerList.length) {
+				next('', args);
+				return;
+			}
+			runNamedQuery('versionComparisonFacts', { stableId }, (queryError, factRecordList) => next(queryError, { ...args, focusFacts: factRecordList && factRecordList[0] }));
+		});
+
+		// one other version at a time, in newest-first order
+		taskList.push((args, next) => {
+			const peerTaskList = new taskListPlus();
+			args.otherPeerList.forEach((onePeer) =>
+				peerTaskList.push((peerArgs, peerNext) =>
+					readVersionCounterpart({ focusNode: args.focusNode, focusRecord: args.focusRecord, focusFacts: args.focusFacts, onePeer }, (peerError, versionEntry) =>
+						peerNext(peerError, { counterpartList: peerError ? peerArgs.counterpartList : peerArgs.counterpartList.concat([versionEntry]) }),
+					),
+				),
+			);
+			pipeRunner(peerTaskList.getList(), { counterpartList: [] }, (peerPipeError, peerArgs) => next(peerPipeError, { ...args, counterpartList: peerPipeError ? [] : peerArgs.counterpartList }));
+		});
+
+		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
+				return;
+			}
+			callback('', {
+				stableId,
+				version: args.focusNode.version || null,
+				versionIdentity: mapper.versionIdentityOf(args.focusRecord.releaseIndependentId),
+				counterpartList: args.counterpartList || [],
+			});
+		});
+	};
+
+	// ================================================================================
 	// SERVICE FUNCTION
 
 	const handlerByActionName = {
@@ -471,6 +627,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		},
 		node: (xQuery, callback) => readNode({ stableId: xQuery.stableId, compareVersion: xQuery.compareVersion }, callback),
 		pathSummary: (xQuery, callback) => readPathSummary({ stableIdList: xQuery.stableIdList }, callback),
+		versionCounterparts: (xQuery, callback) => readVersionCounterparts({ stableId: xQuery.stableId }, callback),
 	};
 
 	const serviceFunction = (xQuery, callback) => {

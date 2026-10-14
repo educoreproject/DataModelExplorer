@@ -13,7 +13,13 @@
 //   6. refusals by name: no action, unknown action, empty / unknown stableId, unknown family, malformed group id,
 //      an unknown id in a path summary; the endpoint is logged-in only and answers 401 / 400;
 //   7. RED TWINS (no graph): a version-identity collision is reported; the spec's key without the position strip
-//      misreads moved properties; an unknown action is refused before any query runs.
+//      misreads moved properties; an unknown action is refused before any query runs; a digest that moved with
+//      nothing visible reads 'unexplained'; a QName's namespace version alone is not a difference;
+//   8. version counterparts (the detail panel's version tiles): NameType/FirstName 1.8.0 finds its 1.7.0
+//      counterpart with the node action's own mappings and folding; a new-in-1.8 class answers null; a changed class
+//      answers a counterpart whose digest differs (this test's Cypher) with its differences named; EVERY paired node
+//      of College Transcript (this test's bulk Cypher) explains a moved digest, none 'unexplained'; a one-version
+//      standard answers an empty list and no otherVersionList; refusals for an unknown, empty or synthetic stableId.
 //
 // Run: /usr/local/bin/node server/test/standards-neighbourhood.test.js
 
@@ -90,6 +96,15 @@ const movedPropertyBadges = mapper.versionBadgeByStableId({
 	comparedVersion: '1.0',
 });
 ok('red twin: a property that only moved position reads unchanged, not new', movedPropertyBadges.badgeByStableId.new.badgeState === 'unchanged');
+const plainFacts = { definitionDigest: 'd1', fieldByName: { baseTypeQName: 'urn:x:v1.0.0#Base', documentationValueList: ['text'] }, memberList: [], typeList: [] };
+ok('version differences: equal digests answer no differences', mapper.versionDifferenceListOf({ thisFacts: plainFacts, counterpartFacts: { ...plainFacts } }).length === 0);
+const silentDifferenceList = mapper.versionDifferenceListOf({ thisFacts: plainFacts, counterpartFacts: { ...plainFacts, definitionDigest: 'd2', fieldByName: { baseTypeQName: 'urn:x:v0.9.0#Base', documentationValueList: ['text'] } } });
+ok('red twin: a moved digest with nothing visible reads unexplained (a namespace version alone is no difference)', silentDifferenceList.length === 1 && silentDifferenceList[0].differenceKind === 'unexplained', JSON.stringify(silentDifferenceList));
+const memberDifferenceList = mapper.versionDifferenceListOf({
+	thisFacts: { ...plainFacts, memberList: [{ name: 'Kept', releaseIndependentId: 'type/urn:x:v1.0.0#T/el/2:Kept', definitionDigest: 'k1' }, { name: 'Added', releaseIndependentId: 'type/urn:x:v1.0.0#T/el/1:Added', definitionDigest: 'a1' }] },
+	counterpartFacts: { ...plainFacts, definitionDigest: 'd2', memberList: [{ name: 'Kept', releaseIndependentId: 'type/urn:x:v0.9.0#T/el/1:Kept', definitionDigest: 'k0' }, { name: 'Dropped', releaseIndependentId: 'type/urn:x:v0.9.0#T/el/2:Dropped', definitionDigest: 'x0' }] },
+});
+ok('version differences: members are matched by version identity into added, missing and differing', JSON.stringify(memberDifferenceList) === JSON.stringify([{ differenceKind: 'members', addedNameList: ['Added'], missingNameList: ['Dropped'], differingNameList: ['Kept'] }]), JSON.stringify(memberDifferenceList));
 ok('comparison peer: the nearest lower version; the lowest compares with the nearest higher', mapper.comparisonPeerOf({ version: '1.8.0', peerList: [{ version: '1.7.0' }, { version: '1.8.0' }, { version: '1.10.0' }] }).version === '1.7.0' && mapper.comparisonPeerOf({ version: '1.7.0', peerList: [{ version: '1.7.0' }, { version: '1.8.0' }] }).version === '1.8.0' && mapper.comparisonPeerOf({ version: '1.0', peerList: [{ version: '1.0' }] }) === null);
 const rankedMappingList = mapper.collapseMappingList([
 	{ matchEdgeType: 'BROAD_MATCH', mappingConfidence: 0.9, anchorStableId: 'h1', anchorName: 'H1', subjectStableId: 's1' },
@@ -183,6 +198,9 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			ok('ORACLE: every class carries its badge', classGroup.itemList.every((oneItem) => oneItem.versionBadge && oneItem.versionBadge.thisVersion === '1.8.0'));
 			ok('class items carry propertyCount and mappedPropertyCount for the pie ring', classGroup.itemList.every((oneItem) => Number.isInteger(oneItem.propertyCount) && Number.isInteger(oneItem.mappedPropertyCount) && oneItem.mappedPropertyCount <= oneItem.propertyCount));
 			found.nameTypeStableId = (classGroup.itemList.find((oneItem) => oneItem.name === 'NameType' && /CoreMain/.test(oneItem.stableId)) || {}).stableId;
+			found.newClassItemList = classGroup.itemList.filter((oneItem) => oneItem.versionBadge && oneItem.versionBadge.badgeState === 'new');
+			found.changedClassItemList = classGroup.itemList.filter((oneItem) => oneItem.versionBadge && oneItem.versionBadge.badgeState === 'changed');
+			ok('class items say whether they carry a version identity (the browser asks for tiles only when they do)', classGroup.itemList.every((oneItem) => oneItem.hasVersionIdentity === true));
 			done();
 		}),
 		(done) => ask({ action: 'node', stableId: found.ct17RootStableId, compareVersion: true }, (nodeError, standardLevel) => {
@@ -324,6 +342,92 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		// ---- path summary
 		(done) => ask({ action: 'pathSummary', stableIdList: ['family:PESC', 'release:PESC/CollegeTranscript', found.ct18RootStableId, found.nameTypeStableId, found.firstNameAnchorStableId, found.sifGroup.stableId] }, (summaryError, summary) => {
 			ok('pathSummary: names and kinds every crumb of a crossing path', !summaryError && summary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join() === 'family,release,standard,class,cedsAnchor,standardGroup' && summary.nodeSummaryList[5].standardFamily === 'SIF', summaryError || JSON.stringify(summary));
+			done();
+		}),
+
+		// ---- 8. version counterparts
+		(done) => ask({ action: 'node', stableId: found.firstNamePropertyStableId }, (nodeError, propertyLevel) => {
+			ok('FirstName (1.8.0): the node names its message\'s other version and carries a version identity', !nodeError && propertyLevel.node.hasVersionIdentity === true && (propertyLevel.node.otherVersionList || []).map((oneVersion) => `${oneVersion.version}:${oneVersion.standardStableId}`).join() === `1.7.0:${found.ct17RootStableId}`, nodeError || JSON.stringify(propertyLevel.node.otherVersionList));
+			ask({ action: 'versionCounterparts', stableId: found.firstNamePropertyStableId }, (counterpartError, counterparts) => {
+				const versionEntry = ((counterparts || {}).counterpartList || [])[0] || {};
+				const counterpart = versionEntry.counterpart || {};
+				ok('FirstName (1.8.0): one other version, 1.7.0, with a FirstName counterpart in the 1.7.0 standard', !counterpartError && counterparts.counterpartList.length === 1 && versionEntry.version === '1.7.0' && versionEntry.standardStableId === found.ct17RootStableId && counterpart.name === 'FirstName' && counterpart.kind === 'property' && /^pesccollegetranscript1v7v0:/.test(counterpart.stableId), counterpartError || JSON.stringify(versionEntry).slice(0, 300));
+				ok('FirstName (1.7.0 counterpart): the ancestor chain runs to the 1.7.0 NameType', (counterpart.ancestorList || []).map((oneAncestor) => oneAncestor.name).join(' › ').endsWith('NameType') && counterpart.ancestorList[0].stableId === found.ct17RootStableId);
+				ask({ action: 'node', stableId: counterpart.stableId }, (nodeError17, propertyLevel17) => {
+					ok('FirstName (1.7.0 counterpart): its mappings and folding are exactly what the node action answers for it', !nodeError17 && JSON.stringify(counterpart.mappingList) === JSON.stringify(propertyLevel17.mappingList) && JSON.stringify(counterpart.instanceFolding) === JSON.stringify(propertyLevel17.instanceFolding) && counterpart.mappingList.length > 0, nodeError17);
+					ok('FirstName (1.7.0 counterpart): its badge state agrees with the class level\'s property badge', counterpart.versionBadgeState === ((found.nameTypeProperties.find((oneItem) => oneItem.name === 'FirstName') || {}).versionBadge || {}).badgeState);
+					done();
+				});
+			});
+		}),
+		(done) => ask({ action: 'versionCounterparts', stableId: (found.newClassItemList[0] || {}).stableId }, (counterpartError, counterparts) => {
+			const newClassName = (found.newClassItemList[0] || {}).name;
+			ok(`new in 1.8 (${newClassName}, one of ${found.newClassItemList.length}): 1.7.0 answers counterpart null`, !counterpartError && found.newClassItemList.length === 12 && counterparts.counterpartList.length === 1 && counterparts.counterpartList[0].version === '1.7.0' && counterparts.counterpartList[0].counterpart === null, counterpartError || JSON.stringify(counterparts));
+			done();
+		}),
+		(done) => cypher(
+			`MATCH (:DmeStandardRoot {standardKey: 'pesccollegetranscript1v7v0'})-[:HAS_CLASS]->(classNode {name: $className}) RETURN classNode.stableId AS stableId, classNode.definitionDigest AS definitionDigest`,
+			{ className: (found.changedClassItemList[0] || {}).name },
+			(olderRowList) => cypher(
+				'MATCH (classNode {stableId: $stableId}) RETURN classNode.definitionDigest AS definitionDigest',
+				{ stableId: (found.changedClassItemList[0] || {}).stableId },
+				(newerRowList) => ask({ action: 'versionCounterparts', stableId: (found.changedClassItemList[0] || {}).stableId }, (counterpartError, counterparts) => {
+					const changedClassName = (found.changedClassItemList[0] || {}).name;
+					const counterpart = (((counterparts || {}).counterpartList || [])[0] || {}).counterpart || {};
+					const differenceKindList = (counterpart.differenceList || []).map((oneDifference) => oneDifference.differenceKind);
+					ok(`changed (${changedClassName}, one of ${found.changedClassItemList.length}): its 1.7.0 counterpart's digest differs by this test's Cypher`, !counterpartError && found.changedClassItemList.length === 4 && olderRowList.length === 1 && counterpart.stableId === olderRowList[0].stableId && olderRowList[0].definitionDigest !== newerRowList[0].definitionDigest, counterpartError);
+					ok(`changed (${changedClassName}): the counterpart reads 'changed' and names what differs (${differenceKindList.join(', ')})`, counterpart.versionBadgeState === 'changed' && differenceKindList.length > 0 && differenceKindList.indexOf('unexplained') === -1, JSON.stringify(counterpart.differenceList));
+					done();
+				}),
+			),
+		),
+		// the digest's coverage, measured: every node of 1.8.0 paired with 1.7.0 by version identity (this test's
+		// bulk Cypher over the mapper's own field registry), and each moved digest must be explained by what the page shows
+		(done) => {
+			const factsCypherText = `MATCH (subject:ForgedNode {_source: $standardSourceName}) WHERE subject.releaseIndependentId IS NOT NULL
+				RETURN subject.releaseIndependentId AS releaseIndependentId, subject.definitionDigest AS definitionDigest,
+				       subject { ${mapper.versionDifferenceFieldList.map((oneField) => `.${oneField.fieldName}`).join(', ')} } AS fieldByName,
+				       [(subject)-[memberEdge]->(member:ForgedNode) WHERE type(memberEdge) IN ['HAS_PROPERTY', 'HAS_VALUE'] | { name: member.name, releaseIndependentId: member.releaseIndependentId, definitionDigest: member.definitionDigest }] AS memberList,
+				       [(subject)-[typeEdge]->(typeNode:ForgedNode) WHERE type(typeEdge) IN ['REFERENCES_TYPE', 'HAS_OPTION_SET'] | { relationshipType: type(typeEdge), name: typeNode.name, releaseIndependentId: typeNode.releaseIndependentId, definitionDigest: typeNode.definitionDigest }] AS typeList`;
+			cypher(factsCypherText, { standardSourceName: 'PESC-CollegeTranscript-1.8.0' }, (newerFactList) => cypher(factsCypherText, { standardSourceName: 'PESC-CollegeTranscript-1.7.0' }, (olderFactList) => {
+				const olderFactsByIdentity = {};
+				olderFactList.forEach((oneFacts) => { (olderFactsByIdentity[mapper.versionIdentityOf(oneFacts.releaseIndependentId)] ||= []).push(oneFacts); });
+				let pairedCount = 0, changedCount = 0;
+				const unexplainedList = [];
+				const wronglyExplainedList = [];
+				newerFactList.forEach((oneFacts) => {
+					const olderList = olderFactsByIdentity[mapper.versionIdentityOf(oneFacts.releaseIndependentId)] || [];
+					if (olderList.length !== 1) return;
+					pairedCount++;
+					const differenceList = mapper.versionDifferenceListOf({ thisFacts: oneFacts, counterpartFacts: olderList[0] });
+					const digestMoved = oneFacts.definitionDigest !== olderList[0].definitionDigest;
+					if (digestMoved) changedCount++;
+					if (differenceList.some((oneDifference) => oneDifference.differenceKind === 'unexplained')) unexplainedList.push(oneFacts.releaseIndependentId);
+					if (digestMoved !== (differenceList.length > 0)) wronglyExplainedList.push(oneFacts.releaseIndependentId);
+				});
+				ok(`DIGEST COVERAGE: all ${changedCount} moved digests among ${pairedCount} paired College Transcript nodes are explained by fields, members or types the page shows`, pairedCount > 4000 && changedCount > 0 && unexplainedList.length === 0 && wronglyExplainedList.length === 0, `${unexplainedList.length} unexplained (${unexplainedList.slice(0, 3).join(', ')}); ${wronglyExplainedList.length} wrongly explained`);
+				done();
+			}));
+		},
+		(done) => cypher(
+			`MATCH (root:DmeStandardRoot {standardFamily: 'PESC'})
+			 WITH root.releaseLabel AS releaseLabel, collect(root) AS rootList WHERE size(rootList) = 1
+			 WITH releaseLabel, rootList[0] AS singleRoot
+			 MATCH (singleRoot)-[:HAS_CLASS]->(classNode) WHERE classNode.releaseIndependentId IS NOT NULL
+			 RETURN releaseLabel, classNode.stableId AS stableId ORDER BY releaseLabel, stableId LIMIT 1`,
+			{},
+			(singleRowList) => ask({ action: 'versionCounterparts', stableId: (singleRowList[0] || {}).stableId }, (counterpartError, counterparts) => {
+				ask({ action: 'node', stableId: (singleRowList[0] || {}).stableId }, (nodeError, classLevel) => {
+					ok(`one-version standard (${(singleRowList[0] || {}).releaseLabel}): an empty counterpart list, not a refusal, and an empty otherVersionList on the node`, singleRowList.length === 1 && !counterpartError && counterparts.counterpartList.length === 0 && !nodeError && classLevel.node.otherVersionList.length === 0, counterpartError || nodeError);
+					done();
+				});
+			}),
+		),
+		(done) => ask({ action: 'versionCounterparts', stableId: 'no:such:node' }, (refusalText) => { ok('versionCounterparts refusal: unknown stableId, named', /no node in this graph has stableId 'no:such:node'/.test(refusalText || ''), refusalText); done(); }),
+		(done) => ask({ action: 'versionCounterparts' }, (refusalText) => { ok('versionCounterparts refusal: absent stableId', /versionCounterparts requires stableId as a non-empty string/.test(refusalText || ''), refusalText); done(); }),
+		(done) => ask({ action: 'versionCounterparts', stableId: 'family:PESC' }, (refusalText) => { ok('versionCounterparts refusal: a synthetic id is not a graph node', /is a synthetic id, not a graph node/.test(refusalText || ''), refusalText); done(); }),
+		(done) => runEndpoint({ authclaims: { user: { role: 'user' } }, requestBody: { action: 'versionCounterparts', stableId: 'no:such:node' }, accessPoint }, (answer) => {
+			ok('endpoint: a versionCounterparts refusal is answered 400 with its reason', answer.statusCode === 400 && /no node in this graph has stableId/.test(answer.body), `${answer.statusCode} ${answer.body}`);
 			done();
 		}),
 
