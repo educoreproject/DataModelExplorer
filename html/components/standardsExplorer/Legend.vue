@@ -20,6 +20,7 @@ const LEGEND_KIND_LIST = [
 
 <template>
 	<div class="explorer-legend" data-testid="legend">
+		<p class="legend-note" data-testid="legend-note">Cmd-Click to Navigate</p>
 		<div class="legend-column">
 			<span class="legend-head">Bubbles</span>
 			<div class="legend-kinds">
@@ -64,6 +65,12 @@ const LEGEND_KIND_LIST = [
 	gap: 20px 32px;
 	font-size: 13px;
 	color: #374151;
+}
+.legend-note {
+	flex-basis: 100%;
+	margin: 0;
+	font-weight: 600;
+	color: #072a6c;
 }
 .legend-column {
 	display: flex;
