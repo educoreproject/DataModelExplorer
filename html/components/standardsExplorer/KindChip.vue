@@ -13,6 +13,7 @@ const props = defineProps({
 const swatchStyle = computed(() => {
 	const familyStyle = familyStyleOf(props.standardFamily);
 	const swatchByKind = {
+		familyCatalog: { background: '#072A6C', borderRadius: '50%' },
 		family: { background: familyStyle.color, borderRadius: '50%' },
 		release: { background: '#FFFFFF', border: `3px solid ${familyStyle.color}`, borderRadius: '50%' },
 		standard: { background: '#FFFFFF', border: `3px solid ${familyStyle.color}`, borderRadius: '50%' },

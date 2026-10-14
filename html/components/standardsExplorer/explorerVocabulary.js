@@ -8,7 +8,7 @@
 
 // ================================================================================
 // FAMILY COLOURS — a family not listed here is drawn in neutral grey under its own name, so a newly loaded
-// standard still works (the page is general; only the entry catalog is PESC's)
+// standard still works (the page is general; the list of families comes from the graph, not from here)
 
 export const familyStyleByName = Object.freeze({
 	PESC: { color: '#072A6C', tint: '#E7ECF6', displayName: 'PESC' },
@@ -48,6 +48,7 @@ export const confidenceTierOf = (mappingConfidence) =>
 // KINDS AND RELATIONSHIPS — the words a standards person reads
 
 export const kindDisplayNameByKind = Object.freeze({
+	familyCatalog: 'All standards',
 	family: 'Standards family',
 	release: 'Message',
 	standard: 'Standard',
@@ -80,6 +81,7 @@ const pluralKindNameByKind = Object.freeze({
 export const pluralKindNameOf = (nodeKind) => pluralKindNameByKind[nodeKind] || `${kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase())}s`;
 
 export const relationshipDisplayNameByType = Object.freeze({
+	HAS_FAMILY: 'Standards families',
 	HAS_STANDARD: 'Messages',
 	HAS_VERSION: 'Versions',
 	HAS_CLASS: 'Classes',
@@ -100,6 +102,7 @@ export const relationshipDisplayNameByType = Object.freeze({
 	HAS_CEDS_PROPERTY: 'CEDS property',
 	HAS_CEDS_DOMAIN: 'CEDS domain',
 	MAPS_TO_CEDS: 'Maps to CEDS',
+	USED_BY_CEDS_ELEMENT: 'CEDS elements',
 });
 
 export const relationshipDisplayNameOf = (relationshipType) => relationshipDisplayNameByType[relationshipType] || relationshipType;
@@ -151,13 +154,45 @@ export const versionTileRelationByState = Object.freeze({
 const versionMemberNounByKind = Object.freeze({ class: 'Properties', optionSet: 'Codes', support: 'Members' });
 export const versionMemberNounOf = (nodeKind) => versionMemberNounByKind[nodeKind] || 'Members';
 
-// the walk to a counterpart in its own version's tree: family › release › the counterpart's ancestors › itself
+// ================================================================================
+// THE WALK'S TOP — every path begins at the families catalog (a synthetic id the server answers with one item per
+// family in the graph); the first family: crumb after it is the family the walk began in
+
+export const FAMILY_CATALOG_STABLE_ID = 'families:all';
+
+// a path as the explorer keeps it: the catalog first, prepended when a path (an /explore/pesc link) lacks it
+export const explorerPathOf = (pathStableIdList) =>
+	pathStableIdList[0] === FAMILY_CATALOG_STABLE_ID ? pathStableIdList : [FAMILY_CATALOG_STABLE_ID, ...pathStableIdList];
+
+// the family the walk began in: the first family: crumb; none while the walk is still at the catalog
+export const homeStandardFamilyOf = (pathStableIdList) => {
+	const familyStableId = pathStableIdList.find((oneStableId) => oneStableId.indexOf('family:') === 0);
+	return familyStableId ? familyStableId.slice('family:'.length) : '';
+};
+
+// the walk to a counterpart in its own version's tree: catalog › family › release › its ancestors › itself
 export const counterpartPathOf = ({ standardFamily, releaseLabel, counterpart }) => [
+	FAMILY_CATALOG_STABLE_ID,
 	`family:${standardFamily}`,
 	`release:${standardFamily}/${releaseLabel}`,
 	...(counterpart.ancestorList || []).map((oneAncestor) => oneAncestor.stableId),
 	counterpart.stableId,
 ];
+
+// what one family holds, for its bubble and row: its version when it has one standard, else its count of standards
+export const familyHoldingTextOf = (familyRow) => {
+	if (familyRow.standardCount === 1) return `version ${familyRow.version}`;
+	const messageText = familyRow.releaseCount === familyRow.standardCount ? '' : ` in ${familyRow.releaseCount} messages`;
+	return `${familyRow.standardCount} standards${messageText}`;
+};
+
+// how much maps to CEDS here, in words: a CEDS element counts its distinct elements, a CEDS property the judgments
+// reaching it through its CEDS elements
+export const cedsMappedTextOf = (cedsRow) => {
+	if (cedsRow.elementCount !== undefined) return cedsRow.elementCount ? `${cedsRow.elementCount} elements map here` : 'nothing maps here';
+	if (cedsRow.mappedElementCount === undefined) return '';
+	return cedsRow.mappedElementCount ? `${cedsRow.mappedElementCount} mappings` : 'nothing maps here';
+};
 
 // cmd-click (macOS) or ctrl-click (Windows, Linux) opens an item at once, as its panel's Open button would
 export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));

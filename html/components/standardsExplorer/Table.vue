@@ -4,7 +4,7 @@
 
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { familyStyleOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
+import { cedsMappedTextOf, familyHoldingTextOf, familyStyleOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const emit = defineEmits(['drill']);
@@ -12,13 +12,14 @@ const emit = defineEmits(['drill']);
 // the Info column says what it holds, from the kinds on this level
 const infoTextOf = (oneRow) => {
 	const infoByKind = {
+		family: () => familyHoldingTextOf(oneRow),
 		class: () => oneRow.description,
 		property: () => (oneRow.mapping ? oneRow.mapping.anchor.name : oneRow.description),
 		instance: () => oneRow.path || oneRow.description,
 		standard: () => oneRow.description || (oneRow.version ? `version ${oneRow.version}` : ''),
 		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
 		standardGroup: () => (oneRow.matchKindCountList || []).map((oneCount) => `${oneCount.matchKind} ${oneCount.elementCount}`).join(', '),
-		cedsAnchor: () => (oneRow.mapping && oneRow.mapping.occurrenceCount > 1 ? `from ${oneRow.mapping.occurrenceCount} occurrences` : oneRow.description),
+		cedsAnchor: () => (oneRow.mapping && oneRow.mapping.occurrenceCount > 1 ? `from ${oneRow.mapping.occurrenceCount} occurrences` : oneRow.cedsDomainName ? `in ${oneRow.cedsDomainName}` : oneRow.description),
 	};
 	const infoReader = infoByKind[oneRow.kind];
 	const infoText = infoReader ? infoReader() : oneRow.description || oneRow.path;
@@ -28,8 +29,11 @@ const infoTextOf = (oneRow) => {
 // the Count column: what "how much" means for each kind, with a numeric value to sort by
 const countOf = (oneRow) => {
 	const countByKind = {
+		family: () => ({ countValue: oneRow.classCount, countText: `${oneRow.classCount} classes` }),
 		class: () => ({ countValue: oneRow.mappedPropertyCount, countText: oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : 'no properties' }),
-		cedsDomain: () => ({ countValue: oneRow.propertyCount, countText: oneRow.propertyCount ? `${oneRow.propertyCount} properties` : '' }),
+		cedsDomain: () => ({ countValue: oneRow.mappedPropertyCount, countText: oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : '' }),
+		cedsProperty: () => ({ countValue: oneRow.mappedElementCount ?? null, countText: cedsMappedTextOf(oneRow) }),
+		cedsAnchor: () => ({ countValue: oneRow.elementCount ?? null, countText: cedsMappedTextOf(oneRow) }),
 		standard: () => ({ countValue: oneRow.classCount, countText: oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : '' }),
 		release: () => ({ countValue: (oneRow.versionList || []).length, countText: `${(oneRow.versionList || []).length} versions` }),
 		standardGroup: () => ({ countValue: oneRow.elementCount, countText: `${oneRow.elementCount} elements` }),

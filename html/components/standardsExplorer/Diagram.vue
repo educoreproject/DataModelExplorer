@@ -11,6 +11,8 @@ import {
 	LARGE_LEVEL_ITEM_COUNT,
 	confidenceTierOf,
 	displayNameOf,
+	cedsMappedTextOf,
+	familyHoldingTextOf,
 	familyStyleOf,
 	isOpenAtOnceClick,
 	matchStyleByKind,
@@ -50,7 +52,11 @@ const homeStandardKey = computed(() => (store.focusNode?.kind === 'cedsAnchor' &
 
 const subTextOf = (oneRow) => {
 	const subByKind = {
+		family: () => `${familyHoldingTextOf(oneRow)} · ${oneRow.classCount} classes`,
 		class: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : ''),
+		cedsDomain: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : ''),
+		cedsProperty: () => cedsMappedTextOf(oneRow),
+		cedsAnchor: () => [oneRow.cedsDomainName ? `in ${oneRow.cedsDomainName}` : '', cedsMappedTextOf(oneRow)].filter(Boolean).join(' · '),
 		property: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : 'not mapped'),
 		instance: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : shortText(oneRow.path, 40)),
 		standard: () => (oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : ''),
@@ -93,7 +99,8 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		isMapped: Boolean(mapping),
 		isFocus,
 		hasChildren: Boolean(oneRow.hasChildren),
-		isHome: Boolean(homeStandardKey.value) && oneRow.standardKey === homeStandardKey.value,
+		// the home halo marks a standard group; never the focus, which on a walk begun in CEDS shares the home's key
+		isHome: !isFocus && Boolean(homeStandardKey.value) && oneRow.standardKey === homeStandardKey.value,
 		isMatching: store.rowMatchesFilter(oneRow),
 	};
 };
@@ -120,7 +127,8 @@ const edgeDataListOf = ({ focusStableId, oneRow }) => {
 // focus in the centre, rows on an ellipse; the ellipse grows with the number of rows
 const positionByIndexOf = (rowCount) => {
 	const radiusX = Math.min(480, 200 + rowCount * 8);
-	const radiusY = radiusX * 0.6;
+	// never so flat that one or two rows sit on the focus's own label (the focus is 110 high, its label beneath)
+	const radiusY = Math.max(radiusX * 0.6, 190);
 	return (rowIndex) => {
 		const angle = -Math.PI / 2 + (2 * Math.PI * rowIndex) / Math.max(rowCount, 1);
 		return { x: radiusX * Math.cos(angle), y: radiusY * Math.sin(angle) };
@@ -180,7 +188,9 @@ const styleList = [
 			'border-color': 'data(familyColor)',
 		},
 	},
-	{ selector: 'node[kind = "family"]', style: { 'background-color': 'data(familyColor)', color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0 } },
+	{ selector: 'node[kind = "family"], node[kind = "familyCatalog"]', style: { 'background-color': 'data(familyColor)', color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0 } },
+	// a family on the catalog level carries a two-line label, too long for inside the bubble: it goes below
+	{ selector: 'node[kind = "family"][!isFocus]', style: { width: 76, height: 76, color: '#111827', 'text-valign': 'bottom', 'text-margin-y': 6, 'text-background-opacity': 0.9 } },
 	{ selector: 'node[kind = "standard"], node[kind = "release"]', style: { 'border-width': 3 } },
 	{ selector: 'node[kind = "class"]', style: { 'background-color': 'data(familyTint)', 'pie-size': '100%', 'pie-hole': '78%', 'pie-1-background-color': '#00B5B8', 'pie-1-background-size': 'data(mappedPercent)', 'pie-2-background-color': '#C9D3E8', 'pie-2-background-size': 'data(unmappedPercent)', 'border-width': 0 } },
 	{ selector: 'node[kind = "property"][?isMapped], node[kind = "instance"][?isMapped]', style: { 'background-color': '#FFFFFF', 'border-color': 'data(matchColor)', 'border-style': 'data(matchBorderStyle)', 'border-width': 'data(matchBorderWidth)', 'border-opacity': 'data(matchBorderOpacity)' } },

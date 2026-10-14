@@ -6,12 +6,13 @@
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { counterpartPathOf, displayNameOf, familyStyleOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
+import { cedsMappedTextOf, counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 
-// the family the walk began in (the path's first crumb, eg family:PESC); other families get the outlined Standard fact
-const homeStandardFamily = computed(() => String(store.pathStableIdList[0] || '').replace(/^family:/, ''));
+// the family the walk began in (the first family: crumb, eg family:PESC); other families get the outlined Standard
+// fact. At the families catalog no walk has begun, so nothing is outlined there
+const homeStandardFamily = computed(() => homeStandardFamilyOf(store.pathStableIdList));
 const emit = defineEmits(['drill', 'go-to-path']);
 
 watch(
@@ -62,16 +63,19 @@ const factList = computed(() => {
 			factName: 'Standard',
 			factText: [familyName, oneNode.releaseLabel && oneNode.releaseLabel !== oneNode.standardFamily && !/^[a-z]+\d+$/.test(oneNode.releaseLabel) ? humanizeName(oneNode.releaseLabel) : '', oneNode.version || ''].filter(Boolean).join(' '),
 			// outside the family the walk began in, the standard is outlined in its family colour so a crossing is plain
-			outlineColor: oneNode.standardFamily && oneNode.standardFamily !== homeStandardFamily.value ? familyStyleOf(oneNode.standardFamily).color : '',
+			outlineColor: homeStandardFamily.value && oneNode.standardFamily && oneNode.standardFamily !== homeStandardFamily.value ? familyStyleOf(oneNode.standardFamily).color : '',
 		},
 		{ factName: 'Inside', factText: ancestorText },
-		{ factName: 'Path', factText: ['instance', 'property'].includes(oneNode.kind) && oneNode.path && !/^(type|element|group)\//.test(oneNode.path) ? oneNode.path : '' },
+		// a SIF field's path can run ten steps deep: it breaks after a '/', never inside a step, and copies whole
+		{ factName: 'Path', factText: ['instance', 'property'].includes(oneNode.kind) && oneNode.path && !/^(type|element|group)\//.test(oneNode.path) ? oneNode.path : '', breaksAfterSlash: true },
 		{ factName: 'Property of', factText: oneNode.ownerName || '' },
-		{ factName: 'Properties', factText: oneNode.propertyCount ? `${oneNode.propertyCount}, ${oneNode.mappedPropertyCount} mapped to CEDS` : '' },
+		{ factName: 'Holds', factText: oneNode.kind === 'family' ? `${familyHoldingTextOf(oneNode)}, ${oneNode.classCount} classes` : '' },
+		{ factName: 'Properties', factText: oneNode.propertyCount ? `${oneNode.propertyCount}, ${oneNode.mappedPropertyCount} ${oneNode.kind === 'cedsDomain' ? 'mapped to by a standard' : 'mapped to CEDS'}` : '' },
+		{ factName: 'CEDS elements', factText: oneNode.cedsElementCount ? `${oneNode.cedsElementCount}; ${cedsMappedTextOf(oneNode)}` : '' },
 		{ factName: 'Occurrences', factText: oneNode.occurrenceCount > 1 ? String(oneNode.occurrenceCount) : '' },
 		{ factName: 'Elements', factText: oneNode.elementCount ? String(oneNode.elementCount) : '' },
 		{ factName: 'CEDS tier', factText: oneNode.referenceTier || '' },
-		{ factName: 'CEDS domain', factText: (oneNode.cedsDomainList || []).map((oneDomain) => oneDomain.name).join(', ') },
+		{ factName: 'CEDS domain', factText: (oneNode.cedsDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.cedsDomainName || '' },
 		{ factName: 'Occurrences shown', factText: isFocus.value && store.neighbourhood.instanceFolding && store.neighbourhood.instanceFolding.occurrenceCount > 1 ? (store.neighbourhood.instanceFolding.folded ? 'folded: they all map the same way' : 'yes: they map differently') : '' },
 	].filter((oneFact) => oneFact.factText);
 });
@@ -119,7 +123,8 @@ const definitionText = computed(() => {
 				</div>
 				<template v-else>
 					<dt>{{ oneFact.factName }}</dt>
-					<dd>{{ oneFact.factText }}</dd>
+					<dd v-if="oneFact.breaksAfterSlash" class="detail-fact-path" data-testid="detail-path"><template v-for="(pathStep, stepIndex) in oneFact.factText.split('/')" :key="stepIndex"><template v-if="stepIndex">/<wbr v-if="stepIndex > 1" /></template>{{ pathStep }}</template></dd>
+					<dd v-else>{{ oneFact.factText }}</dd>
 				</template>
 			</template>
 		</dl>
@@ -230,6 +235,9 @@ const definitionText = computed(() => {
 .detail-facts dd {
 	margin: 0;
 	overflow-wrap: anywhere;
+}
+.detail-facts dd.detail-fact-path {
+	overflow-wrap: break-word;
 }
 .detail-fact-outlined {
 	grid-column: 1 / -1;

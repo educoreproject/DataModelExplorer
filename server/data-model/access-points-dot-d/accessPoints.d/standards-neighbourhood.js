@@ -4,11 +4,12 @@
 // @concept: [[Neo4jAbstraction]]
 // @concept: [[AccessPointPattern]]
 
-// standards-neighbourhood — the PESC Explorer's graph reads (DEV-123). Input { action, ... }; one handler per action,
+// standards-neighbourhood — the Standards Explorer's graph reads (DEV-123; every family since 2026-10-14). Input { action, ... }; one handler per action,
 // chosen from handlerByActionName:
 //   catalog      { standardFamily }            → { standardFamily, releaseList }
 //   node         { stableId, compareVersion }  → { node, ancestorList, childGroupList, mappingList, ... }
-//                stableId is a graph stableId or a synthetic id (family:, release:, standardGroup:; see the mapper);
+//                stableId is a graph stableId or a synthetic id (families:all, family:, release:, standardGroup:; see
+//                the mapper); 'families:all' answers one item per standards family the graph holds;
 //                compareVersion is optional: true badges a standard's classes or a class's properties against the
 //                nearest other version of the same message, anything else leaves badges out
 //   pathSummary  { stableIdList }              → { nodeSummaryList } (the breadcrumb of a reloaded URL)
@@ -191,6 +192,31 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
+	// the explorer's top: every family the graph holds, read from the graph (never a list kept here)
+	const readFamilyCatalogNode = ({ stableId }, callback) => {
+		if (!mapper.isFamilyCatalogId(stableId)) {
+			callback(`${moduleName}: '${stableId}' is not the families catalog id (expected ${mapper.FAMILY_CATALOG_STABLE_ID})`);
+			return;
+		}
+		runNamedQuery('familyCatalog', {}, (queryError, familyRecordList) => {
+			if (queryError) {
+				callback(queryError);
+				return;
+			}
+			if (!familyRecordList.length) {
+				callback(`${moduleName}: no standard in this graph names a standardFamily`);
+				return;
+			}
+			const itemList = mapper.mapFamilyCatalogItemList(familyRecordList);
+			callback('', {
+				node: { stableId, name: 'Standards', kind: 'familyCatalog', description: '' },
+				ancestorList: [],
+				childGroupList: [{ relationshipType: 'HAS_FAMILY', count: itemList.length, truncated: false, itemList }],
+				mappingList: [],
+			});
+		});
+	};
+
 	const readReleaseNode = ({ stableId, remainderText }, callback) => {
 		const releaseIdentity = mapper.parseReleaseRemainder(remainderText);
 		if (!releaseIdentity) {
@@ -321,6 +347,21 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
+	// a CEDS property's way out: its CEDS elements, which point AT it, so the structural child read cannot see them
+	const readCedsElementGroup = ({ focusNode }, callback) =>
+		runNamedQuery('cedsElementsByCedsPropertyStableId', { stableId: focusNode.stableId }, (queryError, groupRecordList) => {
+			if (queryError) {
+				callback(queryError);
+				return;
+			}
+			callback('', groupRecordList.length ? [mapper.mapCedsElementGroupRecord(groupRecordList[0])] : []);
+		});
+
+	// child groups a node kind has beyond its structural children: kind → reader answering a list of groups
+	const extraChildGroupReaderByNodeKind = {
+		cedsProperty: readCedsElementGroup,
+	};
+
 	const readElementNode = ({ focusNode, compareVersion }, callback) => {
 		const taskList = new taskListPlus();
 
@@ -329,6 +370,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next(queryError, { ...args, childGroupList: queryError ? [] : mapper.mapChildGroupRecordList(groupRecordList) }),
 			),
 		);
+		taskList.push((args, next) => {
+			const extraGroupReader = extraChildGroupReaderByNodeKind[focusNode.kind];
+			if (!extraGroupReader) {
+				next('', args);
+				return;
+			}
+			extraGroupReader({ focusNode }, (readError, extraGroupList) => next(readError, { ...args, childGroupList: readError ? args.childGroupList : extraGroupList.concat(args.childGroupList) }));
+		});
 		taskList.push((args, next) =>
 			runNamedQuery('mappingsByStableId', { stableId: focusNode.stableId }, (queryError, mappingRecordList) => next(queryError, { ...args, mappingRecord: mappingRecordList && mappingRecordList[0] })),
 		);
@@ -383,6 +432,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	// the handler for each synthetic id kind (mapper's syntheticIdPrefixList)
 	const handlerBySyntheticKind = {
+		familyCatalog: readFamilyCatalogNode,
 		family: ({ remainderText }, callback) => readFamilyNode({ standardFamily: remainderText }, callback),
 		release: readReleaseNode,
 		standardGroup: readStandardGroupNode,
@@ -419,6 +469,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const readPathSummary = ({ stableIdList }, callback) => {
 		if (!Array.isArray(stableIdList) || stableIdList.length === 0 || stableIdList.some((oneId) => typeof oneId !== 'string' || oneId === '')) {
 			callback(`${moduleName}: pathSummary requires stableIdList as a non-empty list of stableIds (received ${JSON.stringify(stableIdList)})`);
+			return;
+		}
+		const strayCatalogIdList = stableIdList.filter((oneId) => (mapper.parseSyntheticId(oneId) || {}).nodeKind === 'familyCatalog' && !mapper.isFamilyCatalogId(oneId));
+		if (strayCatalogIdList.length) {
+			callback(`${moduleName}: ${strayCatalogIdList.map((oneId) => `'${oneId}'`).join(', ')} is not the families catalog id (expected ${mapper.FAMILY_CATALOG_STABLE_ID})`);
 			return;
 		}
 		const graphStableIdList = stableIdList.filter((oneId) => !mapper.parseSyntheticId(oneId));
@@ -458,6 +513,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				const syntheticId = mapper.parseSyntheticId(oneId);
 				if (!syntheticId) {
 					return summaryByStableId[oneId];
+				}
+				if (syntheticId.nodeKind === 'familyCatalog') {
+					return { stableId: oneId, name: 'Standards', kind: 'familyCatalog' };
 				}
 				if (syntheticId.nodeKind === 'family') {
 					return { stableId: oneId, name: syntheticId.remainderText, kind: 'family', standardFamily: syntheticId.remainderText };

@@ -2,7 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 //
-// STANDARDS NEIGHBOURHOOD STORE (DEV-123, the PESC Explorer)
+// STANDARDS NEIGHBOURHOOD STORE (DEV-123, the Standards Explorer)
 //
 // Holds the walk: the navigation path (stableIds, from the URL's ?path=), the focus node's neighbourhood as
 // POST /api/standards-neighbourhood answered it, names for every breadcrumb, and the shared view state (Diagram or
@@ -61,6 +61,11 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	mappedPropertyCount: oneItem.mappedPropertyCount,
 	occurrenceCount: oneItem.occurrenceCount,
 	classCount: oneItem.classCount,
+	standardCount: oneItem.standardCount,
+	releaseCount: oneItem.releaseCount,
+	cedsDomainName: oneItem.cedsDomainName || '',
+	cedsElementCount: oneItem.cedsElementCount,
+	mappedElementCount: oneItem.mappedElementCount,
 	elementCount: oneItem.elementCount,
 	matchKindCountList: oneItem.matchKindCountList || null,
 	strongestMatchKind: oneItem.strongestMatchKind || null,

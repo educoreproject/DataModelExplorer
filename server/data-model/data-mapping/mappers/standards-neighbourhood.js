@@ -16,9 +16,15 @@
 //   - releaseIndependentId embeds the namespace version (':v1.19.0') and, for properties, the element's POSITION
 //     ('/el/4:'), so the cross-version identity strips both (see versionIdentityOf).
 //
-// Three synthetic node ids exist only on the wire, never in the graph: 'family:<standardFamily>' (the catalog as a
-// node), 'release:<standardFamily>/<releaseLabel>' (a message offered in several versions: the version picker) and
+// Four synthetic node ids exist only on the wire, never in the graph: 'families:all' (every standards family the
+// graph holds: the explorer's top), 'family:<standardFamily>' (one family's catalog as a node),
+// 'release:<standardFamily>/<releaseLabel>' (a message offered in several versions: the version picker) and
 // 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one CEDS anchor).
+//
+// CEDS is a standard like the others (a DmeStandardRoot, family 'CEDS': root -HAS_CLASS-> CedsClass -HAS_PROPERTY->
+// CedsProperty), but its anchors hang BELOW nothing: a HubReference points AT its CEDS property (HAS_CEDS_PROPERTY)
+// and domain (HAS_CEDS_DOMAIN). So a CEDS property's way out to the standards mapped to it runs against the edge;
+// cedsElementsByCedsPropertyStableId reads it, property tier only (cedsElementTierList).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 
@@ -110,10 +116,20 @@ const versionTypeRelationshipTypeList = Object.freeze(['REFERENCES_TYPE', 'HAS_O
 
 // the synthetic node ids; a registry, so the access point dispatches on data, not on string tests scattered about
 const syntheticIdPrefixList = Object.freeze([
+	{ idPrefix: 'families:', nodeKind: 'familyCatalog' },
 	{ idPrefix: 'family:', nodeKind: 'family' },
 	{ idPrefix: 'release:', nodeKind: 'release' },
 	{ idPrefix: 'standardGroup:', nodeKind: 'standardGroup' },
 ]);
+
+// the one families-catalog id; 'families:' followed by anything else is refused by name
+const FAMILY_CATALOG_STABLE_ID = 'families:all';
+
+// the HubReference tiers a CEDS property lists as its CEDS elements. A property-tier anchor is one CEDS property in
+// one CEDS domain, the thing standards map to (1,123 of 2,777 carry judgments on GOLD_EVAL_261013_jevQuestionPerBridge);
+// a value-tier anchor is one code of that property in that domain (91,825, none judged), up to 55,000 under one
+// property, so listing them would bury the elements that matter. They stay reachable from anything mapped to them.
+const cedsElementTierList = Object.freeze(['property']);
 
 //START OF moduleFunction() ============================================================
 
@@ -126,6 +142,35 @@ const moduleFunction =
 		const mappingSubjectText = `(subject)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(anchor:HubReference)`;
 
 		const queryBuilderByQueryName = {
+			// every family with its standards, releases and classes: the explorer's top level
+			familyCatalog: () => ({
+				cypher: `
+					MATCH (root:DmeStandardRoot) WHERE root.standardFamily IS NOT NULL
+					WITH root, COUNT { (root)-[:HAS_CLASS]->() } AS classCount
+					ORDER BY root.releaseLabel, root.version
+					RETURN root.standardFamily AS standardFamily, count(root) AS standardCount, count(DISTINCT root.releaseLabel) AS releaseCount,
+					       sum(classCount) AS classCount, collect({ releaseLabel: root.releaseLabel, version: root.version, classCount: classCount }) AS versionList
+					ORDER BY standardFamily
+				`,
+				params: {},
+			}),
+
+			// a CEDS property's CEDS elements (the anchors standards map to), with every judgment on each
+			cedsElementsByCedsPropertyStableId: ({ stableId }) => ({
+				cypher: `
+					MATCH (:CedsProperty {stableId: $stableId})<-[:HAS_CEDS_PROPERTY]-(anchor:HubReference)
+					WHERE anchor.referenceTier IN $cedsElementTierList
+					WITH anchor ORDER BY anchor.domainName, anchor.name
+					WITH count(anchor) AS itemCount, collect(anchor)[0..${GROUP_ITEM_CAP}] AS cappedAnchorList
+					UNWIND cappedAnchorList AS anchor
+					RETURN itemCount, collect({
+					         stableId: anchor.stableId, name: anchor.name, labelList: labels(anchor),
+					         description: coalesce(anchor.propertyDefinition, ''), cedsDomainName: anchor.domainName,
+					         judgmentList: [(anchor)<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode) | { matchEdgeType: type(matchEdge), elementStableId: element.stableId }] }) AS itemList
+				`,
+				params: { stableId, cedsElementTierList: [...cedsElementTierList] },
+			}),
+
 			familyNameList: () => ({
 				cypher: `MATCH (root:DmeStandardRoot) WHERE root.standardFamily IS NOT NULL RETURN DISTINCT root.standardFamily AS standardFamily ORDER BY standardFamily`,
 				params: {},
@@ -187,13 +232,17 @@ const moduleFunction =
 					         path: child.path,
 					         hasStructuralChildren: EXISTS { MATCH (child)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList },
 					         propertyCount: COUNT { (child)-[:HAS_PROPERTY|HAS_FIELD]->() },
-					         mappedPropertyCount: COUNT { MATCH (child)-[:HAS_PROPERTY|HAS_FIELD]->(member) WHERE EXISTS { (member)-[:HAS_INSTANCE*0..1]->()-[:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference) } },
+					         mappedPropertyCount: COUNT { MATCH (child)-[:HAS_PROPERTY|HAS_FIELD]->(member)
+					           WHERE EXISTS { (member)-[:HAS_INSTANCE*0..1]->()-[:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference) }
+					              OR EXISTS { (member)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } },
+					         cedsElementCount: COUNT { MATCH (child)<-[:HAS_CEDS_PROPERTY]-(anchor:HubReference) WHERE anchor.referenceTier IN $cedsElementTierList },
+					         mappedElementCount: COUNT { (child)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() },
 					         occurrenceCount: COUNT { (child)-[:HAS_INSTANCE]->() },
 					         releaseIndependentId: child.releaseIndependentId,
 					         definitionDigest: child.definitionDigest,
 					         mappingList: childMappingList }) AS itemList
 				`,
-				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList] },
+				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList], cedsElementTierList: [...cedsElementTierList] },
 			}),
 
 			// the node's own judgments, and its occurrences' (PESC and SIF judge occurrences, Ed-Fi the property)
@@ -352,6 +401,9 @@ const moduleFunction =
 		};
 
 		const familyIdOf = (standardFamily) => `family:${standardFamily}`;
+
+		// 'families:' names one catalog only; anything after it but 'all' is not an id this page made
+		const isFamilyCatalogId = (stableId) => stableId === FAMILY_CATALOG_STABLE_ID;
 
 		// release:<standardFamily>/<releaseLabel> — one message offered in more than one version (the version picker)
 		const releaseIdOf = ({ standardFamily, releaseLabel }) => `release:${standardFamily}/${releaseLabel}`;
@@ -624,6 +676,12 @@ const moduleFunction =
 				childItem.mappingCount = mappingList.length;
 				childItem.occurrenceCount = childRecord.occurrenceCount;
 			}
+			// a CEDS property is mapped TO, through its CEDS elements: how many there are and how many judgments reach them
+			if (itemKind === 'cedsProperty' && childRecord.cedsElementCount !== undefined) {
+				childItem.cedsElementCount = childRecord.cedsElementCount;
+				childItem.mappedElementCount = childRecord.mappedElementCount;
+				childItem.hasChildren = childItem.hasChildren || childRecord.cedsElementCount > 0;
+			}
 			return childItem;
 		};
 
@@ -641,6 +699,57 @@ const moduleFunction =
 
 		const mapChildGroupRecordList = (groupRecordList) =>
 			groupRecordList.map(mapChildGroupRecord).sort((left, right) => childGroupOrderOf(left.relationshipType) - childGroupOrderOf(right.relationshipType));
+
+		// per match kind, how many distinct elements carry it, strongest first; the strongest names a group's one style
+		const matchKindSummaryOf = (judgmentList) => {
+			const elementStableIdSetByKind = {};
+			const allElementStableIdSet = new Set();
+			(judgmentList || []).forEach((oneJudgment) => {
+				const matchKind = matchKindByEdgeType[oneJudgment.matchEdgeType].matchKind;
+				(elementStableIdSetByKind[matchKind] || (elementStableIdSetByKind[matchKind] = new Set())).add(oneJudgment.elementStableId);
+				allElementStableIdSet.add(oneJudgment.elementStableId);
+			});
+			const matchKindCountList = Object.keys(elementStableIdSetByKind)
+				.map((matchKind) => ({ matchKind, elementCount: elementStableIdSetByKind[matchKind].size }))
+				.sort((left, right) => strengthRankOf(left.matchKind) - strengthRankOf(right.matchKind));
+			return { elementCount: allElementStableIdSet.size, matchKindCountList, strongestMatchKind: matchKindCountList.length ? matchKindCountList[0].matchKind : null };
+		};
+
+		// a CEDS property's CEDS elements, one item per anchor (domain × property), each with what maps to it
+		const mapCedsElementGroupRecord = (groupRecord) => ({
+			relationshipType: 'USED_BY_CEDS_ELEMENT',
+			count: groupRecord.itemCount,
+			truncated: groupRecord.itemCount > groupRecord.itemList.length,
+			itemList: groupRecord.itemList.map((anchorRecord) => ({
+				stableId: anchorRecord.stableId,
+				name: anchorRecord.name,
+				kind: nodeKindOf(anchorRecord.labelList),
+				description: anchorRecord.description,
+				hasChildren: true,
+				standardFamily: 'CEDS',
+				cedsDomainName: anchorRecord.cedsDomainName,
+				...matchKindSummaryOf(anchorRecord.judgmentList),
+			})),
+		});
+
+		// the explorer's top: one item per family, with what the family holds
+		const mapFamilyCatalogItemList = (familyRecordList) =>
+			familyRecordList.map((familyRecord) => {
+				const versionList = [...familyRecord.versionList].sort((left, right) => String(left.releaseLabel).localeCompare(String(right.releaseLabel)) || compareVersionText(left.version, right.version));
+				return {
+					stableId: familyIdOf(familyRecord.standardFamily),
+					name: familyRecord.standardFamily,
+					kind: 'family',
+					description: '',
+					hasChildren: familyRecord.standardCount > 0,
+					standardFamily: familyRecord.standardFamily,
+					standardCount: familyRecord.standardCount,
+					releaseCount: familyRecord.releaseCount,
+					classCount: familyRecord.classCount,
+					versionList,
+					...(familyRecord.standardCount === 1 ? { version: versionList[0].version } : {}),
+				};
+			});
 
 		// the anchor's fan-out, one group per owning standard; a group's single edge style is its strongest kind
 		const mapAnchorFanOut = ({ fanOutRecordList, anchorStableId }) => {
@@ -732,6 +841,11 @@ const moduleFunction =
 			nodeKindOf,
 			parseSyntheticId,
 			familyIdOf,
+			isFamilyCatalogId,
+			FAMILY_CATALOG_STABLE_ID,
+			mapFamilyCatalogItemList,
+			mapCedsElementGroupRecord,
+			matchKindSummaryOf,
 			releaseIdOf,
 			parseReleaseRemainder,
 			mapStandardItem,
