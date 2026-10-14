@@ -4,11 +4,16 @@
 //   action({ adminRequest }, callback(errText, result | { refusal }))
 //
 //   list           every rater: survey, saved of item count, finished, last active
-//   add            { raterUserName, first, last, emailAdr, password, surveyName }: a users row with role 'rater' (through the
-//                  existing admin-create-user access point: its validation and password hashing) plus the raters row
+//   add            { raterUserName, whoText, emailAdr, surveyName, password }: a users row with role 'rater' (through the
+//                  existing admin-create-user access point: its validation and password hashing) plus the raters row.
+//                  whoText (who they are, admin-only) becomes the user's first name; last name is 'CEDS Rater'. emailAdr is
+//                  optional: without one the account gets <name>@raters.educore.invalid (.invalid is reserved, RFC 2606:
+//                  plainly not an address). password is optional: without one a random one is made and returned ONCE as
+//                  issuedPassword for the admin to pass on (the design's "Add and make a password").
 //   surveyChange   { raterUserName, surveyName, forced }: refused once the rater has answers, unless forced; a forced change
 //                  KEEPS the old answers in the store (they appear in the download, and no longer count as progress)
-//   passwordReset  { raterUserName, password }: the users row of a rater (role 'rater' only), hashed by profile-user
+//   passwordReset  { raterUserName, password }: the users row of a rater (role 'rater' only), hashed by profile-user;
+//                  without a password one is made and returned once as issuedPassword
 //   download       { downloadFormat: 'json' | 'csv' }: every saved answer, with foundBy and its full history
 //   remove         { raterUserName }: the rater's answers, history, search log and raters row, and the users row when its
 //                  role is exactly 'rater'. Permanent; the admin screen asks first.
@@ -27,6 +32,21 @@ const refusalOf = (refusalName, refusalText) => {
 };
 const RATER_USER_NAME_PATTERN = /^[a-z0-9_-]{2,40}$/;
 const nowText = () => new Date().toISOString();
+
+// issuePassword — 4 groups of 4 from an alphabet without look-alikes (no 0/o, 1/l/i), checked against the house strength
+// rule; a draw that trips the common-word check is drawn again
+const ISSUED_PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+const issuePassword = (validatePasswordStrength) => {
+	for (let attemptCount = 0; attemptCount < 20; attemptCount++) {
+		const byteList = crypto.randomBytes(16);
+		const passwordText = Array.from(byteList).map((byteValue) => ISSUED_PASSWORD_ALPHABET[byteValue % ISSUED_PASSWORD_ALPHABET.length]).join('').replace(/(.{4})(?=.)/g, '$1-');
+		if (validatePasswordStrength(passwordText).isValid) {
+			return passwordText;
+		}
+	}
+	throw new Error('rater-tool-admin.issuePassword: no valid password in 20 draws');
+};
+const PLACEHOLDER_EMAIL_DOMAIN = 'raters.educore.invalid';
 
 const cardLabelOf = (card) => `${card.className} › ${card.propertyName}${card.qualifierNameList && card.qualifierNameList.length > 0 ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
 
@@ -150,15 +170,19 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 				callback('', refusalOf('surveyNameInvalid', `The survey must be one of ${raterToolAccess.surveyNameList.join(', ')}.`));
 				return;
 			}
+			const issuedPassword = adminRequest.password ? null : issuePassword(profileUserMapper.validatePasswordStrength);
+			const passwordText = adminRequest.password || issuedPassword;
+			const whoText = `${adminRequest.whoText || ''}`.trim();
+			const givenEmailAdr = `${adminRequest.emailAdr || ''}`.trim().toLowerCase();
 			const taskList = new taskListPlus();
 			taskList.push((args, next) => raterStore.readRater(raterUserName, (readError, rater) => (readError ? next(readError, args) : rater ? next('skipRestOfPipe', { ...args, refusalAnswer: refusalOf('raterExists', `There is already a rater named '${raterUserName}'.`) }) : next('', args))));
 			taskList.push((args, next) =>
-				accessPointsDotD['admin-create-user']({ username: raterUserName, password: adminRequest.password, first: adminRequest.first, last: adminRequest.last, emailAdr: adminRequest.emailAdr, role: 'rater' }, (createError) =>
+				accessPointsDotD['admin-create-user']({ username: raterUserName, password: passwordText, first: whoText || raterUserName, last: 'CEDS Rater', emailAdr: givenEmailAdr || `${raterUserName}@${PLACEHOLDER_EMAIL_DOMAIN}`, role: 'rater' }, (createError) =>
 					createError ? next('skipRestOfPipe', { ...args, refusalAnswer: refusalOf(/already exists/i.test(createError) ? 'raterExists' : /password/i.test(createError) ? 'passwordInvalid' : 'raterAccountInvalid', `${createError}`) }) : next('', args)));
 			taskList.push((args, next) =>
-				raterStore.saveRowVerified('raters', { raterUserName, surveyName: adminRequest.surveyName, displayJson: raterMapper.encodeJsonColumn({ first: `${adminRequest.first}`.trim(), last: `${adminRequest.last}`.trim(), emailAdr: `${adminRequest.emailAdr}`.trim().toLowerCase() }), raterSeedText: crypto.randomBytes(16).toString('hex') }, (saveError) =>
+				raterStore.saveRowVerified('raters', { raterUserName, surveyName: adminRequest.surveyName, displayJson: raterMapper.encodeJsonColumn({ whoText, emailAdr: givenEmailAdr || null }), raterSeedText: crypto.randomBytes(16).toString('hex') }, (saveError) =>
 					saveError ? next(saveError, args) : next('', args)));
-			pipeRunner(taskList.getList(), {}, (err, args) => (err === 'skipRestOfPipe' ? callback('', args.refusalAnswer) : err ? callback(err) : callback('', { added: true, raterUserName, surveyName: adminRequest.surveyName })));
+			pipeRunner(taskList.getList(), {}, (err, args) => (err === 'skipRestOfPipe' ? callback('', args.refusalAnswer) : err ? callback(err) : callback('', { added: true, raterUserName, surveyName: adminRequest.surveyName, issuedPassword })));
 		},
 		surveyChange: ({ adminRequest }, callback) => {
 			if (raterToolAccess.surveyNameList.indexOf(adminRequest.surveyName) === -1) {
@@ -186,7 +210,9 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 			});
 		},
 		passwordReset: ({ adminRequest }, callback) => {
-			const passwordVerdict = profileUserMapper.validatePasswordStrength(adminRequest.password);
+			const issuedPassword = adminRequest.password ? null : issuePassword(profileUserMapper.validatePasswordStrength);
+			const passwordText = adminRequest.password || issuedPassword;
+			const passwordVerdict = profileUserMapper.validatePasswordStrength(passwordText);
 			if (!passwordVerdict.isValid) {
 				callback('', refusalOf('passwordInvalid', passwordVerdict.errors.join(', ')));
 				return;
@@ -205,8 +231,8 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 						callback('', refusalOf('userNotARater', `The account '${readAnswer.rater.raterUserName}' is not a rater account; its password is not changed here.`));
 						return;
 					}
-					userTable.saveObject(profileUserMapper.map({ refId: userRow.refId, password: adminRequest.password }, 'reverse'), { suppressStatementLog: true }, (saveError) =>
-						saveError ? callback(`the password reset failed: ${saveError}`) : callback('', { passwordReset: true, raterUserName: readAnswer.rater.raterUserName }));
+					userTable.saveObject(profileUserMapper.map({ refId: userRow.refId, password: passwordText }, 'reverse'), { suppressStatementLog: true }, (saveError) =>
+						saveError ? callback(`the password reset failed: ${saveError}`) : callback('', { passwordReset: true, raterUserName: readAnswer.rater.raterUserName, issuedPassword }));
 				});
 			});
 		},

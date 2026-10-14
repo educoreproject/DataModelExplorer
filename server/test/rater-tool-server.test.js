@@ -41,6 +41,7 @@ const check = (testName, condition, detailText) => {
 
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'raterServerTest-'));
 const ADMIN_PASSWORD = 'harbor lantern quietly 4471';
+const RESET_PASSWORD = 'indigo pebble harvest 6620';
 const RATER_PASSWORD_BY_NAME = { 'rater-x': 'amber meadow falcon 2210', 'rater-y': 'cobalt river thistle 9081', 'rater-z': 'saffron glacier pivot 5532' };
 const configOf = (overrideObject) => ({ goldenContainerName: realRaterToolConfig.goldenContainerName, storeFilePath: path.join(scratchDirPath, 'main', 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey, ...overrideObject });
 
@@ -96,7 +97,7 @@ const stepList = [
 				return;
 			}
 			const raterUserName = raterNameList[position];
-			post(state, '/api/raterAdmin', { adminAction: 'add', raterUserName, first: 'Test', last: raterUserName, emailAdr: `${raterUserName}@example.org`, password: RATER_PASSWORD_BY_NAME[raterUserName], surveyName: 'A' }, state.adminToken, (response) => {
+			post(state, '/api/raterAdmin', { adminAction: 'add', raterUserName, whoText: `Test ${raterUserName}, Example University`, emailAdr: `${raterUserName}@example.org`, password: RATER_PASSWORD_BY_NAME[raterUserName], surveyName: 'A' }, state.adminToken, (response) => {
 				check(`admin adds ${raterUserName} on survey A`, response.statusCode === 200 && response.bodyJson[0].added === true, response.bodyText);
 				addAt(position + 1);
 			});
@@ -387,12 +388,20 @@ const stepList = [
 		console.log('admin actions');
 		post(state, '/api/raterAdmin', { adminAction: 'surveyChange', raterUserName: 'rater-x', surveyName: 'B' }, state.adminToken, (refusedResponse) => {
 			check('survey change once answers exist is refused (surveyChangeWithAnswers)', refusalNameOf(refusedResponse) === 'surveyChangeWithAnswers', refusedResponse.bodyText.slice(0, 120));
-			post(state, '/api/raterAdmin', { adminAction: 'passwordReset', raterUserName: 'rater-y', password: 'indigo pebble harvest 6620' }, state.adminToken, (resetResponse) => {
+			post(state, '/api/raterAdmin', { adminAction: 'passwordReset', raterUserName: 'rater-y', password: RESET_PASSWORD }, state.adminToken, (resetResponse) => {
 				check('password reset', resetResponse.statusCode === 200, resetResponse.bodyText.slice(0, 120));
-				login(state, 'rater-y', 'indigo pebble harvest 6620', (newToken) => {
+				login(state, 'rater-y', RESET_PASSWORD, (newToken) => {
 					check('the new password signs in', !!newToken);
-					RATER_PASSWORD_BY_NAME['rater-y-new'] = 'indigo pebble harvest 6620';
-					next(state);
+					RATER_PASSWORD_BY_NAME['rater-y-new'] = RESET_PASSWORD;
+					post(state, '/api/raterAdmin', { adminAction: 'add', raterUserName: 'rater-w', whoText: 'Issued-password test', surveyName: 'C' }, state.adminToken, (issuedResponse) => {
+						const issuedPassword = issuedResponse.bodyJson ? issuedResponse.bodyJson[0].issuedPassword : null;
+						check('an add without a password issues one (shown once)', typeof issuedPassword === 'string' && issuedPassword.length >= 16, issuedResponse.bodyText.slice(0, 120));
+						login(state, 'rater-w', issuedPassword, (issuedToken) => {
+							check('the issued password signs in', !!issuedToken);
+							RATER_PASSWORD_BY_NAME['rater-w'] = issuedPassword;
+							next(state);
+						});
+					});
 				});
 			});
 		});
@@ -455,7 +464,7 @@ const stepList = [
 			harness.accessPointByName['admin-create-user']({ username: 'test-admin', password: ADMIN_PASSWORD, first: 'Test', last: 'Admin', emailAdr: 'test-admin@example.org', role: 'admin' }, () => {
 				const unreachableState = { baseUrl: harness.baseUrl };
 				login(unreachableState, 'test-admin', ADMIN_PASSWORD, (adminToken) => {
-					post(unreachableState, '/api/raterAdmin', { adminAction: 'add', raterUserName: 'rater-u', first: 'U', last: 'U', emailAdr: 'u@example.org', password: RATER_PASSWORD_BY_NAME['rater-x'], surveyName: 'B' }, adminToken, () => {
+					post(unreachableState, '/api/raterAdmin', { adminAction: 'add', raterUserName: 'rater-u', whoText: 'U', password: RATER_PASSWORD_BY_NAME['rater-x'], surveyName: 'B' }, adminToken, () => {
 						login(unreachableState, 'rater-u', RATER_PASSWORD_BY_NAME['rater-x'], (raterToken) => {
 							post(unreachableState, '/api/raterItemGet', { itemNumber: 1 }, raterToken, (itemResponse) => {
 								const elementStableId = itemResponse.bodyJson ? itemResponse.bodyJson[0].element.elementStableId : 'none';
