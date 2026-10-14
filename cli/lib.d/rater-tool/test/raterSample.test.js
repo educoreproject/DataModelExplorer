@@ -69,16 +69,27 @@ check('no elementStableId appears twice', new Set(stableIdList).size === stableI
 const contentSignatureList = elementList.filter((element) => element.standard !== 'Ed-Fi').map((element) => JSON.stringify([element.standard, element.name, element.definition, element.dataTypeText]));
 check('no two SIF/PESC elements share name + definition + type', new Set(contentSignatureList).size === contentSignatureList.length);
 
-console.log('T1.5 strata');
+console.log('T1.5 strata (revision 2: per part, mapped 40 / unmapped 10)');
 drawConfig.standardNameList.forEach((standardName) => {
-	const frameKindCountByName = sampleDocument.frameKindCountByStandard[standardName];
-	drawConfig.kindNameList.forEach((kindName) => {
-		const frameCount = frameKindCountByName[kindName] || 0;
-		const drawnCount = elementList.filter((element) => element.standard === standardName && element.kind === kindName).length;
-		const requiredCount = Math.min(drawConfig.minimumPerKindCount, frameCount);
-		check(`${standardName} ${kindName}: drawn ${drawnCount} >= ${requiredCount} (frame ${frameCount})`, drawnCount >= requiredCount);
+	['mapped', 'unmapped'].forEach((partName) => {
+		const partElementList = elementList.filter((element) => element.standard === standardName && (partName === 'mapped') === element.isMappedInGold);
+		check(`${standardName} ${partName}: exactly ${drawConfig.drawCountByPart[partName]}`, partElementList.length === drawConfig.drawCountByPart[partName], `${partElementList.length}`);
+		const frameKindCountByName = sampleDocument.frameKindCountByStandardAndPart[standardName][partName];
+		drawConfig.kindNameList.forEach((kindName) => {
+			const frameCount = frameKindCountByName[kindName] || 0;
+			const drawnCount = partElementList.filter((element) => element.kind === kindName).length;
+			const requiredCount = Math.min(drawConfig.minimumPerKindCountByPart[partName], frameCount);
+			check(`${standardName} ${partName} ${kindName}: drawn ${drawnCount} >= ${requiredCount} (frame ${frameCount})`, drawnCount >= requiredCount && drawnCount <= frameCount);
+		});
 	});
+	const populationCount = sampleDocument.frameMappedCountByStandard[standardName];
+	check(`${standardName}: population counts recorded (mapped ${populationCount && populationCount.mapped}, unmapped ${populationCount && populationCount.unmapped})`, populationCount && populationCount.mapped >= 40 && populationCount.unmapped >= 10);
 });
+
+console.log('revision 2 frame rules');
+const attributeNameList = elementList.filter((element) => element.name.startsWith('@')).map((element) => element.elementStableId);
+check('no element name begins with @', attributeNameList.length === 0, attributeNameList.join(', '));
+check('every element lists its member stable ids', elementList.every((element) => Array.isArray(element.memberStableIdList) && element.memberStableIdList.length === element.memberCount));
 
 console.log('T1.6 completeness');
 const incompleteList = elementList.filter((element) =>
@@ -111,6 +122,35 @@ openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, query
 		return;
 	}
 	const { raterGraph } = openResult;
+	// revision 2, against the gold with this test's own Cypher: every member's data-type marker and its mapping
+	const MEMBER_TRUTH_CYPHER = `UNWIND $memberStableIdList AS memberStableId
+		MATCH (member:ForgedNode {stableId: memberStableId})
+		OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH member.stableId + '/at/' AND (occurrence)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference)
+		WITH member, count(occurrence) AS mappedOccurrenceCount
+		RETURN member.stableId AS memberStableId, member.sharedBlock AS sharedBlock, member.reachableFromRoot AS reachableFromRoot,
+		       EXISTS { (member)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) } OR mappedOccurrenceCount > 0 AS isMapped`;
+	// red twins: a SIF field in the shared SIF_Metadata block and an unreachable PESC declaration, planted below
+	const PLANTED_SIF_SHARED_MEMBER = 'sif260928:field/AccountingPeriods/AccountingPeriod/SIF_Metadata/EducationFilter/BloomsTaxonomyLevels/BloomsTaxonomyLevel';
+	const PLANTED_PESC_UNREACHABLE_MEMBER = 'pesccollegetranscript1v8v0:group/urn:org:pesc:core:CoreMain:v1.19.0#OrganizationIDGroup/el/10:CSIS';
+	const allMemberStableIdList = elementList.reduce((soFar, element) => soFar.concat(element.memberStableIdList), []).concat([PLANTED_SIF_SHARED_MEMBER, PLANTED_PESC_UNREACHABLE_MEMBER]);
+	raterGraph.runQuery(MEMBER_TRUTH_CYPHER, { memberStableIdList: allMemberStableIdList }, (truthError, truthRowList) => {
+		const truthByStableId = (truthRowList || []).reduce((soFar, truthRow) => ({ ...soFar, [truthRow.memberStableId]: truthRow }), {});
+		check(`every member (${allMemberStableIdList.length}, two planted) is in the gold`, !truthError && allMemberStableIdList.every((memberStableId) => truthByStableId[memberStableId]), truthError || allMemberStableIdList.filter((memberStableId) => !truthByStableId[memberStableId]).join(', '));
+		const sifSharedOf = (candidateList) => candidateList.filter((element) => element.standard === 'SIF' && element.memberStableIdList.some((memberStableId) => (truthByStableId[memberStableId] || {}).sharedBlock !== 'model'));
+		const pescUnreachableOf = (candidateList) => candidateList.filter((element) => element.standard === 'PESC' && element.memberStableIdList.some((memberStableId) => (truthByStableId[memberStableId] || {}).reachableFromRoot !== true));
+		check('red twin: a planted SIF_Metadata field is seen by the shared-block check', sifSharedOf([{ standard: 'SIF', memberStableIdList: [PLANTED_SIF_SHARED_MEMBER] }]).length === 1);
+		check('red twin: a planted unreachable PESC declaration is seen by the reachability check', pescUnreachableOf([{ standard: 'PESC', memberStableIdList: [PLANTED_PESC_UNREACHABLE_MEMBER] }]).length === 1);
+		const sifSharedList = elementList.filter((element) => element.standard === 'SIF' && element.memberStableIdList.some((memberStableId) => (truthByStableId[memberStableId] || {}).sharedBlock !== 'model'));
+		check('no SIF element has a member in a shared data-type block (sharedBlock other than model)', sifSharedList.length === 0, sifSharedList.map((element) => element.elementStableId).join(', '));
+		const pescUnreachableList = elementList.filter((element) => element.standard === 'PESC' && element.memberStableIdList.some((memberStableId) => (truthByStableId[memberStableId] || {}).reachableFromRoot !== true));
+		check('no PESC element has a member unreachable from the message root', pescUnreachableList.length === 0, pescUnreachableList.map((element) => element.elementStableId).join(', '));
+		const wrongFlagList = elementList.filter((element) => element.isMappedInGold !== element.memberStableIdList.some((memberStableId) => (truthByStableId[memberStableId] || {}).isMapped === true));
+		check('isMappedInGold equals the gold for every element (any member, PESC through its occurrences)', wrongFlagList.length === 0, wrongFlagList.map((element) => element.elementStableId).slice(0, 5).join(', '));
+		runExclusionChecks(raterGraph);
+	});
+});
+
+const runExclusionChecks = (raterGraph) => {
 	let remainingCount = exclusionList.length;
 	exclusionList.forEach((exclusion) => {
 		raterGraph.runQuery(EXCLUSION_TEXT_CYPHER_BY_STANDARD[exclusion.standard], exclusion, (queryError, rowList) => {
@@ -131,7 +171,7 @@ openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, query
 			}
 		});
 	});
-});
+};
 
 const finish = () => {
 	fs.rmSync(scratchDirPath, { recursive: true, force: true });

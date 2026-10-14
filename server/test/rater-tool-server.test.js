@@ -68,7 +68,7 @@ const post = (state, routePath, requestBody, authtoken, callback) =>
 	});
 const refusalNameOf = (response) => (response.statusCode === 400 ? response.bodyText.split(':')[0] : `status ${response.statusCode}`);
 const keyListDeep = (candidate) => (Array.isArray(candidate) ? candidate.reduce((soFar, entry) => soFar.concat(keyListDeep(entry)), []) : candidate && typeof candidate === 'object' ? Object.keys(candidate).reduce((soFar, fieldName) => soFar.concat([fieldName], keyListDeep(candidate[fieldName])), []) : []);
-const FORBIDDEN_KEY_LIST = ['foundByMethod', 'score', 'rank', 'fusedScore', 'keywordRank', 'vectorRank', 'keywordScore', 'vectorScore', 'hitRank', 'splitHalf', 'kind', 'raterSeedText', 'raterUserName', 'answerCount'];
+const FORBIDDEN_KEY_LIST = ['isMappedInGold', 'memberStableIdList', 'memberPathList', 'frameMappedCountByStandard', 'foundByMethod', 'score', 'rank', 'fusedScore', 'keywordRank', 'vectorRank', 'keywordScore', 'vectorScore', 'hitRank', 'splitHalf', 'kind', 'raterSeedText', 'raterUserName', 'answerCount'];
 
 // every response carries an authtoken header (refreshauthtoken runs on every request, a failed login included), so a
 // sign-in counts only on HTTP 200
@@ -218,7 +218,9 @@ const stepList = [
 						const searchKeyList = keyListDeep([idResponse.bodyJson, wordsResponse.bodyJson, meaningResponse.bodyJson]);
 						const forbiddenFoundList = FORBIDDEN_KEY_LIST.concat(['foundBy']).filter((forbiddenKey) => searchKeyList.indexOf(forbiddenKey) !== -1);
 						check('no search payload carries foundBy(Method), a score or a rank', forbiddenFoundList.length === 0, forbiddenFoundList.join(', '));
-						next({ ...state, searchedCard: idCardList.find((card) => card.qualifierNameList.join(', ') === 'Student Identifier'), searchElementStableId: elementStableId });
+						// the card to add must not already be in this element's suggested list (it would then be 'suggested', not 'search')
+						const listedTupleIdSet = new Set(state.itemListByRater['rater-x'][5].cardList.map((card) => card.cedsTupleId));
+						next({ ...state, searchedCard: idCardList.find((card) => !listedTupleIdSet.has(card.cedsTupleId)), searchElementStableId: elementStableId });
 					});
 				});
 			});

@@ -44,6 +44,8 @@ const groupFrame = ({ standardName, memberRowList, groupSignatureOf }) => {
 				path: representative.pathText,
 				documentationUrl: null,
 				memberCount: groupMemberList.length,
+				isMappedInGold: groupMemberList.some((oneRow) => oneRow.memberIsMapped === true),
+				memberStableIdList: groupMemberList.map((oneRow) => oneRow.memberStableId),
 				memberPathList: groupMemberList.slice(0, MEMBER_PATH_LIST_CAP).map((oneRow) => oneRow.pathText),
 				memberExclusionMatchList: groupMemberList.map((oneRow) => ({ ...oneRow.exclusionMatch, name: oneRow.name, definition: oneRow.definition })),
 			};
@@ -130,14 +132,30 @@ const allocateKindCounts = ({ kindCountByName, drawCount, minimumPerKindCount, k
 const elementListByKindOf = (elementList, kindNameList) =>
 	kindNameList.reduce((soFar, kindName) => ({ ...soFar, [kindName]: elementList.filter((element) => element.kind === kindName) }), {});
 
+// drawStandard — revision 2: two parts, MAPPED and UNMAPPED (drawConfig.drawCountByPart, 40 + 10), each kind-stratified on
+// its own (drawConfig.minimumPerKindCountByPart: at least 4 per kind in the mapped part where available, none required
+// in the unmapped part); each part's draw is a seeded shuffle within kind, its label naming standard, part and kind
+const PART_NAME_LIST = Object.freeze(['mapped', 'unmapped']);
+const partNameOf = (element) => (element.isMappedInGold ? 'mapped' : 'unmapped');
+
 const drawStandard = ({ standardName, elementList, drawConfig }) => {
-	const elementListByKind = elementListByKindOf(elementList, drawConfig.kindNameList);
-	const kindCountByName = drawConfig.kindNameList.reduce((soFar, kindName) => ({ ...soFar, [kindName]: elementListByKind[kindName].length }), {});
-	const drawCountByKind = allocateKindCounts({ kindCountByName, drawCount: drawConfig.perStandardDrawCount, minimumPerKindCount: drawConfig.minimumPerKindCount, kindNameList: drawConfig.kindNameList });
-	const drawnElementList = Object.keys(drawCountByKind).reduce((soFar, kindName) =>
-		soFar.concat(seededShuffle(elementListByKind[kindName], drawConfig.sampleSeedText, `draw:${standardName}:${kindName}`).slice(0, drawCountByKind[kindName])), []);
-	return { drawnElementList, drawCountByKind, kindCountByName };
+	const partReportByName = {};
+	const drawnElementList = PART_NAME_LIST.reduce((soFar, partName) => {
+		const partElementList = elementList.filter((element) => partNameOf(element) === partName);
+		const elementListByKind = elementListByKindOf(partElementList, drawConfig.kindNameList);
+		const kindCountByName = drawConfig.kindNameList.reduce((countSoFar, kindName) => ({ ...countSoFar, [kindName]: elementListByKind[kindName].length }), {});
+		const drawCountByKind = allocateKindCounts({ kindCountByName, drawCount: drawConfig.drawCountByPart[partName], minimumPerKindCount: drawConfig.minimumPerKindCountByPart[partName], kindNameList: drawConfig.kindNameList });
+		partReportByName[partName] = { frameCount: partElementList.length, kindCountByName, drawCountByKind };
+		return soFar.concat(Object.keys(drawCountByKind).reduce((kindSoFar, kindName) =>
+			kindSoFar.concat(seededShuffle(elementListByKind[kindName], drawConfig.sampleSeedText, `draw:${standardName}:${partName}:${kindName}`).slice(0, drawCountByKind[kindName])), []));
+	}, []);
+	return { drawnElementList, partReportByName };
 };
+
+// the layout the split and the deal walk: part by part, kind by kind, a seeded shuffle within each cell
+const laidOutByPartAndKind = (elementList, drawConfig, labelText) =>
+	PART_NAME_LIST.reduce((soFar, partName) => soFar.concat(drawConfig.kindNameList.reduce((kindSoFar, kindName) =>
+		kindSoFar.concat(seededShuffle(elementList.filter((element) => partNameOf(element) === partName && element.kind === kindName).sort((elementA, elementB) => byText(elementA.elementStableId, elementB.elementStableId)), drawConfig.sampleSeedText, `${labelText}:${partName}:${kindName}`)), [])), []);
 
 // splitDevSealed — kind-stratified 25/25: within each kind the drawn elements are shuffled, the kinds are laid end to end,
 // and the halves alternate down that list from a seeded start, so each kind divides as evenly as its count allows
@@ -145,8 +163,7 @@ const splitDevSealed = ({ standardName, drawnElementList, drawConfig }) => {
 	if (drawnElementList.length !== drawConfig.devSealedHalfCount * 2) {
 		throw new Error(`sampleBuilder.splitDevSealed: ${standardName} drew ${drawnElementList.length} elements; the split needs exactly ${drawConfig.devSealedHalfCount * 2}`);
 	}
-	const elementListByKind = elementListByKindOf(drawnElementList, drawConfig.kindNameList);
-	const laidOutList = drawConfig.kindNameList.reduce((soFar, kindName) => soFar.concat(seededShuffle(elementListByKind[kindName], drawConfig.sampleSeedText, `split:${standardName}:${kindName}`)), []);
+	const laidOutList = laidOutByPartAndKind(drawnElementList, drawConfig, `split:${standardName}`);
 	const startHalfName = seededShuffle(['dev', 'sealed'], drawConfig.sampleSeedText, `splitStart:${standardName}`)[0];
 	const otherHalfName = startHalfName === 'dev' ? 'sealed' : 'dev';
 	return laidOutList.map((element, position) => ({ ...element, splitHalf: position % 2 === 0 ? startHalfName : otherHalfName }));
@@ -157,23 +174,23 @@ const splitDevSealed = ({ standardName, drawnElementList, drawConfig }) => {
 // kind so far, then the fewest elements, then survey order. Greedy, and never stuck: a standard's remaining room always
 // equals its remaining elements. So every survey gets each kind as evenly as the counts allow.
 const dealSurveys = ({ drawnElementListByStandard, drawConfig }) => {
-	const { surveyNameList, surveyStandardCountByName, standardNameList, kindNameList, sampleSeedText } = drawConfig;
+	const { surveyNameList, surveyStandardCountByName, standardNameList } = drawConfig;
 	const allElementList = standardNameList.reduce((soFar, standardName) => soFar.concat(drawnElementListByStandard[standardName]), []);
-	const laidOutList = kindNameList.reduce((soFar, kindName) =>
-		soFar.concat(seededShuffle(allElementList.filter((element) => element.kind === kindName).sort((elementA, elementB) => byText(elementA.elementStableId, elementB.elementStableId)), sampleSeedText, `deal:${kindName}`)), []);
+	const laidOutList = laidOutByPartAndKind(allElementList, drawConfig, 'deal');
 	const roomBySurveyAndStandard = surveyNameList.reduce((soFar, surveyName) => ({ ...soFar, [surveyName]: { ...surveyStandardCountByName[surveyName] } }), {});
 	const kindCountBySurvey = surveyNameList.reduce((soFar, surveyName) => ({ ...soFar, [surveyName]: {} }), {});
 	const totalCountBySurvey = surveyNameList.reduce((soFar, surveyName) => ({ ...soFar, [surveyName]: 0 }), {});
 	const dealtList = laidOutList.map((element) => {
+		const cellName = `${partNameOf(element)}:${element.kind}`;
 		const surveyName = surveyNameList
 			.filter((candidateSurveyName) => roomBySurveyAndStandard[candidateSurveyName][element.standard] > 0)
-			.sort((surveyA, surveyB) => (kindCountBySurvey[surveyA][element.kind] || 0) - (kindCountBySurvey[surveyB][element.kind] || 0) || totalCountBySurvey[surveyA] - totalCountBySurvey[surveyB] || surveyNameList.indexOf(surveyA) - surveyNameList.indexOf(surveyB))[0];
+			.sort((surveyA, surveyB) => (kindCountBySurvey[surveyA][cellName] || 0) - (kindCountBySurvey[surveyB][cellName] || 0) || totalCountBySurvey[surveyA] - totalCountBySurvey[surveyB] || surveyNameList.indexOf(surveyA) - surveyNameList.indexOf(surveyB))[0];
 		roomBySurveyAndStandard[surveyName][element.standard] -= 1;
-		kindCountBySurvey[surveyName][element.kind] = (kindCountBySurvey[surveyName][element.kind] || 0) + 1;
+		kindCountBySurvey[surveyName][cellName] = (kindCountBySurvey[surveyName][cellName] || 0) + 1;
 		totalCountBySurvey[surveyName] += 1;
 		return { ...element, surveyName };
 	});
 	return standardNameList.reduce((soFar, standardName) => ({ ...soFar, [standardName]: dealtList.filter((element) => element.standard === standardName) }), {});
 };
 
-module.exports = { groupFrame, classifyKind, applyExclusions, allocateKindCounts, drawStandard, splitDevSealed, dealSurveys, KIND_TEST_BY_NAME };
+module.exports = { PART_NAME_LIST, groupFrame, classifyKind, applyExclusions, allocateKindCounts, drawStandard, splitDevSealed, dealSurveys, KIND_TEST_BY_NAME };

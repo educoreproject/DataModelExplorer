@@ -1,8 +1,10 @@
 {
 	"_comment": "The CEDS Rater's published draw parameters (lane RATER 2026-10-14). Changing any value here changes sample.json; the seed is published in sample-report.md.",
-	"sampleSeedText": "cedsRater-humanTruthSet-101426",
+	"sampleSeedText": "cedsRater-humanTruthSet-101426-r2",
+	"_revision2": "TQ 2026-10-14: per standard 40 elements mapped in the gold + 10 unmapped, each part kind-stratified; @ attributes and data-type elements leave the frame (frameReaders.js FRAME_RULE_LIST).",
+	"drawCountByPart": { "mapped": 40, "unmapped": 10 },
+	"minimumPerKindCountByPart": { "mapped": 4, "unmapped": 0 },
 	"perStandardDrawCount": 50,
-	"minimumPerKindCount": 4,
 	"devSealedHalfCount": 25,
 	"surveyNameList": ["A", "B", "C"],
 	"surveyItemCount": 50,

@@ -128,7 +128,7 @@ try {
 		clone.querySelectorAll('[data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
 		return clone.innerText || clone.textContent;
 	});
-	check('no "found by", score, rank or AI text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge/i) || [])[0]);
+	check('no "found by", score, rank, AI or mapping text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold/i) || [])[0]);
 	const idTextList = await page.locator('[data-testid="rater-card-ceds-id"]').allInnerTexts();
 	check('every card shows a CEDS ID or "CEDS ID not listed"', idTextList.length > 0 && idTextList.every((idText) => /^CEDS ID (P\d{6}|not listed)$/.test(idText.trim())), JSON.stringify(idTextList.slice(0, 3)));
 
@@ -184,11 +184,18 @@ try {
 	await page.fill('[data-testid="rater-search-input"]', 'P001572');
 	await page.click('[data-testid="rater-search-submit"]');
 	await page.locator('[data-testid="rater-search-result"]').first().waitFor({ timeout: 20000 });
-	const studentIdResult = page.locator('[data-testid="rater-search-result"]', { hasText: 'Student Identifier' }).first();
+	// the first P001572 card not already in this item's list (the sample decides which are)
+	const searchResultList = page.locator('[data-testid="rater-search-result"]');
+	let addablePosition = 0;
+	while ((await searchResultList.nth(addablePosition).locator('[data-testid="rater-add-card"]').count()) === 0) {
+		addablePosition += 1;
+	}
+	const studentIdResult = searchResultList.nth(addablePosition);
+	const addedQualifierText = (await studentIdResult.locator('.rt-qualifier').allInnerTexts()).join(', ');
 	await studentIdResult.locator('[data-testid="rater-add-card"]').click();
 	await page.screenshot({ path: shotPath('07-search-added') });
 	const firstRowText = await rowLocator().nth(0).innerText();
-	check('the searched card joins the TOP of the list, marked "Added by you"', /Added by you/.test(firstRowText) && /Student Identifier/.test(firstRowText), firstRowText.slice(0, 120));
+	check(`the searched card (Person Identifier ${addedQualifierText || 'no qualifier'}) joins the TOP of the list, marked "Added by you"`, /Added by you/.test(firstRowText) && /Person Identifier/.test(firstRowText) && firstRowText.includes(addedQualifierText), firstRowText.slice(0, 120));
 	check('…and its result now says "✓ In your list"', /In your list/.test(await studentIdResult.innerText()));
 	await rowLocator().nth(0).locator('[data-testid="rater-best-radio"]').check();
 	await page.click('[data-testid="rater-save"]');
@@ -204,10 +211,11 @@ try {
 	await page.locator('[data-testid="rater-browse-class"]', { hasText: 'Person Identification' }).first().click();
 	await page.locator('[data-testid="rater-browse-property"]').first().waitFor({ timeout: 20000 });
 	await page.screenshot({ path: shotPath('08-browse-person-identification') });
-	const browseCard = page.locator('[data-testid="rater-browse-property"]', { hasText: 'Staff Member Identifier' }).first();
+	const browseCard = page.locator('[data-testid="rater-browse-property"]', { has: page.locator('[data-testid="rater-add-card"]') }).first();
+	const browsePropertyText = (await browseCard.locator('.rt-property').innerText()).trim();
 	await browseCard.locator('[data-testid="rater-add-card"]').click();
 	const browseTopText = await rowLocator().nth(0).innerText();
-	check('the browsed card joins the top of the list, marked "Added by you"', /Added by you/.test(browseTopText) && /Staff Member Identifier/.test(browseTopText), browseTopText.slice(0, 120));
+	check(`the browsed card (${browsePropertyText}) joins the top of the list, marked "Added by you"`, /Added by you/.test(browseTopText) && browseTopText.includes(browsePropertyText), browseTopText.slice(0, 120));
 	await rowLocator().nth(0).locator('[data-testid="rater-best-radio"]').check();
 	await page.click('[data-testid="rater-save"]');
 	await waitForItem(6);

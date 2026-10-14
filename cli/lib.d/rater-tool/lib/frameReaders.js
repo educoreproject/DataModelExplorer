@@ -22,6 +22,8 @@
 //           of each of the seven sub-standards (drawConfig.pescLatestReleaseList).
 
 const OPTION_VALUE_SAMPLE_SIZE = 12;
+// revision 2: an element is MAPPED when a member (PESC: a member's occurrence) has any of the four match edges
+const MAPPING_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 
 const EDFI_FRAME_CYPHER = `
 	MATCH (owner:DmeClass)-[:HAS_PROPERTY]->(property:EdfiProperty)
@@ -31,7 +33,7 @@ const EDFI_FRAME_CYPHER = `
 	OPTIONAL MATCH (optionSet)-[:HAS_VALUE]->(optionValue)
 	WITH owner, property, sharedType, optionSet, optionValue ORDER BY optionValue.name
 	WITH owner, property, sharedType, optionSet, collect(optionValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
-	RETURN property.stableId AS memberStableId, property.name AS name, property.description AS definition,
+	RETURN property.stableId AS memberStableId, EXISTS { (property)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference) } AS memberIsMapped, property.name AS name, property.description AS definition,
 	       property.propertyType AS propertyType, sharedType.name AS sharedTypeName, optionSet.name AS optionSetName, optionValueSampleList,
 	       owner.name AS ownerName, owner.description AS ownerDefinition, property.path AS pathText
 	ORDER BY memberStableId`;
@@ -44,7 +46,7 @@ const SIF_FRAME_CYPHER = `
 	OPTIONAL MATCH (codeset)-[:HAS_VALUE]->(codesetValue)
 	WITH field, parentField, codeset, codesetValue ORDER BY codesetValue.name
 	WITH field, parentField, codeset, collect(codesetValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
-	RETURN field.stableId AS memberStableId, field.name AS name, field.description AS definition, field.type AS fieldTypeName,
+	RETURN field.stableId AS memberStableId, EXISTS { (field)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference) } AS memberIsMapped, field.sharedBlock AS sharedBlock, field.name AS name, field.description AS definition, field.type AS fieldTypeName,
 	       codeset.name AS optionSetName, optionValueSampleList, field.objectName AS objectName, field.parentPath AS parentPath,
 	       parentField.name AS parentFieldName, parentField.description AS parentFieldDefinition, field.xpath AS pathText
 	ORDER BY memberStableId`;
@@ -57,7 +59,10 @@ const PESC_FRAME_CYPHER = `
 	OPTIONAL MATCH (codeList)-[:HAS_VALUE]->(codeValue)
 	WITH owner, element, dataType, codeList, codeValue ORDER BY codeValue.name
 	WITH owner, element, dataType, codeList, collect(codeValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
-	RETURN element.stableId AS memberStableId, element.name AS name, element.effectiveDocumentation AS definition, element.typeName AS pescTypeName,
+	// a PESC declaration is mapped through its occurrences in the message (stableId <declaration>/at/...)
+	OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH element.stableId + '/at/' AND (occurrence)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference)
+	WITH owner, element, dataType, codeList, optionValueSampleList, count(occurrence) > 0 AS memberIsMapped
+	RETURN element.stableId AS memberStableId, memberIsMapped, element.reachableFromRoot AS reachableFromRoot, element.name AS name, element.effectiveDocumentation AS definition, element.typeName AS pescTypeName,
 	       dataType.baseTypeQName AS baseTypeQName, codeList.name AS optionSetName, optionValueSampleList,
 	       owner.name AS ownerName, owner.description AS ownerDefinition, element.contextPathSampleList AS contextPathSampleList, element._source AS sourceName
 	ORDER BY memberStableId`;
@@ -85,6 +90,7 @@ const FRAME_READER_BY_STANDARD = Object.freeze({
 				ownerDefinition: blankToNull(oneRow.ownerDefinition),
 				pathText: oneRow.pathText,
 				subStandardName: 'Ed-Fi Data Standard',
+				memberIsMapped: oneRow.memberIsMapped === true,
 				exclusionMatch: { edFiPath: oneRow.pathText },
 			})));
 		});
@@ -111,6 +117,8 @@ const FRAME_READER_BY_STANDARD = Object.freeze({
 					ownerDefinition: blankToNull(oneRow.parentFieldDefinition),
 					pathText: oneRow.pathText,
 					subStandardName: `SIF ${drawConfig.sifSourceName}`,
+					memberIsMapped: oneRow.memberIsMapped === true,
+					sharedBlock: oneRow.sharedBlock,
 					exclusionMatch: { sifXpath: oneRow.pathText },
 				};
 			}));
@@ -139,6 +147,8 @@ const FRAME_READER_BY_STANDARD = Object.freeze({
 					ownerDefinition: blankToNull(oneRow.ownerDefinition),
 					pathText: contextPathText || `${releaseText} / ${oneRow.ownerName} / ${oneRow.name}`,
 					subStandardName: releaseText,
+					memberIsMapped: oneRow.memberIsMapped === true,
+					reachableFromRoot: oneRow.reachableFromRoot === true,
 					exclusionMatch: { pescSourceName: oneRow.sourceName },
 				};
 			}));
@@ -153,4 +163,16 @@ const GROUP_SIGNATURE_BY_STANDARD = Object.freeze({
 	PESC: (memberRow) => JSON.stringify([memberRow.name, memberRow.definition, memberRow.dataTypeText]),
 });
 
-module.exports = { FRAME_READER_BY_STANDARD, GROUP_SIGNATURE_BY_STANDARD };
+// revision 2 frame rules (TQ, after the A4L CEDS match work): which member rows leave the frame, a registry by standard.
+//   every standard — XML attributes: a name beginning with '@';
+//   data types — SIF: fields in the shared SIF_Metadata / SIF_ExtendedElements blocks repeated inside every object
+//                (sharedBlock other than 'model'); PESC: declarations not reachable from the message root (library type
+//                definitions the message never uses); Ed-Fi: no such distinction in the gold (its reusable commons were
+//                already outside the frame), so rule 1 only.
+const FRAME_RULE_LIST = Object.freeze([
+	{ ruleName: 'xmlAttribute', appliesTo: () => true, excludes: (memberRow) => `${memberRow.name}`.startsWith('@') },
+	{ ruleName: 'dataType', appliesTo: (standardName) => standardName === 'SIF', excludes: (memberRow) => memberRow.sharedBlock !== 'model' },
+	{ ruleName: 'dataType', appliesTo: (standardName) => standardName === 'PESC', excludes: (memberRow) => memberRow.reachableFromRoot !== true },
+]);
+
+module.exports = { FRAME_READER_BY_STANDARD, GROUP_SIGNATURE_BY_STANDARD, FRAME_RULE_LIST, MAPPING_EDGE_TYPE_TEXT };
