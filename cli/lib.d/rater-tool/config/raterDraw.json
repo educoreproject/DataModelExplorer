@@ -1,0 +1,28 @@
+{
+	"_comment": "The CEDS Rater's published draw parameters (lane RATER 2026-10-14). Changing any value here changes sample.json; the seed is published in sample-report.md.",
+	"sampleSeedText": "cedsRater-humanTruthSet-101426",
+	"perStandardDrawCount": 50,
+	"minimumPerKindCount": 4,
+	"devSealedHalfCount": 25,
+	"surveyNameList": ["A", "B", "C"],
+	"surveyItemCount": 50,
+	"_surveyStandardCountRotation": "each row: the per-standard counts of one survey; each column sums to perStandardDrawCount, each row to surveyItemCount. The 16 rotates.",
+	"surveyStandardCountByName": {
+		"A": { "Ed-Fi": 16, "SIF": 17, "PESC": 17 },
+		"B": { "Ed-Fi": 17, "SIF": 16, "PESC": 17 },
+		"C": { "Ed-Fi": 17, "SIF": 17, "PESC": 16 }
+	},
+	"standardNameList": ["Ed-Fi", "SIF", "PESC"],
+	"kindNameList": ["identifier", "code", "dateTime", "number", "indicator", "freeText"],
+	"edFiEntityOwnerTypeList": ["domainEntity", "association", "domainEntitySubclass", "associationSubclass", "domainEntityExtension", "associationExtension", "abstractEntity"],
+	"sifSourceName": "SIF260928",
+	"pescLatestReleaseList": [
+		{ "subStandardName": "College Transcript", "sourceName": "PESC-CollegeTranscript-1.8.0" },
+		{ "subStandardName": "High School Transcript", "sourceName": "PESC-HighSchoolTranscript-1.6.0" },
+		{ "subStandardName": "Test Score Report", "sourceName": "PESC-TestScoreReport-1.1.0" },
+		{ "subStandardName": "Learning Record", "sourceName": "PESC-LearningRecord-1.0.0" },
+		{ "subStandardName": "Academic ePortfolio", "sourceName": "PESC-AcademicEportfolio-1.0.0" },
+		{ "subStandardName": "Document Request", "sourceName": "PESC-DocumentRequest-1.0.0" },
+		{ "subStandardName": "Document Response", "sourceName": "PESC-DocumentResponse-1.0.0" }
+	]
+}

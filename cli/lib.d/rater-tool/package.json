@@ -1,0 +1,6 @@
+{
+	"name": "rater-tool",
+	"version": "1.0.0",
+	"description": "CEDS Rater: builds the frozen sample (sample.json) and suggested candidate lists (suggested.json) from the named gold",
+	"main": "raterTool.js"
+}

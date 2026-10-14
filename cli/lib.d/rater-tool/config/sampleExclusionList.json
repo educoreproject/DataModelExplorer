@@ -1,0 +1,18 @@
+{
+	"_comment": "The 13 elements used as worked examples or (dropped) practice items, DRAFT-workedExamplesAndPracticeNotes-101326.md. An exclusion removes every frame element whose member list contains a match: Ed-Fi by property path, SIF by field xpath, PESC by sub-standard + element name + definition (the DRAFT quotes the definition; a PESC element declared under several owning types is one element to a rater).",
+	"exclusionList": [
+		{ "standard": "Ed-Fi", "edFiPath": "Staff.BirthDate" },
+		{ "standard": "Ed-Fi", "edFiPath": "ObjectiveAssessment.AcademicSubject" },
+		{ "standard": "Ed-Fi", "edFiPath": "Course.CourseTitle" },
+		{ "standard": "Ed-Fi", "edFiPath": "StudentSchoolAssociation.ExitWithdrawDate" },
+		{ "standard": "Ed-Fi", "edFiPath": "StudentSchoolAssociation.ClassOfSchoolYear" },
+		{ "standard": "SIF", "sifXpath": "/StudentPersonals/StudentPersonal/@RefId" },
+		{ "standard": "SIF", "sifXpath": "/StudentPersonals/StudentPersonal/LocalId" },
+		{ "standard": "SIF", "sifXpath": "/StudentPersonals/StudentPersonal/CohortYear" },
+		{ "standard": "SIF", "sifXpath": "/StudentPersonals/StudentPersonal/ELL/@Codeset" },
+		{ "standard": "PESC", "pescSourceName": "PESC-CollegeTranscript-1.8.0", "elementName": "OrganizationName", "definition": "Name of Non-person entity such as Organization, Institution, Agency or Business." },
+		{ "standard": "PESC", "pescSourceName": "PESC-CollegeTranscript-1.8.0", "elementName": "CourseCreditEarned", "definition": "The number of credits a student earned by the successful completion of a course." },
+		{ "standard": "PESC", "pescSourceName": "PESC-CollegeTranscript-1.8.0", "elementName": "AcademicAwardTitle", "definition": "The descriptive title for the academic award." },
+		{ "standard": "PESC", "pescSourceName": "PESC-CollegeTranscript-1.8.0", "elementName": "DocumentID", "definition": "The File Transmission Date and Time stamp with additional unique qualifying characters" }
+	]
+}

@@ -1,0 +1,37 @@
+{
+	"_comment": "How an element's KIND is read from its standard's own type information (lane RATER). Rules are tried in kindPrecedenceList order; the first that matches decides. typeNameByKind lists exact type names; typePatternListByKind lists regular expressions over the type name. identifierNamePattern applies to every standard (after a leading '@' is stripped): it is case-sensitive, so 'Paid' or 'Valid' is not an identifier. An element with an option set (descriptor, enumeration, code list, codeset) is a code unless its values are only yes/no words, which make it an indicator. The rule as prose is in sample-report.md.",
+	"kindPrecedenceList": ["identifier", "indicator", "code", "dateTime", "number", "freeText"],
+	"identifierNamePattern": "(Id|ID|Identifier|UniqueId|RefId|IdentificationCode)$",
+	"indicatorOptionValueList": ["yes", "no", "y", "n", "true", "false", "unknown", "na", "n/a", "not applicable"],
+	"standardRuleByName": {
+		"Ed-Fi": {
+			"typeNameByKind": {
+				"identifier": ["IdentificationCode"],
+				"indicator": ["boolean"],
+				"code": ["descriptor", "enumeration"],
+				"dateTime": ["date", "time", "datetime", "year"],
+				"number": ["integer", "decimal", "sharedInteger", "sharedDecimal", "currency", "percent", "duration", "sharedShort", "short"]
+			},
+			"typePatternListByKind": {}
+		},
+		"SIF": {
+			"typeNameByKind": {
+				"identifier": ["RefIdType", "IdRefType", "gRefIdType", "gRefIdPointerType", "LocalIdType"],
+				"indicator": ["boolean"],
+				"dateTime": ["date", "dateTime", "time", "SchoolYearType", "PartialDateType", "gYear", "gYearMonth", "gMonthDay"],
+				"number": ["decimal", "integer", "int", "unsignedInt", "positiveInteger", "nonNegativeInteger", "unsignedByte", "unsignedShort", "long", "short", "float", "double", "MonetaryAmountType", "duration"]
+			},
+			"typePatternListByKind": {
+				"identifier": ["IdType$", "RefIdPointerType$"]
+			}
+		},
+		"PESC": {
+			"typeNameByKind": {
+				"indicator": ["boolean"],
+				"dateTime": ["date", "dateTime", "time", "gYear", "gYearMonth", "gMonthDay"],
+				"number": ["decimal", "integer", "int", "unsignedInt", "positiveInteger", "nonNegativeInteger", "unsignedByte", "unsignedShort", "long", "short", "float", "double", "duration"]
+			},
+			"typePatternListByKind": {}
+		}
+	}
+}
