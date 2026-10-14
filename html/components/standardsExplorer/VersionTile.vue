@@ -3,7 +3,7 @@
 // Quieter than the panel above it (context, not focus). Same, Different (with what differs, so two tiles never look
 // identical under a "Different" badge), or "Not in <version>" alone. Open takes the walk to it in its own tree.
 
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { versionMemberNounOf, versionTileRelationByState } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
@@ -17,40 +17,50 @@ const relation = computed(() => (counterpart.value ? versionTileRelationByState[
 
 const valueTextOf = (fieldValue) => (fieldValue === null || fieldValue === undefined || fieldValue === '' ? 'none' : String(fieldValue));
 
-// one sentence per difference, naming the versions rather than 'here' and 'there'
-const differenceTextList = computed(() => {
+// one entry per difference, naming the versions rather than 'here' and 'there': a bold title line and, below it,
+// either a detail line (field values) or a name list (members), which folds past COLLAPSED_NAME_COUNT names
+const COLLAPSED_NAME_COUNT = 3;
+
+const differenceEntryList = computed(() => {
 	if (!counterpart.value) return [];
 	const otherVersion = props.versionEntry.version;
 	const memberNoun = versionMemberNounOf(counterpart.value.kind);
 	return (counterpart.value.differenceList || []).flatMap((oneDifference) => {
 		if (oneDifference.differenceKind === 'field') {
 			return 'thisValue' in oneDifference
-				? [`${oneDifference.fieldLabel}: ${valueTextOf(oneDifference.thisValue)} in ${props.thisVersion}, ${valueTextOf(oneDifference.counterpartValue)} in ${otherVersion}`]
-				: [`Its ${oneDifference.fieldLabel} differs`];
+				? [{ titleText: oneDifference.fieldLabel, detailText: `${valueTextOf(oneDifference.thisValue)} in ${props.thisVersion}, ${valueTextOf(oneDifference.counterpartValue)} in ${otherVersion}`, nameList: [] }]
+				: [{ titleText: `Its ${oneDifference.fieldLabel} differs`, detailText: '', nameList: [] }];
 		}
 		if (oneDifference.differenceKind === 'members') {
 			return [
-				oneDifference.addedNameList.length ? `${memberNoun} only in ${props.thisVersion}: ${oneDifference.addedNameList.join(', ')}` : '',
-				oneDifference.missingNameList.length ? `${memberNoun} only in ${otherVersion}: ${oneDifference.missingNameList.join(', ')}` : '',
-				oneDifference.differingNameList.length ? `${memberNoun} defined differently: ${oneDifference.differingNameList.join(', ')}` : '',
-			].filter(Boolean);
+				{ titleText: `${memberNoun} only in ${props.thisVersion}`, detailText: '', nameList: oneDifference.addedNameList },
+				{ titleText: `${memberNoun} only in ${otherVersion}`, detailText: '', nameList: oneDifference.missingNameList },
+				{ titleText: `${memberNoun} defined differently`, detailText: '', nameList: oneDifference.differingNameList },
+			].filter((oneEntry) => oneEntry.nameList.length);
 		}
 		if (oneDifference.differenceKind === 'type') {
-			return [oneDifference.counterpartTypeName ? `Its type ${oneDifference.typeName} is defined differently in ${otherVersion}` : `Its type ${oneDifference.typeName} is not in ${otherVersion}`];
+			return [{ titleText: oneDifference.counterpartTypeName ? `Its type ${oneDifference.typeName} is defined differently in ${otherVersion}` : `Its type ${oneDifference.typeName} is not in ${otherVersion}`, detailText: '', nameList: [] }];
 		}
-		return [`Its definition differs in a part this page does not show`];
+		return [{ titleText: 'Its definition differs in a part this page does not show', detailText: '', nameList: [] }];
 	});
 });
 
-// each difference as a bold title line and, where the sentence carries a list or values after its colon, a detail line
-const differenceEntryList = computed(() =>
-	differenceTextList.value.map((differenceText) => {
-		const colonIndex = differenceText.indexOf(': ');
-		return colonIndex === -1
-			? { differenceText, titleText: differenceText, detailText: '' }
-			: { differenceText, titleText: differenceText.slice(0, colonIndex), detailText: differenceText.slice(colonIndex + 2) };
-	}),
-);
+// which name lists are open, by title; a different counterpart starts folded again
+const expandedTitleSet = ref(new Set());
+watch(counterpart, () => {
+	expandedTitleSet.value = new Set();
+});
+
+const isExpanded = (oneEntry) => expandedTitleSet.value.has(oneEntry.titleText);
+const hiddenNameCountOf = (oneEntry) => Math.max(0, oneEntry.nameList.length - COLLAPSED_NAME_COUNT);
+const shownNameTextOf = (oneEntry) => (isExpanded(oneEntry) ? oneEntry.nameList : oneEntry.nameList.slice(0, COLLAPSED_NAME_COUNT)).join(', ');
+
+const setExpanded = (oneEntry, shouldExpand) => {
+	const nextSet = new Set(expandedTitleSet.value);
+	if (shouldExpand) nextSet.add(oneEntry.titleText);
+	else nextSet.delete(oneEntry.titleText);
+	expandedTitleSet.value = nextSet;
+};
 </script>
 
 <template>
@@ -75,10 +85,13 @@ const differenceEntryList = computed(() =>
 			</div>
 			<p v-else-if="counterpart.kind === 'property' || counterpart.kind === 'instance'" class="version-tile-note">Not mapped to CEDS.</p>
 
-			<ul v-if="differenceTextList.length" class="version-tile-differences" data-testid="version-tile-differences">
-				<li v-for="oneEntry in differenceEntryList" :key="oneEntry.differenceText">
+			<ul v-if="differenceEntryList.length" class="version-tile-differences" data-testid="version-tile-differences">
+				<li v-for="oneEntry in differenceEntryList" :key="oneEntry.titleText">
 					<span class="version-tile-difference-title">{{ oneEntry.titleText }}</span>
 					<span v-if="oneEntry.detailText" class="version-tile-difference-detail">{{ oneEntry.detailText }}</span>
+					<span v-if="oneEntry.nameList.length" class="version-tile-difference-detail">{{ shownNameTextOf(oneEntry) }}</span>
+					<button v-if="hiddenNameCountOf(oneEntry) && !isExpanded(oneEntry)" type="button" class="version-tile-fold" data-testid="version-tile-more" @click="setExpanded(oneEntry, true)">{{ hiddenNameCountOf(oneEntry) }} more</button>
+					<button v-if="hiddenNameCountOf(oneEntry) && isExpanded(oneEntry)" type="button" class="version-tile-fold" data-testid="version-tile-less" @click="setExpanded(oneEntry, false)">less</button>
 				</li>
 			</ul>
 
@@ -174,6 +187,20 @@ const differenceEntryList = computed(() =>
 }
 .version-tile-difference-detail {
 	display: block;
+}
+.version-tile-fold {
+	display: block;
+	background: none;
+	border: none;
+	padding: 0;
+	margin-top: 2px;
+	color: #072a6c;
+	font-weight: 600;
+	font-size: 12px;
+	cursor: pointer;
+}
+.version-tile-fold:hover {
+	text-decoration: underline;
 }
 .version-tile-open {
 	align-self: flex-start;
