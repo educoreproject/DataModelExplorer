@@ -282,6 +282,26 @@ const moduleFunction =
 		});
 
 		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 3.8: CEDS RATER TOOL (lane RATER, 2026-10-14)
+		//
+		// EXPLANATION: The rater tool's own resources (lib/rater-tool/rater-tool-access.js): its sqlite store, its
+		// frozen inputs, and the ONE gold named in [raterTool] goldenContainerName (never the DME's). A server without
+		// a [raterTool] section boots normally and every rater endpoint refuses by name (raterToolNotConfigured).
+
+		taskList.push((args, next) => {
+			const { sqlDbGen, dataModelLogInfoList } = args;
+			const { initRaterToolAccess } = require('./lib/rater-tool/rater-tool-access');
+			initRaterToolAccess({ raterToolConfig: getConfig('raterTool'), sqlDbGen, dataMapping: args.dataMapping }, (raterError, raterToolAccess) => {
+				if (raterError) {
+					next(raterError, args);
+					return;
+				}
+				dataModelLogInfoList.push(raterToolAccess.setupRefusal ? `CEDS Rater off: ${raterToolAccess.setupRefusal.refusalName}` : `CEDS Rater store: ${raterToolAccess.storeFilePath}; gold: ${raterToolAccess.goldenContainerName}`);
+				next('', { ...args, raterToolAccess, dataModelLogInfoList });
+			});
+		});
+
+		// --------------------------------------------------------------------------------
 		// PIPELINE STAGE 4: ACCESS POINTS LOADING
 		// 
 		// EXPLANATION: Loads all access point modules from accessPoints.d/ directory.
@@ -304,7 +324,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess']),
 				localCallback,
 			);
 		});

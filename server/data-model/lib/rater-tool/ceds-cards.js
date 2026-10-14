@@ -9,6 +9,7 @@
 //   readCardsByTupleIdList({ raterGraph, cedsTupleIdList }, cb)  -> cardList, in the order asked, unknown ids left out
 //   readCardsByCedsId({ raterGraph, cedsId }, cb)                 -> cardList (every tuple of that P-id)
 //   readCardsOfClass({ raterGraph, classCedsId }, cb)              -> cardList (every tuple whose class is that C-id)
+//   readClassInfo({ raterGraph, classCedsId }, cb)                 -> { classCedsId, className, classDefinition, conceptName } | null
 //   readConceptList({ raterGraph }, cb)                            -> [{ conceptName, conceptDefinition, classCount }] + classTotal
 //   readClassesOfConcept({ raterGraph, conceptName }, cb)          -> [{ classCedsId, className, classDefinition, cardCount }]
 //   resolveSearchIndexNames({ raterGraph }, cb)                    -> { fulltextIndexName, vectorIndexName }
@@ -65,6 +66,9 @@ const CYPHER_BY_READ = Object.freeze({
 		OPTIONAL MATCH (tuple:HubReference {referenceTier: 'property'})-[:HAS_CEDS_DOMAIN]->(cedsClass)
 		WITH concept, cedsClass, count(tuple) AS cardCount
 		RETURN concept.name AS conceptName, collect(CASE WHEN cedsClass IS NULL THEN null ELSE { classCedsId: cedsClass.cedsId, className: cedsClass.name, classDefinition: cedsClass.definition, cardCount: cardCount } END) AS classList`,
+	classInfo: `MATCH (cedsClass:CedsClass {cedsId: $classCedsId}) WHERE NOT cedsClass:StandardLayer
+		OPTIONAL MATCH (cedsClass)-[:HAS_PRIMARY_CONCEPT]->(concept:CedsConceptualConcept)
+		RETURN cedsClass.cedsId AS classCedsId, cedsClass.name AS className, cedsClass.definition AS classDefinition, concept.name AS conceptName LIMIT 1`,
 	searchIndexList: "SHOW INDEXES YIELD name, type, labelsOrTypes, properties WHERE type IN ['FULLTEXT', 'VECTOR'] RETURN name, type, labelsOrTypes, properties",
 	byWords: `CALL db.index.fulltext.queryNodes($fulltextIndexName, $luceneQueryText) YIELD node, score
 		WHERE node:CedsProperty AND node._source = 'CEDS' AND NOT node:StandardLayer
@@ -125,6 +129,11 @@ const readCardsByTupleIdList = ({ raterGraph, cedsTupleIdList }, callback) => {
 };
 const readCardsByCedsId = ({ raterGraph, cedsId }, callback) => readCardList(raterGraph, CYPHER_BY_READ.byCedsId, { cedsId }, callback);
 const readCardsOfClass = ({ raterGraph, classCedsId }, callback) => readCardList(raterGraph, CYPHER_BY_READ.ofClass, { classCedsId }, callback);
+
+// readClassInfo — one class by C-id, with its primary Conceptual Model concept (for Browse's breadcrumb); null when none
+const readClassInfo = ({ raterGraph, classCedsId }, callback) => {
+	raterGraph.runQuery(CYPHER_BY_READ.classInfo, { classCedsId }, (queryError, rowList) => (queryError ? callback(`reading the class '${classCedsId}' failed: ${queryError}`) : callback('', rowList[0] || null)));
+};
 
 const readConceptList = ({ raterGraph }, callback) => {
 	raterGraph.runQuery(CYPHER_BY_READ.conceptList, {}, (conceptError, conceptRowList) => {
@@ -211,6 +220,7 @@ module.exports = {
 	readCardsByTupleIdList,
 	readCardsByCedsId,
 	readCardsOfClass,
+	readClassInfo,
 	readConceptList,
 	readClassesOfConcept,
 	resolveSearchIndexNames,

@@ -95,7 +95,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 
 			// Role validation
-			const validRoles = ['user', 'admin', 'super'];
+			// 'rater': a CEDS Rater account (lane RATER, 2026-10-14), made by the rater-admin access point
+			const validRoles = ['user', 'admin', 'super', 'rater'];
 			if (userData.role && !validRoles.includes(userData.role)) {
 				errors.push('Invalid role specified');
 			}
