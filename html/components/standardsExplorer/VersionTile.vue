@@ -9,10 +9,21 @@ import { versionMemberNounOf, versionTileRelationByState } from '@/components/st
 const props = defineProps({
 	versionEntry: { type: Object, required: true },
 	thisVersion: { type: String, required: true },
+	thisOccurrenceCount: { type: Number, required: true },
 });
 const emit = defineEmits(['open-counterpart']);
 
 const counterpart = computed(() => props.versionEntry.counterpart);
+
+// a Same tile over a different number of occurrences: the comparison looks at the definition, never at the count
+const occurrenceNoteText = computed(() => {
+	if (!counterpart.value || counterpart.value.versionBadgeState !== 'unchanged') return '';
+	const counterpartOccurrenceCount = Math.max(1, ...(counterpart.value.mappingList || []).map((oneMapping) => oneMapping.occurrenceCount || 1));
+	if (counterpartOccurrenceCount === props.thisOccurrenceCount) return '';
+	const timesTextOf = (occurrenceCount) => (occurrenceCount === 1 ? 'once' : `${occurrenceCount} times`);
+	return `Defined the same way. It occurs ${timesTextOf(props.thisOccurrenceCount)} in ${props.thisVersion} and ${timesTextOf(counterpartOccurrenceCount)} in ${props.versionEntry.version}; occurrence counts are not compared.`;
+});
+
 const relation = computed(() => (counterpart.value ? versionTileRelationByState[counterpart.value.versionBadgeState] : null));
 
 const valueTextOf = (fieldValue) => (fieldValue === null || fieldValue === undefined || fieldValue === '' ? 'none' : String(fieldValue));
@@ -94,6 +105,8 @@ const setExpanded = (oneEntry, shouldExpand) => {
 					<button v-if="hiddenNameCountOf(oneEntry) && isExpanded(oneEntry)" type="button" class="version-tile-fold" data-testid="version-tile-less" @click="setExpanded(oneEntry, false)">less</button>
 				</li>
 			</ul>
+
+			<p v-if="occurrenceNoteText" class="version-tile-note" data-testid="version-tile-occurrence-note">{{ occurrenceNoteText }}</p>
 
 			<button type="button" class="version-tile-open" data-testid="version-tile-open" @click="emit('open-counterpart', versionEntry)">Open in {{ versionEntry.version }} ›</button>
 		</template>

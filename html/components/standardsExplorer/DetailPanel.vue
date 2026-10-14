@@ -29,6 +29,10 @@ const openCounterpart = (versionEntry) => {
 
 const isFocus = computed(() => !store.selectedRow);
 
+// how many places the shown item occurs in its own version, for the tiles' "occurrences are not compared" note
+const occurrenceCountOfMappingList = (mappingList) => Math.max(1, ...(mappingList || []).map((oneMapping) => oneMapping.occurrenceCount || 1));
+
+
 const shownNode = computed(() => {
 	const focusNode = store.focusNode;
 	// a selected row of the focus's own standard inherits its release and version for the facts
@@ -45,6 +49,8 @@ const mappingList = computed(() => {
 	if (isFocus.value) return store.neighbourhood.mappingList || [];
 	return shownNode.value.mapping ? [shownNode.value.mapping] : [];
 });
+
+const shownOccurrenceCount = computed(() => Math.max(shownNode.value?.occurrenceCount || 1, occurrenceCountOfMappingList(mappingList.value)));
 
 const factList = computed(() => {
 	const oneNode = shownNode.value;
@@ -138,6 +144,7 @@ const definitionText = computed(() => {
 					:key="versionEntry.standardKey"
 					:version-entry="versionEntry"
 					:this-version="store.versionTileSubject.version"
+					:this-occurrence-count="shownOccurrenceCount"
 					@open-counterpart="openCounterpart"
 				/>
 			</template>
