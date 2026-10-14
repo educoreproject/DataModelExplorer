@@ -33,7 +33,7 @@ const countOf = (oneRow) => {
 		standard: () => ({ countValue: oneRow.classCount, countText: oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : '' }),
 		release: () => ({ countValue: (oneRow.versionList || []).length, countText: `${(oneRow.versionList || []).length} versions` }),
 		standardGroup: () => ({ countValue: oneRow.elementCount, countText: `${oneRow.elementCount} elements` }),
-		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount} occurrences` : '' }),
+		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount}` : '' }),
 	};
 	const countReader = countByKind[oneRow.kind];
 	return countReader ? countReader() : { countValue: null, countText: '' };
