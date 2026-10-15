@@ -4,6 +4,8 @@
 // (colours, focus ring, sticky helpers; assets/css/raterArea.css since revision 6), unscoped and all prefixed rt-, so
 // every rater page looks the same.
 import { useRaterStore } from '@/stores/raterStore';
+// the shared rt- styles; imported, not <style src>, which breaks the production build beside a scoped block
+import '@/assets/css/raterArea.css';
 
 const props = defineProps({
 	areaLabel: { type: String, default: 'CEDS Rater' },
@@ -40,5 +42,3 @@ const signOut = () => {
 		</v-main>
 	</v-app>
 </template>
-
-<style src="../../assets/css/raterArea.css"></style>

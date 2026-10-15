@@ -14,6 +14,8 @@ import { useLoginStore } from '@/stores/loginStore';
 import { isRaterAdminRole } from '@/stores/raterStore';
 import RaterAdminPanel from '@/components/rater/AdminPanel.vue';
 import RaterResultsPanel from '@/components/rater/ResultsPanel.vue';
+// the shared rt- styles; imported, not <style src>, which breaks the production build beside a scoped block
+import '@/assets/css/raterArea.css';
 
 const RATER_VIEW_BY_NAME = Object.freeze({
 	raters: { panelComponent: RaterAdminPanel },
@@ -55,5 +57,3 @@ const showRaterView = (viewName) => {
 <style scoped>
 .rt-admin-host { width: 100%; text-align: left; border-radius: 8px; }
 </style>
-
-<style src="../../assets/css/raterArea.css"></style>
