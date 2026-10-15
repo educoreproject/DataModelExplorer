@@ -72,6 +72,12 @@ const isAdmin = computed(() =>
 				title="Standards Explorer"
 			/>
 			<v-list-item
+				to="/explore/downloads"
+				prepend-icon="mdi-download-box-outline"
+				title="Downloads"
+				data-testid="menu-downloads"
+			/>
+			<v-list-item
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"
