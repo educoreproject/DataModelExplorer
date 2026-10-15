@@ -2,7 +2,8 @@
 // The detail panel: the selected row, or the focus node when nothing is selected. Kind, name, definition, how it
 // maps to CEDS (kind and confidence, or the mix of kinds for a standard group), the facts, the version badge, and
 // either Open or "end of the line". Beneath it, one version tile per other version of the item's message, loaded
-// lazily; their loading and error states stay inside the tile area.
+// lazily; their loading and error states stay inside the tile area. Last, the Downloads section for the standard being
+// visited (DownloadsSection.vue).
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
@@ -154,6 +155,8 @@ const definitionText = computed(() => {
 				/>
 			</template>
 		</section>
+
+		<StandardsExplorerDownloadsSection />
 	</aside>
 </template>
 
