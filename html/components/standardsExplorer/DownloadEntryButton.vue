@@ -12,7 +12,8 @@ const props = defineProps({
 
 const downloadsStore = useStandardDownloadsStore();
 
-const facetLabelByName = { source: 'Source', graph: 'From the graph' };
+// the download that is not the original says so in its title (TQ 2026-10-15, WORKORDER-experimentalLabel-101526)
+const facetLabelByName = { source: 'Source', graph: 'From the graph (experimental)' };
 const facetLabel = computed(() => facetLabelByName[props.downloadEntry.facet] || props.downloadEntry.facet);
 const sizeText = computed(() => {
 	const byteSize = props.downloadEntry.byteSize;

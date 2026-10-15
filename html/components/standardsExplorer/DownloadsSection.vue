@@ -53,7 +53,7 @@ const familyLinkTarget = computed(() => ({ path: '/explore/downloads', query: { 
 	<section v-if="focusNode" class="downloads-section" aria-label="Downloads" data-testid="downloads-section">
 		<span class="downloads-section-head">Downloads</span>
 		<template v-if="isCatalog">
-			<p class="downloads-section-note">The source of every standard, and each written back out of this graph.</p>
+			<p class="downloads-section-note">The source of every standard, and each written back out of this graph (experimental).</p>
 			<NuxtLink to="/explore/downloads" class="downloads-section-link" data-testid="downloads-all-link">All downloads ›</NuxtLink>
 		</template>
 		<template v-else>

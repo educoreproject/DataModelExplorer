@@ -97,7 +97,7 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 		<div class="downloads-heading">
 			<h1 class="downloads-title">Downloads</h1>
 			<p class="downloads-intro">
-				For each standard: its <strong>source</strong>, exactly as it was taken in, and the standard <strong>from the graph</strong>, written back out of the graph with the files that check it. The check compares the two as statements: when its round trip is clean they are semantically equal, which is not a claim that the files match byte for byte. Each zip's README says what was compared.
+				For each standard: its <strong>source</strong>, exactly as it was taken in, and the standard <strong>from the graph (experimental)</strong>, written back out of the graph with the files that check it. The check compares the two as statements: when its round trip is clean they are semantically equal, which is not a claim that the files match byte for byte. Each zip's README says what was compared.
 				Beside each source is where it came from, worded by how the publisher's file relates to ours: <em>downloaded from</em> (the same bytes), <em>published on</em> (a publisher's page whose link serves the same bytes), <em>re-published</em> (the publisher now serves a changed file) or <em>derived from</em> (ours was made from it).
 			</p>
 			<p v-if="downloadsStore.manifest" class="downloads-stamp" data-testid="downloads-stamp">
@@ -128,8 +128,8 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 						<tr>
 							<th scope="col">Group</th>
 							<th scope="col">Version</th>
-							<th scope="col">Source</th>
-							<th scope="col">From the graph</th>
+							<th scope="col" data-testid="downloads-column-source">Source</th>
+							<th scope="col" data-testid="downloads-column-graph">From the graph (experimental)</th>
 							<th scope="col">Round trip</th>
 						</tr>
 					</thead>
