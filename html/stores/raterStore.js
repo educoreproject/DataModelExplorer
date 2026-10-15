@@ -8,6 +8,7 @@
 // back as HTTP 400 '<refusalName>: <text> (<errorId>)'; the store shows the text and keeps the name.
 
 import axios from 'axios';
+import { postLogin } from '../composables/postLogin.js';
 
 const SESSION_STORAGE_NAME = 'cedsRaterSession';
 
@@ -103,7 +104,7 @@ export const useRaterStore = defineStore('raterStore', {
 			this.loading = true;
 			this.clearMessage();
 			try {
-				const response = await axios.post('/api/login', { username: `${raterUserName}`.trim().toLowerCase(), password });
+				const response = await postLogin({ username: `${raterUserName}`.trim().toLowerCase(), password });
 				const signedInUser = response.data[0];
 				const signedInRole = signedInUser.role || '';
 				if (!['rater', 'admin', 'super'].includes(signedInRole)) {
