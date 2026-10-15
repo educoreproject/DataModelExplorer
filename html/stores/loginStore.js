@@ -69,6 +69,36 @@ export const useLoginStore = defineStore('loginStore', {
 		},
 
 		// ------------------------------------------------------------
+		// acceptLoginReply — take a /api/login reply as this site's login. login() uses it, and so does the CEDS Rater
+		// sign-in at /rater when an admin signs in there (raterStore.signIn), so the admin lands in /admin already logged
+		// in instead of signing in twice (WORKORDER-RATER6).
+
+		acceptLoginReply(response) {
+			// Get user data from response
+			const userObject = response.data[0]; // API returns a list
+
+			// Store authentication tokens from headers
+			this.authtoken = response.headers?.authtoken;
+			this.authclaims = response.headers?.authclaims;
+			this.authsecondsexpirationseconds =
+				response.headers?.authsecondsexpirationseconds;
+			// Check if user is inactive
+			if (userObject.inactive) {
+				logoutUser(this);
+				this.statusMsg = 'Invalid login request';
+				return false;
+			}
+
+			// Update state with user data
+			Object.keys(userObject).forEach((name) => {
+				this.loggedInUser[name] = userObject[name];
+			});
+
+			this.validUser = true;
+			return true;
+		},
+
+		// ------------------------------------------------------------
 		// Login action
 
 		async login() {
@@ -81,28 +111,7 @@ export const useLoginStore = defineStore('loginStore', {
 					password: this.loggedInUser.password,
 				});
 
-				// Get user data from response
-				const userObject = response.data[0]; // API returns a list
-
-				// Store authentication tokens from headers
-				this.authtoken = response.headers?.authtoken;
-				this.authclaims = response.headers?.authclaims;
-				this.authsecondsexpirationseconds =
-					response.headers?.authsecondsexpirationseconds;
-				// Check if user is inactive
-				if (userObject.inactive) {
-					logoutUser(this);
-					this.statusMsg = 'Invalid login request';
-					return false;
-				}
-
-				// Update state with user data
-				Object.keys(userObject).forEach((name) => {
-					this.loggedInUser[name] = userObject[name];
-				});
-
-				this.validUser = true;
-				return true;
+				return this.acceptLoginReply(response);
 			} catch (error) {
 				// Improved error handling with fallback
 				if (error.response?.data) {

@@ -2,12 +2,13 @@
 // @concept: [[UserCrudAdmin]]
 definePageMeta({ middleware: 'auth' });
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
 import ManifestEditor from '@/components/tools/manifest-editor.vue';
 import OauthAdmin from '@/components/tools/oauth-admin.vue';
+import CedsRaterAdmin from '@/components/tools/ceds-rater-admin.vue';
 
 // Dev server selector — runtime backend override for DME (see SPEC §8).
 import { backendProfiles } from '@/config/backendProfiles';
@@ -17,8 +18,11 @@ import {
 	clearBackendProfile,
 } from '@/composables/useBackendProfile';
 import { useLoginStore } from '@/stores/loginStore';
+import { isRaterAdminRole } from '@/stores/raterStore';
 
 const LoginStore = useLoginStore();
+const route = useRoute();
+const router = useRouter();
 const profile = useBackendProfile();
 const selectedProfile = ref(profile.source === 'cookie' ? profile.name : '');
 const profileOptions = Object.entries(backendProfiles).map(([value, p]) => ({
@@ -45,12 +49,17 @@ const clearProfile = () => {
 	switchBackend(() => clearBackendProfile());
 };
 
-// Selected tool - default to add-edit-user
-const selectedTool = ref('add-edit-user');
+// Selected tool - default to add-edit-user. The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark
+// or a redirect lands on it: /admin?tool=ceds-rater is the CEDS Rater tab (the old /rater/admin URLs redirect there).
+const TOOL_NAME_LIST = ['add-edit-user', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
+const DEFAULT_TOOL_NAME = 'add-edit-user';
+const selectedTool = computed(() => route.query.tool || DEFAULT_TOOL_NAME);
+const isKnownTool = computed(() => TOOL_NAME_LIST.includes(selectedTool.value));
+const isRaterAdmin = computed(() => isRaterAdminRole(LoginStore.loggedInUser?.role));
 
 // Handle tool selection
 const selectTool = (toolName) => {
-	selectedTool.value = toolName;
+	router.push({ query: { tool: toolName } });
 };
 </script>
 
@@ -98,6 +107,19 @@ const selectTool = (toolName) => {
 									OAUTH ACCESS
 								</v-btn>
 
+								<!-- CEDS Rater tab (WORKORDER-RATER6): raters, surveys, results; admins only -->
+								<v-btn
+									v-if="isRaterAdmin"
+									variant="outlined"
+									:disabled="selectedTool === 'ceds-rater'"
+									@click="selectTool('ceds-rater')"
+									prepend-icon="mdi-clipboard-check-outline"
+									class="mr-2"
+									data-testid="admin-tool-ceds-rater"
+								>
+									CEDS RATER
+								</v-btn>
+
 								<!-- Dev Tools tab -->
 								<v-btn
 									variant="outlined"
@@ -124,6 +146,22 @@ const selectTool = (toolName) => {
 								<oauth-admin
 									v-else-if="selectedTool === 'oauth-admin'"
 								/>
+
+								<!-- CEDS Rater (raters, surveys, results); the component refuses a non-admin itself -->
+								<ceds-rater-admin
+									v-else-if="selectedTool === 'ceds-rater'"
+								/>
+
+								<!-- an unknown ?tool= is refused by name, not quietly replaced -->
+								<v-alert
+									v-else-if="!isKnownTool"
+									type="warning"
+									variant="tonal"
+									class="ma-4"
+									data-testid="admin-tool-unknown"
+								>
+									There is no admin tool '{{ selectedTool }}'. Choose one above.
+								</v-alert>
 
 								<!-- Dev Tools: dev-server-selector -->
 								<v-card

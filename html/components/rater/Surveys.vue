@@ -7,8 +7,8 @@
 // the server's own refusal text (moveRefusal), and the server refuses the move by name if it is tried anyway. A hint
 // names the survey with the fewest raters (ties to the earlier survey); its button opens that survey's Assign form.
 // Emits 'issued' { raterUserName, issuedPassword, surveyName } (the page shows the password once) and 'changed' (the
-// page reloads its raters table). The page loads it (loadSurveys, exposed) only after its own admin check, so a rater
-// who reaches /rater/admin never calls the Surveys API.
+// panel reloads its raters table). RaterAdminPanel loads it (loadSurveys, exposed); since revision 6 the panel's host,
+// the CEDS Rater tab of /admin, renders it only for a main-site admin, so a rater never calls the Surveys API.
 import { ref, computed } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 

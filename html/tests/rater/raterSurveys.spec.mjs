@@ -8,7 +8,10 @@
 //        issues the sign-in name and password once (Copy button; gone after a reload; the password signs in); the new
 //        rater is on C's card at 0 of 50; the hint moves to B (A 3, B 2, C 2: the tie goes to the earlier survey)
 //   B5.4 the move picker shows raters with saved answers disabled, with the server's refusal text
-//   B5.5 a rater sees no Surveys section and no admin link, is sent back to rating from /rater/admin and stays signed in
+//   B5.5 a rater sees no Surveys section and no admin link; sent to /rater/admin they meet the main site's login (the
+//        admin tool lives in /admin since revision 6), never the Surveys section, and are still signed in to rating
+// Revision 6: the admin screen is the CEDS Rater tab of /admin (/admin?tool=ceds-rater); an admin signing in at /rater
+// lands there. The main login lives in memory only, so a reload goes through the main /login page and back.
 // Every rater it made is removed in the finally block, even when a step fails (a failed run must not leave raters
 // that break the next one).
 //
@@ -65,6 +68,13 @@ const signInInBrowser = async (page, userName, password) => {
 	await page.fill('[data-testid="rater-signin-password"]', password);
 	await page.click('[data-testid="rater-signin-submit"]');
 };
+// the main site's /login form (no test ids there; its labels are stable)
+const mainLoginInBrowser = async (page, userName, password) => {
+	await page.getByLabel('User Name').fill(userName);
+	await page.getByLabel('Password', { exact: true }).fill(password);
+	await page.getByRole('button', { name: 'Login' }).click();
+};
+const ADMIN_TAB_URL_PATTERN = /\/admin\/?\?tool=ceds-rater$/;
 const cardOf = (page, surveyName) => page.locator(`[data-testid="rater-surveys-card-${surveyName}"]`);
 const coverageColourListOf = (page) => page.$$eval('[data-testid^="rater-surveys-card-"]', (cardList) => cardList.map((card) => `${card.getAttribute('data-testid').slice(-1)}:${card.getAttribute('data-coverage-colour')}`));
 const hintSurveyOf = (page) => page.getAttribute('[data-testid="rater-surveys-hint"]', 'data-next-survey');
@@ -107,7 +117,7 @@ try {
 	// ---------------------------------------------------------------- B5.1 the cards
 	console.log('B5.1 the cards');
 	await signInInBrowser(page, argumentByName.adminUserName, adminPassword);
-	await page.waitForURL(/\/rater\/admin\/?$/, { timeout: 20000 });
+	await page.waitForURL(ADMIN_TAB_URL_PATTERN, { timeout: 20000 });
 	await page.waitForSelector('[data-testid="rater-surveys-card-C"]', { timeout: 20000 });
 	await page.waitForSelector(`[data-testid="rater-surveys-rater-${idleRater}"]`, { timeout: 20000 });
 	for (const survey of apiSummary.surveyList) {
@@ -178,6 +188,9 @@ try {
 	await page.screenshot({ path: shotPath('73-surveys-assigned'), fullPage: true });
 	check('the issued password signs in', !!(await signIn('rater-01', issuedPassword)));
 	await page.reload();
+	await page.waitForURL(/\/login/, { timeout: 20000 });
+	await mainLoginInBrowser(page, argumentByName.adminUserName, adminPassword);
+	await page.waitForURL(ADMIN_TAB_URL_PATTERN, { timeout: 20000 });
 	await page.waitForSelector('[data-testid="rater-surveys-card-C"]', { timeout: 20000 });
 	check('after a reload the password is not shown again', (await page.locator('[data-testid="rater-admin-issued"]').count()) === 0 && !(await page.content()).includes(issuedPassword));
 
@@ -190,9 +203,12 @@ try {
 	await raterPage.waitForTimeout(1500);
 	check('the rating page has no Surveys section and no admin link', (await raterPage.locator('[data-testid="rater-surveys"]').count()) === 0 && (await raterPage.locator('a[href*="/admin"]').count()) === 0);
 	await raterPage.goto(`${baseUrl}/rater/admin`);
-	await raterPage.waitForURL(/\/rater\/rate/, { timeout: 20000 });
+	await raterPage.waitForURL(/\/login/, { timeout: 20000 });
 	await raterPage.waitForTimeout(1500);
-	check('a rater sent to /rater/admin is sent back to rating, sees no Surveys section, and is still signed in', (await raterPage.locator('[data-testid="rater-surveys"]').count()) === 0 && /\/rater\/rate/.test(raterPage.url()) && (await raterPage.locator('[data-testid="rater-signin-name"]').count()) === 0, raterPage.url());
+	check('a rater sent to /rater/admin meets the main site\'s login and sees no Surveys section', (await raterPage.locator('[data-testid="rater-surveys"]').count()) === 0 && (await raterPage.locator('[data-testid="ceds-rater-tool"]').count()) === 0 && /\/login/.test(raterPage.url()), raterPage.url());
+	await raterPage.goto(`${baseUrl}/rater`);
+	await raterPage.waitForURL(/\/rater\/(rate|done)/, { timeout: 20000 });
+	check('and is still signed in to rating', (await raterPage.locator('[data-testid="rater-signin-name"]').count()) === 0, raterPage.url());
 	await raterContext.close();
 } catch (walkError) {
 	check('the surveys walkthrough ran to the end', false, `${walkError && walkError.message}`);

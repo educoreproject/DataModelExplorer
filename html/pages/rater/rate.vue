@@ -84,7 +84,7 @@ const loadCurrentItem = async () => {
 		return;
 	}
 	if (raterStore.isAdmin) {
-		router.push('/rater/admin');
+		router.push({ path: '/admin', query: { tool: 'ceds-rater' } });
 		return;
 	}
 	const itemRead = await raterStore.loadItem(itemNumber.value);

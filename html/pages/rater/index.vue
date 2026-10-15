@@ -1,6 +1,7 @@
 <script setup>
 // /rater — the CEDS Rater sign-in (design: SignIn). A rater goes straight to the first unrated item (or the Done page
-// when all are saved); an admin goes to the admin screen. No self sign-up: accounts are made by the admin.
+// when all are saved); an admin goes to the CEDS Rater tab of the main admin page, already logged in on the main site
+// (revision 6: raterStore.signIn hands an admin's sign-in to loginStore). No self sign-up: accounts are made by the admin.
 import { ref, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
@@ -14,7 +15,7 @@ const password = ref('');
 
 const goOnward = async () => {
 	if (raterStore.isAdmin) {
-		router.push('/rater/admin');
+		router.push({ path: '/admin', query: { tool: 'ceds-rater' } });
 		return;
 	}
 	const progressRead = await raterStore.loadProgress();

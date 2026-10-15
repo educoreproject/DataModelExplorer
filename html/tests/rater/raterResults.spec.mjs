@@ -5,7 +5,10 @@
 //   B4.2 the standard filter and the survey filter each narrow the list to that standard / survey only
 //   B4.3 the sort: Alphabetical orders by target label; Disagreement first puts the split target on top again
 //   B4.4 the summary CSV downloads, with the header row and the split target's rows
-//   B4.5 a rater sees no link to the Results page, and a rater sent to /rater/admin/results is sent back to rating
+//   B4.5 a rater sees no link to the Results page, and a rater sent to /rater/admin/results meets the main site's login,
+//        never the results
+// Revision 6: Results is a view of the CEDS Rater tab of /admin (/admin?tool=ceds-rater&view=results), opened by the
+// Results button and left by Back to raters; an admin signing in at /rater lands in the tab.
 // With --cleanup=yes it removes both raters afterwards.
 //
 //   node html/tests/rater/raterResults.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file holding it>
@@ -87,9 +90,9 @@ try {
 	// ---------------------------------------------------------------- B4.1 renders from the admin screen
 	console.log('B4.1 the Results page renders');
 	await signInInBrowser(page, argumentByName.adminUserName, adminPassword);
-	await page.waitForURL(/\/rater\/admin\/?$/, { timeout: 20000 });
+	await page.waitForURL(/\/admin\/?\?tool=ceds-rater$/, { timeout: 20000 });
 	await page.click('[data-testid="rater-admin-results-link"]');
-	await page.waitForURL(/\/rater\/admin\/results\/?$/, { timeout: 20000 });
+	await page.waitForURL(/\/admin\/?\?tool=ceds-rater&view=results$/, { timeout: 20000 });
 	await page.waitForSelector('[data-testid="rater-results-target"]', { timeout: 20000 });
 	const allTargetIdList = await shownTargetIdList(page);
 	check(`all targets listed (${allTargetIdList.length})`, allTargetIdList.length === 150);
@@ -145,8 +148,9 @@ try {
 	const raterLinkCount = await raterPage.locator('a[href*="/admin"]').count();
 	check('the rating page has no link to admin or results', raterLinkCount === 0, `${raterLinkCount}`);
 	await raterPage.goto(`${baseUrl}/rater/admin/results`);
-	await raterPage.waitForURL(/\/rater\/rate/, { timeout: 20000 });
-	check('a rater sent to /rater/admin/results is sent back to rating, with no results table', (await raterPage.locator('[data-testid="rater-results-table"]').count()) === 0);
+	await raterPage.waitForURL(/\/login/, { timeout: 20000 });
+	await raterPage.waitForTimeout(1500);
+	check('a rater sent to /rater/admin/results meets the main site\'s login, with no results table', (await raterPage.locator('[data-testid="rater-results-table"]').count()) === 0, raterPage.url());
 	const raterApiResponse = await apiPost('raterAdmin', { adminAction: 'results', resultsFormat: 'json' }, tokenList[1]);
 	check('a rater token asking the results API is refused', raterApiResponse.statusCode === 401, `${raterApiResponse.statusCode}`);
 	await raterContext.close();

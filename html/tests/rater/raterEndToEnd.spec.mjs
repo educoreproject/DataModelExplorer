@@ -59,7 +59,8 @@ try {
 	await page.fill('[data-testid="rater-signin-name"]', argumentByName.adminUserName);
 	await page.fill('[data-testid="rater-signin-password"]', adminPassword);
 	await page.click('[data-testid="rater-signin-submit"]');
-	await page.waitForURL(/\/rater\/admin$/, { timeout: 20000 });
+	// revision 6: an admin signing in at /rater lands in the CEDS Rater tab of /admin, logged in on the main site
+	await page.waitForURL(/\/admin\/?\?tool=ceds-rater$/, { timeout: 20000 });
 	await page.locator('[data-testid="rater-admin-table"]').waitFor();
 	const issuedPasswordByName = {};
 	for (const raterUserName of raterNameList) {
@@ -135,8 +136,11 @@ try {
 
 	// ---------------------------------------------------------------- T5.2 the admin table
 	console.log('T5.2 admin table');
-	await page.reload();
-	await page.locator(`[data-testid="rater-admin-row-${raterNameList[1]}"]`).waitFor();
+	// the main login lives in memory, so the table is re-read in the app (Results, then Back), not by a page reload
+	await page.click('[data-testid="rater-admin-results-link"]');
+	await page.locator('[data-testid="rater-results-panel"]').waitFor({ timeout: 20000 });
+	await page.click('[data-testid="rater-results-back"]');
+	await page.locator(`[data-testid="rater-admin-row-${raterNameList[1]}"]`).waitFor({ timeout: 20000 });
 	const firstRowText = await page.locator(`[data-testid="rater-admin-row-${raterNameList[0]}"]`).innerText();
 	const secondRowText = await page.locator(`[data-testid="rater-admin-row-${raterNameList[1]}"]`).innerText();
 	await page.screenshot({ path: shotPath('23-admin-progress-50-locked-and-5') });

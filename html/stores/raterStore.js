@@ -4,10 +4,16 @@
 // kept in sessionStorage so a reload does not sign the rater out; every read and write of it is guarded, because
 // storage can be absent (private windows, blocked site data) and the page must still work, just without surviving a reload.
 //
+// Revision 6 (WORKORDER-RATER6): the admin screens live in the main /admin page (components/tools/ceds-rater-admin.vue),
+// so every admin call is signed with the MAIN SITE's login (loginStore), never with the rater token. Which login signs a
+// call is data: CREDENTIAL_BY_SOURCE_NAME below, named by every caller of raterPost. An admin who signs in at /rater is
+// handed to the main login (loginStore.acceptLoginReply) and keeps no rater session; raters are untouched.
+//
 // The server is the only judge of an answer (server/data-model/lib/rater-tool/rater-answer-rules.js). Refusals come
 // back as HTTP 400 '<refusalName>: <text> (<errorId>)'; the store shows the text and keeps the name.
 
 import axios from 'axios';
+import { useLoginStore } from '@/stores/loginStore';
 
 const SESSION_STORAGE_NAME = 'cedsRaterSession';
 
@@ -55,6 +61,30 @@ const writeSavedSession = (sessionObject) => {
 	}
 };
 
+const ADMIN_ROLE_LIST = ['admin', 'super'];
+
+// who signs a call. raterSignIn: the rater area's own token (a refusal signs the rater out, as before). mainLogin: the
+// main site's login, for the admin tool inside /admin; a refusal there is shown, and the main login is left alone.
+const CREDENTIAL_BY_SOURCE_NAME = Object.freeze({
+	raterSignIn: {
+		authHeaderOf: (raterStore) => raterStore.authHeaderProperty,
+		keepRefreshedToken: (raterStore, response) => raterStore.keepRefreshedToken(response),
+		forgetRefusedSession: (raterStore) => raterStore.signOut(),
+	},
+	mainLogin: {
+		authHeaderOf: () => useLoginStore().getAuthTokenProperty,
+		keepRefreshedToken: (raterStore, response) => {
+			if (response.headers?.authtoken) {
+				useLoginStore().authtoken = response.headers.authtoken;
+			}
+		},
+		forgetRefusedSession: () => {},
+	},
+});
+
+// a main-site role that may use the CEDS Rater admin tool; the server's own gate (/api/raterAdmin) is the judge
+export const isRaterAdminRole = (roleText) => `${roleText || ''}`.split(',').some((roleName) => ADMIN_ROLE_LIST.includes(roleName.trim()));
+
 // '<refusalName>: <text> (<errorId>)' -> { refusalName, refusalText }
 const refusalOf = (error, operationText) => {
 	const responseText = typeof error.response?.data === 'string' ? error.response.data : '';
@@ -70,7 +100,7 @@ export const useRaterStore = defineStore('raterStore', {
 
 	getters: {
 		isSignedIn: (state) => !!state.authtoken,
-		isAdmin: (state) => ['admin', 'super'].includes(state.raterRole),
+		isAdmin: (state) => ADMIN_ROLE_LIST.includes(state.raterRole),
 		authHeaderProperty: (state) => ({ Authorization: `Bearer ${state.authtoken}` }),
 	},
 
@@ -119,6 +149,11 @@ export const useRaterStore = defineStore('raterStore', {
 				this.raterUserName = signedInUser.username;
 				this.raterRole = signedInRole;
 				this.authtoken = response.headers?.authtoken || '';
+				if (this.isAdmin) {
+					// revision 6: an admin works in /admin, signed in with the main login; no rater session is kept
+					writeSavedSession(null);
+					return useLoginStore().acceptLoginReply(response);
+				}
 				writeSavedSession({ authtoken: this.authtoken, raterUserName: this.raterUserName, raterRole: this.raterRole });
 				return true;
 			} catch (error) {
@@ -130,16 +165,21 @@ export const useRaterStore = defineStore('raterStore', {
 			}
 		},
 
-		// raterPost — every rater call: POST with the token, the token refreshed from the reply, refusals kept by name
-		async raterPost(routeName, requestBody, operationText) {
+		// raterPost — every rater call: POST signed by the named credential source, the token refreshed from the reply,
+		// refusals kept by name
+		async raterPost(routeName, requestBody, operationText, credentialSourceName) {
+			const credential = CREDENTIAL_BY_SOURCE_NAME[credentialSourceName];
+			if (!credential) {
+				return { refusal: { refusalName: 'credentialSourceInvalid', refusalText: `${operationText}: no credential source '${credentialSourceName}' (known: ${Object.keys(CREDENTIAL_BY_SOURCE_NAME).join(', ')})` } };
+			}
 			try {
-				const response = await axios.post(`/api/${routeName}`, requestBody, { headers: { 'Content-Type': 'application/json', ...this.authHeaderProperty } });
-				this.keepRefreshedToken(response);
+				const response = await axios.post(`/api/${routeName}`, requestBody, { headers: { 'Content-Type': 'application/json', ...credential.authHeaderOf(this) } });
+				credential.keepRefreshedToken(this, response);
 				return { answer: response.data[0] };
 			} catch (error) {
 				const refusal = refusalOf(error, operationText);
 				if (refusal.refusalName === 'notPermitted' || /token error/i.test(refusal.refusalText)) {
-					this.signOut();
+					credential.forgetRefusedSession(this);
 				}
 				return { refusal };
 			}
@@ -149,7 +189,7 @@ export const useRaterStore = defineStore('raterStore', {
 			this.loading = true;
 			this.clearMessage();
 			try {
-				const { answer, refusal } = await this.raterPost('raterProgress', {}, 'Reading your progress');
+				const { answer, refusal } = await this.raterPost('raterProgress', {}, 'Reading your progress', 'raterSignIn');
 				if (refusal) {
 					this.statusMsg = refusal.refusalText;
 					this.refusalName = refusal.refusalName;
@@ -166,7 +206,7 @@ export const useRaterStore = defineStore('raterStore', {
 			this.loading = true;
 			this.clearMessage();
 			try {
-				const { answer, refusal } = await this.raterPost('raterItemGet', { itemNumber }, 'Reading the item');
+				const { answer, refusal } = await this.raterPost('raterItemGet', { itemNumber }, 'Reading the item', 'raterSignIn');
 				if (refusal) {
 					this.statusMsg = refusal.refusalText;
 					this.refusalName = refusal.refusalName;
@@ -184,7 +224,7 @@ export const useRaterStore = defineStore('raterStore', {
 			this.saving = true;
 			this.clearMessage();
 			try {
-				const { answer, refusal } = await this.raterPost('raterAnswerSave', answerSubmission, 'Saving');
+				const { answer, refusal } = await this.raterPost('raterAnswerSave', answerSubmission, 'Saving', 'raterSignIn');
 				if (refusal) {
 					this.statusMsg = refusal.refusalText;
 					this.refusalName = refusal.refusalName;
@@ -199,18 +239,18 @@ export const useRaterStore = defineStore('raterStore', {
 
 		// search and browse answer to the finder, which keeps its own loading / empty / error state
 		async search({ elementStableId, searchMode, queryText }) {
-			return this.raterPost('raterSearch', { elementStableId, searchMode, queryText }, 'Searching CEDS');
+			return this.raterPost('raterSearch', { elementStableId, searchMode, queryText }, 'Searching CEDS', 'raterSignIn');
 		},
 
 		async browse({ browseMode, conceptName, classCedsId }) {
-			return this.raterPost('raterBrowse', { browseMode, conceptName, classCedsId }, 'Browsing CEDS');
+			return this.raterPost('raterBrowse', { browseMode, conceptName, classCedsId }, 'Browsing CEDS', 'raterSignIn');
 		},
 
 		async finish() {
 			this.saving = true;
 			this.clearMessage();
 			try {
-				const { answer, refusal } = await this.raterPost('raterFinish', {}, 'Finishing');
+				const { answer, refusal } = await this.raterPost('raterFinish', {}, 'Finishing', 'raterSignIn');
 				if (refusal) {
 					this.statusMsg = refusal.refusalText;
 					this.refusalName = refusal.refusalName;
@@ -223,9 +263,10 @@ export const useRaterStore = defineStore('raterStore', {
 			}
 		},
 
+		// every admin call (the CEDS Rater tool inside /admin) is signed with the main site's login
 		async adminAction(adminRequest) {
 			this.clearMessage();
-			const { answer, refusal } = await this.raterPost('raterAdmin', adminRequest, 'The admin action');
+			const { answer, refusal } = await this.raterPost('raterAdmin', adminRequest, 'The admin action', 'mainLogin');
 			if (refusal) {
 				this.statusMsg = refusal.refusalText;
 				this.refusalName = refusal.refusalName;
