@@ -128,7 +128,7 @@ try {
 		clone.querySelectorAll('[data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
 		return clone.innerText || clone.textContent;
 	});
-	check('no "found by", score, rank, AI or mapping text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold/i) || [])[0]);
+	check('no "found by", score, rank, AI, mapping, gold or injected text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i) || [])[0]);
 	const idTextList = await page.locator('[data-testid="rater-card-ceds-id"]').allInnerTexts();
 	check('every card shows a CEDS ID or "CEDS ID not listed"', idTextList.length > 0 && idTextList.every((idText) => /^CEDS ID (P\d{6}|not listed)$/.test(idText.trim())), JSON.stringify(idTextList.slice(0, 3)));
 

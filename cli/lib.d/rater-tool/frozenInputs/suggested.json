@@ -1,16 +1,29 @@
 {
-	"suggestedFormatVersion": 1,
+	"suggestedFormatVersion": 2,
 	"goldenContainerName": "GOLD_EVAL_261013_jevQuestionPerBridge",
 	"sampleSeedText": "cedsRater-humanTruthSet-101426-r2",
 	"suggestRules": {
-		"_comment": "How each element's suggested candidate list is built (lane RATER; SPEC §6). The query text is the element's name with camelCase and underscores split into words and a leading @ dropped, then its definition (when it has one), then its owner's name split the same way. The meaning leg embeds that text with the DME's query embedder and asks the DME's vector index for property-tier CEDS tuples; the words leg runs BM25 over the DME's fulltext index on CEDS properties (name + definition) with the words OR-joined (the DME's own AND rule finds nothing for a name + definition query), expanding each property hit to its tuples. The two lists interleave meaning 1, words 1, meaning 2, ... ; a tuple already taken, or a card identical to one taken (same class + property + qualifiers), joins that card instead of taking a slot; at cardCap new cards stop. Cards are stored unordered (sorted by tuple id); each rater sees their own shuffle.",
+		"_comment": "How each element's suggested candidate list is built (lane RATER; SPEC §6). The query text is the element's name with camelCase and underscores split into words and a leading @ dropped, then its definition (when it has one), then its owner's name split the same way. The meaning leg embeds that text with the DME's query embedder and asks the DME's vector index for property-tier CEDS tuples; the words leg runs BM25 over the DME's fulltext index on CEDS properties (name + definition) with the words OR-joined (the DME's own AND rule finds nothing for a name + definition query), expanding each property hit to its tuples. The two lists interleave meaning 1, words 1, meaning 2, ... ; a tuple already taken, or a card identical to one taken (same class + property + qualifiers), joins that card instead of taking a slot; at cardCap new cards stop. Cards are stored unordered (sorted by tuple id); each rater sees their own shuffle. Revision 3 (TQ-approved exception to \"no machine results\"): for an element with isMappedInGold, every property-tier tuple the gold maps it to (EXACT/CLOSE/BROAD/NARROW_MATCH, through the same members as isMappedInGold) is put on the list as an ordinary card if the searches did not already put it there; when that overflows cardCap, the lowest-ranked non-gold cards (the last taken in interleave order) leave. A gold card is never dropped. The gold decides only what is on the list, never how a card looks or where it sits.",
 		"perMethodCount": 15,
 		"cardCap": 20,
 		"methodOrderList": [
 			"meaning",
 			"words"
 		],
-		"wordJoinName": "or"
+		"wordJoinName": "or",
+		"goldInjection": {
+			"mappingEdgeTypeList": [
+				"EXACT_MATCH",
+				"CLOSE_MATCH",
+				"BROAD_MATCH",
+				"NARROW_MATCH"
+			],
+			"memberRuleNameByStandard": {
+				"Ed-Fi": "memberCarriesEdge",
+				"SIF": "memberCarriesEdge",
+				"PESC": "occurrencesCarryEdge"
+			}
+		}
 	},
 	"elementCount": 150,
 	"suggestedByElementStableId": {
@@ -471,7 +484,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentContactAssociation.LivesWith": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentContactAssociation.LivesWith",
@@ -946,7 +963,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e3385b2ec818940ebc01412e7105f11551dff9e74d8e9f5ad6f7a332f9c7bc7"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentDisciplineIncidentBehaviorAssociation.Weapon": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentDisciplineIncidentBehaviorAssociation.Weapon",
@@ -1590,7 +1611,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4991406aacce860559e94301ad3b323f86ab40529064ac6014659b41ef115f09"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentEducationOrganizationAssociation.InternetAccessTypeInResidence": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentEducationOrganizationAssociation.InternetAccessTypeInResidence",
@@ -2095,7 +2120,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2a183fd446386d7d903a9648b1947e6d4263c6079d36bb099b913fca10db6680"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentSectionAssociation.BeginDate": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentSectionAssociation.BeginDate",
@@ -2510,7 +2539,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/05441b2babe98d49fbfb180d4380ed5a5f7ea39f47c3ca05ecd677cf44d6f69b"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentSectionAssociation.TeacherStudentDataLinkExclusion": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentSectionAssociation.TeacherStudentDataLinkExclusion",
@@ -2973,7 +3006,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7fc39dd2e38020d3879ba833c9086721af91ee91c3ab7f3aa919e6bda5f47c60"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/association.StudentSpecialEducationProgramEligibilityAssociation.EvaluationDelayDays": {
 			"elementStableId": "Ed-Fi:edfi:property/association.StudentSpecialEducationProgramEligibilityAssociation.EvaluationDelayDays",
@@ -3467,6 +3504,26 @@
 			"cardCount": 20,
 			"cardList": [
 				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/042ce0befdc64166711afdcdfb003660244fd548f01f6145752a82822a88977f",
+					"className": "Individualized Program",
+					"classCedsId": "C200157",
+					"classDefinition": "Information on the type, design, dates, and participation of a student in an individualized program.",
+					"propertyName": "Has IEP Authorization",
+					"qualifierNameList": [],
+					"cedsId": "P600089",
+					"definition": "References information about whether an evaluation has determined if a person is authorized to receive an IEP.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/600089",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/042ce0befdc64166711afdcdfb003660244fd548f01f6145752a82822a88977f"
+					],
+					"foundByMethod": [
+						"meaning"
+					]
+				},
+				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/158d51c347e3be7ef3891ae1324ea7ccfa9ac166731534236b2b687778e5edf2",
 					"className": "Individualized Program",
 					"classCedsId": "C200157",
@@ -3719,26 +3776,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/870362efc5bfb3866e9017dae86f47f389fd00cee8f2ce7a85fcb67cd6673baa",
-					"className": "Eligibility Determination",
-					"classCedsId": "C200399",
-					"classDefinition": "Information about an event used to determine a learner's eligibility to participate in a program or receive services.",
-					"propertyName": "Eligibility Determination Date",
-					"qualifierNameList": [],
-					"cedsId": "P002120",
-					"definition": "Upon completion of the administration of assessments and other evaluation measures, the date that a group of qualified professionals and the parent of the child determine whether the child is a child with a disability.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/002120",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/870362efc5bfb3866e9017dae86f47f389fd00cee8f2ce7a85fcb67cd6673baa"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9a3246144fbed2595cd0c0800d52b40599dc2b74193bfeeb39e92cfa5810248e",
 					"className": "Postsecondary Student Enrollment",
 					"classCedsId": "C200343",
@@ -3905,6 +3942,12 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/042ce0befdc64166711afdcdfb003660244fd548f01f6145752a82822a88977f"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/042ce0befdc64166711afdcdfb003660244fd548f01f6145752a82822a88977f"
 			]
 		},
 		"Ed-Fi:edfi:property/association.StudentSpecialEducationProgramEligibilityAssociation.TransitionNotificationDate": {
@@ -4369,7 +4412,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/43c94f9644a6434c110f134caffe5772d99dc2296ff2cdd02c58c06c7c87599f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/associationSubclass.StudentLanguageInstructionProgramAssociation.Dosage": {
 			"elementStableId": "Ed-Fi:edfi:property/associationSubclass.StudentLanguageInstructionProgramAssociation.Dosage",
@@ -4863,7 +4910,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/722e6c7ee1ae56c213d018b9b6b7e404e83eb3eb949e8b79a9d4ce78d5ca10ed"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/associationSubclass.StudentSection504ProgramAssociation.Section504Disability": {
 			"elementStableId": "Ed-Fi:edfi:property/associationSubclass.StudentSection504ProgramAssociation.Section504Disability",
@@ -5302,7 +5353,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/86fc688014f10c7919035e1f7a2bcf1ce19944629cd57af56b165fde3961cc23"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Application.AcceptedDate": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Application.AcceptedDate",
@@ -6916,7 +6971,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/489a7c10edd67c1d791ccbbd9df9faff3ea4a0b9041ea112404a3989b87e1318"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.AssessmentScoreRangeLearningStandard.ScoreRangeId": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.AssessmentScoreRangeLearningStandard.ScoreRangeId",
@@ -7951,7 +8010,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/db6f25b08919a3d16687a13b76540340e4e5bec4c84c10b04837f4148920007a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Certification.CertificationField": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Certification.CertificationField",
@@ -9385,7 +9448,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/381052f92897fc7107786455af39501d29161395f911666cc3abca89e4afc72f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Certification.GradeLevel": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Certification.GradeLevel",
@@ -10168,7 +10235,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/78317888222f4476a6e81cdbe4c1cdcd64334bcd69f2e7023a002d02cb5c594f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Certification.InstructionalSetting": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Certification.InstructionalSetting",
@@ -11098,7 +11169,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c73147f065ce24dc95bd5c5daf9b54f236364af3a3c134e68e2fcd5e2892e72d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Course.CourseDescription": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Course.CourseDescription",
@@ -11613,7 +11688,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/526a4c4d3a0456e2f40c830b7f4823446077525dc1c44a52d799e2c446302aaf"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Course.MaxCompletionsForCredit": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Course.MaxCompletionsForCredit",
@@ -12110,7 +12189,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/17d5d524160cb453cd3ee6e01ee61a0ff1b29a9fffc03d8f9e255db5f2a5076f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.CourseTranscript.CourseTitle": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.CourseTranscript.CourseTitle",
@@ -12719,7 +12802,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/84464d914db733a6b38fd94bc0fb483f965f051face355efe6d7c25152366561"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.CourseTranscript.FinalNumericGradeEarned": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.CourseTranscript.FinalNumericGradeEarned",
@@ -13224,7 +13311,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f8365427410411d403e3f1c9d0f677bac262e80cc941a13db8865e47be5dc4b1"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.DisciplineIncident.ReporterName": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.DisciplineIncident.ReporterName",
@@ -13858,7 +13949,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/6269b9c50f2625d750776a0c176570cbd7b1580e55a164023a664d00c151b525"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Evaluation.EvaluationType": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Evaluation.EvaluationType",
@@ -14166,6 +14261,34 @@
 					]
 				},
 				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8aa4cad240a0497512dc15f5d9b4d70bddb9ba26dd8e391ce6a1a1f9b8545f93",
+					"className": "Assessment",
+					"classCedsId": "C200010",
+					"classDefinition": "An instrument used to evaluate a person typically having at-least one AssessmentForm, AssessmentSection, and AssessmentItem.",
+					"propertyName": "Has Assessment Type Administered",
+					"qualifierNameList": [],
+					"cedsId": "P000415",
+					"definition": "The type of assessment administered.",
+					"optionSetName": "Assessment Type Administered",
+					"optionValueList": [
+						"Alternate assessments based on alternate achievement standards",
+						"Alternate assessments based on grade-level achievement standards",
+						"Alternate assessments based on modified achievement standards",
+						"Assessment based on age level standards with accommodations",
+						"Assessment based on age level standards without accommodations",
+						"Assessment based on standards below age level with accommodations",
+						"Assessment based on standards below age level without accommodations",
+						"Regular assessments based on grade-level achievement standards with accommodations",
+						"Regular assessments based on grade-level achievement standards without accommodations"
+					],
+					"optionValueCount": 9,
+					"cedsUrl": "https://ceds.ed.gov/element/000415",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8aa4cad240a0497512dc15f5d9b4d70bddb9ba26dd8e391ce6a1a1f9b8545f93"
+					],
+					"foundByMethod": []
+				},
+				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a962aea189deec322112733701944ea085d91883e6254f7d23cdc695ea93e3fd",
 					"className": "Staff Evaluation Part",
 					"classCedsId": "C200367",
@@ -14284,57 +14407,13 @@
 					"foundByMethod": [
 						"meaning"
 					]
-				},
-				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f5d98fcc01a188cad3d27555bbeed79c547a804082d49ff59d5d5c0f7732d2ea",
-					"className": "Assessment",
-					"classCedsId": "C200010",
-					"classDefinition": "An instrument used to evaluate a person typically having at-least one AssessmentForm, AssessmentSection, and AssessmentItem.",
-					"propertyName": "Has Assessment Type",
-					"qualifierNameList": [],
-					"cedsId": "P000029",
-					"definition": "The category of an assessment based on format and content.",
-					"optionSetName": "Assessment Type",
-					"optionValueList": [
-						"Achievement test",
-						"Advanced placement test",
-						"Alternate assessment/ELL",
-						"Alternate assessment/alternate standards",
-						"Alternate assessment/grade-level standards",
-						"Alternative assessment/modified standards",
-						"Aptitude Test",
-						"Benchmark",
-						"Cognitive and perceptual skills test",
-						"Computer Adaptive Test",
-						"Developmental observation",
-						"Diagnostic",
-						"Direct Assessment",
-						"Formative",
-						"Growth Measure",
-						"Interim",
-						"Kindergarten Readiness",
-						"Language proficiency test",
-						"Mental ability (intelligence) test",
-						"Observation",
-						"Other",
-						"Parent Report",
-						"Performance assessment",
-						"Portfolio assessment",
-						"Prekindergarten Readiness",
-						"Reading readiness test",
-						"Screening",
-						"Teacher Report",
-						"Workplace skills"
-					],
-					"optionValueCount": 29,
-					"cedsUrl": "https://ceds.ed.gov/element/000029",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f5d98fcc01a188cad3d27555bbeed79c547a804082d49ff59d5d5c0f7732d2ea"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8aa4cad240a0497512dc15f5d9b4d70bddb9ba26dd8e391ce6a1a1f9b8545f93"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8aa4cad240a0497512dc15f5d9b4d70bddb9ba26dd8e391ce6a1a1f9b8545f93"
 			]
 		},
 		"Ed-Fi:edfi:property/domainEntity.FunctionDimension.FiscalYear": {
@@ -14750,7 +14829,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/86648fa01aa1414b2ef03434c95909fa2b3309e15304a6e4ca820669ec0aa5e2"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.FundDimension.Code": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.FundDimension.Code",
@@ -15316,7 +15399,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f56c427d9aedacf003829b75d298d8f8f6d8f08b219aaa8a6703b01877c266f2"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Grade.GradeEarnedDescription": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Grade.GradeEarnedDescription",
@@ -15927,7 +16014,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a02bff200a39558d1fec94d39a3fb8d2d32f66af152e80ed75581cba2a999b10"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Intervention.AppropriateGradeLevel": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Intervention.AppropriateGradeLevel",
@@ -16390,52 +16481,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9cb068689502ebb01f9b37e0afb829b42ee472cfb1ddc659b619cd1c6611b7bd",
-					"className": "K12 Student Graduation Plan",
-					"classCedsId": "C200220",
-					"classDefinition": "The plan of courses a K-12 student will take to graduate from high school.",
-					"propertyName": "Has Grade Level When Course Taken",
-					"qualifierNameList": [],
-					"cedsId": "P000125",
-					"definition": "Student's grade level at time of course.",
-					"optionSetName": "Grade Level",
-					"optionValueList": [
-						"Adult Education",
-						"Birth",
-						"Eighth grade",
-						"Eleventh grade",
-						"Fifth grade",
-						"First grade",
-						"Fourth grade",
-						"Grade 13",
-						"Infant/toddler",
-						"Kindergarten",
-						"Ninth grade",
-						"Other",
-						"Postsecondary",
-						"Prekindergarten",
-						"Prenatal",
-						"Preschool",
-						"Second grade",
-						"Seventh grade",
-						"Sixth grade",
-						"Tenth grade",
-						"Third grade",
-						"Transitional Kindergarten",
-						"Twelfth grade",
-						"Ungraded"
-					],
-					"optionValueCount": 24,
-					"cedsUrl": "https://ceds.ed.gov/element/000125",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9cb068689502ebb01f9b37e0afb829b42ee472cfb1ddc659b619cd1c6611b7bd"
-					],
-					"foundByMethod": [
-						"meaning",
-						"words"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a63139c7f1ab9f0a66e0b75860bcd10195645f3998a78cbd7bfa9f3eeb0a6c52",
 					"className": "Learning Resource",
 					"classCedsId": "C200228",
@@ -16570,6 +16615,49 @@
 					"foundByMethod": [
 						"meaning"
 					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d488275383582aa25dec994ea2eb9cc2770e60bc2b70c33a3274eaf4f7494fb8",
+					"className": "Course",
+					"classCedsId": "C200072",
+					"classDefinition": "The organization of subject matter and related learning experiences provided for the instruction of students on a regular or systematic basis, usually for a predetermined period of time.",
+					"propertyName": "Has Course Applicable Education Level",
+					"qualifierNameList": [],
+					"cedsId": "P001301",
+					"definition": "The education level, grade level or primary instructional level at which a course is intended.",
+					"optionSetName": "Grade Level",
+					"optionValueList": [
+						"Adult Education",
+						"Birth",
+						"Eighth grade",
+						"Eleventh grade",
+						"Fifth grade",
+						"First grade",
+						"Fourth grade",
+						"Grade 13",
+						"Infant/toddler",
+						"Kindergarten",
+						"Ninth grade",
+						"Other",
+						"Postsecondary",
+						"Prekindergarten",
+						"Prenatal",
+						"Preschool",
+						"Second grade",
+						"Seventh grade",
+						"Sixth grade",
+						"Tenth grade",
+						"Third grade",
+						"Transitional Kindergarten",
+						"Twelfth grade",
+						"Ungraded"
+					],
+					"optionValueCount": 24,
+					"cedsUrl": "https://ceds.ed.gov/element/001301",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d488275383582aa25dec994ea2eb9cc2770e60bc2b70c33a3274eaf4f7494fb8"
+					],
+					"foundByMethod": []
 				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd60cd6ff9bb123d0678f5b30c4626bbb48c1a59ded7def89a579aea0a66a3e4",
@@ -16778,6 +16866,12 @@
 						"words"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d488275383582aa25dec994ea2eb9cc2770e60bc2b70c33a3274eaf4f7494fb8"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d488275383582aa25dec994ea2eb9cc2770e60bc2b70c33a3274eaf4f7494fb8"
 			]
 		},
 		"Ed-Fi:edfi:property/domainEntity.LearningStandard.LearningStandardItemCode": {
@@ -17256,7 +17350,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5ec9beb39cd4994f7d22181a5c2c3ca30456cfd28a7e5a12fabaadacbd84dacf"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.LocalAccount.AccountIdentifier": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.LocalAccount.AccountIdentifier",
@@ -17695,7 +17793,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2377710eb835586a5c9e0c22d6d6662512364a9889cbfb4601a738dd2c05f216"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.LocalActual.AsOfDate": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.LocalActual.AsOfDate",
@@ -18154,7 +18256,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a6ef32057e9818118dadb5683e0ecb4622b2af502bb47b93a60af2f7d1892213"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.LocalContractedStaff.AsOfDate": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.LocalContractedStaff.AsOfDate",
@@ -18580,7 +18686,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a6ef32057e9818118dadb5683e0ecb4622b2af502bb47b93a60af2f7d1892213"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.ObjectiveAssessment.Description": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.ObjectiveAssessment.Description",
@@ -19068,7 +19178,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8bc8038854a2eac62603b4f24c4387ab0ac4e68dce3dc8ebe6814de117614889"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.PathMilestone.PathMilestoneDescription": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.PathMilestone.PathMilestoneDescription",
@@ -20084,7 +20198,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c2f8a9f21fc6bab37bcc5de8cdc073757ca820ad0556e99642e17d79037a7912"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.Person.PersonId": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.Person.PersonId",
@@ -20570,7 +20688,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7a076f95942015ea6ec134bf81710ccdd0bb6043441b45f7727a85e34f698a79"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.ProgramEvaluation.ProgramEvaluationPeriod": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.ProgramEvaluation.ProgramEvaluationPeriod",
@@ -20997,7 +21119,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/abd42db86a29164dbc5aa5d2b0a78e067f7686ce96705eb5566ba4945cc5229f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.RecruitmentEventAttendance.SocialMediaUserName": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.RecruitmentEventAttendance.SocialMediaUserName",
@@ -21878,7 +22004,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3cfb0fbf2764901b1b3e2b014ff8f8e1e51d6111ec9401e52829813002a2779d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.SourceDimension.FiscalYear": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.SourceDimension.FiscalYear",
@@ -22295,7 +22425,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/86648fa01aa1414b2ef03434c95909fa2b3309e15304a6e4ca820669ec0aa5e2"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.StudentAssessment.SchoolYear": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.StudentAssessment.SchoolYear",
@@ -22769,7 +22903,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/bee7947ff12a9a2a152c91cb08f05406b6f48c38f99b6d14cff8372d8737405c"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.StudentAssessmentRegistration.AssessmentGradeLevel": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.StudentAssessmentRegistration.AssessmentGradeLevel",
@@ -23534,7 +23672,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ce605de1362354611678dcee38d3050260dfdc2d394f7849e80a34fab1664746"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.StudentSectionAttendanceEvent.DepartureTime": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.StudentSectionAttendanceEvent.DepartureTime",
@@ -24432,7 +24574,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d5fb29324dafc409e6eed3eb9e9370eae9c03ee9bd2bd416397dd5274f68ef26"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntity.SurveyQuestion.QuestionForm": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntity.SurveyQuestion.QuestionForm",
@@ -24862,7 +25008,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/eb881aa12a38eb955280cc98ef41a3c86fe3e5eebac908fcf7c615eac9f5247e"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"Ed-Fi:edfi:property/domainEntitySubclass.School.CharterApprovalAgencyType": {
 			"elementStableId": "Ed-Fi:edfi:property/domainEntitySubclass.School.CharterApprovalAgencyType",
@@ -25271,7 +25421,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7972a736380c295238d05fa68f1cc44c36132c629576556c72d278e36cd89e09"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:group/urn:org:pesc:core:CoreMain:v1.16.0#OrganizationIDGroup/el/14:DUNS": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:group/urn:org:pesc:core:CoreMain:v1.16.0#OrganizationIDGroup/el/14:DUNS",
@@ -26208,7 +26362,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b0d7b1e4e5aa9f43d2bf1684bdda13e92c63d466da177f201f939932bd509d9c"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#AcademicHonorsType/el/3:NoteMessage": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#AcademicHonorsType/el/3:NoteMessage",
@@ -26738,7 +26896,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c8fce3179ad0ea5e488629753a0f0cc22610187228dbd606af1d904836f8ea36"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#AddressType/el/1:EffectiveDate": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#AddressType/el/1:EffectiveDate",
@@ -27645,7 +27807,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#BirthType/el/3:BirthYear": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#BirthType/el/3:BirthYear",
@@ -28107,7 +28273,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#CitizenshipType/el/1:CitizenshipStatusCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#CitizenshipType/el/1:CitizenshipStatusCode",
@@ -28621,7 +28791,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c40fd38af8d68046aacfe88af2fabb7c720bef02bb60ad22964833ff83da46c6"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#DeceasedType/el/1:DeceasedIndicator": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#DeceasedType/el/1:DeceasedIndicator",
@@ -29100,7 +29274,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ba76349299a3a918f6bd9298b7b792638ff6300ace2ecf0df6d446ede6f19942"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#EmploymentType/el/5:PositionTitle": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#EmploymentType/el/5:PositionTitle",
@@ -29589,7 +29767,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/73c69392cf50a41cc465bb1382f804e0aa0ec9272841d7dc3da8a7776e66a668"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#EthnicityRaceType/el/3:LocalEthnicityRaceCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#EthnicityRaceType/el/3:LocalEthnicityRaceCode",
@@ -30133,7 +30315,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/db6f25b08919a3d16687a13b76540340e4e5bec4c84c10b04837f4148920007a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#PhoneType/el/2:AreaCityCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#PhoneType/el/2:AreaCityCode",
@@ -30655,7 +30841,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f2d4138c1fb284824cdd2acd6a7ea92bebde9d0122cd6b84d8d14c935a3b4845"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#TestScoreType/el/2:TestScoreMethod": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#TestScoreType/el/2:TestScoreMethod",
@@ -31262,13 +31452,36 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/afba75862fd995dd07f5048326287136b25fd5ade29a1b7fff34c02f06337857",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e609c08509acffb10d0ee72a1e88645382dc779be0fb6a066af7f45e0b743255"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#BadgeType/el/2:BadgeName": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#BadgeType/el/2:BadgeName",
 			"queryText": "Badge Name The name of the achievement. Badge Type",
 			"cardCount": 20,
 			"cardList": [
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/11558945b796bff868886873d8a333562809f9aa0ed80c1270898ce76ce7a100",
+					"className": "Credential Definition",
+					"classCedsId": "C200087",
+					"classDefinition": "Defines a qualification, achievement, personal or organizational quality, or aspect of an identity typically used to indicate suitability.",
+					"propertyName": "Credential Definition Title",
+					"qualifierNameList": [],
+					"cedsId": "P000893",
+					"definition": "The title assigned to a qualification, achievement, personal or organizational quality, or aspect of an identity.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/000893",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/11558945b796bff868886873d8a333562809f9aa0ed80c1270898ce76ce7a100"
+					],
+					"foundByMethod": []
+				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/13fac7260d9129de50bc03df253dd9c73965f1eb6b3731b35ad80b4f65241e18",
 					"className": "Credential Award",
@@ -31287,26 +31500,6 @@
 					],
 					"foundByMethod": [
 						"meaning"
-					]
-				},
-				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1830f13199e358ebdc7211b3a71e88c2a1b2222391ba794a1aeff8ee05d76f75",
-					"className": "Assessment Form",
-					"classCedsId": "C200017",
-					"classDefinition": "An instance of an a sessment that can equate scores with another instance of that same assessment.",
-					"propertyName": "Assessment Form Name",
-					"qualifierNameList": [],
-					"cedsId": "P000024",
-					"definition": "The name of a given assessment form.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/000024",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1830f13199e358ebdc7211b3a71e88c2a1b2222391ba794a1aeff8ee05d76f75"
-					],
-					"foundByMethod": [
-						"words"
 					]
 				},
 				{
@@ -31690,6 +31883,12 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/11558945b796bff868886873d8a333562809f9aa0ed80c1270898ce76ce7a100"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/11558945b796bff868886873d8a333562809f9aa0ed80c1270898ce76ce7a100"
 			]
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#CompetencyType/el/3:CompetencyDescription": {
@@ -32137,7 +32336,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a35d43966f2218a52bc9df622aaaeb360834bf28d0ab40a9efab9f60ca833e5a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#EventClassificationType/el/3:AcademicProgramDegreeLevel": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#EventClassificationType/el/3:AcademicProgramDegreeLevel",
@@ -32732,7 +32935,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5afe88fc99dca83d3110f5c1f2b02ce822053ace24ff2a6a6436b5dd3a2d0838"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#InterestProfileType/el/1:RealisticLevel": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0#InterestProfileType/el/1:RealisticLevel",
@@ -35258,7 +35465,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e123393c5c4a1ea5e9b2b9aa56c30d03098de4d831bb03a01db64171c060fba"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#EducationTestsType/el/6:TestRegistrationNumber": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#EducationTestsType/el/6:TestRegistrationNumber",
@@ -35720,7 +35931,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ec5928c20033f247a505d035f894b0e9bf08f77790607a60429c78e479f353d0"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#FinancialAidNeedsType/el/2:FinancialAidSupportIndicator": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#FinancialAidNeedsType/el/2:FinancialAidSupportIndicator",
@@ -36213,7 +36428,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/759f4e1d005019cfaead10fa64e4bda24d0a594aae0ac06ca64a37e387730e59"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/18:NoteMessage": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/18:NoteMessage",
@@ -37147,7 +37366,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/4:AgencyAssignedID": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/4:AgencyAssignedID",
@@ -37622,7 +37845,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/6:RecipientAssignedID": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#PersonType/el/6:RecipientAssignedID",
@@ -38127,7 +38354,13 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3b598b36a5510952932c48cf824a496ffeda8c3769bfd630c953052a3721faa6",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7a076f95942015ea6ec134bf81710ccdd0bb6043441b45f7727a85e34f698a79"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#ResidencyType/el/4:CountryCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#ResidencyType/el/4:CountryCode",
@@ -39059,7 +39292,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cf376f4d83df2327057dc605310b52aaf0a9671dfccfc7f51cf9a3ec28ce9348"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#ResidencyType/el/6:ResidencyStatusCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#ResidencyType/el/6:ResidencyStatusCode",
@@ -39663,7 +39900,12 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/61cfb00a2b786745defdd640c49bf25e246b6632c2d43df12d3189d6102bc609",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9cd872f3e7552ec369bda3789a9b38a446cf2a4afddc63b5d9783a1e3b8c538b"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#SchoolType/el/6:NoteMessage": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#SchoolType/el/6:NoteMessage",
@@ -40149,7 +40391,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e9e41c381c3689fd7e4ffb446c7bbeb589fb0f39eb3977dfbbd4ab114e51a3b7"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#SelfReportedAcademicRecordType/el/8:ExitDateYear": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#SelfReportedAcademicRecordType/el/8:ExitDateYear",
@@ -40653,7 +40899,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2d16a6a9992b7e1687d35c1ecf2362b39389a867b47a8ec61a0aaca2d0290565"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AcademicAwardType/el/2:AcademicAwardDate": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AcademicAwardType/el/2:AcademicAwardDate",
@@ -41178,7 +41428,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7a4ff93a9a71c9fd7ef280f71ca3bb121a33166480ef4af3f5f999562b8200c2"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AcademicSummaryType/el/6:ClassSize": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AcademicSummaryType/el/6:ClassSize",
@@ -41263,6 +41517,26 @@
 					],
 					"foundByMethod": [
 						"words"
+					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/346766235ecd619c58519785bb7bacc4237f122119dee030f37f28dc58e2a040",
+					"className": "Course Section",
+					"classCedsId": "C200074",
+					"classDefinition": "CourseSection represents an instance of a course offered/delivered in a specific timeframe and/or place or through specific media or mode of study or to a specific section of students. (In the CEDS IDS, CourseSection is a subclass of organization that can be linked to persons and roles using Membership. Subclasses include K12 Course, PsCourse, CteCoure, AeCourse)",
+					"propertyName": "Course Section Maximum Capacity",
+					"qualifierNameList": [],
+					"cedsId": "P001655",
+					"definition": "The maximum number of students the Course Section can maintain.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/001655",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/346766235ecd619c58519785bb7bacc4237f122119dee030f37f28dc58e2a040"
+					],
+					"foundByMethod": [
+						"meaning"
 					]
 				},
 				{
@@ -41363,46 +41637,6 @@
 					],
 					"foundByMethod": [
 						"meaning"
-					]
-				},
-				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/701200ae7c42b99da70e31c206a30d2b75e5c8e030fb6668c577a8c72e0291a2",
-					"className": "K12 Student Academic Honor",
-					"classCedsId": "C200209",
-					"classDefinition": "Academic distinctions earned or awarded to a K12 student.",
-					"propertyName": "Has Academic Honors Type",
-					"qualifierNameList": [],
-					"cedsId": "P000004",
-					"definition": "A designation of the type of academic distinctions earned by or awarded to the student.",
-					"optionSetName": "Academic Honors Type",
-					"optionValueList": [
-						"Attendance award",
-						"Awarding of units of value",
-						"Certificate",
-						"Citizenship award/recognition",
-						"Completion of requirement, but no units of value awarded",
-						"Honor award",
-						"Honor roll",
-						"Honor society",
-						"Honorable mention",
-						"Honors program",
-						"Letter of student commendation",
-						"Medals",
-						"National Merit scholar",
-						"National Technical Education Honor Society",
-						"Other",
-						"Points",
-						"Prize awards",
-						"Promotion or advancement",
-						"Scholarships"
-					],
-					"optionValueCount": 19,
-					"cedsUrl": "https://ceds.ed.gov/element/000004",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/701200ae7c42b99da70e31c206a30d2b75e5c8e030fb6668c577a8c72e0291a2"
-					],
-					"foundByMethod": [
-						"words"
 					]
 				},
 				{
@@ -41607,6 +41841,14 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/346766235ecd619c58519785bb7bacc4237f122119dee030f37f28dc58e2a040",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d53217af64f86ba832f25c16fabd413e06c14d34a96a4d95ec6c1451270fb254",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d948d0a44b5bc84d54e76ef0a4d8884caa5e08b13833ce906ea26190816b0dff"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/346766235ecd619c58519785bb7bacc4237f122119dee030f37f28dc58e2a040"
 			]
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ClassRankType/el/3:ClassPercentileRank": {
@@ -42052,7 +42294,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/87b7bb241376c6001613776b1d304a404238dbc786f9fb085802a041f360aa0a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ClassRankType/el/4:ClassRankOther": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ClassRankType/el/4:ClassRankOther",
@@ -42509,7 +42755,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b4ca617b01cea8db20254bbae73f0791f0cd586d5bca85945a815ef4fefc1a8b"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#CourseType/el/1:CourseCreditBasis": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#CourseType/el/1:CourseCreditBasis",
@@ -43010,7 +43260,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/29f839c36d6308448825ed69aa137ef3306085f5484a6e01a2e3831382309d83"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#CourseType/el/5:CourseCreditEarned": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#CourseType/el/5:CourseCreditEarned",
@@ -43495,7 +43749,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5e19156ce55ea639b9828a13d91de5aaf954a87c94ad8e5824fab07879e4d473"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ExtraCurricularActivityType/el/11:ActivitySponsorOrganizationName": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ExtraCurricularActivityType/el/11:ActivitySponsorOrganizationName",
@@ -43959,7 +44217,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2ca056edc3c077d2bbf2e6c2651b0d409317964d306667a016c342b846a4a529"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ExtraCurricularActivityType/el/2:ActivityDescription": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ExtraCurricularActivityType/el/2:ActivityDescription",
@@ -44449,7 +44711,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7de34d660d2ea45ab402f6de279705dc5cc7d568d96b9e64497a1a3de4553789"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#PublicAssistanceReceivedType/el/2:PublicAssistanceCounty": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#PublicAssistanceReceivedType/el/2:PublicAssistanceCounty",
@@ -44982,7 +45248,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b7c97ca2a04b805601fe7f30c17e0021e7a2f45218a83ed1ffd11e134f6d7f06"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ResidencyEmploymentType/el/1:FullTimeFlag": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#ResidencyEmploymentType/el/1:FullTimeFlag",
@@ -45516,7 +45786,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ebe9945ec2ab064c0004f0199be598bb5ac9b8104e4bde3d2cb709ee50d3f053"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#TransmissionDataType/el/9:DocumentCompleteCode": {
 			"elementStableId": "PESC:pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#TransmissionDataType/el/9:DocumentCompleteCode",
@@ -46593,7 +46867,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e5c4172947fb9fd044750badde9096c7e2a7e6e8a8a380a971b49826c365789"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pesccollegetranscript1v8v0:group/urn:org:pesc:core:CoreMain:v1.19.0#OrganizationIDMultiChoiceGroup/el/16:APAS": {
 			"elementStableId": "PESC:pesccollegetranscript1v8v0:group/urn:org:pesc:core:CoreMain:v1.19.0#OrganizationIDMultiChoiceGroup/el/16:APAS",
@@ -47048,7 +47326,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2b09fee4f42a20a4d9bc934af1faa2f04cb4d7a5f21df3ae5d5ef158b30c92dc"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#CourseEquivalentAcademicGradeType/el/2:EquivalentGradeScaleCode": {
 			"elementStableId": "PESC:pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#CourseEquivalentAcademicGradeType/el/2:EquivalentGradeScaleCode",
@@ -47736,7 +48018,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3972de7d09d60ce01211237409daa1d65c9e3c014ccdad9669ae4c33ab3515e4"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#LearningOutcomeQualificationAssessmentType/el/2:LearningOutcomeProficiencyCode": {
 			"elementStableId": "PESC:pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#LearningOutcomeQualificationAssessmentType/el/2:LearningOutcomeProficiencyCode",
@@ -47850,6 +48136,27 @@
 					"foundByMethod": [
 						"words"
 					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4e71a1806d9dc5c3cc4360a72a0cb516f4f63b931877ac4dc18e64507be01742",
+					"className": "Assessment Item Response",
+					"classCedsId": "C200028",
+					"classDefinition": "AssessmentItemResponse includes information about a learner response and subsequent information about feedback and scoring of the response. Some properties like DescriptiveFeedback are for support of a formative assessment process. Some properties are used within intelligent tutoring systems such as HintCount and ScaffoldingItemFlag.",
+					"propertyName": "Has Proficiency Status",
+					"qualifierNameList": [],
+					"cedsId": "P000573",
+					"definition": "An indication of whether a student's scores were proficient.",
+					"optionSetName": "Proficiency Status",
+					"optionValueList": [
+						"Not proficient",
+						"Proficient"
+					],
+					"optionValueCount": 2,
+					"cedsUrl": "https://ceds.ed.gov/element/000573",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4e71a1806d9dc5c3cc4360a72a0cb516f4f63b931877ac4dc18e64507be01742"
+					],
+					"foundByMethod": []
 				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4ee8e56a1b4d30b08b480f8dbce99c8118b218bbe008cc8e652ebefa6c9754d2",
@@ -48018,30 +48325,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/aa9300adb7cefaa5a2bb74310eaf5f6020d9ceeeb6bf19f4cea58ebc8e6b6a69",
-					"className": "Learning Resource",
-					"classCedsId": "C200228",
-					"classDefinition": "A persistent resource that has one or more physical or digital representations, and that explicitly involves, specifies or entails a learning activity or learning experience.",
-					"propertyName": "Has Learning Resource Interactivity Type",
-					"qualifierNameList": [],
-					"cedsId": "P000927",
-					"definition": "The predominate mode of learning supported by the learning resource. Acceptable values are active, expositive, or mixed.",
-					"optionSetName": "Learning Resource Interactivity Type",
-					"optionValueList": [
-						"Active",
-						"Expositive",
-						"Mixed"
-					],
-					"optionValueCount": 3,
-					"cedsUrl": "https://ceds.ed.gov/element/000927",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/aa9300adb7cefaa5a2bb74310eaf5f6020d9ceeeb6bf19f4cea58ebc8e6b6a69"
-					],
-					"foundByMethod": [
-						"words"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cc81a09f18ffdb97b7847c7be9a2b72ff73be439a138aa0fd55d09cd86dc984d",
 					"className": "Learning Resource",
 					"classCedsId": "C200228",
@@ -48196,6 +48479,12 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4e71a1806d9dc5c3cc4360a72a0cb516f4f63b931877ac4dc18e64507be01742"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4e71a1806d9dc5c3cc4360a72a0cb516f4f63b931877ac4dc18e64507be01742"
 			]
 		},
 		"PESC:pescdocumentrequest1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.14.0#AttendanceType/el/4:CurrentEnrollmentIndicator": {
@@ -48496,29 +48785,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a5d936edd336ce4797e63d994d48fc49f092c604488459e56ec91f26c2596664",
-					"className": "K12 School",
-					"classCedsId": "C200199",
-					"classDefinition": "Information specific to K12 Schools. (Organization and related tables have properties that are common.)",
-					"propertyName": "Has Charter School Open Enrollment Indicator",
-					"qualifierNameList": [],
-					"cedsId": "P001548",
-					"definition": "Indicates that the charter school offers open enrollment.",
-					"optionSetName": "Charter School Open Enrollment Indicator",
-					"optionValueList": [
-						"No",
-						"Yes"
-					],
-					"optionValueCount": 2,
-					"cedsUrl": "https://ceds.ed.gov/element/001548",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a5d936edd336ce4797e63d994d48fc49f092c604488459e56ec91f26c2596664"
-					],
-					"foundByMethod": [
-						"words"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/bac4d82fdded00099bd9be4c522a34378b23817ed44c82e44f7efac301e292a1",
 					"className": "Postsecondary Student Enrollment",
 					"classCedsId": "C200343",
@@ -48543,6 +48809,31 @@
 						"meaning",
 						"words"
 					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c5e0a11f8a94aba01dd348c9e2b212ab600678b5df643239484184aba8004b6c",
+					"className": "Role Status",
+					"classCedsId": "C200352",
+					"classDefinition": "RoleStatus supports cases such as when a student \"applied\" for enrollment in a Course Section, Program, or School/Institution, was \"accepted,\" and then was \"enrolled.\" Each status may have different begin and end dates.",
+					"propertyName": "Has Enrollment Status",
+					"qualifierNameList": [],
+					"cedsId": "P000094",
+					"definition": "An indication as to whether a student's name was, is, or will be officially registered on the roll of a school or schools.",
+					"optionSetName": "Enrollment Status",
+					"optionValueList": [
+						"Concurrently enrolled",
+						"Currently enrolled",
+						"No-Show",
+						"No-Show",
+						"Previously enrolled",
+						"Transferring (will enroll)"
+					],
+					"optionValueCount": 6,
+					"cedsUrl": "https://ceds.ed.gov/element/000094",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c5e0a11f8a94aba01dd348c9e2b212ab600678b5df643239484184aba8004b6c"
+					],
+					"foundByMethod": []
 				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c66b493fd47c1bb5c5942015b32db10fa9c22d8fec5dee17e4965fbb74e1ae24",
@@ -48746,6 +49037,13 @@
 						"words"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c5e0a11f8a94aba01dd348c9e2b212ab600678b5df643239484184aba8004b6c",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ebf07916d417409d13bc7f386f05000971e8566ed1e5a5deeb18f49e4ffc38f2"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c5e0a11f8a94aba01dd348c9e2b212ab600678b5df643239484184aba8004b6c"
 			]
 		},
 		"PESC:pescdocumentrequest1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.14.0#DocumentRecipientType/el/6:DocumentPurpose": {
@@ -50241,7 +50539,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e123393c5c4a1ea5e9b2b9aa56c30d03098de4d831bb03a01db64171c060fba"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"PESC:pesctestscorereport1v1v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#EducationTestsType/el/3:EducationTestVersion": {
 			"elementStableId": "PESC:pesctestscorereport1v1v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#EducationTestsType/el/3:EducationTestVersion",
@@ -50728,7 +51030,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4511a7c73ac585723809eafeda9ba20c7f4347687595c22b4bc41d1f75882a70"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/ActivityProviders/ActivityProvider/Address/PostalCode": {
 			"elementStableId": "SIF:sif260928:field/ActivityProviders/ActivityProvider/Address/PostalCode",
@@ -51333,7 +51639,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/eb32825807d6e601cdb25a94bcf8744ae6d0987af5a4292d773596715d4dac32"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/ActivityProviders/ActivityProvider/Address/Street/StreetName": {
 			"elementStableId": "SIF:sif260928:field/ActivityProviders/ActivityProvider/Address/Street/StreetName",
@@ -51805,7 +52115,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c0e66b35a172b5750e287a52773e1fedbdd2c429201cf2e800587eb337d5cbbb"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/AssessmentAdministrations/AssessmentAdministration/LEAInfoRefId": {
 			"elementStableId": "SIF:sif260928:field/AssessmentAdministrations/AssessmentAdministration/LEAInfoRefId",
@@ -52263,7 +52577,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5b4ee53ac9060e9ab64f6e6346857350baaf2d1e68de7dcda0e8bfa8ce61e32f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/AssessmentSubTests/AssessmentSubTest/SubjectArea": {
 			"elementStableId": "SIF:sif260928:field/AssessmentSubTests/AssessmentSubTest/SubjectArea",
@@ -52921,7 +53239,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b732e410c9a3b3c9d9a16c2d1260589506d20d2c76999907e1d5ff85b5d2cd65"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/BellSchedules/BellSchedule/BellPeriodList/BellPeriod/StartTime": {
 			"elementStableId": "SIF:sif260928:field/BellSchedules/BellSchedule/BellPeriodList/BellPeriod/StartTime",
@@ -53333,7 +53655,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8ac62d63a59588910430a91dbfd0a4df8a5f6e5d0ad9572979b45702c2c70e78"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/Billings/Billing/BillingDate": {
 			"elementStableId": "SIF:sif260928:field/Billings/Billing/BillingDate",
@@ -53741,7 +54067,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a6ef32057e9818118dadb5683e0ecb4622b2af502bb47b93a60af2f7d1892213"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/BusPositionInfos/BusPositionInfo/OtherStatus": {
 			"elementStableId": "SIF:sif260928:field/BusPositionInfos/BusPositionInfo/OtherStatus",
@@ -54659,7 +54989,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/031f4acb05020e4aea48f813eb629ba53590ffc8a4f313030f2718e9e697848a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/ContentCatalogs/ContentCatalog/CurriculumHierarchyList/CurriculumHierarchy/Description": {
 			"elementStableId": "SIF:sif260928:field/ContentCatalogs/ContentCatalog/CurriculumHierarchyList/CurriculumHierarchy/Description",
@@ -55678,7 +56012,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cc5a3ed0a8fd27a9250ca70243906e5f78044bdc83f9107f2b6d06af4a2aa181"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/CurriculumStructures/CurriculumStructure/Titles/Title": {
 			"elementStableId": "SIF:sif260928:field/CurriculumStructures/CurriculumStructure/Titles/Title",
@@ -55704,6 +56042,24 @@
 					"foundByMethod": [
 						"meaning"
 					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/04a53fe5f8a814992379a806d0567a9449752cf9e65ece84cdaa679f6205b073",
+					"className": "Competency Framework",
+					"classCedsId": "C200067",
+					"classDefinition": "A resource that identifies a collection of logically related CompetencyDefinitions, CompetencyDefAssociations, and contextualizing metadata.",
+					"propertyName": "Competency Framework Title",
+					"qualifierNameList": [],
+					"cedsId": "P000694",
+					"definition": "The name of the competency framework.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/000694",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/04a53fe5f8a814992379a806d0567a9449752cf9e65ece84cdaa679f6205b073"
+					],
+					"foundByMethod": []
 				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/16a4bc4750a9ea8aac1e53d807e1a2b7024336cf8bc69b6525764775f3bef223",
@@ -55927,26 +56283,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/88ad7789c65a9238a7ad0ac0c30844f608994ee86dfb5e5f7c138b5d66ea7adc",
-					"className": "Learning Resource",
-					"classCedsId": "C200228",
-					"classDefinition": "A persistent resource that has one or more physical or digital representations, and that explicitly involves, specifies or entails a learning activity or learning experience.",
-					"propertyName": "Learning Resource Copyright Year",
-					"qualifierNameList": [],
-					"cedsId": "P001145",
-					"definition": "The copyright year for the Learning Resource.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/001145",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/88ad7789c65a9238a7ad0ac0c30844f608994ee86dfb5e5f7c138b5d66ea7adc"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a9e4bd61f74936a1fae1da4a3d4bd2a99ccdbcecc673c9e0323169671e69e976",
 					"className": "Assessment",
 					"classCedsId": "C200010",
@@ -56126,6 +56462,12 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/04a53fe5f8a814992379a806d0567a9449752cf9e65ece84cdaa679f6205b073"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/04a53fe5f8a814992379a806d0567a9449752cf9e65ece84cdaa679f6205b073"
 			]
 		},
 		"SIF:sif260928:field/EmployeeAssignments/EmployeeAssignment/LocationInfoRefId": {
@@ -57186,7 +57528,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9f5efccf523905e894c8606d0c32ba5b94d590d87a4cea3bfff7c0deadb53e6d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/EmployeeCredentials/EmployeeCredential/Demographics/RaceEthnicityDeclined": {
 			"elementStableId": "SIF:sif260928:field/EmployeeCredentials/EmployeeCredential/Demographics/RaceEthnicityDeclined",
@@ -57595,7 +57941,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e83ac4f5003fab434995e0216b6f26e0c0427e7f922b2160d7728e758aa0e15e"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/EmployeeCredentials/EmployeeCredential/TotalYears": {
 			"elementStableId": "SIF:sif260928:field/EmployeeCredentials/EmployeeCredential/TotalYears",
@@ -58077,7 +58427,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/364c8f007647a11cc348f11cda0c3e318a313ab44ce90547f03b4a6a590fcd79"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/EmployeePersonals/EmployeePersonal/PhoneNumberList/PhoneNumber/Extension": {
 			"elementStableId": "SIF:sif260928:field/EmployeePersonals/EmployeePersonal/PhoneNumberList/PhoneNumber/Extension",
@@ -58511,7 +58865,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f2d4138c1fb284824cdd2acd6a7ea92bebde9d0122cd6b84d8d14c935a3b4845"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/FinancialAnnuals/FinancialAnnual/AnnualItems/AnnualItem/FundClassificationCode": {
 			"elementStableId": "SIF:sif260928:field/FinancialAnnuals/FinancialAnnual/AnnualItems/AnnualItem/FundClassificationCode",
@@ -59044,7 +59402,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7703632f3a70586b8220060e2e96e491531cc5a0ee3aa8804ebd6be7dbe78c71"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/FinancialAnnuals/FinancialAnnual/AnnualItems/AnnualItem/OperationalUnit": {
 			"elementStableId": "SIF:sif260928:field/FinancialAnnuals/FinancialAnnual/AnnualItems/AnnualItem/OperationalUnit",
@@ -59176,26 +59538,6 @@
 					],
 					"foundByMethod": [
 						"meaning"
-					]
-				},
-				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/57da4260020978474e2be477c64f651d4b6c9bfb9fe48b304590d21585600e3c",
-					"className": "Facility Utilization",
-					"classCedsId": "C200141",
-					"classDefinition": "The ratio in which a facility is being utilized by the school district.",
-					"propertyName": "Facility Enrollment Capacity",
-					"qualifierNameList": [],
-					"cedsId": "P001904",
-					"definition": "The maximum number of age appropriate students who can be enrolled in a facility such that the district's programmatic, operational, and student/teacher work load requirements are met.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/001904",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/57da4260020978474e2be477c64f651d4b6c9bfb9fe48b304590d21585600e3c"
-					],
-					"foundByMethod": [
-						"words"
 					]
 				},
 				{
@@ -59422,6 +59764,24 @@
 					]
 				},
 				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4",
+					"className": "Organization",
+					"classCedsId": "C200239",
+					"classDefinition": "An organized group of one or more people with particular purpose. ",
+					"propertyName": "Has Organization Identifier",
+					"qualifierNameList": [],
+					"cedsId": "P600502",
+					"definition": "A unique number or alphanumeric code assigned to an organization by a school, school system, a state, or other agency or entity.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/600502",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4"
+					],
+					"foundByMethod": []
+				},
+				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e48250fcbcb6974a0e7d2369accb692cfa834def2b9c4766ef27b242c11f661e",
 					"className": "Facility Design",
 					"classCedsId": "C200126",
@@ -59514,6 +59874,12 @@
 						"words"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4"
 			]
 		},
 		"SIF:sif260928:field/ItemCharacteristicss/ItemCharacteristics/Measurements/Measurement/Min": {
@@ -59960,7 +60326,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/50e4a4b1c9691d179b1e90a2eb850c2b97199e612beac9524b21aaeb83ad244f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/LEAFederalFunds/LEAFederalFund/FederalProgramList/FederalProgram/FundingAllocation": {
 			"elementStableId": "SIF:sif260928:field/LEAFederalFunds/LEAFederalFund/FederalProgramList/FederalProgram/FundingAllocation",
@@ -60456,7 +60826,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3ea807e4c69ed5f3b1f7de19d4d2033fd0b4b47bc9b536ef42c66a3134da49ff"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/LearningStandardItems/LearningStandardItem/StandardIdentifier/YearCreated": {
 			"elementStableId": "SIF:sif260928:field/LearningStandardItems/LearningStandardItem/StandardIdentifier/YearCreated",
@@ -60804,26 +61178,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b6c22cf94f82df9c0400ba389e2f6a7678868061b1635f7e772d931a16dbaecd",
-					"className": "Facility Design Construction",
-					"classCedsId": "C200127",
-					"classDefinition": "Information about the construction of a facility or asset space.",
-					"propertyName": "Facility Addition Year",
-					"qualifierNameList": [],
-					"cedsId": "P001769",
-					"definition": "The year the construction on the addition was completed.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/001769",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b6c22cf94f82df9c0400ba389e2f6a7678868061b1635f7e772d931a16dbaecd"
-					],
-					"foundByMethod": [
-						"words"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/bee7947ff12a9a2a152c91cb08f05406b6f48c38f99b6d14cff8372d8737405c",
 					"className": "Organization Calendar",
 					"classCedsId": "C200241",
@@ -60841,6 +61195,26 @@
 					],
 					"foundByMethod": [
 						"words"
+					]
+				},
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ce54f3708a55a67ad1cf7e8df8a147e5c5ce92f03ddbf34250cd43b2d4e87eb4",
+					"className": "Competency Definition",
+					"classCedsId": "C200065",
+					"classDefinition": "A resource that states a capability or behavior that a person may learn or be able to do within a given context with references to potential levels of competence, a mastery threshold, and other contextualizing metadata.",
+					"propertyName": "Competency Definition Valid Start Date",
+					"qualifierNameList": [],
+					"cedsId": "P001512",
+					"definition": "The year, month and day the competency definition was adopted by the jurisdiction in which it was intended to apply.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/001512",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ce54f3708a55a67ad1cf7e8df8a147e5c5ce92f03ddbf34250cd43b2d4e87eb4"
+					],
+					"foundByMethod": [
+						"meaning"
 					]
 				},
 				{
@@ -60890,6 +61264,12 @@
 						"words"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ce54f3708a55a67ad1cf7e8df8a147e5c5ce92f03ddbf34250cd43b2d4e87eb4"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ce54f3708a55a67ad1cf7e8df8a147e5c5ce92f03ddbf34250cd43b2d4e87eb4"
 			]
 		},
 		"SIF:sif260928:field/OfficialStudentPeriodAttendances/OfficialStudentPeriodAttendance/AuditInfo/CreationDateTime": {
@@ -62656,7 +63036,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5b84e903b6662962bcfeb2776e6fb5d4d8295cfd44abb65d35d375d4505f3d5d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/StaffEvaluations/StaffEvaluation/BargainingUnit": {
 			"elementStableId": "SIF:sif260928:field/StaffEvaluations/StaffEvaluation/BargainingUnit",
@@ -62865,6 +63249,24 @@
 					]
 				},
 				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8dc9c44c6b7eadd97ed9ad5b6f816f796b3d2739f3812a6b40a5d2440bbe3b96",
+					"className": "Employment",
+					"classCedsId": "C200405",
+					"classDefinition": "A specific type of Membership that represents a staff person's association with an organization, characterized by properties related to their employment over a defined period of time. This includes linking a person in the role of a staff person with the organization, capturing elements such as the start and end dates of the employment period, the specific role or position held, job responsibilities, employment status, and associated benefits.",
+					"propertyName": "Union Membership Name",
+					"qualifierNameList": [],
+					"cedsId": "P001497",
+					"definition": "The name of the labor organization of which the person is a member.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/001497",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8dc9c44c6b7eadd97ed9ad5b6f816f796b3d2739f3812a6b40a5d2440bbe3b96"
+					],
+					"foundByMethod": []
+				},
+				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9a53b99a58ad4df3e9955427a8ad17c328c5ef4ca185480a189a62dad31bf16a",
 					"className": "Learner Activity",
 					"classCedsId": "C200226",
@@ -63057,29 +63459,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ea6dadd022f67befd7715c529735db5ad4909b052a91396d7097ffac06038e36",
-					"className": "K12 Staff Assignment",
-					"classCedsId": "C200207",
-					"classDefinition": "Describes a person's assignment to a K12 organization.",
-					"propertyName": "Has Primary Assignment Indicator",
-					"qualifierNameList": [],
-					"cedsId": "P000525",
-					"definition": "An indication of whether the assignment is the staff member's primary assignment.",
-					"optionSetName": "Primary Assignment Indicator",
-					"optionValueList": [
-						"No",
-						"Yes"
-					],
-					"optionValueCount": 2,
-					"cedsUrl": "https://ceds.ed.gov/element/000525",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ea6dadd022f67befd7715c529735db5ad4909b052a91396d7097ffac06038e36"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa83bf1457b8965c4ca0292a004700d579ce8d9b02e438b4bd0b5f22ff547c2d",
 					"className": "Person",
 					"classCedsId": "C200275",
@@ -63099,6 +63478,12 @@
 						"words"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8dc9c44c6b7eadd97ed9ad5b6f816f796b3d2739f3812a6b40a5d2440bbe3b96"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8dc9c44c6b7eadd97ed9ad5b6f816f796b3d2739f3812a6b40a5d2440bbe3b96"
 			]
 		},
 		"SIF:sif260928:field/StudentAcademicRecords/StudentAcademicRecord/CourseHistory/Term/Courses/Course/EndDate": {
@@ -63539,7 +63924,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c1048c3a9df52aa7b9764f2365f257b7337b5ecbd7303070d0478c9c64c8a4a0"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/StudentAcademicRecords/StudentAcademicRecord/CourseHistory/Term/Courses/Course/MarkingPeriods/MarkingPeriod/CourseCreditsAttempted": {
 			"elementStableId": "SIF:sif260928:field/StudentAcademicRecords/StudentAcademicRecord/CourseHistory/Term/Courses/Course/MarkingPeriods/MarkingPeriod/CourseCreditsAttempted",
@@ -63918,7 +64307,12 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/191ff47231edd184b3cfccaf57ad1543b357ec13db513b9fe20c2f47ccc27477",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d90234702446ba09acd16d3601bb5ec293b07a9a734e22370caba5fa0cf6571f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/StudentAcademicRecords/StudentAcademicRecord/CourseHistory/Term/Courses/Course/MarkingPeriods/MarkingPeriod/MarkData/Numeric": {
 			"elementStableId": "SIF:sif260928:field/StudentAcademicRecords/StudentAcademicRecord/CourseHistory/Term/Courses/Course/MarkingPeriods/MarkingPeriod/MarkData/Numeric",
@@ -64807,7 +65201,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3cfb0fbf2764901b1b3e2b014ff8f8e1e51d6111ec9401e52829813002a2779d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/StudentTransportInfos/StudentTransportInfo/OriginPoint/RouteDescription": {
 			"elementStableId": "SIF:sif260928:field/StudentTransportInfos/StudentTransportInfo/OriginPoint/RouteDescription",
@@ -65666,7 +66064,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e2d12871455696f587537049c76ecba7d5e0f71e47fa9e1460074502fe8d92e0"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/VendorInfos/VendorInfo/Send1099": {
 			"elementStableId": "SIF:sif260928:field/VendorInfos/VendorInfo/Send1099",
@@ -66412,7 +66814,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/031f4acb05020e4aea48f813eb629ba53590ffc8a4f313030f2718e9e697848a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xCalendars/xCalendar/sessions/session/sessionCode": {
 			"elementStableId": "SIF:sif260928:field/xCalendars/xCalendar/sessions/session/sessionCode",
@@ -66860,7 +67266,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c1ed032f1cd658808b9618819b836ce063b4d0c712917e919be2a7fad1e073af"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xContacts/xContact/address/countryCode": {
 			"elementStableId": "SIF:sif260928:field/xContacts/xContact/address/countryCode",
@@ -67543,7 +67953,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cf376f4d83df2327057dc605310b52aaf0a9671dfccfc7f51cf9a3ec28ce9348"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xContacts/xContact/name/suffix": {
 			"elementStableId": "SIF:sif260928:field/xContacts/xContact/name/suffix",
@@ -67979,7 +68393,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/efdf27e9b0798d65028977ef791e19e56b8afec0dc00d83d5d61e31b88ccb69e"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xContacts/xContact/relationships/relationship/primaryContactIndicator": {
 			"elementStableId": "SIF:sif260928:field/xContacts/xContact/relationships/relationship/primaryContactIndicator",
@@ -68523,7 +68941,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7ba9205066efd3227575aaf9761ed1197f4300c67b1b0bf5aab1edf302b29af0"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepEligibility/background/currentPlacement": {
 			"elementStableId": "SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepEligibility/background/currentPlacement",
@@ -69077,13 +69499,35 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b9274f173d300492351d761c6b4a23878dd725e7297a5175643c0f4d4338fa6a"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepEligibility/eligibilityParticipantReportList/participantReport/explanation": {
 			"elementStableId": "SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepEligibility/eligibilityParticipantReportList/participantReport/explanation",
 			"queryText": "explanation Explanation for choice of other or information refining category selection. participant Report",
 			"cardCount": 20,
 			"cardList": [
+				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/081f419a31af5c734c4cde11e3e57f1a2e73bcd8af245c8ffc7ab6e510fc05ad",
+					"className": "Individualized Program Accessibility Feature",
+					"classCedsId": "C200159",
+					"classDefinition": "Information about an accessibility feature specified as part of an individualized program such as a screen reader or spoken instructions for a visually impaired student.",
+					"propertyName": "Individualized Program Accommodation Description",
+					"qualifierNameList": [],
+					"cedsId": "P001685",
+					"definition": "Description of a specific accommodation or change to standards or practices that will be made.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/001685",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/081f419a31af5c734c4cde11e3e57f1a2e73bcd8af245c8ffc7ab6e510fc05ad"
+					],
+					"foundByMethod": []
+				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/128c6625d764748926f92caa7b26d526bfafcdc11d6dc42a675c564f2eb66c3f",
 					"className": "Person Referral",
@@ -69500,36 +69944,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f466dd4ce2f772a28bafa86ed2a91e75f53a34964022e9824215eab731e250c2",
-					"className": "Program Participation Adult Education",
-					"classCedsId": "C200316",
-					"classDefinition": "Information on a person participating in an adult education program.",
-					"propertyName": "Has Goals for Attending Adult Education",
-					"qualifierNameList": [],
-					"cedsId": "P001079",
-					"definition": "A person's reasons for attending an adult education class or program.",
-					"optionSetName": "Goals for Attending Adult Education",
-					"optionValueList": [
-						"Achieve work-based project learner goals",
-						"Earn a secondary school diploma or achieve GED certificate",
-						"Enter postsecondary education or job training",
-						"Improve English language skills",
-						"Improve basic literacy skills",
-						"Obtain a job",
-						"Obtain citizenship skills",
-						"Other personal goals",
-						"Retain current job"
-					],
-					"optionValueCount": 9,
-					"cedsUrl": "https://ceds.ed.gov/element/001079",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f466dd4ce2f772a28bafa86ed2a91e75f53a34964022e9824215eab731e250c2"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f64af950e3ca6b0a7c248c2a174ad8851a38aa13b47e23e1fe9a906f7a28aa87",
 					"className": "Incident",
 					"classCedsId": "C200154",
@@ -69558,6 +69972,12 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/081f419a31af5c734c4cde11e3e57f1a2e73bcd8af245c8ffc7ab6e510fc05ad"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/081f419a31af5c734c4cde11e3e57f1a2e73bcd8af245c8ffc7ab6e510fc05ad"
 			]
 		},
 		"SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepEligibility/ideaDisability/analysis/adverseEffects": {
@@ -70437,7 +70857,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/131bde30cd5c9989cef9f35667d8e800566ef12e38537063f586497184e73df7"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepPlan/annualGoalsList/annualGoal/servicesList/service/type": {
 			"elementStableId": "SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepPlan/annualGoalsList/annualGoal/servicesList/service/type",
@@ -71099,7 +71523,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f70192963d56ca278e61555eb6fafc587e3af237ce8104cbe965b0b33319fcb0"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepPlan/presentLevelPerformance/personal/strengthsDescription": {
 			"elementStableId": "SIF:sif260928:field/xIndividualizedEducationPlans/xIndividualizedEducationPlan/iepPlan/presentLevelPerformance/personal/strengthsDescription",
@@ -71603,7 +72031,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/739e0ac53ea01615115776d6d4eee410396182be3f84e61bece038578205104b"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xLeas/xLea/stateProvinceId": {
 			"elementStableId": "SIF:sif260928:field/xLeas/xLea/stateProvinceId",
@@ -72051,7 +72483,11 @@
 						"meaning"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5b4ee53ac9060e9ab64f6e6346857350baaf2d1e68de7dcda0e8bfa8ce61e32f"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xRosters/xRoster/meetingTimes/meetingTime/timeTableDay": {
 			"elementStableId": "SIF:sif260928:field/xRosters/xRoster/meetingTimes/meetingTime/timeTableDay",
@@ -72501,7 +72937,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/516cec7133a2003c784fe48a851d7f3de5a95acab69058f4da40046b752564cf"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xRosters/xRoster/otherStaffs/otherStaff/staffPersonReference/localId": {
 			"elementStableId": "SIF:sif260928:field/xRosters/xRoster/otherStaffs/otherStaff/staffPersonReference/localId",
@@ -72550,24 +72990,24 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26069f6e1a7ac4c50f0636be6e5ffab7709a218caa339c6bb1ed00e284426b14",
-					"className": "Person",
-					"classCedsId": "C200275",
-					"classDefinition": "A human being, alive or deceased, as recognized by each jurisdiction’s legal definitions.",
-					"propertyName": "Has Individualized Program Service",
-					"qualifierNameList": [],
-					"cedsId": "P600171",
-					"definition": "References information that defines a service that may be delivered to a student through an individualized program.",
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c",
+					"className": "Person Identification",
+					"classCedsId": "C200291",
+					"classDefinition": "Identifiers assigned to an individual.",
+					"propertyName": "Person Identifier",
+					"qualifierNameList": [
+						"Student Identifier"
+					],
+					"cedsId": "P001572",
+					"definition": "A unique number or alphanumeric code assigned to a person by a school, school system, a state, or other agency or entity.",
 					"optionSetName": null,
 					"optionValueList": [],
 					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/600171",
+					"cedsUrl": "https://ceds.ed.gov/element/001572",
 					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26069f6e1a7ac4c50f0636be6e5ffab7709a218caa339c6bb1ed00e284426b14"
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c"
 					],
-					"foundByMethod": [
-						"meaning"
-					]
+					"foundByMethod": []
 				},
 				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3b598b36a5510952932c48cf824a496ffeda8c3769bfd630c953052a3721faa6",
@@ -72963,6 +73403,13 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5b84e903b6662962bcfeb2776e6fb5d4d8295cfd44abb65d35d375d4505f3d5d"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/26a155430100b58c152a3c71e1b01fc4c7ebfac0b65a250ce9aa09befda60d1c"
 			]
 		},
 		"SIF:sif260928:field/xRosters/xRoster/otherStaffs/otherStaff/staffPersonReference/refId": {
@@ -73259,26 +73706,6 @@
 					]
 				},
 				{
-					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/adfde87da8dd121ec4853375a3a0f6ed8a495fc2de121ab1eeb363079ed779eb",
-					"className": "Incident Person",
-					"classCedsId": "C200156",
-					"classDefinition": "The relationship between a person and an Incident involving a student or school.",
-					"propertyName": "Incident Witness Identifier",
-					"qualifierNameList": [],
-					"cedsId": "P001379",
-					"definition": "Identifies the witness of the incident by use of a pre-existing unique identifier assigned to a student or staff member by a school or district. Using this data element permits linkage to descriptive information about the individual in the student or staff database.",
-					"optionSetName": null,
-					"optionValueList": [],
-					"optionValueCount": 0,
-					"cedsUrl": "https://ceds.ed.gov/element/001379",
-					"cedsTupleIdList": [
-						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/adfde87da8dd121ec4853375a3a0f6ed8a495fc2de121ab1eeb363079ed779eb"
-					],
-					"foundByMethod": [
-						"meaning"
-					]
-				},
-				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b6d72b2328a8ccb83bb5428054753d866b0735764634e78cf4b2e885f83579c7",
 					"className": "Person Identification",
 					"classCedsId": "C200291",
@@ -73365,6 +73792,24 @@
 					]
 				},
 				{
+					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/de2a2b3e506434cc4929fb3e3e1c2c67299f56d38658014b15e3837ce6e30f25",
+					"className": "Base CEDS Resource",
+					"classCedsId": "C000000",
+					"classDefinition": "The CEDS Base Resource class represents the base resource in the Common Education Data Standards (CEDS) ontology. It serves as the foundational class from which all other CEDS resource classes inherit common properties and attributes. Subclasses of CEDSBaseResource may include specific types of instructional resources, such as students, staff, courses, assessments, etc.",
+					"propertyName": "Record Reference Identifier",
+					"qualifierNameList": [],
+					"cedsId": "P002029",
+					"definition": "A unique number or alphanumeric code assigned to a record.",
+					"optionSetName": null,
+					"optionValueList": [],
+					"optionValueCount": 0,
+					"cedsUrl": "https://ceds.ed.gov/element/002029",
+					"cedsTupleIdList": [
+						"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/de2a2b3e506434cc4929fb3e3e1c2c67299f56d38658014b15e3837ce6e30f25"
+					],
+					"foundByMethod": []
+				},
+				{
 					"cedsTupleId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ea6dadd022f67befd7715c529735db5ad4909b052a91396d7097ffac06038e36",
 					"className": "K12 Staff Assignment",
 					"classCedsId": "C200207",
@@ -73407,6 +73852,13 @@
 						"meaning"
 					]
 				}
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5b84e903b6662962bcfeb2776e6fb5d4d8295cfd44abb65d35d375d4505f3d5d",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/de2a2b3e506434cc4929fb3e3e1c2c67299f56d38658014b15e3837ce6e30f25"
+			],
+			"goldInjectedTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/de2a2b3e506434cc4929fb3e3e1c2c67299f56d38658014b15e3837ce6e30f25"
 			]
 		},
 		"SIF:sif260928:field/xStudents/xStudent/academicSummary/classRank": {
@@ -73876,7 +74328,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/303efb60fb64afba0b5122f59c0ff11f5a0aefaf5abef6db897f18ba2ff5d59d"
+			],
+			"goldInjectedTupleIdList": []
 		},
 		"SIF:sif260928:field/xStudents/xStudent/languages/code": {
 			"elementStableId": "SIF:sif260928:field/xStudents/xStudent/languages/code",
@@ -74788,7 +75244,11 @@
 						"words"
 					]
 				}
-			]
+			],
+			"goldTupleIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8acc85804b3c944478e29ce5fa6d547f20e1e583093ab10f547837641851f38e"
+			],
+			"goldInjectedTupleIdList": []
 		}
 	}
 }

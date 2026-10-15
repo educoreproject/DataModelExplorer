@@ -1,7 +1,15 @@
 {
-	"_comment": "How each element's suggested candidate list is built (lane RATER; SPEC §6). The query text is the element's name with camelCase and underscores split into words and a leading @ dropped, then its definition (when it has one), then its owner's name split the same way. The meaning leg embeds that text with the DME's query embedder and asks the DME's vector index for property-tier CEDS tuples; the words leg runs BM25 over the DME's fulltext index on CEDS properties (name + definition) with the words OR-joined (the DME's own AND rule finds nothing for a name + definition query), expanding each property hit to its tuples. The two lists interleave meaning 1, words 1, meaning 2, ... ; a tuple already taken, or a card identical to one taken (same class + property + qualifiers), joins that card instead of taking a slot; at cardCap new cards stop. Cards are stored unordered (sorted by tuple id); each rater sees their own shuffle.",
+	"_comment": "How each element's suggested candidate list is built (lane RATER; SPEC §6). The query text is the element's name with camelCase and underscores split into words and a leading @ dropped, then its definition (when it has one), then its owner's name split the same way. The meaning leg embeds that text with the DME's query embedder and asks the DME's vector index for property-tier CEDS tuples; the words leg runs BM25 over the DME's fulltext index on CEDS properties (name + definition) with the words OR-joined (the DME's own AND rule finds nothing for a name + definition query), expanding each property hit to its tuples. The two lists interleave meaning 1, words 1, meaning 2, ... ; a tuple already taken, or a card identical to one taken (same class + property + qualifiers), joins that card instead of taking a slot; at cardCap new cards stop. Cards are stored unordered (sorted by tuple id); each rater sees their own shuffle. Revision 3 (TQ-approved exception to \"no machine results\"): for an element with isMappedInGold, every property-tier tuple the gold maps it to (EXACT/CLOSE/BROAD/NARROW_MATCH, through the same members as isMappedInGold) is put on the list as an ordinary card if the searches did not already put it there; when that overflows cardCap, the lowest-ranked non-gold cards (the last taken in interleave order) leave. A gold card is never dropped. The gold decides only what is on the list, never how a card looks or where it sits.",
 	"perMethodCount": 15,
 	"cardCap": 20,
 	"methodOrderList": ["meaning", "words"],
-	"wordJoinName": "or"
+	"wordJoinName": "or",
+	"goldInjection": {
+		"mappingEdgeTypeList": ["EXACT_MATCH", "CLOSE_MATCH", "BROAD_MATCH", "NARROW_MATCH"],
+		"memberRuleNameByStandard": {
+			"Ed-Fi": "memberCarriesEdge",
+			"SIF": "memberCarriesEdge",
+			"PESC": "occurrencesCarryEdge"
+		}
+	}
 }

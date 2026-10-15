@@ -68,7 +68,7 @@ const post = (state, routePath, requestBody, authtoken, callback) =>
 	});
 const refusalNameOf = (response) => (response.statusCode === 400 ? response.bodyText.split(':')[0] : `status ${response.statusCode}`);
 const keyListDeep = (candidate) => (Array.isArray(candidate) ? candidate.reduce((soFar, entry) => soFar.concat(keyListDeep(entry)), []) : candidate && typeof candidate === 'object' ? Object.keys(candidate).reduce((soFar, fieldName) => soFar.concat([fieldName], keyListDeep(candidate[fieldName])), []) : []);
-const FORBIDDEN_KEY_LIST = ['isMappedInGold', 'memberStableIdList', 'memberPathList', 'frameMappedCountByStandard', 'foundByMethod', 'score', 'rank', 'fusedScore', 'keywordRank', 'vectorRank', 'keywordScore', 'vectorScore', 'hitRank', 'splitHalf', 'kind', 'raterSeedText', 'raterUserName', 'answerCount'];
+const FORBIDDEN_KEY_LIST = ['goldTupleIdList', 'goldInjectedTupleIdList', 'isMappedInGold', 'memberStableIdList', 'memberPathList', 'frameMappedCountByStandard', 'foundByMethod', 'score', 'rank', 'fusedScore', 'keywordRank', 'vectorRank', 'keywordScore', 'vectorScore', 'hitRank', 'splitHalf', 'kind', 'raterSeedText', 'raterUserName', 'answerCount'];
 
 // every response carries an authtoken header (refreshauthtoken runs on every request, a failed login included), so a
 // sign-in counts only on HTTP 200
@@ -152,6 +152,18 @@ const stepList = [
 		const forbiddenFoundList = FORBIDDEN_KEY_LIST.filter((forbiddenKey) => allItemKeyList.indexOf(forbiddenKey) !== -1);
 		check('no item payload carries foundByMethod, a score, a rank, the split, the kind, a seed or a rater name', forbiddenFoundList.length === 0, forbiddenFoundList.join(', '));
 		check('no suggested card in an item payload carries foundBy', !state.itemListByRater['rater-x'].some((item) => item.cardList.some((card) => card.foundBy !== undefined)));
+		// revision 3: a gold-injected card is on its item and indistinguishable from the others (same keys; nothing says gold)
+		const frozenSuggestedDocument = JSON.parse(fs.readFileSync(path.join(FROZEN_INPUT_DIR_PATH, 'suggested.json'), 'utf8'));
+		const injectedItemList = state.itemListByRater['rater-x'].filter((item) => (frozenSuggestedDocument.suggestedByElementStableId[item.element.elementStableId].goldInjectedTupleIdList || []).length > 0);
+		const cardKeyTextOf = (card) => JSON.stringify(Object.keys(card).sort());
+		const distinguishableList = injectedItemList.filter((item) => {
+			const injectedTupleIdList = frozenSuggestedDocument.suggestedByElementStableId[item.element.elementStableId].goldInjectedTupleIdList;
+			const injectedCardList = item.cardList.filter((card) => injectedTupleIdList.indexOf(card.cedsTupleId) !== -1);
+			const otherKeyTextSet = new Set(item.cardList.filter((card) => injectedCardList.indexOf(card) === -1).map(cardKeyTextOf));
+			return injectedCardList.length !== injectedTupleIdList.length || otherKeyTextSet.size !== 1 || !injectedCardList.every((card) => otherKeyTextSet.has(cardKeyTextOf(card)));
+		});
+		check(`survey A's ${injectedItemList.length} gold-injected items: each injected card is in the payload with exactly the keys of every other card`, injectedItemList.length > 0 && distinguishableList.length === 0, distinguishableList.map((item) => item.element.name).join(', '));
+		check('no item payload text says gold or injected', !/gold|inject/i.test(JSON.stringify(state.itemListByRater['rater-x']).replace(/GOLD_EVAL_[A-Za-z0-9_]+/g, '')), (JSON.stringify(state.itemListByRater['rater-x']).match(/.{40}(gold|inject).{40}/i) || [])[0]);
 		next(state);
 	},
 

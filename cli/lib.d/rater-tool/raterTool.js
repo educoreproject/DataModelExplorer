@@ -6,7 +6,8 @@
 //   -buildSample      the 150-element sample (50 Ed-Fi, 50 SIF, 50 PESC) dealt into surveys A, B, C, plus the 25/25
 //                     dev/sealed split: sample.json and sample-report.md
 //   -buildSuggested   each sampled element's candidate CEDS cards (15 by meaning + 15 by words, merged, capped at 20,
-//                     unordered): suggested.json and suggested-report.md; reads sample.json from the same directory
+//                     unordered; revision 3: a mapped element's gold tuples always on the list): suggested.json and
+//                     suggested-report.md; reads sample.json from the same directory
 // Run `raterTool.js -help` for the full page.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
@@ -34,7 +35,11 @@ ACTIONS
                       worked-example elements, draw 50 per standard stratified by kind, split each 25/25 dev/sealed, and
                       deal the 150 into surveys A, B, C. WRITES sample.json and sample-report.md.
     -buildSuggested   For every element in sample.json, the top 15 CEDS cards by meaning and the top 15 by words, merged,
-                      deduplicated, collapsed and capped at 20. WRITES suggested.json and suggested-report.md.
+                      deduplicated, collapsed and capped at 20. For an element mapped in the gold (isMappedInGold), every
+                      CEDS tuple the gold maps it to is also put on its list as an ordinary card (revision 3, a TQ-approved
+                      exception to "no machine results"); the lowest-ranked non-gold cards make room, a gold card is never
+                      dropped. WRITES suggested.json (with goldTupleIdList and goldInjectedTupleIdList per mapped element,
+                      never shown to raters) and suggested-report.md.
     -help, --help, -h Print this page and exit 0.
 
 OPTIONS
