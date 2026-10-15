@@ -15,15 +15,19 @@
 //   passwordReset  { raterUserName, password }: the users row of a rater (role 'rater' only), hashed by profile-user;
 //                  without a password one is made and returned once as issuedPassword
 //   download       { downloadFormat: 'json' | 'csv' }: every saved answer, with foundBy and its full history
+//   results        { resultsFormat: 'json' | 'csv' }: revision 4's Results page (rater-results.js): per target, answered of
+//                  assigned and one row per distinct answer with Best and Same counts; csv is the summary download.
+//                  Never carries rater names, notes, history, foundBy, the gold or mapping fields.
 //   remove         { raterUserName }: the rater's answers, history, search log and raters row, and the users row when its
 //                  role is exactly 'rater'. Permanent; the admin screen asks first.
 //
 //   makeRaterToolAdmin({ raterToolAccess, dataMapping, sqlDb, accessPointsDotD, raterService }) -> { runAdminAction }
 
 const crypto = require('crypto');
+const { buildRaterResults, resultsCsvTextOf } = require('./rater-results');
 const { pipeRunner, taskListPlus } = new (require('qtools-asynchronous-pipe-plus'))();
 
-const ADMIN_REFUSAL_NAME_LIST = Object.freeze(['adminActionInvalid', 'surveyNameInvalid', 'raterNameInvalid', 'raterUnknown', 'raterExists', 'raterAccountInvalid', 'surveyChangeWithAnswers', 'passwordInvalid', 'downloadFormatInvalid', 'userNotARater']);
+const ADMIN_REFUSAL_NAME_LIST = Object.freeze(['adminActionInvalid', 'surveyNameInvalid', 'raterNameInvalid', 'raterUnknown', 'raterExists', 'raterAccountInvalid', 'surveyChangeWithAnswers', 'passwordInvalid', 'downloadFormatInvalid', 'userNotARater', 'resultsFormatInvalid']);
 const refusalOf = (refusalName, refusalText) => {
 	if (ADMIN_REFUSAL_NAME_LIST.indexOf(refusalName) === -1) {
 		throw new Error(`rater-tool-admin: '${refusalName}' is not one of ${ADMIN_REFUSAL_NAME_LIST.join(', ')}`);
@@ -269,6 +273,31 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 					return CSV_COLUMN_LIST.map((columnName) => csvCellOf(cellByColumn[columnName])).join(',');
 				});
 				callback('', { fileName: `cedsRaterAnswers-${stampText}.csv`, contentType: 'text/csv', recordCount: downloadAnswer.recordList.length, contentText: [CSV_COLUMN_LIST.join(','), ...rowTextList].join('\n') + '\n' });
+			});
+		},
+		results: ({ adminRequest }, callback) => {
+			const resultsFormat = adminRequest.resultsFormat;
+			if (['json', 'csv'].indexOf(resultsFormat) === -1) {
+				callback('', refusalOf('resultsFormatInvalid', "resultsFormat must be 'json' or 'csv'."));
+				return;
+			}
+			const taskList = new taskListPlus();
+			taskList.push((args, next) => raterStore.readRows('raters', 'allRaters', {}, (readError, rowList) => (readError ? next(readError, args) : next('', { ...args, raterList: rowList.map(raterMapper.raterOf) }))));
+			taskList.push((args, next) => raterStore.readRows('answers', 'allAnswers', {}, (readError, rowList) => (readError ? next(readError, args) : next('', { ...args, answerList: rowList.map(raterMapper.answerOf) }))));
+			taskList.push((args, next) => {
+				const resultsAnswer = buildRaterResults({ elementList: raterToolAccess.sampleDocument.elementList, suggestedDocument: raterToolAccess.suggestedDocument, raterList: args.raterList, answerList: args.answerList });
+				next(resultsAnswer.problemText || '', { ...args, targetList: resultsAnswer.targetList });
+			});
+			pipeRunner(taskList.getList(), {}, (err, args) => {
+				if (err) {
+					callback(err);
+					return;
+				}
+				if (resultsFormat === 'csv') {
+					callback('', { fileName: `cedsRaterResults-${nowText().replace(/[:.]/g, '-')}.csv`, contentType: 'text/csv', targetCount: args.targetList.length, contentText: resultsCsvTextOf(args.targetList) });
+					return;
+				}
+				callback('', { surveyNameList: raterToolAccess.surveyNameList, standardNameList: Array.from(new Set(args.targetList.map((target) => target.standard))).sort(), targetList: args.targetList });
 			});
 		},
 		remove: ({ adminRequest }, callback) => {

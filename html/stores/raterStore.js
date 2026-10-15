@@ -23,6 +23,9 @@ const raterStoreInitObject = {
 	refusalName: '',
 	adminRaterList: [],
 	adminSurveyNameList: [],
+	resultsTargetList: [],
+	resultsSurveyNameList: [],
+	resultsStandardNameList: [],
 	adminGoldenContainerName: '',
 };
 
@@ -224,6 +227,23 @@ export const useRaterStore = defineStore('raterStore', {
 				return null;
 			}
 			return answer;
+		},
+
+		// revision 4: the admin Results page — per target, answered of assigned and the votes per distinct answer
+		async adminLoadResults() {
+			this.loading = true;
+			try {
+				const answer = await this.adminAction({ adminAction: 'results', resultsFormat: 'json' });
+				if (!answer) {
+					return false;
+				}
+				this.resultsTargetList = Array.isArray(answer.targetList) ? answer.targetList : [];
+				this.resultsSurveyNameList = answer.surveyNameList;
+				this.resultsStandardNameList = answer.standardNameList;
+				return true;
+			} finally {
+				this.loading = false;
+			}
 		},
 
 		async adminLoadList() {
