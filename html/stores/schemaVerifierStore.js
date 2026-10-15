@@ -1953,10 +1953,17 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			if (!cacheRefId) return [];
 			if (this.graphCache[cacheRefId]) return this.graphCache[cacheRefId];
 
+			// /api/schemaEquivalents requires a login. Without one, refuse by name instead of sending
+			// 'Bearer undefined' (the server's reply to that is 'jwt malformed').
+			const loginStore = useLoginStore();
+			if (!loginStore.authtoken) {
+				this.graphError = 'Log in to look up CEDS and cross-standard equivalents in the live EDUcore graph.';
+				return [];
+			}
+
 			this.graphLoading = true;
 			this.graphError = '';
 			try {
-				const loginStore = useLoginStore();
 				const headers = { 'Content-Type': 'application/json', ...loginStore.getAuthTokenProperty };
 				const response = await axios.post('/api/schemaEquivalents', { wordList }, { headers });
 				const equivalentRowList = (Array.isArray(response.data) ? response.data : []).map((oneRow) => ({

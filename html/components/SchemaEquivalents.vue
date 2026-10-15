@@ -235,6 +235,7 @@ watch(
 				<v-icon size="18" color="indigo" class="mr-2">mdi-graph-outline</v-icon>
 				<span class="text-subtitle-2 font-weight-bold">CEDS &amp; cross-standard equivalents</span>
 				<v-chip
+					v-if="!store.graphError"
 					size="x-small"
 					variant="tonal"
 					:color="store.graphSource === 'snapshot' ? 'grey-darken-1' : 'indigo'"
