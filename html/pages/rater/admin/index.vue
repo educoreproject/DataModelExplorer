@@ -2,7 +2,8 @@
 // /rater/admin — Admin: raters and progress (design: Admin, practice column dropped). The raters table (survey, rated of
 // 50, finished, last active; change survey, reset password, remove); add a rater with one survey ("Add and make a
 // password": the server makes the password and shows it once); download every answer as JSON or CSV. Revision 4: a
-// Results button to /rater/admin/results (admin only; raters have no link to it).
+// Results button to /rater/admin/results (admin only; raters have no link to it). Revision 5: the Surveys section
+// (components/rater/Surveys.vue) above the raters table, and a Copy button on the once-only password notice.
 import { ref, computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
@@ -20,6 +21,8 @@ const issuedNotice = ref(null);
 const actionNotice = ref('');
 const surveyEditUserName = ref('');
 const surveyEditName = ref('');
+const surveysSection = ref(null);
+const copyNotice = ref('');
 
 const savedTotal = computed(() => raterStore.adminRaterList.reduce((soFar, rater) => soFar + rater.savedCount, 0));
 const itemTotal = computed(() => raterStore.adminRaterList.reduce((soFar, rater) => soFar + rater.itemCount, 0));
@@ -27,6 +30,24 @@ const dateTextOf = (isoText) => (isoText ? new Date(isoText).toLocaleString() : 
 
 const refreshList = async () => {
 	await raterStore.adminLoadList();
+	if (surveysSection.value) {
+		await surveysSection.value.loadSurveys();
+	}
+};
+
+const showIssued = (issued) => {
+	actionNotice.value = '';
+	copyNotice.value = '';
+	issuedNotice.value = issued;
+};
+
+const copyIssued = async () => {
+	try {
+		await navigator.clipboard.writeText(`Sign-in name: ${issuedNotice.value.raterUserName}\nPassword: ${issuedNotice.value.issuedPassword}`);
+		copyNotice.value = 'Copied.';
+	} catch (clipboardError) {
+		copyNotice.value = 'The browser would not copy; select the password and copy it by hand.';
+	}
 };
 
 const addRater = async () => {
@@ -36,7 +57,7 @@ const addRater = async () => {
 	if (!answer) {
 		return;
 	}
-	issuedNotice.value = { raterUserName: answer.raterUserName, issuedPassword: answer.issuedPassword, surveyName: answer.surveyName };
+	showIssued({ raterUserName: answer.raterUserName, issuedPassword: answer.issuedPassword, surveyName: answer.surveyName });
 	newRaterUserName.value = '';
 	newWhoText.value = '';
 	newEmailAdr.value = '';
@@ -47,7 +68,7 @@ const resetPassword = async (rater) => {
 	issuedNotice.value = null;
 	const answer = await raterStore.adminAction({ adminAction: 'passwordReset', raterUserName: rater.raterUserName });
 	if (answer) {
-		issuedNotice.value = { raterUserName: answer.raterUserName, issuedPassword: answer.issuedPassword, surveyName: rater.surveyName };
+		showIssued({ raterUserName: answer.raterUserName, issuedPassword: answer.issuedPassword, surveyName: rater.surveyName });
 	}
 };
 
@@ -126,7 +147,11 @@ onMounted(async () => {
 				<b>{{ issuedNotice.raterUserName }}</b> (survey {{ issuedNotice.surveyName }}) can sign in with the password
 				<code class="rt-mono" data-testid="rater-admin-issued-password">{{ issuedNotice.issuedPassword }}</code>
 				. Copy it now and send it to them: it is not shown again.
+				<button type="button" class="rt-admin-small" data-testid="rater-admin-issued-copy" @click="copyIssued">Copy</button>
+				<span v-if="copyNotice" data-testid="rater-admin-issued-copied">{{ copyNotice }}</span>
 			</div>
+
+			<RaterSurveys ref="surveysSection" @issued="showIssued" @changed="raterStore.adminLoadList()" />
 
 			<div class="rt-admin-columns">
 				<section aria-labelledby="tblHead" class="rt-panel rt-admin-table-card">

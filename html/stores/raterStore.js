@@ -27,6 +27,11 @@ const raterStoreInitObject = {
 	resultsSurveyNameList: [],
 	resultsStandardNameList: [],
 	adminGoldenContainerName: '',
+	adminSurveyList: [],
+	adminNextSurveyName: '',
+	adminNextRaterUserName: '',
+	adminSurveyItemList: [],
+	adminSurveyItemSurveyName: '',
 };
 
 const readSavedSession = () => {
@@ -244,6 +249,44 @@ export const useRaterStore = defineStore('raterStore', {
 			} finally {
 				this.loading = false;
 			}
+		},
+
+		// revision 5: the admin screen's Surveys section — one card per survey, the next survey to fill, the next free name
+		async adminLoadSurveys() {
+			this.loading = true;
+			try {
+				const answer = await this.adminAction({ adminAction: 'surveys' });
+				if (!answer) {
+					return false;
+				}
+				this.adminSurveyList = answer.surveyList;
+				this.adminNextSurveyName = answer.nextSurveyName;
+				this.adminNextRaterUserName = answer.nextRaterUserName;
+				return true;
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		// revision 5: a survey's targets, read-only, as a rater sees them (no candidates, no gold)
+		async adminLoadSurveyItems(surveyName) {
+			this.loading = true;
+			try {
+				const answer = await this.adminAction({ adminAction: 'surveyItems', surveyName });
+				if (!answer) {
+					return false;
+				}
+				this.adminSurveyItemList = answer.itemList;
+				this.adminSurveyItemSurveyName = surveyName;
+				return true;
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		adminCloseSurveyItems() {
+			this.adminSurveyItemList = [];
+			this.adminSurveyItemSurveyName = '';
 		},
 
 		async adminLoadList() {

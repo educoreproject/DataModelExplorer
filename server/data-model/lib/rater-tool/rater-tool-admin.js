@@ -18,6 +18,11 @@
 //   results        { resultsFormat: 'json' | 'csv' }: revision 4's Results page (rater-results.js): per target, answered of
 //                  assigned and one row per distinct answer with Best and Same counts; csv is the summary download.
 //                  Never carries rater names, notes, history, foundBy, the gold or mapping fields.
+//   surveys        revision 5's Surveys section (rater-surveys.js): one card per survey (items by standard, the raters on it
+//                  with who-text and progress, coverage colour), the next survey to fill and the next free rater-NN. Each
+//                  rater carries moveRefusal: what surveyChange would answer for a move without forced (the same rule)
+//   surveyItems    { surveyName }: that survey's targets, read-only, with the fields a rater sees of the target only (no
+//                  candidates, gold, isMappedInGold or machine result)
 //   remove         { raterUserName }: the rater's answers, history, search log and raters row, and the users row when its
 //                  role is exactly 'rater'. Permanent; the admin screen asks first.
 //
@@ -25,6 +30,7 @@
 
 const crypto = require('crypto');
 const { buildRaterResults, resultsCsvTextOf } = require('./rater-results');
+const { buildSurveySummary, surveyItemListOf } = require('./rater-surveys');
 const { pipeRunner, taskListPlus } = new (require('qtools-asynchronous-pipe-plus'))();
 
 const ADMIN_REFUSAL_NAME_LIST = Object.freeze(['adminActionInvalid', 'surveyNameInvalid', 'raterNameInvalid', 'raterUnknown', 'raterExists', 'raterAccountInvalid', 'surveyChangeWithAnswers', 'passwordInvalid', 'downloadFormatInvalid', 'userNotARater', 'resultsFormatInvalid']);
@@ -51,6 +57,10 @@ const issuePassword = (validatePasswordStrength) => {
 	throw new Error('rater-tool-admin.issuePassword: no valid password in 20 draws');
 };
 const PLACEHOLDER_EMAIL_DOMAIN = 'raters.educore.invalid';
+
+// the survey-change rule, in one place: surveyChange applies it and the Surveys section's move picker shows it
+const surveyChangeRefusalOf = ({ rater, answerCount, forced }) =>
+	answerCount > 0 && forced !== true ? refusalOf('surveyChangeWithAnswers', `${rater.raterUserName} has ${answerCount} saved answers on survey ${rater.surveyName}. Changing the survey needs forced: true; the old answers are kept.`).refusal : null;
 
 const cardLabelOf = (card) => `${card.className} › ${card.propertyName}${card.qualifierNameList && card.qualifierNameList.length > 0 ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
 
@@ -204,8 +214,9 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 						callback(answerError);
 						return;
 					}
-					if (answerRowList.length > 0 && adminRequest.forced !== true) {
-						callback('', refusalOf('surveyChangeWithAnswers', `${rater.raterUserName} has ${answerRowList.length} saved answers on survey ${rater.surveyName}. Changing the survey needs forced: true; the old answers are kept.`));
+					const changeRefusal = surveyChangeRefusalOf({ rater, answerCount: answerRowList.length, forced: adminRequest.forced });
+					if (changeRefusal) {
+						callback('', { refusal: changeRefusal });
 						return;
 					}
 					raterStore.saveRowVerified('raters', { refId: rater.raterRefId, surveyName: adminRequest.surveyName }, (saveError) =>
@@ -299,6 +310,36 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 				}
 				callback('', { surveyNameList: raterToolAccess.surveyNameList, standardNameList: Array.from(new Set(args.targetList.map((target) => target.standard))).sort(), targetList: args.targetList });
 			});
+		},
+		surveys: ({ adminRequest }, callback) => {
+			const taskList = new taskListPlus();
+			taskList.push((args, next) => raterStore.readRows('raters', 'allRaters', {}, (readError, rowList) => (readError ? next(readError, args) : next('', { ...args, raterList: rowList.map(raterMapper.raterOf) }))));
+			taskList.push((args, next) => raterStore.readRows('answers', 'allAnswers', {}, (readError, rowList) => (readError ? next(readError, args) : next('', { ...args, answerList: rowList.map(raterMapper.answerOf) }))));
+			pipeRunner(taskList.getList(), {}, (err, args) => {
+				if (err) {
+					callback(err);
+					return;
+				}
+				const moveRefusalOf = ({ rater, answerCount }) => surveyChangeRefusalOf({ rater, answerCount, forced: false });
+				const surveySummary = buildSurveySummary({ surveyNameList: raterToolAccess.surveyNameList, elementListBySurvey: raterToolAccess.elementListBySurvey, raterList: args.raterList, answerList: args.answerList, moveRefusalOf });
+				if (surveySummary.problemText) {
+					callback(surveySummary.problemText);
+					return;
+				}
+				callback('', surveySummary);
+			});
+		},
+		surveyItems: ({ adminRequest }, callback) => {
+			if (raterToolAccess.surveyNameList.indexOf(adminRequest.surveyName) === -1) {
+				callback('', refusalOf('surveyNameInvalid', `The survey must be one of ${raterToolAccess.surveyNameList.join(', ')}.`));
+				return;
+			}
+			const itemAnswer = surveyItemListOf({ surveyName: adminRequest.surveyName, elementListBySurvey: raterToolAccess.elementListBySurvey });
+			if (itemAnswer.problemText) {
+				callback(itemAnswer.problemText);
+				return;
+			}
+			callback('', { surveyName: adminRequest.surveyName, itemList: itemAnswer.itemList });
 		},
 		remove: ({ adminRequest }, callback) => {
 			readRaterOrRefuse(adminRequest.raterUserName, (readError, readAnswer) => {
