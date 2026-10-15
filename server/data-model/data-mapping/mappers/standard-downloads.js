@@ -3,7 +3,7 @@
 
 // standard-downloads.js (mapper) — the standard downloads (WORKORDER-standardDownloads-101526 §3b). The downloads are
 // generated in educoreForge (apps/graph-builder/tools/downloadArtifacts.js) as one directory per golden graph:
-//   <downloadArtifactsRootDirPath>/<graphName>/downloads.json   the manifest (manifestFormat educoreStandardDownloads/1)
+//   <downloadArtifactsRootDirPath>/<graphName>/downloads.json   the manifest (manifestFormat educoreStandardDownloads/2)
 //   <downloadArtifactsRootDirPath>/<graphName>/<fileName>.zip   one zip per available entry
 // This mapper holds what the access point must not invent: the manifest's declared shape, the fields a browser may
 // filter on, the fields an entry carries out to a browser (a whitelist, never renamed), and the one Cypher it runs (the
@@ -15,11 +15,15 @@ const moduleFunction =
 	({ moduleName }) =>
 	() => {
 		const MANIFEST_FILE_NAME = 'downloads.json';
-		const MANIFEST_FORMAT = 'educoreStandardDownloads/1';
+		// /2 (WORKORDER-sourceUrls-101526) added where each source came from; a /1 manifest is refused by name, never served
+		// without it
+		const MANIFEST_FORMAT = 'educoreStandardDownloads/2';
 		// the request fields that filter the manifest, each matched exactly against the entry field of the same name
 		const FILTER_FIELD_NAME_LIST = Object.freeze(['family', 'group', 'standardKey', 'facet']);
 		// what an entry carries out to the browser; anything else in the manifest stays on the server
-		const ENTRY_FIELD_NAME_LIST = Object.freeze(['downloadId', 'family', 'group', 'standardKey', 'standardName', 'version', 'facet', 'fileName', 'byteSize', 'sha256', 'roundTrip', 'description', 'available', 'unavailableReason']);
+		// sourceUrl..sourceUrlNote: where the source came from, as the forge's standardSourceLocation records it (all null when
+		// not recorded); sourceUrlRelationText is the wording to show, written by the generator from the forge's relation table
+		const ENTRY_FIELD_NAME_LIST = Object.freeze(['downloadId', 'family', 'group', 'standardKey', 'standardName', 'version', 'facet', 'fileName', 'byteSize', 'sha256', 'roundTrip', 'description', 'available', 'unavailableReason', 'sourceUrl', 'sourceUrlRelation', 'sourceUrlRelationText', 'sourceUrlPage', 'sourceUrlNote']);
 		// a manifest's fileName is a bare name in the golden's directory: nothing that could leave it
 		const ZIP_FILE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/;
 

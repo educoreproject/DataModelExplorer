@@ -6,7 +6,8 @@
 // standard written back out of the graph with its round-trip validation files. Grouped by family, then group, then
 // version. The filters (family, group, standard) live in the URL query, ?family=PESC&group=…&standardKey=…, so a
 // filtered view is a link to share, and a later restriction (one family, one group) is a link, not a code change.
-// An entry that cannot be downloaded shows why. This page is the only thing that reads or writes its query.
+// An entry that cannot be downloaded shows why. Beside each source, where it came from (WORKORDER-sourceUrls-101526):
+// SourceUrlNote, worded by the relation the manifest names. This page is the only thing that reads or writes its query.
 
 import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -97,6 +98,7 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 			<h1 class="downloads-title">Downloads</h1>
 			<p class="downloads-intro">
 				For each standard: its <strong>source</strong>, exactly as it was taken in, and the standard <strong>from the graph</strong>, written back out of the graph with the files that check it. The check compares the two as statements: when its round trip is clean they are semantically equal, which is not a claim that the files match byte for byte. Each zip's README says what was compared.
+				Beside each source is where it came from, worded by how the publisher's file relates to ours: <em>downloaded from</em> (the same bytes), <em>published on</em> (a publisher's page whose link serves the same bytes), <em>re-published</em> (the publisher now serves a changed file) or <em>derived from</em> (ours was made from it).
 			</p>
 			<p v-if="downloadsStore.manifest" class="downloads-stamp" data-testid="downloads-stamp">
 				Graph <code>{{ downloadsStore.manifest.graphName }}</code> · generated {{ downloadsStore.manifest.generatedAt }} · graph contract <code>{{ downloadsStore.manifest.graphContractSha256.slice(0, 12) }}</code>
@@ -136,7 +138,10 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 							<tr v-for="(standardRow, standardIndex) in groupRow.standardList" :key="standardRow.standardKey" :data-testid="`downloads-row-${standardRow.standardKey}`">
 								<th v-if="standardIndex === 0" scope="rowgroup" :rowspan="groupRow.standardList.length" class="downloads-group">{{ groupRow.groupName }}</th>
 								<td class="downloads-version">{{ standardRow.version }}</td>
-								<td><StandardsExplorerDownloadEntryButton v-if="standardRow.entryByFacet.source" :download-entry="standardRow.entryByFacet.source" /></td>
+								<td>
+									<StandardsExplorerDownloadEntryButton v-if="standardRow.entryByFacet.source" :download-entry="standardRow.entryByFacet.source" />
+									<StandardsExplorerSourceUrlNote v-if="standardRow.entryByFacet.source" :download-entry="standardRow.entryByFacet.source" class="downloads-source-url" />
+								</td>
 								<td><StandardsExplorerDownloadEntryButton v-if="standardRow.entryByFacet.graph" :download-entry="standardRow.entryByFacet.graph" /></td>
 								<td class="downloads-round-trip" :data-testid="`downloads-round-trip-${standardRow.standardKey}`">{{ roundTripTextOf(standardRow.entryByFacet.graph && standardRow.entryByFacet.graph.roundTrip) }}</td>
 							</tr>
@@ -243,6 +248,9 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 }
 .downloads-version {
 	overflow-wrap: anywhere;
+}
+.downloads-source-url {
+	margin-top: 6px;
 }
 .downloads-round-trip {
 	font-size: 13px;

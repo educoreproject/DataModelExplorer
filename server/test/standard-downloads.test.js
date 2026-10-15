@@ -8,7 +8,13 @@
 //      the manifest's sha256; the same for the REAL College Transcript 1.8.0 graph zip;
 //   3. refusals by name: an unknown id; a path-traversal id; an unavailable entry; a file whose bytes no longer match;
 //      a manifest whose graphContractSha256 or graphName is not the golden's; no downloads for the golden; not configured;
-//   4. the endpoints: 401 without a user, 400 with the refusal's text, [result] for the manifest.
+//   4. the endpoints: 401 without a user, 400 with the refusal's text, [result] for the manifest;
+//   5. where each source came from (WORKORDER-sourceUrls-101526): the five sourceUrl fields carried out verbatim, null
+//      when not recorded; a manifest of the earlier format /1 refused by name; the REAL manifest's CEDS, CT 1.8.0 and
+//      Ed-Fi entries say downloadedFrom, republishedAs (with page and note) and nothing recorded.
+//
+// The real artifacts come from the qbook [standardDownloads] directory, or from STANDARD_DOWNLOADS_REAL_ROOT_DIR_PATH when
+// that is set (a worktree testing artifacts not yet in the shared directory names them there; nothing else reads it).
 //
 // Run: /usr/local/bin/node server/test/standard-downloads.test.js
 
@@ -96,16 +102,18 @@ const writeFixture = ({ fixtureName, graphName, graphContractSha256 }) => {
 	fs.writeFileSync(path.join(downloadsDirPath, 'toy-source.zip'), intactBuffer);
 	fs.writeFileSync(path.join(downloadsDirPath, 'toy-graph.zip'), Buffer.from('PK fixture: changed after the manifest was written'));
 	fs.writeFileSync(path.join(rootDirPath, 'outside.zip'), Buffer.from('PK a file outside the golden directory'));
-	const entryOf = (overrideObject) => ({ family: 'PESC', group: 'Toy Transcript', standardKey: 'toy', standardName: 'PESC-Toy-1.0.0', version: '1.0.0', roundTrip: null, description: 'a toy', unavailableReason: null, available: true, ...overrideObject });
+	const toySourceUrl = { sourceUrl: 'https://toy.example/transcript/', sourceUrlRelation: 'publishedOn', sourceUrlRelationText: 'Published on', sourceUrlPage: null, sourceUrlNote: 'the link is labelled Toy' };
+	const entryOf = (overrideObject) => ({ family: 'PESC', group: 'Toy Transcript', standardKey: 'toy', standardName: 'PESC-Toy-1.0.0', version: '1.0.0', roundTrip: null, description: 'a toy', unavailableReason: null, available: true, ...toySourceUrl, ...overrideObject });
+	const notRecorded = { sourceUrl: null, sourceUrlRelation: null, sourceUrlRelationText: null, sourceUrlPage: null, sourceUrlNote: null };
 	const manifest = {
-		manifestFormat: 'educoreStandardDownloads/1',
+		manifestFormat: 'educoreStandardDownloads/2',
 		graphName,
 		graphContractSha256,
 		generatedAt: '2026-10-15',
 		entryList: [
 			entryOf({ downloadId: 'toy-graph', facet: 'graph', fileName: 'toy-graph.zip', byteSize: 10, sha256: sha256Of(Buffer.from('PK fixture: the original bytes')), roundTrip: { inventedTotal: 0, lostTotal: 0 } }),
 			entryOf({ downloadId: 'toy-source', facet: 'source', fileName: 'toy-source.zip', byteSize: intactBuffer.length, sha256: sha256Of(intactBuffer) }),
-			entryOf({ downloadId: 'held-source', family: 'EdFi', group: 'Toy Ed-Fi', standardKey: 'held', facet: 'source', fileName: null, byteSize: null, sha256: null, available: false, unavailableReason: 'held under the toy licence' }),
+			entryOf({ downloadId: 'held-source', family: 'EdFi', group: 'Toy Ed-Fi', standardKey: 'held', facet: 'source', fileName: null, byteSize: null, sha256: null, available: false, unavailableReason: 'held under the toy licence', ...notRecorded }),
 		],
 	};
 	fs.writeFileSync(path.join(downloadsDirPath, 'downloads.json'), JSON.stringify(manifest));
@@ -119,7 +127,7 @@ if (goldenConnection.error) {
 	console.log(`  FAIL: golden connection: ${goldenConnection.error}`);
 	process.exit(1);
 }
-const realRootDirPath = ((configFileProcessor.getConfig('startApiServer.ini', QBOOK_CONFIG_DIR_PATH) || {}).standardDownloads || {}).downloadArtifactsRootDirPath;
+const realRootDirPath = process.env.STANDARD_DOWNLOADS_REAL_ROOT_DIR_PATH || ((configFileProcessor.getConfig('startApiServer.ini', QBOOK_CONFIG_DIR_PATH) || {}).standardDownloads || {}).downloadArtifactsRootDirPath;
 
 neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUser: goldenConnection.user, neo4jPassword: goldenConnection.password, readOnly: true, queryTimeoutMs: 60000 }, (connectError, goldenDb) => {
 	if (connectError) {
@@ -147,7 +155,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			// ---- 1. the manifest and its filters
 			(done) => { configureRoot(goodFixture.rootDirPath); ask({ action: 'manifest' }, (err, result) => {
 				ok('manifest: every entry, stamped with the golden', !err && result.entryList.length === 3 && result.graphName === goldenContainerName && result.graphContractSha256 === goldenPassport.graphContractSha256 && result.generatedAt === '2026-10-15', err || JSON.stringify(result).slice(0, 300));
-				ok('manifest: an entry carries only the whitelisted fields', !err && Object.keys(result.entryList[0]).sort().join() === ['available', 'byteSize', 'description', 'downloadId', 'facet', 'family', 'fileName', 'group', 'roundTrip', 'sha256', 'standardKey', 'standardName', 'unavailableReason', 'version'].join(), err || Object.keys(result.entryList[0]).join());
+				ok('manifest: an entry carries only the whitelisted fields', !err && Object.keys(result.entryList[0]).sort().join() === ['available', 'byteSize', 'description', 'downloadId', 'facet', 'family', 'fileName', 'group', 'roundTrip', 'sha256', 'sourceUrl', 'sourceUrlNote', 'sourceUrlPage', 'sourceUrlRelation', 'sourceUrlRelationText', 'standardKey', 'standardName', 'unavailableReason', 'version'].join(), err || Object.keys(result.entryList[0]).join());
 				done();
 			}); },
 			(done) => ask({ action: 'manifest', family: 'EdFi' }, (err, result) => { ok('filter family', !err && result.entryList.map((oneEntry) => oneEntry.downloadId).join() === 'held-source', err || JSON.stringify(result.entryList)); done(); }),
@@ -178,6 +186,32 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				fs.writeFileSync(incompleteManifestPath, JSON.stringify(incompleteManifest));
 				configureRoot(incompleteRootPath);
 				ask({ action: 'manifest' }, (err) => { ok('a manifest entry lacking a field is refused by name, never filled in', /^downloadsManifestUnreadable: .*toy-source \(lacks unavailableReason\)/.test(err), err); done(); });
+			},
+			// ---- 5. where each source came from
+			(done) => { configureRoot(goodFixture.rootDirPath); ask({ action: 'manifest' }, (err, result) => {
+				const entryById = {};
+				(result ? result.entryList : []).forEach((oneEntry) => { entryById[oneEntry.downloadId] = oneEntry; });
+				ok('source URL: carried out verbatim (address, relation, wording, page, note)', !err && entryById['toy-source'].sourceUrl === 'https://toy.example/transcript/' && entryById['toy-source'].sourceUrlRelation === 'publishedOn' && entryById['toy-source'].sourceUrlRelationText === 'Published on' && entryById['toy-source'].sourceUrlPage === null && entryById['toy-source'].sourceUrlNote === 'the link is labelled Toy', err || JSON.stringify(entryById['toy-source']));
+				ok('source URL: not recorded is every field present and null', !err && ['sourceUrl', 'sourceUrlRelation', 'sourceUrlRelationText', 'sourceUrlPage', 'sourceUrlNote'].every((fieldName) => fieldName in entryById['held-source'] && entryById['held-source'][fieldName] === null), err || JSON.stringify(entryById['held-source']));
+				done();
+			}); },
+			(done) => {
+				const earlierRootPath = writeFixture({ fixtureName: 'earlierFormat', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 }).rootDirPath;
+				const earlierManifestPath = path.join(earlierRootPath, goldenContainerName, 'downloads.json');
+				const earlierManifest = JSON.parse(fs.readFileSync(earlierManifestPath, 'utf8'));
+				earlierManifest.manifestFormat = 'educoreStandardDownloads/1';
+				fs.writeFileSync(earlierManifestPath, JSON.stringify(earlierManifest));
+				configureRoot(earlierRootPath);
+				ask({ action: 'manifest' }, (err) => { ok('source URL: a manifest of the earlier format /1 is refused by name', /^downloadsManifestUnreadable: .*its manifestFormat is 'educoreStandardDownloads\/1', not 'educoreStandardDownloads\/2'/.test(err), err); done(); });
+			},
+			(done) => {
+				const noNoteRootPath = writeFixture({ fixtureName: 'noNote', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 }).rootDirPath;
+				const noNoteManifestPath = path.join(noNoteRootPath, goldenContainerName, 'downloads.json');
+				const noNoteManifest = JSON.parse(fs.readFileSync(noNoteManifestPath, 'utf8'));
+				delete noNoteManifest.entryList[2].sourceUrlNote;
+				fs.writeFileSync(noNoteManifestPath, JSON.stringify(noNoteManifest));
+				configureRoot(noNoteRootPath);
+				ask({ action: 'manifest' }, (err) => { ok('source URL: an entry lacking sourceUrlNote is refused, never filled in', /^downloadsManifestUnreadable: .*held-source \(lacks sourceUrlNote\)/.test(err), err); done(); });
 			},
 			(done) => { delete configBySection.standardDownloads; ask({ action: 'manifest' }, (err) => { ok('an unconfigured server refuses by name', /^downloadsNotConfigured: this server declares no \[standardDownloads\] downloadArtifactsRootDirPath/.test(err), err); done(); }); },
 			(done) => ask({ action: 'sweep' }, (err) => { ok('an unknown action is refused', /action 'sweep' is not one of: manifest, file/.test(err), err); done(); }),
@@ -210,7 +244,17 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 						ok('real file: its bytes hash to the manifest\'s sha256', !fileError && entry && sha256Of(fileResult.contentBuffer) === entry.sha256 && fileResult.byteSize === entry.byteSize, fileError);
 						ask({ action: 'manifest', standardKey: 'pesc260805', facet: 'graph' }, (aggregateError, aggregateResult) => {
 							ok('real manifest: the aggregate\'s graph entry is unavailable, "not in this graph"', !aggregateError && aggregateResult.entryList[0].available === false && aggregateResult.entryList[0].unavailableReason === 'not in this graph', aggregateError);
-							done();
+							ask({ action: 'manifest' }, (everyError, everyResult) => {
+								const realById = {};
+								(everyResult ? everyResult.entryList : []).forEach((oneEntry) => { realById[oneEntry.downloadId] = oneEntry; });
+								const ceds = realById['ceds-source'] || {};
+								const ct18 = realById['pesccollegetranscript1v8v0-source'] || {};
+								const edfi = realById['edfi-source'] || {};
+								ok('real manifest: CEDS is "Downloaded from" its GitHub commit', !everyError && ceds.sourceUrlRelation === 'downloadedFrom' && ceds.sourceUrlRelationText === 'Downloaded from' && /^https:\/\/github\.com\/CEDStandards\/CEDS-Ontology\/blob\/2cbe2396/.test(ceds.sourceUrl) && /4ef15304/.test(ceds.sourceUrlNote), everyError || JSON.stringify(ceds));
+								ok('real manifest: CT 1.8.0 is re-published, with its page and caveat', ct18.sourceUrlRelation === 'republishedAs' && ct18.sourceUrlPage === 'https://pesc.org/college-transcript/' && /comments and whitespace/.test(ct18.sourceUrlNote) && /\.zip$/.test(ct18.sourceUrl), JSON.stringify(ct18));
+								ok('real manifest: Ed-Fi records no address (every field null)', edfi.downloadId === 'edfi-source' && edfi.sourceUrl === null && edfi.sourceUrlRelation === null && edfi.sourceUrlRelationText === null, JSON.stringify(edfi));
+								done();
+							});
 						});
 					});
 				});

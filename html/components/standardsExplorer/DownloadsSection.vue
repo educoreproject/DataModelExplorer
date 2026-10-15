@@ -5,7 +5,8 @@
 //   a family               its standard when the family holds exactly one (SIF, Ed-Fi, CEDS), else none
 //   a release              the standards listed on this level (one per version)
 //   anything else          the focus's own standardKey (a standard root, a class, a field, a CEDS element, a group)
-// and always, below a family, the link to the Downloads page filtered to that family.
+// and always, below a family, the link to the Downloads page filtered to that family. Under each standard's title, where
+// its source came from (SourceUrlNote; WORKORDER-sourceUrls-101526).
 
 import { computed, onMounted } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
@@ -61,6 +62,7 @@ const familyLinkTarget = computed(() => ({ path: '/explore/downloads', query: { 
 			<template v-else>
 				<div v-for="oneStandard in standardDownloadList" :key="oneStandard.standardKey" class="downloads-section-standard" :data-testid="`downloads-standard-${oneStandard.standardKey}`">
 					<span class="downloads-section-title">{{ oneStandard.titleText }}</span>
+					<StandardsExplorerSourceUrlNote v-if="oneStandard.entryList.length" :download-entry="oneStandard.entryList[0]" />
 					<p v-if="oneStandard.entryList.length === 0" class="downloads-section-note">No downloads for this standard in this graph.</p>
 					<StandardsExplorerDownloadEntryButton v-for="oneEntry in oneStandard.entryList" :key="oneEntry.downloadId" :download-entry="oneEntry" />
 				</div>
