@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "educore-html",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "html", "run", "dev"],
+      "port": 7791
+    }
+  ]
+}

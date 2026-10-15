@@ -2,16 +2,349 @@
 // @concept: [[SchemaVerifier]]
 // Reference Library → Schema Verifier.
 //
-// A better-than-spreadsheet view of the JEDx ↔ HR Open data dictionary, plus an
-// OpenAPI loader that breaks any schema into its component parts and resolves
-// every property against CEDS (live EDUcore graph) and HR Open (bundled crosswalk).
+// Three ways in:
+//   1. Specifications — pick any spec the EDUcore graph carries (listed live,
+//      grouped by publishing organization) and walk its elements, seeing each
+//      one's cross-spec mappings in both tiers: authoritative (both hub legs
+//      verified) and implied. This is the default entry point.
+//   2. Crosswalk — the better-than-spreadsheet view of the JEDx ↔ HR Open data
+//      dictionary, which is authoritative but HR-Open-specific.
+//   3. OpenAPI — break any uploaded schema into its component parts and resolve
+//      every property against CEDS (live graph) and HR Open (bundled crosswalk).
 
-import { ref, computed } from 'vue';
-import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useDisplay } from 'vuetify';
+import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
+import { useLoginStore } from '@/stores/loginStore';
 
 const store = useSchemaVerifierStore();
+const loginStore = useLoginStore();
 
-const mode = ref('crosswalk'); // 'crosswalk' | 'openapi'
+const mode = ref('specs'); // 'specs' | 'crosswalk' | 'openapi'
+
+// ── Saved mappings: sync, export, review ───────────────────────────
+// The curated crosswalk lives in the browser and, when the user is logged in,
+// in their account (dme_user_mappings). Pull the account copy on arrival and
+// again whenever a login happens mid-visit.
+onMounted(() => store.syncMappingsFromServer());
+watch(
+	() => loginStore.authtoken,
+	(token) => {
+		if (token) store.syncMappingsFromServer();
+	},
+);
+
+function downloadMappings(format) {
+	const { filename, mimeType, content } = store.exportMappings(format);
+	saveBlob(filename, mimeType, content);
+}
+function saveBlob(filename, mimeType, content) {
+	const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const mappingsDialog = ref(false);
+const mappingsSearch = ref('');
+
+// "Mine" is the browser's curated set (works logged out). "Everyone" is every
+// user's proposal from the server, each labelled with proposer and review
+// status — shared knowledge, owner-only edits, admin-only verdicts.
+const viewScope = ref('mine'); // 'mine' | 'all'
+const statusFilter = ref('all'); // 'all' | proposed | accepted | rejected
+const canViewAll = computed(() => store.mappingsPersistence === 'server');
+watch(mappingsDialog, (open) => {
+	if (open && canViewAll.value) store.loadCommunityMappings();
+});
+
+const mappingsHeaders = computed(() => [
+	{ title: 'Source', key: 'source', sortable: false },
+	{ title: 'Target', key: 'target', sortable: false },
+	{ title: 'Relationship', key: 'relationship' },
+	{ title: 'Transformation', key: 'transform', sortable: false },
+	...(viewScope.value === 'all' ? [{ title: 'Proposed by', key: 'proposedBy' }] : []),
+	{ title: 'Status', key: 'status' },
+	{ title: '', key: 'actions', sortable: false, align: 'end', width: store.isMappingAdmin ? 170 : 90 },
+]);
+
+const toTableRow = (m) => ({
+	...m,
+	id: m.refId || `${m.mappingKey}|${m.targetStandard}|${m.targetName}`,
+	source: `${m.sourceStandard ? `${m.sourceStandard}: ` : ''}${m.sourceName || m.mappingKey}`,
+	target: `${m.targetStandard}: ${m.targetName}`,
+	transform: m.transformType === 'direct' && !m.transformRule ? '' : `${m.transformType}${m.transformRule ? ` — ${m.transformRule}` : ''}`,
+});
+const mappingRows = computed(() => {
+	const base = viewScope.value === 'all' ? store.communityMappings : store.allMappings;
+	return base
+		.filter((m) => statusFilter.value === 'all' || m.status === statusFilter.value)
+		.map(toTableRow);
+});
+
+const STATUS_COLOR = { proposed: 'amber-darken-2', accepted: 'success', rejected: 'error', local: 'grey' };
+const statusColor = (s) => STATUS_COLOR[s] || 'grey';
+const statusTitle = (row) => {
+	if (row.status === 'local') return 'Saved in this browser only — log in to propose it to everyone';
+	const who = row.reviewedByName ? ` by ${row.reviewedByName}` : '';
+	const note = row.reviewNote ? ` — ${row.reviewNote}` : '';
+	return row.status === 'proposed' ? 'Awaiting admin review' : `${row.status}${who}${note}`;
+};
+
+// Admin verdicts. The server re-checks the role; this just hides the buttons
+// from everyone else.
+const reviewing = ref('');
+const reviewError = ref('');
+async function review(row, status) {
+	reviewing.value = row.refId;
+	reviewError.value = '';
+	try {
+		await store.reviewMapping(row.refId, status);
+	} catch (err) {
+		reviewError.value = err.response?.data || err.message || 'Review failed.';
+	} finally {
+		reviewing.value = '';
+	}
+}
+
+// Admin export of everyone's mappings, rendered server-side (the Cypher form is
+// what goes into the graph).
+const exporting = ref(false);
+async function downloadCommunity(format, status) {
+	exporting.value = true;
+	reviewError.value = '';
+	try {
+		const { filename, mimeType, content } = await store.exportCommunityMappings({ format, status });
+		saveBlob(filename, mimeType, content);
+	} catch (err) {
+		reviewError.value = err.response?.data || err.message || 'Export failed.';
+	} finally {
+		exporting.value = false;
+	}
+}
+
+// Rule editing straight from the table reuses the same dialog the panels use.
+const ruleDialog = ref(false);
+const ruleRow = ref(null);
+const ruleItem = computed(() =>
+	ruleRow.value
+		? store.getUserEquivalent(ruleRow.value.mappingKey, {
+				standard: ruleRow.value.targetStandard,
+				name: ruleRow.value.targetName,
+			})
+		: null,
+);
+const ruleSource = computed(() =>
+	ruleRow.value
+		? { standard: ruleRow.value.sourceStandard, name: ruleRow.value.sourceName || ruleRow.value.mappingKey, sourceId: ruleRow.value.sourceId }
+		: null,
+);
+function editRule(row) {
+	ruleRow.value = row;
+	ruleDialog.value = true;
+}
+function saveRule(transform) {
+	if (!ruleRow.value) return;
+	store.setUserEquivalentTransform(
+		ruleRow.value.mappingKey,
+		{ standard: ruleRow.value.targetStandard, name: ruleRow.value.targetName },
+		transform,
+	);
+}
+function removeMapping(row) {
+	store.removeUserEquivalent(row.mappingKey, { standard: row.targetStandard, name: row.targetName });
+}
+
+const confirmClear = ref(false);
+function clearAll() {
+	store.clearAllMappings();
+	confirmClear.value = false;
+	mappingsDialog.value = false;
+}
+
+// ── Specification mode state ───────────────────────────────────────
+// The spec list is fetched once on mount so the picker is populated before the
+// user reaches for it.
+const specSource = ref(null);
+const elementSearch = ref('');
+const selectedGraphElement = ref(null);
+
+onMounted(() => store.loadSpecifications());
+
+// Picker items: one subheader per publishing organization, then that
+// organization's specs. `specsByOrganization` is already sorted organization
+// then title, so this flattening keeps the dropdown in that order.
+const specItems = computed(() => {
+	const items = [];
+	for (const group of store.specsByOrganization) {
+		items.push({ type: 'subheader', title: group.organization, props: { disabled: true } });
+		for (const spec of group.specs) {
+			items.push({
+				title: spec.standard,
+				value: spec.source,
+				subtitle: `${spec.elementCount.toLocaleString()} elements · ${group.organization}`,
+				spec,
+			});
+		}
+	}
+	return items;
+});
+
+const activeSpec = computed(
+	() => store.specs.find((s) => s.source === specSource.value) || null,
+);
+
+// Picking a spec resets the element list and its search; the store clears the
+// previous spec's elements so nothing stale shows under the new heading.
+watch(specSource, (source) => {
+	elementSearch.value = '';
+	entityFilter.value = '';
+	selectedGraphElement.value = null;
+	detailExpanded.value = false;
+	activeGroup.value = ALL_GROUPS;
+	store.selectSpec(activeSpec.value);
+	if (source) store.loadSpecElements(source);
+});
+
+// ── Entity tabs ────────────────────────────────────────────────────
+// The graph gives every element a dotted path whose head is its owning entity
+// (Assessment, Person, Organization …). When the loaded elements carry paths,
+// the list gets one tab per entity — the same categories-first shape the HR
+// Open crosswalk has, derived automatically. With no paths (snapshot fallback)
+// there are no tabs and the list stays flat.
+const ALL_GROUPS = '__all__';
+const activeGroup = ref(ALL_GROUPS);
+// Every grouped spec is navigated the same way, whatever its size (LIF's 9
+// entities or SIF's 1,049): on a wide screen, an entity rail — a filterable
+// column of entities beside the element list; on a narrow screen, a searchable
+// dropdown above it.
+const { lgAndUp } = useDisplay();
+const hasGroups = computed(() => store.elementGroups.length > 1);
+const showEntityRail = computed(() => hasGroups.value && lgAndUp.value);
+const showGroupSelect = computed(() => hasGroups.value && !lgAndUp.value);
+const groupSelectItems = computed(() => [
+	{ title: `All entities (${store.elements.length})`, value: ALL_GROUPS },
+	...store.elementGroups.map((g) => ({ title: `${g.name} (${g.count})`, value: g.name })),
+]);
+
+// Entity rail filter — separate from the element filter so a user can find
+// "Person" among 402 CEDS entities without filtering the elements themselves.
+const entityFilter = ref('');
+const railGroups = computed(() => {
+	const q = entityFilter.value.trim().toLowerCase();
+	return q ? store.elementGroups.filter((g) => g.name.toLowerCase().includes(q)) : store.elementGroups;
+});
+const elementListEl = ref(null);
+function pickGroup(name) {
+	activeGroup.value = name;
+}
+// A new entity starts at the top of its list.
+watch(activeGroup, () => {
+	renderLimit.value = RENDER_PAGE;
+	const el = elementListEl.value?.$el || elementListEl.value;
+	if (el && typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// The detail pane can take the full width when a mapping needs room (long
+// descriptions, the target search, many implied rows); the lists come back
+// with one click.
+const detailExpanded = ref(false);
+const listCols = computed(() => (showEntityRail.value ? { md: 6, lg: 4 } : { md: 6, lg: 5 }));
+const detailCols = computed(() =>
+	detailExpanded.value ? { md: 12, lg: 12 } : showEntityRail.value ? { md: 6, lg: 5 } : { md: 6, lg: 7 },
+);
+
+// Rendering every row of an 8,951-element spec at once is slow and useless;
+// "All" shows a page at a time. An entity is almost always under one page.
+const RENDER_PAGE = 300;
+const renderLimit = ref(RENDER_PAGE);
+
+// If a filter or reload empties the active tab, fall back to "All" rather than
+// showing an empty list under a tab that still has a count.
+watch(
+	() => store.elementGroups,
+	(groups) => {
+		if (activeGroup.value !== ALL_GROUPS && !groups.some((g) => g.name === activeGroup.value)) {
+			activeGroup.value = ALL_GROUPS;
+		}
+	},
+);
+
+const groupElements = computed(() => {
+	if (!hasGroups.value || activeGroup.value === ALL_GROUPS) return store.elements;
+	return store.elements.filter((el) => el.group === activeGroup.value);
+});
+const visibleElements = computed(() => groupElements.value.slice(0, renderLimit.value));
+const hiddenCount = computed(() => Math.max(0, groupElements.value.length - visibleElements.value.length));
+function showMore() {
+	renderLimit.value += RENDER_PAGE;
+}
+
+// ── Partitioned list ───────────────────────────────────────────────
+// Within a tab, elements are split into sections by the class that contains
+// them (the path minus its last segment): "Person", then "Person › Contact",
+// then "Person › Contact › Address" … — the crosswalk's numbered sections,
+// derived from the model. Elements without a path all land in one unnamed
+// section, which renders as the plain list.
+const parentOf = (el) => {
+	if (!el.path) return '';
+	const i = el.path.lastIndexOf('.');
+	return i < 0 ? '' : el.path.slice(0, i);
+};
+const depthOf = (el) => (el.path ? el.path.split('.').length - 1 : 0);
+const crumbs = (parentPath) => parentPath.split('.').filter(Boolean);
+
+const elementSections = computed(() => {
+	const sections = [];
+	let current = null;
+	for (const el of visibleElements.value) {
+		const parent = parentOf(el);
+		if (!current || current.parent !== parent) {
+			current = { parent, crumbs: crumbs(parent), items: [] };
+			sections.push(current);
+		}
+		current.items.push(el);
+	}
+	return sections;
+});
+// A single unnamed section is just a list — no header, no indentation.
+const partitioned = computed(
+	() => elementSections.value.length > 1 || (elementSections.value[0]?.parent || '') !== '',
+);
+// Indentation is relative to the shallowest element on screen, so a tab that
+// starts two levels deep does not open with everything shoved right.
+const baseDepth = computed(() =>
+	visibleElements.value.reduce((min, el) => Math.min(min, depthOf(el)), Infinity),
+);
+const indentOf = (el) =>
+	partitioned.value && Number.isFinite(baseDepth.value) ? Math.max(0, depthOf(el) - baseDepth.value) : 0;
+
+// The element filter matches name, path and description over the spec's model
+// (server-side only for specs without a bundled model); debounced so a fast
+// typist does not re-render 9,000 rows per keystroke.
+let searchTimer = null;
+watch(elementSearch, (q) => {
+	if (!specSource.value) return;
+	clearTimeout(searchTimer);
+	searchTimer = setTimeout(() => {
+		renderLimit.value = RENDER_PAGE;
+		store.loadSpecElements(specSource.value, { search: (q || '').trim() });
+	}, 200);
+});
+
+function selectGraphElement(el) {
+	selectedGraphElement.value = el;
+}
+const isSelected = (el) =>
+	selectedGraphElement.value?.name === el.name && selectedGraphElement.value?.path === el.path;
+
+const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
+const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
 
 // ── Crosswalk mode state ───────────────────────────────────────────
 const activeSectionId = ref(store.crosswalk[0]?.id || 'I');
@@ -124,6 +457,22 @@ function selectComponent(name) {
 	selectedProperty.value = null;
 }
 
+// Properties partitioned by the inline nested object they belong to (rows
+// carry `parent` from the flattener), mirroring the spec browser's sections.
+const propertySections = computed(() => {
+	const sections = [];
+	let current = null;
+	for (const p of activeComponent.value?.properties || []) {
+		const parent = p.parent || '';
+		if (!current || current.parent !== parent) {
+			current = { parent, crumbs: parent.split('.').filter(Boolean), items: [] };
+			sections.push(current);
+		}
+		current.items.push(p);
+	}
+	return sections;
+});
+
 // A compact JEDx-flavoured sample so the tool is explorable with one click.
 const SAMPLE = JSON.stringify(
 	{
@@ -174,7 +523,7 @@ function loadSample() {
 </script>
 
 <template>
-	<v-container class="py-8" style="max-width: 1240px;">
+	<v-container class="py-8 verifier-container">
 		<!-- Header -->
 		<div class="d-flex align-center flex-wrap ga-3 mb-1">
 			<h1 class="text-h4 font-weight-bold text-primary">Schema Verifier</h1>
@@ -183,17 +532,526 @@ function loadSample() {
 			</v-chip>
 		</div>
 		<p class="text-body-1 text-medium-emphasis mb-5">
-			Break a schema into its component parts and see, property by property, which elements in
-			<strong>CEDS</strong> and <strong>HR Open</strong> are equivalent. CEDS and cross-standard
-			matches are resolved live from the EDUcore graph; HR Open comes from the JEDx data dictionary
-			crosswalk ({{ store.crosswalkMeta.elementCount }} mapped elements).
+			Break a schema into its component parts and see, element by element, what else in the
+			standards landscape means the same thing. Start from any specification in the
+			<strong>EDUcore graph</strong> to see its authoritative and implied cross-specification mappings, or work from
+			the authoritative JEDx ↔ HR Open crosswalk ({{ store.crosswalkMeta.elementCount }} mapped
+			elements).
 		</p>
+
+		<!-- Saved mappings toolbar: what you've curated, where it lives, export it -->
+		<v-card variant="tonal" color="deep-purple" class="mb-5">
+			<v-card-text class="py-2 d-flex align-center flex-wrap ga-2">
+				<v-icon size="20">mdi-table-star</v-icon>
+				<span class="text-subtitle-2 font-weight-bold">Your saved mappings</span>
+				<v-chip size="small" variant="flat" color="deep-purple">
+					{{ store.mappingCount }} mapping{{ store.mappingCount === 1 ? '' : 's' }}
+				</v-chip>
+				<v-chip
+					size="small"
+					variant="outlined"
+					:color="store.mappingsPersistence === 'server' ? 'success' : 'grey-darken-1'"
+					:prepend-icon="store.mappingsSyncing
+						? 'mdi-cloud-sync-outline'
+						: store.mappingsPersistence === 'server' ? 'mdi-cloud-check-outline' : 'mdi-laptop'"
+					:title="store.mappingsPersistence === 'server'
+						? 'Mappings and transformation rules are stored in your account and follow you between browsers.'
+						: 'Mappings are stored in this browser only. Log in to save them to your account.'"
+				>
+					{{ store.mappingsSyncing
+						? 'syncing…'
+						: store.mappingsPersistence === 'server' ? 'saved to your account' : 'browser only' }}
+				</v-chip>
+				<span v-if="store.mappingsSyncError" class="text-caption text-error">
+					{{ store.mappingsSyncError }}
+				</span>
+				<v-spacer />
+				<v-btn
+					size="small"
+					variant="text"
+					prepend-icon="mdi-table-eye"
+					:disabled="!store.mappingCount"
+					@click="mappingsDialog = true"
+				>
+					View all
+				</v-btn>
+				<v-menu>
+					<template #activator="{ props: menuProps }">
+						<v-btn
+							v-bind="menuProps"
+							size="small"
+							variant="flat"
+							color="deep-purple"
+							prepend-icon="mdi-download"
+							append-icon="mdi-menu-down"
+							:disabled="!store.mappingCount"
+						>
+							Export mappings
+						</v-btn>
+					</template>
+					<v-list density="compact">
+						<v-list-subheader>My mappings</v-list-subheader>
+						<v-list-item prepend-icon="mdi-code-json" title="JSON (with transformation rules)" @click="downloadMappings('json')" />
+						<v-list-item prepend-icon="mdi-file-delimited-outline" title="CSV (spreadsheet)" @click="downloadMappings('csv')" />
+						<template v-if="store.isMappingAdmin">
+							<v-divider class="my-1" />
+							<v-list-subheader>Everyone's mappings · admin</v-list-subheader>
+							<v-list-item prepend-icon="mdi-graph-outline" title="Cypher — accepted only" subtitle="Ready for cypher-shell → PROPOSED_MATCH edges" @click="downloadCommunity('cypher', 'accepted')" />
+							<v-list-item prepend-icon="mdi-graph-outline" title="Cypher — all statuses" @click="downloadCommunity('cypher', 'all')" />
+							<v-list-item prepend-icon="mdi-code-json" title="JSON — all statuses" @click="downloadCommunity('json', 'all')" />
+							<v-list-item prepend-icon="mdi-file-delimited-outline" title="CSV — all statuses" @click="downloadCommunity('csv', 'all')" />
+						</template>
+					</v-list>
+				</v-menu>
+			</v-card-text>
+		</v-card>
+
+		<!-- All saved mappings -->
+		<v-dialog v-model="mappingsDialog" max-width="1100" scrollable>
+			<v-card>
+				<v-card-item>
+					<div class="d-flex align-center flex-wrap ga-2">
+						<v-icon color="deep-purple">mdi-table-star</v-icon>
+						<span class="text-h6 font-weight-bold">Saved mappings</span>
+						<v-btn-toggle v-model="viewScope" mandatory density="compact" color="deep-purple" variant="outlined">
+							<v-btn value="mine" size="small">
+								Mine <v-chip size="x-small" variant="tonal" class="ml-1">{{ store.mappingCount }}</v-chip>
+							</v-btn>
+							<v-btn value="all" size="small" :disabled="!canViewAll" :title="canViewAll ? 'Every user\'s proposals' : 'Log in to see everyone\'s proposals'">
+								Everyone <v-chip size="x-small" variant="tonal" class="ml-1">{{ store.communityMappings.length }}</v-chip>
+							</v-btn>
+						</v-btn-toggle>
+						<v-select
+							v-model="statusFilter"
+							:items="[
+								{ title: 'Any status', value: 'all' },
+								{ title: `Proposed (${viewScope === 'all' ? store.communityCounts.proposed : ''})`.replace(' ()', ''), value: 'proposed' },
+								{ title: `Accepted (${viewScope === 'all' ? store.communityCounts.accepted : ''})`.replace(' ()', ''), value: 'accepted' },
+								{ title: `Rejected (${viewScope === 'all' ? store.communityCounts.rejected : ''})`.replace(' ()', ''), value: 'rejected' },
+							]"
+							density="compact"
+							variant="outlined"
+							hide-details
+							style="max-width: 170px;"
+						/>
+						<v-progress-circular v-if="store.communityLoading" indeterminate size="18" width="2" color="deep-purple" />
+						<v-spacer />
+						<v-text-field
+							v-model="mappingsSearch"
+							prepend-inner-icon="mdi-magnify"
+							placeholder="Filter…"
+							variant="outlined"
+							density="compact"
+							hide-details
+							clearable
+							style="max-width: 280px;"
+						/>
+					</div>
+				</v-card-item>
+				<v-card-text class="pt-0">
+					<v-data-table
+						:headers="mappingsHeaders"
+						:items="mappingRows"
+						:search="mappingsSearch"
+						item-value="id"
+						density="compact"
+						items-per-page="15"
+					>
+						<template #item.source="{ item }">
+							<span class="text-body-2">{{ item.source }}</span>
+							<div v-if="item.sourceId" class="text-caption text-disabled">{{ item.sourceId }}</div>
+						</template>
+						<template #item.target="{ item }">
+							<span class="text-body-2 font-weight-medium">{{ item.target }}</span>
+							<div v-if="item.targetSourceId" class="text-caption text-disabled">{{ item.targetSourceId }}</div>
+						</template>
+						<template #item.relationship="{ item }">
+							<v-chip v-if="item.relationship" size="x-small" variant="tonal">{{ item.relationship }}</v-chip>
+						</template>
+						<template #item.transform="{ item }">
+							<span v-if="item.transform" class="text-caption mono">{{ item.transform }}</span>
+							<span v-else class="text-caption text-disabled">direct copy</span>
+							<div v-if="item.transformNotes" class="text-caption text-medium-emphasis">{{ item.transformNotes }}</div>
+						</template>
+						<template #item.proposedBy="{ item }">
+							<span class="text-body-2">{{ item.proposedBy || '—' }}</span>
+							<v-chip v-if="item.mine" size="x-small" variant="tonal" color="deep-purple" class="ml-1">you</v-chip>
+						</template>
+						<template #item.status="{ item }">
+							<v-chip size="x-small" variant="tonal" :color="statusColor(item.status)" :title="statusTitle(item)">
+								{{ item.status }}
+							</v-chip>
+						</template>
+						<template #item.actions="{ item }">
+							<!-- admin verdicts on anyone's proposal -->
+							<template v-if="store.isMappingAdmin && item.refId">
+								<v-btn
+									v-if="item.status !== 'accepted'"
+									size="x-small" variant="text" icon="mdi-check-decagram" color="success"
+									title="Accept — include in graph export" :loading="reviewing === item.refId"
+									@click="review(item, 'accepted')"
+								/>
+								<v-btn
+									v-if="item.status !== 'rejected'"
+									size="x-small" variant="text" icon="mdi-close-octagon-outline" color="error"
+									title="Reject" :loading="reviewing === item.refId"
+									@click="review(item, 'rejected')"
+								/>
+								<v-btn
+									v-if="item.status !== 'proposed'"
+									size="x-small" variant="text" icon="mdi-undo-variant"
+									title="Reopen as proposed" :loading="reviewing === item.refId"
+									@click="review(item, 'proposed')"
+								/>
+							</template>
+							<!-- owner-only edits -->
+							<template v-if="item.mine !== false">
+								<v-btn size="x-small" variant="text" icon="mdi-function-variant" color="deep-purple" title="Edit transformation rule" @click="editRule(item)" />
+								<v-btn size="x-small" variant="text" icon="mdi-close" color="error" title="Remove mapping" @click="removeMapping(item)" />
+							</template>
+						</template>
+					</v-data-table>
+					<v-alert v-if="reviewError" type="error" variant="tonal" density="compact" class="mt-2">{{ reviewError }}</v-alert>
+					<v-alert v-if="store.communityError && viewScope === 'all'" type="warning" variant="tonal" density="compact" class="mt-2">
+						{{ store.communityError }}
+					</v-alert>
+					<p v-if="viewScope === 'all'" class="text-caption text-medium-emphasis mt-2 mb-0">
+						Everyone's proposals are visible to all logged-in users. Only the proposer can edit or remove a mapping;
+						admins accept or reject, and accepted mappings are what the Cypher export sends to the graph.
+					</p>
+				</v-card-text>
+				<v-card-actions class="px-6 pb-4">
+					<v-btn v-if="!confirmClear && viewScope === 'mine'" variant="text" color="error" prepend-icon="mdi-delete-sweep-outline" @click="confirmClear = true">
+						Clear all
+					</v-btn>
+					<template v-else>
+						<span class="text-caption text-error mr-2">Remove all {{ store.mappingCount }} mappings?</span>
+						<v-btn size="small" variant="flat" color="error" @click="clearAll">Yes, clear</v-btn>
+						<v-btn size="small" variant="text" @click="confirmClear = false">No</v-btn>
+					</template>
+					<v-spacer />
+					<v-btn variant="text" prepend-icon="mdi-code-json" @click="downloadMappings('json')">JSON</v-btn>
+					<v-btn variant="text" prepend-icon="mdi-file-delimited-outline" @click="downloadMappings('csv')">CSV</v-btn>
+					<v-btn variant="flat" color="primary" @click="mappingsDialog = false">Close</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+
+		<MappingTransformDialog
+			v-model="ruleDialog"
+			:mapping="ruleItem"
+			:source="ruleSource"
+			@save="saveRule"
+			@remove="ruleRow && removeMapping(ruleRow)"
+		/>
 
 		<!-- Mode toggle -->
 		<v-btn-toggle v-model="mode" mandatory color="primary" variant="outlined" density="comfortable" class="mb-6">
+			<v-btn value="specs" prepend-icon="mdi-book-open-variant">Specifications</v-btn>
 			<v-btn value="crosswalk" prepend-icon="mdi-table-large">JEDx ↔ HR Open Crosswalk</v-btn>
 			<v-btn value="openapi" prepend-icon="mdi-code-json">Load OpenAPI Schema</v-btn>
 		</v-btn-toggle>
+
+		<!-- ════════════════════ SPECIFICATION MODE ════════════════════ -->
+		<template v-if="mode === 'specs'">
+			<v-row class="mb-1">
+				<v-col cols="12" md="7" lg="6">
+					<v-autocomplete
+						v-model="specSource"
+						:items="specItems"
+						item-title="title"
+						item-value="value"
+						label="Specification"
+						placeholder="Pick a specification — grouped by publishing organization"
+						prepend-inner-icon="mdi-book-open-variant"
+						variant="outlined"
+						density="comfortable"
+						:loading="store.specsLoading"
+						:disabled="store.specsLoading && !store.specs.length"
+						clearable
+						hide-details
+					>
+						<template #item="{ props: itemProps, item }">
+							<v-list-subheader v-if="item.raw.type === 'subheader'">
+								{{ item.raw.title }}
+							</v-list-subheader>
+							<v-list-item v-else v-bind="itemProps" :subtitle="item.raw.subtitle" />
+						</template>
+					</v-autocomplete>
+				</v-col>
+				<v-col cols="12" md="5" lg="6" class="d-flex align-center">
+					<v-chip
+						size="small"
+						variant="tonal"
+						:color="store.specsSource === 'snapshot' ? 'grey-darken-1' : 'indigo'"
+						:title="store.specsSource === 'snapshot'
+							? 'The live EDUcore endpoint is unavailable; the list comes from a bundled snapshot of the graph.'
+							: 'Specification list read live from the EDUcore knowledge graph.'"
+					>
+						{{ store.specsSource === 'snapshot'
+							? `EDUcore snapshot · ${store.snapshotDate}`
+							: 'live · EDUcore graph' }}
+					</v-chip>
+					<span v-if="store.specs.length" class="text-caption text-medium-emphasis ml-2">
+						{{ store.specs.length }} specifications
+					</span>
+				</v-col>
+			</v-row>
+
+			<v-alert v-if="store.specsError" type="warning" variant="tonal" density="compact" class="mb-4">
+				{{ store.specsError }}
+			</v-alert>
+
+			<!-- Selected spec summary -->
+			<v-card v-if="activeSpec" variant="tonal" color="indigo" class="my-4">
+				<v-card-text class="py-3 d-flex align-center flex-wrap ga-3">
+					<div>
+						<div class="text-subtitle-1 font-weight-bold">{{ activeSpec.standard }}</div>
+						<div class="text-caption">{{ activeSpec.organization }}</div>
+					</div>
+					<v-chip size="small" variant="flat" color="indigo">
+						{{ activeSpec.elementCount.toLocaleString() }} elements
+					</v-chip>
+					<v-chip v-if="activeSpec.classCount" size="small" variant="outlined">
+						{{ activeSpec.classCount.toLocaleString() }} classes
+					</v-chip>
+					<v-chip v-if="activeSpec.propertyCount" size="small" variant="outlined">
+						{{ activeSpec.propertyCount.toLocaleString() }} properties
+					</v-chip>
+					<v-spacer />
+					<v-btn
+						v-if="activeSpec.url"
+						size="small"
+						variant="text"
+						append-icon="mdi-open-in-new"
+						:href="activeSpec.url"
+						target="_blank"
+						rel="noopener"
+					>
+						Publisher
+					</v-btn>
+				</v-card-text>
+			</v-card>
+
+			<v-row v-if="activeSpec" class="spec-browser">
+				<!-- Entity rail: every grouped spec on wide screens (LIF, CEDS, Ed-Fi, SIF …) -->
+				<v-col v-if="showEntityRail && !detailExpanded" cols="12" lg="3" class="pane-col">
+					<v-card variant="outlined" class="pane entity-rail">
+						<div class="pa-2 pb-1">
+							<div class="d-flex align-center ga-2 mb-2">
+								<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
+								<span class="text-subtitle-2 font-weight-bold">Entities</span>
+								<v-chip size="x-small" variant="tonal">{{ store.elementGroups.length }}</v-chip>
+							</div>
+							<v-text-field
+								v-model="entityFilter"
+								prepend-inner-icon="mdi-filter-variant"
+								placeholder="Find an entity…"
+								variant="outlined"
+								density="compact"
+								hide-details
+								clearable
+							/>
+						</div>
+						<v-list density="compact" nav class="rail-list">
+							<v-list-item
+								:active="activeGroup === ALL_GROUPS"
+								color="primary"
+								@click="pickGroup(ALL_GROUPS)"
+							>
+								<v-list-item-title class="text-body-2 font-weight-medium">All entities</v-list-item-title>
+								<template #append>
+									<v-chip size="x-small" variant="tonal">{{ store.elements.length.toLocaleString() }}</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item
+								v-for="g in railGroups"
+								:key="g.name"
+								:active="activeGroup === g.name"
+								color="primary"
+								@click="pickGroup(g.name)"
+							>
+								<v-list-item-title class="text-body-2">{{ g.name }}</v-list-item-title>
+								<template #append>
+									<v-chip size="x-small" variant="tonal">{{ g.count }}</v-chip>
+								</template>
+							</v-list-item>
+							<v-list-item v-if="!railGroups.length">
+								<v-list-item-title class="text-caption text-medium-emphasis">No entity matches.</v-list-item-title>
+							</v-list-item>
+						</v-list>
+					</v-card>
+				</v-col>
+
+				<!-- Element list, partitioned into the spec's own sections -->
+				<v-col v-if="!detailExpanded" cols="12" :md="listCols.md" :lg="listCols.lg" class="pane-col">
+					<v-text-field
+						v-model="elementSearch"
+						prepend-inner-icon="mdi-magnify"
+						:placeholder="`Filter ${activeSpec.standard} by name, path or description…`"
+						variant="outlined"
+						density="compact"
+						hide-details
+						clearable
+						class="mb-3"
+					/>
+					<v-alert v-if="store.elementsError" type="warning" variant="tonal" density="compact" class="mb-2">
+						{{ store.elementsError }}
+					</v-alert>
+
+					<!-- Narrow screens: the entity rail becomes a dropdown -->
+					<v-autocomplete
+						v-if="showGroupSelect"
+						v-model="activeGroup"
+						:items="groupSelectItems"
+						label="Entity"
+						prepend-inner-icon="mdi-format-list-bulleted"
+						variant="outlined"
+						density="compact"
+						hide-details
+						class="mb-3"
+					/>
+
+					<v-card ref="elementListEl" variant="outlined" class="pane element-list">
+						<v-progress-linear v-if="store.elementsLoading" indeterminate color="indigo" absolute />
+						<v-skeleton-loader
+							v-if="store.elementsLoading && !store.elements.length"
+							type="list-item-two-line@8"
+						/>
+						<v-fade-transition mode="out-in">
+							<v-list :key="`${specSource}|${activeGroup}`" density="compact" nav>
+								<template v-for="section in elementSections" :key="section.parent || '__root__'">
+									<!-- Section header: the containing class, as a breadcrumb -->
+									<v-list-subheader v-if="partitioned && section.parent" class="section-header">
+										<template v-for="(c, i) in section.crumbs" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
+										</template>
+										<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
+									</v-list-subheader>
+
+									<v-list-item
+										v-for="el in section.items"
+										:key="`${el.source}|${el.path || el.name}`"
+										:active="isSelected(el)"
+										color="primary"
+										class="element-row"
+										:style="{ paddingLeft: `${8 + indentOf(el) * 14}px` }"
+										@click="selectGraphElement(el)"
+									>
+										<template #prepend>
+											<v-chip
+												size="x-small"
+												variant="tonal"
+												:color="kindColor(el.kind)"
+												class="mr-2"
+												style="min-width: 62px;"
+											>
+												{{ el.kind }}
+											</v-chip>
+										</template>
+										<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+										<v-list-item-subtitle
+											v-if="el.description"
+											class="element-desc"
+											:class="{ 'element-desc--open': isSelected(el) }"
+										>
+											{{ el.description }}
+										</v-list-item-subtitle>
+										<template #append>
+											<v-chip
+												v-if="store.userEquivalentsFor(elementCurationKey(el)).length"
+												size="x-small"
+												color="deep-purple"
+												variant="tonal"
+												title="Accepted equivalents in your crosswalk"
+											>
+												{{ store.userEquivalentsFor(elementCurationKey(el)).length }}
+											</v-chip>
+										</template>
+									</v-list-item>
+								</template>
+								<v-list-item v-if="hiddenCount">
+									<v-btn block variant="tonal" color="primary" size="small" prepend-icon="mdi-chevron-down" @click="showMore">
+										Show {{ Math.min(hiddenCount, RENDER_PAGE) }} more
+										<span class="text-medium-emphasis ml-1">({{ hiddenCount.toLocaleString() }} not shown{{ showEntityRail || showGroupSelect ? ' — or pick an entity' : '' }})</span>
+									</v-btn>
+								</v-list-item>
+								<v-list-item v-if="!groupElements.length && !store.elementsLoading">
+									<v-list-item-title class="text-caption text-medium-emphasis">
+										No elements match.
+									</v-list-item-title>
+								</v-list-item>
+							</v-list>
+						</v-fade-transition>
+					</v-card>
+				</v-col>
+
+				<!-- Mappings for the selected element — sticky, scrolls on its own, can take the full width -->
+				<v-col cols="12" :md="detailCols.md" :lg="detailCols.lg" class="pane-col">
+					<div class="detail-sticky">
+						<v-fade-transition mode="out-in">
+							<v-card
+								v-if="selectedGraphElement"
+								:key="`${selectedGraphElement.source}|${selectedGraphElement.path || selectedGraphElement.name}`"
+								variant="outlined"
+								class="pane detail-pane"
+							>
+								<v-card-item>
+									<div
+										v-if="selectedGraphElement.path && selectedGraphElement.path !== selectedGraphElement.name"
+										class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
+									>
+										<template v-for="(c, i) in crumbs(parentOf(selectedGraphElement))" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span>{{ c }}</span>
+										</template>
+									</div>
+									<div class="d-flex align-center flex-wrap ga-2">
+										<v-chip size="small" :color="kindColor(selectedGraphElement.kind)" variant="tonal">
+											{{ selectedGraphElement.kind }}
+										</v-chip>
+										<span class="text-h6 font-weight-bold">{{ selectedGraphElement.name }}</span>
+										<v-chip v-if="selectedGraphElement.sourceId" size="x-small" variant="text">
+											{{ selectedGraphElement.sourceId }}
+										</v-chip>
+										<v-spacer />
+										<v-btn
+											size="small"
+											variant="text"
+											:icon="detailExpanded ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal'"
+											:title="detailExpanded ? 'Show the element list again' : 'Use the full width for this element'"
+											@click="detailExpanded = !detailExpanded"
+										/>
+									</div>
+								</v-card-item>
+								<v-card-text>
+									<p v-if="selectedGraphElement.description" class="text-body-2 mb-4">
+										{{ selectedGraphElement.description }}
+									</p>
+									<SpecCrossMappings :element="selectedGraphElement" />
+								</v-card-text>
+							</v-card>
+
+							<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+								<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
+								<p class="text-body-2 text-medium-emphasis mb-0">
+									Select an element to see its authoritative and implied mappings in every other specification.
+								</p>
+							</v-card>
+						</v-fade-transition>
+					</div>
+				</v-col>
+			</v-row>
+
+			<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
+				<v-icon size="42" color="grey" class="mb-3">mdi-book-open-variant</v-icon>
+				<p class="text-body-2 text-medium-emphasis mb-0">
+					Pick a specification above to browse its elements and their cross-specification
+					mappings.
+				</p>
+			</v-card>
+		</template>
 
 		<!-- ════════════════════ CROSSWALK MODE ════════════════════ -->
 		<template v-if="mode === 'crosswalk'">
@@ -255,6 +1113,17 @@ function loadSample() {
 								<v-list-item-subtitle class="mono" style="font-size: 0.72rem;">
 									{{ el.hrOpenProperty }}
 								</v-list-item-subtitle>
+								<template #append>
+									<v-chip
+										v-if="store.userEquivalentsFor(el.id).length"
+										size="x-small"
+										color="deep-purple"
+										variant="tonal"
+										title="Accepted equivalents in your crosswalk"
+									>
+										{{ store.userEquivalentsFor(el.id).length }}
+									</v-chip>
+								</template>
 							</v-list-item>
 							<v-list-item v-if="!filteredElements.length">
 								<v-list-item-title class="text-caption text-medium-emphasis">
@@ -317,7 +1186,7 @@ function loadSample() {
 		</template>
 
 		<!-- ════════════════════ OPENAPI MODE ════════════════════ -->
-		<template v-else>
+		<template v-else-if="mode === 'openapi'">
 			<!-- Loader -->
 			<v-card v-if="!store.hasApi" variant="outlined" class="mb-4">
 				<v-card-text>
@@ -402,23 +1271,63 @@ function loadSample() {
 						<p v-if="activeComponent.description" class="text-body-2 text-medium-emphasis mb-2">
 							{{ activeComponent.description }}
 						</p>
+						<!-- Other schemas this one is built from — each a jump to its tab -->
+						<div v-if="activeComponent.refs?.length" class="d-flex align-center flex-wrap ga-1 mb-2">
+							<span class="text-caption text-medium-emphasis mr-1">Uses:</span>
+							<v-chip
+								v-for="r in activeComponent.refs"
+								:key="r"
+								size="x-small"
+								variant="tonal"
+								color="primary"
+								:disabled="!store.api.components.some((c) => c.name === r)"
+								append-icon="mdi-arrow-right"
+								@click="selectComponent(r)"
+							>
+								{{ r }}
+							</v-chip>
+						</div>
 						<v-card variant="outlined" class="element-list">
 							<v-list density="compact" nav>
-								<v-list-item
-									v-for="p in activeComponent.properties"
-									:key="p.name"
-									:active="selectedProperty?.name === p.name"
-									color="primary"
-									@click="selectedProperty = p"
-								>
-									<v-list-item-title class="text-body-2 d-flex align-center">
-										<span class="mono">{{ p.name }}</span>
-										<v-icon v-if="p.required" size="12" color="error" class="ml-1" title="required">mdi-asterisk</v-icon>
-									</v-list-item-title>
-									<v-list-item-subtitle style="font-size: 0.72rem;">
-										{{ p.type }}<span v-if="p.format"> · {{ p.format }}</span>
-									</v-list-item-subtitle>
-								</v-list-item>
+								<template v-for="section in propertySections" :key="section.parent || '__root__'">
+									<!-- Section header: the nested object these properties sit inside -->
+									<v-list-subheader v-if="section.parent" class="section-header">
+										<template v-for="(c, i) in section.crumbs" :key="i">
+											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
+											<span class="mono" :class="i === section.crumbs.length - 1 ? 'font-weight-bold' : ''">{{ c }}</span>
+										</template>
+										<v-chip size="x-small" variant="tonal" class="ml-2">{{ section.items.length }}</v-chip>
+									</v-list-subheader>
+
+									<v-list-item
+										v-for="p in section.items"
+										:key="p.name"
+										:active="selectedProperty?.name === p.name"
+										color="primary"
+										:style="{ paddingLeft: `${8 + (p.depth || 0) * 14}px` }"
+										@click="selectedProperty = p"
+									>
+										<v-list-item-title class="text-body-2 d-flex align-center">
+											<span class="mono">{{ p.leaf || p.name }}</span>
+											<v-icon v-if="p.required" size="12" color="error" class="ml-1" title="required">mdi-asterisk</v-icon>
+											<v-chip
+												v-if="p.ref && store.api.components.some((c) => c.name === p.ref)"
+												size="x-small"
+												variant="text"
+												color="primary"
+												class="ml-2"
+												append-icon="mdi-arrow-right"
+												:title="`Open the ${p.ref} schema`"
+												@click.stop="selectComponent(p.ref)"
+											>
+												{{ p.ref }}
+											</v-chip>
+										</v-list-item-title>
+										<v-list-item-subtitle style="font-size: 0.72rem;">
+											{{ p.type }}<span v-if="p.format"> · {{ p.format }}</span>
+										</v-list-item-subtitle>
+									</v-list-item>
+								</template>
 								<v-list-item v-if="!activeComponent.properties.length">
 									<v-list-item-title class="text-caption text-medium-emphasis">
 										This schema has no direct properties.
@@ -475,11 +1384,75 @@ function loadSample() {
 	font-size: 0.8rem;
 	line-height: 1.5;
 }
-.element-list {
-	max-height: 560px;
+/* Widen with the screen instead of capping at a laptop width; the panes below
+   size themselves to the viewport rather than a fixed pixel height. */
+.verifier-container {
+	max-width: min(1680px, 100%);
+}
+
+/* Every list pane fills the visible height and scrolls on its own, so the
+   page itself barely scrolls and the detail stays beside the list. */
+.element-list,
+.entity-rail {
+	max-height: max(420px, calc(100vh - 300px));
 	overflow-y: auto;
+	scroll-behavior: smooth;
+	position: relative;
+}
+.entity-rail {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.rail-list {
+	overflow-y: auto;
+	flex: 1 1 auto;
+}
+
+/* The mapping pane stays in view while the list scrolls (wide screens). */
+@media (min-width: 960px) {
+	.detail-sticky {
+		position: sticky;
+		top: 16px;
+	}
+	.detail-pane {
+		max-height: calc(100vh - 32px);
+		overflow-y: auto;
+	}
+}
+
+/* Columns resize smoothly when the detail pane expands or the rail appears. */
+.spec-browser > .pane-col {
+	transition: flex-basis 0.25s ease, max-width 0.25s ease;
+}
+
+/* Descriptions are two lines in the list; the selected row shows all of it. */
+.element-desc {
+	font-size: 0.72rem;
+	white-space: normal;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	transition: max-height 0.2s ease;
+}
+.element-desc--open {
+	-webkit-line-clamp: unset;
+	display: block;
+}
+.element-row {
+	transition: background-color 0.15s ease;
 }
 .section-tabs {
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.section-header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: rgb(var(--v-theme-surface));
+	font-size: 0.72rem;
+	letter-spacing: 0.04em;
+	text-transform: none;
 }
 </style>

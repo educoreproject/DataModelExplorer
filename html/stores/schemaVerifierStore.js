@@ -12,7 +12,16 @@
 //
 //   2. CEDS (and every other standard) equivalence — looked up LIVE from the
 //      EDUcore knowledge graph via POST /api/schemaEquivalents (the browser sends
-//      words; the server's schema-equivalents mapper owns the query).
+//      words; the server's schema-equivalents mapper owns the query). Its rows are
+//      JUDGMENTS (match edges with confidence, kind and source); a refusal is shown
+//      as-is, never replaced by the snapshot.
+//
+//   The specification views (inventory, elements, cross-spec mappings, field and
+//   semantic search) use their own fixed, parameterised endpoints
+//   (/api/dme-specifications, /api/dme-spec-elements, ...). When one of those is
+//   unavailable they read a bundled snapshot of the graph's hub equivalences
+//   (data/educore-equivalents-snapshot.json, lazy-loaded) and the UI badge
+//   switches from "live" to "snapshot".
 //
 // The tool can either browse the crosswalk directly (a better-than-spreadsheet
 // view) or load an arbitrary OpenAPI document, break it into its component
@@ -22,6 +31,7 @@ import axios from 'axios';
 import { parse as parseYaml } from 'yaml';
 import { useLoginStore } from '@/stores/loginStore';
 import { hrOpenCrosswalk, hrOpenCrosswalkMeta } from '@/data/hr-open-crosswalk';
+import { specElementLoaders, specElementManifest } from '@/data/specElementFiles';
 
 // -------------------------------------------------------------------------
 // Text helpers — normalise property names so camelCase / snake_case /
@@ -95,29 +105,43 @@ function resolveRefName(ref) {
 	return ref.split('/').pop();
 }
 
-// Turn one schema object into a flat list of property rows.
-function extractProperties(schema) {
+// Turn one schema object into a flat list of property rows. Inline nested
+// objects (a property that is itself `type: object` with `properties`, or an
+// array of such) are flattened with dotted names — `address.street` — and each
+// row records its `parent` so the browser can partition the list by the
+// sub-object it belongs to, the way the spec browser partitions by class.
+// `$ref` properties are not expanded (the referenced schema is its own
+// component tab); the row keeps `ref` so the UI can link across.
+function extractProperties(schema, prefix = '', depth = 0) {
 	if (!schema || typeof schema !== 'object') return [];
 	const required = new Set(Array.isArray(schema.required) ? schema.required : []);
 	const props = schema.properties || {};
-	return Object.entries(props).map(([name, def]) => {
-		def = def || {};
+	const rows = [];
+	for (const [key, rawDef] of Object.entries(props)) {
+		const def = rawDef || {};
 		const ref = def.$ref || def.items?.$ref || null;
 		let type = def.type || (ref ? 'object' : (def.enum ? 'enum' : 'any'));
 		if (type === 'array') {
 			const itemType = def.items?.type || resolveRefName(def.items?.$ref) || 'item';
 			type = `array<${itemType}>`;
 		}
-		return {
+		const name = prefix ? `${prefix}.${key}` : key;
+		rows.push({
 			name,
+			leaf: key,
+			parent: prefix,
+			depth,
 			type,
 			format: def.format || '',
 			description: def.description || def.title || '',
-			required: required.has(name),
+			required: required.has(key),
 			ref: resolveRefName(ref),
 			enum: Array.isArray(def.enum) ? def.enum : null,
-		};
-	});
+		});
+		const inline = def.properties ? def : def.items?.properties ? def.items : null;
+		if (inline && depth < 6) rows.push(...extractProperties(inline, name, depth + 1));
+	}
+	return rows;
 }
 
 function parseOpenApi(doc) {
@@ -129,6 +153,8 @@ function parseOpenApi(doc) {
 		type: schema?.type || 'object',
 		propertyCount: schema?.properties ? Object.keys(schema.properties).length : 0,
 		properties: extractProperties(schema),
+		// Which other components this one points at, for the "uses" links.
+		refs: [...new Set(extractProperties(schema).map((p) => p.ref).filter(Boolean))],
 		raw: schema,
 	}));
 	// Sort: schemas with properties first, then alphabetical.
@@ -143,6 +169,711 @@ function parseOpenApi(doc) {
 		componentCount: components.length,
 		components,
 	};
+}
+
+// -------------------------------------------------------------------------
+// Standard label / colour helpers shared with the UI.
+
+// The graph stamps every golden node with its standard in `_source`
+// (e.g. 'CEDS', 'SIF', 'EdFi', 'EduAPI'). Normalise the few whose display
+// name differs, and fall back to label parsing for rows without a source.
+const SOURCE_DISPLAY = {
+	EdFi: 'Ed-Fi',
+	EduAPI: 'Ed-API',
+	OpenBadges: 'Open Badges',
+};
+
+const STANDARD_FROM_LABEL = (labels = []) => {
+	const l = labels.find((x) => /Property|Field|Class|Element|Entity/.test(x)) || labels[0] || '';
+	if (l.startsWith('Ceds')) return 'CEDS';
+	if (l.startsWith('Jedx')) return 'JEDx';
+	if (l.startsWith('Eduapi') || l.startsWith('EduApi')) return 'Ed-API';
+	if (l.startsWith('Sif')) return 'SIF';
+	if (l.startsWith('Edfi')) return 'Ed-Fi';
+	if (l.startsWith('Ctdl')) return 'CTDL';
+	if (l.startsWith('Pesc')) return 'PESC';
+	if (l.startsWith('Sedm')) return 'SEDM';
+	if (l.startsWith('Lif')) return 'LIF';
+	if (l.startsWith('Clr')) return 'CLR';
+	if (l.startsWith('OpenBadges')) return 'Open Badges';
+	if (l.startsWith('Case')) return 'CASE';
+	if (l.startsWith('Medbiq')) return 'MedBiquitous';
+	return l.replace(/(Property|Field|Class|Element|Entity)$/, '') || 'Other';
+};
+
+const standardOf = (source, labels) =>
+	(source && (SOURCE_DISPLAY[source] || source)) || STANDARD_FROM_LABEL(labels);
+
+// -------------------------------------------------------------------------
+// Snapshot fallback — client-side equivalents lookup over the bundled hub
+// snapshot. Mirrors the server's dme-equivalents ranking: token coverage
+// (hits*100), precision, +1 for property leaves, +2 for CEDS.
+//
+// Two token lists play different roles. ELIGIBILITY uses the significant
+// tokens (broad stop list — "name"/"code"/"id" match half the graph, so they
+// may not qualify a candidate on their own). RANKING counts hits over the
+// full matchTokens list, so those same words still discriminate between
+// eligible candidates: for "last name", "Last or Surname" scores 2 hits
+// (sur-NAME) while "Last Instruction Date" scores 1, and the tier filter
+// below then drops the 1-hit rows.
+
+function scoreSnapshotMember(sigTokens, allTokens, minHits, member) {
+	const nameLower = String(member.name || '').toLowerCase();
+	const sigHits = sigTokens.filter((w) => nameLower.includes(w)).length;
+	if (sigHits < minHits) return null;
+	const hits = allTokens.filter((w) => nameLower.includes(w)).length;
+	const candWords = nameLower.trim().split(/\s+/).length;
+	const denom = Math.max(candWords, hits);
+	const prec = Math.round((10 * hits) / denom);
+	return (
+		hits * 100 + prec + (member.k === 'P' ? 1 : 0) + (member.source === 'CEDS' ? 2 : 0)
+	);
+}
+
+// Keep only the best hit tier. When any candidate matched 2+ query tokens,
+// candidates that matched fewer are near-certain false positives (they share
+// one word, e.g. "last"), so hide them rather than merely rank them lower.
+// Single-token queries (maxHits <= 1) pass through untouched.
+function keepTopHitTier(rows) {
+	const hitsOf = (r) => Math.floor((r.score || 0) / 100);
+	const maxHits = rows.reduce((m, r) => Math.max(m, hitsOf(r)), 0);
+	return maxHits > 1 ? rows.filter((r) => hitsOf(r) === maxHits) : rows;
+}
+
+function searchSnapshot(snapshot, sigTokens, allTokens, minHits) {
+	const rows = [];
+	for (const hub of snapshot.hubs) {
+		// A hub's members: its CEDS anchor(s) plus its cross-standard matches.
+		// The anchor's "relationship" to the hub is definitional, so when it
+		// appears in another member's related list it is marked authoritative.
+		const members = [
+			...(hub.ceds || []).map((c) => ({ ...c, rel: 'EXACT_MATCH' })),
+			...(hub.matches || []),
+		];
+		for (const member of members) {
+			const score = scoreSnapshotMember(sigTokens, allTokens, minHits, member);
+			if (score === null) continue;
+			rows.push({
+				standard: standardOf(member.source),
+				name: member.name,
+				description: member.desc || '',
+				sourceId: member.id || '',
+				score,
+				related: members
+					.filter((m) => m !== member)
+					.slice(0, 10)
+					.map((m) => ({
+						standard: standardOf(m.source),
+						name: m.name,
+						rel: m.rel,
+						authoritative: m.rel === 'EXACT_MATCH',
+					})),
+			});
+		}
+	}
+	// Dedupe (the same node can sit in several hubs) keeping the best score.
+	const best = new Map();
+	for (const row of rows) {
+		const k = `${row.standard}|${row.name}`;
+		if (!best.has(k) || best.get(k).score < row.score) best.set(k, row);
+	}
+	return [...best.values()].sort((a, b) => b.score - a.score).slice(0, 20);
+}
+
+// -------------------------------------------------------------------------
+// Specification inventory + per-spec browsing.
+//
+// The Schema Verifier's entry point is a live list of the specifications the
+// graph can actually explain element by element. That list is NOT hand-kept:
+// every golden node carries a `_source` stamp, so the distinct sources ARE the
+// inventory, and a spec appears the moment it is forged into the graph.
+//
+// Publishing organization is the sort key the dropdown groups on. The graph
+// supplies it from the EdMatrix side ((EdStandard)-[:PUBLISHED_BY]->(Organization))
+// when the EdMatrix title and the `_source` code line up; the table below fills
+// the gaps for sources with no EdMatrix twin. It is a display convenience, never
+// a source of truth — anything unmatched simply lands under "Other publishers".
+
+const ORG_BY_SOURCE = {
+	CEDS: 'NCES / US Department of Education',
+	CIP: 'NCES',
+	SIF: 'Access 4 Learning (A4L)',
+	EdFi: 'Ed-Fi Alliance',
+	CTDL: 'Credential Engine',
+	CTDLASN: 'Credential Engine',
+	CTDLQData: 'Credential Engine',
+	PESC: 'PESC',
+	JEDx: 'US Chamber of Commerce Foundation',
+	SEDM: 'CIID / IDEA',
+	CASE: '1EdTech',
+	CLR: '1EdTech',
+	OpenBadges: '1EdTech',
+	EduAPI: '1EdTech',
+	MedBiquitous: 'MedBiquitous Consortium',
+};
+
+const UNATTRIBUTED_ORG = 'Other publishers';
+
+// The entity an element belongs to, derived from the graph's dotted `path`
+// ("Assessment.AssessmentPerformanceLevel.label" → "Assessment"). This is what
+// the specification browser tabs on — the same categories-first shape the HR
+// Open crosswalk has, but derived from the standard's own structure rather
+// than hand-authored. A top-level class is its own group; an element with no
+// path (snapshot rows) gets '' and the browser falls back to one flat list.
+function elementGroup(path, name, kind) {
+	const p = String(path || '').trim();
+	if (!p) return '';
+	const head = p.split('.')[0].trim();
+	if (!head) return '';
+	if (kind === 'class' && p === name) return name;
+	return head;
+}
+
+// The snapshot is imported lazily and at most once — it is a large JSON blob
+// that most sessions never need (it only comes into play when the live
+// endpoints are unavailable).
+
+let snapshotPromise = null;
+function loadSnapshot() {
+	if (!snapshotPromise) {
+		snapshotPromise = import('@/data/educore-equivalents-snapshot.json').then((mod) =>
+			expandSnapshot(mod.default || mod),
+		);
+	}
+	return snapshotPromise;
+}
+
+// The v2 snapshot stores each CEDS element once and has every concept refer to
+// it; expand to the v1 shape the lookups use:
+//   { hub, key, ceds: [{ name, source:'CEDS', id, k, desc, path }],
+//     matches: [{ name, source, path, k, rel, c }] }
+// A v1 file passes through untouched.
+function expandSnapshot(raw) {
+	if (!raw || raw.version !== 2) return raw;
+	const anchor = (id) => {
+		const [k, name, desc, path] = raw.ceds[id] || [];
+		return name ? { name, source: 'CEDS', id: id.includes(':') ? '' : id, k, desc: desc || '', path: path || '' } : null;
+	};
+	return {
+		generated: raw.generated,
+		source: raw.source,
+		hubs: raw.hubs.map(([key, hub, ids, members]) => ({
+			key,
+			hub,
+			ceds: ids.map(anchor).filter(Boolean),
+			matches: members.map(([source, name, path, k, rel, c]) => ({ source, name, path, k, rel, c })),
+		})),
+	};
+}
+
+// Flatten the snapshot's hubs into the two shapes the spec views need: every
+// element grouped by its spec, and, for each element, the hubs it sits in (the
+// path to its cross-spec neighbours). Built once per session.
+//
+// A hub's CEDS anchors are its definition, so they enter as EXACT_MATCH — the
+// same treatment searchSnapshot() gives them, and the reason they are excluded
+// from "implied" results below.
+
+let snapshotIndexCache = null;
+
+function snapshotIndex(snapshot) {
+	if (snapshotIndexCache) return snapshotIndexCache;
+
+	const bySource = new Map(); // source -> Map(nameLower -> element)
+	const hubsByMember = new Map(); // 'source|nameLower' -> [members[], ...]
+	const hubsByPath = new Map(); // 'source|pathLower' -> [hub, ...]
+
+	const kindOf = (k) => (k === 'C' ? 'class' : k === 'P' ? 'property' : 'value');
+
+	const toElement = (source, member) => ({
+		name: member.name,
+		source,
+		standard: standardOf(source),
+		kind: kindOf(member.k),
+		description: member.desc || '',
+		sourceId: member.id || '',
+		path: member.path || '',
+		group: elementGroup(member.path, member.name, kindOf(member.k)),
+	});
+
+	// Structural elements the snapshot carries outright (a standard's classes and
+	// properties, whether or not they have hub mappings yet). These are the data
+	// model; hub members below only add what is missing.
+	for (const [source, list] of Object.entries(snapshot.elements || {})) {
+		const specMap = new Map();
+		for (const member of list) {
+			if (!member.name) continue;
+			// Keyed by path when present so same-named fields on different
+			// entities (every LIF entity has `identifier`) stay distinct.
+			specMap.set((member.path || member.name).toLowerCase(), toElement(source, member));
+		}
+		bySource.set(source, specMap);
+	}
+
+	for (const hub of snapshot.hubs) {
+		const members = [
+			...(hub.ceds || []).map((c) => ({ ...c, rel: 'EXACT_MATCH' })),
+			...(hub.matches || []),
+		];
+		for (const member of members) {
+			if (!member.name || !member.source) continue;
+			const nameKey = member.name.toLowerCase();
+			const memberKey = `${member.source}|${nameKey}`;
+
+			if (!bySource.has(member.source)) bySource.set(member.source, new Map());
+			const specMap = bySource.get(member.source);
+			const elementKey = (member.path || member.name).toLowerCase();
+			if (!specMap.has(elementKey)) specMap.set(elementKey, toElement(member.source, member));
+
+			if (!hubsByMember.has(memberKey)) hubsByMember.set(memberKey, []);
+			hubsByMember.get(memberKey).push({ hub: hub.hub, members });
+
+			// Path-exact index for the CEDS concept view: names repeat across
+			// entities, paths do not.
+			if (member.path) {
+				const pathKey = `${member.source}|${member.path.toLowerCase()}`;
+				if (!hubsByPath.has(pathKey)) hubsByPath.set(pathKey, []);
+				hubsByPath.get(pathKey).push(hub);
+			}
+		}
+	}
+
+	snapshotIndexCache = { bySource, hubsByMember, hubsByPath };
+	return snapshotIndexCache;
+}
+
+// The CEDS element a concept is ABOUT — the most specific anchor: an option
+// value for a value tuple, else the property, else the domain class.
+function conceptAnchor(hub) {
+	const ceds = hub.ceds || [];
+	return ceds.find((c) => c.k === 'V') || ceds.find((c) => c.k === 'P') || ceds.find((c) => c.k === 'C') || null;
+}
+
+const REL_RANK = { EXACT_MATCH: 0, CLOSE_MATCH: 1, NARROW_MATCH: 2, RELATED_MATCH: 3 };
+
+// -------------------------------------------------------------------------
+// Bundled specification models. Every spec's classes and properties with their
+// dotted paths ship as one lazily-loaded file per spec (data/spec-elements/),
+// so any spec can be shown by its own sections — the way LIF and the HR Open
+// crosswalk are — whether or not the live graph endpoints are reachable.
+//
+// A spec's code-list VALUES are not in its file; the ones the graph has mapped
+// to CEDS (and that carry a path, as LIF's do) are folded in from the hub
+// snapshot so they sit in their property's section.
+
+const specModelCache = new Map(); // source -> Promise<element[]>
+
+const KIND_BY_CODE = { C: 'class', P: 'property', V: 'value' };
+
+function specModelElement(source, kindCode, path, name, id = '', desc = '') {
+	const kind = KIND_BY_CODE[kindCode] || 'property';
+	return {
+		name,
+		source,
+		standard: standardOf(source),
+		kind,
+		description: desc,
+		sourceId: id,
+		path,
+		group: elementGroup(path, name, kind),
+	};
+}
+
+function hasSpecModel(source) {
+	return !!specElementLoaders[source];
+}
+
+function loadSpecModel(source) {
+	if (!hasSpecModel(source)) return Promise.resolve(null);
+	if (!specModelCache.has(source)) {
+		const promise = specElementLoaders[source]()
+			.then((mod) => mod.default || mod)
+			.then(async (file) => {
+				const elements = file.elements.map(([k, path, name, id, desc]) =>
+					specModelElement(source, k, path, name, id || '', desc || ''),
+				);
+				// Mapped code-list values with paths, from the hub snapshot.
+				try {
+					const snapshot = await loadSnapshot();
+					const known = new Set(elements.map((e) => e.path.toLowerCase()));
+					for (const hub of snapshot.hubs) {
+						for (const m of hub.matches || []) {
+							if (m.source !== source || m.k !== 'V' || !m.path) continue;
+							const key = m.path.toLowerCase();
+							if (known.has(key)) continue;
+							known.add(key);
+							elements.push(specModelElement(source, 'V', m.path, m.name));
+						}
+					}
+				} catch (_e) {
+					/* values are a bonus; the structure stands on its own */
+				}
+				elements.sort((a, b) => a.path.localeCompare(b.path) || (a.kind === 'class' ? -1 : 1));
+				return elements;
+			})
+			.catch((err) => {
+				specModelCache.delete(source);
+				throw err;
+			});
+		specModelCache.set(source, promise);
+	}
+	return specModelCache.get(source);
+}
+
+// Grouping by entity only helps when entities actually hold several elements.
+// SOC is a flat list of 2,005 occupations, each its own "entity" — tabbing
+// that would be one tab per row, so such specs stay a single list.
+function isGroupable(elements) {
+	const groups = new Set();
+	let withGroup = 0;
+	for (const el of elements) {
+		if (!el.group) continue;
+		withGroup++;
+		groups.add(el.group);
+	}
+	return groups.size > 1 && withGroup / groups.size >= 1.6;
+}
+
+// Which hub edges count as verified. EXACT_MATCH is the hub-verified
+// equivalence; the HAS_CEDS_* edges are how a CEDS anchor is bound to the hub
+// it defines, which is definitional and therefore at least as strong.
+const VERIFIED_RELS = new Set([
+	'EXACT_MATCH',
+	'HAS_CEDS_PROPERTY',
+	'HAS_CEDS_DOMAIN',
+	'HAS_CEDS_VALUE',
+]);
+
+// A cross-spec correspondence runs over two hub edges — the element's own
+// (selfRel) and the neighbour's (rel) — and is only as strong as the weaker of
+// them. Both verified means the pair is authoritative BY COMPOSITION: no
+// standard's documentation crosswalks directly to another's, so a SIF ↔ Ed-Fi
+// equivalence is two asserted legs meeting at a CEDS hub. Anything else is a
+// similarity-derived hypothesis.
+const isAuthoritativePair = (selfRel, rel) =>
+	VERIFIED_RELS.has(selfRel) && VERIFIED_RELS.has(rel);
+
+// -------------------------------------------------------------------------
+// Scoring a cross-spec row, for the "%" chip and for ranking.
+//
+// Two different things can supply the number, and they are NOT interchangeable,
+// so each row records which one it used:
+//
+//   'semantic' — cosine distance between the two elements' voyage-3 embeddings,
+//     computed by the graph on demand. This is the only basis that measures
+//     MEANING, so it is preferred whenever available. Same model on both sides,
+//     so the comparison is sound.
+//
+//   'confidence' — the forge's own number, stamped on the hub edges. Authored
+//     crosswalk edges carried 1.0; similarity-derived ones carry the vector
+//     score. A composed path multiplies its two legs, because two independent
+//     0.9 hops genuinely are weaker evidence than one.
+//
+//   'similarity' — last resort, computed here from names (or definitions) when
+//     the graph offers neither of the above; the bundled snapshot never does,
+//     since it carries no embeddings. It says how alike the LABELS are, which is
+//     nearly unrelated to whether the mapping is right: CASE `fullStatement` and
+//     CEDS `Competency Definition` mean the same thing and share no words at
+//     all. Recorded as its own basis so the UI can refuse to dress it up.
+//
+// Dice coefficient over significant tokens: symmetric, so "County" scores well
+// against "NameOfCounty" but not against a long name that merely contains it.
+
+function nameSimilarity(a, b) {
+	const left = new Set(matchTokens(a));
+	const right = new Set(matchTokens(b));
+	if (!left.size || !right.size) return 0;
+	let shared = 0;
+	for (const token of left) if (right.has(token)) shared++;
+	return (2 * shared) / (left.size + right.size);
+}
+
+function scoreRow({
+	semantic,
+	selfConfidence,
+	confidence,
+	fromName,
+	toName,
+	fromDescription = '',
+	toDescription = '',
+}) {
+	if (typeof semantic === 'number' && Number.isFinite(semantic)) {
+		// Cosine runs -1..1; only the positive half is meaningful here.
+		return { score: Math.max(0, Math.min(1, semantic)), scoreBasis: 'semantic' };
+	}
+	const legs = [selfConfidence, confidence].filter(
+		(c) => typeof c === 'number' && Number.isFinite(c),
+	);
+	if (legs.length === 2) {
+		return { score: legs[0] * legs[1], scoreBasis: 'confidence' };
+	}
+	if (legs.length === 1) {
+		return { score: legs[0], scoreBasis: 'confidence' };
+	}
+	// Best lexical evidence available, not a blend: two elements can share a
+	// meaning while sharing no words in their names (CASE `fullStatement` and
+	// CEDS `Competency Definition`), and then the definitions are the only
+	// lexical signal there is. Taking the max avoids inventing a weighting.
+	const score = Math.max(
+		nameSimilarity(fromName, toName),
+		nameSimilarity(fromDescription, toDescription),
+	);
+	return { score, scoreBasis: 'similarity' };
+}
+
+// Sort specs the way the dropdown groups them: organization first, then title.
+function sortSpecs(specs) {
+	return specs.sort(
+		(a, b) =>
+			a.organization.localeCompare(b.organization) ||
+			a.standard.localeCompare(b.standard),
+	);
+}
+
+// -------------------------------------------------------------------------
+// User-curated equivalence crosswalk. Keyed by crosswalk element id (or
+// "<spec>::<element>" / a term-derived key); each entry is a list of mappings
+// the user built by accepting/removing suggestions in the UI. A mapping is
+//
+//   { standard, name, sourceId?, rel?, detail?,
+//     sourceStandard?, sourceName?, sourceElementId?,   // the element being mapped
+//     transform?: { type, rule, notes },                // how a value moves across
+//     refId? }                                          // server row id once synced
+//
+// Persistence is two-tier: localStorage always (works logged out, survives the
+// session), and the server's dme_user_mappings SQLite table whenever the user
+// is logged in. On load the server copy wins; local-only entries are pushed up.
+
+const USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
+
+function loadUserEquivalents() {
+	try {
+		return migrateCurationKeys(JSON.parse(localStorage.getItem(USER_EQUIV_STORAGE_KEY)) || {});
+	} catch (_err) {
+		return {};
+	}
+}
+
+// Spec-browser curation keys used to be "<spec>::<element name>", which merges
+// every same-named element of a spec into one key — Ed-Fi has fifteen `City`
+// properties, one per entity, and approving one approved them all. Keys are
+// now "<spec>::<element path>". Items that recorded their source path move to
+// the path key; anything without one (HR Open / OpenAPI keys, older items)
+// stays where it is.
+function migrateCurationKeys(map) {
+	const out = {};
+	for (const [key, list] of Object.entries(map || {})) {
+		const sep = key.indexOf('::');
+		for (const item of Array.isArray(list) ? list : []) {
+			let target = key;
+			if (sep > 0 && item?.sourcePath && key === `${key.slice(0, sep)}::${item.sourceName}` && item.sourcePath !== item.sourceName) {
+				target = `${key.slice(0, sep)}::${item.sourcePath}`;
+			}
+			const bucket = (out[target] ||= []);
+			if (!bucket.some((e) => e.standard === item.standard && e.name === item.name)) bucket.push(item);
+		}
+	}
+	return out;
+}
+
+// The curation key for a graph element: spec code + path (unique within a
+// spec), falling back to the name for elements with no path.
+export function elementCurationKey(element) {
+	return element ? `${element.source}::${element.path || element.name}` : '';
+}
+
+function persistUserEquivalents(value) {
+	try {
+		localStorage.setItem(USER_EQUIV_STORAGE_KEY, JSON.stringify(value));
+	} catch (_err) {
+		/* storage full or unavailable — curation still works for the session */
+	}
+}
+
+// The transformation-rule vocabulary. `direct` is the implicit default: the
+// value is copied unchanged. Everything else needs a rule string whose shape
+// depends on the type — the hint tells the user what to write.
+export const TRANSFORM_TYPES = [
+	{ value: 'direct', title: 'Direct copy', hint: 'Value moves across unchanged. No rule needed.' },
+	{ value: 'rename', title: 'Rename only', hint: 'Same value, different field name. Optionally note the target path (e.g. person.name.legal).' },
+	{ value: 'valueMap', title: 'Value / code lookup', hint: 'One mapping per line, source => target. Example:\nM => Male\nF => Female\n* => Unknown   (fallback)' },
+	{ value: 'format', title: 'Format conversion', hint: 'Describe the conversion, e.g. date MM/DD/YYYY => YYYY-MM-DD, or number "1,234.50" => 1234.5.' },
+	{ value: 'concat', title: 'Concatenate fields', hint: 'Template using {field} placeholders, e.g. {firstName} {lastName}.' },
+	{ value: 'split', title: 'Split a field', hint: 'Delimiter or regex and which part to keep, e.g. split on " " take [0].' },
+	{ value: 'constant', title: 'Constant value', hint: 'The fixed value the target always receives, e.g. "US".' },
+	{ value: 'expression', title: 'Custom expression', hint: 'Any expression in your integration language (JSONata, JavaScript, SQL…). Note the language in Notes.' },
+];
+
+const EMPTY_TRANSFORM = { type: 'direct', rule: '', notes: '' };
+
+function normalizeTransform(transform) {
+	if (!transform || typeof transform !== 'object') return { ...EMPTY_TRANSFORM };
+	return {
+		type: transform.type || 'direct',
+		rule: transform.rule || '',
+		notes: transform.notes || '',
+	};
+}
+
+const sameMapping = (a, b) => a.standard === b.standard && a.name === b.name;
+
+// Server row  ⇄  store item. The server flattens the transform into three
+// columns; the store keeps it nested so components can treat it as one thing.
+function rowToItem(row) {
+	return {
+		refId: row.refId,
+		standard: row.targetStandard,
+		name: row.targetName,
+		sourceId: row.targetSourceId || '',
+		targetPath: row.targetPath || '',
+		rel: row.rel || '',
+		detail: row.detail || '',
+		sourceStandard: row.sourceStandard || '',
+		sourceName: row.sourceName || '',
+		sourceElementId: row.sourceId || '',
+		sourcePath: row.sourcePath || '',
+		transform: normalizeTransform({
+			type: row.transformType,
+			rule: row.transformRule,
+			notes: row.transformNotes,
+		}),
+		// review state, set server-side by an admin
+		status: row.status || 'proposed',
+		reviewedByName: row.reviewedByName || '',
+		reviewNote: row.reviewNote || '',
+		proposedBy: row.proposedBy || '',
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	};
+}
+
+function itemToRow(key, item) {
+	const transform = normalizeTransform(item.transform);
+	return {
+		mappingKey: key,
+		sourceStandard: item.sourceStandard || '',
+		sourceName: item.sourceName || '',
+		sourceId: item.sourceElementId || '',
+		sourcePath: item.sourcePath || '',
+		targetStandard: item.standard,
+		targetName: item.name,
+		targetSourceId: item.sourceId || '',
+		targetPath: item.targetPath || item.path || '',
+		rel: item.rel || '',
+		detail: item.detail || '',
+		transformType: transform.type,
+		transformRule: transform.rule,
+		transformNotes: transform.notes,
+	};
+}
+
+// A server row (anyone's proposal) in the flat shape the "all mappings" table
+// and exports use. Same columns as flattenEquivalents() plus provenance.
+function rowToFlat(row) {
+	return {
+		mappingKey: row.mappingKey,
+		sourceStandard: row.sourceStandard || '',
+		sourceName: row.sourceName || '',
+		sourceId: row.sourceId || '',
+		sourcePath: row.sourcePath || '',
+		targetStandard: row.targetStandard,
+		targetName: row.targetName,
+		targetSourceId: row.targetSourceId || '',
+		targetPath: row.targetPath || '',
+		relationship: row.rel || '',
+		detail: row.detail || '',
+		transformType: row.transformType || 'direct',
+		transformRule: row.transformRule || '',
+		transformNotes: row.transformNotes || '',
+		status: row.status || 'proposed',
+		proposedBy: row.proposedBy || '',
+		reviewedByName: row.reviewedByName || '',
+		reviewNote: row.reviewNote || '',
+		mine: !!row.mine,
+		refId: row.refId || '',
+		createdAt: row.createdAt || '',
+		updatedAt: row.updatedAt || '',
+	};
+}
+
+// One flat record per mapping — the export shape (and the "all mappings" table).
+function flattenEquivalents(userEquivalents) {
+	const rows = [];
+	for (const [key, list] of Object.entries(userEquivalents)) {
+		for (const item of list) {
+			const transform = normalizeTransform(item.transform);
+			rows.push({
+				mappingKey: key,
+				sourceStandard: item.sourceStandard || '',
+				sourceName: item.sourceName || '',
+				sourceId: item.sourceElementId || '',
+				sourcePath: item.sourcePath || '',
+				targetStandard: item.standard,
+				targetName: item.name,
+				targetSourceId: item.sourceId || '',
+				targetPath: item.targetPath || '',
+				relationship: item.rel || '',
+				detail: item.detail || '',
+				transformType: transform.type,
+				transformRule: transform.rule,
+				transformNotes: transform.notes,
+				status: item.status || (item.refId ? 'proposed' : 'local'),
+				proposedBy: item.proposedBy || '',
+				reviewedByName: item.reviewedByName || '',
+				reviewNote: item.reviewNote || '',
+				mine: true,
+				refId: item.refId || '',
+				createdAt: item.createdAt || '',
+				updatedAt: item.updatedAt || '',
+			});
+		}
+	}
+	return rows.sort(
+		(a, b) =>
+			a.mappingKey.localeCompare(b.mappingKey) ||
+			a.targetStandard.localeCompare(b.targetStandard) ||
+			a.targetName.localeCompare(b.targetName),
+	);
+}
+
+const EXPORT_COLUMNS = [
+	'mappingKey',
+	'sourceStandard',
+	'sourceName',
+	'sourceId',
+	'sourcePath',
+	'targetStandard',
+	'targetName',
+	'targetSourceId',
+	'targetPath',
+	'relationship',
+	'detail',
+	'transformType',
+	'transformRule',
+	'transformNotes',
+	'status',
+	'proposedBy',
+	'reviewedByName',
+	'reviewNote',
+	'refId',
+	'createdAt',
+	'updatedAt',
+];
+
+function csvCell(value) {
+	const text = value === undefined || value === null ? '' : String(value);
+	return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsv(rows) {
+	const lines = [EXPORT_COLUMNS.join(',')];
+	for (const row of rows) lines.push(EXPORT_COLUMNS.map((c) => csvCell(row[c])).join(','));
+	return lines.join('\r\n');
+}
+
+function authHeaders() {
+	const loginStore = useLoginStore();
+	return loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : null;
 }
 
 // =========================================================================
@@ -161,6 +892,41 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		graphCache: {},
 		graphLoading: false,
 		graphError: '',
+		graphSource: '', // '' until first lookup, then 'live' | 'snapshot'
+		snapshotDate: '',
+
+		// specification inventory (live graph, snapshot fallback)
+		specs: [],
+		specsLoading: false,
+		specsError: '',
+		specsSource: '', // '' until first load, then 'live' | 'snapshot'
+
+		// the spec currently being browsed, and its elements
+		selectedSpec: null,
+		elements: [],
+		elementsLoading: false,
+		elementsError: '',
+		elementsTruncated: false,
+
+		// cross-spec mappings ({ authoritative, implied }), keyed by 'source|nameLower'
+		mappingsCache: {},
+		mappingsLoading: false,
+		mappingsError: '',
+
+		// user-curated equivalence crosswalk, keyed by element id / term
+		userEquivalents: loadUserEquivalents(),
+		// '' until the first sync attempt, then 'server' (rows persisted to the
+		// user's account) or 'local' (browser storage only — not logged in, or the
+		// endpoint is unavailable)
+		mappingsPersistence: '',
+		mappingsSyncing: false,
+		mappingsSyncError: '',
+
+		// Everyone's proposals (scope=all), flat rows with proposer + status.
+		// Loaded alongside the user's own on sync; empty when logged out.
+		communityMappings: [],
+		communityLoading: false,
+		communityError: '',
 	}),
 
 	getters: {
@@ -172,6 +938,53 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			return groups;
 		},
 		hasApi: (state) => !!state.api,
+		userEquivalentsFor: (state) => (key) => state.userEquivalents[key] || [],
+
+		// Top-level entities among the loaded elements, for the browser's tabs or
+		// entity rail: [{ name, count }] alphabetical. Empty when the elements
+		// carry no path, or when grouping would be one entity per row (SOC) —
+		// either tells the page to show one flat list.
+		elementGroups: (state) => {
+			if (!isGroupable(state.elements)) return [];
+			const counts = new Map();
+			for (const el of state.elements) {
+				if (!el.group) continue;
+				counts.set(el.group, (counts.get(el.group) || 0) + 1);
+			}
+			return [...counts.entries()]
+				.map(([name, count]) => ({ name, count }))
+				.sort((a, b) => a.name.localeCompare(b.name));
+		},
+
+		// Every saved mapping, flattened to one record each — what gets exported.
+		allMappings: (state) => flattenEquivalents(state.userEquivalents),
+		mappingCount: (state) =>
+			Object.values(state.userEquivalents).reduce((n, list) => n + list.length, 0),
+
+		// Reviewing and bulk-exporting proposals is an admin job; the role comes
+		// from the login token, and the server enforces it again.
+		isMappingAdmin: () => {
+			const loginStore = useLoginStore();
+			return !!loginStore.authtoken && ['admin', 'super'].includes(loginStore.loggedInUser?.role);
+		},
+		communityCounts: (state) => {
+			const counts = { proposed: 0, accepted: 0, rejected: 0 };
+			for (const row of state.communityMappings) counts[row.status] = (counts[row.status] || 0) + 1;
+			return counts;
+		},
+
+		// Specs grouped for the picker: [{ organization, specs: [...] }], both
+		// levels alphabetical. `specs` is already sorted organization-then-title,
+		// so a single pass preserves that order.
+		specsByOrganization: (state) => {
+			const groups = [];
+			for (const spec of state.specs) {
+				const last = groups[groups.length - 1];
+				if (last && last.organization === spec.organization) last.specs.push(spec);
+				else groups.push({ organization: spec.organization, specs: [spec] });
+			}
+			return groups;
+		},
 	},
 
 	actions: {
@@ -219,6 +1032,876 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		clearApi() {
 			this.api = null;
 			this.loadError = '';
+		},
+
+		// ------------------------------------------------------------
+		// Auth header for the public reference endpoints. They accept
+		// anonymous callers, but a signed-in user's token is forwarded so the
+		// request is attributed rather than anonymous.
+
+		authHeaders() {
+			const loginStore = useLoginStore();
+			return loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {};
+		},
+
+		// ------------------------------------------------------------
+		// Specification inventory — the list behind the picker. Live from the
+		// graph; falls back to the bundled snapshot, which carries the same
+		// `_source` stamps and so yields the same shape of answer.
+
+		async loadSpecifications({ force = false } = {}) {
+			if (this.specs.length && !force) return this.specs;
+
+			this.specsLoading = true;
+			this.specsError = '';
+
+			try {
+				const res = await axios.get('/api/dme-specifications', {
+					headers: this.authHeaders(),
+				});
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((row) => row && row.source && row.elementCount > 0)
+					.map((row) => ({
+						source: row.source,
+						standard: standardOf(row.source),
+						organization:
+							row.organization || ORG_BY_SOURCE[row.source] || UNATTRIBUTED_ORG,
+						elementCount: row.elementCount || 0,
+						propertyCount: row.propertyCount || 0,
+						classCount: row.classCount || 0,
+						url: row.url || '',
+						description: row.description || '',
+					}));
+				if (!rows.length) throw new Error('graph returned no specifications');
+
+				this.specsSource = 'live';
+				this.specs = sortSpecs(rows);
+				return this.specs;
+			} catch (_liveErr) {
+				try {
+					// The bundled models' manifest is the complete inventory (every
+					// spec, real class/property counts); hub-only specs not in it are
+					// added from the snapshot so nothing disappears.
+					const rows = Object.entries(specElementManifest.specs || {}).map(([source, m]) => ({
+						source,
+						standard: standardOf(source),
+						organization: ORG_BY_SOURCE[source] || UNATTRIBUTED_ORG,
+						elementCount: m.elementCount || 0,
+						propertyCount: m.propertyCount || 0,
+						classCount: m.classCount || 0,
+						entityCount: m.entityCount || 0,
+						url: '',
+						description: '',
+					}));
+					const listed = new Set(rows.map((r) => r.source));
+					const snapshot = await loadSnapshot();
+					const { bySource } = snapshotIndex(snapshot);
+					for (const [source, elements] of bySource.entries()) {
+						if (listed.has(source)) continue;
+						const list = [...elements.values()];
+						const classCount = list.filter((e) => e.kind === 'class').length;
+						rows.push({
+							source,
+							standard: standardOf(source),
+							organization: ORG_BY_SOURCE[source] || UNATTRIBUTED_ORG,
+							elementCount: list.length,
+							propertyCount: list.length - classCount,
+							classCount,
+							url: '',
+							description: '',
+						});
+					}
+
+					this.specsSource = 'snapshot';
+					this.snapshotDate = specElementManifest.generated || snapshot.generated || '';
+					this.specs = sortSpecs(rows);
+					return this.specs;
+				} catch (err) {
+					this.specsError =
+						err.message || 'Could not load the specification list.';
+					return [];
+				}
+			} finally {
+				this.specsLoading = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// Elements of one specification — the left-hand list. `search` is
+		// pushed down to the query rather than applied in the browser: a
+		// standard the size of CEDS is far larger than one response.
+
+		// Specs with a bundled model are served from it: the whole model, every
+		// entity, already in path order, filtered here — so sections and entity
+		// tabs are complete for CEDS and SIF too, and switching specs is instant
+		// after the first load. The live endpoint is the source only for a spec
+		// that has no bundled file yet (newly forged). Search matches name, path
+		// and description.
+		async loadSpecElements(source, { search = '', limit = 2000 } = {}) {
+			if (!source) return [];
+
+			this.elementsLoading = true;
+			this.elementsError = '';
+
+			if (hasSpecModel(source)) {
+				try {
+					const model = await loadSpecModel(source);
+					// A newer request (another spec picked) may have landed first.
+					if (this.selectedSpec && this.selectedSpec.source !== source) return this.elements;
+					const q = search.trim().toLowerCase();
+					const rows = q
+						? model.filter(
+								(el) =>
+									el.name.toLowerCase().includes(q) ||
+									el.path.toLowerCase().includes(q) ||
+									el.description.toLowerCase().includes(q),
+							)
+						: model;
+					this.elements = rows;
+					this.elementsTruncated = false;
+					this.snapshotDate = specElementManifest.generated || this.snapshotDate;
+					return rows;
+				} catch (err) {
+					// fall through to the live endpoint / hub snapshot
+				} finally {
+					this.elementsLoading = false;
+				}
+				this.elementsLoading = true;
+			}
+
+			try {
+				const res = await axios.get('/api/dme-spec-elements', {
+					params: { source, search, limit },
+					headers: this.authHeaders(),
+				});
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((row) => row && row.name)
+					.map((row) => ({
+						name: row.name,
+						source: row.source || source,
+						standard: standardOf(row.source || source, row.labels),
+						kind: row.kind || 'property',
+						description: row.description || '',
+						sourceId: row.sourceId || '',
+						path: row.path || '',
+						group: elementGroup(row.path, row.name, row.kind),
+					}));
+
+				// When the graph supplies paths, order follows the model (an entity,
+				// then its members) so the partitioned list reads top-down.
+				if (rows.every((r) => r.path)) rows.sort((a, b) => a.path.localeCompare(b.path));
+
+				this.elements = rows;
+				this.elementsTruncated = rows.length >= limit;
+				return rows;
+			} catch (_liveErr) {
+				try {
+					const snapshot = await loadSnapshot();
+					const { bySource } = snapshotIndex(snapshot);
+					const q = search.trim().toLowerCase();
+					// With paths, order follows the model (an entity, then its members);
+					// without, classes first then alphabetical, as before.
+					const all = [...(bySource.get(source)?.values() || [])]
+						.filter((el) => !q || el.name.toLowerCase().includes(q))
+						.sort(
+							(a, b) =>
+								(a.path && b.path ? a.path.localeCompare(b.path) : 0) ||
+								(a.kind === 'class' ? 0 : 1) - (b.kind === 'class' ? 0 : 1) ||
+								a.name.localeCompare(b.name),
+						);
+
+					this.snapshotDate = snapshot.generated || '';
+					this.elements = all.slice(0, limit);
+					this.elementsTruncated = all.length > limit;
+					return this.elements;
+				} catch (err) {
+					this.elements = [];
+					this.elementsTruncated = false;
+					this.elementsError =
+						err.message || 'Could not load elements for this specification.';
+					return [];
+				}
+			} finally {
+				this.elementsLoading = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// Cross-specification mappings for one element, split into the graph's
+		// two tiers. Returns { authoritative, implied }.
+		//
+		// AUTHORITATIVE — both hub edges are verified. Because cross-standard
+		// authority is always CEDS-mediated, most of these are equivalences
+		// between two non-CEDS specs (SIF ↔ Ed-Fi being the big one) that hold
+		// by composition through a shared hub, plus the hub's CEDS anchor
+		// itself. Each row carries the `hub` that carried the claim.
+		//
+		// IMPLIED — everything else: at least one leg is a similarity-derived
+		// CLOSE / NARROW / RELATED_MATCH, so the pair is a hypothesis.
+		//
+		// The element's own specification is excluded from both.
+
+		async lookupCrossSpec(element) {
+			const empty = { authoritative: [], implied: [] };
+			if (!element?.name || !element?.source) return empty;
+
+			const nameKey = element.name.toLowerCase();
+			const key = `${element.source}|${nameKey}`;
+			if (this.mappingsCache[key]) return this.mappingsCache[key];
+
+			this.mappingsLoading = true;
+			this.mappingsError = '';
+
+			// Identity is (standard, name). The same pair can be reachable over
+			// several hubs; keep the strongest reading of it, so one verified
+			// path is not buried by a weaker one elsewhere in the graph. Among
+			// equally authoritative readings the higher-scoring one wins.
+			const split = (rows) => {
+				const best = new Map();
+				for (const row of rows) {
+					const k = `${row.standard}|${row.name}`;
+					const prior = best.get(k);
+					const better =
+						!prior ||
+						(row.authoritative && !prior.authoritative) ||
+						(row.authoritative === prior.authoritative && row.score > prior.score);
+					if (better) best.set(k, row);
+				}
+				// Highest score first — that is the ranking the UI presents.
+				const sorted = [...best.values()].sort(
+					(a, b) =>
+						b.score - a.score ||
+						a.standard.localeCompare(b.standard) ||
+						a.name.localeCompare(b.name),
+				);
+				return {
+					authoritative: sorted.filter((r) => r.authoritative),
+					implied: sorted.filter((r) => !r.authoritative),
+				};
+			};
+
+			try {
+				const res = await axios.get('/api/dme-cross-spec-mappings', {
+					params: { source: element.source, name: element.name },
+					headers: this.authHeaders(),
+				});
+				const result = split(
+					(Array.isArray(res.data) ? res.data : []).flatMap((row) =>
+						(row?.matches || [])
+							.filter((m) => m && m.name)
+							.map((m) => ({
+								standard: standardOf(m.source, m.labels),
+								name: m.name,
+								source: m.source || '',
+								rel: m.rel || 'RELATED_MATCH',
+								selfRel: m.selfRel || '',
+								authoritative: isAuthoritativePair(m.selfRel, m.rel),
+								description: m.description || '',
+								sourceId: m.sourceId || '',
+								hub: m.hub || '',
+								...scoreRow({
+									semantic: m.semantic,
+									selfConfidence: m.selfConfidence,
+									confidence: m.confidence,
+									fromName: element.name,
+									toName: m.name,
+								}),
+							})),
+					),
+				);
+
+				this.graphSource = 'live';
+				this.mappingsCache = { ...this.mappingsCache, [key]: result };
+				return result;
+			} catch (_liveErr) {
+				try {
+					const snapshot = await loadSnapshot();
+					const { hubsByMember } = snapshotIndex(snapshot);
+					const result = split(
+						(hubsByMember.get(key) || []).flatMap(({ hub, members }) => {
+							// The element's own edge to this hub sets the ceiling on
+							// every correspondence drawn through it.
+							const self = members.find(
+								(m) =>
+									m.source === element.source &&
+									String(m.name).toLowerCase() === nameKey,
+							);
+							return members
+								.filter((m) => m.name && m.source !== element.source && m.rel)
+								.map((m) => ({
+									standard: standardOf(m.source),
+									name: m.name,
+									source: m.source,
+									rel: m.rel,
+									selfRel: self?.rel || '',
+									authoritative: isAuthoritativePair(self?.rel, m.rel),
+									description: m.desc || '',
+									sourceId: m.id || '',
+									hub: hub || '',
+									// The snapshot carries no edge confidence, so every
+									// snapshot row scores on name similarity.
+									...scoreRow({
+										fromName: element.name,
+										toName: m.name,
+										fromDescription: element.description || '',
+										toDescription: m.desc || '',
+									}),
+								}));
+						}),
+					);
+
+					this.graphSource = 'snapshot';
+					this.snapshotDate = snapshot.generated || '';
+					this.mappingsCache = { ...this.mappingsCache, [key]: result };
+					return result;
+				} catch (err) {
+					this.mappingsError = err.message || 'Cross-spec mapping lookup failed.';
+					return empty;
+				}
+			} finally {
+				this.mappingsLoading = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// The element seen as the graph sees it: a spoke on one or more CEDS
+		// concepts (hubs). Returns
+		//
+		//   [{ key, hub, anchor: { name, id, k, path, desc }, property, domain, value,
+		//      isSelf,        // the element IS this concept's CEDS anchor
+		//      selfRel, selfConfidence,
+		//      spokes: [{ source, standard, name, path, kind, rel, confidence }] }]
+		//
+		// Spokes are the OTHER standards' elements matched to the same CEDS
+		// concept. Their relationship is to CEDS, not to the selected element —
+		// which is exactly how the graph stores it and how an approval of one is
+		// recorded (spoke → CEDS concept).
+		//
+		// Resolution is by exact path, then by name for elements with no path.
+		// A CEDS property is the anchor of its own concept; its option-value
+		// tuples are separate concepts and are not listed under the property.
+
+		async lookupCedsConcepts(element) {
+			if (!element?.name || !element?.source) return [];
+			const snapshot = await loadSnapshot();
+			const { hubsByMember, hubsByPath } = snapshotIndex(snapshot);
+			this.snapshotDate = snapshot.generated || this.snapshotDate;
+
+			const nameLower = element.name.toLowerCase();
+			const pathLower = (element.path || '').toLowerCase();
+			let hubs;
+			if (element.source === 'CEDS') {
+				// A CEDS element: the concepts it anchors as the MOST specific
+				// anchor (so a property shows its own concept, not every option
+				// value tuple beneath it).
+				const candidates = pathLower
+					? hubsByPath.get(`CEDS|${pathLower}`) || []
+					: (hubsByMember.get(`CEDS|${nameLower}`) || []).map((h) => snapshot.hubs.find((x) => x.hub === h.hub));
+				hubs = candidates.filter((h) => {
+					const a = h && conceptAnchor(h);
+					return a && a.name.toLowerCase() === nameLower && (!pathLower || (a.path || '').toLowerCase() === pathLower || a.k !== 'P');
+				});
+			} else {
+				hubs = pathLower ? hubsByPath.get(`${element.source}|${pathLower}`) || [] : [];
+				if (!hubs.length) {
+					// No path (or none indexed): fall back to name, which can be ambiguous.
+					const byName = new Set((hubsByMember.get(`${element.source}|${nameLower}`) || []).map((h) => h.hub));
+					hubs = snapshot.hubs.filter((h) => byName.has(h.hub));
+				}
+			}
+
+			const seen = new Set();
+			const concepts = [];
+			for (const hub of hubs) {
+				if (!hub || seen.has(hub.key || hub.hub)) continue;
+				seen.add(hub.key || hub.hub);
+				const anchor = conceptAnchor(hub);
+				if (!anchor) continue;
+				const isSelf = element.source === 'CEDS';
+				const self = isSelf
+					? null
+					: (hub.matches || []).find(
+							(m) =>
+								m.source === element.source &&
+								(pathLower ? (m.path || '').toLowerCase() === pathLower : m.name.toLowerCase() === nameLower),
+						) || (hub.matches || []).find((m) => m.source === element.source && m.name.toLowerCase() === nameLower);
+				// One row per element: SIF is forged more than once, so the same
+				// path can carry several identical edges.
+				const spokeSeen = new Set();
+				const spokes = (hub.matches || [])
+					.filter((m) => m !== self && m.name && !(m.source === element.source && (m.path || m.name) === (element.path || element.name)))
+					.filter((m) => {
+						const k = `${m.source}|${m.path || m.name}`;
+						if (spokeSeen.has(k)) return false;
+						spokeSeen.add(k);
+						return true;
+					})
+					.map((m) => ({
+						source: m.source,
+						standard: standardOf(m.source),
+						name: m.name,
+						path: m.path || '',
+						kind: KIND_BY_CODE[m.k] || 'property',
+						rel: m.rel,
+						confidence: m.c || 0,
+					}))
+					.sort(
+						(a, b) =>
+							(REL_RANK[a.rel] ?? 9) - (REL_RANK[b.rel] ?? 9) ||
+							b.confidence - a.confidence ||
+							a.standard.localeCompare(b.standard) ||
+							a.name.localeCompare(b.name),
+					);
+				concepts.push({
+					key: hub.key || hub.hub,
+					hub: hub.hub,
+					anchor,
+					property: (hub.ceds || []).find((c) => c.k === 'P') || null,
+					domain: (hub.ceds || []).find((c) => c.k === 'C') || null,
+					value: (hub.ceds || []).find((c) => c.k === 'V') || null,
+					isSelf,
+					selfRel: isSelf ? 'EXACT_MATCH' : self?.rel || '',
+					selfConfidence: isSelf ? 1 : self?.c || 0,
+					spokes,
+				});
+			}
+			// Verified concepts first, then by the element's own confidence.
+			return concepts.sort(
+				(a, b) =>
+					(REL_RANK[a.selfRel] ?? 9) - (REL_RANK[b.selfRel] ?? 9) ||
+					b.selfConfidence - a.selfConfidence ||
+					b.spokes.length - a.spokes.length,
+			);
+		},
+
+		// ------------------------------------------------------------
+		// Manual match search. Ranks elements of `target` (or of every other
+		// specification when target is '') by SEMANTIC similarity to `element`,
+		// using the embeddings the graph already carries — the anchor is the
+		// selected element's own vector, so no embedding API is involved. `q`
+		// narrows candidates lexically before ranking. This is how a user picks
+		// a mapping where the graph has no implied one.
+		//
+		// Offline the snapshot has no vectors, so the fallback is a lexical
+		// match over the target spec's snapshot elements, and the rows say so
+		// (scoreBasis 'similarity' instead of 'semantic').
+
+		async searchSpecElements({ element, target = '', q = '', kinds = 'property,class', limit = 25 } = {}) {
+			if (!element?.source || !element?.name) return { rows: [], basis: '' };
+
+			try {
+				const res = await axios.get('/api/dme-semantic-search', {
+					params: {
+						source: element.source,
+						path: element.path || '',
+						name: element.name,
+						target,
+						q,
+						kinds,
+						limit,
+					},
+					headers: this.authHeaders(),
+				});
+				const seen = new Set();
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r && r.name)
+					.filter((r) => {
+						// the same element can be forged twice (SIF); show it once
+						const key = `${r.source}|${r.path || r.name}`;
+						if (seen.has(key)) return false;
+						seen.add(key);
+						return true;
+					})
+					.map((r) => ({
+						name: r.name,
+						source: r.source,
+						standard: standardOf(r.source, r.labels),
+						path: r.path || '',
+						description: r.description || '',
+						sourceId: r.sourceId || '',
+						kind: r.kind || 'property',
+						score: r.score || 0,
+						scoreBasis: 'semantic',
+					}));
+				this.graphSource = 'live';
+				return { rows, basis: 'semantic' };
+			} catch (_liveErr) {
+				return this._snapshotFieldSearch({ q: q || element.name, target, exclude: element.source, kinds, limit });
+			}
+		},
+
+		// Free-text search for a target field: "grade level", "date of birth".
+		// The server embeds the phrase with the graph's own model and ranks by
+		// meaning; if the embedding service is down it ranks by label match
+		// against the live graph (basis 'lexical'); offline, the snapshot
+		// (basis 'similarity'). Works for terms with no graph node at all —
+		// HR Open crosswalk rows, OpenAPI properties.
+		async searchTargetFields({ q = '', target = '', exclude = '', kinds = 'property,class', limit = 25 } = {}) {
+			const text = String(q || '').trim();
+			if (text.length < 2) return { rows: [], basis: '' };
+
+			try {
+				const res = await axios.get('/api/dme-field-search', {
+					params: { q: text, target, exclude, kinds, limit },
+					headers: this.authHeaders(),
+				});
+				const seen = new Set();
+				let basis = 'lexical';
+				const rows = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r && r.name)
+					.filter((r) => {
+						const key = `${r.source}|${r.path || r.name}`;
+						if (seen.has(key)) return false;
+						seen.add(key);
+						return true;
+					})
+					.map((r) => {
+						if (r.basis === 'semantic') basis = 'semantic';
+						return {
+							name: r.name,
+							source: r.source,
+							standard: standardOf(r.source, r.labels),
+							path: r.path || '',
+							description: r.description || '',
+							sourceId: r.sourceId || '',
+							kind: r.kind || 'property',
+							score: r.score || 0,
+							scoreBasis: r.basis === 'semantic' ? 'semantic' : 'similarity',
+						};
+					});
+				this.graphSource = 'live';
+				return { rows, basis };
+			} catch (_liveErr) {
+				return this._snapshotFieldSearch({ q: text, target, exclude, kinds, limit });
+			}
+		},
+
+		// Shared offline fallback: label match over the bundled spec models (every
+		// class and property of every spec), plus hub-snapshot members for any
+		// spec without a model.
+		async _snapshotFieldSearch({ q, target, exclude, kinds, limit }) {
+			const snapshot = await loadSnapshot();
+			const { bySource } = snapshotIndex(snapshot);
+			const tokens = matchTokens(q);
+			if (!tokens.length) return { rows: [], basis: 'similarity' };
+			const wantedKinds = new Set(String(kinds).split(',').map((k) => k.trim()).filter(Boolean));
+			const allSources = new Set([...Object.keys(specElementLoaders), ...bySource.keys()]);
+			const sources = (target ? [target] : [...allSources]).filter((s) => s !== exclude);
+			const models = await Promise.all(
+				sources.map(async (source) => {
+					const model = hasSpecModel(source) ? await loadSpecModel(source).catch(() => null) : null;
+					return [source, model || [...(bySource.get(source)?.values() || [])]];
+				}),
+			);
+			const rows = [];
+			for (const [source, elements] of models) {
+				if (source === exclude) continue;
+				for (const el of elements) {
+					if (wantedKinds.size && !wantedKinds.has(el.kind)) continue;
+					const score = Math.max(
+						matchScore(tokens, el.name),
+						matchScore(tokens, el.path || '') * 0.8,
+						matchScore(tokens, el.description || '') * 0.5,
+					);
+					if (score <= 0) continue;
+					rows.push({ ...el, score: Math.round(score * 1000) / 1000, scoreBasis: 'similarity' });
+				}
+			}
+			rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+			this.graphSource = 'snapshot';
+			this.snapshotDate = snapshot.generated || '';
+			return { rows: rows.slice(0, limit), basis: 'similarity' };
+		},
+
+		// Switch the browsed specification: clears the element list so a stale
+		// spec's elements never show under a new spec's heading.
+		selectSpec(spec) {
+			this.selectedSpec = spec || null;
+			this.elements = [];
+			this.elementsTruncated = false;
+			this.elementsError = '';
+		},
+
+		// ------------------------------------------------------------
+		// User-curated equivalence crosswalk. An item is
+		// { standard, name, sourceId?, rel?, detail?, transform? } — identity is
+		// (standard, name), so re-adding the same suggestion is a no-op.
+		//
+		// `source` ({ standard, name, sourceId }) describes the element being
+		// mapped FROM; it is recorded on the item so exports read as complete
+		// source → target rows rather than opaque keys.
+
+		addUserEquivalent(key, item, source = null) {
+			if (!key || !item?.name) return null;
+			const list = this.userEquivalents[key] || [];
+			const existing = list.find((e) => sameMapping(e, item));
+			if (existing) return existing;
+			const entry = {
+				...item,
+				sourceStandard: source?.standard || item.sourceStandard || '',
+				sourceName: source?.name || item.sourceName || '',
+				sourceElementId: source?.sourceId || item.sourceElementId || '',
+				sourcePath: source?.path || item.sourcePath || '',
+				targetPath: item.targetPath || item.path || '',
+				transform: normalizeTransform(item.transform),
+			};
+			this.userEquivalents = { ...this.userEquivalents, [key]: [...list, entry] };
+			persistUserEquivalents(this.userEquivalents);
+			this.pushMappingToServer(key, entry);
+			return entry;
+		},
+
+		removeUserEquivalent(key, item) {
+			const list = this.userEquivalents[key] || [];
+			const removed = list.find((e) => sameMapping(e, item));
+			const next = list.filter((e) => !sameMapping(e, item));
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			if (!next.length) delete this.userEquivalents[key];
+			persistUserEquivalents(this.userEquivalents);
+			if (removed) this.deleteMappingOnServer(key, removed);
+		},
+
+		hasUserEquivalent(key, item) {
+			return (this.userEquivalents[key] || []).some((e) => sameMapping(e, item));
+		},
+
+		getUserEquivalent(key, item) {
+			return (this.userEquivalents[key] || []).find((e) => sameMapping(e, item)) || null;
+		},
+
+		// Attach / replace the transformation rule on an accepted mapping. The
+		// mapping must already exist — rules describe a mapping, they don't create
+		// one — so the UI adds first, then opens the rule editor.
+		setUserEquivalentTransform(key, item, transform) {
+			const list = this.userEquivalents[key] || [];
+			const idx = list.findIndex((e) => sameMapping(e, item));
+			if (idx < 0) return null;
+			const updated = { ...list[idx], transform: normalizeTransform(transform) };
+			const next = [...list];
+			next[idx] = updated;
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			persistUserEquivalents(this.userEquivalents);
+			this.pushMappingToServer(key, updated);
+			return updated;
+		},
+
+		// ------------------------------------------------------------
+		// Server persistence (dme_user_mappings). Every call is a no-op when the
+		// user is not logged in, and a failure never blocks the local edit — the
+		// browser copy stays authoritative for the session and the badge says so.
+
+		async pushMappingToServer(key, item) {
+			const headers = authHeaders();
+			if (!headers) {
+				this.mappingsPersistence = 'local';
+				return;
+			}
+			try {
+				const res = await axios.post(
+					'/api/dmeUserMappingSave',
+					{ mappings: [itemToRow(key, item)] },
+					{ headers },
+				);
+				const row = (Array.isArray(res.data) ? res.data : [])[0];
+				if (row?.refId) this._attachServerRow(key, row);
+				this.mappingsPersistence = 'server';
+				this.mappingsSyncError = '';
+			} catch (err) {
+				this.mappingsPersistence = 'local';
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not save mapping to your account.';
+			}
+		},
+
+		async deleteMappingOnServer(key, item) {
+			const headers = authHeaders();
+			if (!headers) return;
+			try {
+				const params = item.refId
+					? { refId: item.refId }
+					: { mappingKey: key, targetStandard: item.standard, targetName: item.name };
+				await axios.delete('/api/dmeUserMappingDelete', { params, headers });
+				this.mappingsSyncError = '';
+			} catch (err) {
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not remove mapping from your account.';
+			}
+		},
+
+		// Pull the user's saved mappings and merge: server rows win (they carry
+		// refIds and timestamps); anything that exists only in this browser is
+		// pushed up so the account becomes the complete record.
+		async syncMappingsFromServer() {
+			const headers = authHeaders();
+			if (!headers) {
+				this.mappingsPersistence = 'local';
+				return false;
+			}
+			this.mappingsSyncing = true;
+			this.mappingsSyncError = '';
+			try {
+				const res = await axios.get('/api/dmeUserMappingList', { headers });
+				const rows = Array.isArray(res.data) ? res.data : [];
+
+				const merged = {};
+				for (const row of rows) {
+					if (!row?.mappingKey || !row?.targetName) continue;
+					(merged[row.mappingKey] ||= []).push(rowToItem(row));
+				}
+
+				const localOnly = [];
+				for (const [key, list] of Object.entries(this.userEquivalents)) {
+					for (const item of list) {
+						if ((merged[key] || []).some((e) => sameMapping(e, item))) continue;
+						(merged[key] ||= []).push({ ...item, transform: normalizeTransform(item.transform) });
+						localOnly.push(itemToRow(key, item));
+					}
+				}
+
+				this.userEquivalents = merged;
+				persistUserEquivalents(this.userEquivalents);
+
+				if (localOnly.length) {
+					const pushed = await axios.post('/api/dmeUserMappingSave', { mappings: localOnly }, { headers });
+					for (const row of Array.isArray(pushed.data) ? pushed.data : []) {
+						if (row?.refId) this._attachServerRow(row.mappingKey, row);
+					}
+				}
+
+				this.mappingsPersistence = 'server';
+				this.loadCommunityMappings();
+				return true;
+			} catch (err) {
+				this.mappingsPersistence = 'local';
+				this.mappingsSyncError = err.response?.data || err.message || 'Could not load saved mappings from your account.';
+				return false;
+			} finally {
+				this.mappingsSyncing = false;
+			}
+		},
+
+		// ------------------------------------------------------------
+		// Everyone's proposals. Any logged-in user may read them; the rows say
+		// who proposed each and whether it is the caller's own.
+
+		async loadCommunityMappings({ status = '' } = {}) {
+			const headers = authHeaders();
+			if (!headers) {
+				this.communityMappings = [];
+				return [];
+			}
+			this.communityLoading = true;
+			this.communityError = '';
+			try {
+				const res = await axios.get('/api/dmeUserMappingList', {
+					params: { scope: 'all', ...(status ? { status } : {}) },
+					headers,
+				});
+				this.communityMappings = (Array.isArray(res.data) ? res.data : [])
+					.filter((r) => r?.mappingKey && r?.targetName)
+					.map(rowToFlat);
+				return this.communityMappings;
+			} catch (err) {
+				this.communityError = err.response?.data || err.message || 'Could not load shared mappings.';
+				return [];
+			} finally {
+				this.communityLoading = false;
+			}
+		},
+
+		// Admin: accept / reject / reopen a proposal. Updates the shared list in
+		// place and, if the row is the caller's own, its curated item too.
+		async reviewMapping(refId, status, note = '') {
+			const headers = authHeaders();
+			if (!headers) return null;
+			const res = await axios.post('/api/dmeUserMappingReview', { refId, status, note }, { headers });
+			const row = (Array.isArray(res.data) ? res.data : [])[0];
+			if (!row?.refId) return null;
+			const flat = rowToFlat(row);
+			this.communityMappings = this.communityMappings.map((r) => (r.refId === refId ? flat : r));
+			for (const [key, list] of Object.entries(this.userEquivalents)) {
+				const idx = list.findIndex((e) => e.refId === refId);
+				if (idx < 0) continue;
+				const next = [...list];
+				next[idx] = { ...next[idx], status: flat.status, reviewedByName: flat.reviewedByName, reviewNote: flat.reviewNote };
+				this.userEquivalents = { ...this.userEquivalents, [key]: next };
+				persistUserEquivalents(this.userEquivalents);
+			}
+			return flat;
+		},
+
+		// Admin: server-rendered export of everyone's mappings (json | csv |
+		// cypher), filtered by status. Returns { filename, mimeType, content }.
+		async exportCommunityMappings({ format = 'json', status = 'accepted' } = {}) {
+			const headers = authHeaders();
+			if (!headers) throw new Error('Log in as an admin to export shared mappings.');
+			const res = await axios.get('/api/dmeUserMappingExport', {
+				params: { format, status },
+				headers,
+				responseType: 'text',
+				transformResponse: [(d) => d],
+			});
+			const disposition = res.headers?.['content-disposition'] || '';
+			const match = disposition.match(/filename="([^"]+)"/);
+			const ext = format === 'cypher' ? 'cypher' : format;
+			return {
+				filename: match ? match[1] : `educore-user-mappings-${status}.${ext}`,
+				mimeType: (res.headers?.['content-type'] || 'text/plain').split(';')[0],
+				content: typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2),
+				count: Number(res.headers?.['x-mapping-count'] || 0),
+			};
+		},
+
+		_attachServerRow(key, row) {
+			const list = this.userEquivalents[key] || [];
+			const idx = list.findIndex((e) => e.standard === row.targetStandard && e.name === row.targetName);
+			if (idx < 0) return;
+			const next = [...list];
+			next[idx] = { ...next[idx], refId: row.refId, createdAt: row.createdAt, updatedAt: row.updatedAt };
+			this.userEquivalents = { ...this.userEquivalents, [key]: next };
+			persistUserEquivalents(this.userEquivalents);
+		},
+
+		// ------------------------------------------------------------
+		// Export every saved mapping. Returns { filename, mimeType, content }; the
+		// caller turns it into a download.
+
+		exportMappings(format = 'json') {
+			const rows = this.allMappings;
+			const stamp = new Date().toISOString().slice(0, 10);
+			if (format === 'csv') {
+				return {
+					filename: `educore-mappings-${stamp}.csv`,
+					mimeType: 'text/csv',
+					content: toCsv(rows),
+				};
+			}
+			return {
+				filename: `educore-mappings-${stamp}.json`,
+				mimeType: 'application/json',
+				content: JSON.stringify(
+					{
+						exportedAt: new Date().toISOString(),
+						source: 'EDUcore Schema Verifier — curated crosswalk',
+						persistence: this.mappingsPersistence || 'local',
+						mappingCount: rows.length,
+						mappings: rows,
+					},
+					null,
+					2,
+				),
+			};
+		},
+
+		clearAllMappings() {
+			const all = flattenEquivalents(this.userEquivalents);
+			this.userEquivalents = {};
+			persistUserEquivalents(this.userEquivalents);
+			for (const row of all) {
+				this.deleteMappingOnServer(row.mappingKey, {
+					refId: row.refId,
+					standard: row.targetStandard,
+					name: row.targetName,
+				});
+			}
 		},
 
 		// ------------------------------------------------------------
@@ -286,12 +1969,14 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 						standard: oneRelated.source,
 						name: oneRelated.name,
 						relation: oneRelated.relation,
+						rel: oneRelated.relation, // itemToRow() records a curated mapping's relationship from `rel`
 						mappingConfidence: oneRelated.mappingConfidence,
 						mappingKind: oneRelated.mappingKind,
 						mappingSource: oneRelated.mappingSource,
 						edgeCount: oneRelated.edgeCount,
 					})),
 				}));
+				this.graphSource = 'live';
 				this.graphCache[cacheRefId] = equivalentRowList;
 				return equivalentRowList;
 			} catch (error) {

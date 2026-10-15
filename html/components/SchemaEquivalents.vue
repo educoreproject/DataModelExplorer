@@ -5,7 +5,7 @@
 // equivalents (live EDUcore graph lookup). Used by the Schema Verifier page in
 // both Crosswalk and OpenAPI modes.
 
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
 
 const store = useSchemaVerifierStore();
@@ -27,6 +27,52 @@ const hrMatches = ref([]);
 const graphRows = ref([]);
 const ran = ref(false);
 
+// ── User-curated equivalence crosswalk ─────────────────────────────
+// Every suggestion below (HR Open match, graph node, related chip) can be
+// toggled into a per-element curated set, persisted by the store.
+
+const curationKey = computed(() =>
+	props.hrOpenSeed?.id || (props.context?.id ? `${props.context.id}::${props.term}` : `term::${props.term}`),
+);
+// The element being mapped FROM, recorded on every accepted mapping so exports
+// read as full source → target rows.
+const sourceInfo = computed(() =>
+	props.hrOpenSeed
+		? { standard: 'JEDx', name: props.hrOpenSeed.name, sourceId: props.hrOpenSeed.id }
+		: { standard: props.context?.label ? `OpenAPI · ${props.context.label}` : 'OpenAPI', name: props.term, sourceId: '' },
+);
+const curatedPanel = ref(null);
+const isCurated = (item) => store.hasUserEquivalent(curationKey.value, item);
+// Adding a mapping immediately offers a transformation rule for it.
+const toggleCurated = (item) => {
+	if (isCurated(item)) {
+		store.removeUserEquivalent(curationKey.value, item);
+		return;
+	}
+	store.addUserEquivalent(curationKey.value, item, sourceInfo.value);
+	curatedPanel.value?.openRuleFor(item, true);
+};
+
+const hrItem = (m) => ({
+	standard: 'HR Open',
+	name: m.name,
+	sourceId: m.id,
+	rel: 'crosswalk',
+	detail: m.hrOpenProperty,
+});
+const nodeItem = (row) => ({
+	standard: row.standard,
+	name: row.name,
+	sourceId: row.sourceId || '',
+	rel: 'node',
+	detail: row.description || '',
+});
+const relItem = (rel) => ({
+	standard: rel.standard,
+	name: rel.name,
+	rel: rel.rel,
+});
+
 const STANDARD_COLORS = {
 	CEDS: 'indigo',
 	JEDx: 'teal',
@@ -41,6 +87,12 @@ const STANDARD_COLORS = {
 	CLR: 'deep-orange',
 	'Open Badges': 'amber',
 	CASE: 'blue-grey',
+	MedBiquitous: 'purple',
+	SOC: 'lime-darken-2',
+	CIP: 'light-blue-darken-2',
+	CTDLASN: 'green-darken-3',
+	CTDLQData: 'teal-darken-3',
+	DCTAP: 'grey-darken-1',
 };
 const stdColor = (s) => STANDARD_COLORS[s] || 'grey';
 
@@ -97,6 +149,13 @@ watch(
 
 <template>
 	<div>
+		<!-- ── Your equivalence crosswalk (user-curated, with transformation rules) ── -->
+		<div class="mb-5">
+			<CuratedMappings ref="curatedPanel" :curation-key="curationKey" :source="sourceInfo" />
+		</div>
+
+		<v-divider class="mb-5" />
+
 		<!-- ── HR Open equivalents ───────────────────────────────── -->
 		<div class="mb-5">
 			<div class="d-flex align-center mb-2">
@@ -147,6 +206,14 @@ watch(
 							<v-chip size="x-small" :color="m.score >= 0.99 ? 'success' : 'grey'" variant="tonal">
 								{{ Math.round(m.score * 100) }}% match
 							</v-chip>
+							<v-btn
+								size="x-small"
+								variant="text"
+								:icon="isCurated(hrItem(m)) ? 'mdi-check-circle' : 'mdi-plus-circle-outline'"
+								:color="isCurated(hrItem(m)) ? 'success' : 'deep-purple'"
+								:title="isCurated(hrItem(m)) ? 'In your crosswalk — click to remove' : 'Add to your crosswalk'"
+								@click="toggleCurated(hrItem(m))"
+							/>
 						</div>
 						<code class="hr-path d-block">{{ m.hrOpenProperty }}</code>
 						<div v-if="m.hrOpenFilter" class="text-caption text-medium-emphasis mt-1">
@@ -167,8 +234,18 @@ watch(
 			<div class="d-flex align-center mb-2">
 				<v-icon size="18" color="indigo" class="mr-2">mdi-graph-outline</v-icon>
 				<span class="text-subtitle-2 font-weight-bold">CEDS &amp; cross-standard equivalents</span>
-				<v-chip size="x-small" variant="tonal" color="indigo" class="ml-2">
-					live · EDUcore graph
+				<v-chip
+					size="x-small"
+					variant="tonal"
+					:color="store.graphSource === 'snapshot' ? 'grey-darken-1' : 'indigo'"
+					class="ml-2"
+					:title="store.graphSource === 'snapshot'
+						? 'The live EDUcore endpoint is unavailable; results come from a bundled snapshot of the graph.'
+						: 'Resolved live from the EDUcore knowledge graph.'"
+				>
+					{{ store.graphSource === 'snapshot'
+						? `EDUcore snapshot · ${store.snapshotDate}`
+						: 'live · EDUcore graph' }}
 				</v-chip>
 			</div>
 
@@ -211,6 +288,15 @@ watch(
 							<div class="d-flex align-center flex-wrap ga-1">
 								<span class="text-body-2 font-weight-medium">{{ row.name }}</span>
 								<v-chip v-if="row.sourceId" size="x-small" variant="text">{{ row.sourceId }}</v-chip>
+								<v-btn
+									size="x-small"
+									variant="text"
+									class="ml-auto"
+									:icon="isCurated(nodeItem(row)) ? 'mdi-check-circle' : 'mdi-plus-circle-outline'"
+									:color="isCurated(nodeItem(row)) ? 'success' : 'deep-purple'"
+									:title="isCurated(nodeItem(row)) ? 'In your crosswalk — click to remove' : 'Add to your crosswalk'"
+									@click="toggleCurated(nodeItem(row))"
+								/>
 							</div>
 							<div v-if="row.description" class="text-caption text-medium-emphasis mt-1">
 								{{ row.description }}
@@ -222,12 +308,16 @@ watch(
 									v-for="(rel, j) in row.related"
 									:key="j"
 									size="x-small"
-									class="mr-1 mb-1"
-									:color="relationColor(rel.relation)"
-									variant="tonal"
-									:title="`${rel.relation} — a judgment, not a fact: confidence ${rel.mappingConfidence}, kind ${rel.mappingKind}, source ${rel.mappingSource}${rel.edgeCount > 1 ? ` (${rel.edgeCount} edges)` : ''}`"
+									class="mr-1 mb-1 rel-chip"
+									:color="isCurated(relItem(rel)) ? 'deep-purple' : relationColor(rel.relation)"
+									:variant="isCurated(relItem(rel)) ? 'flat' : 'tonal'"
+									:title="(isCurated(relItem(rel))
+										? 'In your crosswalk — click to remove. '
+										: 'Click to add to your crosswalk. ')
+										+ `${rel.relation} — a judgment, not a fact: confidence ${rel.mappingConfidence}, kind ${rel.mappingKind}, source ${rel.mappingSource}${rel.edgeCount > 1 ? ` (${rel.edgeCount} edges)` : ''}`"
+									@click="toggleCurated(relItem(rel))"
 								>
-									<v-icon start size="12">mdi-scale-balance</v-icon>
+									<v-icon start size="12">{{ isCurated(relItem(rel)) ? 'mdi-check-circle' : 'mdi-scale-balance' }}</v-icon>
 									{{ relationLabel(rel.relation) }} {{ rel.standard }}: {{ rel.name }} · {{ rel.mappingConfidence }}
 								</v-chip>
 							</div>
@@ -236,15 +326,32 @@ watch(
 				</div>
 			</div>
 
-			<p v-else-if="ran && !store.graphLoading" class="text-caption text-medium-emphasis">
+			<p
+				v-else-if="ran && !store.graphLoading && !store.graphError"
+				class="text-caption text-medium-emphasis"
+			>
 				No matching nodes found in the EDUcore graph for
 				<code>{{ term }}</code>. Try a broader or differently-worded term.
 			</p>
 		</div>
+
+		<v-divider class="my-5" />
+
+		<!-- ── Find a target field by meaning (this term has no graph node to anchor on) ── -->
+		<TargetFieldSearch
+			:default-query="term"
+			:is-curated="isCurated"
+			:toggle="toggleCurated"
+			:open="ran && !store.graphLoading && !groupedGraph.length"
+		/>
 	</div>
 </template>
 
 <style scoped>
+.rel-chip {
+	cursor: pointer;
+}
+
 .hr-path {
 	font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 	font-size: 0.78rem;

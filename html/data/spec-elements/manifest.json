@@ -1,0 +1,113 @@
+{
+ "generated": "2026-10-01",
+ "specs": {
+  "CASE": {
+   "elementCount": 230,
+   "classCount": 36,
+   "propertyCount": 194,
+   "entityCount": 36
+  },
+  "CEDS": {
+   "elementCount": 2725,
+   "classCount": 402,
+   "propertyCount": 2323,
+   "entityCount": 402
+  },
+  "CIP": {
+   "elementCount": 2538,
+   "classCount": 2538,
+   "propertyCount": 0,
+   "entityCount": 50
+  },
+  "CLR": {
+   "elementCount": 209,
+   "classCount": 25,
+   "propertyCount": 184,
+   "entityCount": 25
+  },
+  "CTDL": {
+   "elementCount": 513,
+   "classCount": 136,
+   "propertyCount": 377,
+   "entityCount": 137
+  },
+  "CTDLASN": {
+   "elementCount": 108,
+   "classCount": 11,
+   "propertyCount": 97,
+   "entityCount": 11
+  },
+  "CTDLQData": {
+   "elementCount": 93,
+   "classCount": 11,
+   "propertyCount": 82,
+   "entityCount": 12
+  },
+  "DCTAP": {
+   "elementCount": 17,
+   "classCount": 5,
+   "propertyCount": 12,
+   "entityCount": 5
+  },
+  "EdFi": {
+   "elementCount": 1651,
+   "classCount": 201,
+   "propertyCount": 1450,
+   "entityCount": 201
+  },
+  "EduAPI": {
+   "elementCount": 353,
+   "classCount": 34,
+   "propertyCount": 319,
+   "entityCount": 34
+  },
+  "JEDx": {
+   "elementCount": 121,
+   "classCount": 5,
+   "propertyCount": 116,
+   "entityCount": 5
+  },
+  "LIF": {
+   "elementCount": 1085,
+   "classCount": 62,
+   "propertyCount": 1023,
+   "entityCount": 9
+  },
+  "MedBiquitous": {
+   "elementCount": 1505,
+   "classCount": 412,
+   "propertyCount": 1093,
+   "entityCount": 415
+  },
+  "OpenBadges": {
+   "elementCount": 193,
+   "classCount": 23,
+   "propertyCount": 170,
+   "entityCount": 23
+  },
+  "PESC": {
+   "elementCount": 1877,
+   "classCount": 273,
+   "propertyCount": 1604,
+   "entityCount": 279
+  },
+  "SEDM": {
+   "elementCount": 361,
+   "classCount": 40,
+   "propertyCount": 321,
+   "entityCount": 188
+  },
+  "SIF": {
+   "elementCount": 8951,
+   "classCount": 1049,
+   "propertyCount": 7902,
+   "entityCount": 1049
+  },
+  "SOC": {
+   "elementCount": 2005,
+   "classCount": 2004,
+   "propertyCount": 1,
+   "entityCount": 2005
+  }
+ }
+}

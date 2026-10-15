@@ -160,8 +160,14 @@ const { response } = await res.json();`;
 				query the graph directly as part of a conversation.
 			</p>
 
-			<v-alert type="info" variant="tonal" density="compact" class="mb-5">
+			<v-alert type="info" variant="tonal" density="compact" class="mb-4">
 				The MCP server is read-only. All queries are validated before execution — no data can be modified through this interface.
+			</v-alert>
+
+			<v-alert type="warning" variant="tonal" density="compact" class="mb-5">
+				<strong>Authentication required.</strong> You'll be prompted to log in to the MCP server with your
+				educore.org credentials the first time your client connects. To register a username and password,
+				email <a href="mailto:support@educore.org">support@educore.org</a>.
 			</v-alert>
 
 			<!-- MCP Server Info -->
@@ -181,6 +187,13 @@ const { response } = await res.json();`;
 							<tr>
 								<td class="font-weight-medium">Endpoint</td>
 								<td><code>/mcp</code></td>
+							</tr>
+							<tr>
+								<td class="font-weight-medium">Authentication</td>
+								<td>
+									educore.org login required &mdash; request credentials from
+									<a href="mailto:support@educore.org">support@educore.org</a>
+								</td>
 							</tr>
 							<tr>
 								<td class="font-weight-medium">Graph contents</td>
