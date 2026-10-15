@@ -1,7 +1,8 @@
 <script setup>
 // /rater/admin — Admin: raters and progress (design: Admin, practice column dropped). The raters table (survey, rated of
 // 50, finished, last active; change survey, reset password, remove); add a rater with one survey ("Add and make a
-// password": the server makes the password and shows it once); download every answer as JSON or CSV.
+// password": the server makes the password and shows it once); download every answer as JSON or CSV. Revision 4: a
+// Results button to /rater/admin/results (admin only; raters have no link to it).
 import { ref, computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
@@ -113,7 +114,10 @@ onMounted(async () => {
 					<h1 class="rt-serif rt-admin-title">Raters and progress</h1>
 					<p class="rt-admin-sub">CEDS copy in use: <b data-testid="rater-admin-gold">{{ raterStore.adminGoldenContainerName }}</b> (frozen for this round)</p>
 				</div>
-				<span class="rt-admin-sub">{{ raterStore.adminSurveyNameList.length }} surveys of 50 · {{ raterStore.adminRaterList.length }} raters · {{ savedTotal }} of {{ itemTotal }} items rated</span>
+				<div class="rt-admin-top-right">
+					<span class="rt-admin-sub">{{ raterStore.adminSurveyNameList.length }} surveys of 50 · {{ raterStore.adminRaterList.length }} raters · {{ savedTotal }} of {{ itemTotal }} items rated</span>
+					<NuxtLink to="/rater/admin/results" class="rt-button" data-testid="rater-admin-results-link">Results</NuxtLink>
+				</div>
 			</div>
 
 			<p v-if="raterStore.statusMsg" role="alert" class="rt-alert-error" data-testid="rater-admin-error">{{ raterStore.statusMsg }}</p>
@@ -214,6 +218,7 @@ onMounted(async () => {
 .rt-admin-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .rt-admin-title { margin: 0; font-size: 34px; color: #072A6C; }
 .rt-admin-sub { margin: 4px 0 0; color: #4B5563; font-size: 14px; }
+.rt-admin-top-right { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .rt-admin-issued { background: #FFF6E8; border: 1px solid #F5C77E; border-radius: 8px; padding: 10px 12px; }
 .rt-admin-issued code { font-size: 16px; background: #FFFFFF; padding: 2px 6px; border-radius: 4px; }
 .rt-admin-columns { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
