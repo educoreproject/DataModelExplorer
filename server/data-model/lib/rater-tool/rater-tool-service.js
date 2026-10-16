@@ -23,13 +23,17 @@
 // raters' anything. Payloads are built from the field whitelists below, never by passing stored records through.
 // SHUFFLES: item order = seededShuffle(survey elements, rater.raterSeedText, 'itemOrder'); card order =
 // seededShuffle(suggested cards, rater.raterSeedText, 'cards:' + elementStableId). Stable across reloads, different
-// per rater because each rater's seed is minted at random when the account is made.
+// per rater because each rater's seed is minted at random when the account is made. Revision 12: the shuffled cards are
+// then gathered by CEDS property (gatherCardsByPropertyIdentity, card-property-identity.js): a group sits where its
+// first member falls in the shuffle, its members after it in shuffled order; singletons stay where they fell. This is
+// the ONE place card order is made; the screen draws a frame around each run of two or more.
 // PREVIEW (revision 8): the preview viewer is { surveyName, raterSeedText: 'preview:<survey>' }, so its card order is a
 // seeded shuffle by survey and element: realistic, and stable across reloads. Its item order is the survey's frozen order,
 // not a shuffle, so preview item N is the admin's View items N.
 
 const { pipeRunner, taskListPlus } = new (require('qtools-asynchronous-pipe-plus'))();
 const { seededShuffle } = require('./seeded-draw');
+const { gatherCardsByPropertyIdentity } = require('./card-property-identity');
 const { validateAnswer } = require('./rater-answer-rules');
 const { makeRaterStore } = require('./rater-store');
 const cedsCards = require('./ceds-cards');
@@ -85,7 +89,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 	const suggestedCardListOf = (rater, elementStableId) => {
 		const suggestedEntry = raterToolAccess.suggestedDocument.suggestedByElementStableId[elementStableId];
 		const cardList = suggestedEntry ? suggestedEntry.cardList : [];
-		return seededShuffle(cardList.slice().sort((cardA, cardB) => (cardA.cedsTupleId < cardB.cedsTupleId ? -1 : 1)), rater.raterSeedText, `cards:${elementStableId}`);
+		return gatherCardsByPropertyIdentity(seededShuffle(cardList.slice().sort((cardA, cardB) => (cardA.cedsTupleId < cardB.cedsTupleId ? -1 : 1)), rater.raterSeedText, `cards:${elementStableId}`));
 	};
 
 	const readCurrentAnswerList = (rater, callback) => raterStore.readRows('answers', 'answersOfRater', { raterUserName: rater.raterUserName }, (readError, rowList) => (readError ? callback(readError) : callback('', rowList.map(raterMapper.answerOf))));

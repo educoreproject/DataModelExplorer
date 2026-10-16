@@ -10,6 +10,10 @@
 // Revision 10: the finder lives in a drawer from the right (RaterFinderDrawer), over the list and never over the
 // element. It opens from the two buttons above the element (the left column is what sticks, so they stay on screen),
 // from a card's class name (Browse at that class), and from the quiet line at the foot of the list (Search).
+// Revision 12: the server gathers each list's cards by CEDS property (card-property-identity.js; the rater's shuffle
+// still places each group). This screen only draws it: each run of two or more suggested cards with the same property
+// identity gets a quiet frame and a lead line ("Number of Credits Earned, in 7 classes"). Cards the rater adds stay at
+// the top, ungrouped.
 //
 // The server judges every answer (rater-answer-rules.js); the checks here only explain the rules before the round trip.
 import { ref, computed, watch, onMounted } from 'vue';
@@ -106,12 +110,39 @@ const isLocked = computed(() => !!(raterStore.progress && raterStore.progress.fi
 const familyStyle = computed(() => (item.value ? FAMILY_STYLE_BY_STANDARD[item.value.element.standard] || FAMILY_STYLE_BY_STANDARD.PESC : FAMILY_STYLE_BY_STANDARD.PESC));
 const shownCardList = computed(() => (item.value ? addedCardList.value.map((card) => ({ card, isAdded: true })).concat(item.value.cardList.map((card) => ({ card, isAdded: false }))) : []));
 const inListTupleIdList = computed(() => shownCardList.value.map((shownCard) => shownCard.card.cedsTupleId));
+// the server's propertyIdentityOf, read here only to find the runs it made: P-id plus qualifiers, the class ignored
+const propertyIdentityOf = (card) => [card.cedsId].concat(card.qualifierNameList.slice().sort()).join('|');
+// one candidate row's props: an added card (top of the list) or a suggested one
+const rowPropsOf = (card, isAdded) => ({
+	card,
+	isAdded,
+	isBest: bestChoice.value === card.cedsTupleId,
+	isSame: sameTupleIdList.value.includes(card.cedsTupleId),
+	sameDisabled: !bestIsCard.value || bestChoice.value === card.cedsTupleId,
+	readOnly: isLocked.value,
+});
+// the suggested cards as runs of one property, in the server's order: [{ cardList, leadText }] (leadText for runs of 2+)
+const suggestedCardGroupList = computed(() => {
+	if (!item.value) {
+		return [];
+	}
+	const cardGroupList = item.value.cardList.reduce((soFar, card) => {
+		const lastGroup = soFar[soFar.length - 1];
+		if (lastGroup && lastGroup.propertyIdentity === propertyIdentityOf(card)) {
+			lastGroup.cardList.push(card);
+			return soFar;
+		}
+		return soFar.concat([{ propertyIdentity: propertyIdentityOf(card), cardList: [card] }]);
+	}, []);
+	return cardGroupList.map((cardGroup) => ({ ...cardGroup, leadText: cardGroup.cardList.length > 1 ? `${propertyLabelOf(cardGroup.cardList[0])}, in ${cardGroup.cardList.length} classes` : '' }));
+});
 const cardByTupleId = computed(() => shownCardList.value.reduce((soFar, shownCard) => ({ ...soFar, [shownCard.card.cedsTupleId]: shownCard.card }), {}));
 const bestIsCard = computed(() => bestChoice.value !== null && bestChoice.value !== NO_MATCH_CHOICE && bestChoice.value !== UNSURE_CHOICE);
 const progressPercent = computed(() => (raterStore.progress ? Math.round((100 * raterStore.progress.savedCount) / raterStore.progress.itemCount) : 0));
 const allSaved = computed(() => raterStore.progress && raterStore.progress.savedCount === raterStore.progress.itemCount);
 
-const labelOf = (card) => `${card.className} → ${card.propertyName}${card.qualifierNameList.length ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
+const propertyLabelOf = (card) => `${card.propertyName}${card.qualifierNameList.length ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
+const labelOf = (card) => `${card.className} → ${propertyLabelOf(card)}`;
 
 const summaryText = computed(() => {
 	if (bestChoice.value === NO_MATCH_CHOICE) {
@@ -307,18 +338,33 @@ onMounted(loadCurrentItem);
 
 							<div role="radiogroup" aria-label="Best match" class="rt-cand-list" data-testid="rater-candidate-list">
 								<RaterCandidateRow
-									v-for="shownCard in shownCardList"
-									:key="shownCard.card.cedsTupleId"
-									:card="shownCard.card"
-									:is-added="shownCard.isAdded"
-									:is-best="bestChoice === shownCard.card.cedsTupleId"
-									:is-same="sameTupleIdList.includes(shownCard.card.cedsTupleId)"
-									:same-disabled="!bestIsCard || bestChoice === shownCard.card.cedsTupleId"
-									:read-only="isLocked"
-									@pick-best="pickBest(shownCard.card.cedsTupleId)"
+									v-for="addedCard in addedCardList"
+									:key="addedCard.cedsTupleId"
+									v-bind="rowPropsOf(addedCard, true)"
+									@pick-best="pickBest(addedCard.cedsTupleId)"
 									@toggle-same="toggleSame"
 									@browse-class="browseClassOfCard"
 								/>
+								<template v-for="cardGroup in suggestedCardGroupList" :key="cardGroup.propertyIdentity">
+									<div v-if="cardGroup.leadText" role="group" :aria-label="cardGroup.leadText" class="rt-prop-group" data-testid="rater-property-group" :data-member-count="cardGroup.cardList.length">
+										<p class="rt-prop-group-lead" data-testid="rater-property-group-lead">{{ cardGroup.leadText }}</p>
+										<RaterCandidateRow
+											v-for="card in cardGroup.cardList"
+											:key="card.cedsTupleId"
+											v-bind="rowPropsOf(card, false)"
+											@pick-best="pickBest(card.cedsTupleId)"
+											@toggle-same="toggleSame"
+											@browse-class="browseClassOfCard"
+										/>
+									</div>
+									<RaterCandidateRow
+										v-else
+										v-bind="rowPropsOf(cardGroup.cardList[0], false)"
+										@pick-best="pickBest(cardGroup.cardList[0].cedsTupleId)"
+										@toggle-same="toggleSame"
+										@browse-class="browseClassOfCard"
+									/>
+								</template>
 
 								<div class="rt-other-divider">
 									<span></span><span></span>
@@ -402,6 +448,11 @@ onMounted(loadCurrentItem);
 .rt-center { text-align: center; }
 .rt-cand-columns-card { padding-left: 4px; }
 .rt-cand-list { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
+/* revision 12: a property in several classes, framed quietly around its cards (not the Best / Same columns) */
+.rt-prop-group { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 8px; }
+.rt-prop-group::before { content: ''; position: absolute; top: 0; bottom: 0; left: 104px; right: -8px; border: 1px solid #D5DCE8; border-radius: 12px; background: #F6F8FC; pointer-events: none; }
+.rt-prop-group > * { position: relative; }
+.rt-prop-group-lead { margin: 0; padding-left: 116px; font-size: 13px; line-height: 1.35; color: #4B5563; }
 .rt-other-divider { display: grid; grid-template-columns: 56px 56px minmax(0, 1fr); margin-top: 8px; padding-top: 10px; border-top: 1px solid #E3E7EF; }
 .rt-other-divider-text { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4B5563; }
 .rt-other-row { display: grid; grid-template-columns: 56px 56px minmax(0, 1fr); align-items: stretch; }
