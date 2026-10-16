@@ -12,6 +12,14 @@
 //   - a card not in the target's suggested list was added by a rater (Search or Browse): isAdded
 // Never in the result: rater names, notes, history, foundBy or method, the gold, isMappedInGold, AI answers.
 //
+// Revision 13 (WORKORDER-RATER13): agreement by property as well as by card, admin only. Per target:
+//   sameCardCount      how many of the answering raters chose the most-chosen Best answer (a card, No match or Unsure)
+//   samePropertyCount  the same, with every card of one CEDS property and qualifiers counted as one answer, whatever its
+//                      class: the property identity is the card's cedsId (the P-id) plus its sorted qualifierNameList
+//   distinctBestPropertyCount  distinct Best answers by property (distinctBestCount stays by card)
+// No match agrees with No match, and Unsure with Unsure, at both levels. Same ticks do not enter either figure. A target
+// with no answers has null figures. A chosen card with no cedsId is refused by name, never scored under some other identity.
+//
 //   buildRaterResults({ elementList, suggestedDocument, raterList, answerList }) -> { targetList } | { problemText }
 //     problemText names every stored answer that cannot be read (a card neither suggested nor added, an unknown answer
 //     kind) and every target without a suggested list; such an answer is never quietly dropped from the counts
@@ -25,7 +33,7 @@ const NON_CARD_ROW_BY_KIND = Object.freeze({
 	unsure: { rowKind: 'unsure', candidateTitle: 'Unsure' },
 });
 
-const RESULTS_CSV_COLUMN_LIST = Object.freeze(['standard', 'survey', 'targetStableId', 'targetName', 'answered', 'assigned', 'candidateTupleId', 'candidateTitle', 'added', 'best', 'same']);
+const RESULTS_CSV_COLUMN_LIST = Object.freeze(['standard', 'survey', 'targetStableId', 'targetName', 'answered', 'assigned', 'candidateTupleId', 'candidateTitle', 'added', 'best', 'same', 'sameCard', 'sameProperty']);
 
 const byText = (textA, textB) => (textA < textB ? -1 : textA > textB ? 1 : 0);
 
@@ -33,6 +41,18 @@ const byText = (textA, textB) => (textA < textB ? -1 : textA > textB ? 1 : 0);
 const candidateTitleOf = (card) => `${card.className} → ${card.propertyName}${card.qualifierNameList && card.qualifierNameList.length > 0 ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
 
 const targetNameOf = (element) => (element.ownerName ? `${element.ownerName}/${element.name}` : element.name);
+
+// the CEDS property plus its qualifiers, ignoring the class (revision 12 groups a rater's list by the same identity)
+const propertyIdentityOf = (card) => JSON.stringify([card.cedsId, card.qualifierNameList.slice().sort()]);
+
+// how many answers share the most common identity in the list; null when there are no answers
+const topAgreementCountOf = (identityList) => {
+	if (identityList.length === 0) {
+		return null;
+	}
+	const countByIdentity = identityList.reduce((soFar, identityText) => ({ ...soFar, [identityText]: (soFar[identityText] || 0) + 1 }), {});
+	return Math.max(...Object.values(countByIdentity));
+};
 
 const buildRaterResults = ({ elementList, suggestedDocument, raterList, answerList }) => {
 	const problemList = [];
@@ -47,9 +67,12 @@ const buildRaterResults = ({ elementList, suggestedDocument, raterList, answerLi
 		const suggestedCardList = suggestedEntry ? suggestedEntry.cardList : [];
 		const suggestedTupleIdSet = new Set(suggestedCardList.reduce((soFar, card) => soFar.concat(card.cedsTupleIdList || [card.cedsTupleId]), []));
 		const rowByIdentity = {};
+		const bestCardIdentityList = [];
+		const bestPropertyIdentityList = [];
+		const cardOf = (cedsTupleId, answer) => suggestedCardList.find((suggestedCard) => suggestedCard.cedsTupleId === cedsTupleId) || answer.addedCardList.find((addedCard) => addedCard.cedsTupleId === cedsTupleId);
 		const cardRowOf = (cedsTupleId, answer) => {
 			if (!rowByIdentity[cedsTupleId]) {
-				const card = suggestedCardList.find((suggestedCard) => suggestedCard.cedsTupleId === cedsTupleId) || answer.addedCardList.find((addedCard) => addedCard.cedsTupleId === cedsTupleId);
+				const card = cardOf(cedsTupleId, answer);
 				if (!card) {
 					problemList.push(`an answer for ${element.elementStableId} names card ${cedsTupleId}, which is neither suggested nor in the rater's added cards`);
 					return { bestCount: 0, sameCount: 0 };
@@ -61,6 +84,12 @@ const buildRaterResults = ({ elementList, suggestedDocument, raterList, answerLi
 		targetAnswerList.forEach(({ answer }) => {
 			if (answer.answerKind === 'cards') {
 				cardRowOf(answer.bestCedsTupleId, answer).bestCount += 1;
+				const bestCard = cardOf(answer.bestCedsTupleId, answer);
+				if (bestCard && !bestCard.cedsId) {
+					problemList.push(`an answer for ${element.elementStableId} chose card ${answer.bestCedsTupleId}, which has no CEDS property id, so it cannot be scored by property`);
+				}
+				bestCardIdentityList.push(answer.bestCedsTupleId);
+				bestPropertyIdentityList.push(bestCard && bestCard.cedsId ? propertyIdentityOf(bestCard) : null);
 				answer.sameCedsTupleIdList.forEach((cedsTupleId) => {
 					cardRowOf(cedsTupleId, answer).sameCount += 1;
 				});
@@ -75,6 +104,8 @@ const buildRaterResults = ({ elementList, suggestedDocument, raterList, answerLi
 				rowByIdentity[answer.answerKind] = { ...nonCardRow, cedsTupleId: null, isAdded: false, bestCount: 0, sameCount: null };
 			}
 			rowByIdentity[answer.answerKind].bestCount += 1;
+			bestCardIdentityList.push(answer.answerKind);
+			bestPropertyIdentityList.push(answer.answerKind);
 		});
 		const rowList = Object.values(rowByIdentity).sort(
 			(rowA, rowB) => rowB.bestCount - rowA.bestCount || (rowB.sameCount === null ? -1 : rowB.sameCount) - (rowA.sameCount === null ? -1 : rowA.sameCount) || byText(rowA.candidateTitle, rowB.candidateTitle) || byText(rowA.cedsTupleId || '', rowB.cedsTupleId || ''),
@@ -89,6 +120,9 @@ const buildRaterResults = ({ elementList, suggestedDocument, raterList, answerLi
 			answeredCount: targetAnswerList.length,
 			assignedCount: assignedRaterNameList.length,
 			distinctBestCount: rowList.filter((row) => row.bestCount > 0).length,
+			distinctBestPropertyCount: new Set(bestPropertyIdentityList).size,
+			sameCardCount: topAgreementCountOf(bestCardIdentityList),
+			samePropertyCount: topAgreementCountOf(bestPropertyIdentityList),
 			rowList,
 		};
 	});
@@ -108,10 +142,11 @@ const csvCellOf = (cellValue) => {
 const resultsCsvTextOf = (targetList) => {
 	const lineList = targetList.reduce((soFar, target) => {
 		const targetCellList = [target.standard, target.surveyName, target.targetStableId, target.targetName, target.answeredCount, target.assignedCount];
+		const agreementCellList = [target.sameCardCount, target.samePropertyCount];
 		if (target.rowList.length === 0) {
-			return soFar.concat([[...targetCellList, '', '', '', '', ''].map(csvCellOf).join(',')]);
+			return soFar.concat([[...targetCellList, '', '', '', '', '', ...agreementCellList].map(csvCellOf).join(',')]);
 		}
-		return soFar.concat(target.rowList.map((row) => [...targetCellList, row.cedsTupleId, row.candidateTitle, row.isAdded ? 'added' : '', row.bestCount, row.sameCount].map(csvCellOf).join(',')));
+		return soFar.concat(target.rowList.map((row) => [...targetCellList, row.cedsTupleId, row.candidateTitle, row.isAdded ? 'added' : '', row.bestCount, row.sameCount, ...agreementCellList].map(csvCellOf).join(',')));
 	}, []);
 	return [RESULTS_CSV_COLUMN_LIST.join(','), ...lineList].join('\n') + '\n';
 };

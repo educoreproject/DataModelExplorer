@@ -9,6 +9,11 @@
 //        never the results
 // Revision 6: Results is a view of the CEDS Rater tab of /admin (/admin?tool=ceds-rater&view=results), opened by the
 // Results button and left by Back to raters; an admin signing in at /rater lands in the tab.
+// Revision 13 (WORKORDER-RATER13), agreement by property as well as by card:
+//   B13.1 the two raters choose cards of one CEDS property in different classes on a second target; after a reload its
+//         block shows Same card 1 of 2 and Same property 2 of 2, still marked split (card level is the default); the
+//         split target (a card against No match) shows 1 of 2 at both levels; the column heads and the property count
+//   B13.2 the summary CSV carries sameCard and sameProperty on every line of both targets
 // With --cleanup=yes it removes both raters afterwards.
 //
 //   node html/tests/rater/raterResults.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file holding it>
@@ -134,7 +139,7 @@ try {
 	const csvPath = path.join(argumentByName.evidenceDir, download.suggestedFilename());
 	await download.saveAs(csvPath);
 	const csvText = fs.readFileSync(csvPath, 'utf8');
-	check('the summary CSV downloads with its header and the split target\'s rows', /^cedsRaterResults-.*\.csv$/.test(download.suggestedFilename()) && csvText.startsWith('standard,survey,targetStableId,targetName,answered,assigned,candidateTupleId,candidateTitle,added,best,same\n') && csvText.split('\n').filter((lineText) => lineText.includes(splitStableId)).length === 3, download.suggestedFilename());
+	check('the summary CSV downloads with its header and the split target\'s rows', /^cedsRaterResults-.*\.csv$/.test(download.suggestedFilename()) && csvText.startsWith('standard,survey,targetStableId,targetName,answered,assigned,candidateTupleId,candidateTitle,added,best,same,sameCard,sameProperty\n') && csvText.split('\n').filter((lineText) => lineText.includes(splitStableId)).length === 3, download.suggestedFilename());
 	check('no rater name in the CSV', !csvText.includes(argumentByName.raterPrefix));
 	fs.rmSync(csvPath);
 
@@ -155,6 +160,60 @@ try {
 	check('a rater token asking the results API is refused', raterApiResponse.statusCode === 401, `${raterApiResponse.statusCode}`);
 	await raterContext.close();
 
+	// ---------------------------------------------------------------- B13.1 Same card and Same property
+	console.log('B13.1 agreement by card and by property');
+	const propertyIdentityOf = (card) => JSON.stringify([card.cedsId, card.qualifierNameList.slice().sort()]);
+	let propertyPair = null;
+	for (let itemNumber = 2; itemNumber <= 50 && !propertyPair; itemNumber++) {
+		const item = (await apiPost('raterItemGet', { itemNumber }, tokenList[0])).bodyJson[0];
+		const pairCard = item.cardList.find((cardA) => item.cardList.some((cardB) => cardB.classCedsId !== cardA.classCedsId && propertyIdentityOf(cardB) === propertyIdentityOf(cardA)));
+		if (pairCard) {
+			const otherCard = item.cardList.find((cardB) => cardB.classCedsId !== pairCard.classCedsId && propertyIdentityOf(cardB) === propertyIdentityOf(pairCard));
+			propertyPair = { elementStableId: item.element.elementStableId, cardList: [pairCard, otherCard] };
+		}
+	}
+	check('a target whose list holds one CEDS property in two classes', !!propertyPair);
+	const pairSaveCodeList = [
+		(await apiPost('raterAnswerSave', { elementStableId: propertyPair.elementStableId, answerKind: 'cards', bestCedsTupleId: propertyPair.cardList[0].cedsTupleId }, tokenList[0])).statusCode,
+		(await apiPost('raterAnswerSave', { elementStableId: propertyPair.elementStableId, answerKind: 'cards', bestCedsTupleId: propertyPair.cardList[1].cedsTupleId }, tokenList[1])).statusCode,
+	];
+	check(`the raters choose ${propertyPair.cardList[0].className} and ${propertyPair.cardList[1].className} → ${propertyPair.cardList[0].propertyName}`, pairSaveCodeList.every((statusCode) => statusCode === 200), JSON.stringify(pairSaveCodeList));
+	await page.click('[data-testid="rater-results-back"]');
+	await page.click('[data-testid="rater-admin-results-link"]');
+	await page.waitForSelector(`[data-testid="rater-results-target"][data-target-stable-id="${propertyPair.elementStableId}"] [data-testid="rater-results-same-property"]`, { timeout: 20000 });
+	const agreementTextOf = async (targetStableId) => {
+		const block = page.locator(`[data-testid="rater-results-target"][data-target-stable-id="${targetStableId}"]`);
+		return [(await block.locator('[data-testid="rater-results-same-card"]').innerText()).trim(), (await block.locator('[data-testid="rater-results-same-property"]').innerText()).trim(), await block.locator('[data-testid="rater-results-split"]').count()];
+	};
+	const pairAgreement = await agreementTextOf(propertyPair.elementStableId);
+	check('the same property in two classes: Same card 1 of 2, Same property 2 of 2, still marked split', JSON.stringify(pairAgreement) === '["1 of 2","2 of 2",1]', JSON.stringify(pairAgreement));
+	const splitAgreement = await agreementTextOf(splitStableId);
+	check('a card against No match: 1 of 2 at both levels', JSON.stringify(splitAgreement) === '["1 of 2","1 of 2",1]', JSON.stringify(splitAgreement));
+	const headTextList = await page.$$eval('[data-testid="rater-results-table"] thead th', (cellList) => cellList.map((cell) => cell.textContent.trim()));
+	check('the column heads say Same card and Same property, beside Answered', JSON.stringify(headTextList) === '["Target","Answered","Same card","Same property","Chosen","Best","Same"]', JSON.stringify(headTextList));
+	const cardCountText = await page.locator('[data-testid="rater-results-count"]').innerText();
+	const propertyCountText = await page.locator('[data-testid="rater-results-count-property"]').innerText();
+	// other answers may be in the store; the pair target is split by card and not by property, so the property count is
+	// at least one below the card count whatever else is there
+	const cardSplitCount = Number((cardCountText.match(/^150 targets · (\d+) with more than one Best answer$/) || [])[1]);
+	const propertySplitCount = Number((propertyCountText.trim().match(/^· (\d+) with more than one Best property$/) || [])[1]);
+	check('the counts: split by card, and by property (at least one fewer)', cardSplitCount >= 2 && propertySplitCount <= cardSplitCount - 1, `${cardCountText} | ${propertyCountText}`);
+	const disagreementOrderList = await shownTargetIdList(page);
+	check('Disagreement first is still by card: both split targets among the card splits on top', [splitStableId, propertyPair.elementStableId].every((targetStableId) => disagreementOrderList.indexOf(targetStableId) !== -1 && disagreementOrderList.indexOf(targetStableId) < cardSplitCount), JSON.stringify([disagreementOrderList.indexOf(splitStableId), disagreementOrderList.indexOf(propertyPair.elementStableId), cardSplitCount]));
+	await page.locator(`[data-testid="rater-results-target"][data-target-stable-id="${propertyPair.elementStableId}"]`).scrollIntoViewIfNeeded();
+	await page.screenshot({ path: shotPath('52-results-same-property') });
+
+	// ---------------------------------------------------------------- B13.2 the CSV carries both
+	console.log('B13.2 summary CSV, both levels');
+	const [agreementDownload] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('[data-testid="rater-results-download"]')]);
+	const agreementCsvPath = path.join(argumentByName.evidenceDir, agreementDownload.suggestedFilename());
+	await agreementDownload.saveAs(agreementCsvPath);
+	const agreementCsvLineList = fs.readFileSync(agreementCsvPath, 'utf8').split('\n');
+	const pairLineList = agreementCsvLineList.filter((lineText) => lineText.includes(propertyPair.elementStableId));
+	const splitLineList = agreementCsvLineList.filter((lineText) => lineText.includes(splitStableId));
+	check('the pair target\'s lines end ,1,2 (Same card, Same property); the split target\'s end ,1,1', pairLineList.length === 2 && pairLineList.every((lineText) => lineText.endsWith(',1,2')) && splitLineList.length === 3 && splitLineList.every((lineText) => lineText.endsWith(',1,1')), JSON.stringify([pairLineList, splitLineList]).slice(0, 400));
+	fs.rmSync(agreementCsvPath);
+
 	if (argumentByName.cleanup === 'yes') {
 		for (const raterUserName of raterNameList) {
 			await apiPost('raterAdmin', { adminAction: 'remove', raterUserName }, adminToken);
@@ -169,5 +228,5 @@ try {
 	await browser.close();
 }
 
-console.log(`\n=== raterResults (revision 4 browser) — Results: ${passCount} passed, ${failCount} failed ===`);
+console.log(`\n=== raterResults (revisions 4 and 13 browser) — Results: ${passCount} passed, ${failCount} failed ===`);
 process.exit(failCount === 0 ? 0 : 1);

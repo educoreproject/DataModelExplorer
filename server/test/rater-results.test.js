@@ -9,6 +9,12 @@
 //        one in-progress rater (both count), an answer edited three times (only the current one counts)
 //   R4.3 access: a rater token and an anonymous call are refused
 //   R4.4 forbidden content: no rater name, who-text, note, history, foundBy, gold or mapping field in the payload or CSV
+// Revision 13 (WORKORDER-RATER13): agreement by property as well as by card, admin only
+//   R13.1 pure fixture: same card (agrees at both levels); same property in a different class (card no, property yes);
+//         different property, and same property with other qualifiers (neither); No match with No match (both); a
+//         card with no CEDS property id is refused by name; the R4.1 figures above are unchanged
+//   R13.2 through the server: every target's property figures are at least its card figures; the summary CSV carries
+//         both columns; a rater's item payload has exactly the card fields it had before
 //
 //   /usr/local/bin/node server/test/rater-results.test.js
 
@@ -37,7 +43,7 @@ const check = (testName, condition, detailText) => {
 
 // ---------------------------------------------------------------- R4.1 pure fixture
 console.log('R4.1 aggregation on a fixture (pure)');
-const fixtureCardOf = (cedsTupleId, className, propertyName, qualifierNameList) => ({ cedsTupleId, cedsTupleIdList: [cedsTupleId], className, propertyName, qualifierNameList });
+const fixtureCardOf = (cedsTupleId, className, propertyName, qualifierNameList, cedsId) => ({ cedsTupleId, cedsTupleIdList: [cedsTupleId], className, propertyName, qualifierNameList, cedsId });
 const fixtureElementList = [
 	{ elementStableId: 'E1', standard: 'SIF', surveyName: 'A', ownerName: 'StaffPersonal', name: 'BargainingUnit' },
 	{ elementStableId: 'E2', standard: 'Ed-Fi', surveyName: 'A', ownerName: 'Student', name: 'BirthDate' },
@@ -45,8 +51,8 @@ const fixtureElementList = [
 ];
 const fixtureSuggestedDocument = {
 	suggestedByElementStableId: {
-		E1: { cardList: [fixtureCardOf('t1', 'Employment', 'Union Membership Name', []), fixtureCardOf('t2', 'Staff Evaluation', 'Score, "or" Rating', []), fixtureCardOf('t3', 'Person Identification', 'Person Identifier', ['Staff Member Identifier'])] },
-		E2: { cardList: [fixtureCardOf('t4', 'Person', 'Birthdate', [])] },
+		E1: { cardList: [fixtureCardOf('t1', 'Employment', 'Union Membership Name', [], 'P1001'), fixtureCardOf('t2', 'Staff Evaluation', 'Score, "or" Rating', [], 'P1002'), fixtureCardOf('t3', 'Person Identification', 'Person Identifier', ['Staff Member Identifier'], 'P1003')] },
+		E2: { cardList: [fixtureCardOf('t4', 'Person', 'Birthdate', [], 'P1004')] },
 		E3: { cardList: [] },
 	},
 };
@@ -57,7 +63,7 @@ const fixtureAnswerList = [
 	{ raterUserName: 'rb', elementStableId: 'E1', answer: cardsAnswer('t1', ['t2']) },
 	{ raterUserName: 'rc', elementStableId: 'E1', answer: { answerKind: 'noMatch', bestCedsTupleId: null, sameCedsTupleIdList: [], addedCardList: [], note: '' } },
 	{ raterUserName: 'moved', elementStableId: 'E1', answer: cardsAnswer('t3', []) },
-	{ raterUserName: 'ra', elementStableId: 'E2', answer: cardsAnswer('x9', [], [{ cedsTupleId: 'x9', className: 'Person', propertyName: 'Birth Place', qualifierNameList: [], foundBy: 'search' }]) },
+	{ raterUserName: 'ra', elementStableId: 'E2', answer: cardsAnswer('x9', [], [{ cedsTupleId: 'x9', className: 'Person', propertyName: 'Birth Place', qualifierNameList: [], cedsId: 'P1009', foundBy: 'search' }]) },
 	{ raterUserName: 'rb', elementStableId: 'E2', answer: { answerKind: 'unsure', bestCedsTupleId: null, sameCedsTupleIdList: [], addedCardList: [], note: 'not sure' } },
 ];
 const fixtureResults = buildRaterResults({ elementList: fixtureElementList, suggestedDocument: fixtureSuggestedDocument, raterList: fixtureRaterList, answerList: fixtureAnswerList });
@@ -71,13 +77,13 @@ const e3 = fixtureTargetByStableId.E3 || { rowList: [] };
 check('E3 (survey B, only the moved rater): listed with no rows, 0 of 1', e3.answeredCount === 0 && e3.assignedCount === 1 && e3.rowList.length === 0, JSON.stringify(e3));
 check('default order: the disagreement (E2: two distinct Best answers; E1 also two) first by label, then the rest', JSON.stringify(fixtureResults.targetList.map((target) => target.targetStableId)) === JSON.stringify(['E2', 'E1', 'E3']), JSON.stringify(fixtureResults.targetList.map((target) => [target.targetLabel, target.distinctBestCount])));
 const expectedCsvText = [
-	'standard,survey,targetStableId,targetName,answered,assigned,candidateTupleId,candidateTitle,added,best,same',
-	'Ed-Fi,A,E2,Student/BirthDate,2,3,x9,Person → Birth Place,added,1,0',
-	'Ed-Fi,A,E2,Student/BirthDate,2,3,,Unsure,,1,',
-	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,t1,Employment → Union Membership Name,,2,0',
-	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,,No match in CEDS,,1,',
-	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,t2,"Staff Evaluation → Score, ""or"" Rating",,0,2',
-	'PESC,B,E3,Lonely,0,1,,,,,',
+	'standard,survey,targetStableId,targetName,answered,assigned,candidateTupleId,candidateTitle,added,best,same,sameCard,sameProperty',
+	'Ed-Fi,A,E2,Student/BirthDate,2,3,x9,Person → Birth Place,added,1,0,1,1',
+	'Ed-Fi,A,E2,Student/BirthDate,2,3,,Unsure,,1,,1,1',
+	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,t1,Employment → Union Membership Name,,2,0,2,2',
+	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,,No match in CEDS,,1,,2,2',
+	'SIF,A,E1,StaffPersonal/BargainingUnit,3,3,t2,"Staff Evaluation → Score, ""or"" Rating",,0,2,2,2',
+	'PESC,B,E3,Lonely,0,1,,,,,,,',
 	'',
 ].join('\n');
 const fixtureCsvText = fixtureResults.targetList ? resultsCsvTextOf(fixtureResults.targetList) : '';
@@ -87,6 +93,48 @@ const unreadable = buildRaterResults({ elementList: fixtureElementList, suggeste
 const noSuggestedEntry = buildRaterResults({ elementList: fixtureElementList.concat([{ elementStableId: 'E4', standard: 'SIF', surveyName: 'A', ownerName: 'X', name: 'Y' }]), suggestedDocument: fixtureSuggestedDocument, raterList: fixtureRaterList, answerList: [] });
 check('a target with no suggested list in suggested.json is refused by name (its cards would all read as added)', !noSuggestedEntry.targetList && /E4/.test(noSuggestedEntry.problemText || ''), JSON.stringify(noSuggestedEntry).slice(0, 160));
 check('an answer naming a card that is neither suggested nor added is refused by name, not dropped', !unreadable.targetList && /cannot be counted/.test(unreadable.problemText || ''), JSON.stringify(unreadable).slice(0, 200));
+
+// ---------------------------------------------------------------- R13.1 property-level agreement, pure fixture
+console.log('R13.1 agreement by card and by property (pure)');
+const propertyElementList = ['F1', 'F2', 'F3', 'F4'].map((elementStableId) => ({ elementStableId, standard: 'SIF', surveyName: 'A', ownerName: 'Owner', name: elementStableId }));
+// P2001 in two classes, and again with a qualifier; P2002 a different property
+const propertyCardList = [fixtureCardOf('k1', 'Course Section', 'Number of Credits Earned', [], 'P2001'), fixtureCardOf('k2', 'Student Course Section', 'Number of Credits Earned', [], 'P2001'), fixtureCardOf('k3', 'Course Section', 'Number of Credits Earned', ['Transfer'], 'P2001'), fixtureCardOf('k4', 'Course Section', 'Credit Value', [], 'P2002')];
+const propertySuggestedDocument = { suggestedByElementStableId: propertyElementList.reduce((soFar, element) => ({ ...soFar, [element.elementStableId]: { cardList: propertyCardList } }), {}) };
+const noMatchAnswer = { answerKind: 'noMatch', bestCedsTupleId: null, sameCedsTupleIdList: [], addedCardList: [], note: '' };
+const propertyAnswerList = [
+	// F1 same card: both k1
+	{ raterUserName: 'ra', elementStableId: 'F1', answer: cardsAnswer('k1', []) },
+	{ raterUserName: 'rb', elementStableId: 'F1', answer: cardsAnswer('k1', ['k4']) },
+	// F2 same property, different class: k1 and k2
+	{ raterUserName: 'ra', elementStableId: 'F2', answer: cardsAnswer('k1', []) },
+	{ raterUserName: 'rb', elementStableId: 'F2', answer: cardsAnswer('k2', []) },
+	// F3 different property (k1, k4) and the same property with another qualifier (k3): neither level agrees
+	{ raterUserName: 'ra', elementStableId: 'F3', answer: cardsAnswer('k1', []) },
+	{ raterUserName: 'rb', elementStableId: 'F3', answer: cardsAnswer('k4', []) },
+	{ raterUserName: 'rc', elementStableId: 'F3', answer: cardsAnswer('k3', []) },
+	// F4 No match with No match, and one card
+	{ raterUserName: 'ra', elementStableId: 'F4', answer: noMatchAnswer },
+	{ raterUserName: 'rb', elementStableId: 'F4', answer: noMatchAnswer },
+	{ raterUserName: 'rc', elementStableId: 'F4', answer: cardsAnswer('k2', []) },
+];
+const propertyResults = buildRaterResults({ elementList: propertyElementList, suggestedDocument: propertySuggestedDocument, raterList: fixtureRaterList, answerList: propertyAnswerList });
+const propertyTargetByStableId = (propertyResults.targetList || []).reduce((soFar, target) => ({ ...soFar, [target.targetStableId]: target }), {});
+const agreementOf = (targetStableId) => {
+	const target = propertyTargetByStableId[targetStableId] || {};
+	return [target.answeredCount, target.sameCardCount, target.samePropertyCount, target.distinctBestCount, target.distinctBestPropertyCount];
+};
+check('F1 same card: agrees at both levels (Same card 2 of 2, Same property 2 of 2)', JSON.stringify(agreementOf('F1')) === '[2,2,2,1,1]', JSON.stringify(agreementOf('F1')));
+check('F2 same property, different class: Same card 1 of 2, Same property 2 of 2', JSON.stringify(agreementOf('F2')) === '[2,1,2,2,1]', JSON.stringify(agreementOf('F2')));
+check('F3 different property, and other qualifiers: Same card 1 of 3, Same property 1 of 3', JSON.stringify(agreementOf('F3')) === '[3,1,1,3,3]', JSON.stringify(agreementOf('F3')));
+check('F4 No match agrees with No match at both levels: 2 of 3, 2 of 3', JSON.stringify(agreementOf('F4')) === '[3,2,2,2,2]', JSON.stringify(agreementOf('F4')));
+check('the card rows are untouched by the property figures (F2: k1 Best 1, k2 Best 1)', JSON.stringify(((propertyTargetByStableId.F2 || {}).rowList || []).map((row) => [row.cedsTupleId, row.bestCount])) === '[["k1",1],["k2",1]]', JSON.stringify((propertyTargetByStableId.F2 || {}).rowList));
+check('the default order is still by card agreement (F2, F3, F4 split by card first; F1 last)', JSON.stringify((propertyResults.targetList || []).map((target) => target.targetStableId)) === '["F2","F3","F4","F1"]', JSON.stringify((propertyResults.targetList || []).map((target) => target.targetStableId)));
+const unansweredTarget = (fixtureResults.targetList || []).find((target) => target.targetStableId === 'E3') || {};
+check('an unanswered target has no agreement figures (null), not a quiet zero', unansweredTarget.sameCardCount === null && unansweredTarget.samePropertyCount === null, JSON.stringify(unansweredTarget));
+const noPropertyIdResults = buildRaterResults({ elementList: propertyElementList.slice(0, 1), suggestedDocument: { suggestedByElementStableId: { F1: { cardList: [{ ...propertyCardList[0], cedsId: null }] } } }, raterList: fixtureRaterList, answerList: propertyAnswerList.slice(0, 1) });
+check('a chosen card with no CEDS property id is refused by name, never scored', !noPropertyIdResults.targetList && /no CEDS property id/.test(noPropertyIdResults.problemText || ''), JSON.stringify(noPropertyIdResults).slice(0, 200));
+const propertyCsvLineList = propertyResults.targetList ? resultsCsvTextOf(propertyResults.targetList).split('\n') : [];
+check('the summary CSV carries both columns (F2 lines end ,1,2)', propertyCsvLineList[0].endsWith(',best,same,sameCard,sameProperty') && propertyCsvLineList.filter((lineText) => lineText.includes(',F2,')).every((lineText) => lineText.endsWith(',1,2')) && propertyCsvLineList.filter((lineText) => lineText.includes(',F2,')).length === 2, propertyCsvLineList.slice(0, 3).join(' | '));
 
 // ---------------------------------------------------------------- R4.2–R4.4 through the real server
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'raterResultsTest-'));
@@ -147,8 +195,9 @@ const serverStepList = [
 	postStep(() => '/api/raterAdmin', () => ({ adminAction: 'results' }), (state) => state.adminToken, 'badFormatResponse', false),
 	postStep(() => '/api/raterAdmin', () => ({ adminAction: 'results', resultsFormat: 'json' }), (state) => state.tokenByRater['res-a'], 'raterResponse', false),
 	postStep(() => '/api/raterAdmin', () => ({ adminAction: 'results', resultsFormat: 'json' }), () => null, 'anonymousResponse', false),
+	postStep(() => '/api/raterItemGet', () => ({ itemNumber: 1 }), (state) => state.tokenByRater['res-d'], 'raterItemResponse', false),
 	(state, next) => {
-		const { t1, t2, t3, c1, c2, c3, addedCard, cardListOf, resultsResponse, csvResponse, badFormatResponse, raterResponse, anonymousResponse } = state;
+		const { t1, t2, t3, c1, c2, c3, addedCard, cardListOf, resultsResponse, csvResponse, badFormatResponse, raterResponse, anonymousResponse, raterItemResponse } = state;
 		console.log('R4.2 aggregation through the server');
 		const targetList = ((resultsResponse.bodyJson || [{}])[0] || {}).targetList || [];
 		const targetOf = (element) => targetList.find((target) => target.targetStableId === element.elementStableId) || { rowList: [] };
@@ -184,6 +233,18 @@ const serverStepList = [
 		const everyText = resultsResponse.bodyText + (csvAnswer.contentText || '');
 		const forbiddenFoundList = [...Object.keys(RATER_PASSWORD_BY_NAME), WHO_TEXT, NOTE_TEXT, 'test-admin', 'foundBy', 'history', 'goldTupleIdList', 'goldInjectedTupleIdList', 'isMappedInGold', 'memberStableIdList', 'splitHalf', 'raterSeed', 'search'].filter((forbiddenText) => everyText.includes(forbiddenText));
 		check('no rater name, who-text, note, history, foundBy, gold, mapping or split field in the payload or the CSV', forbiddenFoundList.length === 0, forbiddenFoundList.join(', '));
+
+		console.log('R13.2 agreement by property, through the server');
+		const answeredTargetList = targetList.filter((target) => target.answeredCount > 0);
+		check('every answered target: Same property >= Same card, and no more distinct Best properties than Best cards', answeredTargetList.length === 50 && answeredTargetList.every((target) => target.samePropertyCount >= target.sameCardCount && target.sameCardCount >= 1 && target.distinctBestPropertyCount <= target.distinctBestCount && target.samePropertyCount <= target.answeredCount), JSON.stringify(answeredTargetList.filter((target) => !(target.samePropertyCount >= target.sameCardCount)).slice(0, 2)));
+		check('t3 (one No match): Same card 1 of 1, Same property 1 of 1; unanswered targets have none', r3.sameCardCount === 1 && r3.samePropertyCount === 1 && targetList.filter((target) => target.answeredCount === 0).every((target) => target.sameCardCount === null && target.samePropertyCount === null), JSON.stringify([r3.sameCardCount, r3.samePropertyCount]));
+		const csvLineList = (csvAnswer.contentText || '').split('\n');
+		check('the summary CSV header ends with both agreement columns', csvLineList[0] === 'standard,survey,targetStableId,targetName,answered,assigned,candidateTupleId,candidateTitle,added,best,same,sameCard,sameProperty', csvLineList[0]);
+		const itemJson = ((raterItemResponse.bodyJson || [{}])[0]) || {};
+		const itemCardKeyListText = JSON.stringify(((itemJson.cardList || [{}])[0] ? Object.keys(itemJson.cardList[0]) : []).sort());
+		const RATER_CARD_KEY_LIST_BEFORE = ['cedsTupleId', 'className', 'classCedsId', 'classDefinition', 'propertyName', 'qualifierNameList', 'cedsId', 'definition', 'optionSetName', 'optionValueList', 'cedsUrl'];
+		check('a rater\'s item payload: its cards carry exactly the fields they carried before revision 13', raterItemResponse.statusCode === 200 && itemCardKeyListText === JSON.stringify(RATER_CARD_KEY_LIST_BEFORE.slice().sort()), `${raterItemResponse.statusCode} ${itemCardKeyListText}`);
+		check('a rater\'s item payload names no agreement figure', !/sameCard|sameProperty|distinctBest|propertyIdentity/.test(raterItemResponse.bodyText), raterItemResponse.bodyText.slice(0, 120));
 		next(state);
 	},
 ];
@@ -202,6 +263,6 @@ const finish = (harness) => {
 		harness.close();
 	}
 	fs.rmSync(scratchDirPath, { recursive: true, force: true });
-	console.log(`\n=== rater-results (revision 4) — Results: ${passCount} passed, ${failCount} failed ===`);
+	console.log(`\n=== rater-results (revisions 4 and 13) — Results: ${passCount} passed, ${failCount} failed ===`);
 	process.exit(failCount === 0 ? 0 : 1);
 };

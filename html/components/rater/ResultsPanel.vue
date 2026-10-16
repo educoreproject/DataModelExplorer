@@ -7,6 +7,9 @@
 // Revision 6 (WORKORDER-RATER6): moved here from the /rater/admin/results page, which now redirects; its one host is the
 // CEDS Rater tab of /admin (components/tools/ceds-rater-admin.vue), which is the guard and renders this only for a
 // main-site admin. Emits 'back' (the host returns to the raters view).
+// Revision 13 (WORKORDER-RATER13): beside each target's answered count, Same card and Same property: how many raters
+// chose the most-chosen Best answer, counted by card, then by CEDS property and qualifiers in any class (rater-results.js).
+// Card level stays the default: the split mark, the disagreement count and the Disagreement first order are by card.
 import { ref, computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
@@ -31,6 +34,8 @@ const shownTargetList = computed(() =>
 	),
 );
 const disagreementCount = computed(() => shownTargetList.value.filter((target) => target.distinctBestCount > 1).length);
+const propertyDisagreementCount = computed(() => shownTargetList.value.filter((target) => target.distinctBestPropertyCount > 1).length);
+const agreementTextOf = (agreementCount, target) => (agreementCount === null ? '–' : `${agreementCount} of ${target.answeredCount}`);
 
 const downloadSummary = async () => {
 	actionNotice.value = '';
@@ -60,6 +65,7 @@ onMounted(async () => {
 			<div>
 				<h1 class="rt-serif rt-results-title">Results</h1>
 				<p class="rt-results-sub">Every saved answer counts, finished or not; each rater's current answer only. "Same" is a count of raters, nothing more.</p>
+				<p class="rt-results-sub" data-testid="rater-results-agreement-note">"Same card": how many raters chose the most-chosen Best answer. "Same property": the same, counting one CEDS property (with its qualifiers) in any class as one answer. No match agrees with No match.</p>
 			</div>
 			<button type="button" class="rt-button-quiet rt-results-back" data-testid="rater-results-back" @click="emit('back')">Back to raters</button>
 		</div>
@@ -85,7 +91,7 @@ onMounted(async () => {
 					<option v-for="(sortEntry, sortName) in SORT_BY_NAME" :key="sortName" :value="sortName">{{ sortEntry.sortLabel }}</option>
 				</select>
 			</label>
-			<span class="rt-results-count" data-testid="rater-results-count">{{ shownTargetList.length }} targets · {{ disagreementCount }} with more than one Best answer</span>
+			<span class="rt-results-count"><span data-testid="rater-results-count">{{ shownTargetList.length }} targets · {{ disagreementCount }} with more than one Best answer</span> <span data-testid="rater-results-count-property">· {{ propertyDisagreementCount }} with more than one Best property</span></span>
 			<button type="button" class="rt-button" data-testid="rater-results-download" @click="downloadSummary">Download summary CSV</button>
 		</section>
 
@@ -96,6 +102,8 @@ onMounted(async () => {
 					<tr>
 						<th scope="col">Target</th>
 						<th scope="col">Answered</th>
+						<th scope="col" class="rt-results-num">Same card</th>
+						<th scope="col" class="rt-results-num">Same property</th>
 						<th scope="col">Chosen</th>
 						<th scope="col" class="rt-results-num">Best</th>
 						<th scope="col" class="rt-results-num">Same</th>
@@ -105,6 +113,8 @@ onMounted(async () => {
 					<tr v-if="target.rowList.length === 0">
 						<th scope="row" class="rt-results-target-cell">{{ target.targetLabel }}</th>
 						<td class="rt-results-answered">{{ target.answeredCount }} of {{ target.assignedCount }}</td>
+						<td class="rt-results-num" data-testid="rater-results-same-card">–</td>
+						<td class="rt-results-num" data-testid="rater-results-same-property">–</td>
 						<td colspan="3" class="rt-results-none">No answers yet</td>
 					</tr>
 					<tr v-for="(row, rowPosition) in target.rowList" v-else :key="row.cedsTupleId || row.rowKind" data-testid="rater-results-row">
@@ -113,6 +123,8 @@ onMounted(async () => {
 							<span v-if="target.distinctBestCount > 1" class="rt-results-split" data-testid="rater-results-split">split</span>
 						</th>
 						<td v-if="rowPosition === 0" :rowspan="target.rowList.length" class="rt-results-answered" data-testid="rater-results-answered">{{ target.answeredCount }} of {{ target.assignedCount }}</td>
+						<td v-if="rowPosition === 0" :rowspan="target.rowList.length" class="rt-results-num rt-results-agreement" data-testid="rater-results-same-card">{{ agreementTextOf(target.sameCardCount, target) }}</td>
+						<td v-if="rowPosition === 0" :rowspan="target.rowList.length" class="rt-results-num rt-results-agreement" data-testid="rater-results-same-property">{{ agreementTextOf(target.samePropertyCount, target) }}</td>
 						<td :class="row.rowKind === 'card' ? 'rt-results-card' : 'rt-results-plain'">
 							{{ row.candidateTitle }}
 							<span v-if="row.isAdded" class="rt-results-added" data-testid="rater-results-added">added</span>
@@ -145,6 +157,7 @@ onMounted(async () => {
 .rt-results-card { color: #00797C; }
 .rt-results-plain { color: #374151; font-style: italic; }
 .rt-results-num, .rt-results-table th.rt-results-num { text-align: right; font-variant-numeric: tabular-nums; width: 64px; }
+.rt-results-agreement { white-space: nowrap; width: 88px; }
 .rt-results-none { color: #6B7280; }
 .rt-results-added { margin-left: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #B26A00; border: 1px solid #F5C77E; border-radius: 4px; padding: 0 4px; }
 .rt-results-split { margin-left: 6px; font-size: 11px; font-weight: 700; color: #9B1C1C; }
