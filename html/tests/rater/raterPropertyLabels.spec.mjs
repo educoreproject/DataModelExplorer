@@ -5,6 +5,8 @@
 //         italic and the label not, with no show-all control (one card's definition is blanked on the wire); cards
 //         with a definition carry no notice
 //   P11.3 a Finder search result whose property definition is empty reads the same way (one result blanked on the wire)
+//   P11.4 the Finder's Browse view (a class's properties under its banner, no Property: label) shows an empty
+//         definition as "(none in CEDS)" in italic; properties with a definition carry no notice
 //
 //   node html/tests/rater/raterPropertyLabels.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>
 //        --surveyName=B --itemNumber=45 --playwrightCorePath=… --chromePath=… --evidenceDir=…
@@ -60,7 +62,7 @@ const page = await context.newPage();
 const blankedCardByAdminAction = {};
 await page.route('**/api/raterAdmin', async (route) => {
 	const requestBody = JSON.parse(route.request().postData() || '{}') || {};
-	if (!['previewItem', 'previewSearch'].includes(requestBody.adminAction)) {
+	if (!['previewItem', 'previewSearch', 'previewBrowse'].includes(requestBody.adminAction)) {
 		await route.continue();
 		return;
 	}
@@ -135,6 +137,29 @@ try {
 	const resultLine = await readPropertyLine(resultLocator);
 	check(`the blanked result (${blankedSearchCard.className} → ${blankedSearchCard.propertyName}) reads "Property: ${ABSENT_PROPERTY_NOTICE}", italic, no control`, propertyLineIsAbsentNotice(resultLine), JSON.stringify(resultLine));
 	await resultLocator.screenshot({ path: shotPath('111-property-absent-search-result') });
+
+	// ---------------------------------------------------------------- P11.4 the same in the Finder's Browse view
+	console.log('P11.4 a Browse property with an empty definition shows the italic notice');
+	await page.keyboard.press('Escape');
+	delete blankedCardByAdminAction.previewBrowse;
+	await page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${blankedItemCard.cedsTupleId}"] [data-testid="rater-card-class"]`).click();
+	await page.locator('[data-testid="rater-browse-property"]').first().waitFor({ timeout: 20000 });
+	const blankedBrowseCard = blankedCardByAdminAction.previewBrowse;
+	check('the class answer\'s first property had its definition blanked on the wire', Boolean(blankedBrowseCard));
+	const browseRead = await page.evaluate((blankedTupleId) => Array.from(document.querySelectorAll('[data-testid="rater-browse-property"]')).map((propertyElement) => {
+		const definitionElement = propertyElement.querySelector('[data-testid="rater-browse-definition"]');
+		const noticeElement = definitionElement && definitionElement.querySelector('[data-testid="rater-card-property-absent"]');
+		return {
+			isBlanked: propertyElement.getAttribute('data-ceds-tuple-id') === blankedTupleId,
+			definitionText: definitionElement ? definitionElement.textContent.replace(/\s+/g, ' ').trim() : null,
+			noticeFontStyle: noticeElement ? getComputedStyle(noticeElement).fontStyle : null,
+		};
+	}), blankedBrowseCard.cedsTupleId);
+	const blankedBrowseRead = browseRead.find((propertyRead) => propertyRead.isBlanked);
+	check(`the blanked Browse property (${blankedBrowseCard.propertyName}) reads "${ABSENT_PROPERTY_NOTICE}" in italic`, Boolean(blankedBrowseRead) && blankedBrowseRead.definitionText === ABSENT_PROPERTY_NOTICE && blankedBrowseRead.noticeFontStyle === 'italic', JSON.stringify(blankedBrowseRead));
+	const otherBrowseNoticeList = browseRead.filter((propertyRead) => !propertyRead.isBlanked && propertyRead.noticeFontStyle !== null);
+	check(`the other ${browseRead.length - 1} Browse properties with a definition carry no notice`, browseRead.length > 1 && otherBrowseNoticeList.length === 0, JSON.stringify(otherBrowseNoticeList.slice(0, 2)));
+	await page.locator('[data-testid="rater-browse-property"]').first().screenshot({ path: shotPath('112-property-absent-browse') });
 } catch (walkError) {
 	check('the property-labels walkthrough ran to the end', false, `${walkError && walkError.message}`.split('\n')[0]);
 	await page.screenshot({ path: shotPath('119-property-labels-failure') }).catch(() => {});

@@ -6,7 +6,8 @@
 // foundBy, recorded for every added card (SPEC §5): 'search'; 'browseFromCard' when Browse was opened from a card's
 // class link (openClassFromCard, called by the page); 'browseFromConcept' when the rater walked down from a concept.
 // Search results show the card's definitions as the candidate list does (RaterCardDefinitions, class first; revision 9);
-// a class's properties under Browse keep the element definition alone, the class banner above them says the class.
+// a class's properties under Browse keep the element definition alone, the class banner above them says the class;
+// an empty one reads (none in CEDS) in italic, as on the card face (revision 11).
 // Revision 10: it lives in RaterFinderDrawer, a panel from the right, opened by the rating screen (the buttons above the
 // element, a card's class name, the foot of the list) through showSearch / showBrowse / openClassFromCard. Adding a card
 // says so here and leaves the drawer open; the card joins the top of the list behind it, marked added.
@@ -25,6 +26,8 @@ const emit = defineEmits(['add-card', 'searched']);
 
 const CEDS_ID_PATTERN = /^\s*P\d{6}\s*$/i;
 const SEARCH_MODE_LABEL_BY_NAME = Object.freeze({ words: 'by words', meaning: 'by meaning' });
+// an empty property definition under Browse reads as it does on the card face (revision 11, CardDefinitions.vue)
+const ABSENT_PROPERTY_DEFINITION_TEXT = '(none in CEDS)';
 
 const tabName = ref('search');
 const queryText = ref('');
@@ -248,10 +251,10 @@ const classIntroText = computed(() => (classListAnswer.value ? `${chosenConceptN
 				<div class="rt-class-banner"><b>{{ classAnswer.className }}</b>: {{ classAnswer.classDefinition || 'No class definition in CEDS.' }}</div>
 				<div v-if="classAnswer.cardList.length === 0" class="rt-finder-empty">This class has no properties in CEDS.</div>
 				<div class="rt-result-list">
-					<article v-for="card in classAnswer.cardList" :key="card.cedsTupleId" class="rt-result" data-testid="rater-browse-property">
+					<article v-for="card in classAnswer.cardList" :key="card.cedsTupleId" class="rt-result" data-testid="rater-browse-property" :data-ceds-tuple-id="card.cedsTupleId">
 						<div class="rt-result-text">
 							<RaterCardTitle :card="card" :class-is-button="false" />
-							<p class="rt-result-definition">{{ card.definition }}</p>
+							<p class="rt-result-definition" data-testid="rater-browse-definition"><template v-if="card.definition">{{ card.definition }}</template><i v-else data-testid="rater-card-property-absent">{{ ABSENT_PROPERTY_DEFINITION_TEXT }}</i></p>
 							<span class="rt-mono rt-result-id">{{ card.cedsId ? `CEDS ID ${card.cedsId}` : 'CEDS ID not listed' }}</span>
 						</div>
 						<button v-if="!inListSet.has(card.cedsTupleId)" type="button" class="rt-button-teal" :aria-label="`Add ${labelOf(card)} to candidates`" data-testid="rater-add-card" @click="addCard(card, resultFoundBy)">+ Add to candidates</button>
