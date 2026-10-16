@@ -14,16 +14,22 @@
 // still places each group). This screen only draws it: each run of two or more suggested cards with the same property
 // identity gets a quiet frame and a lead line ("Number of Credits Earned, in 7 classes"). Cards the rater adds stay at
 // the top, ungrouped.
+// Revision 14: the toolbar says "12 answered out of 50". Save and next on the last item goes to /rater/done, which lists
+// what is left undone. An item opened from that list is in "left undone" mode (undoneSetItemNumberList, from the URL;
+// 'rate' only): Previous and Next walk only that set, Save and next goes to the next one still unanswered, then back to
+// the list, and a "Back to the list (N left)" link shows.
 //
 // The server judges every answer (rater-answer-rules.js); the checks here only explain the rules before the round trip.
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
 // surveyName: the preview's survey (the rater's own survey comes from their account; 'rate' ignores it)
+// undoneSetItemNumberList: the items of the left-undone list, ascending, in "left undone" mode; null (or absent) otherwise
 const props = defineProps({
 	ratingModeName: { type: String, required: true },
 	itemNumber: { type: Number, required: true },
 	surveyName: { type: String, required: false },
+	undoneSetItemNumberList: { type: Array, required: false, default: null },
 });
 
 // how each host reads, moves and searches. canSave false means no write call can leave this screen.
@@ -47,6 +53,7 @@ const RATING_MODE_BY_NAME = Object.freeze({
 			return true;
 		},
 		itemRouteOf: ({ itemNumber }) => ({ path: '/rater/rate', query: { item: itemNumber } }),
+		undoneItemRouteOf: ({ itemNumber, undoneSetItemNumberList }) => ({ path: '/rater/rate', query: { item: itemNumber, set: 'undone', items: undoneSetItemNumberList.join('-') } }),
 		search: ({ raterStore, searchRequest }) => raterStore.search(searchRequest),
 		browse: ({ raterStore, browseRequest }) => raterStore.browse(browseRequest),
 	},
@@ -56,6 +63,7 @@ const RATING_MODE_BY_NAME = Object.freeze({
 		canSave: false,
 		loadItem: ({ raterStore, surveyName, itemNumber }) => raterStore.adminPreviewItem({ surveyName, itemNumber }),
 		itemRouteOf: ({ route, itemNumber }) => ({ query: { ...route.query, item: itemNumber } }),
+		undoneItemRouteOf: null,
 		search: ({ raterStore, searchRequest, surveyName }) => raterStore.adminPreviewSearch({ surveyName, ...searchRequest }),
 		browse: ({ raterStore, browseRequest }) => raterStore.adminPreviewBrowse(browseRequest),
 	},
@@ -71,6 +79,13 @@ const ratingMode = RATING_MODE_BY_NAME[props.ratingModeName];
 if (!ratingMode) {
 	throw new Error(`RaterRatingScreen: no rating mode '${props.ratingModeName}' (known: ${Object.keys(RATING_MODE_BY_NAME).join(', ')})`);
 }
+// a computed, not a constant: the page keeps this screen when the URL moves into or out of the mode
+const isUndoneMode = computed(() => {
+	if (props.undoneSetItemNumberList !== null && !ratingMode.undoneItemRouteOf) {
+		throw new Error(`RaterRatingScreen: rating mode '${props.ratingModeName}' has no "left undone" mode`);
+	}
+	return props.undoneSetItemNumberList !== null;
+});
 // what the finder calls to search and browse, in this mode
 const cardSource = Object.freeze({
 	search: (searchRequest) => ratingMode.search({ raterStore, searchRequest, surveyName: props.surveyName }),
@@ -140,6 +155,7 @@ const cardByTupleId = computed(() => shownCardList.value.reduce((soFar, shownCar
 const bestIsCard = computed(() => bestChoice.value !== null && bestChoice.value !== NO_MATCH_CHOICE && bestChoice.value !== UNSURE_CHOICE);
 const progressPercent = computed(() => (raterStore.progress ? Math.round((100 * raterStore.progress.savedCount) / raterStore.progress.itemCount) : 0));
 const allSaved = computed(() => raterStore.progress && raterStore.progress.savedCount === raterStore.progress.itemCount);
+const unsavedCount = computed(() => (raterStore.progress ? raterStore.progress.itemCount - raterStore.progress.savedCount : 0));
 
 const propertyLabelOf = (card) => `${card.propertyName}${card.qualifierNameList.length ? ` (${card.qualifierNameList.join(', ')})` : ''}`;
 const labelOf = (card) => `${card.className} → ${propertyLabelOf(card)}`;
@@ -239,11 +255,19 @@ const localRefusalText = () => {
 	return '';
 };
 
+// where Previous / Next / Save and next go: 1..N, or, in "left undone" mode, the set (Done is the list, or Finish)
+const routeToItem = (targetItemNumber) => (isUndoneMode.value ? ratingMode.undoneItemRouteOf({ itemNumber: targetItemNumber, undoneSetItemNumberList: props.undoneSetItemNumberList }) : ratingMode.itemRouteOf({ route, itemNumber: targetItemNumber }));
+const previousItemNumber = computed(() => (isUndoneMode.value ? props.undoneSetItemNumberList.filter((setItemNumber) => setItemNumber < itemNumber.value).pop() || null : itemNumber.value > 1 ? itemNumber.value - 1 : null));
+const nextSetItemNumber = computed(() => (isUndoneMode.value ? props.undoneSetItemNumberList.find((setItemNumber) => setItemNumber > itemNumber.value) || null : null));
+
 const nextRoute = (progress) => {
-	if (progress.nextUnratedItemNumber === null) {
-		return itemNumber.value < progress.itemCount ? ratingMode.itemRouteOf({ route, itemNumber: itemNumber.value + 1 }) : { path: '/rater/done' };
+	if (!isUndoneMode.value) {
+		return itemNumber.value < progress.itemCount ? routeToItem(itemNumber.value + 1) : { path: '/rater/done' };
 	}
-	return ratingMode.itemRouteOf({ route, itemNumber: itemNumber.value < progress.itemCount ? itemNumber.value + 1 : progress.nextUnratedItemNumber });
+	// the next one on the list still unanswered: after this item first, then from the top of the list
+	const stillUndoneList = props.undoneSetItemNumberList.filter((setItemNumber) => setItemNumber !== itemNumber.value && !progress.savedItemNumberList.includes(setItemNumber));
+	const nextUndoneItemNumber = stillUndoneList.find((setItemNumber) => setItemNumber > itemNumber.value) || stillUndoneList[0];
+	return nextUndoneItemNumber ? routeToItem(nextUndoneItemNumber) : { path: '/rater/done' };
 };
 
 const saveAndNext = async () => {
@@ -282,9 +306,16 @@ const goNext = () => {
 	}
 };
 
+// "left undone" mode: Next moves on through the set without saving
+const goNextInSet = () => {
+	if (nextSetItemNumber.value) {
+		router.push(routeToItem(nextSetItemNumber.value));
+	}
+};
+
 const goPrevious = () => {
-	if (itemNumber.value > 1) {
-		router.push(ratingMode.itemRouteOf({ route, itemNumber: itemNumber.value - 1 }));
+	if (previousItemNumber.value) {
+		router.push(routeToItem(previousItemNumber.value));
 	}
 };
 
@@ -308,7 +339,8 @@ onMounted(loadCurrentItem);
 						</ol>
 					</nav>
 					<span aria-hidden="true" class="rt-progress"><span class="rt-progress-fill" :style="{ width: `${progressPercent}%` }"></span></span>
-					<span class="rt-progress-text" data-testid="rater-progress-text">{{ raterStore.progress.savedCount }} saved, {{ raterStore.progress.itemCount - raterStore.progress.savedCount }} to go</span>
+					<span class="rt-progress-text" data-testid="rater-progress-text">{{ raterStore.progress.savedCount }} answered out of {{ raterStore.progress.itemCount }}</span>
+					<NuxtLink v-if="isUndoneMode" to="/rater/done" class="rt-done-link" data-testid="rater-back-to-list">Back to the list ({{ unsavedCount }} left)</NuxtLink>
 					<NuxtLink v-if="ratingMode.canSave && allSaved && !isLocked" to="/rater/done" class="rt-done-link">All {{ raterStore.progress.itemCount }} saved: review or finish →</NuxtLink>
 					<span v-if="isLocked" class="rt-locked-chip">Finished and sent: your answers are locked</span>
 				</div>
@@ -402,7 +434,8 @@ onMounted(loadCurrentItem);
 							<textarea v-model="noteText" class="rt-note" :class="{ 'rt-note-open': bestChoice === 'unsure', 'rt-note-missing': noteRequiredMissing }" :placeholder="bestChoice === 'unsure' ? 'Note (required for Unsure)…' : 'Note (optional): anything we should know about this one…'" :disabled="isLocked" data-testid="rater-note"></textarea>
 						</label>
 						<div class="rt-answer-buttons">
-							<button type="button" class="rt-button-quiet" :disabled="itemNumber <= 1" data-testid="rater-previous" @click="goPrevious">← Previous</button>
+							<button type="button" class="rt-button-quiet" :disabled="!previousItemNumber" data-testid="rater-previous" @click="goPrevious">← Previous</button>
+							<button v-if="isUndoneMode" type="button" class="rt-button-quiet" :disabled="!nextSetItemNumber" data-testid="rater-next-in-set" @click="goNextInSet">Next →</button>
 							<button v-if="!ratingMode.canSave" type="button" class="rt-button-quiet" :disabled="!item || itemNumber >= item.itemCount" data-testid="rater-preview-next" @click="goNext">Next →</button>
 							<button type="button" class="rt-button" :disabled="!ratingMode.canSave || raterStore.saving || isLocked" :title="ratingMode.canSave ? '' : 'Preview: nothing is saved'" data-testid="rater-save" @click="saveAndNext">{{ raterStore.saving ? 'Saving…' : 'Save and next' }}</button>
 						</div>

@@ -51,7 +51,8 @@ const SURVEY_ITEM_COUNT = 50;
 const FORBIDDEN_FIELD_NAME_LIST = ['goldTupleIdList', 'goldInjectedTupleIdList', 'isMappedInGold', 'memberStableIdList', 'memberPathList', 'frameMappedCountByStandard', 'foundByMethod', 'foundBy', 'score', 'rank', 'fusedScore', 'keywordRank', 'vectorRank', 'keywordScore', 'vectorScore', 'hitRank', 'splitHalf', 'kind', 'raterSeedText', 'raterUserName', 'answerCount'];
 const fieldNameListDeep = (candidate) => (Array.isArray(candidate) ? candidate.reduce((soFar, entry) => soFar.concat(fieldNameListDeep(entry)), []) : candidate && typeof candidate === 'object' ? Object.keys(candidate).reduce((soFar, fieldName) => soFar.concat([fieldName], fieldNameListDeep(candidate[fieldName])), []) : []);
 const sortedCardTextOf = (cardList) => JSON.stringify(cardList.slice().sort((cardA, cardB) => (cardA.cedsTupleId < cardB.cedsTupleId ? -1 : 1)));
-const withoutCardList = (itemPayload) => JSON.stringify({ ...itemPayload, cardList: null, itemNumber: null });
+// the item order is the viewer's, so the item number and the left-undone list (numbered in that order, revision 14) differ
+const withoutCardList = (itemPayload) => JSON.stringify({ ...itemPayload, cardList: null, itemNumber: null, progress: { ...itemPayload.progress, unsavedItemList: null } });
 
 const runSteps = (stepList, finalStep) => {
 	const runAt = (stepPosition, state) => (stepPosition >= stepList.length ? finalStep(state) : stepList[stepPosition](state, (nextState) => runAt(stepPosition + 1, nextState)));
@@ -119,6 +120,7 @@ const stepList = [
 					const surveyItemList = firstOf(surveyItemsResponse).itemList;
 					check('preview item N is View items N', surveyItemList.every((surveyItem) => previewItemList[surveyItem.itemNumber - 1].element.elementStableId === surveyItem.elementStableId && previewItemList[surveyItem.itemNumber - 1].itemNumber === surveyItem.itemNumber));
 					check('preview shows no saved answer and the progress of a rater with none', previewItemList.every((item) => item.savedAnswer === null && item.progress.savedCount === 0 && item.progress.itemCount === SURVEY_ITEM_COUNT && item.progress.savedItemNumberList.length === 0));
+					check("preview's left-undone list is every item, numbered in the preview's own order (View items)", previewItemList.every((item) => JSON.stringify(item.progress.unsavedItemList.map((unsavedItem) => [unsavedItem.itemNumber, unsavedItem.name])) === JSON.stringify(previewItemList.map((previewItem) => [previewItem.itemNumber, previewItem.element.name]))));
 					next({ ...state, previewItemList, raterItemByStableId });
 				})));
 	},

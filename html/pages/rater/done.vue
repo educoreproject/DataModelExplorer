@@ -1,6 +1,9 @@
 <script setup>
 // /rater/done — "All 50 rated" (design: Done): Review my answers, or Finish and send (with a lock confirmation), then
-// Thank you. A rater who has already finished sees Thank you. A rater who reaches it with items unsaved is told so.
+// Thank you. A rater who has already finished sees Thank you. A rater who reaches it with items unsaved sees what is
+// left undone (revision 14): how many, and each one (item number, standard, element name) as a link that opens it in
+// "left undone" mode (/rater/rate?item=N&set=undone&items=…, read by pages/rater/rate.vue), where Previous and Next
+// walk only these items.
 import { ref, computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
@@ -14,6 +17,8 @@ const isConfirming = ref(false);
 const progress = computed(() => raterStore.progress);
 const isFinished = computed(() => !!(progress.value && progress.value.finishedAt));
 const unsavedCount = computed(() => (progress.value ? progress.value.itemCount - progress.value.savedCount : 0));
+const undoneSetItemsText = computed(() => (progress.value ? progress.value.unsavedItemList.map((unsavedItem) => unsavedItem.itemNumber).join('-') : ''));
+const undoneItemRouteOf = (itemNumber) => ({ path: '/rater/rate', query: { item: itemNumber, set: 'undone', items: undoneSetItemsText.value } });
 
 const finishAndSend = async () => {
 	if (await raterStore.finish()) {
@@ -47,10 +52,19 @@ onMounted(async () => {
 					</div>
 				</template>
 				<template v-else-if="progress && unsavedCount > 0">
-					<div class="rt-done-stack">
-						<h1 id="doneHead" class="rt-serif rt-done-title">{{ progress.savedCount }} of {{ progress.itemCount }} rated</h1>
-						<p class="rt-done-text">{{ unsavedCount }} item(s) still have no saved answer. Finish and send opens when all {{ progress.itemCount }} are saved.</p>
-						<NuxtLink :to="{ path: '/rater/rate', query: { item: progress.nextUnratedItemNumber } }" class="rt-button rt-done-link">Go to the next unrated item</NuxtLink>
+					<div class="rt-done-stack" data-testid="rater-left-undone">
+						<h1 id="doneHead" class="rt-serif rt-done-title">{{ unsavedCount }} left undone</h1>
+						<p class="rt-done-text" data-testid="rater-left-undone-count">{{ progress.savedCount }} answered out of {{ progress.itemCount }}. {{ unsavedCount === 1 ? 'This one has' : `These ${unsavedCount} have` }} no saved answer yet. Finish and send opens when all {{ progress.itemCount }} are answered.</p>
+						<ol class="rt-undone-list" aria-label="Left undone" data-testid="rater-left-undone-list">
+							<li v-for="unsavedItem in progress.unsavedItemList" :key="unsavedItem.itemNumber">
+								<NuxtLink :to="undoneItemRouteOf(unsavedItem.itemNumber)" class="rt-undone-link" :data-testid="`rater-left-undone-item-${unsavedItem.itemNumber}`">
+									<span class="rt-undone-number">Item {{ unsavedItem.itemNumber }}</span>
+									<span class="rt-undone-standard">{{ unsavedItem.standard }}</span>
+									<span class="rt-undone-name">{{ unsavedItem.name }}</span>
+								</NuxtLink>
+							</li>
+						</ol>
+						<NuxtLink :to="undoneItemRouteOf(progress.unsavedItemList[0].itemNumber)" class="rt-button rt-done-link" data-testid="rater-left-undone-start">Start with item {{ progress.unsavedItemList[0].itemNumber }}</NuxtLink>
 					</div>
 				</template>
 				<template v-else-if="progress">
@@ -92,4 +106,10 @@ onMounted(async () => {
 .rt-done-signout { align-self: flex-start; min-height: 48px; }
 .rt-done-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: #FFF6E8; border: 1px solid #F5C77E; border-radius: 10px; padding: 12px 16px; font-size: 15px; }
 .rt-done-confirm-buttons { display: flex; gap: 8px; }
+.rt-undone-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rt-undone-link { display: grid; grid-template-columns: 76px 64px minmax(0, 1fr); align-items: baseline; gap: 12px; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid #C9D3E8; border-radius: 8px; color: #072A6C; text-decoration: none; font-size: 16px; }
+.rt-undone-link:hover { background: #E7ECF6; }
+.rt-undone-number { font-weight: 700; }
+.rt-undone-standard { color: #4B5563; font-size: 14px; }
+.rt-undone-name { font-weight: 600; overflow-wrap: anywhere; }
 </style>

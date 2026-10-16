@@ -14,6 +14,7 @@
 //         exist → raterGoldenContainerUnresolvable on every graph read; never data from another graph
 //   T3.10 passwords hashed: the test passwords appear in no sqlite file
 //   T3.11 download: JSON and CSV carry every saved answer, with foundBy and history
+//   T3.12 left undone (revision 14): progress lists each unsaved item (number, standard, element name); none once all are saved
 //
 //   /usr/local/bin/node server/test/rater-tool-server.test.js
 
@@ -308,6 +309,23 @@ const stepList = [
 		saveAt(0);
 	},
 
+	// ---------------------------------------------------------------- T3.12 left undone (revision 14)
+	(state, next) => {
+		console.log('T3.12 left undone');
+		post(state, '/api/raterProgress', {}, state.yToken, (response) => {
+			const progress = response.bodyJson ? response.bodyJson[0] : {};
+			const unsavedItemList = progress.unsavedItemList || [];
+			const savedItemNumberList = progress.savedItemNumberList || [];
+			const expectedNumberList = Array.from({ length: progress.itemCount || 0 }, (unused, position) => position + 1).filter((itemNumber) => !savedItemNumberList.includes(itemNumber));
+			check('progress lists every unsaved item, in item order (the items not in savedItemNumberList)', progress.itemCount === 50 && savedItemNumberList.length > 0 && JSON.stringify(unsavedItemList.map((unsavedItem) => unsavedItem.itemNumber)) === JSON.stringify(expectedNumberList), JSON.stringify(unsavedItemList.map((unsavedItem) => unsavedItem.itemNumber)));
+			check('each unsaved item names its standard and element, the same as the item itself', unsavedItemList.length > 0 && unsavedItemList.every((unsavedItem) => {
+				const element = state.itemListByRater['rater-y'][unsavedItem.itemNumber - 1].element;
+				return unsavedItem.standard === element.standard && unsavedItem.name === element.name && Object.keys(unsavedItem).sort().join(',') === 'itemNumber,name,standard';
+			}), JSON.stringify(unsavedItemList.slice(0, 2)));
+			next(state);
+		});
+	},
+
 	// ---------------------------------------------------------------- T3.4 isolation
 	(state, next) => {
 		console.log('T3.4 isolation');
@@ -348,6 +366,7 @@ const stepList = [
 				if (itemNumber > 50) {
 					post(state, '/api/raterFinish', {}, state.zToken, (finishResponse) => {
 						check('Finish after all 50 are saved', finishResponse.statusCode === 200 && finishResponse.bodyJson[0].finishedAt, finishResponse.bodyText.slice(0, 160));
+						check('…and its progress lists nothing left undone', finishResponse.statusCode === 200 && Array.isArray(finishResponse.bodyJson[0].unsavedItemList) && finishResponse.bodyJson[0].unsavedItemList.length === 0, finishResponse.bodyText.slice(0, 160));
 						post(state, '/api/raterAdmin', { adminAction: 'download', downloadFormat: 'json' }, state.adminToken, (beforeResponse) => {
 							const beforeList = JSON.parse(beforeResponse.bodyJson[0].contentText).answerList.filter((record) => record.raterName === 'rater-z');
 							post(state, '/api/raterAnswerSave', { elementStableId: zOrderedList[0], answerKind: 'unsure', note: 'after the lock' }, state.zToken, (lockedResponse) => {

@@ -94,17 +94,20 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 
 	const readCurrentAnswerList = (rater, callback) => raterStore.readRows('answers', 'answersOfRater', { raterUserName: rater.raterUserName }, (readError, rowList) => (readError ? callback(readError) : callback('', rowList.map(raterMapper.answerOf))));
 
-	const progressOf = (rater, currentAnswerList) => {
-		const orderedElementList = orderedElementListOf(rater);
+	// orderedElementList: the viewer's item order. The caller passes it, because the preview's order is the survey's own,
+	// not a shuffle of its seed (revision 14: the left-undone list is numbered in it)
+	const progressOf = (viewer, orderedElementList, currentAnswerList) => {
 		const savedStableIdSet = new Set(currentAnswerList.map((answerRecord) => answerRecord.elementStableId));
 		const nextUnratedPosition = orderedElementList.findIndex((element) => !savedStableIdSet.has(element.elementStableId));
 		return {
-			surveyName: rater.surveyName,
+			surveyName: viewer.surveyName,
 			itemCount: orderedElementList.length,
 			savedCount: orderedElementList.filter((element) => savedStableIdSet.has(element.elementStableId)).length,
 			nextUnratedItemNumber: nextUnratedPosition === -1 ? null : nextUnratedPosition + 1,
-			finishedAt: rater.finishedAt,
+			finishedAt: viewer.finishedAt,
 			savedItemNumberList: orderedElementList.map((element, position) => (savedStableIdSet.has(element.elementStableId) ? position + 1 : null)).filter(Boolean),
+			// revision 14: what the Done page lists as left undone, each a link to its item
+			unsavedItemList: orderedElementList.map((element, position) => ({ element, itemNumber: position + 1 })).filter(({ element }) => !savedStableIdSet.has(element.elementStableId)).map(({ element, itemNumber }) => ({ itemNumber, standard: element.standard, name: element.name })),
 		};
 	};
 
@@ -150,7 +153,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 			element: pickFields(element, RATER_ELEMENT_FIELD_LIST),
 			cardList: suggestedCardListOf(viewer, element.elementStableId).map(raterCardOf),
 			savedAnswer: savedRecord ? raterAnswerViewOf(savedRecord) : null,
-			progress: progressOf(viewer, currentAnswerList),
+			progress: progressOf(viewer, orderedElementList, currentAnswerList),
 		};
 	};
 
@@ -288,7 +291,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 				});
 			});
 			taskList.push((args, next) => touchRater(rater, (touchError) => next(touchError, args)));
-			taskList.push((args, next) => readCurrentAnswerList(rater, (readError, currentAnswerList) => (readError ? next(readError, args) : next('', { ...args, progress: progressOf(rater, currentAnswerList) }))));
+			taskList.push((args, next) => readCurrentAnswerList(rater, (readError, currentAnswerList) => (readError ? next(readError, args) : next('', { ...args, progress: progressOf(rater, orderedElementListOf(rater), currentAnswerList) }))));
 			pipeRunner(taskList.getList(), {}, (err, args) => {
 				if (err === 'skipRestOfPipe') {
 					done('', args.refusalAnswer);
@@ -445,7 +448,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 	// progress and finish
 
 	const getProgress = ({ raterUserName }, callback) =>
-		withRater(raterUserName, (rater, done) => readCurrentAnswerList(rater, (readError, currentAnswerList) => (readError ? done(readError) : done('', progressOf(rater, currentAnswerList)))), callback);
+		withRater(raterUserName, (rater, done) => readCurrentAnswerList(rater, (readError, currentAnswerList) => (readError ? done(readError) : done('', progressOf(rater, orderedElementListOf(rater), currentAnswerList)))), callback);
 
 	const finish = ({ raterUserName }, callback) =>
 		withRater(raterUserName, (rater, done) => {
@@ -458,7 +461,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 					done(readError);
 					return;
 				}
-				const progress = progressOf(rater, currentAnswerList);
+				const progress = progressOf(rater, orderedElementListOf(rater), currentAnswerList);
 				if (progress.savedCount !== progress.itemCount) {
 					done('', refusalOf('notAllItemsSaved', `${progress.itemCount - progress.savedCount} of your ${progress.itemCount} items have no saved answer yet.`));
 					return;
