@@ -125,7 +125,7 @@ onMounted(async () => {
 	<div class="rt-admin-main" data-testid="rater-admin-panel">
 		<div class="rt-admin-top">
 			<div>
-				<h1 class="rt-serif rt-admin-title">Raters and progress</h1>
+				<h1 class="rt-serif rt-admin-title">Mapping Survey: raters and progress</h1>
 				<p class="rt-admin-sub">CEDS copy in use: <b data-testid="rater-admin-gold">{{ raterStore.adminGoldenContainerName }}</b> (frozen for this round)</p>
 			</div>
 			<div class="rt-admin-top-right">
@@ -143,6 +143,8 @@ onMounted(async () => {
 			<button type="button" class="rt-admin-small" data-testid="rater-admin-issued-copy" @click="copyIssued">Copy</button>
 			<span v-if="copyNotice" data-testid="rater-admin-issued-copied">{{ copyNotice }}</span>
 		</div>
+
+		<RaterRatingPages />
 
 		<RaterSurveys ref="surveysSection" @issued="showIssued" @changed="raterStore.adminLoadList()" />
 

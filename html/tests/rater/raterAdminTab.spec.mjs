@@ -1,13 +1,13 @@
 // raterAdminTab.spec.mjs — revision 6 browser gates (WORKORDER-RATER6): the rater admin lives in the main /admin page as
-// the CEDS Rater tab, signed in with the main site's login. On a running site whose rater store holds no rater-NN names:
+// the CEDS Rater tab (named Mapping Survey since revision 7), signed in with the main site's login. On a running site whose rater store holds no rater-NN names:
 //   B6.1 an admin logs in on the main site, opens /admin and chooses CEDS Rater: the Surveys cards, the raters table and
 //        the downloads render (JSON downloads); Assign a person works; Results opens from the button and Back returns
 //   B6.2 /rater/admin and /rater/admin/results redirect into the tab (through the main login when not logged in), the
 //        second one to the Results view
 //   B6.3 an admin signing in at /rater lands in the tab, already logged in on the main site (no second sign-in)
-//   B6.4 a rater: rating works and shows no admin link; logged in on the main site, /admin shows no CEDS Rater tab, and
+//   B6.4 a rater: rating works and shows no admin link; logged in on the main site, /admin shows no Mapping Survey tab, and
 //        /admin?tool=ceds-rater refuses with a notice and makes no /api/raterAdmin call
-//   B6.5 an unknown ?tool= and an unknown CEDS Rater view are refused by name, not quietly replaced
+//   B6.5 an unknown ?tool= and an unknown Mapping Survey view are refused by name, not quietly replaced
 // The main login lives in memory only (loginStore), so each context logs in once and moves by clicking; page.goto is
 // used only before a login (it lands on /login with the redirect). Every rater it made is removed in the finally block.
 //
@@ -97,12 +97,12 @@ try {
 	check('a fixture rater is made on A', !!fixtureAnswer.issuedPassword, JSON.stringify(fixtureAnswer).slice(0, 120));
 
 	// ---------------------------------------------------------------- B6.1 the tab in /admin
-	console.log('B6.1 the CEDS Rater tab in /admin');
+	console.log('B6.1 the Mapping Survey tab in /admin');
 	const adminPage = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true })).newPage();
 	await openWithMainLogin(adminPage, '/admin', argumentByName.adminUserName, adminPassword);
 	await adminPage.waitForURL(/\/admin\/?$/, { timeout: 20000 });
 	await adminPage.waitForSelector('[data-testid="admin-tool-ceds-rater"]', { timeout: 20000 });
-	check('the admin toolbar has a CEDS Rater tab', (await adminPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 1);
+	check('the admin toolbar has a Mapping Survey tab', (await adminPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 1);
 	await adminPage.click('[data-testid="admin-tool-ceds-rater"]');
 	await adminPage.waitForURL(TAB_URL_PATTERN, { timeout: 20000 });
 	await adminPage.waitForSelector('[data-testid="rater-surveys-card-C"]', { timeout: 20000 });
@@ -137,7 +137,7 @@ try {
 	await adminPage.waitForURL(RESULTS_URL_PATTERN, { timeout: 20000 });
 	await adminPage.waitForSelector('[data-testid="rater-results-target"]', { timeout: 30000 });
 	check('Results opens inside the tab (view=results), the table listing 150 targets', (await adminPage.locator('[data-testid="rater-results-target"]').count()) === 150 && (await adminPage.locator('[data-testid="ceds-rater-tool"] [data-testid="rater-results-panel"]').count()) === 1);
-	check('the CEDS Rater tab stays selected while Results shows', await adminPage.isDisabled('[data-testid="admin-tool-ceds-rater"]'));
+	check('the Mapping Survey tab stays selected while Results shows', await adminPage.isDisabled('[data-testid="admin-tool-ceds-rater"]'));
 	await adminPage.screenshot({ path: shotPath('91-admin-tab-results') });
 	await adminPage.click('[data-testid="rater-results-back"]');
 	await adminPage.waitForURL(TAB_URL_PATTERN, { timeout: 20000 });
@@ -157,7 +157,7 @@ try {
 	await adminPage.evaluate(() => window.history.pushState({}, '', '/admin?tool=ceds-rater&view=no-such-view'));
 	await adminPage.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')));
 	await adminPage.waitForSelector('[data-testid="ceds-rater-view-unknown"]', { timeout: 10000 });
-	check('an unknown CEDS Rater view is refused by name', (await adminPage.locator('[data-testid="ceds-rater-view-unknown"]').innerText()).includes("'no-such-view'"));
+	check('an unknown Mapping Survey view is refused by name', (await adminPage.locator('[data-testid="ceds-rater-view-unknown"]').innerText()).includes("'no-such-view'"));
 
 	// ---------------------------------------------------------------- B6.2 the old URLs redirect
 	console.log('B6.2 the old URLs redirect into the tab');
@@ -168,7 +168,7 @@ try {
 	await mainLoginInBrowser(redirectPage, argumentByName.adminUserName, adminPassword);
 	await redirectPage.waitForURL(TAB_URL_PATTERN, { timeout: 20000 });
 	await redirectPage.waitForSelector('[data-testid="rater-admin-table"]', { timeout: 20000 });
-	check('and lands in the CEDS Rater tab', (await redirectPage.locator('[data-testid="rater-admin-panel"]').count()) === 1);
+	check('and lands in the Mapping Survey tab', (await redirectPage.locator('[data-testid="rater-admin-panel"]').count()) === 1);
 	const resultsRedirectPage = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 	await resultsRedirectPage.goto(`${baseUrl}/rater/admin/results`);
 	await resultsRedirectPage.waitForURL(/\/login/, { timeout: 20000 });
@@ -186,7 +186,7 @@ try {
 	await raterSignInAdminPage.click('[data-testid="rater-signin-submit"]');
 	await raterSignInAdminPage.waitForURL(TAB_URL_PATTERN, { timeout: 20000 });
 	await raterSignInAdminPage.waitForSelector('[data-testid="rater-admin-table"]', { timeout: 20000 });
-	check('lands in the CEDS Rater tab, logged in on the main site (no /login on the way)', (await raterSignInAdminPage.locator('[data-testid="rater-admin-panel"]').count()) === 1 && (await raterSignInAdminPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 1, raterSignInAdminPage.url());
+	check('lands in the Mapping Survey tab, logged in on the main site (no /login on the way)', (await raterSignInAdminPage.locator('[data-testid="rater-admin-panel"]').count()) === 1 && (await raterSignInAdminPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 1, raterSignInAdminPage.url());
 	const keptRaterSession = await raterSignInAdminPage.evaluate(() => window.sessionStorage.getItem('cedsRaterSession'));
 	check('no rater session is kept for the admin', keptRaterSession === null, `${keptRaterSession}`.slice(0, 60));
 
@@ -203,7 +203,7 @@ try {
 	await openWithMainLogin(raterMainPage, '/admin', fixtureRaterUserName, fixtureAnswer.issuedPassword);
 	await raterMainPage.waitForURL(/\/admin\/?$/, { timeout: 20000 });
 	await raterMainPage.waitForTimeout(1500);
-	check('a rater logged in on the main site sees no CEDS Rater tab in /admin', (await raterMainPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 0);
+	check('a rater logged in on the main site sees no Mapping Survey tab in /admin', (await raterMainPage.locator('[data-testid="admin-tool-ceds-rater"]').count()) === 0);
 	const raterTabPage = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 	const raterTabCallList = raterAdminCallListOf(raterTabPage);
 	await openWithMainLogin(raterTabPage, '/admin?tool=ceds-rater', fixtureRaterUserName, fixtureAnswer.issuedPassword);

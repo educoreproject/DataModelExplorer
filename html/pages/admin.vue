@@ -50,7 +50,7 @@ const clearProfile = () => {
 };
 
 // Selected tool - default to add-edit-user. The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark
-// or a redirect lands on it: /admin?tool=ceds-rater is the CEDS Rater tab (the old /rater/admin URLs redirect there).
+// or a redirect lands on it: /admin?tool=ceds-rater is the Mapping Survey tab (the old /rater/admin URLs redirect there).
 const TOOL_NAME_LIST = ['add-edit-user', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
 const DEFAULT_TOOL_NAME = 'add-edit-user';
 const selectedTool = computed(() => route.query.tool || DEFAULT_TOOL_NAME);
@@ -107,7 +107,8 @@ const selectTool = (toolName) => {
 									OAUTH ACCESS
 								</v-btn>
 
-								<!-- CEDS Rater tab (WORKORDER-RATER6): raters, surveys, results; admins only -->
+								<!-- Mapping Survey tab (WORKORDER-RATER6; renamed from CEDS Rater in revision 7): raters, surveys,
+								     results; admins only. ?tool=ceds-rater and the test id keep the old name: bookmarks and test hooks -->
 								<v-btn
 									v-if="isRaterAdmin"
 									variant="outlined"
@@ -117,7 +118,7 @@ const selectTool = (toolName) => {
 									class="mr-2"
 									data-testid="admin-tool-ceds-rater"
 								>
-									CEDS RATER
+									MAPPING SURVEY
 								</v-btn>
 
 								<!-- Dev Tools tab -->
@@ -147,7 +148,7 @@ const selectTool = (toolName) => {
 									v-else-if="selectedTool === 'oauth-admin'"
 								/>
 
-								<!-- CEDS Rater (raters, surveys, results); the component refuses a non-admin itself -->
+								<!-- Mapping Survey (raters, surveys, results); the component refuses a non-admin itself -->
 								<ceds-rater-admin
 									v-else-if="selectedTool === 'ceds-rater'"
 								/>

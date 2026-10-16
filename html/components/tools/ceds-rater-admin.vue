@@ -1,5 +1,6 @@
 <script setup>
-// ceds-rater-admin — the CEDS Rater tab of /admin (WORKORDER-RATER6). The one home of the rater admin: the raters view
+// ceds-rater-admin — the Mapping Survey tab of /admin (WORKORDER-RATER6; named CEDS Rater until revision 7, whose
+// rename changed only the labels: the file, the ?tool=ceds-rater key and the test ids keep the old name). The one home of the rater admin: the raters view
 // (RaterAdminPanel: gold line and counts, Surveys, raters table, add a rater, the once-only password, downloads) and
 // the Results view (RaterResultsPanel), chosen by the `view` query parameter so a bookmark or the old /rater/admin and
 // /rater/admin/results URLs (which redirect here) land on the right one: /admin?tool=ceds-rater and
@@ -42,8 +43,8 @@ const showRaterView = (viewName) => {
 
 <template>
 	<div class="rt-app rt-admin-host" data-testid="ceds-rater-tool">
-		<p v-if="!isAdmin" role="alert" class="rt-alert-error" data-testid="ceds-rater-not-admin">The CEDS Rater tool is for admins. This account is not one.</p>
-		<p v-else-if="!raterView" role="alert" class="rt-alert-error" data-testid="ceds-rater-view-unknown">There is no CEDS Rater view '{{ raterViewName }}'. The views are: {{ Object.keys(RATER_VIEW_BY_NAME).join(', ') }}.</p>
+		<p v-if="!isAdmin" role="alert" class="rt-alert-error" data-testid="ceds-rater-not-admin">The Mapping Survey tool is for admins. This account is not one.</p>
+		<p v-else-if="!raterView" role="alert" class="rt-alert-error" data-testid="ceds-rater-view-unknown">There is no Mapping Survey view '{{ raterViewName }}'. The views are: {{ Object.keys(RATER_VIEW_BY_NAME).join(', ') }}.</p>
 		<component
 			:is="raterView.panelComponent"
 			v-else
