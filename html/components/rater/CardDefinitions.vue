@@ -1,7 +1,8 @@
 <script setup>
 // RaterCardDefinitions — the two definitions on a CEDS card's face, class first, then element, because a card is an
 // element IN a class and the class is what tells apart cards that share an element name (revision 9, TQ's design).
-// Each is led by its bold name and read as a pair: same size, weight and colour, neither muted. Each is clamped to
+// Each is led by a bold level label, Class: or Property:, not the name again (the title above already names both;
+// TQ, 2026-10-16), and read as a pair: same size, weight and colour, neither muted. Each is clamped to
 // two lines when long, with its own show-all / show-less control. Used by RaterCandidateRow and the Finder's search
 // results, so a card reads the same wherever it appears. Props: card (a rater card: className, classDefinition,
 // propertyName, definition). No events, no store, no API call.
@@ -13,6 +14,9 @@ const props = defineProps({
 
 // a long definition is clamped to two lines (details on demand, so the list stays scannable); one click shows it all
 const LONG_DEFINITION_LENGTH = 200;
+// the level labels match the list's column header, CLASS → PROPERTY
+const CLASS_LABEL_TEXT = 'Class';
+const PROPERTY_LABEL_TEXT = 'Property';
 const ABSENT_CLASS_DEFINITION_TEXT = 'No class definition in CEDS.';
 const classDefinitionText = computed(() => props.card.classDefinition || ABSENT_CLASS_DEFINITION_TEXT);
 const classDefinitionIsLong = computed(() => (props.card.classDefinition || '').length > LONG_DEFINITION_LENGTH);
@@ -22,9 +26,9 @@ const definitionOpen = ref(false);
 </script>
 
 <template>
-	<p class="rt-card-definition" :class="{ 'rt-clamped': classDefinitionIsLong && !classDefinitionOpen }" data-testid="rater-card-class-definition"><b>{{ props.card.className }}:</b> {{ classDefinitionText }}</p>
+	<p class="rt-card-definition" :class="{ 'rt-clamped': classDefinitionIsLong && !classDefinitionOpen }" data-testid="rater-card-class-definition"><b>{{ CLASS_LABEL_TEXT }}:</b> {{ classDefinitionText }}</p>
 	<button v-if="classDefinitionIsLong" type="button" class="rt-definition-toggle" :aria-expanded="classDefinitionOpen" data-testid="rater-class-definition-toggle" @click="classDefinitionOpen = !classDefinitionOpen">{{ classDefinitionOpen ? 'Show less' : 'Show the whole class definition' }}</button>
-	<p class="rt-card-definition" :class="{ 'rt-clamped': definitionIsLong && !definitionOpen }" data-testid="rater-card-element-definition"><b>{{ props.card.propertyName }}:</b> {{ props.card.definition }}</p>
+	<p class="rt-card-definition" :class="{ 'rt-clamped': definitionIsLong && !definitionOpen }" data-testid="rater-card-element-definition"><b>{{ PROPERTY_LABEL_TEXT }}:</b> {{ props.card.definition }}</p>
 	<button v-if="definitionIsLong" type="button" class="rt-definition-toggle" :aria-expanded="definitionOpen" data-testid="rater-definition-toggle" @click="definitionOpen = !definitionOpen">{{ definitionOpen ? 'Show less' : 'Show the whole definition' }}</button>
 </template>
 

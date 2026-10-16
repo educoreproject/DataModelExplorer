@@ -60,8 +60,8 @@ const check = (testName, condition, detailText) => {
 };
 
 const normalizedText = (rawText) => `${rawText || ''}`.replace(/\s+/g, ' ').trim();
-const classLineOf = (card) => normalizedText(`${card.className}: ${card.classDefinition || ABSENT_CLASS_NOTICE}`);
-const elementLineOf = (card) => normalizedText(`${card.propertyName}: ${card.definition || ''}`);
+const classLineOf = (card) => normalizedText(`Class: ${card.classDefinition || ABSENT_CLASS_NOTICE}`);
+const elementLineOf = (card) => normalizedText(`Property: ${card.definition || ''}`);
 const answerOf = (bodyJson) => (Array.isArray(bodyJson) ? bodyJson[0] : bodyJson);
 
 const browser = await chromium.launch({ executablePath: argumentByName.chromePath, headless: true });
@@ -279,7 +279,7 @@ try {
 	check(`the option-set case was exercised (${optionSetCardTotal} cards with an option set on items ${blankedItemNumber} and ${targetItemNumber})`, optionSetCardTotal > 0);
 	const blankedLocator = page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${blankedCard.cedsTupleId}"]`);
 	const blankedText = normalizedText(await blankedLocator.locator('[data-testid="rater-card-class-definition"]').innerText());
-	check(`a card whose class definition is absent reads "${blankedCard.className}: ${ABSENT_CLASS_NOTICE}", with no control`, blankedText === `${blankedCard.className}: ${ABSENT_CLASS_NOTICE}` && (await blankedLocator.locator('[data-testid="rater-class-definition-toggle"]').count()) === 0, blankedText);
+	check(`a card whose class definition is absent reads "Class: ${ABSENT_CLASS_NOTICE}", with no control`, blankedText === `Class: ${ABSENT_CLASS_NOTICE}` && (await blankedLocator.locator('[data-testid="rater-class-definition-toggle"]').count()) === 0, blankedText);
 	await page.click('[data-testid="rater-preview-next"]');
 	await waitForPreviewItem(targetItemNumber);
 

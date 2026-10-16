@@ -1,16 +1,26 @@
 <script setup>
 // RaterCardTitle — a CEDS card's title for scanning (design rule 4): the class in CEDS teal, a real button that opens
 // Browse on that class → the property, bold → the qualifier as a boxed chip. No number, score or rank ever appears.
+import { computed } from 'vue';
+
 const props = defineProps({
 	card: { type: Object, required: true },
 	classIsButton: { type: Boolean, default: true },
 });
 const emit = defineEmits(['browse-class']);
+
+// the class button's tooltip says what a click does, naming the class (TQ, 2026-10-16); a Vuetify tooltip, which also
+// links itself to the button for screen readers, in place of the slow native title
+const classButtonTipText = computed(() => `Click to browse every property of ${props.card.className} in Find more candidates, below.`);
 </script>
 
 <template>
 	<div class="rt-card-title">
-		<button v-if="props.classIsButton" type="button" class="rt-class-button" title="Browse this class" data-testid="rater-card-class" @click="emit('browse-class', props.card)">{{ props.card.className }}</button>
+		<v-tooltip v-if="props.classIsButton" :text="classButtonTipText" location="top" max-width="360">
+			<template #activator="{ props: tooltipActivatorProps }">
+				<button v-bind="tooltipActivatorProps" type="button" class="rt-class-button" data-testid="rater-card-class" @click="emit('browse-class', props.card)">{{ props.card.className }}</button>
+			</template>
+		</v-tooltip>
 		<span v-else class="rt-class-text">{{ props.card.className }}</span>
 		<span aria-hidden="true" class="rt-arrow">→</span>
 		<span class="rt-property">{{ props.card.propertyName }}</span>
