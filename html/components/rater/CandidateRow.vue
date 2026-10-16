@@ -41,7 +41,7 @@ const sameTitle = computed(() => (props.isBest ? 'This is your Best' : props.sam
 				<a v-if="props.card.cedsUrl" :href="props.card.cedsUrl" target="_blank" rel="noopener" class="rt-ceds-link">ceds.ed.gov ↗</a>
 				<!-- the class definition is on the card face (revision 9); only the option set is left to tell -->
 				<details v-if="props.card.optionSetName" class="rt-more">
-					<summary>More about this element</summary>
+					<summary>More about this property</summary>
 					<dl class="rt-more-list">
 						<dt>Option set</dt>
 						<dd>{{ props.card.optionSetName }}: {{ props.card.optionValueList.join('; ') }}</dd>

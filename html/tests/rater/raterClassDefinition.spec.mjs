@@ -7,7 +7,7 @@
 //        definition" control that expands it and "Show less" that clamps it again; a short one has no control
 //   C9.3 the element definition keeps its own clamp and toggle
 //   C9.4 cards that share an element name (eg Number of Credits Earned) show their own, distinct class definitions
-//   C9.5 "More about this element" no longer repeats the class; the option set is still there, and a card with no
+//   C9.5 "More about this property" no longer repeats the class; the option set is still there, and a card with no
 //        option set has no empty disclosure (checked on items N and N-1; B 45 has option sets)
 //   C9.6 a card with no class definition shows "No class definition in CEDS." (one card's classDefinition is blanked
 //        on the wire for item N-1, the page's own handling of an absent value)
@@ -45,6 +45,7 @@ const shotPath = (shotName) => path.join(argumentByName.evidenceDir, `${shotName
 const TAB_URL_PATTERN = /\/admin\/?\?tool=ceds-rater$/;
 const LONG_DEFINITION_LENGTH = 200; // the card's own threshold (CardDefinitions.vue)
 const ABSENT_CLASS_NOTICE = 'No class definition in CEDS.';
+const ABSENT_PROPERTY_NOTICE = '(none in CEDS)'; // revision 11
 const previewUrlPatternOf = (itemNumber) => new RegExp(`/admin/?\\?tool=ceds-rater&view=preview&survey=${surveyName}&item=${itemNumber}$`);
 
 let passCount = 0;
@@ -61,7 +62,7 @@ const check = (testName, condition, detailText) => {
 
 const normalizedText = (rawText) => `${rawText || ''}`.replace(/\s+/g, ' ').trim();
 const classLineOf = (card) => normalizedText(`Class: ${card.classDefinition || ABSENT_CLASS_NOTICE}`);
-const elementLineOf = (card) => normalizedText(`Property: ${card.definition || ''}`);
+const elementLineOf = (card) => normalizedText(`Property: ${card.definition || ABSENT_PROPERTY_NOTICE}`);
 const answerOf = (bodyJson) => (Array.isArray(bodyJson) ? bodyJson[0] : bodyJson);
 
 const browser = await chromium.launch({ executablePath: argumentByName.chromePath, headless: true });
@@ -237,16 +238,16 @@ try {
 	const distinctClassTextCount = new Set(sharedFaceList.map((cardFace) => cardFace.classText)).size;
 	check(`the ${sharedFaceList.length} "${sharedPropertyName}" cards each show their own class definition (${distinctClassTextCount} distinct)`, sharedFaceList.length >= 2 && distinctClassTextCount === sharedFaceList.length);
 
-	// ---------------------------------------------------------------- C9.5 More about this element
-	console.log('C9.5 "More about this element" holds the option set only');
-	check('no card repeats the class in "More about this element"', cardFaceList.every((cardFace) => !cardFace.moreTermList.includes('Class')), JSON.stringify(cardFaceList.map((cardFace) => cardFace.moreTermList).filter((termList) => termList.length).slice(0, 3)));
+	// ---------------------------------------------------------------- C9.5 More about this property
+	console.log('C9.5 "More about this property" holds the option set only');
+	check('no card repeats the class in "More about this property"', cardFaceList.every((cardFace) => !cardFace.moreTermList.includes('Class')), JSON.stringify(cardFaceList.map((cardFace) => cardFace.moreTermList).filter((termList) => termList.length).slice(0, 3)));
 	const itemOptionSetCheck = (itemNumber, faceList, tupleCardIndex) => {
 		const optionSetProblemList = faceList.filter((cardFace) => {
 			const card = tupleCardIndex[cardFace.cedsTupleId];
 			return card.optionSetName ? !(cardFace.moreTermList.join() === 'Option set' && cardFace.moreText.includes(card.optionSetName)) : cardFace.moreText !== null;
 		});
 		const optionSetCardCount = Object.values(tupleCardIndex).filter((card) => card.optionSetName).length;
-		check(`item ${itemNumber}: cards with an option set (${optionSetCardCount}) still show it there, under "More about this element"; cards without one have no empty disclosure`, optionSetProblemList.length === 0, JSON.stringify(optionSetProblemList.slice(0, 2)));
+		check(`item ${itemNumber}: cards with an option set (${optionSetCardCount}) still show it there, under "More about this property"; cards without one have no empty disclosure`, optionSetProblemList.length === 0, JSON.stringify(optionSetProblemList.slice(0, 2)));
 		return optionSetCardCount;
 	};
 	let optionSetCardTotal = itemOptionSetCheck(targetItemNumber, cardFaceList, cardByTupleId);
@@ -274,7 +275,7 @@ try {
 	const blankedPayload = payloadByItemNumber[blankedItemNumber];
 	const blankedCardByTupleId = Object.fromEntries(blankedPayload.cardList.map((card) => [card.cedsTupleId, card]));
 	const blankedFaceList = await readCardFaceList('[data-testid="rater-candidate-list"]', '[data-testid="rater-candidate-row"]');
-	check(`item ${blankedItemNumber}: no card repeats the class in "More about this element"`, blankedFaceList.length > 0 && blankedFaceList.every((cardFace) => !cardFace.moreTermList.includes('Class')));
+	check(`item ${blankedItemNumber}: no card repeats the class in "More about this property"`, blankedFaceList.length > 0 && blankedFaceList.every((cardFace) => !cardFace.moreTermList.includes('Class')));
 	optionSetCardTotal += itemOptionSetCheck(blankedItemNumber, blankedFaceList, blankedCardByTupleId);
 	check(`the option-set case was exercised (${optionSetCardTotal} cards with an option set on items ${blankedItemNumber} and ${targetItemNumber})`, optionSetCardTotal > 0);
 	const blankedLocator = page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${blankedCard.cedsTupleId}"]`);
