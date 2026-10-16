@@ -3,7 +3,7 @@
 // (grid 56px 56px 1fr). Each control cell is a full-height label, so the whole column is the hit area. The radio is in
 // the page's one Best group (name="best"), with No match and Unsure. Same is disabled until a card is Best, and always
 // on the Best card (SPEC §3; the design's "Same before Best" is overruled by the spec, see DEVLOG-RATER).
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
 	card: { type: Object, required: true },
@@ -17,10 +17,6 @@ const emit = defineEmits(['pick-best', 'toggle-same', 'browse-class']);
 
 const labelText = computed(() => `${props.card.className} → ${props.card.propertyName}${props.card.qualifierNameList.length ? ` (${props.card.qualifierNameList.join(', ')})` : ''}`);
 const cardStateClass = computed(() => (props.isBest ? 'rt-card-best' : props.isSame ? 'rt-card-same' : 'rt-card-plain'));
-// a long CEDS definition is clamped to two lines (details on demand, so the list stays scannable); one click shows it all
-const LONG_DEFINITION_LENGTH = 200;
-const definitionIsLong = computed(() => (props.card.definition || '').length > LONG_DEFINITION_LENGTH);
-const definitionOpen = ref(false);
 const sameTitle = computed(() => (props.isBest ? 'This is your Best' : props.sameDisabled ? 'Choose a Best card first' : 'Pretty much the same (as right as your Best)'));
 </script>
 
@@ -39,20 +35,16 @@ const sameTitle = computed(() => (props.isBest ? 'This is your Best' : props.sam
 				<span v-if="props.isBest" class="rt-chip rt-chip-best">Your Best</span>
 				<span v-if="props.isSame" class="rt-chip rt-chip-same">Same as Best</span>
 			</RaterCardTitle>
-			<p class="rt-card-definition" :class="{ 'rt-clamped': definitionIsLong && !definitionOpen }">{{ props.card.definition }}</p>
-			<button v-if="definitionIsLong" type="button" class="rt-definition-toggle" :aria-expanded="definitionOpen" @click="definitionOpen = !definitionOpen">{{ definitionOpen ? 'Show less' : 'Show the whole definition' }}</button>
+			<RaterCardDefinitions :card="props.card" />
 			<div class="rt-card-foot">
 				<span class="rt-mono" data-testid="rater-card-ceds-id">{{ props.card.cedsId ? `CEDS ID ${props.card.cedsId}` : 'CEDS ID not listed' }}</span>
 				<a v-if="props.card.cedsUrl" :href="props.card.cedsUrl" target="_blank" rel="noopener" class="rt-ceds-link">ceds.ed.gov ↗</a>
-				<details class="rt-more">
+				<!-- the class definition is on the card face (revision 9); only the option set is left to tell -->
+				<details v-if="props.card.optionSetName" class="rt-more">
 					<summary>More about this element</summary>
 					<dl class="rt-more-list">
-						<dt>Class</dt>
-						<dd><b>{{ props.card.className }}</b>: {{ props.card.classDefinition || 'No class definition in CEDS.' }}</dd>
-						<template v-if="props.card.optionSetName">
-							<dt>Option set</dt>
-							<dd>{{ props.card.optionSetName }}: {{ props.card.optionValueList.join('; ') }}</dd>
-						</template>
+						<dt>Option set</dt>
+						<dd>{{ props.card.optionSetName }}: {{ props.card.optionValueList.join('; ') }}</dd>
 					</dl>
 				</details>
 			</div>
@@ -72,9 +64,6 @@ const sameTitle = computed(() => (props.isBest ? 'This is your Best' : props.sam
 .rt-chip-added { background: #FFF6E8; color: #8A5200; border: 1px solid #F5C77E; }
 .rt-chip-best { background: #00797C; color: #FFFFFF; }
 .rt-chip-same { background: #FFFFFF; color: #005E61; border: 1.5px solid #00797C; }
-.rt-card-definition { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: #1F2937; }
-.rt-clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.rt-definition-toggle { border: 0; background: transparent; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: #072A6C; text-decoration: underline; cursor: pointer; }
 .rt-card-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin-top: 4px; font-size: 13px; color: #4B5563; }
 .rt-ceds-link { color: #00797C !important; font-weight: 600; }
 .rt-more { flex: 1 1 260px; min-width: 0; }

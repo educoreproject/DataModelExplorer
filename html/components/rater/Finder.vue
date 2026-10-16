@@ -5,6 +5,8 @@
 //
 // foundBy, recorded for every added card (SPEC §5): 'search'; 'browseFromCard' when Browse was opened from a card's
 // class link (openClassFromCard, called by the page); 'browseFromConcept' when the rater walked down from a concept.
+// Search results show the card's definitions as the candidate list does (RaterCardDefinitions, class first; revision 9);
+// a class's properties under Browse keep the element definition alone, the class banner above them says the class.
 // SPEC vs DESIGN (logged): the design has one search box; the spec has three search kinds. The box keeps the design's
 // wording, a CEDS ID typed into it is always an ID search, and a two-way choice picks words or meaning for the rest.
 import { ref, computed } from 'vue';
@@ -114,7 +116,8 @@ const showBrowse = () => {
 	}
 };
 
-// called by the page when a card's class name is clicked
+// called by the page when a card's class name is clicked, and by a search result's class name (revision 9: it used to
+// load the class into the hidden Browse tab)
 const openClassFromCard = (card) => {
 	tabName.value = 'browse';
 	openClass(card.classCedsId, 'browseFromCard');
@@ -195,10 +198,10 @@ const classIntroText = computed(() => (classListAnswer.value ? `${chosenConceptN
 			<template v-else-if="searchState === 'results'">
 				<p class="rt-finder-muted rt-gap">Cards for “{{ ranQueryText }}”.<span v-if="searchNote"> {{ searchNote }}</span></p>
 				<div class="rt-result-list" data-testid="rater-search-results">
-					<article v-for="card in searchResultList" :key="card.cedsTupleId" class="rt-result" data-testid="rater-search-result">
+					<article v-for="card in searchResultList" :key="card.cedsTupleId" class="rt-result" :data-ceds-tuple-id="card.cedsTupleId" data-testid="rater-search-result">
 						<div class="rt-result-text">
-							<RaterCardTitle :card="card" @browse-class="openClass(card.classCedsId, 'browseFromCard')" />
-							<p class="rt-result-definition">{{ card.definition }}</p>
+							<RaterCardTitle :card="card" @browse-class="openClassFromCard(card)" />
+							<RaterCardDefinitions :card="card" />
 							<span class="rt-mono rt-result-id">{{ card.cedsId ? `CEDS ID ${card.cedsId}` : 'CEDS ID not listed' }}</span>
 						</div>
 						<button v-if="!inListSet.has(card.cedsTupleId)" type="button" class="rt-button-teal" :aria-label="`Add ${labelOf(card)} to candidates`" data-testid="rater-add-card" @click="addCard(card, 'search')">+ Add to candidates</button>

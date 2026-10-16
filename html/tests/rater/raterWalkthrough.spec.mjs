@@ -4,7 +4,7 @@
 //        it; browse Person → Person Identification and add a card; Previous back and change an answer; reload: persisted
 //   T4.2 an invalid answer is refused and the message shows in the answer bar
 //   T4.3 Same is disabled until a Best exists, and disabled on the Best card
-//   T4.4 viewport: >= 3 cards fully visible at 1280×720 on opening, >= 5 at 1440×900 (screenshots)
+//   T4.4 viewport: >= 2 cards fully visible at 1280×720 on opening, >= 3 at 1440×900 (screenshots; revision 9, was 3 and 5)
 //   T4.5 keyboard: Tab reaches every control kind, arrow keys move within the Best group, the focus ring shows
 //   T4.6 no ranking leaks: no numbers on cards beyond the CEDS ID; no "found by" text anywhere
 //
@@ -74,16 +74,19 @@ try {
 	check('sign in goes straight to item 1', true);
 
 	// ---------------------------------------------------------------- T4.4 at 1440×900 on opening
+	// Revision 9 (ONYX_CANVAS ruling, 2026-10-16): the gate was >= 5 and >= 3. TQ's design puts the class definition on
+	// each card's face, before the element's, at full weight, so cards are taller; the gate is now >= 3 and >= 2, with
+	// no squeezing of padding or line height to win cards back.
 	console.log('T4.4 viewport');
 	const visibleAt1440 = await fullyVisibleCardCount();
 	await page.screenshot({ path: shotPath('02-rating-1440x900') });
-	check(`at 1440×900, at least 5 cards fully visible on opening (${visibleAt1440})`, visibleAt1440 >= 5);
+	check(`at 1440×900, at least 3 cards fully visible on opening (${visibleAt1440}; revision 9, was 5)`, visibleAt1440 >= 3);
 	await page.setViewportSize({ width: 1280, height: 720 });
 	await page.reload();
 	await waitForItem(1);
 	const visibleAt1280 = await fullyVisibleCardCount();
 	await page.screenshot({ path: shotPath('03-rating-1280x720') });
-	check(`at 1280×720, at least 3 cards fully visible on opening (${visibleAt1280})`, visibleAt1280 >= 3);
+	check(`at 1280×720, at least 2 cards fully visible on opening (${visibleAt1280}; revision 9, was 3)`, visibleAt1280 >= 2);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.reload();
 	await waitForItem(1);
@@ -113,8 +116,9 @@ try {
 			clone.querySelectorAll('details, [data-testid="rater-card-ceds-id"]').forEach((removable) => removable.remove());
 			// names of CEDS classes, properties and qualifiers are CEDS's own words (eg 'K12 School'); everything else must hold no digit
 			clone.querySelectorAll('.rt-card-title > *').forEach((titlePart) => titlePart.remove());
-			const remainingText = clone.innerText || clone.textContent;
-			const definitionStripped = remainingText.replace(article.querySelector('.rt-card-definition')?.textContent || '', '');
+			// the class and element definitions (each led by its CEDS name) are CEDS's own words too (revision 9: two of them)
+			clone.querySelectorAll('[data-testid="rater-card-class-definition"], [data-testid="rater-card-element-definition"]').forEach((definitionPart) => definitionPart.remove());
+			const definitionStripped = clone.innerText || clone.textContent;
 			if (/\d/.test(definitionStripped)) {
 				leakTextList.push(definitionStripped.trim().slice(0, 80));
 			}
@@ -122,6 +126,13 @@ try {
 		return leakTextList;
 	});
 	check('no number on any card beyond its CEDS ID (and CEDS’s own names and definitions)', leakList.length === 0, JSON.stringify(leakList.slice(0, 3)));
+	// revision 9: on the rater's own page, every card's class definition sits on its face, before the element's
+	const cardOrderList = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="rater-candidate-row"] article')).map((article) => {
+		const classDefinition = article.querySelector('[data-testid="rater-card-class-definition"]');
+		const elementDefinition = article.querySelector('[data-testid="rater-card-element-definition"]');
+		return Boolean(classDefinition && elementDefinition && (classDefinition.compareDocumentPosition(elementDefinition) & Node.DOCUMENT_POSITION_FOLLOWING) && !classDefinition.closest('details'));
+	}));
+	check(`every card on the rater's page shows its class definition on its face, before the element definition (${cardOrderList.length} cards)`, cardOrderList.length > 0 && cardOrderList.every(Boolean));
 	// the tool's own words only: the standards' texts (element panel, CEDS cards) can say 'rank' or 'score' about data.
 	// Revision 8: the product's name, "Mapping Survey" (TQ's choice), is in the app bar; it names the survey, not a
 	// machine mapping, so the app-bar label is checked for exactly that name and left out of the scan.
