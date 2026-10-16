@@ -17,7 +17,9 @@ const isConfirming = ref(false);
 const progress = computed(() => raterStore.progress);
 const isFinished = computed(() => !!(progress.value && progress.value.finishedAt));
 const unsavedCount = computed(() => (progress.value ? progress.value.itemCount - progress.value.savedCount : 0));
-const undoneSetItemsText = computed(() => (progress.value ? progress.value.unsavedItemList.map((unsavedItem) => unsavedItem.itemNumber).join('-') : ''));
+// a server older than revision 14 sends no list: refused by name rather than drawn as an empty list
+const unsavedListIsMissing = computed(() => !!progress.value && !Array.isArray(progress.value.unsavedItemList));
+const undoneSetItemsText = computed(() => (progress.value && !unsavedListIsMissing.value ? progress.value.unsavedItemList.map((unsavedItem) => unsavedItem.itemNumber).join('-') : ''));
 const undoneItemRouteOf = (itemNumber) => ({ path: '/rater/rate', query: { item: itemNumber, set: 'undone', items: undoneSetItemsText.value } });
 
 const finishAndSend = async () => {
@@ -51,6 +53,7 @@ onMounted(async () => {
 						<button type="button" class="rt-button-quiet rt-done-signout" @click="signOut">Sign out</button>
 					</div>
 				</template>
+				<p v-else-if="progress && unsavedCount > 0 && unsavedListIsMissing" role="alert" class="rt-alert-error" data-testid="rater-left-undone-missing">{{ unsavedCount }} item(s) have no saved answer, but the server sent no list of them (unsavedItemList; the API predates revision 14 and needs a restart).</p>
 				<template v-else-if="progress && unsavedCount > 0">
 					<div class="rt-done-stack" data-testid="rater-left-undone">
 						<h1 id="doneHead" class="rt-serif rt-done-title">{{ unsavedCount }} left undone</h1>
