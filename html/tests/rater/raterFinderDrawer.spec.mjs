@@ -11,6 +11,9 @@
 //   D10.6 the quiet line at the foot of the list ("None of these fit? Search all of CEDS") opens the drawer on Search
 //   D10.7 no "AI" wording on the page; below 1100px the drawer takes the whole viewport
 //   D10.8 the admin preview has the same drawer: buttons, search answers, and no write call leaves the browser
+//   D10.9 (ONYX_CANVAS, after the first READY) the drawer's heading and ✕ are on top of any app bar, in both hosts: the
+//         element at the ✕'s centre is the ✕, and at the heading's centre the heading (the main site's v-app-bar
+//         painted over them in the admin preview)
 // It makes one rater on --surveyName (prefix --raterPrefix), saves no answer, and removes the rater at the end.
 //
 //   node html/tests/rater/raterFinderDrawer.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file holding it>
@@ -80,6 +83,21 @@ const readLayout = async () =>
 		};
 		return { innerWidth: window.innerWidth, innerHeight: window.innerHeight, scrollY: window.scrollY, search: rectOf('rater-open-search'), browse: rectOf('rater-open-browse'), panel: rectOf('rater-element-panel'), drawer: rectOf('rater-finder-drawer') };
 	});
+// is the drawer's header uncovered? elementFromPoint at the centre of the ✕ and of the heading
+const readDrawerHeader = async (targetPage) =>
+	targetPage.evaluate(() => {
+		const hitOf = (selector) => {
+			const element = document.querySelector(selector);
+			if (!element) {
+				return { isFound: false };
+			}
+			const rect = element.getBoundingClientRect();
+			const topElement = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+			return { isFound: true, isOnTop: !!topElement && (topElement === element || element.contains(topElement)), top: Math.round(rect.top), coveredBy: topElement && topElement !== element && !element.contains(topElement) ? `${topElement.tagName.toLowerCase()}.${`${topElement.className}`.split(' ')[0]}` : '' };
+		};
+		return { closeButton: hitOf('[data-testid="rater-finder-close"]'), heading: hitOf('#findHead') };
+	});
+const headerUncovered = (headerRead) => headerRead.closeButton.isFound && headerRead.closeButton.isOnTop && headerRead.closeButton.top >= 0 && headerRead.heading.isFound && headerRead.heading.isOnTop && headerRead.heading.top >= 0;
 const inViewport = (rect, layout) => !!rect && rect.isShown && rect.top >= 0 && rect.bottom <= layout.innerHeight && rect.left >= 0 && rect.right <= layout.innerWidth;
 const scrollListToBottom = async () => {
 	await page.evaluate(() => {
@@ -151,6 +169,8 @@ try {
 	});
 	check('nothing covers the element name while the drawer is open', panelTopElement);
 	await page.screenshot({ path: shotPath('D10-2-drawer-search-1440x900') });
+	const raterHeaderRead = await readDrawerHeader(page);
+	check(`D10.9 rater page: the drawer's ✕ and heading are on top, nothing paints over them (${JSON.stringify(raterHeaderRead)})`, headerUncovered(raterHeaderRead));
 
 	// ---------------------------------------------------------------- D10.3 closing returns focus
 	console.log('D10.3 Esc, ✕ and outside press close it and return focus');
@@ -269,14 +289,25 @@ try {
 	await adminPage.click('[data-testid="rater-search-submit"]');
 	await adminPage.locator('[data-testid="rater-search-result"]').first().waitFor({ timeout: 20000 }).catch(() => null);
 	check('search answers in the preview drawer', (await adminPage.locator('[data-testid="rater-search-result"]').count()) > 0);
+	const previewHeaderRead = await readDrawerHeader(adminPage);
+	check(`D10.9 admin preview: the drawer's ✕ and heading are on top of the site's app bar (${JSON.stringify(previewHeaderRead)})`, headerUncovered(previewHeaderRead));
+	await adminPage.screenshot({ path: shotPath('D10-9-preview-drawer-header') });
 	const previewAddable = adminPage.locator('[data-testid="rater-search-result"] [data-testid="rater-add-card"]').first();
 	if ((await previewAddable.count()) > 0) {
 		await previewAddable.click();
 		check('adding a card in the preview keeps the drawer open', await adminPage.locator(DRAWER).isVisible());
 	}
+	// ONYX_CANVAS opened it from a card's class name: the header must be uncovered that way too
+	await adminPage.keyboard.press('Escape');
+	await adminPage.locator('[data-testid="rater-candidate-row"] [data-testid="rater-card-class"]').first().click();
+	await adminPage.locator('.rt-class-banner').waitFor({ timeout: 20000 });
+	const previewClassHeaderRead = await readDrawerHeader(adminPage);
+	check(`D10.9 admin preview, opened from a class name: the ✕ and heading are on top (${JSON.stringify(previewClassHeaderRead)})`, headerUncovered(previewClassHeaderRead));
 	await adminPage.screenshot({ path: shotPath('D10-8-preview-drawer') });
 	await adminPage.keyboard.press('Escape');
 	await adminPage.click('[data-testid="rater-open-browse"]');
+	// Browse remembers the class opened above; its path's first step goes back to the concepts
+	await adminPage.click('[data-testid="rater-browse-crumb-all"]');
 	await adminPage.locator('[data-testid="rater-browse-concept"]').first().waitFor({ timeout: 20000 }).catch(() => null);
 	check('Browse answers in the preview drawer', (await adminPage.locator('[data-testid="rater-browse-concept"]').count()) > 0);
 	check('Save stays disabled in the preview', await adminPage.locator('[data-testid="rater-save"]').isDisabled());

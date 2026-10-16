@@ -7,6 +7,9 @@
 // focusSelector inside the drawer on open and back to whatever had focus before (the opener) on close. Tab wraps inside
 // it while it is open. It is not modal: nothing outside is dimmed or locked, the element stays readable.
 // Host: components/rater/RatingScreen.vue (both rating modes, so the admin preview has it too). No store, no API.
+// It is teleported to <body>, inside its own .rt-app wrapper (the rater look's scope): inside /admin the page sits in
+// v-main, whose stacking context put the main site's v-app-bar over the drawer's heading and ✕ whatever the drawer's own
+// z-index (ONYX_CANVAS, 2026-10-16). At body level its z-index is compared with the app bar's directly.
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
@@ -145,14 +148,19 @@ onBeforeUnmount(stopListening);
 </script>
 
 <template>
-	<div v-show="props.isOpen" ref="drawerElement" role="dialog" aria-modal="false" :aria-labelledby="props.labelledById" tabindex="-1" class="rt-drawer" :style="{ left: `${drawerLeftPx}px` }" data-testid="rater-finder-drawer">
-		<button type="button" class="rt-drawer-close" aria-label="Close the search panel" data-testid="rater-finder-close" @click="emit('close')">✕</button>
-		<slot />
-	</div>
+	<Teleport to="body">
+		<div class="rt-app rt-drawer-host">
+			<div v-show="props.isOpen" ref="drawerElement" role="dialog" aria-modal="false" :aria-labelledby="props.labelledById" tabindex="-1" class="rt-drawer" :style="{ left: `${drawerLeftPx}px` }" data-testid="rater-finder-drawer">
+				<button type="button" class="rt-drawer-close" aria-label="Close the search panel" data-testid="rater-finder-close" @click="emit('close')">✕</button>
+				<slot />
+			</div>
+		</div>
+	</Teleport>
 </template>
 
 <style scoped>
 .rt-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1010; overflow-y: auto; overscroll-behavior: contain; background: var(--rt-page, #F8F9FC); border-left: 1px solid #C9D3E8; box-shadow: -10px 0 28px rgba(7, 42, 108, 0.18); box-sizing: border-box; padding: 12px; }
+.rt-drawer-host { background: transparent !important; }
 .rt-drawer:focus { outline: none; }
 .rt-drawer-close { position: absolute; top: 14px; right: 16px; z-index: 1; width: 44px; height: 44px; border: 1px solid #C9D3E8; border-radius: 8px; background: #FFFFFF; color: #072A6C; font: inherit; font-size: 20px; font-weight: 700; cursor: pointer; }
 </style>
