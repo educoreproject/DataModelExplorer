@@ -5,7 +5,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
 definePageMeta({ layout: false });
-useHead({ title: 'CEDS Rater: all rated' });
+useHead({ title: 'Mapping Survey: all rated' });
 
 const raterStore = useRaterStore();
 const router = useRouter();

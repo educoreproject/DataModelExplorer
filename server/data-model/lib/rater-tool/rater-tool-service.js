@@ -10,6 +10,12 @@
 //     browse({ raterUserName, browseMode, conceptName, classCedsId }, cb)    concepts | classesOfConcept | propertiesOfClass
 //     getProgress({ raterUserName }, cb)
 //     finish({ raterUserName }, cb)                         locks the rater's answers (all items must be saved)
+//     previewItem({ surveyName, itemNumber }, cb)           revision 8, the ADMIN's preview: item N of the survey in its
+//                                                           frozen order (the View items numbering), built by the same
+//                                                           itemPayloadOf a rater's item is, as a rater with no answers
+//                                                           sees it; card order from the preview seed. Writes nothing.
+//     previewSearch({ surveyName, elementStableId, searchMode, queryText }, cb)   the rater's search, NOT logged
+//     previewBrowse({ browseMode, conceptName, classCedsId }, cb)                 the rater's browse
 //   }
 // Every refusal is { refusal: { refusalName, refusalText } } through callback('', ...); an errText means the tool failed.
 //
@@ -18,6 +24,9 @@
 // SHUFFLES: item order = seededShuffle(survey elements, rater.raterSeedText, 'itemOrder'); card order =
 // seededShuffle(suggested cards, rater.raterSeedText, 'cards:' + elementStableId). Stable across reloads, different
 // per rater because each rater's seed is minted at random when the account is made.
+// PREVIEW (revision 8): the preview viewer is { surveyName, raterSeedText: 'preview:<survey>' }, so its card order is a
+// seeded shuffle by survey and element: realistic, and stable across reloads. Its item order is the survey's frozen order,
+// not a shuffle, so preview item N is the admin's View items N.
 
 const { pipeRunner, taskListPlus } = new (require('qtools-asynchronous-pipe-plus'))();
 const { seededShuffle } = require('./seeded-draw');
@@ -34,6 +43,7 @@ const SEARCH_RESULT_CARD_COUNT = 20;
 const SEARCHES_TYPED_CAP = 50;
 const QUERY_TEXT_LENGTH_CAP = 500;
 const CEDS_ID_PATTERN = /^P\d{6}$/;
+const PREVIEW_SEED_PREFIX = 'preview:';
 
 const RATER_REFUSAL_NAME_LIST = Object.freeze(['notARater', 'itemNumberInvalid', 'elementNotInSurvey', 'answersLocked', 'addedCardInvalid', 'searchModeInvalid', 'queryTextEmpty', 'cedsIdInvalid', 'browseModeInvalid', 'unknownConcept', 'unknownClass', 'secondsOnItemInvalid', 'searchesTypedInvalid', 'notAllItemsSaved', 'noEmbedder', 'searchIndexAbsent']);
 const refusalOf = (refusalName, refusalText) => {
@@ -115,40 +125,71 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 	};
 
 	// --------------------------------------------------------------------------------
-	// getItem
+	// getItem (and previewItem: one payload builder for both)
+
+	const itemPositionRefusalOf = ({ itemNumber, orderedElementList, surveyName }) => {
+		const itemPosition = Number(itemNumber) - 1;
+		if (!Number.isInteger(itemPosition) || itemPosition < 0 || itemPosition >= orderedElementList.length) {
+			return refusalOf('itemNumberInvalid', `Item ${JSON.stringify(itemNumber)} does not exist; survey ${surveyName} has items 1 to ${orderedElementList.length}.`);
+		}
+		return null;
+	};
+
+	// viewer: a rater record, or the preview viewer; it decides the card order (its raterSeedText) and nothing else
+	const itemPayloadOf = ({ viewer, orderedElementList, itemPosition, currentAnswerList }) => {
+		const element = orderedElementList[itemPosition];
+		const savedRecord = currentAnswerList.find((answerRecord) => answerRecord.elementStableId === element.elementStableId);
+		return {
+			itemNumber: itemPosition + 1,
+			itemCount: orderedElementList.length,
+			surveyName: viewer.surveyName,
+			element: pickFields(element, RATER_ELEMENT_FIELD_LIST),
+			cardList: suggestedCardListOf(viewer, element.elementStableId).map(raterCardOf),
+			savedAnswer: savedRecord ? raterAnswerViewOf(savedRecord) : null,
+			progress: progressOf(viewer, currentAnswerList),
+		};
+	};
 
 	const getItem = ({ raterUserName, itemNumber }, callback) =>
 		withRater(raterUserName, (rater, done) => {
 			const orderedElementList = orderedElementListOf(rater);
-			const itemPosition = Number(itemNumber) - 1;
-			if (!Number.isInteger(itemPosition) || itemPosition < 0 || itemPosition >= orderedElementList.length) {
-				done('', refusalOf('itemNumberInvalid', `Item ${JSON.stringify(itemNumber)} does not exist; survey ${rater.surveyName} has items 1 to ${orderedElementList.length}.`));
+			const itemRefusal = itemPositionRefusalOf({ itemNumber, orderedElementList, surveyName: rater.surveyName });
+			if (itemRefusal) {
+				done('', itemRefusal);
 				return;
 			}
-			const element = orderedElementList[itemPosition];
 			readCurrentAnswerList(rater, (readError, currentAnswerList) => {
 				if (readError) {
 					done(readError);
 					return;
 				}
-				const savedRecord = currentAnswerList.find((answerRecord) => answerRecord.elementStableId === element.elementStableId);
 				touchRater(rater, (touchError) => {
 					if (touchError) {
 						done(touchError);
 						return;
 					}
-					done('', {
-						itemNumber: itemPosition + 1,
-						itemCount: orderedElementList.length,
-						surveyName: rater.surveyName,
-						element: pickFields(element, RATER_ELEMENT_FIELD_LIST),
-						cardList: suggestedCardListOf(rater, element.elementStableId).map(raterCardOf),
-						savedAnswer: savedRecord ? raterAnswerViewOf(savedRecord) : null,
-						progress: progressOf(rater, currentAnswerList),
-					});
+					done('', itemPayloadOf({ viewer: rater, orderedElementList, itemPosition: Number(itemNumber) - 1, currentAnswerList }));
 				});
 			});
 		}, callback);
+
+	// the admin's preview: no rater, no store read or write; the survey name is the caller's to check (rater-tool-admin).
+	// finishedAt: null as a fresh rater's record has it, so the progress carries the same fields
+	const previewViewerOf = (surveyName) => ({ surveyName, raterSeedText: `${PREVIEW_SEED_PREFIX}${surveyName}`, finishedAt: null });
+
+	const previewItem = ({ surveyName, itemNumber }, callback) => {
+		const orderedElementList = raterToolAccess.elementListBySurvey[surveyName];
+		if (!orderedElementList) {
+			callback(`rater-tool-service.previewItem: there is no survey '${surveyName}' in the frozen sample`);
+			return;
+		}
+		const itemRefusal = itemPositionRefusalOf({ itemNumber, orderedElementList, surveyName });
+		if (itemRefusal) {
+			callback('', itemRefusal);
+			return;
+		}
+		callback('', itemPayloadOf({ viewer: previewViewerOf(surveyName), orderedElementList, itemPosition: Number(itemNumber) - 1, currentAnswerList: [] }));
+	};
 
 	// what a rater gets back of their own saved answer (added cards in the order they were added, newest first)
 	const raterAnswerViewOf = (answerRecord) => ({
@@ -311,48 +352,54 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 		},
 	});
 
+	// searchCards — the search itself, for a survey's element; writes nothing (the rater's search logs it, the preview does not)
+	const searchCards = ({ surveyName, elementStableId, searchMode, queryText }, callback) => {
+		if (SEARCH_MODE_LIST.indexOf(searchMode) === -1) {
+			callback('', refusalOf('searchModeInvalid', `searchMode must be one of ${SEARCH_MODE_LIST.join(', ')}.`));
+			return;
+		}
+		const cleanQueryText = typeof queryText === 'string' ? queryText.trim().slice(0, QUERY_TEXT_LENGTH_CAP) : '';
+		if (cleanQueryText === '') {
+			callback('', refusalOf('queryTextEmpty', 'Type something to search for.'));
+			return;
+		}
+		const element = raterToolAccess.elementByStableId[elementStableId];
+		if (!element || element.surveyName !== surveyName) {
+			callback('', refusalOf('elementNotInSurvey', `That element is not in your survey (${surveyName}).`));
+			return;
+		}
+		withGraph((raterGraph, graphDone) =>
+			SEARCH_RUNNER_BY_MODE[searchMode]({ raterGraph, queryText: cleanQueryText }, (runError, runAnswer) => {
+				if (runError || (runAnswer && runAnswer.refusal)) {
+					graphDone(runError, runAnswer);
+					return;
+				}
+				if (runAnswer.cardList) {
+					graphDone('', { cardList: runAnswer.cardList, searchNote: runAnswer.searchNote });
+					return;
+				}
+				cedsCards.readCardsByTupleIdList({ raterGraph, cedsTupleIdList: runAnswer.cedsTupleIdList }, (readError, cardList) => (readError ? graphDone(readError) : graphDone('', { cardList, searchNote: runAnswer.searchNote })));
+			}), (searchError, searchAnswer) => {
+			if (searchError || searchAnswer.refusal) {
+				callback(searchError, searchAnswer);
+				return;
+			}
+			callback('', { searchMode, queryText: cleanQueryText, searchNote: searchAnswer.searchNote, cardList: searchAnswer.cardList.map(raterCardOf) });
+		});
+	};
+
 	const search = ({ raterUserName, elementStableId, searchMode, queryText }, callback) =>
-		withRater(raterUserName, (rater, done) => {
-			if (SEARCH_MODE_LIST.indexOf(searchMode) === -1) {
-				done('', refusalOf('searchModeInvalid', `searchMode must be one of ${SEARCH_MODE_LIST.join(', ')}.`));
-				return;
-			}
-			const cleanQueryText = typeof queryText === 'string' ? queryText.trim().slice(0, QUERY_TEXT_LENGTH_CAP) : '';
-			if (cleanQueryText === '') {
-				done('', refusalOf('queryTextEmpty', 'Type something to search for.'));
-				return;
-			}
-			const element = raterToolAccess.elementByStableId[elementStableId];
-			if (!element || element.surveyName !== rater.surveyName) {
-				done('', refusalOf('elementNotInSurvey', `That element is not in your survey (${rater.surveyName}).`));
-				return;
-			}
-			withGraph((raterGraph, graphDone) =>
-				SEARCH_RUNNER_BY_MODE[searchMode]({ raterGraph, queryText: cleanQueryText }, (runError, runAnswer) => {
-					if (runError || (runAnswer && runAnswer.refusal)) {
-						graphDone(runError, runAnswer);
-						return;
-					}
-					if (runAnswer.cardList) {
-						graphDone('', { cardList: runAnswer.cardList, searchNote: runAnswer.searchNote });
-						return;
-					}
-					cedsCards.readCardsByTupleIdList({ raterGraph, cedsTupleIdList: runAnswer.cedsTupleIdList }, (readError, cardList) => (readError ? graphDone(readError) : graphDone('', { cardList, searchNote: runAnswer.searchNote })));
-				}), (searchError, searchAnswer) => {
+		withRater(raterUserName, (rater, done) =>
+			searchCards({ surveyName: rater.surveyName, elementStableId, searchMode, queryText }, (searchError, searchAnswer) => {
 				if (searchError || searchAnswer.refusal) {
 					done(searchError, searchAnswer);
 					return;
 				}
-				const searchLogRow = { raterUserName: rater.raterUserName, elementStableId, searchMode, searchJson: raterMapper.encodeJsonColumn({ queryText: cleanQueryText }), resultCount: `${searchAnswer.cardList.length}`, searchedAt: nowText() };
-				raterStore.saveRowVerified('searchLog', searchLogRow, (logError) => {
-					if (logError) {
-						done(logError);
-						return;
-					}
-					done('', { searchMode, queryText: cleanQueryText, searchNote: searchAnswer.searchNote, cardList: searchAnswer.cardList.map(raterCardOf) });
-				});
-			});
-		}, callback);
+				const searchLogRow = { raterUserName: rater.raterUserName, elementStableId, searchMode, searchJson: raterMapper.encodeJsonColumn({ queryText: searchAnswer.queryText }), resultCount: `${searchAnswer.cardList.length}`, searchedAt: nowText() };
+				raterStore.saveRowVerified('searchLog', searchLogRow, (logError) => (logError ? done(logError) : done('', searchAnswer)));
+			}), callback);
+
+	const previewSearch = ({ surveyName, elementStableId, searchMode, queryText }, callback) => searchCards({ surveyName, elementStableId, searchMode, queryText }, callback);
 
 	// --------------------------------------------------------------------------------
 	// browse
@@ -376,15 +423,19 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 			}),
 	});
 
-	const browse = ({ raterUserName, browseMode, conceptName, classCedsId }, callback) =>
-		withRater(raterUserName, (rater, done) => {
-			if (BROWSE_MODE_LIST.indexOf(browseMode) === -1) {
-				done('', refusalOf('browseModeInvalid', `browseMode must be one of ${BROWSE_MODE_LIST.join(', ')}.`));
-				return;
-			}
-			withGraph((raterGraph, graphDone) => BROWSE_RUNNER_BY_MODE[browseMode]({ raterGraph, conceptName, classCedsId }, graphDone), (browseError, browseAnswer) =>
-				browseError || browseAnswer.refusal ? done(browseError, browseAnswer) : done('', { browseMode, ...browseAnswer }));
-		}, callback);
+	// browseCards — browse needs no rater; the rater's browse still requires one (notARater), the preview's the admin gate
+	const browseCards = ({ browseMode, conceptName, classCedsId }, callback) => {
+		if (BROWSE_MODE_LIST.indexOf(browseMode) === -1) {
+			callback('', refusalOf('browseModeInvalid', `browseMode must be one of ${BROWSE_MODE_LIST.join(', ')}.`));
+			return;
+		}
+		withGraph((raterGraph, graphDone) => BROWSE_RUNNER_BY_MODE[browseMode]({ raterGraph, conceptName, classCedsId }, graphDone), (browseError, browseAnswer) =>
+			browseError || browseAnswer.refusal ? callback(browseError, browseAnswer) : callback('', { browseMode, ...browseAnswer }));
+	};
+
+	const browse = ({ raterUserName, browseMode, conceptName, classCedsId }, callback) => withRater(raterUserName, (rater, done) => browseCards({ browseMode, conceptName, classCedsId }, done), callback);
+
+	const previewBrowse = ({ browseMode, conceptName, classCedsId }, callback) => browseCards({ browseMode, conceptName, classCedsId }, callback);
 
 	// --------------------------------------------------------------------------------
 	// progress and finish
@@ -413,7 +464,7 @@ const makeRaterToolService = ({ raterToolAccess, dataMapping }) => {
 			});
 		}, callback);
 
-	return { getItem, saveAnswer, search, browse, getProgress, finish, raterStore, raterMapper, orderedElementListOf, suggestedCardListOf };
+	return { getItem, saveAnswer, search, browse, getProgress, finish, previewItem, previewSearch, previewBrowse, raterStore, raterMapper, orderedElementListOf, suggestedCardListOf };
 };
 
-module.exports = { makeRaterToolService, RATER_CARD_FIELD_LIST, RATER_ELEMENT_FIELD_LIST, ADDED_CARD_FOUND_BY_LIST, RATER_REFUSAL_NAME_LIST };
+module.exports = { makeRaterToolService, PREVIEW_SEED_PREFIX, RATER_CARD_FIELD_LIST, RATER_ELEMENT_FIELD_LIST, ADDED_CARD_FOUND_BY_LIST, RATER_REFUSAL_NAME_LIST };

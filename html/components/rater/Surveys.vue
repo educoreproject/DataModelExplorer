@@ -7,7 +7,9 @@
 // the server's own refusal text (moveRefusal), and the server refuses the move by name if it is tried anyway. A hint
 // names the survey with the fewest raters (ties to the earlier survey); its button opens that survey's Assign form.
 // Emits 'issued' { raterUserName, issuedPassword, surveyName } (the page shows the password once) and 'changed' (the
-// panel reloads its raters table). RaterAdminPanel loads it (loadSurveys, exposed); since revision 6 the panel's host,
+// panel reloads its raters table). Revision 8: Preview survey S on each card and a Preview link on every View items row
+// open the raters' real rating page, read-only, in this tab (view=preview; previewRouteOf).
+// RaterAdminPanel loads it (loadSurveys, exposed); since revision 6 the panel's host,
 // the CEDS Rater tab of /admin, renders it only for a main-site admin, so a rater never calls the Surveys API.
 import { ref, computed } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
@@ -70,6 +72,9 @@ const moveRaterHere = async () => {
 	emit('changed');
 };
 
+// the preview of item N of a survey: the same /admin page, so the main login comes along
+const previewRouteOf = (surveyName, itemNumber) => ({ path: '/admin', query: { tool: 'ceds-rater', view: 'preview', survey: surveyName, item: itemNumber } });
+
 const viewItems = async (surveyName) => {
 	await raterStore.adminLoadSurveyItems(surveyName);
 };
@@ -109,6 +114,7 @@ defineExpose({ loadSurveys });
 				</ul>
 
 				<div class="rt-surveys-actions">
+					<NuxtLink :to="previewRouteOf(survey.surveyName, 1)" class="rt-surveys-small rt-surveys-link" :data-testid="`rater-surveys-preview-${survey.surveyName}`">Preview survey {{ survey.surveyName }}</NuxtLink>
 					<button type="button" class="rt-surveys-small" :data-testid="`rater-surveys-view-${survey.surveyName}`" @click="viewItems(survey.surveyName)">View items</button>
 					<button type="button" class="rt-surveys-small" :data-testid="`rater-surveys-assign-${survey.surveyName}`" @click="openAssign(survey.surveyName)">Assign a person</button>
 				</div>
@@ -150,10 +156,11 @@ defineExpose({ loadSurveys });
 					<h3 id="surveyItemsHead" class="rt-serif rt-surveys-card-title">Survey {{ raterStore.adminSurveyItemSurveyName }}: {{ raterStore.adminSurveyItemList.length }} items, read-only</h3>
 					<button type="button" class="rt-button-quiet" data-testid="rater-surveys-items-close" @click="raterStore.adminCloseSurveyItems()">Close</button>
 				</header>
-				<p class="rt-surveys-note">Each rater sees these in their own shuffled order, with suggested CEDS cards; the cards are not shown here.</p>
+				<p class="rt-surveys-note">Each rater sees these in their own shuffled order, with suggested CEDS cards; the cards are not shown here. Preview opens the rating page a rater sees for that item.</p>
 				<ol class="rt-surveys-item-list">
 					<li v-for="item in raterStore.adminSurveyItemList" :key="item.elementStableId" data-testid="rater-surveys-item">
 						<span class="rt-surveys-item-standard">{{ item.standard }}</span>
+						<NuxtLink :to="previewRouteOf(raterStore.adminSurveyItemSurveyName, item.itemNumber)" class="rt-surveys-item-preview" :data-testid="`rater-surveys-item-preview-${item.itemNumber}`" @click="raterStore.adminCloseSurveyItems()">Preview</NuxtLink>
 						<b class="rt-mono">{{ item.ownerName ? `${item.ownerName}/${item.name}` : item.name }}</b>
 						<p class="rt-surveys-item-definition">{{ item.definition || item.definitionAbsentReason || 'No definition in the standard.' }}</p>
 					</li>
@@ -192,6 +199,8 @@ defineExpose({ loadSurveys });
 .rt-surveys-empty { color: #4B5563; }
 .rt-surveys-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .rt-surveys-small { min-height: 36px; padding: 0 10px; border: 1px solid #C9D3E8; background: #FFFFFF; color: #072A6C; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.rt-surveys-link { display: inline-flex; align-items: center; text-decoration: none; }
+.rt-surveys-item-preview { font-size: 13px; font-weight: 700; color: #072A6C; margin-right: 8px; }
 .rt-surveys-assign { border-top: 1px dashed #C9D3E8; padding-top: 10px; display: flex; flex-direction: column; gap: 14px; }
 .rt-surveys-form { display: flex; flex-direction: column; gap: 10px; }
 .rt-surveys-select { min-height: 36px; border: 1px solid #C9D3E8; border-radius: 8px; padding: 0 6px; max-width: 100%; }

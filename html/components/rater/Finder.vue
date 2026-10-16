@@ -8,15 +8,16 @@
 // SPEC vs DESIGN (logged): the design has one search box; the spec has three search kinds. The box keeps the design's
 // wording, a CEDS ID typed into it is always an ID search, and a two-way choice picks words or meaning for the rest.
 import { ref, computed } from 'vue';
-import { useRaterStore } from '@/stores/raterStore';
 
+// cardSource: { search(searchRequest), browse(browseRequest) } -> { answer } | { refusal }, given by the rating screen:
+// the rater's own calls, or the admin preview's (revision 8)
 const props = defineProps({
+	cardSource: { type: Object, required: true },
 	elementStableId: { type: String, required: true },
 	inListTupleIdList: { type: Array, required: true },
 });
 const emit = defineEmits(['add-card', 'searched']);
 
-const raterStore = useRaterStore();
 const CEDS_ID_PATTERN = /^\s*P\d{6}\s*$/i;
 const SEARCH_MODE_LABEL_BY_NAME = Object.freeze({ words: 'by words', meaning: 'by meaning' });
 
@@ -48,7 +49,7 @@ const runSearch = async () => {
 	searchState.value = 'loading';
 	ranQueryText.value = trimmedText;
 	emit('searched', trimmedText);
-	const { answer, refusal } = await raterStore.search({ elementStableId: props.elementStableId, searchMode: effectiveMode, queryText: trimmedText });
+	const { answer, refusal } = await props.cardSource.search({ elementStableId: props.elementStableId, searchMode: effectiveMode, queryText: trimmedText });
 	if (refusal) {
 		finderErrorText.value = refusal.refusalText;
 		searchState.value = ['cedsIdInvalid', 'queryTextEmpty'].includes(refusal.refusalName) ? 'refused' : 'error';
@@ -64,7 +65,7 @@ const loadConcepts = async () => {
 	chosenConceptName.value = '';
 	classListAnswer.value = null;
 	classAnswer.value = null;
-	const { answer, refusal } = await raterStore.browse({ browseMode: 'concepts' });
+	const { answer, refusal } = await props.cardSource.browse({ browseMode: 'concepts' });
 	if (refusal) {
 		finderErrorText.value = refusal.refusalText;
 		browseState.value = 'error';
@@ -79,7 +80,7 @@ const openConcept = async (conceptName) => {
 	browseEntryName.value = 'browseFromConcept';
 	chosenConceptName.value = conceptName;
 	classAnswer.value = null;
-	const { answer, refusal } = await raterStore.browse({ browseMode: 'classesOfConcept', conceptName });
+	const { answer, refusal } = await props.cardSource.browse({ browseMode: 'classesOfConcept', conceptName });
 	if (refusal) {
 		finderErrorText.value = refusal.refusalText;
 		browseState.value = 'error';
@@ -92,7 +93,7 @@ const openConcept = async (conceptName) => {
 const openClass = async (classCedsId, entryName) => {
 	browseState.value = 'loading';
 	browseEntryName.value = entryName;
-	const { answer, refusal } = await raterStore.browse({ browseMode: 'propertiesOfClass', classCedsId });
+	const { answer, refusal } = await props.cardSource.browse({ browseMode: 'propertiesOfClass', classCedsId });
 	if (refusal) {
 		finderErrorText.value = refusal.refusalText;
 		browseState.value = 'error';

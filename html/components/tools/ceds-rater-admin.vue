@@ -4,7 +4,8 @@
 // (RaterAdminPanel: gold line and counts, Surveys, raters table, add a rater, the once-only password, downloads) and
 // the Results view (RaterResultsPanel), chosen by the `view` query parameter so a bookmark or the old /rater/admin and
 // /rater/admin/results URLs (which redirect here) land on the right one: /admin?tool=ceds-rater and
-// /admin?tool=ceds-rater&view=results.
+// /admin?tool=ceds-rater&view=results. Revision 8: the preview view (RaterPreviewPanel), the raters' real rating page,
+// read-only: /admin?tool=ceds-rater&view=preview&survey=A&item=1.
 //
 // This component is the guard. /admin's own middleware has already required the main-site login; here the panels are
 // rendered only for an admin role, so a rater (or any other non-admin) gets a refusal and no call is made. The server's
@@ -15,12 +16,14 @@ import { useLoginStore } from '@/stores/loginStore';
 import { isRaterAdminRole } from '@/stores/raterStore';
 import RaterAdminPanel from '@/components/rater/AdminPanel.vue';
 import RaterResultsPanel from '@/components/rater/ResultsPanel.vue';
+import RaterPreviewPanel from '@/components/rater/PreviewPanel.vue';
 // the shared rt- styles; imported, not <style src>, which breaks the production build beside a scoped block
 import '@/assets/css/raterArea.css';
 
 const RATER_VIEW_BY_NAME = Object.freeze({
 	raters: { panelComponent: RaterAdminPanel },
 	results: { panelComponent: RaterResultsPanel },
+	preview: { panelComponent: RaterPreviewPanel },
 });
 const DEFAULT_RATER_VIEW_NAME = 'raters'; // the tab with no `view` parameter
 
@@ -32,8 +35,9 @@ const isAdmin = computed(() => isRaterAdminRole(loginStore.loggedInUser?.role));
 const raterViewName = computed(() => route.query.view || DEFAULT_RATER_VIEW_NAME);
 const raterView = computed(() => RATER_VIEW_BY_NAME[raterViewName.value]);
 
+// a view's own parameters (the preview's survey and item) do not follow it to another view
 const showRaterView = (viewName) => {
-	const nextQuery = { ...route.query, view: viewName };
+	const nextQuery = { tool: route.query.tool, view: viewName };
 	if (viewName === DEFAULT_RATER_VIEW_NAME) {
 		delete nextQuery.view;
 	}

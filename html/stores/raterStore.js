@@ -325,6 +325,34 @@ export const useRaterStore = defineStore('raterStore', {
 			}
 		},
 
+		// revision 8: the admin's preview of the real rating page. A READ: the item lands where a rater's does (item,
+		// progress), so the one rating screen shows it; search and browse answer to the finder like the rater's. Nothing
+		// here can write: the server's preview actions are reads, and the rater write endpoints refuse an admin token.
+		async adminPreviewItem({ surveyName, itemNumber }) {
+			this.loading = true;
+			try {
+				const answer = await this.adminAction({ adminAction: 'previewItem', surveyName, itemNumber });
+				if (!answer) {
+					this.item = null;
+					this.progress = null;
+					return false;
+				}
+				this.item = answer;
+				this.progress = answer.progress;
+				return true;
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		async adminPreviewSearch({ surveyName, elementStableId, searchMode, queryText }) {
+			return this.raterPost('raterAdmin', { adminAction: 'previewSearch', surveyName, elementStableId, searchMode, queryText }, 'Searching CEDS', 'mainLogin');
+		},
+
+		async adminPreviewBrowse({ browseMode, conceptName, classCedsId }) {
+			return this.raterPost('raterAdmin', { adminAction: 'previewBrowse', browseMode, conceptName, classCedsId }, 'Browsing CEDS', 'mainLogin');
+		},
+
 		adminCloseSurveyItems() {
 			this.adminSurveyItemList = [];
 			this.adminSurveyItemSurveyName = '';

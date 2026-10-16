@@ -7,7 +7,7 @@ import { onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
 
 definePageMeta({ layout: false });
-useHead({ title: 'CEDS Rater: instructions' });
+useHead({ title: 'Mapping Survey: instructions' });
 
 const raterStore = useRaterStore();
 onMounted(() => {

@@ -23,6 +23,11 @@
 //                  rater carries moveRefusal: what surveyChange would answer for a move without forced (the same rule)
 //   surveyItems    { surveyName }: that survey's targets, read-only, with the fields a rater sees of the target only (no
 //                  candidates, gold, isMappedInGold or machine result)
+//   previewItem    revision 8 { surveyName, itemNumber }: the survey's item N (frozen order, the View items numbering) as
+//                  a rater's page gets it: rater-tool-service.previewItem, the same payload builder, card order from the
+//                  preview seed. previewSearch { surveyName, elementStableId, searchMode, queryText } and previewBrowse
+//                  { browseMode, conceptName, classCedsId }: the rater's search and browse, the search NOT logged. All three
+//                  are READS: nothing is written to the rater store, and no rater write path accepts an admin token.
 //   remove         { raterUserName }: the rater's answers, history, search log and raters row, and the users row when its
 //                  role is exactly 'rater'. Permanent; the admin screen asks first.
 //
@@ -85,6 +90,14 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 			}
 			userTable.getData(profileUserMapper.getSql('byUsername', { username }), { suppressStatementLog: true, noTableNameOk: true }, (readError, rowList) => (readError ? callback(readError) : callback('', { userTable, userRow: (rowList || [])[0] || null })));
 		});
+
+	const withKnownSurvey = (adminRequest, workFunction, callback) => {
+		if (raterToolAccess.surveyNameList.indexOf(adminRequest.surveyName) === -1) {
+			callback('', refusalOf('surveyNameInvalid', `The survey must be one of ${raterToolAccess.surveyNameList.join(', ')}.`));
+			return;
+		}
+		workFunction();
+	};
 
 	// downloadRecordList — one record per saved answer, in SPEC §5's shape, with history and foundBy
 	const downloadRecordList = (callback) => {
@@ -341,6 +354,11 @@ const makeRaterToolAdmin = ({ raterToolAccess, dataMapping, sqlDb, accessPointsD
 			}
 			callback('', { surveyName: adminRequest.surveyName, itemList: itemAnswer.itemList });
 		},
+		previewItem: ({ adminRequest }, callback) =>
+			withKnownSurvey(adminRequest, () => raterService.previewItem({ surveyName: adminRequest.surveyName, itemNumber: adminRequest.itemNumber }, callback), callback),
+		previewSearch: ({ adminRequest }, callback) =>
+			withKnownSurvey(adminRequest, () => raterService.previewSearch({ surveyName: adminRequest.surveyName, elementStableId: adminRequest.elementStableId, searchMode: adminRequest.searchMode, queryText: adminRequest.queryText }, callback), callback),
+		previewBrowse: ({ adminRequest }, callback) => raterService.previewBrowse({ browseMode: adminRequest.browseMode, conceptName: adminRequest.conceptName, classCedsId: adminRequest.classCedsId }, callback),
 		remove: ({ adminRequest }, callback) => {
 			readRaterOrRefuse(adminRequest.raterUserName, (readError, readAnswer) => {
 				if (readError || readAnswer.refusal) {

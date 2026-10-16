@@ -122,10 +122,13 @@ try {
 		return leakTextList;
 	});
 	check('no number on any card beyond its CEDS ID (and CEDS’s own names and definitions)', leakList.length === 0, JSON.stringify(leakList.slice(0, 3)));
-	// the tool's own words only: the standards' texts (element panel, CEDS cards) can say 'rank' or 'score' about data
+	// the tool's own words only: the standards' texts (element panel, CEDS cards) can say 'rank' or 'score' about data.
+	// Revision 8: the product's name, "Mapping Survey" (TQ's choice), is in the app bar; it names the survey, not a
+	// machine mapping, so the app-bar label is checked for exactly that name and left out of the scan.
+	check('the app bar names the product Mapping Survey', (await page.locator('[data-testid="rater-area-label"]').innerText()).trim() === 'Mapping Survey');
 	const pageText = await page.evaluate(() => {
 		const clone = document.body.cloneNode(true);
-		clone.querySelectorAll('[data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
+		clone.querySelectorAll('[data-testid="rater-area-label"], [data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
 		return clone.innerText || clone.textContent;
 	});
 	check('no "found by", score, rank, AI, mapping, gold or injected text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i) || [])[0]);
@@ -186,9 +189,14 @@ try {
 	await page.locator('[data-testid="rater-search-result"]').first().waitFor({ timeout: 20000 });
 	// the first P001572 card not already in this item's list (the sample decides which are)
 	const searchResultList = page.locator('[data-testid="rater-search-result"]');
+	// bounded (revision 8): with an unlucky seed every P001572 card is already listed, and an unbounded walk never ends
+	const searchResultCount = await searchResultList.count();
 	let addablePosition = 0;
-	while ((await searchResultList.nth(addablePosition).locator('[data-testid="rater-add-card"]').count()) === 0) {
+	while (addablePosition < searchResultCount && (await searchResultList.nth(addablePosition).locator('[data-testid="rater-add-card"]').count()) === 0) {
 		addablePosition += 1;
+	}
+	if (addablePosition >= searchResultCount) {
+		throw new Error(`item 4 already lists every P001572 card (this rater's seed); re-make the rater and run again`);
 	}
 	const studentIdResult = searchResultList.nth(addablePosition);
 	const addedQualifierText = (await studentIdResult.locator('.rt-qualifier').allInnerTexts()).join(', ');
@@ -294,6 +302,16 @@ try {
 	const instructionsText = await page.locator('[data-testid="rater-instructions"]').innerText();
 	check('Instructions: the four worked examples and the attribution line', ['A clear match', 'No match in CEDS', 'More than one acceptable answer', 'The same name under the wrong class'].every((headText) => instructionsText.includes(headText)) && instructionsText.includes('Drafted with Milo for tqii; tqii will revise.'));
 	await page.screenshot({ path: shotPath('11-instructions'), fullPage: true });
+
+	// ---------------------------------------------------------------- revision 8: the raters' pages say Mapping Survey
+	const titleByPagePath = { '/rater/instructions': 'Mapping Survey: instructions', '/rater/rate?item=1': 'Mapping Survey: rating', '/rater/done': 'Mapping Survey: all rated' };
+	for (const [pagePath, expectedTitle] of Object.entries(titleByPagePath)) {
+		await page.goto(`${baseUrl}${pagePath}`);
+		await page.locator('[data-testid="rater-area-label"]').waitFor();
+		await page.waitForFunction((titleText) => document.title === titleText, expectedTitle, { timeout: 10000 }).catch(() => null);
+		const areaLabelText = (await page.locator('[data-testid="rater-area-label"]').innerText()).trim();
+		check(`${pagePath}: the browser tab says '${expectedTitle}' and the app bar 'Mapping Survey'`, (await page.title()) === expectedTitle && areaLabelText === 'Mapping Survey', `${await page.title()} / ${areaLabelText}`);
+	}
 } catch (walkError) {
 	check('the walkthrough ran to the end', false, walkError.message.split('\n')[0]);
 	await page.screenshot({ path: shotPath('99-failure') }).catch(() => {});
