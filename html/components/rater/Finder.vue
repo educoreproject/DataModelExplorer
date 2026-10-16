@@ -7,6 +7,9 @@
 // class link (openClassFromCard, called by the page); 'browseFromConcept' when the rater walked down from a concept.
 // Search results show the card's definitions as the candidate list does (RaterCardDefinitions, class first; revision 9);
 // a class's properties under Browse keep the element definition alone, the class banner above them says the class.
+// Revision 10: it lives in RaterFinderDrawer, a panel from the right, opened by the rating screen (the buttons above the
+// element, a card's class name, the foot of the list) through showSearch / showBrowse / openClassFromCard. Adding a card
+// says so here and leaves the drawer open; the card joins the top of the list behind it, marked added.
 // SPEC vs DESIGN (logged): the design has one search box; the spec has three search kinds. The box keeps the design's
 // wording, a CEDS ID typed into it is always an ID search, and a two-way choice picks words or meaning for the rest.
 import { ref, computed } from 'vue';
@@ -117,16 +120,12 @@ const showBrowse = () => {
 };
 
 // called by the page when a card's class name is clicked, and by a search result's class name (revision 9: it used to
-// load the class into the hidden Browse tab)
+// load the class into the hidden Browse tab). Revision 10: the drawer is the view, so nothing scrolls.
 const openClassFromCard = (card) => {
 	tabName.value = 'browse';
 	openClass(card.classCedsId, 'browseFromCard');
-	const finderSection = document.getElementById('finder');
-	if (finderSection) {
-		finderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-	}
 };
-defineExpose({ openClassFromCard });
+defineExpose({ showSearch, showBrowse, openClassFromCard });
 
 const retryBrowse = () => {
 	if (classAnswer.value || browseEntryName.value === 'browseFromCard') {
@@ -142,7 +141,7 @@ const retryBrowse = () => {
 
 const addCard = (card, foundBy) => {
 	emit('add-card', card, foundBy);
-	addedMessage.value = `${labelOf(card)} is now at the top of your list.`;
+	addedMessage.value = `Added to your candidates: ${labelOf(card)}, at the top of your list.`;
 };
 
 const resultFoundBy = computed(() => browseEntryName.value);
@@ -162,10 +161,7 @@ const classIntroText = computed(() => (classListAnswer.value ? `${chosenConceptN
 			</div>
 		</div>
 
-		<div v-if="addedMessage" role="status" class="rt-added-status">
-			<span>{{ addedMessage }}</span>
-			<a href="#candidates" class="rt-added-jump">Go to the list ↑</a>
-		</div>
+		<div v-if="addedMessage" role="status" class="rt-added-status" data-testid="rater-finder-added">{{ addedMessage }}</div>
 
 		<div v-if="tabName === 'search'" role="tabpanel" aria-label="Search all of CEDS">
 			<form class="rt-search-form" @submit.prevent="runSearch">
@@ -269,14 +265,13 @@ const classIntroText = computed(() => (classListAnswer.value ? `${chosenConceptN
 
 <style scoped>
 .rt-finder { padding: 16px; }
-.rt-finder-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.rt-finder-top { padding-right: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
 .rt-finder-head { margin: 0; font-size: 20px; font-weight: 700; color: #111827; }
 .rt-finder-sub { margin: 2px 0 0; font-size: 14px; color: #4B5563; }
 .rt-tabs { display: inline-flex; background: #E7ECF6; border-radius: 10px; padding: 3px; }
 .rt-tab { min-height: 40px; padding: 0 16px; border: 0; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; background: transparent; color: #072A6C; }
 .rt-tab-on { background: #FFFFFF; box-shadow: 0 1px 2px rgba(7, 42, 108, 0.18); }
-.rt-added-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; background: #E0F6F6; border: 1px solid #9ED9DA; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
-.rt-added-jump { font-weight: 700; color: #005E61 !important; }
+.rt-added-status { background: #E0F6F6; border: 1px solid #9ED9DA; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
 .rt-search-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 .rt-search-label { flex: 1 1 320px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; color: #374151; }
 .rt-search-input { min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #C9D3E8; border-radius: 8px; font: inherit; font-size: 16px; font-weight: 400; background: #FFFFFF; color: #111827; }

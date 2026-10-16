@@ -7,6 +7,9 @@
 // >= 1100px); the candidate list (whole page scrolls; the Best / Same / Class → Property heads stick while the list is
 // in view) and the finder on the right; the answer bar sticky at the bottom, one line, with the note that grows on
 // focus and stays open for Unsure. Best is ONE radio group across every card plus No match and Unsure.
+// Revision 10: the finder lives in a drawer from the right (RaterFinderDrawer), over the list and never over the
+// element. It opens from the two buttons above the element (the left column is what sticks, so they stay on screen),
+// from a card's class name (Browse at that class), and from the quiet line at the foot of the list (Search).
 //
 // The server judges every answer (rater-answer-rules.js); the checks here only explain the rules before the round trip.
 import { ref, computed, watch, onMounted } from 'vue';
@@ -58,6 +61,8 @@ const raterStore = useRaterStore();
 const route = useRoute();
 const router = useRouter();
 const finderRef = ref(null);
+const finderIsOpen = ref(false);
+const finderFocusSelector = ref('');
 const ratingMode = RATING_MODE_BY_NAME[props.ratingModeName];
 if (!ratingMode) {
 	throw new Error(`RaterRatingScreen: no rating mode '${props.ratingModeName}' (known: ${Object.keys(RATING_MODE_BY_NAME).join(', ')})`);
@@ -66,6 +71,12 @@ if (!ratingMode) {
 const cardSource = Object.freeze({
 	search: (searchRequest) => ratingMode.search({ raterStore, searchRequest, surveyName: props.surveyName }),
 	browse: (browseRequest) => ratingMode.browse({ raterStore, browseRequest }),
+});
+
+// how the finder drawer opens on each tab: what the finder is told, and what takes focus
+const FINDER_OPENING_BY_TAB_NAME = Object.freeze({
+	search: { showTab: (finder) => finder.showSearch(), focusSelector: '[data-testid="rater-search-input"]' },
+	browse: { showTab: (finder) => finder.showBrowse(), focusSelector: '[data-testid="rater-tab-browse"]' },
 });
 
 const NO_MATCH_CHOICE = 'noMatch';
@@ -135,6 +146,7 @@ const loadCurrentItem = async () => {
 	if (!itemShown) {
 		return;
 	}
+	finderIsOpen.value = false;
 	resetAnswer();
 	window.scrollTo({ top: 0 });
 };
@@ -166,10 +178,20 @@ const rememberSearch = (searchText) => {
 	searchesTyped.value = searchesTyped.value.concat([searchText]);
 };
 
-const browseClassOfCard = (card) => {
-	if (finderRef.value) {
-		finderRef.value.openClassFromCard(card);
+const openFinderOn = (tabName) => {
+	const finderOpening = FINDER_OPENING_BY_TAB_NAME[tabName];
+	if (!finderOpening) {
+		throw new Error(`RaterRatingScreen: no finder tab '${tabName}' (known: ${Object.keys(FINDER_OPENING_BY_TAB_NAME).join(', ')})`);
 	}
+	finderOpening.showTab(finderRef.value);
+	finderFocusSelector.value = finderOpening.focusSelector;
+	finderIsOpen.value = true;
+};
+
+const browseClassOfCard = (card) => {
+	finderRef.value.openClassFromCard(card);
+	finderFocusSelector.value = FINDER_OPENING_BY_TAB_NAME.browse.focusSelector;
+	finderIsOpen.value = true;
 };
 
 // the same three rules the server applies, said before the round trip
@@ -261,7 +283,13 @@ onMounted(loadCurrentItem);
 				</div>
 
 				<div class="rt-columns">
-					<RaterElementPanel :element="item.element" />
+					<div class="rt-stick rt-left" data-testid="rater-left-column">
+						<div role="group" aria-label="Look further in CEDS" class="rt-finder-openers" data-testid="rater-finder-openers">
+							<button type="button" class="rt-button-quiet rt-opener" aria-haspopup="dialog" :aria-expanded="finderIsOpen" data-testid="rater-open-search" @click="openFinderOn('search')">Search all of CEDS</button>
+							<button type="button" class="rt-button-quiet rt-opener" aria-haspopup="dialog" :aria-expanded="finderIsOpen" data-testid="rater-open-browse" @click="openFinderOn('browse')">Browse CEDS</button>
+						</div>
+						<RaterElementPanel :element="item.element" class="rt-left-panel" />
+					</div>
 
 					<div class="rt-right">
 						<section id="candidates" aria-labelledby="candHead" class="rt-panel rt-candidates">
@@ -311,9 +339,12 @@ onMounted(loadCurrentItem);
 									</div>
 								</div>
 							</div>
+							<p class="rt-cand-foot">None of these fit? <button type="button" class="rt-cand-foot-link" aria-haspopup="dialog" data-testid="rater-open-search-foot" @click="openFinderOn('search')">Search all of CEDS</button></p>
 						</section>
 
-						<RaterFinder :key="item.element.elementStableId" ref="finderRef" :card-source="cardSource" :element-stable-id="item.element.elementStableId" :in-list-tuple-id-list="inListTupleIdList" @add-card="addCard" @searched="rememberSearch" />
+						<RaterFinderDrawer :is-open="finderIsOpen" :focus-selector="finderFocusSelector" keep-visible-selector="[data-testid='rater-left-column']" labelled-by-id="findHead" @close="finderIsOpen = false">
+							<RaterFinder :key="item.element.elementStableId" ref="finderRef" :card-source="cardSource" :element-stable-id="item.element.elementStableId" :in-list-tuple-id-list="inListTupleIdList" @add-card="addCard" @searched="rememberSearch" />
+						</RaterFinderDrawer>
 					</div>
 				</div>
 
@@ -350,6 +381,17 @@ onMounted(loadCurrentItem);
 .rt-done-link { font-size: 14px; font-weight: 700; }
 .rt-locked-chip { border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; background: #E7ECF6; color: #072A6C; }
 .rt-columns { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.rt-left { flex: 1 1 300px; min-width: 0; align-self: flex-start; display: flex; flex-direction: column; gap: 8px; }
+/* the column sticks (rt-stick) only if it is shorter than the space above the answer bar; a tall element scrolls
+   inside its own panel so the buttons above it never leave the screen (revision 10) */
+@media (min-width: 1100px) {
+	.rt-left { max-height: calc(100vh - 150px); }
+	.rt-left-panel { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+}
+.rt-finder-openers { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.rt-opener { flex: 1 1 auto; }
+.rt-cand-foot { margin: 14px 0 0; font-size: 15px; color: #4B5563; }
+.rt-cand-foot-link { border: 0; background: transparent; padding: 0; min-height: 32px; font: inherit; font-weight: 700; color: #072A6C; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .rt-right { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .rt-candidates { padding: 0 16px 16px; }
 .rt-cand-head { position: sticky; top: 0; z-index: 3; background: #FFFFFF; border-radius: 12px 12px 0 0; padding-top: 12px; }

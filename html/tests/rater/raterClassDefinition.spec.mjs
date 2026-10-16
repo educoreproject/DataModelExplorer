@@ -285,6 +285,8 @@ try {
 
 	// ---------------------------------------------------------------- C9.7 the Finder
 	console.log('C9.7 Finder results read the same way');
+	// revision 10: the finder lives in a drawer, opened from the button above the element
+	await page.click('[data-testid="rater-open-search"]');
 	const searchCaseList = [
 		{ modeName: 'words', queryText: 'credits earned' },
 		{ modeName: 'meaning', queryText: 'how many credits a student earned' },
@@ -323,7 +325,9 @@ try {
 	const bannerText = (await page.locator('.rt-class-banner').count()) ? (await page.locator('.rt-class-banner').innerText()).trim() : '';
 	check(`clicking "${resultClassName}" in a search result selects Browse and shows that class's properties under its banner`, browseTabSelected === 'true' && bannerText.startsWith(`${resultClassName}:`) && (await page.locator('[data-testid="rater-browse-property"]').count()) > 0, `browse tab ${browseTabSelected}, banner '${bannerText.slice(0, 60)}'`);
 	await page.screenshot({ path: shotPath('93-search-result-class-opens-browse') });
-	// a candidate card's class link opens Browse on that class too (the finder's openClassFromCard)
+	// a candidate card's class link opens Browse on that class too (the finder's openClassFromCard); revision 10: the
+	// drawer covers the list, so it is closed first and the class link opens it again
+	await page.keyboard.press('Escape');
 	await page.locator('[data-testid="rater-candidate-row"] [data-testid="rater-card-class"]').first().click();
 	await page.locator('[data-testid="rater-browse-property"]').first().waitFor({ timeout: 20000 });
 	const bannerCount = await page.locator('.rt-class-banner').count();

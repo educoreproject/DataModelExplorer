@@ -101,7 +101,7 @@ try {
 	check('the banner says "Preview: nothing is saved" and names the shuffle', bannerText.startsWith('Preview: nothing is saved.') && /fixed preview order/.test(bannerText), bannerText);
 	check(`it shows item 1 of ${SURVEY_ITEM_COUNT} of survey ${surveyName}`, (await crumbText()).includes(`Item 1 of ${SURVEY_ITEM_COUNT}`) && (await page.locator('.rt-crumb-survey').innerText()).includes(`Survey ${surveyName}`), await crumbText());
 	const firstElementName = (await page.locator('[data-testid="rater-element-name"]').innerText()).trim();
-	check('the element panel and the candidate cards are there (the raters\' own components)', firstElementName.length > 0 && (await page.locator('[data-testid="rater-candidate-row"]').count()) > 0 && (await page.locator('[data-testid="rater-finder"]').count()) === 1, firstElementName);
+	check('the element panel and the candidate cards are there (the raters\' own components)', firstElementName.length > 0 && (await page.locator('[data-testid="rater-candidate-row"]').count()) > 0 && (await page.locator('[data-testid="rater-finder"]').count()) === 1 && (await page.locator('[data-testid="rater-open-search"]').isVisible()), firstElementName);
 	check('the Mapping Survey tab is still the selected tool', (await page.locator('[data-testid="ceds-rater-tool"]').count()) === 1);
 	await page.screenshot({ path: shotPath('80-preview-item-1') });
 
@@ -165,6 +165,8 @@ try {
 
 	// ---------------------------------------------------------------- B8.4 search and browse
 	console.log('B8.4 the finder works in preview');
+	// revision 10: the finder is in a drawer, opened from the button above the element
+	await page.click('[data-testid="rater-open-search"]');
 	await page.fill('[data-testid="rater-search-input"]', 'P001572');
 	await page.click('[data-testid="rater-search-submit"]');
 	await page.locator('[data-testid="rater-search-result"]').first().waitFor({ timeout: 20000 }).catch(() => null);
@@ -179,6 +181,7 @@ try {
 	await page.locator('[data-testid="rater-browse-concept"]').first().waitFor({ timeout: 20000 }).catch(() => null);
 	check('Browse shows the CEDS concepts', (await page.locator('[data-testid="rater-browse-concept"]').count()) > 0);
 	await page.screenshot({ path: shotPath('82-preview-finder') });
+	await page.keyboard.press('Escape');
 
 	// ---------------------------------------------------------------- B8.5 what left the browser
 	console.log('B8.5 no write request left the browser');

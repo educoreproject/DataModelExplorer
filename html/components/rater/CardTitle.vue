@@ -10,8 +10,9 @@ const props = defineProps({
 const emit = defineEmits(['browse-class']);
 
 // the class button's tooltip says what a click does, naming the class (TQ, 2026-10-16); a Vuetify tooltip, which also
-// links itself to the button for screen readers, in place of the slow native title
-const classButtonTipText = computed(() => `Click to browse every property of ${props.card.className} in Find more candidates, below.`);
+// links itself to the button for screen readers, in place of the slow native title. Revision 10: Browse opens in the
+// finder drawer beside the list, not below it.
+const classButtonTipText = computed(() => `Click to browse every property of ${props.card.className} in a panel beside the list.`);
 </script>
 
 <template>

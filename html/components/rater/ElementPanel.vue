@@ -1,7 +1,8 @@
 <script setup>
 // RaterElementPanel — the element being rated, on its standard's tint (design: the rater's only cue to which standard
-// they are reading, so the tint, chip and name colour change per item). Sticky at >= 1100px (rt-stick), stacked above
-// the list below that. Absent texts are said, never filled in: "No definition published by <standard>".
+// they are reading, so the tint, chip and name colour change per item). Revision 10: it sits in the rating screen's left
+// column under the finder buttons, and that column is what sticks at >= 1100px (rt-stick), stacked above the list below.
+// Absent texts are said, never filled in: "No definition published by <standard>".
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -19,7 +20,7 @@ const familyStyle = computed(() => FAMILY_STYLE_BY_STANDARD[props.element.standa
 </script>
 
 <template>
-	<aside aria-label="The element you are rating" class="rt-stick rt-element" :style="{ background: familyStyle.tint }" data-testid="rater-element-panel" :data-standard="props.element.standard">
+	<aside aria-label="The element you are rating" class="rt-element" :style="{ background: familyStyle.tint }" data-testid="rater-element-panel" :data-standard="props.element.standard">
 		<div class="rt-element-top">
 			<span class="rt-family-chip" :style="{ background: familyStyle.ink }">{{ props.element.standard }} element</span>
 			<span class="rt-element-type">type: <b>{{ props.element.dataTypeText }}</b></span>
@@ -56,7 +57,7 @@ const familyStyle = computed(() => FAMILY_STYLE_BY_STANDARD[props.element.standa
 </template>
 
 <style scoped>
-.rt-element { flex: 1 1 300px; min-width: 0; align-self: flex-start; border-radius: 12px; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+.rt-element { min-width: 0; border-radius: 12px; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
 .rt-element-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .rt-family-chip { border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; color: #FFFFFF; }
 .rt-element-type { font-size: 13px; color: #4B5563; }

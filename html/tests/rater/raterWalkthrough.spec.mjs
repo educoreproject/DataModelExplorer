@@ -5,7 +5,10 @@
 //   T4.2 an invalid answer is refused and the message shows in the answer bar
 //   T4.3 Same is disabled until a Best exists, and disabled on the Best card
 //   T4.4 viewport: >= 2 cards fully visible at 1280×720 on opening, >= 3 at 1440×900 (screenshots; revision 9, was 3 and 5)
-//   T4.5 keyboard: Tab reaches every control kind, arrow keys move within the Best group, the focus ring shows
+//   T4.5 keyboard: Tab reaches every control kind, arrow keys move within the Best group, the focus ring shows;
+//        Enter on "Search all of CEDS" opens the finder drawer with focus in the search box, Esc gives focus back
+// Revision 10: the finder is a drawer from the right, opened from the buttons above the element (raterFinderDrawer
+// gates the drawer itself); this walk opens it where it used to scroll to it, and closes it before touching the list.
 //   T4.6 no ranking leaks: no numbers on cards beyond the CEDS ID; no "found by" text anywhere
 //
 //   node html/tests/rater/raterWalkthrough.spec.mjs --baseUrl=http://localhost:7795 --raterUserName=… --password=…
@@ -94,6 +97,8 @@ try {
 	await page.waitForTimeout(300);
 	const stickyRead = await page.evaluate(() => ({
 		headTop: document.querySelector('[data-testid="rater-column-heads"]').getBoundingClientRect().top,
+		leftTop: document.querySelector('[data-testid="rater-left-column"]').getBoundingClientRect().top,
+		openerTop: document.querySelector('[data-testid="rater-open-search"]').getBoundingClientRect().top,
 		panelTop: document.querySelector('[data-testid="rater-element-panel"]').getBoundingClientRect().top,
 		barBottom: document.querySelector('[data-testid="rater-answer-bar"]').getBoundingClientRect().bottom,
 		innerHeight: window.innerHeight,
@@ -103,7 +108,7 @@ try {
 	await page.screenshot({ path: shotPath('03b-scrolled-sticky-1440x900') });
 	check(`the whole page scrolls (scrollY ${stickyRead.scrolledBy}; list overflow ${stickyRead.listScrollBox})`, stickyRead.scrolledBy >= 600 && stickyRead.listScrollBox === 'visible');
 	check(`scrolled: the Best/Same column heads stay at the top (${Math.round(stickyRead.headTop)}px)`, stickyRead.headTop >= 0 && stickyRead.headTop < 80);
-	check(`scrolled at >= 1100px: the element panel stays put (${Math.round(stickyRead.panelTop)}px)`, Math.abs(stickyRead.panelTop - 12) <= 2);
+	check(`scrolled at >= 1100px: the left column stays put (${Math.round(stickyRead.leftTop)}px), the finder buttons at its top (${Math.round(stickyRead.openerTop)}px) and the element under them (${Math.round(stickyRead.panelTop)}px)`, Math.abs(stickyRead.leftTop - 12) <= 2 && Math.abs(stickyRead.openerTop - 12) <= 2 && stickyRead.panelTop > stickyRead.openerTop && stickyRead.panelTop < 200);
 	check(`the answer bar stays at the bottom (${Math.round(stickyRead.barBottom)} of ${stickyRead.innerHeight})`, Math.abs(stickyRead.barBottom - stickyRead.innerHeight) <= 2);
 	await page.evaluate(() => window.scrollTo(0, 0));
 
@@ -195,6 +200,7 @@ try {
 	check('item 3 saved (Unsure with a note); item 4 opens', true);
 
 	// ---------------------------------------------------------------- T4.1 (3) item 4: add a card from Search and choose it
+	await page.click('[data-testid="rater-open-search"]');
 	await page.fill('[data-testid="rater-search-input"]', 'P001572');
 	await page.click('[data-testid="rater-search-submit"]');
 	await page.locator('[data-testid="rater-search-result"]').first().waitFor({ timeout: 20000 });
@@ -213,16 +219,18 @@ try {
 	const addedQualifierText = (await studentIdResult.locator('.rt-qualifier').allInnerTexts()).join(', ');
 	await studentIdResult.locator('[data-testid="rater-add-card"]').click();
 	await page.screenshot({ path: shotPath('07-search-added') });
+	check('adding leaves the finder drawer open, and it says "Added to your candidates"', (await page.locator('[data-testid="rater-finder-drawer"]').isVisible()) && /^Added to your candidates/.test(await page.locator('[data-testid="rater-finder-added"]').innerText()));
 	const firstRowText = await rowLocator().nth(0).innerText();
 	check(`the searched card (Person Identifier ${addedQualifierText || 'no qualifier'}) joins the TOP of the list, marked "Added by you"`, /Added by you/.test(firstRowText) && /Person Identifier/.test(firstRowText) && firstRowText.includes(addedQualifierText), firstRowText.slice(0, 120));
 	check('…and its result now says "✓ In your list"', /In your list/.test(await studentIdResult.innerText()));
+	await page.keyboard.press('Escape');
 	await rowLocator().nth(0).locator('[data-testid="rater-best-radio"]').check();
 	await page.click('[data-testid="rater-save"]');
 	await waitForItem(5);
 	check('item 4 saved with the searched card as Best; item 5 opens', true);
 
 	// ---------------------------------------------------------------- T4.1 (4) item 5: browse Person → Person Identification, add a card
-	await page.click('[data-testid="rater-tab-browse"]');
+	await page.click('[data-testid="rater-open-browse"]');
 	await page.locator('[data-testid="rater-browse-concept"]').first().waitFor({ timeout: 20000 });
 	const conceptCount = await page.locator('[data-testid="rater-browse-concept"]').count();
 	check(`Browse shows the 8 concepts (${conceptCount})`, conceptCount === 8);
@@ -233,6 +241,7 @@ try {
 	const browseCard = page.locator('[data-testid="rater-browse-property"]', { has: page.locator('[data-testid="rater-add-card"]') }).first();
 	const browsePropertyText = (await browseCard.locator('.rt-property').innerText()).trim();
 	await browseCard.locator('[data-testid="rater-add-card"]').click();
+	await page.keyboard.press('Escape');
 	const browseTopText = await rowLocator().nth(0).innerText();
 	check(`the browsed card (${browsePropertyText}) joins the top of the list, marked "Added by you"`, /Added by you/.test(browseTopText) && browseTopText.includes(browsePropertyText), browseTopText.slice(0, 120));
 	await rowLocator().nth(0).locator('[data-testid="rater-best-radio"]').check();
@@ -241,10 +250,11 @@ try {
 	check('item 5 saved with the browsed card as Best; item 6 opens', true);
 
 	// ---------------------------------------------------------------- Claim's honest empty state
-	await page.click('[data-testid="rater-tab-browse"]');
+	await page.click('[data-testid="rater-open-browse"]');
 	await page.locator('[data-testid="rater-browse-concept"]', { hasText: 'Claim' }).first().click();
 	await page.getByText('CEDS’s own structure, not a fault').waitFor({ timeout: 20000 });
 	check('Browse → Claim shows the honest empty state', true);
+	await page.keyboard.press('Escape');
 
 	// ---------------------------------------------------------------- T4.1 (5) Previous back and change an answer
 	await page.click('[data-testid="rater-previous"]');
@@ -280,19 +290,29 @@ try {
 	await waitForItem(6);
 	await page.focus('[data-testid="rater-sign-out"]');
 	const reachedKindSet = new Set();
-	for (let tabCount = 0; tabCount < 400 && reachedKindSet.size < 7; tabCount++) {
+	for (let tabCount = 0; tabCount < 400 && reachedKindSet.size < 8; tabCount++) {
 		await page.keyboard.press('Tab');
 		const focusedKind = await page.evaluate(() => {
 			const focused = document.activeElement;
 			return focused ? focused.dataset.testid || focused.tagName.toLowerCase() : '';
 		});
-		['rater-best-radio', 'rater-card-class', 'summary', 'rater-tab-search', 'rater-search-input', 'rater-note', 'rater-save'].forEach((kindName) => {
+		['rater-open-search', 'rater-open-browse', 'rater-best-radio', 'rater-card-class', 'summary', 'rater-open-search-foot', 'rater-note', 'rater-save'].forEach((kindName) => {
 			if (focusedKind === kindName) {
 				reachedKindSet.add(kindName);
 			}
 		});
 	}
-	check(`Tab reaches the Best radio, the class link, More about, the finder tab and search box, the note and Save (${Array.from(reachedKindSet).join(', ')})`, reachedKindSet.size === 7);
+	check(`Tab reaches the two finder buttons, the Best radio, the class link, More about, the foot line, the note and Save (${Array.from(reachedKindSet).join(', ')})`, reachedKindSet.size === 8);
+	await page.focus('[data-testid="rater-open-search"]');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(300);
+	const drawerFocusKind = await page.evaluate(() => document.activeElement.dataset.testid || '');
+	await page.keyboard.press('Tab');
+	const drawerTabKind = await page.evaluate(() => (document.activeElement.closest('[data-testid="rater-finder-drawer"]') ? 'inDrawer' : 'outside'));
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(200);
+	const afterEscapeKind = await page.evaluate(() => document.activeElement.dataset.testid || '');
+	check(`keyboard: Enter on "Search all of CEDS" opens the drawer with focus in the search box (${drawerFocusKind}), Tab stays in it (${drawerTabKind}), Esc gives focus back (${afterEscapeKind})`, drawerFocusKind === 'rater-search-input' && drawerTabKind === 'inDrawer' && afterEscapeKind === 'rater-open-search');
 	await rowLocator().nth(0).locator('[data-testid="rater-best-radio"]').focus();
 	await page.keyboard.press('Space');
 	await page.keyboard.press('ArrowDown');
