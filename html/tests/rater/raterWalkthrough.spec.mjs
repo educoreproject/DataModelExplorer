@@ -9,6 +9,8 @@
 //        Enter on "Search all of CEDS" opens the finder drawer with focus in the search box, Esc gives focus back
 // Revision 10: the finder is a drawer from the right, opened from the buttons above the element (raterFinderDrawer
 // gates the drawer itself); this walk opens it where it used to scroll to it, and closes it before touching the list.
+// Revision 16: the Instructions page carries TQ's approved text (DRAFT-raterInstructionsSimple-101626.md); the check
+// reads its three headings, its two lists, the code-styled Staff.BirthDate and the closing line.
 //   T4.6 no ranking leaks: no numbers on cards beyond the CEDS ID; no "found by" text anywhere
 //
 //   node html/tests/rater/raterWalkthrough.spec.mjs --baseUrl=http://localhost:7795 --raterUserName=… --password=…
@@ -334,7 +336,12 @@ try {
 	await page.goto(`${baseUrl}/rater/instructions`);
 	await page.locator('[data-testid="rater-instructions"]').waitFor();
 	const instructionsText = await page.locator('[data-testid="rater-instructions"]').innerText();
-	check('Instructions: the four worked examples and the attribution line', ['A clear match', 'No match in CEDS', 'More than one acceptable answer', 'The same name under the wrong class'].every((headText) => instructionsText.includes(headText)) && instructionsText.includes('Drafted with Milo for tqii; tqii will revise.'));
+	// revision 16: TQ's approved text (DRAFT-raterInstructionsSimple-101626.md) replaced the four worked examples
+	const instructionsHeadingList = await page.locator('[data-testid="rater-instructions"] h1, [data-testid="rater-instructions"] h2').allInnerTexts();
+	check(`Instructions: the headings are TQ's "How to rate", "Your answer", "Three things to watch" (${JSON.stringify(instructionsHeadingList)})`, JSON.stringify(instructionsHeadingList.map((headText) => headText.trim())) === JSON.stringify(['How to rate', 'Your answer', 'Three things to watch']));
+	check('Instructions: the four choices and the three things to watch are lists, and the page ends "It is intentionally randomized."', (await page.locator('[data-testid="rater-instructions"] ul > li').count()) === 4 && (await page.locator('[data-testid="rater-instructions"] ol > li').count()) === 3 && /The order of the list means nothing\. It is intentionally randomized\.\s*(Back to rating)?\s*$/.test(instructionsText.trim()));
+	check('Instructions: Ed-Fi Staff.BirthDate is code-styled', (await page.locator('[data-testid="rater-instructions"] code').allInnerTexts()).includes('Staff.BirthDate'));
+	check('Instructions: the old worked examples and the draft attribution are gone', !['A clear match', 'More than one acceptable answer', 'The same name under the wrong class', 'StudentPersonal/@RefId', 'CourseCreditEarned', 'Drafted with Milo'].some((oldText) => instructionsText.includes(oldText)));
 	await page.screenshot({ path: shotPath('11-instructions'), fullPage: true });
 
 	// ---------------------------------------------------------------- revision 8: the raters' pages say Mapping Survey
