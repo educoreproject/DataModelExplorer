@@ -3,6 +3,8 @@
 // they are reading, so the tint, chip and name colour change per item). Revision 10: it sits in the rating screen's left
 // column under the finder buttons, and that column is what sticks at >= 1100px (rt-stick), stacked above the list below.
 // Absent texts are said, never filled in: "No definition published by <standard>".
+// Revision 17: the "How to answer" box ends in a "How to rate" call to action, a pill in the family ink (its fills are
+// mixed from the ink in the scoped style, so the three families need no colours of their own beyond the registry's).
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -50,8 +52,8 @@ const familyStyle = computed(() => FAMILY_STYLE_BY_STANDARD[props.element.standa
 				<li><b>Same</b>: once you have a Best, tick any other card that is just as right. Optional.</li>
 				<li><b>No match in CEDS</b> is a real answer, and often the right one.</li>
 				<li>Read the class and the owner. The same words under a different owner mean something different.</li>
-				<li><NuxtLink to="/rater/instructions">Worked examples: how we are judging this</NuxtLink></li>
 			</ul>
+			<NuxtLink to="/rater/instructions" class="rt-how-to-rate" :style="{ '--rt-family-ink': familyStyle.ink }" data-testid="rater-how-to-rate">How to rate<span aria-hidden="true" class="rt-how-to-rate-arrow">→</span></NuxtLink>
 		</details>
 	</aside>
 </template>
@@ -74,4 +76,11 @@ const familyStyle = computed(() => FAMILY_STYLE_BY_STANDARD[props.element.standa
 .rt-how { padding-top: 10px; font-size: 14px; color: #374151; }
 .rt-how summary { cursor: pointer; font-weight: 700; color: #072A6C; min-height: 32px; display: list-item; }
 .rt-how ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.rt-how-to-rate { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; min-height: 40px; padding: 0 18px; box-sizing: border-box; border: 1.5px solid var(--rt-family-ink); border-radius: 999px; background: color-mix(in srgb, var(--rt-family-ink) 6%, #FFFFFF); color: var(--rt-family-ink); font-size: 15px; font-weight: 700; text-decoration: none; transition: background-color 120ms ease; }
+.rt-how-to-rate:hover,
+.rt-how-to-rate:focus-visible { background: color-mix(in srgb, var(--rt-family-ink) 18%, #FFFFFF); color: var(--rt-family-ink); }
+.rt-how-to-rate-arrow { font-size: 17px; line-height: 1; transition: transform 120ms ease; }
+.rt-how-to-rate:hover .rt-how-to-rate-arrow { transform: translateX(3px); }
+@media (max-width: 700px) { .rt-how-to-rate { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .rt-how-to-rate, .rt-how-to-rate-arrow { transition: none; } }
 </style>

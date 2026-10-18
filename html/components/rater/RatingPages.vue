@@ -10,7 +10,7 @@ import { ref, onMounted } from 'vue';
 
 const RATING_PAGE_LIST = Object.freeze([
 	{ pageName: 'signIn', pageTitle: 'Rater sign-in', pagePath: '/rater', pageNote: 'Send raters here. Opened from here it shows the sign-in a rater sees.', isCopyable: true },
-	{ pageName: 'instructions', pageTitle: 'Instructions', pagePath: '/rater/instructions', pageNote: 'How we are judging this. Readable without signing in.', isCopyable: false },
+	{ pageName: 'instructions', pageTitle: 'Instructions', pagePath: '/rater/instructions', pageNote: 'How to rate. Readable without signing in.', isCopyable: false },
 ]);
 
 // the origin is the browser's, read after mount: the generated build is prerendered where there is no window
