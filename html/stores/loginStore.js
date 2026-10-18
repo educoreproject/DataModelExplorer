@@ -2,6 +2,7 @@
 // @concept: [[PiniaStorePattern]]
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
+import { postLogin } from '../composables/postLogin.js';
 
 // -------------------------------------------------------------------------
 // Define initial user fields
@@ -102,11 +103,10 @@ export const useLoginStore = defineStore('loginStore', {
 		// Login action
 
 		async login() {
-			const url = '/api/login';
-
 			try {
-				// POST, credentials in the body: a GET query string lands in the request and nginx logs (2026-10-08)
-				const response = await axios.post(url, {
+				// POST, credentials in the body: a GET query string lands in the request and nginx logs (2026-10-08);
+				// postLogin falls back to GET only when the backend has no POST route
+				const response = await postLogin({
 					username: this.loggedInUser.username,
 					password: this.loggedInUser.password,
 				});
