@@ -10,8 +10,7 @@
 //
 //   node html/tests/rater/raterPropertyLabels.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>
 //        --surveyName=B --itemNumber=45 --playwrightCorePath=… --chromePath=… --evidenceDir=…
-// itemNumber must name an item with at least one option-set card (B 45 has several) whose first card is not in a
-// property group (revision 15: a grouped card has no Property line; the group's lead is raterGroupLeadDefinition's).
+// itemNumber must name an item with at least one option-set card (B 45 has several).
 
 import path from 'node:path';
 import fs from 'node:fs';
@@ -117,7 +116,6 @@ try {
 	// ---------------------------------------------------------------- P11.2 an empty property definition on a card
 	console.log('P11.2 an empty property definition reads Property: (none in CEDS), the parenthesis italic');
 	const blankedRowLocator = page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${blankedItemCard.cedsTupleId}"]`);
-	check(`the blanked card is outside every property group, so it has its own Property line (revision 15; else choose another item)`, (await page.locator('[data-testid="rater-property-group"]').filter({ has: blankedRowLocator }).count()) === 0);
 	const blankedRowLine = await readPropertyLine(blankedRowLocator);
 	check(`the blanked card (${blankedItemCard.className} → ${blankedItemCard.propertyName}) reads "Property: ${ABSENT_PROPERTY_NOTICE}", the parenthesis italic, the label not, no show-all control`, propertyLineIsAbsentNotice(blankedRowLine), JSON.stringify(blankedRowLine));
 	await blankedRowLocator.screenshot({ path: shotPath('110-property-absent-card') });

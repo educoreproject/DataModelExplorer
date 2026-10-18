@@ -3,8 +3,8 @@
 // (grid 56px 56px 1fr). Each control cell is a full-height label, so the whole column is the hit area. The radio is in
 // the page's one Best group (name="best"), with No match and Unsure. Same is disabled until a card is Best, and always
 // on the Best card (SPEC §3; the design's "Same before Best" is overruled by the spec, see DEVLOG-RATER).
-// isInPropertyGroup (revision 15): the card sits in a property group's frame, whose lead states the property
-// definition once, so the card shows its class definition only.
+// isInPropertyGroup (revision 15): the card sits in a property group's frame, where its Property line is the same on
+// every card, so that line is drawn gray (RaterCardDefinitions' 'repeated' tone).
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -38,7 +38,7 @@ const sameTitle = computed(() => (props.isBest ? 'This is your Best' : props.sam
 				<span v-if="props.isBest" class="rt-chip rt-chip-best">Your Best</span>
 				<span v-if="props.isSame" class="rt-chip rt-chip-same">Same as Best</span>
 			</RaterCardTitle>
-			<RaterCardDefinitions :card="props.card" :property-line-is-shown="!props.isInPropertyGroup" />
+			<RaterCardDefinitions :card="props.card" :property-tone-name="props.isInPropertyGroup ? 'repeated' : 'full'" />
 			<div class="rt-card-foot">
 				<span class="rt-mono" data-testid="rater-card-ceds-id">{{ props.card.cedsId ? `CEDS ID ${props.card.cedsId}` : 'CEDS ID not listed' }}</span>
 				<a v-if="props.card.cedsUrl" :href="props.card.cedsUrl" target="_blank" rel="noopener" class="rt-ceds-link">ceds.ed.gov ↗</a>

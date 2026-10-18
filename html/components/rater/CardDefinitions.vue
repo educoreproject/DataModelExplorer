@@ -5,13 +5,14 @@
 // already names both; TQ, 2026-10-16), and read as a pair: same size, weight and colour, neither muted. Each is clamped
 // to two lines when long, with its own show-all / show-less control. An empty property definition reads
 // "Property: (none in CEDS)", the parenthesis in italic (revision 11). Used by RaterCandidateRow and the Finder's search
-// results, so a card reads the same wherever it appears. Revision 15: a card inside a property group drops its
-// Property line, because the group's lead states it once ("repeat the class", TQ, 2026-10-18).
-// Props: card (a rater card: className, classDefinition, propertyName, definition); propertyLineIsShown (false only
-// for a card inside a property group). No events, no store, no API call.
+// results, so a card reads the same wherever it appears. Revision 15: inside a property group the Property line, the
+// same on every card of the group, is gray ('repeated' tone), so the Class line that tells the cards apart stands out
+// (TQ, 2026-10-18: both lines on every card, the repeated one gray).
+// Props: card (a rater card: className, classDefinition, propertyName, definition); propertyToneName ('full', or
+// 'repeated' for a card inside a property group). No events, no store, no API call.
 const props = defineProps({
 	card: { type: Object, required: true },
-	propertyLineIsShown: { type: Boolean, required: true },
+	propertyToneName: { type: String, required: true },
 });
 
 const CLASS_TEST_ID_BY_PART = { line: 'rater-card-class-definition', toggle: 'rater-class-definition-toggle', absent: 'rater-card-class-absent' };
@@ -19,6 +20,6 @@ const PROPERTY_TEST_ID_BY_PART = { line: 'rater-card-element-definition', toggle
 </script>
 
 <template>
-	<RaterDefinitionLine level-name="class" :definition-text="props.card.classDefinition || ''" :test-id-by-part="CLASS_TEST_ID_BY_PART" />
-	<RaterDefinitionLine v-if="props.propertyLineIsShown" level-name="property" :definition-text="props.card.definition || ''" :test-id-by-part="PROPERTY_TEST_ID_BY_PART" />
+	<RaterDefinitionLine level-name="class" tone-name="full" :definition-text="props.card.classDefinition || ''" :test-id-by-part="CLASS_TEST_ID_BY_PART" />
+	<RaterDefinitionLine level-name="property" :tone-name="props.propertyToneName" :definition-text="props.card.definition || ''" :test-id-by-part="PROPERTY_TEST_ID_BY_PART" />
 </template>

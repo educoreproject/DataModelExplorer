@@ -14,8 +14,8 @@
 //   C9.7 Finder: words, meaning and CEDS ID search results read the same way (class before element, texts equal to
 //        the search payload); the class-browse view keeps its banner and its cards carry no class definition
 //   C9.8 a search result's class name switches to the Browse tab and shows that class (a revision 9 fix)
-// Revision 15: a card inside a property group's frame shows its class line only (the frame's lead states the property
-// once), so C9.1 expects no element line there, and C9.3 finds a grouped card's element clamp in its frame's lead.
+// Revision 15: inside a property group the Property line is gray on purpose (raterGroupPropertyGray), so C9.1's
+// same-style check compares the two lines on cards outside a group.
 //
 //   node html/tests/rater/raterClassDefinition.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>
 //        --surveyName=B --itemNumber=46 --playwrightCorePath=… --chromePath=… --evidenceDir=…
@@ -157,12 +157,6 @@ const cardFaceProblemListOf = (cardFaceList, cardByTupleId) => {
 			problemList.push(`${cardFace.cedsTupleId}: not in the payload`);
 			return;
 		}
-		if (cardFace.inPropertyGroup) {
-			if (!cardFace.hasClassDefinition || cardFace.hasElementDefinition || !cardFace.classAfterTitle || cardFace.classText !== classLineOf(card)) {
-				problemList.push(`${card.className} → ${card.propertyName} (in a group): class ${cardFace.hasClassDefinition}, element ${cardFace.hasElementDefinition}, class text '${cardFace.classText.slice(0, 40)}'`);
-			}
-			return;
-		}
 		if (!cardFace.hasClassDefinition || !cardFace.hasElementDefinition) {
 			problemList.push(`${card.className} → ${card.propertyName}: class ${cardFace.hasClassDefinition}, element ${cardFace.hasElementDefinition}`);
 			return;
@@ -198,9 +192,10 @@ try {
 	console.log('C9.1 class definition, then element definition, on every card');
 	const cardFaceList = await readCardFaceList('[data-testid="rater-candidate-list"]', '[data-testid="rater-candidate-row"]');
 	const faceProblemList = cardFaceProblemListOf(cardFaceList, cardByTupleId);
-	check(`all ${cardFaceList.length} cards: title, then "<class>: <class definition>", then (outside a property group, revision 15) "<element>: <definition>", texts equal to the payload`, cardFaceList.length === itemPayload.cardList.length && faceProblemList.length === 0, faceProblemList.slice(0, 3).join(' | '));
-	const styleMismatchList = cardFaceList.filter((cardFace) => cardFace.classStyle && cardFace.elementStyle && JSON.stringify(cardFace.classStyle) !== JSON.stringify(cardFace.elementStyle));
-	check('the class definition is not muted: the same colour, size, weight, style and opacity as the element definition', cardFaceList.length > 0 && cardFaceList.every((cardFace) => cardFace.classStyle) && cardFaceList.some((cardFace) => cardFace.elementStyle) && styleMismatchList.length === 0, JSON.stringify(styleMismatchList.slice(0, 1).map((cardFace) => [cardFace.classStyle, cardFace.elementStyle])));
+	check(`all ${cardFaceList.length} cards: title, then "<class>: <class definition>", then "<element>: <definition>", texts equal to the payload`, cardFaceList.length === itemPayload.cardList.length && faceProblemList.length === 0, faceProblemList.slice(0, 3).join(' | '));
+	const ungroupedFaceList = cardFaceList.filter((cardFace) => !cardFace.inPropertyGroup);
+	const styleMismatchList = ungroupedFaceList.filter((cardFace) => cardFace.classStyle && JSON.stringify(cardFace.classStyle) !== JSON.stringify(cardFace.elementStyle));
+	check(`the class definition is not muted: the same colour, size, weight, style and opacity as the element definition (the ${ungroupedFaceList.length} cards outside a group)`, ungroupedFaceList.length > 0 && cardFaceList.every((cardFace) => cardFace.classStyle) && styleMismatchList.length === 0, JSON.stringify(styleMismatchList.slice(0, 1).map((cardFace) => [cardFace.classStyle, cardFace.elementStyle])));
 	check('each definition is led by a bold name', cardFaceList.every((cardFace) => Number(cardFace.classLeadWeight) >= 600), cardFaceList.map((cardFace) => cardFace.classLeadWeight).join(','));
 
 	// ---------------------------------------------------------------- C9.2 the class definition's clamp and control
@@ -226,16 +221,12 @@ try {
 	console.log('C9.3 the element definition keeps its own clamp and toggle');
 	const longElementCard = itemPayload.cardList.find((card) => (card.definition || '').length > LONG_DEFINITION_LENGTH);
 	if (longElementCard) {
-		const elementRowLocator = page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${longElementCard.cedsTupleId}"]`);
-		// revision 15: a grouped card's element definition is its frame's lead, with the lead's own test ids
-		const elementIsGrouped = (await page.locator('[data-testid="rater-property-group"]').filter({ has: elementRowLocator }).count()) > 0;
-		const elementCardLocator = elementIsGrouped ? page.locator('[data-testid="rater-property-group"]').filter({ has: elementRowLocator }) : elementRowLocator;
-		const [elementLineTestId, elementToggleTestId] = elementIsGrouped ? ['rater-property-group-definition', 'rater-property-group-definition-toggle'] : ['rater-card-element-definition', 'rater-definition-toggle'];
-		const elementClosed = await readClampState(elementCardLocator, elementLineTestId, elementToggleTestId);
-		await elementCardLocator.locator(`[data-testid="${elementToggleTestId}"]`).click();
-		const elementOpen = await readClampState(elementCardLocator, elementLineTestId, elementToggleTestId);
-		await elementCardLocator.locator(`[data-testid="${elementToggleTestId}"]`).click();
-		check(`${longElementCard.propertyName}${elementIsGrouped ? ' (its group\'s lead)' : ''}: clamped to two lines with "Show the whole definition", opens to "Show less"`, elementClosed.isClamped && elementClosed.lineCount === 2 && elementClosed.toggleText === 'Show the whole definition' && !elementOpen.isClamped && elementOpen.toggleText === 'Show less', JSON.stringify([elementClosed, elementOpen]));
+		const elementCardLocator = page.locator(`[data-testid="rater-candidate-row"][data-ceds-tuple-id="${longElementCard.cedsTupleId}"]`);
+		const elementClosed = await readClampState(elementCardLocator, 'rater-card-element-definition', 'rater-definition-toggle');
+		await elementCardLocator.locator('[data-testid="rater-definition-toggle"]').click();
+		const elementOpen = await readClampState(elementCardLocator, 'rater-card-element-definition', 'rater-definition-toggle');
+		await elementCardLocator.locator('[data-testid="rater-definition-toggle"]').click();
+		check(`${longElementCard.propertyName}: clamped to two lines with "Show the whole definition", opens to "Show less"`, elementClosed.isClamped && elementClosed.lineCount === 2 && elementClosed.toggleText === 'Show the whole definition' && !elementOpen.isClamped && elementOpen.toggleText === 'Show less', JSON.stringify([elementClosed, elementOpen]));
 	} else {
 		check(`item ${targetItemNumber} has no long element definition, so C9.3 is not exercised here (choose another item)`, false);
 	}

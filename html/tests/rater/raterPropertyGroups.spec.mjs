@@ -11,9 +11,9 @@
 //         with Number of Credits Earned ×7 ("Number of Credits Earned, in 7 classes"), and the same order after
 //         walking away and back (stable)
 //   B12.6 no rater or preview payload card carries a field beyond the rater card fields
-// Revision 15 (WORKORDER-RATER15): each frame states its property definition once, under the lead, and the cards in it
-// show their class only; a singleton and an added card show both lines. framesMatchPayload checks it on the rater's
-// page (B12.1–B12.3) and the preview (B12.5); B12.4 checks the added card. raterGroupLeadDefinition has the rest.
+// Revision 15 (WORKORDER-RATER15 as amended by TQ): every card keeps both lines; inside a frame the Property line,
+// the same on every card of the group, is gray (#6B7280), and the lead is unchanged. framesMatchPayload checks it on the
+// rater's page (B12.1–B12.3) and the preview (B12.5); B12.4 checks the added card. raterGroupPropertyGray has the rest.
 // Density (the walkthrough's T4.4 count: rows fully above the answer bar) is printed for the preview item, not gated.
 //
 //   node html/tests/rater/raterPropertyGroups.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>
@@ -42,6 +42,7 @@ const ITEM_COUNT = 50;
 const TAB_URL_PATTERN = /\/admin\/?\?tool=ceds-rater$/;
 const RATER_CARD_FIELD_LIST = ['cedsTupleId', 'className', 'classCedsId', 'classDefinition', 'propertyName', 'qualifierNameList', 'cedsId', 'definition', 'optionSetName', 'optionValueList', 'cedsUrl'];
 const CREDITS_PROPERTY_NAME = 'Number of Credits Earned';
+const REPEATED_LINE_COLOUR = 'rgb(107, 114, 128)'; // revision 15: a group's repeated Property line, #6B7280
 
 let passCount = 0;
 let failCount = 0;
@@ -111,6 +112,7 @@ const readListLayout = (targetPage) =>
 			isAdded: Boolean(row.querySelector('.rt-chip-added')),
 			hasClassLine: Boolean(row.querySelector('[data-testid="rater-card-class-definition"]')),
 			hasPropertyLine: Boolean(row.querySelector('[data-testid="rater-card-element-definition"]')),
+			propertyColour: row.querySelector('[data-testid="rater-card-element-definition"]') ? getComputedStyle(row.querySelector('[data-testid="rater-card-element-definition"]')).color : null,
 			frameIndex: Array.from(list.querySelectorAll('[data-testid="rater-property-group"]')).indexOf(row.closest('[data-testid="rater-property-group"]')),
 		}));
 		const frameList = Array.from(list.querySelectorAll('[data-testid="rater-property-group"]')).map((frame) => {
@@ -122,7 +124,7 @@ const readListLayout = (targetPage) =>
 				leadIsFirst: Boolean(lead) && frame.firstElementChild === lead,
 				leadInsideCard: Boolean(lead && lead.closest('article')),
 				memberCount: Number(frame.getAttribute('data-member-count')),
-				definitionTextList: Array.from(frame.querySelectorAll('[data-testid="rater-property-group-definition"]')).map((definitionElement) => definitionElement.textContent.replace(/\s+/g, ' ').trim()),
+				childCount: frame.children.length,
 				ariaLabel: frame.getAttribute('aria-label'),
 				frameBorderWidth: frameStyle.borderTopWidth,
 				frameBorderStyle: frameStyle.borderTopStyle,
@@ -163,17 +165,12 @@ const framesMatchPayload = (labelText, listLayout, cardList) => {
 	check(`${labelText}: each frame holds exactly its property's cards, adjacent, led by "<property>, in N classes" with the right N`, frameProblemList.length === 0, frameProblemList.slice(0, 3).join(' | '));
 	const groupedTupleIdSet = new Set(groupRunList.reduce((soFar, run) => soFar.concat(run.tupleIdList), []));
 	check(`${labelText}: every singleton sits outside any frame`, listLayout.rowList.filter((row) => !groupedTupleIdSet.has(row.cedsTupleId)).every((row) => row.frameIndex === -1));
-	// revision 15: the property once, in the lead; the class on every card; both lines on a card outside a frame
-	const cardByTupleId = Object.fromEntries(cardList.map((card) => [card.cedsTupleId, card]));
-	const leadDefinitionProblemList = groupRunList.map((run, runIndex) => {
-		const frame = listLayout.frameList[runIndex];
-		const wantedText = `Property: ${cardByTupleId[run.tupleIdList[0]].definition || '(none in CEDS)'}`.replace(/\s+/g, ' ').trim();
-		return frame && frame.definitionTextList.length === 1 && frame.definitionTextList[0] === wantedText ? '' : `${run.leadText}: ${JSON.stringify(frame ? frame.definitionTextList.map((definitionText) => definitionText.slice(0, 40)) : null)}`;
-	}).filter(Boolean);
-	check(`${labelText}: each frame states its property definition once, under the lead`, leadDefinitionProblemList.length === 0, leadDefinitionProblemList.slice(0, 3).join(' | '));
+	// revision 15: both lines on every card; the Property line gray inside a frame only; the frame holds lead + cards
+	check(`${labelText}: every card shows both its Class and its Property line`, listLayout.rowList.length > 0 && listLayout.rowList.every((row) => row.hasClassLine && row.hasPropertyLine));
 	const framedRowList = listLayout.rowList.filter((row) => row.frameIndex !== -1);
-	check(`${labelText}: every card in a frame shows its Class line and no Property line (${framedRowList.length} cards)`, framedRowList.length > 0 && framedRowList.every((row) => row.hasClassLine && !row.hasPropertyLine));
-	check(`${labelText}: every card outside a frame shows both lines`, listLayout.rowList.filter((row) => row.frameIndex === -1).every((row) => row.hasClassLine && row.hasPropertyLine));
+	check(`${labelText}: inside a frame the Property line is gray (${framedRowList.length} cards)`, framedRowList.length > 0 && framedRowList.every((row) => row.propertyColour === REPEATED_LINE_COLOUR), JSON.stringify([...new Set(framedRowList.map((row) => row.propertyColour))]));
+	check(`${labelText}: outside a frame it is not`, listLayout.rowList.filter((row) => row.frameIndex === -1).every((row) => row.propertyColour !== REPEATED_LINE_COLOUR));
+	check(`${labelText}: each frame holds only its lead and its cards (no definition beside the lead)`, listLayout.frameList.every((frame) => frame.childCount === frame.tupleIdList.length + 1));
 	check(`${labelText}: the frame is drawn (a 1px solid border)`, listLayout.frameList.length > 0 && listLayout.frameList.every((frame) => frame.frameBorderWidth === '1px' && frame.frameBorderStyle === 'solid'), JSON.stringify(listLayout.frameList.map((frame) => [frame.frameBorderWidth, frame.frameBorderStyle])));
 };
 
@@ -289,8 +286,8 @@ try {
 	const addedRow = addedLayout.rowList[0];
 	check('the added card is the first row, marked Added by you', addedRow && addedRow.cedsTupleId === addedTupleId && addedRow.isAdded);
 	check(`the added card is outside every frame${addsFramedProperty ? ', even the frame of its own property' : ''}`, addedRow && addedRow.frameIndex === -1);
-	check('the added card shows both its Class and its Property line (revision 15)', addedRow && addedRow.hasClassLine && addedRow.hasPropertyLine);
-	check('the frames are exactly as before', JSON.stringify(addedLayout.frameList.map((frame) => [frame.tupleIdList, frame.leadText, frame.definitionTextList])) === JSON.stringify(xLayout.frameList.map((frame) => [frame.tupleIdList, frame.leadText, frame.definitionTextList])));
+	check('the added card shows both its Class and its Property line, the Property line not gray (revision 15)', addedRow && addedRow.hasClassLine && addedRow.hasPropertyLine && addedRow.propertyColour !== REPEATED_LINE_COLOUR);
+	check('the frames are exactly as before', JSON.stringify(addedLayout.frameList.map((frame) => [frame.tupleIdList, frame.leadText])) === JSON.stringify(xLayout.frameList.map((frame) => [frame.tupleIdList, frame.leadText])));
 	await page.screenshot({ path: shotPath('B12-4-added-card') });
 
 	// ---------------------------------------------------------------- B12.5 the admin preview
