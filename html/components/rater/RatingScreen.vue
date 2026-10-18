@@ -14,6 +14,8 @@
 // still places each group). This screen only draws it: each run of two or more suggested cards with the same property
 // identity gets a quiet frame and a lead line ("Number of Credits Earned, in 7 classes"). Cards the rater adds stay at
 // the top, ungrouped.
+// Revision 15: the lead states the group's property definition once (RaterDefinitionLine, as on a card), and the cards
+// inside the frame show their class definition only ("repeat the class", TQ). Singletons and added cards keep both.
 // Revision 14: the toolbar says "12 answered out of 50". Save and next on the last item goes to /rater/done, which lists
 // what is left undone. An item opened from that list is in "left undone" mode (undoneSetItemNumberList, from the URL;
 // 'rate' only): Previous and Next walk only that set, Save and next goes to the next one still unanswered, then back to
@@ -125,12 +127,15 @@ const isLocked = computed(() => !!(raterStore.progress && raterStore.progress.fi
 const familyStyle = computed(() => (item.value ? FAMILY_STYLE_BY_STANDARD[item.value.element.standard] || FAMILY_STYLE_BY_STANDARD.PESC : FAMILY_STYLE_BY_STANDARD.PESC));
 const shownCardList = computed(() => (item.value ? addedCardList.value.map((card) => ({ card, isAdded: true })).concat(item.value.cardList.map((card) => ({ card, isAdded: false }))) : []));
 const inListTupleIdList = computed(() => shownCardList.value.map((shownCard) => shownCard.card.cedsTupleId));
+// a group lead's Property line keeps its own data-testids (a card's are RaterCardDefinitions')
+const GROUP_PROPERTY_TEST_ID_BY_PART = { line: 'rater-property-group-definition', toggle: 'rater-property-group-definition-toggle', absent: 'rater-property-group-property-absent' };
 // the server's propertyIdentityOf, read here only to find the runs it made: P-id plus qualifiers, the class ignored
 const propertyIdentityOf = (card) => [card.cedsId].concat(card.qualifierNameList.slice().sort()).join('|');
-// one candidate row's props: an added card (top of the list) or a suggested one
-const rowPropsOf = (card, isAdded) => ({
+// one candidate row's props: an added card (top of the list) or a suggested one, in a property group's frame or not
+const rowPropsOf = (card, isAdded, isInPropertyGroup) => ({
 	card,
 	isAdded,
+	isInPropertyGroup,
 	isBest: bestChoice.value === card.cedsTupleId,
 	isSame: sameTupleIdList.value.includes(card.cedsTupleId),
 	sameDisabled: !bestIsCard.value || bestChoice.value === card.cedsTupleId,
@@ -372,7 +377,7 @@ onMounted(loadCurrentItem);
 								<RaterCandidateRow
 									v-for="addedCard in addedCardList"
 									:key="addedCard.cedsTupleId"
-									v-bind="rowPropsOf(addedCard, true)"
+									v-bind="rowPropsOf(addedCard, true, false)"
 									@pick-best="pickBest(addedCard.cedsTupleId)"
 									@toggle-same="toggleSame"
 									@browse-class="browseClassOfCard"
@@ -380,10 +385,13 @@ onMounted(loadCurrentItem);
 								<template v-for="cardGroup in suggestedCardGroupList" :key="cardGroup.propertyIdentity">
 									<div v-if="cardGroup.leadText" role="group" :aria-label="cardGroup.leadText" class="rt-prop-group" data-testid="rater-property-group" :data-member-count="cardGroup.cardList.length">
 										<p class="rt-prop-group-lead" data-testid="rater-property-group-lead">{{ cardGroup.leadText }}</p>
+										<div class="rt-prop-group-definition">
+											<RaterDefinitionLine level-name="property" :definition-text="cardGroup.cardList[0].definition || ''" :test-id-by-part="GROUP_PROPERTY_TEST_ID_BY_PART" />
+										</div>
 										<RaterCandidateRow
 											v-for="card in cardGroup.cardList"
 											:key="card.cedsTupleId"
-											v-bind="rowPropsOf(card, false)"
+											v-bind="rowPropsOf(card, false, true)"
 											@pick-best="pickBest(card.cedsTupleId)"
 											@toggle-same="toggleSame"
 											@browse-class="browseClassOfCard"
@@ -391,7 +399,7 @@ onMounted(loadCurrentItem);
 									</div>
 									<RaterCandidateRow
 										v-else
-										v-bind="rowPropsOf(cardGroup.cardList[0], false)"
+										v-bind="rowPropsOf(cardGroup.cardList[0], false, false)"
 										@pick-best="pickBest(cardGroup.cardList[0].cedsTupleId)"
 										@toggle-same="toggleSame"
 										@browse-class="browseClassOfCard"
@@ -486,6 +494,7 @@ onMounted(loadCurrentItem);
 .rt-prop-group::before { content: ''; position: absolute; top: 0; bottom: 0; left: 104px; right: -8px; border: 1px solid #D5DCE8; border-radius: 12px; background: #F6F8FC; pointer-events: none; }
 .rt-prop-group > * { position: relative; }
 .rt-prop-group-lead { margin: 0; padding-left: 116px; font-size: 13px; line-height: 1.35; color: #4B5563; }
+.rt-prop-group-definition { margin-top: -6px; padding: 0 8px 0 116px; }
 .rt-other-divider { display: grid; grid-template-columns: 56px 56px minmax(0, 1fr); margin-top: 8px; padding-top: 10px; border-top: 1px solid #E3E7EF; }
 .rt-other-divider-text { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4B5563; }
 .rt-other-row { display: grid; grid-template-columns: 56px 56px minmax(0, 1fr); align-items: stretch; }

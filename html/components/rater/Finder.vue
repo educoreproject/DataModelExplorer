@@ -200,7 +200,7 @@ const classIntroText = computed(() => (classListAnswer.value ? `${chosenConceptN
 					<article v-for="card in searchResultList" :key="card.cedsTupleId" class="rt-result" :data-ceds-tuple-id="card.cedsTupleId" data-testid="rater-search-result">
 						<div class="rt-result-text">
 							<RaterCardTitle :card="card" @browse-class="openClassFromCard(card)" />
-							<RaterCardDefinitions :card="card" />
+							<RaterCardDefinitions :card="card" :property-line-is-shown="true" />
 							<span class="rt-mono rt-result-id">{{ card.cedsId ? `CEDS ID ${card.cedsId}` : 'CEDS ID not listed' }}</span>
 						</div>
 						<button v-if="!inListSet.has(card.cedsTupleId)" type="button" class="rt-button-teal" :aria-label="`Add ${labelOf(card)} to candidates`" data-testid="rater-add-card" @click="addCard(card, 'search')">+ Add to candidates</button>

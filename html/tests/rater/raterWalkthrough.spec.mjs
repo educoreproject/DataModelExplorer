@@ -7,6 +7,7 @@
 //   T4.4 viewport: >= 2 cards fully visible at 1280×720 on opening, >= 3 at 1440×900 (screenshots; revision 9, was 3 and 5)
 //   T4.5 keyboard: Tab reaches every control kind, arrow keys move within the Best group, the focus ring shows;
 //        Enter on "Search all of CEDS" opens the finder drawer with focus in the search box, Esc gives focus back
+// Revision 15: a card inside a property group shows its class line only; its frame's lead states the property once.
 // Revision 10: the finder is a drawer from the right, opened from the buttons above the element (raterFinderDrawer
 // gates the drawer itself); this walk opens it where it used to scroll to it, and closes it before touching the list.
 //   T4.6 no ranking leaks: no numbers on cards beyond the CEDS ID; no "found by" text anywhere
@@ -131,20 +132,25 @@ try {
 		return leakTextList;
 	});
 	check('no number on any card beyond its CEDS ID (and CEDS’s own names and definitions)', leakList.length === 0, JSON.stringify(leakList.slice(0, 3)));
-	// revision 9: on the rater's own page, every card's class definition sits on its face, before the element's
+	// revision 9: on the rater's own page, every card's class definition sits on its face, before the element's;
+	// revision 15: a card in a property group has no element line, and its frame's lead carries the one definition
 	const cardOrderList = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="rater-candidate-row"] article')).map((article) => {
 		const classDefinition = article.querySelector('[data-testid="rater-card-class-definition"]');
 		const elementDefinition = article.querySelector('[data-testid="rater-card-element-definition"]');
+		const frame = article.closest('[data-testid="rater-property-group"]');
+		if (frame) {
+			return Boolean(classDefinition && !elementDefinition && !classDefinition.closest('details') && frame.querySelectorAll('[data-testid="rater-property-group-definition"]').length === 1);
+		}
 		return Boolean(classDefinition && elementDefinition && (classDefinition.compareDocumentPosition(elementDefinition) & Node.DOCUMENT_POSITION_FOLLOWING) && !classDefinition.closest('details'));
 	}));
-	check(`every card on the rater's page shows its class definition on its face, before the element definition (${cardOrderList.length} cards)`, cardOrderList.length > 0 && cardOrderList.every(Boolean));
+	check(`every card on the rater's page shows its class definition on its face, before the element definition, or (in a property group) its frame's lead carries it (${cardOrderList.length} cards)`, cardOrderList.length > 0 && cardOrderList.every(Boolean));
 	// the tool's own words only: the standards' texts (element panel, CEDS cards) can say 'rank' or 'score' about data.
 	// Revision 8: the product's name, "Mapping Survey" (TQ's choice), is in the app bar; it names the survey, not a
 	// machine mapping, so the app-bar label is checked for exactly that name and left out of the scan.
 	check('the app bar names the product Mapping Survey', (await page.locator('[data-testid="rater-area-label"]').innerText()).trim() === 'Mapping Survey');
 	const pageText = await page.evaluate(() => {
 		const clone = document.body.cloneNode(true);
-		clone.querySelectorAll('[data-testid="rater-area-label"], [data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
+		clone.querySelectorAll('[data-testid="rater-area-label"], [data-testid="rater-element-panel"], [data-testid="rater-candidate-row"] article, [data-testid="rater-property-group-definition"], [data-testid="rater-search-result"], [data-testid="rater-browse-property"]').forEach((standardText) => standardText.remove());
 		return clone.innerText || clone.textContent;
 	});
 	check('no "found by", score, rank, AI, mapping, gold or injected text in the tool’s own words on the rating page', !/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i.test(pageText), (pageText.match(/found by|foundBy|score|rank|confidence|\bAI\b|judge|mapped|mapping|isMappedInGold|\bgold|inject/i) || [])[0]);
