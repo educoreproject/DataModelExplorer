@@ -11,12 +11,19 @@
 //
 // The server is the only judge of an answer (server/data-model/lib/rater-tool/rater-answer-rules.js). Refusals come
 // back as HTTP 400 '<refusalName>: <text> (<errorId>)'; the store shows the text and keeps the name.
+//
+// Revision 18 amendment (TQ: "yes, save work"): an answer the rater has not saved yet is kept as a draft, one per item,
+// named by rater, item number and element (a survey change can put another element at the same number), in
+// answerDraftByPlaceName and mirrored to sessionStorage so a reload of the tab keeps it. Never localStorage: a shared
+// machine must not hand one rater's drafts to the next. Storage that refuses leaves the drafts in the store only.
+// Signing in or out forgets every draft. The rating screen decides what is a draft (RatingScreen.vue).
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 import { postLogin } from '../composables/postLogin.js';
 
 const SESSION_STORAGE_NAME = 'cedsRaterSession';
+const ANSWER_DRAFT_STORAGE_NAME = 'cedsRaterAnswerDrafts';
 
 const raterStoreInitObject = {
 	authtoken: '',
@@ -39,7 +46,11 @@ const raterStoreInitObject = {
 	adminNextRaterUserName: '',
 	adminSurveyItemList: [],
 	adminSurveyItemSurveyName: '',
+	// frozen: every change replaces the map, so a reset to this object can never carry an old draft
+	answerDraftByPlaceName: Object.freeze({}),
 };
+
+const answerDraftPlaceNameOf = ({ raterUserName, itemNumber, elementStableId }) => [raterUserName, itemNumber, elementStableId].join('|');
 
 const readSavedSession = () => {
 	try {
@@ -59,6 +70,29 @@ const writeSavedSession = (sessionObject) => {
 		}
 	} catch (storageError) {
 		// storage unavailable: the session lasts until the tab reloads
+	}
+};
+
+// the drafts saved in this tab for one rater; any other rater's are not read
+const readSavedAnswerDrafts = (raterUserName) => {
+	try {
+		const savedText = window.sessionStorage.getItem(ANSWER_DRAFT_STORAGE_NAME);
+		const savedDraftByPlaceName = savedText ? JSON.parse(savedText) : {};
+		return Object.freeze(Object.fromEntries(Object.entries(savedDraftByPlaceName).filter(([, answerDraft]) => answerDraft.raterUserName === raterUserName)));
+	} catch (storageError) {
+		return Object.freeze({});
+	}
+};
+
+const writeSavedAnswerDrafts = (answerDraftByPlaceName) => {
+	try {
+		if (answerDraftByPlaceName && Object.keys(answerDraftByPlaceName).length > 0) {
+			window.sessionStorage.setItem(ANSWER_DRAFT_STORAGE_NAME, JSON.stringify(answerDraftByPlaceName));
+		} else {
+			window.sessionStorage.removeItem(ANSWER_DRAFT_STORAGE_NAME);
+		}
+	} catch (storageError) {
+		// storage refused: the drafts last until the tab reloads
 	}
 };
 
@@ -112,6 +146,7 @@ export const useRaterStore = defineStore('raterStore', {
 				this.authtoken = savedSession.authtoken;
 				this.raterUserName = savedSession.raterUserName;
 				this.raterRole = savedSession.raterRole;
+				this.answerDraftByPlaceName = readSavedAnswerDrafts(this.raterUserName);
 			}
 			return this.isSignedIn;
 		},
@@ -121,6 +156,30 @@ export const useRaterStore = defineStore('raterStore', {
 				this[fieldName] = raterStoreInitObject[fieldName];
 			});
 			writeSavedSession(null);
+			writeSavedAnswerDrafts(null);
+		},
+
+		// revision 18 amendment: the signed-in rater's unsaved answer on one item (null when there is none)
+		answerDraftOf({ itemNumber, elementStableId }) {
+			return this.answerDraftByPlaceName[answerDraftPlaceNameOf({ raterUserName: this.raterUserName, itemNumber, elementStableId })] || null;
+		},
+
+		keepAnswerDraft({ itemNumber, elementStableId, answerDraft }) {
+			if (!this.raterUserName) {
+				throw new Error('raterStore.keepAnswerDraft: no rater is signed in, so a draft has no owner');
+			}
+			const draftPlaceName = answerDraftPlaceNameOf({ raterUserName: this.raterUserName, itemNumber, elementStableId });
+			this.answerDraftByPlaceName = Object.freeze({ ...this.answerDraftByPlaceName, [draftPlaceName]: { ...answerDraft, raterUserName: this.raterUserName, itemNumber, elementStableId } });
+			writeSavedAnswerDrafts(this.answerDraftByPlaceName);
+		},
+
+		dropAnswerDraft({ itemNumber, elementStableId }) {
+			const draftPlaceName = answerDraftPlaceNameOf({ raterUserName: this.raterUserName, itemNumber, elementStableId });
+			if (!this.answerDraftByPlaceName[draftPlaceName]) {
+				return;
+			}
+			this.answerDraftByPlaceName = Object.freeze(Object.fromEntries(Object.entries(this.answerDraftByPlaceName).filter(([placeName]) => placeName !== draftPlaceName)));
+			writeSavedAnswerDrafts(this.answerDraftByPlaceName);
 		},
 
 		clearMessage() {
@@ -150,6 +209,9 @@ export const useRaterStore = defineStore('raterStore', {
 				this.raterUserName = signedInUser.username;
 				this.raterRole = signedInRole;
 				this.authtoken = response.headers?.authtoken || '';
+				// a fresh sign-in starts with no drafts, whoever signed in before in this tab
+				this.answerDraftByPlaceName = raterStoreInitObject.answerDraftByPlaceName;
+				writeSavedAnswerDrafts(null);
 				if (this.isAdmin) {
 					// revision 6: an admin works in /admin, signed in with the main login; no rater session is kept
 					writeSavedSession(null);

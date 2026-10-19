@@ -10,7 +10,7 @@
 //   R18.3 the box shows exactly TQ's five sentences, in order; every sentence of each appears in the instructions
 //         page's own text; the old wording is on no rater page the walk opens and (with --bundleDir) in no build file
 //   R18.4 at phone width the box does not make the page scroll sideways
-//   OBSERVED (reported, not gated; the work order says report and STOP if lost): a Best picked and a note typed but not
+//   OBSERVED (reported here; gated since the amendment by raterAnswerDraft.spec.mjs): a Best picked and a note typed but not
 //         saved, after the round trip
 //
 //   node html/tests/rater/raterBackKeepsPlace.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>

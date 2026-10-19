@@ -24,6 +24,10 @@
 // Revision 18: the element panel's How to rate carries the rater's place (item, and the left-undone set) to the
 // instructions page, whose "Back to rating" returns to it (composables/raterRatingPlace.js). The preview's does not:
 // its place is in the admin page, which the instructions page does not link back to.
+// Revision 18 amendment (TQ: "yes, save work"): in 'rate', an answer that differs from the saved one (Best, Same, added
+// cards, note) is kept as the item's draft in the rater store (raterStore.keepAnswerDraft) on every change, restored over
+// the saved answer when the item opens again, and marked "Not saved yet" in the answer bar. One put back to the saved
+// answer, or saved, keeps none. The preview keeps no drafts.
 //
 // The server judges every answer (rater-answer-rules.js); the checks here only explain the rules before the round trip.
 import { ref, computed, watch, onMounted } from 'vue';
@@ -43,6 +47,7 @@ const props = defineProps({
 const RATING_MODE_BY_NAME = Object.freeze({
 	rate: {
 		canSave: true,
+		keepsAnswerDrafts: true,
 		loadItem: async ({ raterStore, router, itemNumber }) => {
 			if (!raterStore.isSignedIn && !raterStore.restoreSession()) {
 				router.push('/rater');
@@ -69,6 +74,7 @@ const RATING_MODE_BY_NAME = Object.freeze({
 	// every call; the host is the admin guard). The answer controls work on the page; nothing is sent to be saved.
 	preview: {
 		canSave: false,
+		keepsAnswerDrafts: false,
 		loadItem: ({ raterStore, surveyName, itemNumber }) => raterStore.adminPreviewItem({ surveyName, itemNumber }),
 		itemRouteOf: ({ route, itemNumber }) => ({ query: { ...route.query, item: itemNumber } }),
 		undoneItemRouteOf: null,
@@ -188,12 +194,27 @@ const summaryText = computed(() => {
 const summaryColor = computed(() => (bestIsCard.value ? '#005E61' : bestChoice.value ? '#072A6C' : '#4B5563'));
 const noteRequiredMissing = computed(() => bestChoice.value === UNSURE_CHOICE && !noteText.value.trim());
 
+// the answer on screen as the saved answer would show it: { bestChoice, sameTupleIdList, addedCardList, noteText }
+const savedScreenAnswerOf = (savedAnswer) => ({
+	bestChoice: savedAnswer ? (savedAnswer.answerKind === 'cards' ? savedAnswer.bestCedsTupleId : savedAnswer.answerKind) : null,
+	sameTupleIdList: savedAnswer ? savedAnswer.sameCedsTupleIdList.slice() : [],
+	addedCardList: savedAnswer ? savedAnswer.addedCardList.slice().reverse() : [],
+	noteText: savedAnswer ? savedAnswer.note || '' : '',
+});
+const currentScreenAnswer = () => ({ bestChoice: bestChoice.value, sameTupleIdList: sameTupleIdList.value.slice(), addedCardList: addedCardList.value.slice(), noteText: noteText.value });
+// two screen answers say the same thing when Best, the Same set, the added cards and the note agree (order aside)
+const comparableTextOf = (screenAnswer) => JSON.stringify([screenAnswer.bestChoice, screenAnswer.sameTupleIdList.slice().sort(), screenAnswer.addedCardList.map((card) => card.cedsTupleId).sort(), screenAnswer.noteText]);
+const draftPlaceOf = () => ({ itemNumber: itemNumber.value, elementStableId: item.value.element.elementStableId });
+const draftsApply = computed(() => ratingMode.keepsAnswerDrafts && !!item.value && !isLocked.value);
+const answerIsUnsaved = computed(() => draftsApply.value && comparableTextOf(currentScreenAnswer()) !== comparableTextOf(savedScreenAnswerOf(item.value.savedAnswer)));
+
 const resetAnswer = () => {
-	const savedAnswer = item.value ? item.value.savedAnswer : null;
-	bestChoice.value = savedAnswer ? (savedAnswer.answerKind === 'cards' ? savedAnswer.bestCedsTupleId : savedAnswer.answerKind) : null;
-	sameTupleIdList.value = savedAnswer ? savedAnswer.sameCedsTupleIdList.slice() : [];
-	noteText.value = savedAnswer ? savedAnswer.note || '' : '';
-	addedCardList.value = savedAnswer ? savedAnswer.addedCardList.slice().reverse() : [];
+	const answerDraft = draftsApply.value ? raterStore.answerDraftOf(draftPlaceOf()) : null;
+	const shownAnswer = answerDraft || savedScreenAnswerOf(item.value ? item.value.savedAnswer : null);
+	bestChoice.value = shownAnswer.bestChoice;
+	sameTupleIdList.value = shownAnswer.sameTupleIdList.slice();
+	noteText.value = shownAnswer.noteText;
+	addedCardList.value = shownAnswer.addedCardList.slice();
 	searchesTyped.value = [];
 	itemStartedAt.value = Date.now();
 	answerMessage.value = '';
@@ -308,6 +329,7 @@ const saveAndNext = async () => {
 		answerMessageKind.value = 'error';
 		return;
 	}
+	raterStore.dropAnswerDraft(draftPlaceOf());
 	router.push(nextRoute(raterStore.progress));
 };
 
@@ -331,6 +353,17 @@ const goPrevious = () => {
 	}
 };
 
+// every change to the answer keeps or drops the item's draft (the refs change only after the item they belong to loads)
+watch([bestChoice, sameTupleIdList, addedCardList, noteText], () => {
+	if (!draftsApply.value) {
+		return;
+	}
+	if (answerIsUnsaved.value) {
+		raterStore.keepAnswerDraft({ ...draftPlaceOf(), answerDraft: currentScreenAnswer() });
+		return;
+	}
+	raterStore.dropAnswerDraft(draftPlaceOf());
+});
 watch(() => [props.itemNumber, props.surveyName], loadCurrentItem);
 onMounted(loadCurrentItem);
 </script>
@@ -440,7 +473,7 @@ onMounted(loadCurrentItem);
 
 				<section aria-label="Your answer" class="rt-answer-bar" data-testid="rater-answer-bar">
 					<div class="rt-answer-line">
-						<p class="rt-answer-summary" :title="summaryText" data-testid="rater-answer-summary"><b>Your answer:</b> <span :style="{ color: summaryColor, fontWeight: 600 }">{{ summaryText }}</span></p>
+						<p class="rt-answer-summary" :title="summaryText" data-testid="rater-answer-summary"><b>Your answer:</b> <span v-if="answerIsUnsaved" class="rt-unsaved" data-testid="rater-answer-unsaved">Not saved yet</span> <span :style="{ color: summaryColor, fontWeight: 600 }">{{ summaryText }}</span></p>
 						<label class="rt-note-label">
 							<span class="rt-sr">{{ bestChoice === 'unsure' ? 'Note (required for Unsure)' : 'Note (optional)' }}</span>
 							<textarea v-model="noteText" class="rt-note" :class="{ 'rt-note-open': bestChoice === 'unsure', 'rt-note-missing': noteRequiredMissing }" :placeholder="bestChoice === 'unsure' ? 'Note (required for Unsure)…' : 'Note (optional): anything we should know about this one…'" :disabled="isLocked" data-testid="rater-note"></textarea>
@@ -510,6 +543,7 @@ onMounted(loadCurrentItem);
 .rt-other-description { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: #1F2937; }
 .rt-answer-bar { position: sticky; bottom: 0; z-index: 5; margin-top: 16px; background: #FFFFFF; border: 1px solid #C9D3E8; border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -6px 18px rgba(7, 42, 108, 0.1); padding: 10px 16px; box-sizing: border-box; }
 .rt-answer-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.rt-unsaved { display: inline-block; border-radius: 999px; padding: 0 8px; margin-right: 2px; background: #FEF3C7; color: #92400E; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .rt-answer-summary { flex: 1 1 260px; min-width: 0; margin: 0; font-size: 15px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .rt-note-label { flex: 2 1 280px; min-width: 0; display: block; }
 .rt-note { display: block; box-sizing: border-box; width: 100%; height: 44px; padding: 10px 12px; border-radius: 8px; font: inherit; font-size: 15px; line-height: 1.4; color: #111827; background: #FFFFFF; resize: none; border: 1px solid #C9D3E8; transition: height 0.15s ease; }
