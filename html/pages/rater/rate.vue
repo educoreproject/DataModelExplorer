@@ -4,13 +4,13 @@
 // Revision 14: /rater/rate?item=N&set=undone&items=3-7-12 opens item N in "left undone" mode, where Previous / Next /
 // Save and next walk only the items that were on the Done page's list (items, in item order). No set means 1..50; a
 // set or items this page does not know is refused by name, never read as 1..50.
+// Revision 18: the app bar's Instructions link carries this place (composables/raterRatingPlace.js), so the instructions
+// page's "Back to rating" returns here, not to item 1.
 import { computed } from 'vue';
+import { UNDONE_SET_NAME, ITEM_NUMBER_LIST_PATTERN, ratingPlaceQueryFrom, instructionsRouteOf } from '@/composables/raterRatingPlace';
 
 definePageMeta({ layout: false });
 useHead({ title: 'Mapping Survey: rating' });
-
-const UNDONE_SET_NAME = 'undone';
-const ITEM_NUMBER_LIST_PATTERN = /^[1-9][0-9]*(-[1-9][0-9]*)*$/;
 
 const route = useRoute();
 const itemNumber = computed(() => Number(route.query.item) || 1);
@@ -27,10 +27,12 @@ const itemSetReading = computed(() => {
 	const undoneSetItemNumberList = Array.from(new Set(itemNumberText.split('-').map(Number))).sort((numberA, numberB) => numberA - numberB);
 	return { undoneSetItemNumberList, refusalText: '' };
 });
+
+const instructionsRoute = computed(() => instructionsRouteOf(ratingPlaceQueryFrom({ itemNumber: itemNumber.value, undoneSetItemNumberList: itemSetReading.value.undoneSetItemNumberList })));
 </script>
 
 <template>
-	<RaterShell>
+	<RaterShell :instructions-route="instructionsRoute">
 		<main v-if="itemSetReading.refusalText" class="rt-set-refused">
 			<p role="alert" class="rt-alert-error" data-testid="rater-set-refused">{{ itemSetReading.refusalText }}</p>
 			<NuxtLink to="/rater/done" class="rt-button-quiet">Go to the Done page</NuxtLink>

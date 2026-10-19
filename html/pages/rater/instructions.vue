@@ -4,22 +4,34 @@
 // the three things to watch as a numbered list, its bold and the code-styled Staff.BirthDate. It replaced the four
 // worked examples of DRAFT-workedExamplesAndPracticeNotes-101326.md (one of them leaked a survey answer) and their
 // "tqii will revise" attribution. Do not reword it here; change the draft with TQ and copy it again.
-import { onMounted } from 'vue';
+// Revision 18: opened from a rating item, the URL carries that item (?item=N, and &set=undone&items=… in "left undone"
+// mode), and all three "Back to rating" links return to it. The query is checked against the signed-in rater's item
+// count (composables/raterRatingPlace.js); with no query, or one that names no place, they go to /rater/rate as before.
+import { computed, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
+import { ratingPlaceQueryOf, ratingRouteOf } from '@/composables/raterRatingPlace';
 
 definePageMeta({ layout: false });
 useHead({ title: 'Mapping Survey: instructions' });
 
 const raterStore = useRaterStore();
-onMounted(() => {
+const route = useRoute();
+const ratingRoute = computed(() => ratingRouteOf(ratingPlaceQueryOf({ routeQuery: route.query, itemCount: raterStore.progress ? raterStore.progress.itemCount : null })));
+
+onMounted(async () => {
 	if (!raterStore.isSignedIn) {
 		raterStore.restoreSession();
+	}
+	// opened fresh (a reload, a pasted link) the store has no progress, so the item count the query is checked against
+	// is read first; until then, and if it cannot be read, Back goes to /rater/rate
+	if (raterStore.isSignedIn && !raterStore.progress && Object.keys(route.query).length > 0) {
+		await raterStore.loadProgress();
 	}
 });
 </script>
 
 <template>
-	<RaterShell :show-instructions-link="false" :show-rating-link="true">
+	<RaterShell :show-instructions-link="false" :show-rating-link="true" :rating-route="ratingRoute">
 		<main class="rt-ins-main">
 			<nav aria-label="On this page" class="rt-panel rt-ins-toc">
 				<span class="rt-ins-toc-head">On this page</span>
@@ -28,7 +40,7 @@ onMounted(() => {
 					<li><a href="#answer">Your answer</a></li>
 					<li><a href="#watch">Three things to watch</a></li>
 				</ol>
-				<NuxtLink to="/rater/rate" class="rt-ins-back">Back to rating</NuxtLink>
+				<NuxtLink :to="ratingRoute" class="rt-ins-back">Back to rating</NuxtLink>
 			</nav>
 
 			<article class="rt-panel rt-ins-article" data-testid="rater-instructions">
@@ -55,7 +67,7 @@ onMounted(() => {
 
 				<p>The order of the list means nothing. It is intentionally randomized.</p>
 
-				<NuxtLink to="/rater/rate" class="rt-ins-back">Back to rating</NuxtLink>
+				<NuxtLink :to="ratingRoute" class="rt-ins-back">Back to rating</NuxtLink>
 			</article>
 		</main>
 	</RaterShell>

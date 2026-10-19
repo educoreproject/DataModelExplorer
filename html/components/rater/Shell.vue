@@ -11,6 +11,9 @@ const props = defineProps({
 	areaLabel: { type: String, default: 'Mapping Survey' },
 	showInstructionsLink: { type: Boolean, default: true },
 	showRatingLink: { type: Boolean, default: false },
+	// revision 18: where the two links go; a rating item passes its place, so the round trip comes back to it
+	instructionsRoute: { type: [String, Object], default: '/rater/instructions' },
+	ratingRoute: { type: [String, Object], default: '/rater/rate' },
 	showAccount: { type: Boolean, default: true },
 });
 
@@ -32,8 +35,8 @@ const signOut = () => {
 			</div>
 			<nav v-if="props.showAccount && raterStore.isSignedIn" aria-label="Account" class="rt-appbar-nav">
 				<span class="rt-signed-in">Signed in as <b>{{ raterStore.raterUserName }}</b></span>
-				<NuxtLink v-if="props.showRatingLink" to="/rater/rate" class="rt-appbar-link" data-testid="rater-link-rating">Back to rating</NuxtLink>
-				<NuxtLink v-if="props.showInstructionsLink" to="/rater/instructions" class="rt-appbar-link" data-testid="rater-link-instructions">Instructions</NuxtLink>
+				<NuxtLink v-if="props.showRatingLink" :to="props.ratingRoute" class="rt-appbar-link" data-testid="rater-link-rating">Back to rating</NuxtLink>
+				<NuxtLink v-if="props.showInstructionsLink" :to="props.instructionsRoute" class="rt-appbar-link" data-testid="rater-link-instructions">Instructions</NuxtLink>
 				<a href="#" class="rt-appbar-link" data-testid="rater-sign-out" @click.prevent="signOut">Sign out</a>
 			</nav>
 		</header>

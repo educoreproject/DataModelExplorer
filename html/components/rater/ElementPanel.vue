@@ -5,10 +5,16 @@
 // Absent texts are said, never filled in: "No definition published by <standard>".
 // Revision 17: the "How to answer" box ends in a "How to rate" call to action, a pill in the family ink (its fills are
 // mixed from the ink in the scoped style, so the three families need no colours of their own beyond the registry's).
+// Revision 18: the bullets are TQ's own five sentences from /rater/instructions, word for word (WORKORDER-RATER18; TQ:
+// "do it"). They are shorter than the page's lines, so they are kept here literally, and raterBackKeepsPlace.spec.mjs
+// checks that every sentence of each is in the page's text. Do not reword them here. How to rate goes to howToRateRoute,
+// which on a rater's own item carries that item, so the instructions page's "Back to rating" returns to it.
 import { computed } from 'vue';
 
+// howToRateRoute: a path, or a { path, query } route (the rating screen's mode decides which)
 const props = defineProps({
 	element: { type: Object, required: true },
+	howToRateRoute: { type: [String, Object], required: true },
 });
 
 // the standard family colours (design Vocabulary): ink, tint, rule
@@ -48,12 +54,13 @@ const familyStyle = computed(() => FAMILY_STYLE_BY_STANDARD[props.element.standa
 		<details class="rt-how" :style="{ borderTop: `1px solid ${familyStyle.rule}` }">
 			<summary>How to answer</summary>
 			<ul>
-				<li><b>Best</b>: the one card that means the same thing. Exactly one.</li>
-				<li><b>Same</b>: once you have a Best, tick any other card that is just as right. Optional.</li>
-				<li><b>No match in CEDS</b> is a real answer, and often the right one.</li>
-				<li>Read the class and the owner. The same words under a different owner mean something different.</li>
+				<li><b>Best:</b> the card that fits best. One per element.</li>
+				<li><b>Same:</b> optional. Any other card that is just as right.</li>
+				<li><b>No match in CEDS:</b> nothing in CEDS means the same thing. This is a real answer.</li>
+				<li><b>Unsure:</b> you cannot decide. Say why in the note.</li>
+				<li><b>The class matters.</b> Choose the class that matches what owns the element in its own standard.</li>
 			</ul>
-			<NuxtLink to="/rater/instructions" class="rt-how-to-rate" :style="{ '--rt-family-ink': familyStyle.ink }" data-testid="rater-how-to-rate">How to rate<span aria-hidden="true" class="rt-how-to-rate-arrow">→</span></NuxtLink>
+			<NuxtLink :to="props.howToRateRoute" class="rt-how-to-rate" :style="{ '--rt-family-ink': familyStyle.ink }" data-testid="rater-how-to-rate">How to rate<span aria-hidden="true" class="rt-how-to-rate-arrow">→</span></NuxtLink>
 		</details>
 	</aside>
 </template>

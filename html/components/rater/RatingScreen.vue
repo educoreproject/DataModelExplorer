@@ -21,9 +21,14 @@
 // 'rate' only): Previous and Next walk only that set, Save and next goes to the next one still unanswered, then back to
 // the list, and a "Back to the list (N left)" link shows.
 //
+// Revision 18: the element panel's How to rate carries the rater's place (item, and the left-undone set) to the
+// instructions page, whose "Back to rating" returns to it (composables/raterRatingPlace.js). The preview's does not:
+// its place is in the admin page, which the instructions page does not link back to.
+//
 // The server judges every answer (rater-answer-rules.js); the checks here only explain the rules before the round trip.
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRaterStore } from '@/stores/raterStore';
+import { ratingPlaceQueryFrom, instructionsRouteOf } from '@/composables/raterRatingPlace';
 
 // surveyName: the preview's survey (the rater's own survey comes from their account; 'rate' ignores it)
 // undoneSetItemNumberList: the items of the left-undone list, ascending, in "left undone" mode; null (or absent) otherwise
@@ -56,6 +61,7 @@ const RATING_MODE_BY_NAME = Object.freeze({
 		},
 		itemRouteOf: ({ itemNumber }) => ({ path: '/rater/rate', query: { item: itemNumber } }),
 		undoneItemRouteOf: ({ itemNumber, undoneSetItemNumberList }) => ({ path: '/rater/rate', query: { item: itemNumber, set: 'undone', items: undoneSetItemNumberList.join('-') } }),
+		instructionsRouteOf: ({ itemNumber, undoneSetItemNumberList }) => instructionsRouteOf(ratingPlaceQueryFrom({ itemNumber, undoneSetItemNumberList })),
 		search: ({ raterStore, searchRequest }) => raterStore.search(searchRequest),
 		browse: ({ raterStore, browseRequest }) => raterStore.browse(browseRequest),
 	},
@@ -66,6 +72,7 @@ const RATING_MODE_BY_NAME = Object.freeze({
 		loadItem: ({ raterStore, surveyName, itemNumber }) => raterStore.adminPreviewItem({ surveyName, itemNumber }),
 		itemRouteOf: ({ route, itemNumber }) => ({ query: { ...route.query, item: itemNumber } }),
 		undoneItemRouteOf: null,
+		instructionsRouteOf: () => instructionsRouteOf(null),
 		search: ({ raterStore, searchRequest, surveyName }) => raterStore.adminPreviewSearch({ surveyName, ...searchRequest }),
 		browse: ({ raterStore, browseRequest }) => raterStore.adminPreviewBrowse(browseRequest),
 	},
@@ -88,6 +95,8 @@ const isUndoneMode = computed(() => {
 	}
 	return props.undoneSetItemNumberList !== null;
 });
+// where the element panel's How to rate goes, carrying this place in 'rate'
+const howToRateRoute = computed(() => ratingMode.instructionsRouteOf({ itemNumber: props.itemNumber, undoneSetItemNumberList: isUndoneMode.value ? props.undoneSetItemNumberList : null }));
 // what the finder calls to search and browse, in this mode
 const cardSource = Object.freeze({
 	search: (searchRequest) => ratingMode.search({ raterStore, searchRequest, surveyName: props.surveyName }),
@@ -103,7 +112,7 @@ const FINDER_OPENING_BY_TAB_NAME = Object.freeze({
 const NO_MATCH_CHOICE = 'noMatch';
 const UNSURE_CHOICE = 'unsure';
 const OTHER_ANSWER_LIST = Object.freeze([
-	{ choiceName: NO_MATCH_CHOICE, title: 'No match in CEDS', description: 'Nothing in the list, or anywhere in CEDS, means the same thing. This is a real answer, and often the right one.' },
+	{ choiceName: NO_MATCH_CHOICE, title: 'No match in CEDS', description: 'Nothing in the list, or anywhere in CEDS, means the same thing. This is a real answer.' },
 	{ choiceName: UNSURE_CHOICE, title: 'Unsure', description: 'You cannot decide, or cannot tell what the element means. Say why in the note; that is useful to us.' },
 ]);
 const FAMILY_STYLE_BY_STANDARD = Object.freeze({
@@ -354,7 +363,7 @@ onMounted(loadCurrentItem);
 							<button type="button" class="rt-button-quiet rt-opener" aria-haspopup="dialog" :aria-expanded="finderIsOpen" data-testid="rater-open-search" @click="openFinderOn('search')">Search all of CEDS</button>
 							<button type="button" class="rt-button-quiet rt-opener" aria-haspopup="dialog" :aria-expanded="finderIsOpen" data-testid="rater-open-browse" @click="openFinderOn('browse')">Browse CEDS</button>
 						</div>
-						<RaterElementPanel :element="item.element" class="rt-left-panel" />
+						<RaterElementPanel :element="item.element" :how-to-rate-route="howToRateRoute" class="rt-left-panel" />
 					</div>
 
 					<div class="rt-right">

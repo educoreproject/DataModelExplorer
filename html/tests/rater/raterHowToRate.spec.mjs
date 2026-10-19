@@ -13,7 +13,8 @@
 //   H17.5 the admin "Rating pages" strip notes the instructions page as "How to rate. Readable without signing in."
 //   H17.6 "how we are judging this" is on no rater page the walk opens, and (with --bundleDir) in no file of the build
 //   OBSERVED (reported, not gated; WORKORDER-RATER17 says report, do not fix): which item a rater on item 3 comes back
-//         to from the instructions page, by its "Back to rating" link and by the browser's Back
+//         to from the instructions page, by its "Back to rating" link and by the browser's Back. Revision 18 fixed it and
+//         gates it in raterBackKeepsPlace.spec.mjs; from revision 18 the bullets are TQ's five, not four
 //
 //   node html/tests/rater/raterHowToRate.spec.mjs --baseUrl=… --adminUserName=… --adminPasswordFile=<file>
 //        --surveyName=A --raterPrefix=rater17-howto --playwrightCorePath=… --chromePath=… --evidenceDir=…
@@ -192,7 +193,7 @@ try {
 	Object.entries(linkStateByStandard).forEach(([standardName, { restState }]) => {
 		check(`${standardName}: exactly one "${LINK_NAME}" link in the panel, inside the How to answer box`, restState.linkCount === 1 && restState.isInHowBox, JSON.stringify(restState));
 		check(`${standardName}: it is outside the bullet list and is the box's last thing`, restState.isInBulletList === false && restState.isLastInHowBox === true);
-		check(`${standardName}: the bullets carry no link and are the four bullets (${restState.bulletCount})`, restState.bulletLinkCount === 0 && restState.bulletCount === 4);
+		check(`${standardName}: the bullets carry no link and are TQ's five (revision 18; ${restState.bulletCount})`, restState.bulletLinkCount === 0 && restState.bulletCount === 5);
 		check(`${standardName}: it points at /rater/instructions in the same tab (href ${restState.href}, target ${restState.target})`, restState.href === '/rater/instructions' && !restState.target);
 		check(`${standardName}: it carries a small arrow, hidden from screen readers`, restState.hasArrow === true);
 	});
@@ -273,7 +274,8 @@ try {
 		await waitForRaterItem(3);
 		await phonePage.locator(`${panelSelector} details.rt-how`).evaluate((detailsElement) => { detailsElement.open = true; });
 		await phonePage.locator(panelSelector).getByRole('link', { name: LINK_NAME, exact: true }).click();
-		await phonePage.waitForURL(/\/rater\/instructions\/?$/, { timeout: 20000 });
+		// from revision 18 a rater's own item carries its place: /rater/instructions?item=3
+		await phonePage.waitForURL(/\/rater\/instructions\/?(\?item=3)?$/, { timeout: 20000 });
 		if (returnWayName.includes('Back to rating')) {
 			await phonePage.getByRole('link', { name: 'Back to rating' }).first().click();
 		} else {
