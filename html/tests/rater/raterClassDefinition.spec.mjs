@@ -74,7 +74,9 @@ const page = await context.newPage();
 // the payloads the page was given, by preview action: the truth each card's text is checked against
 const payloadByItemNumber = {};
 const searchPayloadList = [];
-page.on('response', async (response) => {
+// each response body is read asynchronously; a payload is read only after every pending body has landed (deploy 101926 race)
+const pendingResponseReadSet = new Set();
+const recordResponse = async (response) => {
 	if (!response.url().includes('/api/raterAdmin')) {
 		return;
 	}
@@ -91,6 +93,11 @@ page.on('response', async (response) => {
 		return;
 	}
 	searchPayloadList.push({ requestBody, answer: answerOf(bodyJson) });
+};
+page.on('response', (response) => {
+	const responseRead = recordResponse(response);
+	pendingResponseReadSet.add(responseRead);
+	responseRead.finally(() => pendingResponseReadSet.delete(responseRead)).catch(() => {});
 });
 
 const mainLoginInBrowser = async (userName, password) => {
@@ -104,6 +111,7 @@ const waitForPreviewItem = async (itemNumber) => {
 		const crumb = document.querySelector('[data-testid="rater-item-crumb"]');
 		return crumb && crumb.textContent.includes(`Item ${expectedNumber} of`) && document.querySelectorAll('[data-testid="rater-candidate-row"]').length > 0;
 	}, itemNumber, { timeout: 20000 });
+	await Promise.all([...pendingResponseReadSet]);
 };
 
 // one card's face as the browser draws it: the order of its parts and the texts and styles of its two definitions

@@ -82,7 +82,9 @@ const page = await context.newPage();
 
 const payloadByItemNumber = {};
 const searchPayloadList = [];
-page.on('response', async (response) => {
+// each response body is read asynchronously; a payload is read only after every pending body has landed (deploy 101926 race)
+const pendingResponseReadSet = new Set();
+const recordResponse = async (response) => {
 	if (!response.url().includes('/api/raterAdmin')) {
 		return;
 	}
@@ -97,6 +99,11 @@ page.on('response', async (response) => {
 	if (requestBody.adminAction === 'previewSearch') {
 		searchPayloadList.push(answerOf(bodyJson));
 	}
+};
+page.on('response', (response) => {
+	const responseRead = recordResponse(response);
+	pendingResponseReadSet.add(responseRead);
+	responseRead.finally(() => pendingResponseReadSet.delete(responseRead)).catch(() => {});
 });
 
 const waitForPreviewItem = async (itemNumber) => {
@@ -105,6 +112,7 @@ const waitForPreviewItem = async (itemNumber) => {
 		const crumb = document.querySelector('[data-testid="rater-item-crumb"]');
 		return crumb && crumb.textContent.includes(`Item ${expectedNumber} of`) && document.querySelectorAll('[data-testid="rater-candidate-row"]').length > 0;
 	}, itemNumber, { timeout: 20000 });
+	await Promise.all([...pendingResponseReadSet]);
 };
 
 // each card's two lines with their colours, inside a root; and each frame's lead and anything else it holds
