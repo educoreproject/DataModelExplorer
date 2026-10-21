@@ -22,14 +22,16 @@ assert('  limit is an integer', (providerTool.definition.input_schema.properties
 
 const MAPPED_TEST = '((f)-->(:HubReference) OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference))';
 const taskList = new taskListPlus();
-taskList.push((args, next) => runQuery(`MATCH (h:HubDefinition) WITH h._source AS hubSource
+// ⟪lane R6⟫ EVERY hub of the graph is excluded: the oracle read one HubDefinition per row and kept the first, so on a
+// two-hub graph it excluded one hub and counted the other's properties as unmapped
+taskList.push((args, next) => runQuery(`MATCH (h:HubDefinition) WITH collect(h._source) AS hubSourceList
 	MATCH (f:ForgedNode {role: 'DmeProperty'})
-	RETURN hubSource,
+	RETURN hubSourceList,
 	       count(CASE WHEN f._source = 'EdFi' AND NOT ${MAPPED_TEST} THEN 1 END) AS edfiUnmappedCount,
-	       count(CASE WHEN f._source <> hubSource THEN 1 END) AS nonHubPropertyCount,
-	       count(CASE WHEN f._source <> hubSource AND ${MAPPED_TEST} THEN 1 END) AS nonHubMappedCount,
-	       count(CASE WHEN f._source = hubSource THEN 1 END) AS hubPropertyCount,
-	       count(CASE WHEN f._source <> hubSource AND NOT ${MAPPED_TEST} THEN 1 END) AS nonHubUnmappedCount`, {}, (err, rowList) => {
+	       count(CASE WHEN NOT f._source IN hubSourceList THEN 1 END) AS nonHubPropertyCount,
+	       count(CASE WHEN NOT f._source IN hubSourceList AND ${MAPPED_TEST} THEN 1 END) AS nonHubMappedCount,
+	       count(CASE WHEN f._source IN hubSourceList THEN 1 END) AS hubPropertyCount,
+	       count(CASE WHEN NOT f._source IN hubSourceList AND NOT ${MAPPED_TEST} THEN 1 END) AS nonHubUnmappedCount`, {}, (err, rowList) => {
 	if (err) { next(err, args); return; }
 	next('', { ...args, expected: rowList[0] });
 }));
@@ -42,7 +44,10 @@ taskList.push((args, next) => runVerb(['-unmappedFields', '--standard=EdFi', '--
 }, cliFilePath));
 taskList.push((args, next) => runVerb(['-unmappedFields', '--limit=5'], (err, outcome) => {
 	const payload = outcome.parsedStdout || {};
-	assert(`no filter: the hub (${args.expected.hubSource}) is excluded — no row from it, totalRowCount === ${args.expected.nonHubUnmappedCount}`, (payload.unmappedRowList || []).every((oneRow) => oneRow.standard !== args.expected.hubSource) && payload.totalRowCount === args.expected.nonHubUnmappedCount && payload.hubStandard === args.expected.hubSource && payload.hubPolicy === 'excludeHub', JSON.stringify(payload).slice(0, 220));
+	const hubSourceList = args.expected.hubSourceList.slice().sort();
+	// the single-hub string field hubStandard is present only on a one-hub graph (ctdlHub P7); hubStandardList always
+	const hubStandardFieldAgrees = hubSourceList.length === 1 ? payload.hubStandard === hubSourceList[0] : !('hubStandard' in payload);
+	assert(`no filter: every hub (${hubSourceList.join(', ')}) is excluded — no row from one, totalRowCount === ${args.expected.nonHubUnmappedCount}`, (payload.unmappedRowList || []).every((oneRow) => hubSourceList.indexOf(oneRow.standard) === -1) && payload.totalRowCount === args.expected.nonHubUnmappedCount && (payload.hubStandardList || []).slice().sort().join() === hubSourceList.join() && hubStandardFieldAgrees && payload.hubPolicy === 'excludeHub', JSON.stringify(payload).slice(0, 220));
 	next('', args);
 }, cliFilePath));
 taskList.push((args, next) => runVerb(['-unmappedFields', '--limit=abc'], (err, outcome) => {
@@ -52,7 +57,9 @@ taskList.push((args, next) => runVerb(['-unmappedFields', '--limit=abc'], (err, 
 }, cliFilePath));
 taskList.push((args, next) => runVerb(['-stats'], (err, outcome) => {
 	const coverage = (outcome.parsedStdout || {}).coverage || {};
-	assert(`stats coverage: hubStandard ${args.expected.hubSource}, totalProperties ${args.expected.nonHubPropertyCount}, mapped ${args.expected.nonHubMappedCount}, hubPropertyCount ${args.expected.hubPropertyCount}`, coverage.hubStandard === args.expected.hubSource && coverage.totalProperties === args.expected.nonHubPropertyCount && coverage.mappedProperties === args.expected.nonHubMappedCount && coverage.hubPropertyCount === args.expected.hubPropertyCount && coverage.hubPolicy === 'excludeHub', JSON.stringify(coverage));
+	const hubSourceList = args.expected.hubSourceList.slice().sort();
+	const coverageHubFieldAgrees = (coverage.hubStandardList || []).slice().sort().join() === hubSourceList.join() && (hubSourceList.length === 1 ? coverage.hubStandard === hubSourceList[0] : !('hubStandard' in coverage));
+	assert(`stats coverage: hubs ${hubSourceList.join(', ')}, totalProperties ${args.expected.nonHubPropertyCount}, mapped ${args.expected.nonHubMappedCount}, hubPropertyCount ${args.expected.hubPropertyCount}`, coverageHubFieldAgrees && coverage.totalProperties === args.expected.nonHubPropertyCount && coverage.mappedProperties === args.expected.nonHubMappedCount && coverage.hubPropertyCount === args.expected.hubPropertyCount && coverage.hubPolicy === 'excludeHub', JSON.stringify(coverage));
 	next('', args);
 }, cliFilePath));
 pipeRunner(taskList.getList(), {}, (err) => finish(err));

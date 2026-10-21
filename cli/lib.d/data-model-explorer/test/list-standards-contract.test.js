@@ -23,9 +23,12 @@ taskList.push((args, next) => runQuery(`MATCH (r:DmeStandardRoot) WITH count(r) 
 }));
 // WEL (2026-10-07): the welcome screen reads this same verb, so each row also says whether it IS the hub and how many
 // match edges carry it to the hub — counted here by the test's own Cypher, never by the tool's
-taskList.push((args, next) => runQuery(`MATCH (h:HubDefinition) MATCH (r:DmeStandardRoot)
+// ⟪lane R6⟫ every hub of the graph: the oracle read ONE HubDefinition per row and so, on a two-hub graph, answered each
+// standard once per hub (the last row won). It now collects the hubs first
+taskList.push((args, next) => runQuery(`MATCH (h:HubDefinition) WITH collect(h._source) AS hubSourceList
+	MATCH (r:DmeStandardRoot)
 	OPTIONAL MATCH (n:ForgedNode {_source: r._source})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference)
-	RETURN r._source AS source, r._source = h._source AS isHub, count(m) AS hubMatchEdgeCount`, {}, (err, rowList) => {
+	RETURN r._source AS source, r._source IN hubSourceList AS isHub, count(m) AS hubMatchEdgeCount`, {}, (err, rowList) => {
 	if (err) { next(err, args); return; }
 	next('', { ...args, expectedHubRowBySource: Object.fromEntries(rowList.map((oneRow) => [oneRow.source, oneRow])) });
 }));
@@ -36,7 +39,11 @@ taskList.push((args, next) => runVerb(['-listStandards'], (err, outcome) => {
 		return oneStandard.isHub !== expectedRow.isHub || oneStandard.hubMatchEdgeCount !== expectedRow.hubMatchEdgeCount || oneStandard.mappedToHub !== (expectedRow.hubMatchEdgeCount > 0);
 	}).map((oneStandard) => oneStandard.source);
 	assert('  each row\'s isHub, hubMatchEdgeCount and mappedToHub equal the test\'s Cypher', standardList.length > 0 && disagreeingSourceList.length === 0, `disagreeing: ${disagreeingSourceList.join(', ') || '(no rows)'}`);
-	assert('  exactly one row is the hub, and totals.hubSource names it', standardList.filter((oneStandard) => oneStandard.isHub === true).length === 1 && ((outcome.parsedStdout || {}).totals || {}).hubSource === (standardList.find((oneStandard) => oneStandard.isHub === true) || {}).source);
+	// ⟪lane R6⟫ the hub rows are exactly the graph's hubs (totals.hubStandardList); was 'exactly one row is the hub'
+	const hubRowSourceText = standardList.filter((oneStandard) => oneStandard.isHub === true).map((oneStandard) => oneStandard.source).sort().join(',');
+	const expectedHubSourceText = Object.values(args.expectedHubRowBySource).filter((oneRow) => oneRow.isHub).map((oneRow) => oneRow.source).sort().join(',');
+	const totalsHubSourceText = ((((outcome.parsedStdout || {}).totals || {}).hubStandardList) || []).slice().sort().join(',');
+	assert('  the hub rows are exactly the graph\'s hubs, and totals.hubStandardList names them', hubRowSourceText.length > 0 && hubRowSourceText === expectedHubSourceText && hubRowSourceText === totalsHubSourceText, `rows ${hubRowSourceText}; graph ${expectedHubSourceText}; totals ${totalsHubSourceText}`);
 	next('', args);
 }, cliFilePath));
 taskList.push((args, next) => runVerb(['-listStandards'], (err, outcome) => {

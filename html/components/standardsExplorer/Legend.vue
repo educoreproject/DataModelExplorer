@@ -3,7 +3,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { confidenceTierList, matchDescriptionOf, matchKindOrderList, matchStyleByKind } from '@/components/standardsExplorer/explorerVocabulary';
+import { confidenceTierList, matchDescriptionOf, matchKindOrderList, matchStyleByKind, versionBadgeTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 
@@ -27,6 +27,14 @@ const legendKindList = computed(() => {
 });
 // the match descriptions are said of the page's hub when it names exactly one
 const legendHubName = computed(() => (store.shownHubList.length === 1 ? store.shownHubList[0].hubName : null));
+// ⟪lane R6⟫ the version badges are explained only where the page compares two versions, in that comparison's own words
+// (it was a fixed 'Different in 1.8 / New in 1.8', shown on every page, a CTDL anchor's included)
+const versionLegend = computed(() => {
+	const versionComparison = store.neighbourhood?.versionComparison;
+	if (!versionComparison) return null;
+	const versionPair = { thisVersion: versionComparison.thisVersion, comparedVersion: versionComparison.comparedVersion };
+	return { changedText: versionBadgeTextOf({ ...versionPair, badgeState: 'changed' }), newText: versionBadgeTextOf({ ...versionPair, badgeState: 'new' }) };
+});
 </script>
 
 <template>
@@ -60,7 +68,7 @@ const legendHubName = computed(() => (store.shownHubList.length === 1 ? store.sh
 			<span class="legend-head">Marks</span>
 			<span class="legend-row"><span aria-hidden="true" class="legend-more">›</span>Has more inside</span>
 			<span class="legend-row"><span aria-hidden="true" class="legend-ring" />Ring: share mapped to {{ legendHubName || 'a hub' }}</span>
-			<span class="legend-row"><span class="legend-badge legend-badge-changed">Different in 1.8</span><span class="legend-badge legend-badge-new">New in 1.8</span> against the other version</span>
+			<span v-if="versionLegend" class="legend-row"><span class="legend-badge legend-badge-changed">{{ versionLegend.changedText }}</span><span class="legend-badge legend-badge-new">{{ versionLegend.newText }}</span> against the other version</span>
 			<span class="legend-row"><span class="legend-badge legend-badge-home">You started here</span></span>
 		</div>
 	</div>

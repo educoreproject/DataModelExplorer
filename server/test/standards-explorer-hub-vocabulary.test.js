@@ -72,6 +72,10 @@ importVocabularyFrom(vocabularySourceText, 'real')
 			return soFar.concat(lineList.map((lineText, lineIndex) => ({ relativeFilePath, lineNumber: lineIndex + 1, lineText })).filter(({ lineText }) => RETIRED_NAME_PATTERN.test(lineText)));
 		}, []);
 		ok(`no retired one-hub kind, relationship or field name in the ${EXPLORER_FILE_PATH_LIST.length} explorer files`, offenderList.length === 0, offenderList.slice(0, 5).map(({ relativeFilePath, lineNumber }) => `${relativeFilePath}:${lineNumber}`).join(', '));
+		// ⟪lane R6⟫ the legend's version badges are the page's own comparison (SCARLET_ARROW, 2026-10-21: a CTDL anchor page showed
+		// 'Different in 1.8 / New in 1.8', a PESC example fixed in the template)
+		const legendSourceText = fs.readFileSync(path.join(codeRootPath, 'html/components/standardsExplorer/Legend.vue'), 'utf8');
+		ok('the legend carries no fixed version number; its version badges come from the page\'s versionComparison', !/in \d+\.\d+</.test(legendSourceText) && /versionComparison/.test(legendSourceText), (legendSourceText.match(/[^\n]*in \d+\.\d+<[^\n]*/) || [''])[0].trim().slice(0, 140));
 
 		console.log('- 3. red twin');
 		const fixedLabelSourceText = vocabularySourceText.replace(/export const kindDisplayNameOf = [^\n]*\n/, "export const kindDisplayNameOf = (nodeKind) => ({ hubAnchor: 'CEDS element' })[nodeKind] || kindDisplayNameByKind[nodeKind] || nodeKind;\n");
