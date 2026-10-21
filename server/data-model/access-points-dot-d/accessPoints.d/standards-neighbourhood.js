@@ -38,7 +38,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		neo4jDb,
 		ownerName: moduleName,
 		requiredLabelList: mapper.requiredLabelList,
-		absentReason: 'the standards explorer reads the forged standards and their CEDS hub cards',
+		absentReason: 'the standards explorer reads the forged standards and their hub cards',
 	});
 
 	// runs one named query; a failure names the query
@@ -176,7 +176,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	};
 
 	// ================================================================================
-	// NODE — one handler per node kind family: synthetic family, synthetic standard group, CEDS anchor, element
+	// NODE — one handler per node kind family: synthetic family, synthetic standard group, hub anchor, element
 
 	const readFamilyNode = ({ standardFamily }, callback) => {
 		readCatalog({ standardFamily }, (catalogError, catalog) => {
@@ -260,8 +260,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					next(queryError, args);
 					return;
 				}
-				if (!anchorRecordList.length || mapper.nodeKindOf(anchorRecordList[0].labelList) !== 'cedsAnchor') {
-					next(`${moduleName}: standard group '${stableId}' names no CEDS anchor in this graph`, args);
+				if (!anchorRecordList.length || mapper.nodeKindOf(anchorRecordList[0].labelList, anchorRecordList[0].hubName) !== 'hubAnchor') {
+					next(`${moduleName}: standard group '${stableId}' names no hub anchor in this graph`, args);
 					return;
 				}
 				next('', { ...args, anchorNode: mapper.mapNodeRecord(anchorRecordList[0]) });
@@ -275,7 +275,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					return;
 				}
 				if (!memberRecordList.length) {
-					next(`${moduleName}: no element of standard '${groupIdentity.standardKey}' maps to CEDS anchor '${groupIdentity.anchorStableId}'`, args);
+					next(`${moduleName}: no element of standard '${groupIdentity.standardKey}' maps to hub anchor '${groupIdentity.anchorStableId}'`, args);
 					return;
 				}
 				next('', { ...args, memberRecord: memberRecordList[0] });
@@ -302,7 +302,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					stableId,
 					name: groupIdentity.standardKey,
 					kind: 'standardGroup',
-					description: `Elements of this standard mapped to the CEDS element ${anchorName}`,
+					description: `Elements of this standard mapped to the ${args.anchorNode.hubName} element ${anchorName}`,
 					standardKey: groupIdentity.standardKey,
 					standardFamily: ownPeer.standardFamily || null,
 					releaseLabel: ownPeer.releaseLabel || null,
@@ -342,14 +342,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			const standardGroupList = mapper.mapAnchorFanOut({ fanOutRecordList: args.fanOutRecordList, anchorStableId: focusNode.stableId });
 			const contextItemListOf = (contextList, itemKind) =>
-				contextList.map((oneEntry) => ({ stableId: oneEntry.stableId, name: oneEntry.name, kind: itemKind, description: oneEntry.definition, hasChildren: Boolean(oneEntry.hasStructuralChildren) }));
+				contextList.map((oneEntry) => ({ stableId: oneEntry.stableId, name: oneEntry.name, kind: itemKind, hubName: args.anchorContext.hubName, description: oneEntry.definition, hasChildren: Boolean(oneEntry.hasStructuralChildren) }));
 			const childGroupList = [
 				{ relationshipType: 'MAPPED_FROM_STANDARD', count: standardGroupList.length, truncated: false, itemList: standardGroupList },
-				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'PROPERTY'), count: args.anchorContext.cedsPropertyList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsPropertyList, 'cedsProperty') },
-				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'DOMAIN'), count: args.anchorContext.cedsDomainList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsDomainList, 'cedsDomain') },
+				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'PROPERTY'), count: args.anchorContext.hubPropertyList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.hubPropertyList, 'hubProperty') },
+				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'DOMAIN'), count: args.anchorContext.hubDomainList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.hubDomainList, 'hubDomain') },
 			].filter((oneGroup) => oneGroup.count > 0);
 			callback('', {
-				node: { ...focusNode, referenceTier: args.anchorContext.referenceTier, cedsPropertyList: args.anchorContext.cedsPropertyList, cedsDomainList: args.anchorContext.cedsDomainList },
+				node: { ...focusNode, referenceTier: args.anchorContext.referenceTier, hubPropertyList: args.anchorContext.hubPropertyList, hubDomainList: args.anchorContext.hubDomainList },
 				ancestorList: [],
 				childGroupList,
 				mappingList: [],
@@ -357,19 +357,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
-	// a CEDS property's way out: its CEDS elements, which point AT it, so the structural child read cannot see them
-	const readCedsElementGroup = ({ focusNode }, callback) =>
-		runNamedQuery('cedsElementsByCedsPropertyStableId', { stableId: focusNode.stableId }, (queryError, groupRecordList) => {
+	// a hub property's way out: its hub elements, which point AT it, so the structural child read cannot see them
+	const readHubElementGroup = ({ focusNode }, callback) =>
+		runNamedQuery('hubElementsByHubPropertyStableId', { stableId: focusNode.stableId }, (queryError, groupRecordList) => {
 			if (queryError) {
 				callback(queryError);
 				return;
 			}
-			callback('', groupRecordList.length ? [mapper.mapCedsElementGroupRecord(groupRecordList[0])] : []);
+			callback('', groupRecordList.length ? [mapper.mapHubElementGroupRecord(groupRecordList[0])] : []);
 		});
 
 	// child groups a node kind has beyond its structural children: kind → reader answering a list of groups
 	const extraChildGroupReaderByNodeKind = {
-		cedsProperty: readCedsElementGroup,
+		hubProperty: readHubElementGroup,
 	};
 
 	const readElementNode = ({ focusNode, compareVersion }, callback) => {
@@ -437,7 +437,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	// the handler for a node kind; every kind not named here is a structural element
 	const handlerByNodeKind = {
-		cedsAnchor: readAnchorNode,
+		hubAnchor: readAnchorNode,
 	};
 
 	// the handler for each synthetic id kind (mapper's syntheticIdPrefixList)

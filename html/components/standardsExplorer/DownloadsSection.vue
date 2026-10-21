@@ -2,9 +2,9 @@
 // The explorer's Downloads section (WORKORDER-standardDownloads-101526 §3c): the downloads of the standard being
 // visited, read from the focus (never the selected row). How the focus names its standard:
 //   the families catalog   no standard: one "All downloads" link
-//   a family               its standard when the family holds exactly one (SIF, Ed-Fi, CEDS), else none
+//   a family               its standard when the family holds exactly one, else none
 //   a release              the standards listed on this level (one per version)
-//   anything else          the focus's own standardKey (a standard root, a class, a field, a CEDS element, a group)
+//   anything else          the focus's own standardKey (a standard root, a class, a field, a hub element, a group)
 // and always, below a family, the link to the Downloads page filtered to that family. Under each standard's title, where
 // its source came from (SourceUrlNote; WORKORDER-sourceUrls-101526).
 

@@ -219,7 +219,7 @@ const validityReason = computed(() => {
 	if (!requiresSatisfied.value)
 		return 'A block requires another block that is not in the set (add its standard/reference).';
 	if (mappingCount.value > 0 && referenceCount.value === 0)
-		return 'A mapping needs the CEDS reference block (add it).';
+		return 'A mapping needs its hub reference block (add it).';
 	if (referenceCount.value > 1)
 		return 'A manifest may contain only one reference block.';
 	return '';

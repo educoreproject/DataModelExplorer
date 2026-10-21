@@ -17,31 +17,25 @@ const mcpConfigExample = `{
   }
 }`;
 
-const cypherExample = `// Find all SIF objects that map to CEDS properties
-MATCH (s:SifObject)-[r:MAPS_TO]->(c:CedsProperty)
-RETURN s.name, c.name, r.confidence
+const cypherExample = `// Elements of one standard and the hub cards they map to, with each judgment
+MATCH (element:ForgedNode {_source: $source})-[match:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(card:HubReference)
+RETURN element.name, card.hubName, card.name, type(match) AS relation, match.mappingConfidence
 LIMIT 25`;
 
 const fetchExample = `// Query the knowledge graph via REST
-const res = await fetch('/api/dmeCypherQuery', {
+const res = await fetch('/api/dme-cypher-query', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     action: 'query',
-    query: 'MATCH (n:CedsClass) RETURN n.name LIMIT 10',
+    query: 'MATCH (hub:HubDefinition) RETURN hub.hubName, hub.version, hub.canonicalKeyName',
     params: {}
   })
 });
 const data = await res.json();`;
 
-const lookupExample = `// Browse top-level CEDS classes
-GET /api/dmeLookup?level=topLevel&standard=ceds
-
-// Get children of a specific node
-GET /api/dmeLookup?level=children&standard=sif&nodeType=SifObject&nodeId=Student
-
-// Search across standards
-GET /api/dmeLookup?level=search&standard=ceds&nodeId=enrollment`;
+const lookupExample = `// Every standard in the graph, which of them are hubs, and how much maps to each hub (requires a login)
+GET /api/dme-list-standards`;
 
 const utilityExample = `// Quick AI-powered question about standards
 const res = await fetch('/api/askmilo-utility', {
@@ -335,7 +329,7 @@ const { response } = await res.json();`;
 			<v-card variant="outlined" class="mb-4">
 				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
 					<v-chip size="x-small" color="success" variant="flat">POST</v-chip>
-					/api/dmeCypherQuery
+					/api/dme-cypher-query
 				</v-card-title>
 				<v-card-text>
 					<p class="text-body-2 text-medium-emphasis mb-3">
@@ -344,7 +338,7 @@ const { response } = await res.json();`;
 					</p>
 					<pre class="code-block mb-3">{{ fetchExample }}</pre>
 					<p class="text-body-2 text-medium-emphasis mb-0">
-						Also supports <code>GET /api/dmeCypherQuery?action=schema</code> to retrieve the graph schema.
+						Also supports <code>GET /api/dme-cypher-query?action=schema</code> to retrieve the graph schema.
 					</p>
 				</v-card-text>
 			</v-card>
@@ -353,12 +347,12 @@ const { response } = await res.json();`;
 			<v-card variant="outlined" class="mb-4">
 				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
 					<v-chip size="x-small" color="info" variant="flat">GET</v-chip>
-					/api/dmeLookup
+					/api/dme-list-standards
 				</v-card-title>
 				<v-card-text>
 					<p class="text-body-2 text-medium-emphasis mb-3">
-						Browse the data model as a tree. This is the same endpoint that powers the Crosswalk tool in the UI.
-						Navigate by level: list standards, get top-level nodes, drill into children, or search.
+						The standards the graph holds, read live: each standard's family, version and size, which standards are hubs
+						(the standards every other one maps to), and how many of each standard's properties map to each hub.
 					</p>
 					<pre class="code-block mb-0">{{ lookupExample }}</pre>
 				</v-card-text>
@@ -446,7 +440,7 @@ const { response } = await res.json();`;
 					<tr>
 						<td class="text-body-2">Query the graph programmatically</td>
 						<td>
-							<span class="text-body-2"><code>POST /api/dmeCypherQuery</code></span>
+							<span class="text-body-2"><code>POST /api/dme-cypher-query</code></span>
 						</td>
 					</tr>
 				</tbody>

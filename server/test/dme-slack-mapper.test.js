@@ -155,8 +155,8 @@ const judgedCardText = mapper
 				name: 'Birthday',
 				source: 'PESC-CollegeTranscript-1.8.0',
 				hubTuples: [
-					{ mappingType: 'BROAD_MATCH', confidence: 0.9, mappingKind: 'inferred', mappingSource: 'bridge-jev', hubName: 'Birthdate', hubKey: 'P000033', cedsDomain: 'Person Birth', cedsProperty: 'Birthdate', cedsRange: 'date' },
-					{ mappingType: 'NARROW_MATCH', confidence: 0, mappingKind: 'inferred', mappingSource: 'bridge-debug', hubName: 'Birth Place', hubKey: 'P000999', cedsProperty: 'Birth Place' },
+					{ mappingType: 'BROAD_MATCH', confidence: 0.9, mappingKind: 'inferred', mappingSource: 'bridge-jev', hubName: 'Birthdate', hubKey: 'P000033', hubDomain: 'Person Birth', hubProperty: 'Birthdate', hubRange: 'date' },
+					{ mappingType: 'NARROW_MATCH', confidence: 0, mappingKind: 'inferred', mappingSource: 'bridge-debug', hubName: 'Birth Place', hubKey: 'P000999', hubProperty: 'Birth Place' },
 				],
 				peers: [],
 			},
@@ -181,7 +181,7 @@ const manyTupleCardText = mapper
 		dmeBaseUrl: 'https://qbook.work',
 		cards: [{
 			name: 'Many', source: 'EdFi',
-			hubTuples: [1, 2, 3, 4, 5, 6].map((tupleNumber) => ({ mappingType: 'EXACT_MATCH', confidence: 0.9, mappingSource: 'bridge-jev', hubName: `Hub ${tupleNumber}`, hubKey: `P00000${tupleNumber}`, cedsProperty: `Property ${tupleNumber}`, carriedBy: 'own', instanceGroupList: [], instanceCount: 0 })),
+			hubTuples: [1, 2, 3, 4, 5, 6].map((tupleNumber) => ({ mappingType: 'EXACT_MATCH', confidence: 0.9, mappingSource: 'bridge-jev', hubName: `Hub ${tupleNumber}`, hubKey: `P00000${tupleNumber}`, hubProperty: `Property ${tupleNumber}`, carriedBy: 'own', instanceGroupList: [], instanceCount: 0 })),
 			peers: [],
 		}],
 	})
@@ -190,7 +190,7 @@ const manyTupleCardText = mapper
 ok(`a card with 6 tuples shows ${SLACK_LOOKUP_LIMITS.tupleLinesShown} and says '+${6 - SLACK_LOOKUP_LIMITS.tupleLinesShown} more tuples'`, new RegExp(`\\+${6 - SLACK_LOOKUP_LIMITS.tupleLinesShown} more tuples`).test(manyTupleCardText), manyTupleCardText.split('\n').slice(-2).join(' | '));
 const mergedCard = mapper.mergeElementCard({
 	ownRow: { name: 'BirthDate', source: 'SIF260928', stableId: 'x', hubTuples: [{ mappingType: null, hubName: null }], peers: [] },
-	viaInstanceRow: { hubTuples: [{ mappingType: 'EXACT_MATCH', confidence: 0.9, mappingSource: 'bridge-jev', hubName: 'Birthdate', hubKey: 'P000033', cedsProperty: 'Birthdate', carriedBy: 'instance', instanceGroupList: ['StudentPersonal', 'StaffPersonal'], instanceCount: 6 }], peers: [] },
+	viaInstanceRow: { hubTuples: [{ mappingType: 'EXACT_MATCH', confidence: 0.9, mappingSource: 'bridge-jev', hubName: 'Birthdate', hubKey: 'P000033', hubProperty: 'Birthdate', carriedBy: 'instance', instanceGroupList: ['StudentPersonal', 'StaffPersonal'], instanceCount: 6 }], peers: [] },
 });
 ok('mergeElementCard joins the own and instance arms', !mergedCard.refusalText && mergedCard.card.hubTuples.filter((tuple) => tuple.hubName).length === 1);
 const instanceCardText = mapper.buildLookupBlocks({ term: 'birth date', totalMatches: 1, dmeBaseUrl: 'https://qbook.work', cards: [mergedCard.card] }).map((block) => (block.text ? block.text.text : '')).join('\n');

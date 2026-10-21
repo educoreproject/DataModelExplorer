@@ -7,6 +7,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -53,7 +54,7 @@ const moduleFunction = function ({
 		       n.name AS name,
 		       n._source AS source,
 		       coalesce(n.description, n.definition, '') AS description,
-		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
 		       coalesce(n.path, '') AS path,
 		       CASE WHEN n:DmeClass THEN 'class' ELSE 'property' END AS kind
 		ORDER BY kindOrder, toLower(coalesce(n.name, ''))

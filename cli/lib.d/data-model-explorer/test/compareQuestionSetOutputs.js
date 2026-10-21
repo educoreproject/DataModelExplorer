@@ -38,7 +38,62 @@ const ALLOWED_ADDED_FIELD_NAME_LIST = Object.freeze([
 	'isHubStandard',
 	// findMappings / explore: published cross-IRI assertions, listed apart and never a mapping (ruling 2026-10-21)
 	'declaredCorrespondenceList', 'declaredCorrespondenceCount', 'declaredCorrespondenceRowUnit',
+	// ⟪lane R6⟫ the explorer's mapping anchor names its hub's family (hubName is above)
+	'standardFamily',
 ]);
+
+// ⟪lane R6⟫ (educoreForge deCedsRefactor-102126, WORKORDER R6) what the hub-neutral DME was ordered to REMOVE, RENAME or
+// REWORD. The BASELINE is brought to the R6 names first (each change counted and printed), then compared byte for byte
+// as above. A removal, rename or rewording not declared here is still a failure.
+//   removed: the one-hub ceds* row fields (findMappings, compareCodesets, the Slack card), on every graph
+const LANE_R6_REMOVED_FIELD_NAME_LIST = Object.freeze(['cedsDomain', 'cedsProperty', 'cedsRange', 'cedsValue', 'cedsQualifier', 'cedsTuple', 'cedsValueKey']);
+//   renamed fields of the standards explorer (one name across mapper, access point, store and components)
+const LANE_R6_RENAMED_FIELD_NAME_BY_BASELINE_NAME = Object.freeze({ cedsPropertyList: 'hubPropertyList', cedsDomainList: 'hubDomainList', cedsElementCount: 'hubElementCount', cedsDomainName: 'hubDomainName' });
+//   renamed VALUES: the explorer's kinds and its hub-element relationship
+const LANE_R6_RENAMED_VALUE_BY_BASELINE_VALUE = Object.freeze({ cedsAnchor: 'hubAnchor', cedsProperty: 'hubProperty', cedsDomain: 'hubDomain', USED_BY_CEDS_ELEMENT: 'USED_BY_HUB_ELEMENT' });
+//   reworded model-read text [P], as [baseline text, R6 text]; the identifier example is READ FROM THE GRAPH now (the
+//   lowest canonicalKey per hub and tier), so its R6 text is what the graph answers (measured, DEVLOG-R6)
+const LANE_R6_TEXT_REPLACEMENT_LIST = Object.freeze([
+	['one row per (direction, element, CEDS tuple, relation, via-relation)', 'one row per (direction, element, hub tuple, relation, via-relation)'],
+	["(as 'incoming' through the CEDS leaf AND", "(as 'incoming' through the hub leaf AND"],
+	['CEDS TUPLES (HubReferences) the rows reach', 'HUB TUPLES (HubReferences) the rows reach'],
+	['into this CEDS tuple, each counted once', 'into this hub tuple, each counted once'],
+	['EDGES into this CEDS tuple per relation', 'EDGES into this hub tuple per relation'],
+	['a CEDS Global ID looks like P000033 (property) or OV001637175776 (value)', 'a CEDS Global ID looks like P000001 (property) or OV000002113286 (value)'],
+	['a CTDL term CURIE looks like ceterms:Credential (term) or ceterms:name (property)', 'a CTDL term CURIE looks like ceterms:accommodationType (property) or accommodation:AccessibleHousing (value)'],
+]);
+
+// the baseline brought to the R6 names: removed fields dropped, fields renamed IN PLACE (key order kept), values renamed,
+// texts reworded; laneR6ChangeCount tallies each kind of change
+const laneR6NormalisedBaselineOf = (baselineValue, laneR6ChangeCount) => {
+	const tally = (changeName) => { laneR6ChangeCount[changeName] = (laneR6ChangeCount[changeName] || 0) + 1; };
+	if (Array.isArray(baselineValue)) {
+		return baselineValue.map((baselineMember) => laneR6NormalisedBaselineOf(baselineMember, laneR6ChangeCount));
+	}
+	if (baselineValue && typeof baselineValue === 'object') {
+		return Object.keys(baselineValue).reduce((normalisedObject, fieldName) => {
+			if (LANE_R6_REMOVED_FIELD_NAME_LIST.indexOf(fieldName) !== -1) {
+				tally(`removed ${fieldName}`);
+				return normalisedObject;
+			}
+			const renamedFieldName = LANE_R6_RENAMED_FIELD_NAME_BY_BASELINE_NAME[fieldName];
+			if (renamedFieldName) tally(`field ${fieldName}->${renamedFieldName}`);
+			return { ...normalisedObject, [renamedFieldName || fieldName]: laneR6NormalisedBaselineOf(baselineValue[fieldName], laneR6ChangeCount) };
+		}, {});
+	}
+	if (typeof baselineValue === 'string') {
+		if (LANE_R6_RENAMED_VALUE_BY_BASELINE_VALUE[baselineValue]) {
+			tally(`value ${baselineValue}->${LANE_R6_RENAMED_VALUE_BY_BASELINE_VALUE[baselineValue]}`);
+			return LANE_R6_RENAMED_VALUE_BY_BASELINE_VALUE[baselineValue];
+		}
+		return LANE_R6_TEXT_REPLACEMENT_LIST.reduce((soFar, [baselineText, laneR6Text]) => {
+			if (soFar.indexOf(baselineText) === -1) return soFar;
+			tally(`text '${baselineText.slice(0, 32)}…'`);
+			return soFar.split(baselineText).join(laneR6Text);
+		}, baselineValue);
+	}
+	return baselineValue;
+};
 const TEXT_ANSWER_CHANGE_ALLOWED_BY_FILE_NAME = Object.freeze({
 	'getSchemaText.txt': 'step 4: hub paragraph generated from HubDefinition, hubName filters in examples, matchBasis authority',
 	'mcpInstructionText.txt': 'step 4: hub-neutral instructions',
@@ -99,9 +154,12 @@ baselineFileNameList.forEach((fileName) => {
 		reportLine('FAIL missing in after-run', fileName);
 		return;
 	}
-	const baselineText = fs.readFileSync(path.join(baselineDirectoryPath, fileName), 'utf8');
+	const rawBaselineText = fs.readFileSync(path.join(baselineDirectoryPath, fileName), 'utf8');
 	const afterText = fs.readFileSync(path.join(afterDirectoryPath, fileName), 'utf8');
-	if (baselineText === afterText) {
+	const laneR6ChangeCount = {};
+	const baselineText = fileName.endsWith('.json') ? `${JSON.stringify(laneR6NormalisedBaselineOf(JSON.parse(rawBaselineText), laneR6ChangeCount), null, 2)}\n` : rawBaselineText;
+	const laneR6ChangeText = Object.keys(laneR6ChangeCount).length ? `  [lane R6: ${Object.keys(laneR6ChangeCount).map((changeName) => `${changeName}×${laneR6ChangeCount[changeName]}`).join(' ')}]` : '';
+	if (rawBaselineText === afterText) {
 		reportLine('IDENTICAL', fileName);
 		return;
 	}
@@ -127,7 +185,7 @@ baselineFileNameList.forEach((fileName) => {
 		reportLine('FAIL differs', fileName, firstDifferingLineOf(baselineText, strippedText));
 		return;
 	}
-	reportLine('IDENTICAL after named additions', fileName, Object.keys(addedNameCount).map((fieldName) => `${fieldName}×${addedNameCount[fieldName]}`).join(' '));
+	reportLine(laneR6ChangeText ? 'IDENTICAL after named R6 changes' : 'IDENTICAL after named additions', fileName, `${Object.keys(addedNameCount).map((fieldName) => `${fieldName}×${addedNameCount[fieldName]}`).join(' ')}${laneR6ChangeText}`);
 });
 afterFileNameList.filter((fileName) => baselineFileNameList.indexOf(fileName) === -1).forEach((fileName) => reportLine('(after-run only, not compared)', fileName));
 

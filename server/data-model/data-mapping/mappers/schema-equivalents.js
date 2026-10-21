@@ -11,13 +11,13 @@
 //
 // The current model: every standard's elements are ForgedNode:DmeProperty (or :DmeClass), named by `name`, owned by
 // `_source`. A mapping is a JUDGMENT edge — EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH or NARROW_MATCH — from an element
-// (Ed-Fi) or one of its instances (SIF, PESC: element -HAS_INSTANCE-> instance) to a CEDS :HubReference card, which
-// names its CEDS property through HAS_CEDS_PROPERTY. Every edge carries mappingConfidence, mappingKind and
+// (Ed-Fi) or one of its instances (SIF, PESC: element -HAS_INSTANCE-> instance) to a hub's :HubReference card, which
+// names its hub property through its hub's slot edge (HAS_<HUB>_PROPERTY). Every edge carries mappingConfidence, mappingKind and
 // mappingSource; none is "authoritative", so the wire says what the judgment is instead.
 //
 // Equivalents are read in both directions:
-//   towardHub     — a non-CEDS element's own judgments, reported as the CEDS properties its cards name;
-//   fromStandard  — a CEDS property's incoming judgments, reported as the judged elements (an instance reports its
+//   towardHub     — a non-hub element's own judgments, reported as the hub properties its cards name;
+//   fromStandard  — a hub property's incoming judgments, reported as the judged elements (an instance reports its
 //                   owning element's name).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
@@ -31,7 +31,7 @@ const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 // ⟪ctdlHub P7⟫ every hub of the graph: a card names its property through its OWN hub's PROPERTY slot (it was
 // HAS_CEDS_PROPERTY), a hub standard's element ranks as the headline (it was the literal CEDS), and each judgment names
 // its card's hub (hubName)
-const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT, STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT = cardHubSlotEdgeTypeTextFor('hubCard', 'PROPERTY');
 
 //START OF moduleFunction() ============================================================
@@ -44,7 +44,7 @@ const moduleFunction =
 
 		const queryBuilderByQueryName = {
 			// candidates whose name holds at least minimumHitCount of the words, ranked: word coverage first, then
-			// tightness (fewer extra words), then property over class, then CEDS (the headline equivalence)
+			// tightness (fewer extra words), then property over class, then a hub standard's element (the headline equivalence)
 			equivalentsByWordList: ({ wordList, minimumHitCount }) => ({
 				cypher: `
 					WITH $wordList AS wordList, $minimumHitCount AS minimumHitCount
@@ -67,7 +67,7 @@ const moduleFunction =
 					       standardDefinition.standardFamily AS standardFamily,
 					       candidate.role AS role,
 					       coalesce(candidate.definition, candidate.description, '') AS description,
-					       coalesce(candidate.cedsId, '') AS sourceId,
+					       coalesce(${STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `candidate.${propertyName}`).join(', ')}, '') AS sourceId,
 					       relevanceScore,
 					       candidate._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} AS isHubStandard,
 					       [(candidate)-[:HAS_INSTANCE*0..1]->(subjectNode)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(hubCard:HubReference)-[propertySlotEdge]->(hubProperty) WHERE type(propertySlotEdge) = ${CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT} |

@@ -1,13 +1,13 @@
 <script setup>
 // The detail panel: the selected row, or the focus node when nothing is selected. Kind, name, definition, how it
-// maps to CEDS (kind and confidence, or the mix of kinds for a standard group), the facts, the version badge, and
+// maps to a hub (kind and confidence, or the mix of kinds for a standard group), the facts, the version badge, and
 // either Open or "end of the line". Beneath it, one version tile per other version of the item's message, loaded
 // lazily; their loading and error states stay inside the tile area. Last, the Downloads section for the standard being
 // visited (DownloadsSection.vue).
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { cedsMappedTextOf, counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, humanizeName } from '@/components/standardsExplorer/explorerVocabulary';
+import { counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 
@@ -39,7 +39,7 @@ const shownNode = computed(() => {
 	const focusNode = store.focusNode;
 	// a selected row of the focus's own standard inherits its release and version for the facts
 	if (store.selectedRow) {
-		const sameStandard = focusNode && store.selectedRow.standardFamily === focusNode.standardFamily && !store.selectedRow.version && focusNode.kind !== 'cedsAnchor';
+		const sameStandard = focusNode && store.selectedRow.standardFamily === focusNode.standardFamily && !store.selectedRow.version && focusNode.kind !== 'hubAnchor';
 		return sameStandard ? { ...store.selectedRow, releaseLabel: focusNode.releaseLabel, version: focusNode.version } : store.selectedRow;
 	}
 	if (!focusNode) return null;
@@ -71,35 +71,41 @@ const factList = computed(() => {
 		{ factName: 'Path', factText: ['instance', 'property'].includes(oneNode.kind) && oneNode.path && !/^(type|element|group)\//.test(oneNode.path) ? oneNode.path : '', breaksAfterSlash: true },
 		{ factName: 'Property of', factText: oneNode.ownerName || '' },
 		{ factName: 'Holds', factText: oneNode.kind === 'family' ? `${familyHoldingTextOf(oneNode)}, ${oneNode.classCount} classes` : '' },
-		{ factName: 'Properties', factText: oneNode.propertyCount ? `${oneNode.propertyCount}, ${oneNode.mappedPropertyCount} ${oneNode.kind === 'cedsDomain' ? 'mapped to by a standard' : 'mapped to CEDS'}` : '' },
-		{ factName: 'CEDS elements', factText: oneNode.cedsElementCount ? `${oneNode.cedsElementCount}; ${cedsMappedTextOf(oneNode)}` : '' },
+		{ factName: 'Properties', factText: oneNode.propertyCount ? `${oneNode.propertyCount}, ${oneNode.mappedPropertyCount} ${oneNode.kind === 'hubDomain' ? 'mapped to by a standard' : 'mapped to a hub'}` : '' },
+		{ factName: humanizeKindName(pluralKindNameOf('hubAnchor', oneNode.hubName)), factText: oneNode.hubElementCount ? `${oneNode.hubElementCount}; ${hubMappedTextOf(oneNode)}` : '' },
 		{ factName: 'Occurrences', factText: oneNode.occurrenceCount > 1 ? String(oneNode.occurrenceCount) : '' },
 		{ factName: 'Elements', factText: oneNode.elementCount ? String(oneNode.elementCount) : '' },
-		{ factName: 'CEDS tier', factText: oneNode.referenceTier || '' },
-		{ factName: 'CEDS domain', factText: (oneNode.cedsDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.cedsDomainName || '' },
+		{ factName: `${hubNameTextOf(oneNode.hubName)} tier`, factText: oneNode.referenceTier || '' },
+		{ factName: kindDisplayNameOf('hubDomain', oneNode.hubName), factText: (oneNode.hubDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.hubDomainName || '' },
 		{ factName: 'Occurrences shown', factText: isFocus.value && store.neighbourhood.instanceFolding && store.neighbourhood.instanceFolding.occurrenceCount > 1 ? (store.neighbourhood.instanceFolding.folded ? 'folded: they all map the same way' : 'yes: they map differently') : '' },
 	].filter((oneFact) => oneFact.factText);
 });
 
+// the hubs the shown mappings reach, as the server names them (each mapping's anchor.hubName)
+const mappingHubText = computed(() => [...new Set(mappingList.value.map((oneMapping) => hubNameTextOf(oneMapping.anchor.hubName)))].join(', '));
+
+// a plural kind name as a fact name, its first letter raised: 'hub elements' reads 'Hub elements'
+const humanizeKindName = (kindNameText) => kindNameText.replace(/^([a-z])/, (initialLetter) => initialLetter.toUpperCase());
+
 const definitionText = computed(() => {
 	const oneNode = shownNode.value;
 	if (!oneNode) return '';
-	const cedsPropertyText = (oneNode.cedsPropertyList || []).map((oneProperty) => oneProperty.definition).filter(Boolean).join(' ');
-	return oneNode.description || cedsPropertyText || '';
+	const hubPropertyText = (oneNode.hubPropertyList || []).map((oneProperty) => oneProperty.definition).filter(Boolean).join(' ');
+	return oneNode.description || hubPropertyText || '';
 });
 </script>
 
 <template>
 	<aside v-if="shownNode" aria-label="Details" class="detail-panel" data-testid="detail-panel">
 		<div class="detail-head">
-			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
+			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? 'Focus' : 'Selected' }}</span>
 		</div>
 		<h2 class="detail-name" data-testid="detail-name">{{ shownNode.displayName }}</h2>
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
 
 		<div v-if="mappingList.length" class="detail-box" data-testid="detail-mapping">
-			<span class="detail-box-head">Maps to CEDS</span>
+			<span class="detail-box-head">Maps to {{ mappingHubText }}</span>
 			<div v-for="oneMapping in mappingList" :key="`${oneMapping.matchKind}-${oneMapping.anchor.stableId}`" class="detail-mapping">
 				<span class="detail-mapping-target">{{ oneMapping.anchor.name }}</span>
 				<StandardsExplorerMatchSummary :match-kind="oneMapping.matchKind" :mapping-confidence="oneMapping.mappingConfidence" />
@@ -114,7 +120,7 @@ const definitionText = computed(() => {
 			</div>
 			<span class="detail-note">Each element carries its own confidence. Open this group to see them.</span>
 		</div>
-		<p v-else-if="shownNode.kind === 'property' || shownNode.kind === 'instance'" class="detail-note">Not mapped to CEDS.</p>
+		<p v-else-if="shownNode.kind === 'property' || shownNode.kind === 'instance'" class="detail-note">Not mapped to a hub.</p>
 
 		<dl v-if="factList.length" class="detail-facts">
 			<template v-for="oneFact in factList" :key="oneFact.factName">

@@ -36,18 +36,33 @@ taskList.push((args, next) => runQuery('MATCH (d:StandardDefinition) WHERE d.sta
 	if (err) { next(err, args); return; }
 	next('', { ...args, sourceListByFamily: rowList.reduce((byFamily, oneRow) => ({ ...byFamily, [oneRow.family]: oneRow.sourceList }), {}) });
 }));
+// ⟪lane R6⟫ the absent standard of the search case is CHOSEN from the live graph: the first of these the graph holds neither
+// as a _source nor as a family. It was the literal CTDL, a premise the CTDL-hub golds made false (GOLD_EVAL_261021_ctdlHub)
+const ABSENT_STANDARD_CANDIDATE_LIST = ['SEDM', 'JEDx', 'EdMatrix', 'CIP', 'LIF', 'CTDL'];
+taskList.push((args, next) => {
+	const absentStandardName = ABSENT_STANDARD_CANDIDATE_LIST.find((candidateName) => args.liveSourceList.indexOf(candidateName) === -1 && !args.sourceListByFamily[candidateName]);
+	if (!absentStandardName) {
+		next(`no candidate in ${ABSENT_STANDARD_CANDIDATE_LIST.join(', ')} is absent from this graph; extend ABSENT_STANDARD_CANDIDATE_LIST`, args);
+		return;
+	}
+	next('', { ...args, absentStandardName });
+});
+const ABSENT_STANDARD_PLACEHOLDER = '<absentStandard>';
 const REFUSAL_CASE_LIST = [
-	{ argumentList: ['-search', 'student birth date', '--standard=CTDL'], verbName: 'search' },
+	{ argumentList: ['-search', 'student birth date', `--standard=${ABSENT_STANDARD_PLACEHOLDER}`], verbName: 'search' },
 	{ argumentList: ['-explore', '--name=BirthDate', '--standard=SIF2'], verbName: 'explore' },
 	{ argumentList: ['-explore', '--name=BirthDate', '--standard=PESC-CollegeTranscript'], verbName: 'explore' },
 	{ argumentList: ['-unmappedFields', '--standard=SEDM', '--limit=3'], verbName: 'unmappedFields' },
 ];
-REFUSAL_CASE_LIST.forEach(({ argumentList, verbName }) => taskList.push((args, next) => runVerb(argumentList, (err, outcome) => {
+REFUSAL_CASE_LIST.forEach(({ argumentList: argumentTemplateList, verbName }) => taskList.push((args, next) => {
+	const argumentList = argumentTemplateList.map((oneArgument) => oneArgument.replace(ABSENT_STANDARD_PLACEHOLDER, args.absentStandardName));
+	runVerb(argumentList, (err, outcome) => {
 	const refusalObject = outcome.parsedStdout || {};
 	assert(`${argumentList.join(' ')} → exit 0, refusedByName '${verbName}', refusalName 'unknownStandard'`, outcome.status === 0 && refusalObject.refusedByName === verbName && refusalObject.refusalName === 'unknownStandard', `exit ${outcome.status}; ${JSON.stringify(outcome.parsedStdout).slice(0, 200)} ${outcome.stderrText.slice(0, 200)}`);
 	assert('  validValueList is exactly the live _source list (no null, read at call time)', JSON.stringify(refusalObject.validValueList) === JSON.stringify(args.liveSourceList), JSON.stringify(refusalObject.validValueList));
 	next('', args);
-}, cliFilePath)));
+}, cliFilePath);
+}));
 taskList.push((args, next) => runVerb(['-explore', '--name=BirthDate', '--standard=SIF260928'], (err, outcome) => {
 	const payload = outcome.parsedStdout || {};
 	const entryList = Array.isArray(payload) ? payload : payload.entryList;

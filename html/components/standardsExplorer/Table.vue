@@ -4,7 +4,7 @@
 
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { cedsMappedTextOf, familyHoldingTextOf, familyStyleOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const emit = defineEmits(['drill']);
@@ -19,7 +19,7 @@ const infoTextOf = (oneRow) => {
 		standard: () => oneRow.description || (oneRow.version ? `version ${oneRow.version}` : ''),
 		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
 		standardGroup: () => (oneRow.matchKindCountList || []).map((oneCount) => `${oneCount.matchKind} ${oneCount.elementCount}`).join(', '),
-		cedsAnchor: () => (oneRow.mapping && oneRow.mapping.occurrenceCount > 1 ? `from ${oneRow.mapping.occurrenceCount} occurrences` : oneRow.cedsDomainName ? `in ${oneRow.cedsDomainName}` : oneRow.description),
+		hubAnchor: () => (oneRow.mapping && oneRow.mapping.occurrenceCount > 1 ? `from ${oneRow.mapping.occurrenceCount} occurrences` : oneRow.hubDomainName ? `in ${oneRow.hubDomainName}` : oneRow.description),
 	};
 	const infoReader = infoByKind[oneRow.kind];
 	const infoText = infoReader ? infoReader() : oneRow.description || oneRow.path;
@@ -31,9 +31,9 @@ const countOf = (oneRow) => {
 	const countByKind = {
 		family: () => ({ countValue: oneRow.classCount, countText: `${oneRow.classCount} classes` }),
 		class: () => ({ countValue: oneRow.mappedPropertyCount, countText: oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : 'no properties' }),
-		cedsDomain: () => ({ countValue: oneRow.mappedPropertyCount, countText: oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : '' }),
-		cedsProperty: () => ({ countValue: oneRow.mappedElementCount ?? null, countText: cedsMappedTextOf(oneRow) }),
-		cedsAnchor: () => ({ countValue: oneRow.elementCount ?? null, countText: cedsMappedTextOf(oneRow) }),
+		hubDomain: () => ({ countValue: oneRow.mappedPropertyCount, countText: oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : '' }),
+		hubProperty: () => ({ countValue: oneRow.mappedElementCount ?? null, countText: hubMappedTextOf(oneRow) }),
+		hubAnchor: () => ({ countValue: oneRow.elementCount ?? null, countText: hubMappedTextOf(oneRow) }),
 		standard: () => ({ countValue: oneRow.classCount, countText: oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : '' }),
 		release: () => ({ countValue: (oneRow.versionList || []).length, countText: `${(oneRow.versionList || []).length} versions` }),
 		standardGroup: () => ({ countValue: oneRow.elementCount, countText: `${oneRow.elementCount} elements` }),
@@ -43,7 +43,7 @@ const countOf = (oneRow) => {
 	return countReader ? countReader() : { countValue: null, countText: '' };
 };
 
-const isAnchorLevel = computed(() => store.focusNode?.kind === 'cedsAnchor');
+const isAnchorLevel = computed(() => store.focusNode?.kind === 'hubAnchor');
 const homeStandardKey = computed(() => (isAnchorLevel.value && store.crossing ? store.crossing.homeStandardKey : null));
 
 const tableRowList = computed(() =>
@@ -64,7 +64,7 @@ const tableRowList = computed(() =>
 );
 
 const versionComparison = computed(() => store.neighbourhood?.versionComparison || null);
-const hasMatchColumn = computed(() => tableRowList.value.some((oneRow) => oneRow.matchKind || ['property', 'instance', 'cedsAnchor'].includes(oneRow.kind)));
+const hasMatchColumn = computed(() => tableRowList.value.some((oneRow) => oneRow.matchKind || ['property', 'instance', 'hubAnchor'].includes(oneRow.kind)));
 
 const headerList = computed(() =>
 	[
@@ -127,7 +127,7 @@ const drillRow = (clickEvent, { item }) => {
 				<span v-if="item.isSecondary" class="explorer-row-group">{{ item.groupName }}</span>
 			</template>
 			<template #item.kind="{ item }">
-				<StandardsExplorerKindChip :node-kind="item.kind" :standard-family="item.standardFamily" :is-unmapped="item.kind === 'property' && !item.mapping" />
+				<StandardsExplorerKindChip :node-kind="item.kind" :standard-family="item.standardFamily" :hub-name="item.hubName || null" :is-unmapped="item.kind === 'property' && !item.mapping" />
 			</template>
 			<template #item.infoText="{ item }">
 				<span class="explorer-row-info">{{ item.infoText }}</span>

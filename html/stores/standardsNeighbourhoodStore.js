@@ -16,8 +16,8 @@ import { useLoginStore } from '@/stores/loginStore';
 import {
 	LARGE_LEVEL_ITEM_COUNT,
 	displayNameOf,
+	isSecondaryRelationshipType,
 	relationshipDisplayNameOf,
-	secondaryRelationshipTypeList,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
 const standardsNeighbourhoodStoreInitObject = {
@@ -39,6 +39,9 @@ const NEIGHBOURHOOD_URL = '/api/standards-neighbourhood';
 const refusalTextOf = (error, operationName) =>
 	(typeof error.response?.data === 'string' && error.response.data) || error.message || `the ${operationName} request failed`;
 
+// the hub a group of a hub's own items is said of: its items name it (hubName); a group of no hub's items names none
+const groupHubNameOf = (oneGroup) => ((oneGroup.itemList || []).find((oneItem) => oneItem.hubName) || {}).hubName || null;
+
 // one table/diagram row from one child item
 const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	stableId: oneItem.stableId,
@@ -46,8 +49,9 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	displayName: displayNameOf(oneItem),
 	kind: oneItem.kind,
 	relationshipType: oneGroup.relationshipType,
-	groupName: relationshipDisplayNameOf(oneGroup.relationshipType),
-	isSecondary: secondaryRelationshipTypeList.includes(oneGroup.relationshipType),
+	groupName: relationshipDisplayNameOf(oneGroup.relationshipType, groupHubNameOf(oneGroup)),
+	isSecondary: isSecondaryRelationshipType(oneGroup.relationshipType),
+	hubName: oneItem.hubName || null,
 	standardFamily: oneItem.standardFamily || focusNode.standardFamily || null,
 	standardKey: oneItem.standardKey || null,
 	description: oneItem.description || '',
@@ -63,8 +67,8 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	classCount: oneItem.classCount,
 	standardCount: oneItem.standardCount,
 	releaseCount: oneItem.releaseCount,
-	cedsDomainName: oneItem.cedsDomainName || '',
-	cedsElementCount: oneItem.cedsElementCount,
+	hubDomainName: oneItem.hubDomainName || '',
+	hubElementCount: oneItem.hubElementCount,
 	mappedElementCount: oneItem.mappedElementCount,
 	elementCount: oneItem.elementCount,
 	matchKindCountList: oneItem.matchKindCountList || null,
@@ -74,16 +78,17 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	releaseLabel: oneItem.releaseLabel || null,
 });
 
-// a mapping of the focus is a row too: the CEDS element it points at
+// a mapping of the focus is a row too: the hub element it points at, in its hub's family (both named by the server)
 const rowOfMapping = ({ oneMapping }) => ({
 	stableId: oneMapping.anchor.stableId,
 	name: oneMapping.anchor.name,
 	displayName: oneMapping.anchor.name,
-	kind: 'cedsAnchor',
-	relationshipType: 'MAPS_TO_CEDS',
-	groupName: relationshipDisplayNameOf('MAPS_TO_CEDS'),
+	kind: 'hubAnchor',
+	relationshipType: 'MAPS_TO_HUB',
+	groupName: relationshipDisplayNameOf('MAPS_TO_HUB', oneMapping.anchor.hubName),
 	isSecondary: false,
-	standardFamily: 'CEDS',
+	hubName: oneMapping.anchor.hubName || null,
+	standardFamily: oneMapping.anchor.standardFamily || null,
 	standardKey: null,
 	description: '',
 	path: '',
@@ -109,6 +114,16 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 				.filter((oneGroup) => !oneGroup.folded)
 				.flatMap((oneGroup) => oneGroup.itemList.map((oneItem) => rowOfItem({ oneItem, oneGroup, focusNode })));
 			return mappingRowList.concat(childRowList);
+		},
+
+		// the hubs this page names (the focus and its rows), each with its family, in the order met; the legend draws
+		// a hub's own bubbles from it
+		shownHubList() {
+			const hubByName = {};
+			[this.focusNode, ...this.levelRowList].filter((oneNode) => oneNode && oneNode.hubName).forEach((oneNode) => {
+				hubByName[oneNode.hubName] ||= { hubName: oneNode.hubName, standardFamily: oneNode.standardFamily || null };
+			});
+			return Object.values(hubByName);
 		},
 
 		filteredRowList() {
@@ -157,13 +172,13 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		crumbList: (state) =>
 			state.pathStableIdList.map((oneStableId, pathIndex) => {
 				const nodeSummary = state.nodeSummaryByStableId[oneStableId] || { stableId: oneStableId, name: oneStableId };
-				return { stableId: oneStableId, pathIndex, kind: nodeSummary.kind, standardFamily: nodeSummary.standardFamily || null, displayName: displayNameOf(nodeSummary) };
+				return { stableId: oneStableId, pathIndex, kind: nodeSummary.kind, hubName: nodeSummary.hubName || null, standardFamily: nodeSummary.standardFamily || null, displayName: displayNameOf(nodeSummary) };
 			}),
 
-		// the crossing: the path went through a CEDS element and the focus belongs to another family than the
+		// the crossing: the path went through a hub element and the focus belongs to another family than the
 		// element the person started from
 		crossing() {
-			const anchorIndex = this.crumbList.map((oneCrumb) => oneCrumb.kind).lastIndexOf('cedsAnchor');
+			const anchorIndex = this.crumbList.map((oneCrumb) => oneCrumb.kind).lastIndexOf('hubAnchor');
 			if (anchorIndex < 1) return null;
 			const homeCrumb = this.crumbList[anchorIndex - 1];
 			const anchorCrumb = this.crumbList[anchorIndex];
@@ -235,6 +250,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 				stableId: oneNode.stableId,
 				name: oneNode.name,
 				kind: oneNode.kind,
+				hubName: oneNode.hubName || null,
 				standardKey: oneNode.standardKey || null,
 				standardFamily: oneNode.standardFamily || null,
 				releaseLabel: oneNode.releaseLabel || null,
@@ -254,7 +270,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 				}),
 			);
 			(neighbourhood.mappingList || []).forEach((oneMapping) => {
-				this.nodeSummaryByStableId[oneMapping.anchor.stableId] ||= { stableId: oneMapping.anchor.stableId, name: oneMapping.anchor.name, kind: 'cedsAnchor', standardFamily: 'CEDS' };
+				this.nodeSummaryByStableId[oneMapping.anchor.stableId] ||= { stableId: oneMapping.anchor.stableId, name: oneMapping.anchor.name, kind: 'hubAnchor', hubName: oneMapping.anchor.hubName || null, standardFamily: oneMapping.anchor.standardFamily || null };
 			});
 		},
 

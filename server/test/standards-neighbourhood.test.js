@@ -305,7 +305,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			{ anchorStableId: found.firstNameAnchorStableId },
 			(fanOutRowList) => {
 				ask({ action: 'node', stableId: found.firstNameAnchorStableId }, (nodeError, anchorLevel) => {
-					ok('First Name: answers a CEDS anchor with its CEDS property and domain', !nodeError && anchorLevel.node.kind === 'cedsAnchor' && anchorLevel.node.cedsPropertyList.length > 0 && anchorLevel.node.cedsDomainList.length > 0, nodeError);
+					ok('First Name: answers a CEDS anchor with its CEDS property and domain', !nodeError && anchorLevel.node.kind === 'hubAnchor' && anchorLevel.node.hubPropertyList.length > 0 && anchorLevel.node.hubDomainList.length > 0, nodeError);
 					const standardGroupList = groupOf(anchorLevel || {}, 'MAPPED_FROM_STANDARD').itemList;
 					const familySet = new Set(standardGroupList.map((oneGroup) => oneGroup.standardFamily));
 					ok('First Name: groups by owning standard with SIF, EdFi and PESC present', ['SIF', 'EdFi', 'PESC'].every((familyName) => familySet.has(familyName)), [...familySet].join());
@@ -341,7 +341,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 
 		// ---- path summary
 		(done) => ask({ action: 'pathSummary', stableIdList: ['family:PESC', 'release:PESC/CollegeTranscript', found.ct18RootStableId, found.nameTypeStableId, found.firstNameAnchorStableId, found.sifGroup.stableId] }, (summaryError, summary) => {
-			ok('pathSummary: names and kinds every crumb of a crossing path', !summaryError && summary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join() === 'family,release,standard,class,cedsAnchor,standardGroup' && summary.nodeSummaryList[5].standardFamily === 'SIF', summaryError || JSON.stringify(summary));
+			ok('pathSummary: names and kinds every crumb of a crossing path', !summaryError && summary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join() === 'family,release,standard,class,hubAnchor,standardGroup' && summary.nodeSummaryList[5].standardFamily === 'SIF', summaryError || JSON.stringify(summary));
 			done();
 		}),
 

@@ -5,7 +5,7 @@
 //
 // Query types (via CLI flags):
 //   -search "query"        Hybrid search (keyword BM25 + vector, fused; --searchMode=hybrid|keyword|vector) across ALL standards
-//   -findMappings "name"   Find an element's CEDS concept (HubReference) + cross-standard equivalents
+//   -findMappings "name"   Find an element's hub concepts (HubReference) + cross-standard equivalents
 //   -compareCodesets "name" Compare codeset values between standards
 //   -unmappedFields        DmeProperty nodes with no cross-standard mapping
 //   -stats                 Counts by standard and role, mapping coverage
@@ -42,7 +42,7 @@ const {
 	UNMAPPED_HUB_POLICY,
 	hubSlotEdgeTypeList,
 	allHubDecompositionEdgeTypeList,
-	HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME,
+	HUB_IDENTIFIER_EXAMPLE_CYPHER,
 	DECLARED_CORRESPONDENCE_LIST_CAP,
 	DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
 	declaredCorrespondenceCypherFor,
@@ -444,19 +444,19 @@ const JUDGMENT_CONFIDENCE_FIELD_NAME_LIST = ['mappingConfidence', 'viaMappingCon
 // INSTANCE NODES (HAS_INSTANCE) — lane D, 2026-10-01
 // =====================================================================
 //
-// SIF and PESC write their CEDS mapping edges onto INSTANCE nodes, not onto the element the
+// SIF and PESC write their hub mapping edges onto INSTANCE nodes, not onto the element the
 // DME finds. A SIF Question (DmeProperty) -[:HAS_INSTANCE]-> one Field (DmeInstance since P3) per object it
 // appears in; a PESC element declaration (DmeProperty) -[:HAS_INSTANCE]-> one occurrence
 // (DmeInstance since P3) per place it appears in the document. The bridges fan their verdicts out onto
-// those instances, so the declaration itself carries no mapping edge. CEDS and Ed-Fi have no
-// HAS_INSTANCE edges, and every arm below reduces to its old self on them.
+// those instances, so the declaration itself carries no mapping edge. A standard with no
+// HAS_INSTANCE edges reduces every arm below to its old self.
 //
 // An instance's GROUP is where it sits: the SIF Object that owns the Field (HAS_FIELD), else the
 // PESC occurrence's sectionPath. When neither exists the instance contributes no group name —
 // the count still includes it, and no group is invented.
 //
 // Instance fields are attached to a row ONLY when the row involves instances (an absent field
-// means "no instances", never null), so CEDS and Ed-Fi rows serialize exactly as before.
+// means "no instances", never null), so rows of a standard without instances serialize exactly as before.
 
 const instanceGroupOf = (instanceVariable) =>
 	`coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(${instanceVariable}) | groupObject.name]), ${instanceVariable}.sectionPath)`;
@@ -477,8 +477,8 @@ const INSTANCE_GROUP_LIST_NAME_LIST = ['instanceGroupList', 'viaInstanceGroupLis
 const INSTANCE_GROUP_LIST_CAP = 25;
 
 // W-D-6 (campaign P1): a node matches findMappings by name (contains, any case) or EXACTLY by any identifier in
-// FIND_MAPPINGS_IDENTIFIER_FIELD_LIST — cedsId among them, so a CEDS Global ID (P000033, OV…) finds its CEDS leaf, and
-// the incoming arm then reaches every source element mapped to it
+// FIND_MAPPINGS_IDENTIFIER_FIELD_LIST — a standard's native identifier among them (STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST),
+// so a hub standard's own identifier finds its hub leaf, and the incoming arm then reaches every source element mapped to it
 const findMappingsNameOrIdentifierPredicateFor = (nodeVariable) => [
 	`toLower(${nodeVariable}.name) CONTAINS toLower($name)`,
 	...FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.map((identifierFieldName) => `${nodeVariable}.${identifierFieldName} = $name`),
@@ -556,6 +556,14 @@ const findMappings = (session, nameOrId, callback) => {
 		}
 		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus')), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
 	});
+	// ⟪lane R6⟫ nothing matched: what each hub's card identifier looks like, read from its own cards
+	taskList.push((args, next) => {
+		if (args.matchedNodeCount !== 0) {
+			next('', args);
+			return;
+		}
+		runCypherQuery(session, HUB_IDENTIFIER_EXAMPLE_CYPHER, { hubNameList: args.hubInventory.hubList.map(({ hubName }) => hubName) }, mergeArgs(args, next, 'hubIdentifierExampleResult'));
+	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
@@ -563,7 +571,7 @@ const findMappings = (session, nameOrId, callback) => {
 		}
 		if (args.matchedNodeCount === 0) {
 			callback('', refusalFor('findMappings', 'nothingMatched',
-				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; ${hubIdentifierExampleText(args.hubInventory.hubList)} — read one from dme_search or dme_explore.`));
+				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; ${hubIdentifierExampleText(args.hubInventory.hubList, args.hubIdentifierExampleResult)} — read one from dme_search or dme_explore.`));
 			return;
 		}
 		callback('', {
@@ -599,15 +607,23 @@ const legacyHubStandardFieldOf = (hubList) => (hubList.length === 1 ? { hubStand
 // ⟪ctdlHub P7⟫ the hubs a payload names (top-level hubList): what each hub is, never its internals
 const hubListFieldOf = (hubList) => hubList.map(({ hubName, hubSource, hubVersion }) => ({ hubName, hubSource, hubVersion }));
 
-// what a hub card identifier looks like, per hub, from its declared canonicalKeyName (one hub: the sentence it always was)
-const hubIdentifierExampleText = (hubList) => hubList.map(({ canonicalKeyName, hubName }) => {
-	const exampleText = HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME[canonicalKeyName];
-	if (exampleText) {
-		return `a ${canonicalKeyName} looks like ${exampleText}`;
-	}
-	// no example declared for this identifier, or no canonicalKeyName at all: SAID so, never a stand-in name
-	return canonicalKeyName ? `a ${hubName} card identifier is its ${canonicalKeyName} (no example declared)` : `${hubName}'s HubDefinition names no canonicalKeyName`;
-}).join('; ');
+// what a hub card identifier looks like, per hub: its declared canonicalKeyName and, read from its own cards
+// (HUB_IDENTIFIER_EXAMPLE_CYPHER), the lowest canonicalKey of each tier, e.g. 'P000001 (property) or OV000002113286 (value)'
+const hubIdentifierExampleText = (hubList, exampleResult) => {
+	const exampleTextByHubName = exampleResult.records.reduce((soFar, exampleRecord) => {
+		const hubName = exampleRecord.get('hubName');
+		const tierExampleText = `${exampleRecord.get('exampleCanonicalKey')} (${exampleRecord.get('referenceTier')})`;
+		return { ...soFar, [hubName]: soFar[hubName] ? `${soFar[hubName]} or ${tierExampleText}` : tierExampleText };
+	}, {});
+	return hubList.map(({ canonicalKeyName, hubName }) => {
+		if (!canonicalKeyName) {
+			// SAID so, never given a stand-in name
+			return `${hubName}'s HubDefinition names no canonicalKeyName`;
+		}
+		const exampleText = exampleTextByHubName[hubName];
+		return exampleText ? `a ${canonicalKeyName} looks like ${exampleText}` : `a ${hubName} card identifier is its ${canonicalKeyName} (its cards carry none to show)`;
+	}).join('; ');
+};
 
 // W-D-5: the incoming arm reads EVERY hub slot, built from the one declared list. W-D-7: each arm returns the element's
 // stableId (fromStableId) and the rows are folded to ONE per mapping (FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST) before
@@ -636,8 +652,8 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 		}
 		CALL {
 			WITH n
-			// outgoing: this element resolves to its CEDS tuple (a HubReference), shown via
-			// its decomposed CEDS domain/property, under any of the four relations.
+			// outgoing: this element resolves to a hub tuple (a HubReference), shown via
+			// its decomposed hub domain/property, under any of the four relations.
 			MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			${hubDecompositionMatchText}
 			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
@@ -657,7 +673,7 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 			       null AS viaInstanceGroupList, null AS viaInstanceCount
 			UNION
 			WITH n
-			// shared-hub pair: another standard's element resolving to the SAME CEDS tuple.
+			// shared-hub pair: another standard's element resolving to the SAME hub tuple.
 			// Conservativity: 'equivalent' ONLY when BOTH hops are EXACT_MATCH (two judgments of
 			// sameness); an EXACT/CLOSE pair with a CLOSE hop is a hypothesis, 'candidateEquivalent';
 			// any BROAD/NARROW hop makes it 'related' (sharedHubDirectionOf). Both hops' evidence is returned: the
@@ -720,7 +736,7 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 	UNION
 			WITH n
 			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
-			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
+			// live on its instances. One row per hub tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
 			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource, m.mappingRationale AS instMappingRationale,
@@ -870,15 +886,10 @@ const shapeFindMappingsResult = (result, hubList) => {
 		addNestedCountsInto(truncatedRowCountByRelationAndStandard, hubAllocation.truncatedRowCountByRelationAndStandard);
 		addNestedCountsInto(totalRowCountByRelationAndStandard, totalRowCountByHubRelationAndStandard[hubName] || {});
 	});
-	// the legacy ceds* row fields: kept, beside the hub* ones, only where the graph holds exactly one hub — the payload a
-	// single-hub gold always answered (the frozen rater payloads were recorded on one); on a several-hub graph a CTDL row
-	// labelled cedsDomain would be a lie, so they are absent there
-	const legacySingleHubFieldsWanted = hubList.length === 1;
-
 	const mappingRowList = shownRowList.map(rowObject => {
 		const rec = { get: (columnName) => rowObject[columnName] };
 		// hubTuple: the hub card rendered as its full tuple (domain · property · range [· value]), with the card identifier in
-		// parens — so consumers show the tuple, not just the bare identifier. cedsTuple is its single-hub legacy name.
+		// parens — so consumers show the tuple, not just the bare identifier.
 		const tupleParts = [rec.get('hubDomain'), rec.get('hubProperty'), rec.get('hubRange'), rec.get('hubValue')].filter(Boolean);
 		const hubTuple = tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null;
 		const mappingRow = {
@@ -895,14 +906,6 @@ const shapeFindMappingsResult = (result, hubList) => {
 			viaMatchType: rec.get('viaMatchType'),
 			viaConfidence: rec.get('viaConfidence') != null ? Number(rec.get('viaConfidence')) : null,
 			viaPredicate: rec.get('viaPredicate'),
-			...(legacySingleHubFieldsWanted ? {
-				cedsDomain: rec.get('hubDomain'),
-				cedsProperty: rec.get('hubProperty'),
-				cedsRange: rec.get('hubRange'),
-				cedsValue: rec.get('hubValue'),
-				cedsQualifier: rec.get('hubQualifier'),
-				cedsTuple: hubTuple,
-			} : {}),
 			hubName: rec.get('hubName'),
 			hubDomain: rec.get('hubDomain'),
 			hubProperty: rec.get('hubProperty'),
@@ -960,7 +963,7 @@ const addNestedCountsInto = (countByOuterAndInnerName, addedCountByOuterAndInner
 	addCountsInto(countByOuterAndInnerName[outerName], addedCountByOuterAndInnerName[outerName]);
 });
 
-// ⟪campaign P4a, Q1⟫ one summary per CEDS tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
+// ⟪campaign P4a, Q1⟫ one summary per hub tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
 // from the graph, most edges first, at most HUB_TUPLE_SUMMARY_CAP (hubTupleCount says how many there are)
 const shapeHubTupleSummary = (hubTupleResult) => {
 	const summaryByToId = {};
@@ -1053,7 +1056,6 @@ const compareCodesets = (session, name, callback) => {
 const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, matchedOptionSetCount, hubInventory }) => {
 	const valueRecord = valueResult.records[0];
 	const valuesJudged = valueTierJudgmentCount > 0;
-	const legacySingleHubFieldsWanted = hubInventory.hubList.length === 1; // as findMappings: ceds* names on a one-hub graph only
 	const valueRowList = valueRecord.get('valueRowList').map((oneRow) => {
 		const plainRow = serializeValue(oneRow);
 		const shapedRow = {
@@ -1065,7 +1067,6 @@ const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, match
 			...(plainRow.mappingConfidence != null ? { mappingConfidence: Number(plainRow.mappingConfidence) } : {}),
 			...(plainRow.mappingKind != null ? { mappingKind: plainRow.mappingKind } : {}),
 			...(plainRow.mappingSource != null ? { mappingSource: plainRow.mappingSource } : {}),
-			...(legacySingleHubFieldsWanted ? { cedsValue: plainRow.hubValue, cedsValueKey: plainRow.hubValueKey } : {}),
 			hubName: plainRow.hubName,
 			hubValue: plainRow.hubValue,
 			hubValueKey: plainRow.hubValueKey,

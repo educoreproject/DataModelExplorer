@@ -8,7 +8,7 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 // ⟪ctdlHub P7⟫ a card's own hub names its slot edges, and a standard is a hub when a :HubDefinition names it
-const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT, sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -115,7 +115,7 @@ const moduleFunction = function ({
 		       n.name AS name,
 		       n._source AS source,
 		       coalesce(n.description, n.definition, '') AS description,
-		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
 		       score,
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),

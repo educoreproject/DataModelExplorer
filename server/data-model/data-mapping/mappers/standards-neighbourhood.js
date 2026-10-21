@@ -6,7 +6,7 @@
 
 // standards-neighbourhood — the named Cypher and the pure transformations behind the PESC Explorer page (DEV-123).
 // One question drives every screen: "show me this node's neighbourhood" — the node, its children grouped by
-// relationship type, its own mapping judgments, and (for a CEDS anchor) everything every standard maps to it.
+// relationship type, its own mapping judgments, and (for a hub anchor) everything every standard maps to it.
 //
 // Graph facts this mapper leans on (probed 2026-10-13 on GOLD_EVAL_261013_qualifiers; see DEVLOG-pescExplorer.md):
 //   - every ForgedNode carries a unique stableId (index forgedNodeStableIdUnique); it is the node's identity on the wire;
@@ -19,12 +19,15 @@
 // Four synthetic node ids exist only on the wire, never in the graph: 'families:all' (every standards family the
 // graph holds: the explorer's top), 'family:<standardFamily>' (one family's catalog as a node),
 // 'release:<standardFamily>/<releaseLabel>' (a message offered in several versions: the version picker) and
-// 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one CEDS anchor).
+// 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one hub anchor).
 //
-// CEDS is a standard like the others (a DmeStandardRoot, family 'CEDS': root -HAS_CLASS-> CedsClass -HAS_PROPERTY->
-// CedsProperty), but its anchors hang BELOW nothing: a HubReference points AT its CEDS property (HAS_CEDS_PROPERTY)
-// and domain (HAS_CEDS_DOMAIN). So a CEDS property's way out to the standards mapped to it runs against the edge;
-// cedsElementsByCedsPropertyStableId reads it, property tier only (cedsElementTierList).
+// A hub standard is a standard like the others (a DmeStandardRoot: root -HAS_CLASS-> class -HAS_PROPERTY-> property),
+// but its anchors hang BELOW nothing: a HubReference points AT its hub's property and domain through its own hub's
+// slot edges (HAS_<HUB>_PROPERTY, HAS_<HUB>_DOMAIN). So a hub property's way out to the standards mapped to it runs
+// against the edge; hubElementsByHubPropertyStableId reads it, property tier only (hubElementTierList).
+// ⟪lane R6⟫ a node is a hub's own property or domain because its _source is a hub's (hubName, read per node from
+// :HubDefinition), never because of a hub-named label; measured on the P8 candidate graph, each hub-named property
+// and class label coincides exactly with (hub _source, DmeProperty / DmeClass), so an existing hub's pages are unchanged.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 
@@ -35,7 +38,7 @@ const requiredLabelList = Object.freeze(['ForgedNode', 'DmeStandardRoot', 'DmeCl
 const GROUP_ITEM_CAP = 500;
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 // ⟪ctdlHub P7⟫ an anchor reaches its property and domain through its OWN hub's slot edges (they were HAS_CEDS_PROPERTY /
-// HAS_CEDS_DOMAIN): the card names its hub, so no literal. The CedsProperty / CedsClass page kinds stay CEDS's own.
+// HAS_CEDS_DOMAIN): the card names its hub, so no literal.
 const { cardHubSlotEdgeTypeTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const anchorPropertySlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'PROPERTY');
 const anchorDomainSlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'DOMAIN');
@@ -61,14 +64,13 @@ const childRelationshipTypeList = Object.freeze([
 // the climb from a standard's root down to one of its elements, for the breadcrumb
 const ancestorRelationshipTypeText = 'HAS_CLASS|HAS_PROPERTY|HAS_FIELD|HAS_INSTANCE|HAS_CHILD|HAS_OPTION_SET|HAS_VALUE|HAS_SUPPORT';
 
-// label → page kind; the FIRST label in this list that a node carries decides (CedsProperty is also a DmeProperty)
+// label → page kind; the FIRST label in this list that a node carries decides. hubStandardNodeKind is the kind when the
+// node belongs to a hub standard (its record carries the hub's hubName): a hub's own domains and properties
 const kindByLabelList = Object.freeze([
-	{ labelName: 'HubReference', nodeKind: 'cedsAnchor' },
-	{ labelName: 'CedsProperty', nodeKind: 'cedsProperty' },
-	{ labelName: 'CedsClass', nodeKind: 'cedsDomain' },
+	{ labelName: 'HubReference', nodeKind: 'hubAnchor' },
 	{ labelName: 'DmeStandardRoot', nodeKind: 'standard' },
-	{ labelName: 'DmeClass', nodeKind: 'class' },
-	{ labelName: 'DmeProperty', nodeKind: 'property' },
+	{ labelName: 'DmeClass', nodeKind: 'class', hubStandardNodeKind: 'hubDomain' },
+	{ labelName: 'DmeProperty', nodeKind: 'property', hubStandardNodeKind: 'hubProperty' },
 	{ labelName: 'DmeInstance', nodeKind: 'instance' },
 	{ labelName: 'DmeOptionSet', nodeKind: 'optionSet' },
 	{ labelName: 'DmeOptionValue', nodeKind: 'optionValue' },
@@ -130,11 +132,17 @@ const syntheticIdPrefixList = Object.freeze([
 // the one families-catalog id; 'families:' followed by anything else is refused by name
 const FAMILY_CATALOG_STABLE_ID = 'families:all';
 
-// the HubReference tiers a CEDS property lists as its CEDS elements. A property-tier anchor is one CEDS property in
-// one CEDS domain, the thing standards map to (1,123 of 2,777 carry judgments on GOLD_EVAL_261013_jevQuestionPerBridge);
+// the HubReference tiers a hub property lists as its hub elements. A property-tier anchor is one hub property in
+// one hub domain, the thing standards map to (1,123 of 2,777 carry judgments on GOLD_EVAL_261013_jevQuestionPerBridge);
 // a value-tier anchor is one code of that property in that domain (91,825, none judged), up to 55,000 under one
 // property, so listing them would bury the elements that matter. They stay reachable from anything mapped to them.
-const cedsElementTierList = Object.freeze(['property']);
+const hubElementTierList = Object.freeze(['property']);
+
+// ⟪lane R6⟫ the hub a node belongs to: the hubName of the :HubDefinition sharing its _source, null for a node of a
+// standard that is no hub
+const hubNameOfNodeTextFor = (nodeVariableName) => `head(COLLECT { MATCH (nodeHubDefinition:HubDefinition {_source: ${nodeVariableName}._source}) RETURN nodeHubDefinition.hubName })`;
+// the family of the standard a hub anchor's hub is (its DmeStandardRoot's standardFamily)
+const anchorStandardFamilyTextFor = (anchorVariableName) => `head(COLLECT { MATCH (anchorRoot:DmeStandardRoot {_source: ${anchorVariableName}._source}) RETURN anchorRoot.standardFamily })`;
 
 //START OF moduleFunction() ============================================================
 
@@ -160,20 +168,21 @@ const moduleFunction =
 				params: {},
 			}),
 
-			// a CEDS property's CEDS elements (the anchors standards map to), with every judgment on each
-			cedsElementsByCedsPropertyStableId: ({ stableId }) => ({
+			// a hub property's hub elements (the anchors standards map to), with every judgment on each
+			hubElementsByHubPropertyStableId: ({ stableId }) => ({
 				cypher: `
-					MATCH (:CedsProperty {stableId: $stableId})<-[propertySlotEdge]-(anchor:HubReference)
-					WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $cedsElementTierList
+					MATCH (:ForgedNode {stableId: $stableId})<-[propertySlotEdge]-(anchor:HubReference)
+					WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $hubElementTierList
 					WITH anchor ORDER BY anchor.domainName, anchor.name
 					WITH count(anchor) AS itemCount, collect(anchor)[0..${GROUP_ITEM_CAP}] AS cappedAnchorList
 					UNWIND cappedAnchorList AS anchor
 					RETURN itemCount, collect({
 					         stableId: anchor.stableId, name: anchor.name, labelList: labels(anchor),
-					         description: coalesce(anchor.propertyDefinition, ''), cedsDomainName: anchor.domainName,
+					         description: coalesce(anchor.propertyDefinition, ''), hubDomainName: anchor.domainName,
+					         hubName: anchor.hubName, hubStandardFamily: ${anchorStandardFamilyTextFor('anchor')},
 					         judgmentList: [(anchor)<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode) | { matchEdgeType: type(matchEdge), elementStableId: element.stableId }] }) AS itemList
 				`,
-				params: { stableId, cedsElementTierList: [...cedsElementTierList] },
+				params: { stableId, hubElementTierList: [...hubElementTierList] },
 			}),
 
 			familyNameList: () => ({
@@ -197,7 +206,7 @@ const moduleFunction =
 				cypher: `
 					MATCH (focus:ForgedNode {stableId: $stableId})
 					OPTIONAL MATCH (root:DmeStandardRoot {_source: focus._source})
-					RETURN focus.stableId AS stableId, focus.name AS name, labels(focus) AS labelList,
+					RETURN focus.stableId AS stableId, focus.name AS name, labels(focus) AS labelList, ${hubNameOfNodeTextFor('focus')} AS hubName,
 					       coalesce(focus.definition, focus.description, focus.documentation, focus.propertyDefinition, '') AS description,
 					       focus.path AS path, focus.contextText AS contextText,
 					       focus.releaseIndependentId AS releaseIndependentId, focus.definitionDigest AS definitionDigest,
@@ -211,7 +220,7 @@ const moduleFunction =
 				cypher: `
 					MATCH (focus:ForgedNode) WHERE focus.stableId IN $stableIdList
 					OPTIONAL MATCH (root:DmeStandardRoot {_source: focus._source})
-					RETURN focus.stableId AS stableId, focus.name AS name, labels(focus) AS labelList,
+					RETURN focus.stableId AS stableId, focus.name AS name, labels(focus) AS labelList, ${hubNameOfNodeTextFor('focus')} AS hubName,
 					       root.standardKey AS standardKey, root.standardFamily AS standardFamily,
 					       root.releaseLabel AS releaseLabel, root.version AS version
 				`,
@@ -230,9 +239,10 @@ const moduleFunction =
 					WITH relationshipType, itemCount, child,
 					     [(child)-[:HAS_INSTANCE*0..1]->${mappingSubjectText} |
 					       { matchEdgeType: type(matchEdge), mappingConfidence: matchEdge.mappingConfidence, mappingSource: matchEdge.mappingSource,
-					         anchorStableId: anchor.stableId, anchorName: anchor.name, subjectStableId: subject.stableId }] AS childMappingList
+					         anchorStableId: anchor.stableId, anchorName: anchor.name, anchorHubName: anchor.hubName, anchorStandardFamily: ${anchorStandardFamilyTextFor('anchor')},
+					         subjectStableId: subject.stableId }] AS childMappingList
 					RETURN relationshipType, itemCount, collect({
-					         stableId: child.stableId, name: child.name, labelList: labels(child),
+					         stableId: child.stableId, name: child.name, labelList: labels(child), hubName: ${hubNameOfNodeTextFor('child')},
 					         description: coalesce(child.definition, child.description, ''),
 					         path: child.path,
 					         hasStructuralChildren: EXISTS { MATCH (child)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList },
@@ -240,14 +250,14 @@ const moduleFunction =
 					         mappedPropertyCount: COUNT { MATCH (child)-[:HAS_PROPERTY|HAS_FIELD]->(member)
 					           WHERE EXISTS { (member)-[:HAS_INSTANCE*0..1]->()-[:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference) }
 					              OR EXISTS { MATCH (member)<-[propertySlotEdge]-(memberAnchor:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('memberAnchor')} } },
-					         cedsElementCount: COUNT { MATCH (child)<-[propertySlotEdge]-(anchor:HubReference) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $cedsElementTierList },
+					         hubElementCount: COUNT { MATCH (child)<-[propertySlotEdge]-(anchor:HubReference) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $hubElementTierList },
 					         mappedElementCount: COUNT { MATCH (child)<-[propertySlotEdge]-(childAnchor:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('childAnchor')} },
 					         occurrenceCount: COUNT { (child)-[:HAS_INSTANCE]->() },
 					         releaseIndependentId: child.releaseIndependentId,
 					         definitionDigest: child.definitionDigest,
 					         mappingList: childMappingList }) AS itemList
 				`,
-				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList], cedsElementTierList: [...cedsElementTierList] },
+				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList], hubElementTierList: [...hubElementTierList] },
 			}),
 
 			// the node's own judgments, and its occurrences' (PESC and SIF judge occurrences, Ed-Fi the property)
@@ -257,7 +267,8 @@ const moduleFunction =
 					OPTIONAL MATCH (focus)-[:HAS_INSTANCE*0..1]->${mappingSubjectText}
 					WITH focus, collect(CASE WHEN matchEdge IS NULL THEN null ELSE
 					       { matchEdgeType: type(matchEdge), mappingConfidence: matchEdge.mappingConfidence, mappingSource: matchEdge.mappingSource,
-					         anchorStableId: anchor.stableId, anchorName: anchor.name, subjectStableId: subject.stableId } END) AS mappingRowList
+					         anchorStableId: anchor.stableId, anchorName: anchor.name, anchorHubName: anchor.hubName, anchorStandardFamily: ${anchorStandardFamilyTextFor('anchor')},
+					         subjectStableId: subject.stableId } END) AS mappingRowList
 					RETURN mappingRowList, [(focus)-[:HAS_INSTANCE]->(occurrence) | occurrence.stableId] AS occurrenceStableIdList
 				`,
 				params: { stableId },
@@ -268,10 +279,10 @@ const moduleFunction =
 					MATCH (anchor:HubReference {stableId: $stableId})
 					RETURN anchor.hubName AS hubName, anchor.referenceTier AS referenceTier, anchor.domainName AS domainName, anchor.propertyName AS propertyName,
 					       anchor.valueName AS valueName, anchor.rangeOptionSetName AS rangeOptionSetName,
-					       [(anchor)-[propertySlotEdge]->(cedsProperty) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} | { stableId: cedsProperty.stableId, name: cedsProperty.name, definition: coalesce(cedsProperty.definition, cedsProperty.description, ''),
-					         hasStructuralChildren: EXISTS { MATCH (cedsProperty)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS cedsPropertyList,
-					       [(anchor)-[domainSlotEdge]->(cedsDomain) WHERE type(domainSlotEdge) = ${anchorDomainSlotTextFor('anchor')} | { stableId: cedsDomain.stableId, name: cedsDomain.name, definition: coalesce(cedsDomain.definition, cedsDomain.description, ''),
-					         hasStructuralChildren: EXISTS { MATCH (cedsDomain)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS cedsDomainList
+					       [(anchor)-[propertySlotEdge]->(hubProperty) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} | { stableId: hubProperty.stableId, name: hubProperty.name, definition: coalesce(hubProperty.definition, hubProperty.description, ''),
+					         hasStructuralChildren: EXISTS { MATCH (hubProperty)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS hubPropertyList,
+					       [(anchor)-[domainSlotEdge]->(hubDomain) WHERE type(domainSlotEdge) = ${anchorDomainSlotTextFor('anchor')} | { stableId: hubDomain.stableId, name: hubDomain.name, definition: coalesce(hubDomain.definition, hubDomain.description, ''),
+					         hasStructuralChildren: EXISTS { MATCH (hubDomain)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS hubDomainList
 				`,
 				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList] },
 			}),
@@ -300,7 +311,7 @@ const moduleFunction =
 					UNWIND cappedMemberList AS member
 					WITH itemCount, member.element AS element, member.matchEdge AS matchEdge, member.ownerName AS ownerName
 					RETURN itemCount, collect({
-					         stableId: element.stableId, name: element.name, labelList: labels(element),
+					         stableId: element.stableId, name: element.name, labelList: labels(element), hubName: ${hubNameOfNodeTextFor('element')},
 					         description: coalesce(element.definition, element.description, ''),
 					         path: coalesce(element.contextPath, element.path),
 					         ownerName: ownerName,
@@ -317,7 +328,7 @@ const moduleFunction =
 					MATCH (focus:ForgedNode {stableId: $stableId})
 					MATCH (root:DmeStandardRoot {_source: focus._source}) WHERE root <> focus
 					MATCH chain = allShortestPaths((root)-[:${ancestorRelationshipTypeText}*1..8]->(focus))
-					RETURN [chainNode IN nodes(chain) | { stableId: chainNode.stableId, name: chainNode.name, labelList: labels(chainNode) }] AS chainNodeList
+					RETURN [chainNode IN nodes(chain) | { stableId: chainNode.stableId, name: chainNode.name, labelList: labels(chainNode), hubName: ${hubNameOfNodeTextFor('chainNode')} }] AS chainNodeList
 					LIMIT 25
 				`,
 				params: { stableId },
@@ -394,10 +405,17 @@ const moduleFunction =
 		// ================================================================================
 		// IDENTITY AND KIND
 
-		const nodeKindOf = (labelList) => {
+		// hubName: the hub the node belongs to (hubNameOfNodeTextFor), null for a standard that is no hub
+		const nodeKindOf = (labelList, hubName) => {
 			const kindEntry = kindByLabelList.find((oneEntry) => (labelList || []).indexOf(oneEntry.labelName) !== -1);
-			return kindEntry ? kindEntry.nodeKind : 'unclassified';
+			if (!kindEntry) {
+				return 'unclassified';
+			}
+			return hubName && kindEntry.hubStandardNodeKind ? kindEntry.hubStandardNodeKind : kindEntry.nodeKind;
 		};
+		// a node of a hub kind names its hub (hubName); every other node carries no such field
+		const HUB_NODE_KIND_LIST = Object.freeze(['hubAnchor', 'hubProperty', 'hubDomain']);
+		const hubNameFieldOf = (nodeKind, hubName) => (HUB_NODE_KIND_LIST.indexOf(nodeKind) !== -1 && hubName ? { hubName } : {});
 
 		// answers { nodeKind, remainderText } for a synthetic id, or null for a graph stableId
 		const parseSyntheticId = (stableId) => {
@@ -439,7 +457,7 @@ const moduleFunction =
 				matchKind: matchKindEntry.matchKind,
 				mappingConfidence: mappingRow.mappingConfidence,
 				mappingSource: mappingRow.mappingSource,
-				anchor: { stableId: mappingRow.anchorStableId, name: mappingRow.anchorName },
+				anchor: { stableId: mappingRow.anchorStableId, name: mappingRow.anchorName, ...(mappingRow.anchorHubName ? { hubName: mappingRow.anchorHubName, standardFamily: mappingRow.anchorStandardFamily } : {}) },
 				subjectStableId: mappingRow.subjectStableId,
 			};
 		};
@@ -633,7 +651,8 @@ const moduleFunction =
 		const mapNodeRecord = (nodeRecord) => ({
 			stableId: nodeRecord.stableId,
 			name: nodeRecord.name,
-			kind: nodeKindOf(nodeRecord.labelList),
+			kind: nodeKindOf(nodeRecord.labelList, nodeRecord.hubName),
+			...hubNameFieldOf(nodeKindOf(nodeRecord.labelList, nodeRecord.hubName), nodeRecord.hubName),
 			description: nodeRecord.description,
 			path: nodeRecord.contextText || nodeRecord.path || null,
 			standardKey: nodeRecord.standardKey,
@@ -648,7 +667,8 @@ const moduleFunction =
 		const mapNodeSummaryRecord = (summaryRecord) => ({
 			stableId: summaryRecord.stableId,
 			name: summaryRecord.name,
-			kind: nodeKindOf(summaryRecord.labelList),
+			kind: nodeKindOf(summaryRecord.labelList, summaryRecord.hubName),
+			...hubNameFieldOf(nodeKindOf(summaryRecord.labelList, summaryRecord.hubName), summaryRecord.hubName),
 			standardKey: summaryRecord.standardKey,
 			standardFamily: summaryRecord.standardFamily,
 			releaseLabel: summaryRecord.releaseLabel,
@@ -656,12 +676,13 @@ const moduleFunction =
 		});
 
 		const mapChildItem = (childRecord) => {
-			const itemKind = nodeKindOf(childRecord.labelList);
+			const itemKind = nodeKindOf(childRecord.labelList, childRecord.hubName);
 			const mappingList = collapseMappingList(childRecord.mappingList);
 			const childItem = {
 				stableId: childRecord.stableId,
 				name: childRecord.name,
 				kind: itemKind,
+				...hubNameFieldOf(itemKind, childRecord.hubName),
 				description: childRecord.description,
 				hasChildren: Boolean(childRecord.hasStructuralChildren) || mappingList.length > 0,
 				hasVersionIdentity: versionIdentityOf(childRecord.releaseIndependentId) !== null,
@@ -672,20 +693,20 @@ const moduleFunction =
 			if (childRecord.ownerName) {
 				childItem.ownerName = childRecord.ownerName;
 			}
-			if (itemKind === 'class' || itemKind === 'cedsDomain') {
+			if (itemKind === 'class' || itemKind === 'hubDomain') {
 				childItem.propertyCount = childRecord.propertyCount;
 				childItem.mappedPropertyCount = childRecord.mappedPropertyCount;
 			}
-			if (itemKind === 'property' || itemKind === 'instance' || itemKind === 'cedsProperty') {
+			if (itemKind === 'property' || itemKind === 'instance' || itemKind === 'hubProperty') {
 				childItem.mapping = mappingList.length ? mappingList[0] : null;
 				childItem.mappingCount = mappingList.length;
 				childItem.occurrenceCount = childRecord.occurrenceCount;
 			}
-			// a CEDS property is mapped TO, through its CEDS elements: how many there are and how many judgments reach them
-			if (itemKind === 'cedsProperty' && childRecord.cedsElementCount !== undefined) {
-				childItem.cedsElementCount = childRecord.cedsElementCount;
+			// a hub property is mapped TO, through its hub elements: how many there are and how many judgments reach them
+			if (itemKind === 'hubProperty' && childRecord.hubElementCount !== undefined) {
+				childItem.hubElementCount = childRecord.hubElementCount;
 				childItem.mappedElementCount = childRecord.mappedElementCount;
-				childItem.hasChildren = childItem.hasChildren || childRecord.cedsElementCount > 0;
+				childItem.hasChildren = childItem.hasChildren || childRecord.hubElementCount > 0;
 			}
 			return childItem;
 		};
@@ -720,19 +741,20 @@ const moduleFunction =
 			return { elementCount: allElementStableIdSet.size, matchKindCountList, strongestMatchKind: matchKindCountList.length ? matchKindCountList[0].matchKind : null };
 		};
 
-		// a CEDS property's CEDS elements, one item per anchor (domain × property), each with what maps to it
-		const mapCedsElementGroupRecord = (groupRecord) => ({
-			relationshipType: 'USED_BY_CEDS_ELEMENT',
+		// a hub property's hub elements, one item per anchor (domain × property), each with what maps to it
+		const mapHubElementGroupRecord = (groupRecord) => ({
+			relationshipType: 'USED_BY_HUB_ELEMENT',
 			count: groupRecord.itemCount,
 			truncated: groupRecord.itemCount > groupRecord.itemList.length,
 			itemList: groupRecord.itemList.map((anchorRecord) => ({
 				stableId: anchorRecord.stableId,
 				name: anchorRecord.name,
-				kind: nodeKindOf(anchorRecord.labelList),
+				kind: nodeKindOf(anchorRecord.labelList, anchorRecord.hubName),
+				hubName: anchorRecord.hubName,
 				description: anchorRecord.description,
 				hasChildren: true,
-				standardFamily: 'CEDS',
-				cedsDomainName: anchorRecord.cedsDomainName,
+				standardFamily: anchorRecord.hubStandardFamily,
+				hubDomainName: anchorRecord.hubDomainName,
 				...matchKindSummaryOf(anchorRecord.judgmentList),
 			})),
 		});
@@ -793,10 +815,10 @@ const moduleFunction =
 			if (chainList.length === 0) {
 				return [];
 			}
-			const throughClassScore = (oneChain) => (oneChain[1] && nodeKindOf(oneChain[1].labelList) === 'class' ? 0 : 1);
+			const throughClassScore = (oneChain) => (oneChain[1] && nodeKindOf(oneChain[1].labelList, oneChain[1].hubName) === 'class' ? 0 : 1);
 			const chainText = (oneChain) => oneChain.map((chainNode) => chainNode.name).join('/');
 			const chosenChain = chainList.sort((left, right) => throughClassScore(left) - throughClassScore(right) || chainText(left).localeCompare(chainText(right)))[0];
-			return chosenChain.slice(0, -1).map((chainNode) => ({ stableId: chainNode.stableId, name: chainNode.name, kind: nodeKindOf(chainNode.labelList) }));
+			return chosenChain.slice(0, -1).map((chainNode) => ({ stableId: chainNode.stableId, name: chainNode.name, kind: nodeKindOf(chainNode.labelList, chainNode.hubName), ...hubNameFieldOf(nodeKindOf(chainNode.labelList, chainNode.hubName), chainNode.hubName) }));
 		};
 
 		const mapStandardItem = (catalogRecord) => ({
@@ -849,7 +871,7 @@ const moduleFunction =
 			isFamilyCatalogId,
 			FAMILY_CATALOG_STABLE_ID,
 			mapFamilyCatalogItemList,
-			mapCedsElementGroupRecord,
+			mapHubElementGroupRecord,
 			matchKindSummaryOf,
 			releaseIdOf,
 			parseReleaseRemainder,

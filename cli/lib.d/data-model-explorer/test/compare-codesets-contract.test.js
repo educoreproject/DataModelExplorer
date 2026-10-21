@@ -15,10 +15,12 @@ const { assert, runQuery, runVerb, finish, taskListPlus, pipeRunner } = harness;
 const cliFilePath = process.argv[2];
 
 const taskList = new taskListPlus();
+// ⟪lane R6⟫ EVERY hub's option sets are excluded, as compareCodesets excludes them: the oracle read one HubDefinition per
+// row and summed the rows, so on a two-hub graph the CTDL row counted the CEDS 'sex' sets too (4 sets / 18 values for 2 / 6)
 taskList.push((args, next) => runQuery(`
 	MATCH (:ForgedNode {role: 'DmeOptionValue'})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) WITH count(m) AS valueTierJudgmentCount
-	MATCH (h:HubDefinition) WITH valueTierJudgmentCount, h._source AS hubSource
-	MATCH (os:ForgedNode {role: 'DmeOptionSet'}) WHERE toLower(os.name) CONTAINS 'sex' AND os._source <> hubSource
+	MATCH (h:HubDefinition) WITH valueTierJudgmentCount, collect(h._source) AS hubSourceList
+	MATCH (os:ForgedNode {role: 'DmeOptionSet'}) WHERE toLower(os.name) CONTAINS 'sex' AND NOT os._source IN hubSourceList
 	MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
 	RETURN valueTierJudgmentCount, count(DISTINCT os) AS matchedOptionSetCount, count(v) AS expectedRowCount`, {}, (err, rowList) => {
 	if (err) { next(err, args); return; }

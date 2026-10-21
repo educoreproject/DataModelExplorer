@@ -11,7 +11,7 @@ import {
 	LARGE_LEVEL_ITEM_COUNT,
 	confidenceTierOf,
 	displayNameOf,
-	cedsMappedTextOf,
+	hubMappedTextOf,
 	familyHoldingTextOf,
 	familyStyleOf,
 	isOpenAtOnceClick,
@@ -45,7 +45,7 @@ const drawnRowList = computed(() => {
 });
 const hiddenRowCount = computed(() => store.levelRowList.length - drawnRowList.value.length);
 
-const homeStandardKey = computed(() => (store.focusNode?.kind === 'cedsAnchor' && store.crossing ? store.crossing.homeStandardKey : null));
+const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' && store.crossing ? store.crossing.homeStandardKey : null));
 
 // ================================================================================
 // THE LABEL UNDER A BUBBLE — name, then what matters about it, then its badge
@@ -54,9 +54,9 @@ const subTextOf = (oneRow) => {
 	const subByKind = {
 		family: () => `${familyHoldingTextOf(oneRow)} · ${oneRow.classCount} classes`,
 		class: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : ''),
-		cedsDomain: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : ''),
-		cedsProperty: () => cedsMappedTextOf(oneRow),
-		cedsAnchor: () => [oneRow.cedsDomainName ? `in ${oneRow.cedsDomainName}` : '', cedsMappedTextOf(oneRow)].filter(Boolean).join(' · '),
+		hubDomain: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : ''),
+		hubProperty: () => hubMappedTextOf(oneRow),
+		hubAnchor: () => [oneRow.hubDomainName ? `in ${oneRow.hubDomainName}` : '', hubMappedTextOf(oneRow)].filter(Boolean).join(' · '),
 		property: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : 'not mapped'),
 		instance: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : shortText(oneRow.path, 40)),
 		standard: () => (oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : ''),
@@ -70,7 +70,7 @@ const subTextOf = (oneRow) => {
 const labelOf = (oneRow) => {
 	const badgeText = oneRow.versionBadge && oneRow.versionBadge.badgeState !== 'unchanged' ? versionBadgeTextOf(oneRow.versionBadge) : '';
 	const homeText = homeStandardKey.value && oneRow.standardKey === homeStandardKey.value ? 'You started here' : '';
-	return [shortText(oneRow.displayName, 40), oneRow.relationshipType === 'MAPS_TO_CEDS' ? '' : subTextOf(oneRow), badgeText, homeText].filter(Boolean).join('\n');
+	return [shortText(oneRow.displayName, 40), oneRow.relationshipType === 'MAPS_TO_HUB' ? '' : subTextOf(oneRow), badgeText, homeText].filter(Boolean).join('\n');
 };
 
 // ================================================================================
@@ -89,6 +89,7 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		kind: oneRow.kind,
 		familyColor: familyStyle.color,
 		familyTint: familyStyle.tint,
+		familyFill: familyStyle.fill || familyStyle.color,
 		matchColor: matchStyle ? matchStyle.color : familyStyle.color,
 		matchBorderStyle: matchStyle ? matchStyle.lineStyle : 'solid',
 		matchBorderWidth: confidenceTier ? confidenceTier.edgeWidth - 1 : 2,
@@ -99,7 +100,7 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		isMapped: Boolean(mapping),
 		isFocus,
 		hasChildren: Boolean(oneRow.hasChildren),
-		// the home halo marks a standard group; never the focus, which on a walk begun in CEDS shares the home's key
+		// the home halo marks a standard group; never the focus, which on a walk begun in a hub shares the home's key
 		isHome: !isFocus && Boolean(homeStandardKey.value) && oneRow.standardKey === homeStandardKey.value,
 		isMatching: store.rowMatchesFilter(oneRow),
 	};
@@ -109,14 +110,14 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 // double line, drawn as two thin parallel edges because Cytoscape edges have no double style
 const edgeDataListOf = ({ focusStableId, oneRow }) => {
 	const edgeIdText = `${focusStableId}->${oneRow.stableId}`;
-	const isMappingEdge = oneRow.relationshipType === 'MAPS_TO_CEDS' || oneRow.relationshipType === 'MAPPED_TO_ANCHOR' || oneRow.relationshipType === 'MAPPED_FROM_STANDARD';
+	const isMappingEdge = oneRow.relationshipType === 'MAPS_TO_HUB' || oneRow.relationshipType === 'MAPPED_TO_ANCHOR' || oneRow.relationshipType === 'MAPPED_FROM_STANDARD';
 	const matchKind = oneRow.mapping ? oneRow.mapping.matchKind : oneRow.strongestMatchKind;
 	if (!isMappingEdge || !matchKind) {
 		return [{ id: edgeIdText, source: focusStableId, target: oneRow.stableId, edgeKind: 'structural', isMatching: store.rowMatchesFilter(oneRow) }];
 	}
 	const matchStyle = matchStyleByKind[matchKind];
 	const confidenceTier = oneRow.mapping ? confidenceTierOf(oneRow.mapping.mappingConfidence) : { edgeWidth: 4, edgeOpacity: 1 };
-	const chipText = oneRow.relationshipType === 'MAPS_TO_CEDS' ? `${matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : '';
+	const chipText = oneRow.relationshipType === 'MAPS_TO_HUB' ? `${matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : '';
 	const baseEdgeData = { source: focusStableId, target: oneRow.stableId, edgeKind: 'mapping', matchColor: matchStyle.color, lineStyle: matchStyle.lineStyle, chipText, isMatching: store.rowMatchesFilter(oneRow) };
 	if (matchKind !== 'narrow') {
 		return [{ ...baseEdgeData, id: edgeIdText, edgeWidth: confidenceTier.edgeWidth, edgeOpacity: confidenceTier.edgeOpacity, controlDistance: 0 }];
@@ -198,17 +199,18 @@ const styleList = [
 	{ selector: 'node[kind = "instance"]', style: { width: 36, height: 36 } },
 	{ selector: 'node[kind = "instance"][!isMapped]', style: { 'background-color': '#EEF0F4', 'border-color': '#9CA3AF', 'border-width': 1 } },
 	{ selector: 'node[kind = "optionSet"], node[kind = "optionValue"]', style: { shape: 'tag', 'background-color': '#FFF4E0', 'border-color': '#B26A00', 'border-width': 1, width: 54, height: 36 } },
-	{ selector: 'node[kind = "cedsAnchor"]', style: { shape: 'hexagon', 'background-color': '#00B5B8', 'border-width': 0, color: '#072A6C', width: 70, height: 62 } },
-	{ selector: 'node[kind = "cedsAnchor"][?isFocus]', style: { width: 120, height: 104 } },
-	{ selector: 'node[kind = "cedsProperty"]', style: { 'background-color': '#E0F6F6', 'border-color': '#00797C', 'border-width': 1 } },
-	{ selector: 'node[kind = "cedsDomain"]', style: { shape: 'round-rectangle', 'background-color': '#E0F6F6', 'border-color': '#00797C', 'border-width': 1.5, width: 74, height: 44 } },
+	// a hub's own kinds in its family's colours
+	{ selector: 'node[kind = "hubAnchor"]', style: { shape: 'hexagon', 'background-color': 'data(familyFill)', 'border-width': 0, color: '#072A6C', width: 70, height: 62 } },
+	{ selector: 'node[kind = "hubAnchor"][?isFocus]', style: { width: 120, height: 104 } },
+	{ selector: 'node[kind = "hubProperty"]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1 } },
+	{ selector: 'node[kind = "hubDomain"]', style: { shape: 'round-rectangle', 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1.5, width: 74, height: 44 } },
 	{ selector: 'node[kind = "standardGroup"]', style: { 'background-color': 'data(familyTint)', 'border-width': 3, width: 'data(groupSize)', height: 'data(groupSize)' } },
 	{ selector: 'node[kind = "standardGroup"][?isFocus]', style: { width: 110, height: 110 } },
 	{ selector: 'node[kind = "support"], node[kind = "unclassified"]', style: { shape: 'round-rectangle', 'background-color': '#F3F4F6', 'border-color': '#D1D5DB', 'border-width': 1, width: 50, height: 30, 'font-size': 11, 'font-weight': 400 } },
 	{ selector: 'node[kind = "more"]', style: { 'background-color': '#FFFFFF', 'border-style': 'dashed', 'border-width': 2, 'border-color': 'data(familyColor)', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0, 'font-weight': 700 } },
 	{ selector: 'node[kind = "drillBadge"]', style: { width: 18, height: 18, 'background-color': '#072A6C', 'border-color': '#FFFFFF', 'border-width': 2, color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': -1, 'text-background-opacity': 0, 'font-size': 13, 'font-weight': 700, 'z-index': 20 } },
 	// the focus is always the big bubble in the middle, whatever its kind (after the kind rules, so it wins)
-	{ selector: 'node[?isFocus][kind != "cedsAnchor"][kind != "standardGroup"]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700 } },
+	{ selector: 'node[?isFocus][kind != "hubAnchor"][kind != "standardGroup"]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700 } },
 	{ selector: 'node[?isFocus]', style: { 'font-size': 15, 'font-weight': 700 } },
 	{ selector: 'node[?isHome]', style: { 'underlay-color': '#FFAB40', 'underlay-opacity': 0.65, 'underlay-padding': 10, 'underlay-shape': 'ellipse' } },
 	{ selector: 'node:selected', style: { 'overlay-color': '#072A6C', 'overlay-opacity': 0.12, 'overlay-padding': 8, 'overlay-shape': 'ellipse' } },

@@ -46,7 +46,7 @@ const buildHelpText = (slashCommand) =>
 		`*\`${slashCommand} <question>\`* — ask the DME AI anything in natural language (the default; takes a minute or two).`,
 		`*\`${slashCommand} lookup <term>\`* — literal element lookup by name (free, instant).`,
 		'',
-		`Questions run the full graph AI ($5/person/day, $50/day team; lookups keep working when questions are capped). Lookup shows the CEDS hub tuple and cross-standard equivalents.`,
+		`Questions run the full graph AI ($5/person/day, $50/day team; lookups keep working when questions are capped). Lookup shows the hub tuples and cross-standard equivalents.`,
 		`*\`${slashCommand} health\`* — bridge status: uptime, graph, askMilo, today’s spend.`,
 		`*\`${slashCommand} help\`* — this message.`,
 	].join('\n');

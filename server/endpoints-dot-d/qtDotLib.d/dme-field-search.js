@@ -23,6 +23,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 const makeRefId = require('../../lib/make-ref-id');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { resolveVoyageApiKey, embedQueryText } = require('../../data-model/lib/voyage-query-embed');
 
 //START OF moduleFunction() ============================================================
@@ -52,7 +53,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		       n._source AS source,
 		       coalesce(n.path, '') AS path,
 		       coalesce(n.description, n.definition, '') AS description,
-		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
 		       CASE n.role WHEN 'DmeClass' THEN 'class' WHEN 'DmeOptionValue' THEN 'value' ELSE 'property' END AS kind,
 		       score,
 		       $basis AS basis

@@ -23,12 +23,23 @@ export const familyStyleOf = (standardFamily) =>
 // ================================================================================
 // MATCH KINDS — colour AND line style, never colour alone
 
+// a description is the same for every hub, or is said OF the hub (hubComparisonText: '<hub> is narrower')
 export const matchStyleByKind = Object.freeze({
 	exact: { color: '#0B6B4E', lineStyle: 'solid', description: 'same meaning' },
 	close: { color: '#1F5FBF', lineStyle: 'dashed', description: 'nearly the same' },
-	broad: { color: '#B4530F', lineStyle: 'dotted', description: 'CEDS is narrower' },
-	narrow: { color: '#7A3E9D', lineStyle: 'double', description: 'CEDS is broader' },
+	broad: { color: '#B4530F', lineStyle: 'dotted', hubComparisonText: 'is narrower' },
+	narrow: { color: '#7A3E9D', lineStyle: 'double', hubComparisonText: 'is broader' },
 });
+
+// ================================================================================
+// HUBS — a hub is named by the data (the row's hubName); a row naming none says 'hub', never a stand-in hub's name
+
+export const hubNameTextOf = (hubName) => hubName || 'hub';
+
+export const matchDescriptionOf = (matchKind, hubName) => {
+	const matchStyle = matchStyleByKind[matchKind];
+	return matchStyle.hubComparisonText ? `${hubName || 'the hub'} ${matchStyle.hubComparisonText}` : matchStyle.description;
+};
 
 export const matchKindOrderList = Object.freeze(['exact', 'close', 'narrow', 'broad']);
 
@@ -57,28 +68,30 @@ export const kindDisplayNameByKind = Object.freeze({
 	instance: 'Occurrence',
 	optionSet: 'Code list',
 	optionValue: 'Code',
-	cedsAnchor: 'CEDS element',
-	cedsProperty: 'CEDS property',
-	cedsDomain: 'CEDS domain',
 	standardGroup: 'Elements in one standard',
 	support: 'Supporting item',
 	unclassified: 'Unclassified',
 	more: 'More, in the table',
 });
 
-export const kindDisplayNameOf = (nodeKind) => kindDisplayNameByKind[nodeKind] || nodeKind;
+// a hub's own kinds: '<hub> element', '<hub> property', '<hub> domain'
+const hubKindNounByKind = Object.freeze({ hubAnchor: 'element', hubProperty: 'property', hubDomain: 'domain' });
+const hubKindPluralNounByKind = Object.freeze({ hubAnchor: 'elements', hubProperty: 'properties', hubDomain: 'domains' });
+
+export const kindDisplayNameOf = (nodeKind, hubName) => (hubKindNounByKind[nodeKind] ? `${hubNameTextOf(hubName)} ${hubKindNounByKind[nodeKind]}` : kindDisplayNameByKind[nodeKind] || nodeKind);
 
 const pluralKindNameByKind = Object.freeze({
 	family: 'standards families',
 	class: 'classes',
 	property: 'properties',
-	cedsProperty: 'CEDS properties',
-	cedsAnchor: 'CEDS elements',
 	standardGroup: 'standards',
 	optionValue: 'codes',
 });
 
-export const pluralKindNameOf = (nodeKind) => pluralKindNameByKind[nodeKind] || `${kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase())}s`;
+export const pluralKindNameOf = (nodeKind, hubName) =>
+	hubKindPluralNounByKind[nodeKind]
+		? `${hubNameTextOf(hubName)} ${hubKindPluralNounByKind[nodeKind]}`
+		: pluralKindNameByKind[nodeKind] || `${kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase())}s`;
 
 export const relationshipDisplayNameByType = Object.freeze({
 	HAS_FAMILY: 'Standards families',
@@ -99,16 +112,30 @@ export const relationshipDisplayNameByType = Object.freeze({
 	HAS_SUPPORT: 'Supporting items',
 	MAPPED_FROM_STANDARD: 'Standards that map here',
 	MAPPED_TO_ANCHOR: 'Mapped elements',
-	HAS_CEDS_PROPERTY: 'CEDS property',
-	HAS_CEDS_DOMAIN: 'CEDS domain',
-	MAPS_TO_CEDS: 'Maps to CEDS',
-	USED_BY_CEDS_ELEMENT: 'CEDS elements',
 });
 
-export const relationshipDisplayNameOf = (relationshipType) => relationshipDisplayNameByType[relationshipType] || relationshipType;
+// the relationships said OF a hub: the explorer's own mapping groups, and a hub anchor's context groups, whose types
+// follow the graph contract's rule HAS_<HUB>_<SLOT> (toolPayloadContract hubEdgeTypeFor). The hub is the row's hubName.
+const hubRelationshipTextOfByType = Object.freeze({
+	MAPS_TO_HUB: (hubName) => `Maps to ${hubNameTextOf(hubName)}`,
+	USED_BY_HUB_ELEMENT: (hubName) => `${hubNameTextOf(hubName)} elements`,
+});
+const HUB_CONTEXT_SLOT_NOUN_BY_SLOT_NAME = Object.freeze({ PROPERTY: 'property', DOMAIN: 'domain' });
+const hubContextSlotNameOf = (relationshipType) => {
+	const slotMatch = /^HAS_[A-Z0-9]+_([A-Z]+)$/.exec(relationshipType || '');
+	return slotMatch && HUB_CONTEXT_SLOT_NOUN_BY_SLOT_NAME[slotMatch[1]] ? slotMatch[1] : null;
+};
 
-// structural, quiet relationships drawn and listed after the main ones
-export const secondaryRelationshipTypeList = Object.freeze(['SUBCLASS_OF', 'REFERENCES_TYPE', 'REFERENCES', 'REFERENCES_OBJECT', 'HAS_DEFINITION', 'HAS_SUPPORT', 'HAS_CEDS_PROPERTY', 'HAS_CEDS_DOMAIN']);
+export const relationshipDisplayNameOf = (relationshipType, hubName) => {
+	if (hubRelationshipTextOfByType[relationshipType]) return hubRelationshipTextOfByType[relationshipType](hubName);
+	const hubContextSlotName = hubContextSlotNameOf(relationshipType);
+	if (hubContextSlotName) return `${hubNameTextOf(hubName)} ${HUB_CONTEXT_SLOT_NOUN_BY_SLOT_NAME[hubContextSlotName]}`;
+	return relationshipDisplayNameByType[relationshipType] || relationshipType;
+};
+
+// structural, quiet relationships drawn and listed after the main ones: these, and a hub anchor's context groups
+const secondaryRelationshipTypeList = Object.freeze(['SUBCLASS_OF', 'REFERENCES_TYPE', 'REFERENCES', 'REFERENCES_OBJECT', 'HAS_DEFINITION', 'HAS_SUPPORT']);
+export const isSecondaryRelationshipType = (relationshipType) => secondaryRelationshipTypeList.includes(relationshipType) || Boolean(hubContextSlotNameOf(relationshipType));
 
 // ================================================================================
 // BADGES AND RULES
@@ -186,12 +213,12 @@ export const familyHoldingTextOf = (familyRow) => {
 	return `${familyRow.standardCount} standards${messageText}`;
 };
 
-// how much maps to CEDS here, in words: a CEDS element counts its distinct elements, a CEDS property the judgments
-// reaching it through its CEDS elements
-export const cedsMappedTextOf = (cedsRow) => {
-	if (cedsRow.elementCount !== undefined) return cedsRow.elementCount ? `${cedsRow.elementCount} elements map here` : 'nothing maps here';
-	if (cedsRow.mappedElementCount === undefined) return '';
-	return cedsRow.mappedElementCount ? `${cedsRow.mappedElementCount} mappings` : 'nothing maps here';
+// how much maps to a hub here, in words: a hub element counts its distinct elements, a hub property the judgments
+// reaching it through its hub elements
+export const hubMappedTextOf = (hubRow) => {
+	if (hubRow.elementCount !== undefined) return hubRow.elementCount ? `${hubRow.elementCount} elements map here` : 'nothing maps here';
+	if (hubRow.mappedElementCount === undefined) return '';
+	return hubRow.mappedElementCount ? `${hubRow.mappedElementCount} mappings` : 'nothing maps here';
 };
 
 // cmd-click (macOS) or ctrl-click (Windows, Linux) opens an item at once, as its panel's Open button would

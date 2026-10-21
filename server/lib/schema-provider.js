@@ -131,7 +131,7 @@ const MATCH_EDGE_TYPE_ALTERNATION = MATCH_RELATION_LIST.map(
 // Group labels by detected standard prefix.
 
 const groupLabels = (labels) => {
-	const grouped = STANDARD_GROUPS.map((g) => ({ name: g.name, labels: [] }));
+	const grouped = STANDARD_GROUPS.map((g) => ({ name: g.name, prefixes: g.prefixes, labels: [] }));
 	const infrastructure = [];
 	const other = [];
 
@@ -238,8 +238,11 @@ const renderSchema = ({
 		lines.push('');
 	}
 
-	// example native labels: the first live label of each standard group, never a literal list
-	const sampleLabelList = grouped.map((labelGroup) => labelGroup.labels.find((labelName) => !/^(CEDS|Ceds)$/.test(labelName)) || labelGroup.labels[0]).filter(Boolean).slice(0, 4);
+	// example native labels: the first live label of each standard group, never a literal list; a bare group label (one
+	// that IS a prefix of its own group, e.g. a label named for the standard alone) is no example of a native label.
+	// ⟪lane R6⟫ was the literal /^(CEDS|Ceds)$/; neither DEV_p8AllWithCtdlHub nor GOLD_EVAL_261013_jevQuestionPerBridge
+	// holds any bare prefix label (measured), so the sample is unchanged
+	const sampleLabelList = grouped.map((labelGroup) => labelGroup.labels.find((labelName) => labelGroup.prefixes.indexOf(labelName) === -1) || labelGroup.labels[0]).filter(Boolean).slice(0, 4);
 	const structuralEdgeLineList = Object.keys(STRUCTURAL_EDGE_MEANING_BY_TYPE)
 		.filter((edgeType) => relationshipTypes.includes(edgeType))
 		.map((edgeType) => `- **${edgeType}** — ${STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType]}`);

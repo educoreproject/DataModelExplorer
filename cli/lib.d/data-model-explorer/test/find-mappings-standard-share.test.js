@@ -18,6 +18,8 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const searchModulePath = process.argv[2] || path.join(__dirname, '..', 'dataModelExplorerSearch.js');
+// ⟪lane R6⟫ the card reaches its property through its OWN hub's slot edge, read from the contract (no hub literal)
+const { cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
 const MATCH_EDGE_TYPE_LIST = ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH'];
 
 let passed = 0;
@@ -35,8 +37,8 @@ const runCli = (argumentList) => JSON.parse(execFileSync('node', [searchModulePa
 
 console.log('\n=== findMappings standard share within each relation (BirthDate) ===\n');
 
-const directStandardList = runCli(['-rawCypher', `--query=MATCH (cedsElement:ForgedNode {_source: 'CEDS'})<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(mappedElement:ForgedNode)
-	WHERE toLower(cedsElement.name) CONTAINS 'birthdate'
+const directStandardList = runCli(['-rawCypher', `--query=MATCH (cedsElement:ForgedNode {_source: 'CEDS'})<-[slotEdge]-(card:HubReference)<-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(mappedElement:ForgedNode)
+	WHERE type(slotEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'PROPERTY')} AND toLower(cedsElement.name) CONTAINS 'birthdate'
 	RETURN DISTINCT coalesce(head([(declaration:ForgedNode)-[:HAS_INSTANCE]->(mappedElement) | declaration._source]), mappedElement._source) AS standardName
 	ORDER BY standardName`]).records.map((record) => record.standardName);
 assert('the direct count finds Ed-Fi among the standards mapped to Birthdate', directStandardList.includes('EdFi'), JSON.stringify(directStandardList));

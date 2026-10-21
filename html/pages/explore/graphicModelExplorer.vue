@@ -3,8 +3,8 @@
 // Explore → Standards Explorer (DEV-123; every family since 2026-10-14).
 //
 // Opens on every standards family in the graph (the synthetic 'families:all') and walks, one click at a time, down a
-// standard to its classes and properties, across to the CEDS element a property maps to, and out into every other
-// standard that maps to the same element. CEDS is walkable from its own root too. Each level is a diagram or a table
+// standard to its classes and properties, across to the hub element a property maps to, and out into every other
+// standard that maps to the same element. A hub standard is walkable from its own root too. Each level is a diagram or a table
 // of the same rows (the store's levelRowList). The URL's ?path= is the whole walk and always begins at
 // 'families:all', so a reload or a shared link lands on the same screen; this page is the only thing that reads or
 // writes it. /explore/pesc redirects here, entered at PESC.

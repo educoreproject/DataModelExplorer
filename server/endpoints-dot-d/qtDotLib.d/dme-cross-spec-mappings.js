@@ -8,7 +8,7 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 // ⟪ctdlHub P7⟫ a card's own hub names its slot edges
-const { cardHubSlotEdgeTypeTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -46,10 +46,10 @@ const moduleFunction = function ({
 	// element that merely CLOSE_MATCHes its hub gets nothing authoritative out of
 	// it, however solid the neighbour's own edge is.
 	//
-	// This matters most between two non-CEDS standards. No standard's
-	// documentation crosswalks directly to another's — each maps to CEDS — so a
+	// This matters most between two standards that are no hub. No standard's
+	// documentation crosswalks directly to another's — each maps to a hub — so a
 	// SIF ↔ Ed-Fi equivalence is authoritative BY COMPOSITION: two verified legs
-	// through one CEDS hub. Reporting `hub` on every row lets the UI say which
+	// through one hub card. Reporting `hub` on every row lets the UI say which
 	// concept carried the claim rather than implying a direct assertion.
 	//
 	// The element's own spec is excluded throughout: a mapping to yourself is not
@@ -101,7 +101,7 @@ const moduleFunction = function ({
 		       n._source AS source,
 		       labels(n) AS labels,
 		       coalesce(n.description, n.definition, '') AS description,
-		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),
 		         selfRel: type(r1),
@@ -111,7 +111,7 @@ const moduleFunction = function ({
 		         source: m._source,
 		         labels: labels(m),
 		         description: coalesce(m.description, m.definition, ''),
-		         sourceId: coalesce(m.cedsId, m.stableId, m.persistentId, ''),
+		         sourceId: ${sourceIdentifierCypherTextFor('m')},
 		         hub: hub.name,
 		         hubName: hub.hubName
 		       }) WHERE x.name IS NOT NULL][0..120] AS matches

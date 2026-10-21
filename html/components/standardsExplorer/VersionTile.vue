@@ -94,7 +94,7 @@ const setExpanded = (oneEntry, shouldExpand) => {
 					<span v-if="oneMapping.occurrenceCount > 1" class="version-tile-note">on {{ oneMapping.occurrenceCount }} occurrences</span>
 				</div>
 			</div>
-			<p v-else-if="counterpart.kind === 'property' || counterpart.kind === 'instance'" class="version-tile-note">Not mapped to CEDS.</p>
+			<p v-else-if="counterpart.kind === 'property' || counterpart.kind === 'instance'" class="version-tile-note">Not mapped to a hub.</p>
 
 			<ul v-if="differenceEntryList.length" class="version-tile-differences" data-testid="version-tile-differences">
 				<li v-for="oneEntry in differenceEntryList" :key="oneEntry.titleText">
