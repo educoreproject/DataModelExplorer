@@ -5,7 +5,8 @@
 //   both legs' ranks and scores, returned unchanged so every row says which leg found it.
 // Node model: :ForgedNode distinguished by role (DmeClass, DmeProperty, DmeOptionSet,
 //   DmeOptionValue, DmeSupport, DmeInstance, DmeStandardRoot, …) and _source (the live inventory: dme_list_standards).
-// Cross-standard mapping: elements resolve to CEDS tuples (:HubReference) through four
+// Cross-standard mapping: elements resolve to hub tuples (:HubReference cards; one hub or several, each a
+//   :HubDefinition — every entry names its card's hub) through four
 //   match edges, one per SKOS relation (EXACT/CLOSE/BROAD/NARROW_MATCH). Every one is a
 //   judgment carrying mappingConfidence/mappingKind/mappingSource; none is authored fact.
 //   mappingSource 'bridge-debug' marks a debug judge's edge (match edges carry no provenanceTier).
@@ -26,10 +27,13 @@
 //   HAS_CLASS, SUBCLASS_OF, REFERENCES / REFERENCES_TYPE / REFERENCES_OBJECT; SIF/PESC add HAS_INSTANCE, HAS_FIELD,
 //   HAS_CHILD (see instanceView).
 // Every confidence shown is the edge's mappingConfidence (the duplicate `confidence` property retires, W-B-2).
-// Updated: 2026-10-10 lane BM25 (the search preamble became $hitList: keyword + vector legs fused upstream); 2026-10-06 campaign P3 (CONSTRAINED_BY retired, S3: SIF Field -> Codeset is HAS_OPTION_SET; mappingRationale carried, W-B-4); 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
+// Updated: 2026-10-21 ctdlHub P7 (several hubs: the incoming arm reads $hubIncomingSlotEdgeTypeList, every hub's slot edges;
+//   each entry names its card's hub — toSource, or hubSource where hubName is the card's own name; pairs share ONE card,
+//   so never cross hubs); 2026-10-10 lane BM25 (the search preamble became $hitList: keyword + vector legs fused upstream); 2026-10-06 campaign P3 (CONSTRAINED_BY retired, S3: SIF Field -> Codeset is HAS_OPTION_SET; mappingRationale carried, W-B-4); 2026-10-06 (no phantom entries: hub IS NOT NULL before every grouped collect, W-D-3; SIF code sets through
 //   instances and the REFERENCES_* family, W-D-4; mappingConfidence read, W-B-2 step A); 2026-10-05 (per-standard sharing within a relation; 2026-10-04 four SKOS relations + judgment fields;
 //   2026-07-01 equivalence-model rewrite)
-// Parameters: $hitList (list of {stableId, hitRank, fusedScore, foundByLegList, keywordRank, keywordScore, vectorRank, vectorScore})
+// Parameters: $hitList (list of {stableId, hitRank, fusedScore, foundByLegList, keywordRank, keywordScore, vectorRank, vectorScore});
+//   $hubIncomingSlotEdgeTypeList (every HAS_<HUB>_<SLOT> edge type of the graph's hubs, from the graph contract's slot lists)
 
 // === Hits: the fused search result, one row per hit (lib/hybridRetrieval.js) ===
 UNWIND $hitList AS hit
@@ -103,8 +107,8 @@ CALL {
   RETURN collect(DISTINCT referrer { ._id, ._source, .name, .role, referenceEdgeType: type(r) })[..10] AS referencedBy
 }
 
-// CEDS anchors (outgoing) — this element's resolution to CEDS tuples (:HubReference),
-// each a judgment (relation + mappingConfidence + mappingSource).
+// Hub anchors (outgoing) — this element's resolution to hub tuples (:HubReference cards),
+// each a judgment (relation + mappingConfidence + mappingSource); toSource is the card's hub.
 CALL {
   WITH node
   OPTIONAL MATCH (node)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub:HubReference)
@@ -113,7 +117,7 @@ CALL {
   WITH m, hub, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
   ORDER BY m.mappingConfidence DESC
   WITH rowRelation, relationOrder, collect({
-    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
+    toSource: hub.hubName, toName: hub.name, toId: hub.canonicalKey,
     mappingType: type(m), confidence: m.mappingConfidence,
     matchPredicate: m.predicate,
     mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource, mappingRationale: m.mappingRationale
@@ -134,7 +138,7 @@ CALL {
 }
 
 // Cross-standard pairs (shared hub) — other standards' elements resolving to the SAME
-// CEDS tuple. equivalence = 'equivalent' ONLY for EXACT×EXACT (two judgments); an
+// hub card (so the same hub: no pair crosses hubs); hubSource names that hub. equivalence = 'equivalent' ONLY for EXACT×EXACT (two judgments); an
 // EXACT/CLOSE pair with a CLOSE hop = 'candidateEquivalent'; any BROAD/NARROW hop =
 // 'related' (never equivalent). Both hops' evidence is carried — never a combined score.
 CALL {
@@ -148,7 +152,7 @@ CALL {
   ORDER BY mFar.mappingConfidence DESC
   WITH rowRelation, relationOrder, other._source AS rowStandard, collect({
     otherSource: other._source, otherName: other.name, otherId: other._id,
-    hubName: hub.name, hubKey: hub.canonicalKey,
+    hubName: hub.name, hubKey: hub.canonicalKey, hubSource: hub.hubName,
     equivalence: CASE WHEN type(mNear) = 'EXACT_MATCH' AND type(mFar) = 'EXACT_MATCH' THEN 'equivalent'
                       WHEN type(mNear) IN ['BROAD_MATCH', 'NARROW_MATCH'] OR type(mFar) IN ['BROAD_MATCH', 'NARROW_MATCH'] THEN 'related'
                       ELSE 'candidateEquivalent' END,
@@ -187,18 +191,19 @@ CALL {
           WHERE truncation.truncatedCount > 0] AS crossStandardEquivalentsTruncatedByRelationAndStandard
 }
 
-// Source elements resolving here (incoming) — when this node is a CEDS leaf, the
-// standards' elements whose tuple contains it.
+// Source elements resolving here (incoming) — when this node is a hub leaf (of any hub), the
+// standards' elements whose tuple contains it; hubSource names the card's hub.
 CALL {
   WITH node
-  OPTIONAL MATCH (node)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(src:ForgedNode)
+  OPTIONAL MATCH (node)<-[slotEdge]-(hub:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(src:ForgedNode)
+  WHERE type(slotEdge) IN $hubIncomingSlotEdgeTypeList
   WITH hub, m, src, type(m) AS rowRelation
   WHERE hub IS NOT NULL
   WITH hub, m, src, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
   ORDER BY m.mappingConfidence DESC
   WITH rowRelation, relationOrder, src._source AS rowStandard, collect({
     fromSource: src._source, fromName: src.name, fromId: src._id,
-    hubName: hub.name, hubKey: hub.canonicalKey,
+    hubName: hub.name, hubKey: hub.canonicalKey, hubSource: hub.hubName,
     mappingType: type(m), confidence: m.mappingConfidence,
     matchPredicate: m.predicate,
     mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind, mappingSource: m.mappingSource, mappingRationale: m.mappingRationale
@@ -233,7 +238,7 @@ CALL {
           WHERE truncation.truncatedCount > 0] AS mappingsIncomingTruncatedByRelationAndStandard
 }
 
-// Instance view (lane D, 2026-10-01) — SIF and PESC put their CEDS mappings on INSTANCE nodes:
+// Instance view (lane D, 2026-10-01) — SIF and PESC put their hub mappings on INSTANCE nodes:
 // SIF Question -[:HAS_INSTANCE]-> Field (one per object), PESC element -[:HAS_INSTANCE]-> occurrence
 // (one per document position). The vector hit is the declaration, which carries no mapping edge,
 // so its mappings are read through its instances and grouped by where each instance sits: the
@@ -267,7 +272,7 @@ CALL {
   WITH hub, matchType, confidence, matchPredicate, mappingConfidence, mappingKind, mappingSource, mappingRationale, instanceGroupList, instanceCount, rowRelation, CASE rowRelation WHEN 'EXACT_MATCH' THEN 0 WHEN 'CLOSE_MATCH' THEN 1 WHEN 'BROAD_MATCH' THEN 2 WHEN 'NARROW_MATCH' THEN 3 ELSE 4 END AS relationOrder
   ORDER BY confidence DESC
   WITH rowRelation, relationOrder, collect({
-    toSource: 'CEDS', toName: hub.name, toId: hub.canonicalKey,
+    toSource: hub.hubName, toName: hub.name, toId: hub.canonicalKey,
     mappingType: matchType, confidence: confidence, matchPredicate: matchPredicate,
     mappingConfidence: mappingConfidence, mappingKind: mappingKind, mappingSource: mappingSource, mappingRationale: mappingRationale,
     instanceGroupList: instanceGroupList[..25], instanceGroupCount: size(instanceGroupList), instanceCount: instanceCount

@@ -8,6 +8,10 @@
 // How a JSON answer is compared: every field the after-run ADDED (absent from the baseline object at the same place)
 // and named in the list is removed, the rest is re-serialised exactly as multiHubQuestionSet writes it, and the bytes
 // are compared with the baseline file. Order therefore counts: a row that moved is a difference.
+// ONE exception, counted and printed: a Neo4j map literal (traversal.cypher's entries) comes back with its keys in an
+// order Neo4j derives from the key SET, so adding a key to the literal re-orders the others. In an object that gained a
+// named field, and only there, the remaining keys are put back in the baseline's order before the bytes are compared;
+// their values must still be identical. Measured on GOLD_EVAL_261013_jevQuestionPerBridge (DEVLOG-P7 checkpoint 2).
 // A text answer (getSchema, the MCP instructions) has no fields: it is compared byte for byte and, when it differs, its
 // line diff is printed so the change can be named in the DEVLOG; TEXT_ANSWER_CHANGE_ALLOWED_BY_FILE_NAME names those
 // whose change the work order ordered (step 4).
@@ -26,8 +30,8 @@ const ALLOWED_ADDED_FIELD_NAME_LIST = Object.freeze([
 	'hubValueKey',
 	// traversal entries and the Slack card, whose existing 'hubName' is the CARD's name: the hub standard is hubSource
 	'hubSource',
-	// unmappedFields / stats / listStandards: the hub standards, all of them
-	'hubStandardList',
+	// unmappedFields / stats / listStandards: the hub standards, all of them; stats: per hub, the properties mapped onto it
+	'hubStandardList', 'mappedPropertyCountByHub',
 	// listStandards rows: the hub this standard IS, and its match edges per hub
 	'hubMatchEdgeCountByHub',
 ]);
@@ -49,16 +53,25 @@ const strippedOfNamedAdditions = (afterValue, baselineValue, addedNameCount, une
 	}
 	if (afterValue && typeof afterValue === 'object' && !Array.isArray(afterValue) && baselineValue && typeof baselineValue === 'object' && !Array.isArray(baselineValue)) {
 		const strippedObject = {};
+		let namedFieldAdded = false;
 		Object.keys(afterValue).forEach((fieldName) => {
 			if (!(fieldName in baselineValue)) {
 				if (ALLOWED_ADDED_FIELD_NAME_LIST.indexOf(fieldName) !== -1) {
 					addedNameCount[fieldName] = (addedNameCount[fieldName] || 0) + 1;
+					namedFieldAdded = true;
 					return;
 				}
 				unexpectedPathList.push(`${pathText}.${fieldName}`);
 			}
 			strippedObject[fieldName] = strippedOfNamedAdditions(afterValue[fieldName], baselineValue[fieldName], addedNameCount, unexpectedPathList, `${pathText}.${fieldName}`);
 		});
+		const strippedKeyList = Object.keys(strippedObject);
+		const baselineKeyList = Object.keys(baselineValue);
+		const sameKeySet = strippedKeyList.length === baselineKeyList.length && baselineKeyList.every((fieldName) => fieldName in strippedObject);
+		if (namedFieldAdded && sameKeySet && strippedKeyList.join('\u0000') !== baselineKeyList.join('\u0000')) {
+			addedNameCount['(map keys re-ordered by Neo4j)'] = (addedNameCount['(map keys re-ordered by Neo4j)'] || 0) + 1;
+			return baselineKeyList.reduce((reorderedObject, fieldName) => ({ ...reorderedObject, [fieldName]: strippedObject[fieldName] }), {});
+		}
 		return strippedObject;
 	}
 	return afterValue;

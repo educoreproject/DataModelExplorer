@@ -2,8 +2,8 @@
 
 // liveInventory.js — what this graph holds, read from the graph at call time (campaign P1, 2026-10-06). Two questions
 // every verb used to answer with a literal: which `_source` values a `standard` filter may name (W-D-2; the tool
-// descriptions once listed CTDL, SEDM, LIF… — standards this graph does not hold), and which standard is the hub
-// (W-D-5/8/9; the verbs once wrote 'CEDS'). Both answer through callback(errorText) or callback('', answer); an input the
+// descriptions once listed CTDL, SEDM, LIF… — standards this graph does not hold), and which standards are the hubs
+// (W-D-5/8/9; the verbs once wrote 'CEDS'; ⟪ctdlHub P7⟫ a graph may hold several). Both answer through callback(errorText) or callback('', answer); an input the
 // graph cannot satisfy is answered as { refusal } for the verb to pass on, never as an empty filter.
 
 const { runCypherQuery } = require('./runCypherQuery');
@@ -12,7 +12,7 @@ const {
 	STANDARD_FAMILY_LIST_CYPHER,
 	STANDARD_FILTER_FAMILY_RULE,
 	STANDARD_FILTER_FAMILY_RULE_LIST,
-	HUB_STANDARD_SOURCE_CYPHER,
+	HUB_LIST_CYPHER,
 	refusalFor,
 } = require('./toolPayloadContract');
 
@@ -60,24 +60,33 @@ const resolveStandardFilter = (session, verbName, standardText, callback) => {
 	});
 };
 
-// resolveHubIdentity — callback('', { hubSource, hubName }) from the one :HubDefinition; zero or several is an error by
-// name (the graph does not say which standard is the hub, and no verb may guess)
-const resolveHubIdentity = (session, callback) => {
-	runCypherQuery(session, HUB_STANDARD_SOURCE_CYPHER, {}, (hubError, hubResult) => {
+// resolveHubList — callback('', { hubList }) with one { hubName, hubSource, hubVersion, canonicalKeyName } per
+// :HubDefinition, ordered by hubName (⟪ctdlHub P7⟫: it replaced resolveHubIdentity, which refused any graph but a
+// one-hub graph). A graph holding no HubDefinition, or one lacking hubName or _source, is an error by name: the graph
+// does not say which standards are hubs, and no verb may guess.
+const resolveHubList = (session, callback) => {
+	runCypherQuery(session, HUB_LIST_CYPHER, {}, (hubError, hubResult) => {
 		if (hubError) {
-			callback(`reading the HubDefinition failed: ${hubError}`);
+			callback(`reading the HubDefinitions failed: ${hubError}`);
 			return;
 		}
-		if (hubResult.records.length !== 1) {
-			callback(`this graph holds ${hubResult.records.length} :HubDefinition nodes; exactly one names the hub standard`);
+		if (hubResult.records.length === 0) {
+			callback('this graph holds no :HubDefinition node; the hub standard(s) cannot be named');
 			return;
 		}
-		const hubRecord = hubResult.records[0];
-		if (!hubRecord.get('hubSource') || !hubRecord.get('hubName')) {
-			callback('the :HubDefinition lacks _source or hubName; the hub standard cannot be named');
+		const incompleteRecord = hubResult.records.find((hubRecord) => !hubRecord.get('hubSource') || !hubRecord.get('hubName'));
+		if (incompleteRecord) {
+			callback(`a :HubDefinition lacks _source or hubName (hubName ${JSON.stringify(incompleteRecord.get('hubName'))}, _source ${JSON.stringify(incompleteRecord.get('hubSource'))}); the hub standard cannot be named`);
 			return;
 		}
-		callback('', { hubSource: hubRecord.get('hubSource'), hubName: hubRecord.get('hubName') });
+		callback('', {
+			hubList: hubResult.records.map((hubRecord) => ({
+				hubName: hubRecord.get('hubName'),
+				hubSource: hubRecord.get('hubSource'),
+				hubVersion: hubRecord.get('hubVersion'),
+				canonicalKeyName: hubRecord.get('canonicalKeyName'),
+			})),
+		});
 	});
 };
 
@@ -91,4 +100,4 @@ const familyExpansionFieldsFor = (standardFilter) => (standardFilter.expandedFro
 	}
 	: {});
 
-module.exports = Object.freeze({ resolveStandardFilter, resolveHubIdentity, familyExpansionFieldsFor });
+module.exports = Object.freeze({ resolveStandardFilter, resolveHubList, familyExpansionFieldsFor });

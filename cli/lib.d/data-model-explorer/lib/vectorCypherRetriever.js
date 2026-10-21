@@ -14,7 +14,7 @@
 // is ONE alternative path: when no traversal file is configured or present, the hits are returned as they are (flat, no
 // graph context) and the RESULT says so.
 //
-// retrieve({ neo4jSession, hitList, traversalFilePath }, callback) answers callback(errorText) or callback('', retrievedResult):
+// retrieve({ neo4jSession, hitList, traversalFilePath, traversalParameterByName }, callback) answers callback(errorText) or callback('', retrievedResult):
 //   traversal ran  -> retrievedResult is { retrievalMode: 'traversal', requestedHitCount, returnedHitCount, hitList }, one
 //                     hitList entry per traversal.cypher record (W-D-10, campaign P1: the bare list carried no count);
 //   flat           -> retrievedResult is { retrievalMode: 'flat', retrievalNote, resultCount, results }.
@@ -61,7 +61,9 @@ const hitParameterListOf = (hitList) =>
 // instanceView (traversal.cypher): present only for SIF/PESC nodes with instances or structure.
 const OMIT_WHEN_NULL_COLUMN_LIST = ['instanceView'];
 
-const staticTraversal = ({ neo4jSession, hitList, traversalFilePath }, callback) => {
+// ⟪ctdlHub P7⟫ traversalParameterByName: the graph's own facts traversal.cypher reads beside $hitList (the hub slot edge
+// types), named by the caller; it may not name hitList
+const staticTraversal = ({ neo4jSession, hitList, traversalFilePath, traversalParameterByName }, callback) => {
 	const traversalFileName = path.basename(traversalFilePath);
 
 	const taskList = new taskListPlus();
@@ -75,7 +77,7 @@ const staticTraversal = ({ neo4jSession, hitList, traversalFilePath }, callback)
 		});
 	});
 	taskList.push((args, next) => {
-		runCypherQuery(neo4jSession, args.traversalCypher, { hitList: hitParameterListOf(hitList) }, (queryError, queryResult) => {
+		runCypherQuery(neo4jSession, args.traversalCypher, { ...traversalParameterByName, hitList: hitParameterListOf(hitList) }, (queryError, queryResult) => {
 			if (queryError) {
 				next(`${traversalFileName} failed: ${queryError}`, args);
 				return;
@@ -109,7 +111,7 @@ const staticTraversal = ({ neo4jSession, hitList, traversalFilePath }, callback)
 
 const flatResultOf = ({ hitList, retrievalNote }) => ({ retrievalMode: 'flat', retrievalNote, resultCount: hitList.length, results: hitList.map((oneHit, hitIndex) => ({ ...oneHit, hitRank: hitIndex + 1 })) });
 
-const retrieve = ({ neo4jSession, hitList, traversalFilePath }, callback) => {
+const retrieve = ({ neo4jSession, hitList, traversalFilePath, traversalParameterByName }, callback) => {
 	if (!Array.isArray(hitList)) {
 		callback(`graphRetriever: hitList must be the search's fused hit list (an array); got ${typeof hitList}.`);
 		return;
@@ -122,7 +124,12 @@ const retrieve = ({ neo4jSession, hitList, traversalFilePath }, callback) => {
 		callback('', flatResultOf({ hitList, retrievalNote: `traversal file ${path.basename(traversalFilePath)} not present; the search hits without graph traversal` }));
 		return;
 	}
-	staticTraversal({ neo4jSession, hitList, traversalFilePath }, callback);
+	// ⟪ctdlHub P7⟫ the traversal reads the graph's hubs; checked only where a traversal will run (the flat answers need none)
+	if (!traversalParameterByName || typeof traversalParameterByName !== 'object' || 'hitList' in traversalParameterByName) {
+		callback(`graphRetriever: traversalParameterByName must be the object of traversal.cypher's graph parameters (the hub slot edge types), never naming hitList; got ${JSON.stringify(traversalParameterByName)}.`);
+		return;
+	}
+	staticTraversal({ neo4jSession, hitList, traversalFilePath, traversalParameterByName }, callback);
 };
 
 module.exports = { retrieve, HIT_PROVENANCE_FIELD_LIST };

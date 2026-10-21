@@ -82,8 +82,16 @@ const VERB_FLAG_DEFAULT_BY_VERB = Object.freeze({
 const STANDARD_FILTER_FAMILY_RULE_LIST = Object.freeze(['expandFamilyToReleases', 'refuseFamilyNamingReleases']);
 const STANDARD_FILTER_FAMILY_RULE = 'expandFamilyToReleases';
 const STANDARD_FAMILY_LIST_CYPHER = 'MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL RETURN d.standardFamily AS family, collect(d.sourceKey) AS sourceList ORDER BY family';
-// W-D-9 / W-D-8 / W-D-5: the hub is read from the graph, never assumed; exactly one HubDefinition or a refusal
-const HUB_STANDARD_SOURCE_CYPHER = 'MATCH (h:HubDefinition) RETURN h._source AS hubSource, h.hubName AS hubName';
+// W-D-9 / W-D-8 / W-D-5: the hubs are read from the graph, never assumed. ⟪ctdlHub P7⟫ a graph may hold several (one
+// :HubDefinition each); every verb reads them all, ordered by hubName, and a graph holding none is an error by name.
+// canonicalKeyName is the hub's own name for its card identifier ('CEDS Global ID', 'CTDL term CURIE').
+const HUB_LIST_CYPHER = 'MATCH (h:HubDefinition) RETURN h.hubName AS hubName, h._source AS hubSource, h.version AS hubVersion, h.canonicalKeyName AS canonicalKeyName ORDER BY hubName';
+// what an identifier looks like, per the hub's declared canonicalKeyName; findMappings' nothingMatched reason quotes it.
+// A hub whose canonicalKeyName has no row here is named without an example.
+const HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME = Object.freeze({
+	'CEDS Global ID': 'P000033 (property) or OV001637175776 (value)',
+	'CTDL term CURIE': 'ceterms:Credential (term) or ceterms:name (property)',
+});
 // A10 (ruled 2026-10-06): the hub does not map to itself, so it is excluded from "unmapped" and from coverage and its
 // property count is reported beside them
 const UNMAPPED_HUB_POLICY = 'excludeHub';
@@ -93,12 +101,42 @@ const UNMAPPED_HUB_POLICY = 'excludeHub';
 // ⟪campaign P2⟫ no longer an interim copy: the graph contract carries the hub slot list (graphContract.json hubSlotList,
 // emitted from educoreForge vocabulary HUB_DECOMPOSITION_SLOTS), so the DME reads the forge's own declaration
 const HUB_DECOMPOSITION_SLOT_LIST = Object.freeze(require('../contract/graphContract.json').hubSlotList.slice());
-const hubDecompositionEdgeTypeList = (hubName) => {
-	if (typeof hubName !== 'string' || !/^[A-Za-z][A-Za-z0-9]*$/.test(hubName)) {
-		throw new Error(`toolPayloadContract.hubDecompositionEdgeTypeList: hubName must be a plain identifier from HubDefinition.hubName (got ${JSON.stringify(hubName)})`);
+// ⟪ctdlHub P7⟫ a hub minting the TERM tier decomposes its term cards through one more slot (HAS_CTDL_TERM). The contract
+// carries it as hubTermSlotList (educoreForge vocabulary HUB_TERM_DECOMPOSITION_SLOTS, ruling SCARLET_ARROW 2026-10-21).
+// A contract that predates the term tier declares no hubTermSlotList, and the graphs of its era hold no term cards: for it
+// the list is declared empty BY NAME here, the one era rule, never a guess about a contract that names the field.
+const HUB_TERM_SLOT_LIST_BEFORE_TERM_TIER = Object.freeze([]);
+const hubTermSlotListOf = (graphContract) => {
+	if (!('hubTermSlotList' in graphContract)) {
+		return HUB_TERM_SLOT_LIST_BEFORE_TERM_TIER;
 	}
-	return HUB_DECOMPOSITION_SLOT_LIST.map((slotName) => `HAS_${hubName.toUpperCase()}_${slotName}`);
+	if (!Array.isArray(graphContract.hubTermSlotList) || !graphContract.hubTermSlotList.every((slotName) => /^[A-Z][A-Z0-9_]*$/.test(slotName))) {
+		throw new Error(`toolPayloadContract: graphContract.json hubTermSlotList must be a list of upper-case slot names (got ${JSON.stringify(graphContract.hubTermSlotList)})`);
+	}
+	return Object.freeze(graphContract.hubTermSlotList.slice());
 };
+const HUB_TERM_SLOT_LIST = hubTermSlotListOf(require('../contract/graphContract.json'));
+// the slots one hub's cards may decompose through: every hub slot, then the term slots (a hub that mints no term tier
+// simply has no such edge in its graph)
+const HUB_ALL_SLOT_LIST = Object.freeze(HUB_DECOMPOSITION_SLOT_LIST.concat(HUB_TERM_SLOT_LIST));
+const hubEdgeTypeFor = (hubName, slotName) => {
+	if (typeof hubName !== 'string' || !/^[A-Za-z][A-Za-z0-9]*$/.test(hubName)) {
+		throw new Error(`toolPayloadContract.hubEdgeTypeFor: hubName must be a plain identifier from HubDefinition.hubName (got ${JSON.stringify(hubName)})`);
+	}
+	return `HAS_${hubName.toUpperCase()}_${slotName}`;
+};
+const hubDecompositionEdgeTypeList = (hubName) => HUB_ALL_SLOT_LIST.map((slotName) => hubEdgeTypeFor(hubName, slotName));
+// ⟪ctdlHub P7⟫ one slot's edge types across every hub of the graph, in hub order: the alternation a card's decomposition
+// reads. A card carries only its own hub's edges (measured on DEV_p5TwoHubs: 0 cards carry another hub's slot edges), so
+// the alternation never joins two hubs; for a single-hub graph it is exactly the one edge type.
+const hubSlotEdgeTypeList = (hubNameList, slotName) => {
+	if (HUB_ALL_SLOT_LIST.indexOf(slotName) === -1) {
+		throw new Error(`toolPayloadContract.hubSlotEdgeTypeList: '${slotName}' is not a declared hub slot (${HUB_ALL_SLOT_LIST.join(', ')})`);
+	}
+	return hubNameList.map((hubName) => hubEdgeTypeFor(hubName, slotName));
+};
+// every hub's every slot: the incoming arms' pattern (a hub leaf reached by any card of any hub)
+const allHubDecompositionEdgeTypeList = (hubNameList) => hubNameList.reduce((soFar, hubName) => soFar.concat(hubDecompositionEdgeTypeList(hubName)), []);
 
 // W-D-3: a traversal mapping list holds only real match edges — toId / hubKey is never null in any entry
 const TRAVERSAL_MAPPING_LIST_NAME_LIST = Object.freeze(['mappingsOutgoing', 'crossStandardEquivalents', 'mappingsIncoming', 'instanceView.mappingsViaInstances']);
@@ -143,6 +181,7 @@ const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 	totalRowCountByRelationAndStandard: 'ROWS per relation and source standard',
 	truncatedRowCountByRelationAndStandard: 'ROWS per relation and source standard not shown',
 	totalRowCountByDirection: 'ROWS per direction; one graph edge can appear under more than one direction',
+	totalRowCountByHub: "ROWS per hub (each row names its card's hub in hubName); rows are shown hub by hub, each hub allocated the row cap on its own",
 	hubTupleCount: 'CEDS TUPLES (HubReferences) the rows reach; hubTupleSummaryList shows at most HUB_TUPLE_SUMMARY_CAP of them, most edges first',
 	edgeCount: 'EDGES: match edges in the graph into this CEDS tuple, each counted once, from any element (not only the matched ones)',
 	edgeCountByRelation: 'EDGES into this CEDS tuple per relation',
@@ -156,14 +195,15 @@ const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 });
 // the edges into every tuple a findMappings answer reaches, counted from the graph (not from the rows)
 const HUB_TUPLE_SUMMARY_CAP = 25;
+// ⟪ctdlHub P7⟫ a term-tier card (CTDL) is identified by its termIri (it has no canonicalKey); each summary names its hub
 const HUB_TUPLE_SUMMARY_CYPHER = `
-	MATCH (hub:HubReference) WHERE hub.canonicalKey IN $toIdList
+	MATCH (hub:HubReference) WHERE hub.canonicalKey IN $toIdList OR hub.termIri IN $toIdList
 	MATCH (subject:ForgedNode)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub)
 	WITH hub, type(m) AS relation, subject, head([(declaration:ForgedNode)-[:HAS_INSTANCE]->(subject) | declaration]) AS subjectDeclaration
-	RETURN hub.canonicalKey AS toId, hub.name AS toName, relation, count(*) AS edgeCount,
+	RETURN coalesce(hub.canonicalKey, hub.termIri) AS toId, hub.hubName AS hubName, hub.name AS toName, relation, count(*) AS edgeCount,
 	       count(DISTINCT coalesce(subjectDeclaration, subject)) AS elementCount, count(subjectDeclaration) AS instanceEdgeCount,
 	       collect(DISTINCT coalesce(subjectDeclaration, subject).stableId) AS elementStableIdList
-	ORDER BY toId, relation`;
+	ORDER BY toId, hubName, relation`;
 
 // W-D-8: compareCodesets says whether the build judged option values at all; the verdict is read from the graph
 const COMPARE_CODESETS_VERDICT_LIST = Object.freeze(['judged', 'valuesNotJudgedInThisBuild']);
@@ -304,10 +344,17 @@ module.exports = Object.freeze({
 	STANDARD_FILTER_FAMILY_RULE,
 	STANDARD_FILTER_FAMILY_RULE_LIST,
 	STANDARD_FAMILY_LIST_CYPHER,
-	HUB_STANDARD_SOURCE_CYPHER,
+	HUB_LIST_CYPHER,
+	HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME,
 	UNMAPPED_HUB_POLICY,
 	HUB_DECOMPOSITION_SLOT_LIST,
+	HUB_TERM_SLOT_LIST,
+	HUB_ALL_SLOT_LIST,
+	hubTermSlotListOf,
+	hubEdgeTypeFor,
 	hubDecompositionEdgeTypeList,
+	hubSlotEdgeTypeList,
+	allHubDecompositionEdgeTypeList,
 	TRAVERSAL_MAPPING_LIST_NAME_LIST,
 	OPTION_SET_EDGE_TYPE_LIST,
 	INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST,

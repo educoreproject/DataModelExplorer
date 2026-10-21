@@ -7,6 +7,10 @@
 // toolPayloadContract.HUB_DECOMPOSITION_SLOT_LIST (INTERIM copy of educoreForge vocabulary.js HUB_DECOMPOSITION_SLOTS
 // until graphContract.json carries it, P2). Asserts the copy equals the forge's declaration, traversal.cypher's incoming
 // alternation and findMappings' incoming pattern both equal it, and the live graph holds no hub edge type outside it.
+// ⟪ctdlHub P7⟫ a graph may hold several hubs, so neither arm carries a literal alternation any more: traversal.cypher
+// reads $hubIncomingSlotEdgeTypeList and findMappings builds its pattern with allHubDecompositionEdgeTypeList, both from
+// the hub list and the contract's slot lists (hubSlotList, plus hubTermSlotList once the contract carries it). The live
+// check now reads every hub of the graph: each hub's HAS_<HUB>_* edge types must be declared slots of that hub.
 //
 //   node cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js [pathToDataModelExplorerSearch.js]
 
@@ -27,15 +31,19 @@ assert('the DME slot list equals educoreForge HUB_DECOMPOSITION_SLOTS', JSON.str
 assert('  read from graphContract.json hubSlotList, not a literal', /require\('\.\.\/contract\/graphContract\.json'\)\.hubSlotList/.test(readText(path.join(harness.dmeDirPath, 'lib', 'toolPayloadContract.js'))));
 assert('  and hubDecompositionEdgeTypeList matches the forge hubEdgeType()', sortedText(declaredEdgeTypeList) === sortedText(forgeVocabulary.HUB_DECOMPOSITION_SLOTS.map((slotName) => forgeVocabulary.hubEdgeType('CEDS', slotName))));
 
-const traversalIncomingMatch = readText(path.join(harness.dmeDirPath, 'traversal.cypher')).match(/OPTIONAL MATCH \(node\)<-\[:([A-Z_|]+)\]-\(hub:HubReference\)<-\[m:/);
-assert("traversal.cypher's incoming alternation equals the declared list", traversalIncomingMatch && sortedText(traversalIncomingMatch[1].split('|')) === sortedText(declaredEdgeTypeList), traversalIncomingMatch && traversalIncomingMatch[1]);
+const traversalText = readText(path.join(harness.dmeDirPath, 'traversal.cypher'));
+assert("traversal.cypher's incoming arm reads the declared slot edge types as $hubIncomingSlotEdgeTypeList (no literal alternation)", /OPTIONAL MATCH \(node\)<-\[slotEdge\]-\(hub:HubReference\)<-\[m:[A-Z_|]+\]-\(src:ForgedNode\)\s+WHERE type\(slotEdge\) IN \$hubIncomingSlotEdgeTypeList/.test(traversalText) && !/HAS_CEDS_/.test(traversalText));
+assert('  and graphRetriever passes it from the hub list', /hubIncomingSlotEdgeTypeList: allHubDecompositionEdgeTypeList\(/.test(readText(searchFilePath)));
 const searchText = readText(searchFilePath);
 const literalIncomingMatch = searchText.match(/MATCH \(n\)<-\[:([A-Z_|]+)\]-\(hub:HubReference\)/);
 assert('findMappings carries no literal hub-slot alternation (it is built from the declaration)', !literalIncomingMatch, literalIncomingMatch && literalIncomingMatch[1]);
-assert('findMappings builds its incoming pattern from hubDecompositionEdgeTypeList', /hubDecompositionEdgeTypeList\(/.test(searchText));
+assert('findMappings builds its incoming pattern from allHubDecompositionEdgeTypeList', /const incomingHubEdgePattern = allHubDecompositionEdgeTypeList\(hubNameList\)\.join\('\|'\)/.test(searchText));
 
-runQuery("MATCH (h:HubDefinition) WITH h.hubName AS hubName MATCH ()-[r]->() WHERE type(r) STARTS WITH 'HAS_' + toUpper(hubName) + '_' RETURN DISTINCT type(r) AS edgeType", {}, (err, rowList) => {
+runQuery("MATCH (h:HubDefinition) WITH h.hubName AS hubName MATCH ()-[r]->() WHERE type(r) STARTS WITH 'HAS_' + toUpper(hubName) + '_' RETURN hubName, collect(DISTINCT type(r)) AS edgeTypeList ORDER BY hubName", {}, (err, rowList) => {
 	if (err) { finish(err); return; }
-	assert('live: the graph holds exactly the declared hub edge types (a sixth slot goes red)', sortedText(rowList.map((oneRow) => oneRow.edgeType)) === sortedText(declaredEdgeTypeList), JSON.stringify(rowList.map((oneRow) => oneRow.edgeType)));
+	const undeclaredEdgeTypeList = rowList.reduce((soFar, hubRow) => soFar.concat(hubRow.edgeTypeList.filter((edgeType) => contract.hubDecompositionEdgeTypeList(hubRow.hubName).indexOf(edgeType) === -1)), []);
+	assert('live: every hub edge type the graph holds is a declared slot of its hub (an undeclared slot goes red)', rowList.length > 0 && undeclaredEdgeTypeList.length === 0, `undeclared: ${JSON.stringify(undeclaredEdgeTypeList)}; hubs ${JSON.stringify(rowList.map((hubRow) => hubRow.hubName))}`);
+	const hubSlotEdgeTypeCount = rowList.reduce((soFar, hubRow) => soFar + hubRow.edgeTypeList.filter((edgeType) => contract.HUB_DECOMPOSITION_SLOT_LIST.some((slotName) => edgeType.endsWith(`_${slotName}`))).length, 0);
+	assert('live: each hub holds every hubSlotList slot (DOMAIN..QUALIFIER) the forge declares', hubSlotEdgeTypeCount >= contract.HUB_DECOMPOSITION_SLOT_LIST.length, `${hubSlotEdgeTypeCount}`);
 	finish();
 });

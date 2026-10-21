@@ -40,7 +40,9 @@ const {
 	VERB_INPUT_CONTRACT,
 	VERB_FLAG_DEFAULT_BY_VERB,
 	UNMAPPED_HUB_POLICY,
-	hubDecompositionEdgeTypeList,
+	hubSlotEdgeTypeList,
+	allHubDecompositionEdgeTypeList,
+	HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME,
 	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
@@ -73,8 +75,8 @@ const {
 	GREP_REGEX_FLAVOUR_TEXT,
 	GREP_SCORE_UNIT_BY_FIELD,
 } = require('./lib/toolPayloadContract');
-// W-D-2 / W-D-5 / W-D-8 / W-D-9 (campaign P1): the live _source list and the hub standard are read from the graph
-const { resolveStandardFilter, resolveHubIdentity, familyExpansionFieldsFor } = require('./lib/liveInventory');
+// W-D-2 / W-D-5 / W-D-8 / W-D-9 (campaign P1): the live _source list and the hub standards are read from the graph
+const { resolveStandardFilter, resolveHubList, familyExpansionFieldsFor } = require('./lib/liveInventory');
 // X1 via the CLI: dme_raw_cypher is the model's own Cypher, so it passes the same read-only validator the HTTP / MCP /
 // Slack seam uses (the READ session is the wall; this is the filter that also stops reads that fetch, LOAD CSV / apoc)
 const validateReadOnly = require('../../../server/lib/cypher-validator');
@@ -493,7 +495,7 @@ const findMappings = (session, nameOrId, callback) => {
 		return;
 	}
 	const taskList = new taskListPlus();
-	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => resolveHubList(session, mergeArgs(args, next, 'hubInventory')));
 	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')}
 		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n')} THEN null ELSE 1 END) AS instancePathMatchedNodeCount`,
 		{ name: nameOrId }, (err, countResult) => {
@@ -512,7 +514,7 @@ const findMappings = (session, nameOrId, callback) => {
 			next('', args);
 			return;
 		}
-		runFindMappingsQuery(session, nameOrId, args.hubIdentity, mergeArgs(args, next, 'mappingResult'));
+		runFindMappingsQuery(session, nameOrId, args.hubInventory.hubList, mergeArgs(args, next, 'mappingResult'));
 	});
 	// ⟪campaign P4a, Q9⟫ where the matched instances sit: per standard, the groups (SIF objects, PESC sections) holding an
 	// instance the input matched directly or through its declaration, whether or not it carries a mapping
@@ -550,11 +552,11 @@ const findMappings = (session, nameOrId, callback) => {
 		}
 		if (args.matchedNodeCount === 0) {
 			callback('', refusalFor('findMappings', 'nothingMatched',
-				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; a ${args.hubIdentity.hubName} Global ID looks like P000033 (property) or OV001637175776 (value) — read one from dme_search or dme_explore.`));
+				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; ${hubIdentifierExampleText(args.hubInventory.hubList)} — read one from dme_search or dme_explore.`));
 			return;
 		}
 		callback('', {
-			...shapeFindMappingsResult(args.mappingResult),
+			...shapeFindMappingsResult(args.mappingResult, args.hubInventory.hubList),
 			...shapeHubTupleSummary(args.hubTupleResult),
 			matchedNodeCount: args.matchedNodeCount,
 			instancePathMatchedNodeCount: args.instancePathMatchedNodeCount,
@@ -565,15 +567,40 @@ const findMappings = (session, nameOrId, callback) => {
 				groupList: sourceRecord.get('groupList'),
 			})),
 			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+			hubList: hubListFieldOf(args.hubInventory.hubList),
 		});
 	});
 };
 
+// ⟪ctdlHub P7⟫ the hub standards' _source values, in hub order
+const hubSourceListOf = (hubList) => hubList.map((hubRow) => hubRow.hubSource);
+// the single-hub payloads named THE hub standard in one string field (hubStandard); it is kept where the graph holds one
+// hub, beside hubStandardList, and absent where it holds several (one string cannot name two)
+const legacyHubStandardFieldOf = (hubList) => (hubList.length === 1 ? { hubStandard: hubList[0].hubSource } : {});
+// ⟪ctdlHub P7⟫ the hubs a payload names (top-level hubList): what each hub is, never its internals
+const hubListFieldOf = (hubList) => hubList.map(({ hubName, hubSource, hubVersion }) => ({ hubName, hubSource, hubVersion }));
+
+// what a hub card identifier looks like, per hub, from its declared canonicalKeyName (one hub: the sentence it always was)
+const hubIdentifierExampleText = (hubList) => hubList.map(({ canonicalKeyName, hubName }) => {
+	const exampleText = HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME[canonicalKeyName];
+	return exampleText ? `a ${canonicalKeyName} looks like ${exampleText}` : `a ${hubName} card identifier is its ${canonicalKeyName || 'canonicalKey'}`;
+}).join('; ');
+
 // W-D-5: the incoming arm reads EVERY hub slot, built from the one declared list. W-D-7: each arm returns the element's
 // stableId (fromStableId) and the rows are folded to ONE per mapping (FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST) before
 // they are counted, so two matched nodes reaching one (element, hub, relation) no longer count twice.
-const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callback) => {
-	const incomingHubEdgePattern = hubDecompositionEdgeTypeList(hubName).join('|');
+// ⟪ctdlHub P7⟫ every hub of the graph: a card decomposes through its own hub's slot edges (the alternation over the hubs is
+// exactly one edge type on a single-hub graph), every row names its card's hub (hubName; toSource is that hub), and the
+// rows are grouped by hub before the cap. Two elements pair only through ONE card, so no pair crosses hubs.
+// A term-tier card (CTDL) has no canonicalKey; its identifier is its termIri.
+const HUB_CARD_IDENTIFIER_TEXT = 'coalesce(hub.canonicalKey, hub.termIri)';
+const hubDecompositionMatchTextFor = (hubNameList) => [['DOMAIN', 'cd'], ['PROPERTY', 'cp'], ['RANGE', 'cr'], ['VALUE', 'cv'], ['QUALIFIER', 'cq']]
+	.map(([slotName, leafVariableName]) => `OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(hubNameList, slotName).join('|')}]->(${leafVariableName}:ForgedNode)`)
+	.join('\n\t\t\t');
+const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
+	const hubNameList = hubList.map((hubRow) => hubRow.hubName);
+	const incomingHubEdgePattern = allHubDecompositionEdgeTypeList(hubNameList).join('|');
+	const hubDecompositionMatchText = hubDecompositionMatchTextFor(hubNameList);
 	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE ${findMappingsMatchPredicateFor('n')}
@@ -589,21 +616,17 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			// outgoing: this element resolves to its CEDS tuple (a HubReference), shown via
 			// its decomposed CEDS domain/property, under any of the four relations.
 			MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			${hubDecompositionMatchText}
 			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
 			RETURN 'outgoing' AS direction, n._source AS fromSource, n.name AS fromName, n.stableId AS fromStableId,
-			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
 			       type(m) AS mappingType, m.mappingConfidence AS confidence,
 			       m.predicate AS matchPredicate,
 			       m.mappingConfidence AS mappingConfidence, m.mappingKind AS mappingKind, m.mappingSource AS mappingSource, m.mappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
 			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
-			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE n._id END AS fromElementId,
 			       nDeclaration.name AS instanceOf,
 			       CASE WHEN nDeclaration IS NULL THEN null ELSE [groupName IN [${instanceGroupOf('n')}] WHERE groupName IS NOT NULL] END AS instanceGroupList,
@@ -628,21 +651,17 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			     CASE WHEN otherDeclaration IS NULL THEN null ELSE ${instanceGroupOf('other')} END AS farGroupName
 			WITH n, mNear, hub, farElement, farIsInstanced, farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource, farMappingRationale,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(*) AS farInstanceCount
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			${hubDecompositionMatchText}
 			RETURN ${sharedHubDirectionOf('type(mNear)', 'farMatchType')} AS direction,
 			       farElement._source AS fromSource, farElement.name AS fromName, farElement.stableId AS fromStableId,
-			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
 			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource, farMappingRationale AS mappingRationale,
 			       type(mNear) AS viaMatchType, mNear.mappingConfidence AS viaConfidence, mNear.predicate AS viaPredicate,
 			       mNear.mappingConfidence AS viaMappingConfidence, mNear.mappingKind AS viaMappingKind, mNear.mappingSource AS viaMappingSource, mNear.mappingRationale AS viaMappingRationale,
-			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
 			       CASE WHEN farIsInstanced THEN farElement._id ELSE null END AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
@@ -660,20 +679,16 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
 			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
 			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			${hubDecompositionMatchText}
 			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
-			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
 			       srcMatchType AS mappingType, srcConfidence AS confidence,
 			       srcPredicate AS matchPredicate,
 			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
 			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
-			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
 			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
@@ -692,20 +707,16 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			WITH n, hub, instMatchType, instConfidence, instPredicate, instMappingConfidence, instMappingKind, instMappingSource,
 			     min(instMappingRationale) AS instMappingRationale,
 			     collect(DISTINCT instGroupName) AS instGroupList, count(*) AS instInstanceCount
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			${hubDecompositionMatchText}
 			RETURN 'outgoingViaInstance' AS direction, n._source AS fromSource, n.name AS fromName, n.stableId AS fromStableId,
-			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
 			       instMatchType AS mappingType, instConfidence AS confidence,
 			       instPredicate AS matchPredicate,
 			       instMappingConfidence AS mappingConfidence, instMappingKind AS mappingKind, instMappingSource AS mappingSource, instMappingRationale AS mappingRationale,
 			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
 			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
-			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
 			       n._id AS fromElementId,
 			       null AS instanceOf, instGroupList AS instanceGroupList, instInstanceCount AS instanceCount,
 			       null AS viaInstanceGroupList, null AS viaInstanceCount
@@ -729,21 +740,17 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			     farMatchType, farConfidence, farPredicate, farMappingConfidence, farMappingKind, farMappingSource, farMappingRationale,
 			     collect(DISTINCT nearGroupName) AS nearGroupList, count(DISTINCT nearInstance) AS nearInstanceCount,
 			     collect(DISTINCT farGroupName) AS farGroupList, count(DISTINCT other) AS farInstanceCount
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cd:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cp:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cr:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_QUALIFIER]->(cq:ForgedNode)
+			${hubDecompositionMatchText}
 			RETURN ${sharedHubDirectionOf('nearMatchType', 'farMatchType')} AS direction,
 			       farElement._source AS fromSource, farElement.name AS fromName, farElement.stableId AS fromStableId,
-			       $hubSource AS toSource, hub.name AS toName, hub.canonicalKey AS toId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
 			       farMatchType AS mappingType, farConfidence AS confidence,
 			       farPredicate AS matchPredicate,
 			       farMappingConfidence AS mappingConfidence, farMappingKind AS mappingKind, farMappingSource AS mappingSource, farMappingRationale AS mappingRationale,
 			       nearMatchType AS viaMatchType, nearConfidence AS viaConfidence, nearPredicate AS viaPredicate,
 			       nearMappingConfidence AS viaMappingConfidence, nearMappingKind AS viaMappingKind, nearMappingSource AS viaMappingSource, nearMappingRationale AS viaMappingRationale,
-			       cd.name AS cedsDomain, cp.name AS cedsProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS cedsRange, cv.name AS cedsValue, cq.name AS cedsQualifier,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
 			       farElement._id AS fromElementId,
 			       null AS instanceOf,
 			       CASE WHEN farIsInstanced THEN farGroupList ELSE null END AS instanceGroupList,
@@ -760,12 +767,13 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 		             ELSE 'EXACT_MATCH' END AS rowRelation
 		ORDER BY confidence DESC
 		// one row per mapping (FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST): the best-confidence evidence is kept
-		WITH rowRelation, direction, fromStableId, toId, mappingType, viaMatchType, head(collect({
+		WITH hubName AS rowHub, rowRelation, direction, fromStableId, toId, mappingType, viaMatchType, head(collect({
 			direction: direction,
 			fromSource: fromSource,
 			fromName: fromName,
 			fromStableId: fromStableId,
 			toSource: toSource,
+			hubName: hubName,
 			toName: toName,
 			toId: toId,
 			mappingType: mappingType,
@@ -782,11 +790,11 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			viaMappingKind: viaMappingKind,
 			viaMappingSource: viaMappingSource,
 			viaMappingRationale: viaMappingRationale,
-			cedsDomain: cedsDomain,
-			cedsProperty: cedsProperty,
-			cedsRange: cedsRange,
-			cedsValue: cedsValue,
-			cedsQualifier: cedsQualifier,
+			hubDomain: hubDomain,
+			hubProperty: hubProperty,
+			hubRange: hubRange,
+			hubValue: hubValue,
+			hubQualifier: hubQualifier,
 			fromElementId: fromElementId,
 			instanceOf: instanceOf,
 			instanceGroupList: instanceGroupList,
@@ -794,42 +802,62 @@ const runFindMappingsQuery = (session, nameOrId, { hubName, hubSource }, callbac
 			viaInstanceGroupList: viaInstanceGroupList,
 			viaInstanceCount: viaInstanceCount
 		})) AS mappingRow
-		WITH rowRelation, mappingRow ORDER BY mappingRow.confidence DESC
-		WITH rowRelation, mappingRow.fromSource AS rowStandard, collect(mappingRow) AS standardRowList
-		RETURN rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount,
+		WITH rowHub, rowRelation, mappingRow ORDER BY mappingRow.confidence DESC
+		WITH rowHub, rowRelation, mappingRow.fromSource AS rowStandard, collect(mappingRow) AS standardRowList
+		RETURN rowHub, rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount,
 		       [standardRow IN standardRowList | standardRow.direction] AS directionList, [standardRow IN standardRowList | standardRow.toId] AS toIdList
 	`, {
 		name: nameOrId,
-		hubSource,
 		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
 		nonComposingMatchEdgeTypeList: MATCH_EDGE_TYPE_LIST.filter((edgeType) => !COMPOSING_MATCH_EDGE_TYPE_LIST.includes(edgeType)),
 		findMappingsRowCap: neo4j.int(FIND_MAPPINGS_ROW_CAP),
 	}, callback);
 };
 
-const shapeFindMappingsResult = (result) => {
-	const rowListByRelationAndStandard = {};
-	const totalRowCountByRelationAndStandard = {};
+// ⟪ctdlHub P7, ruling SCARLET_ARROW 2026-10-21⟫ the rows are allocated PER HUB (each hub's rows get the whole relation and
+// standard sharing, and the cap, on their own, so one hub never crowds out another) and shown hub by hub in hubName
+// order: contiguous groups, never interleaved. On a single-hub graph this is exactly the one allocation it was.
+const shapeFindMappingsResult = (result, hubList) => {
+	const rowListByHubRelationAndStandard = {};
+	const totalRowCountByHubRelationAndStandard = {};
 	result.records.forEach((standardRecord) => {
+		const rowHub = standardRecord.get('rowHub');
 		const rowRelation = standardRecord.get('rowRelation');
 		const rowStandard = standardRecord.get('rowStandard');
+		const rowListByRelationAndStandard = rowListByHubRelationAndStandard[rowHub] = rowListByHubRelationAndStandard[rowHub] || {};
+		const totalRowCountByRelationAndStandard = totalRowCountByHubRelationAndStandard[rowHub] = totalRowCountByHubRelationAndStandard[rowHub] || {};
 		rowListByRelationAndStandard[rowRelation] = rowListByRelationAndStandard[rowRelation] || {};
 		totalRowCountByRelationAndStandard[rowRelation] = totalRowCountByRelationAndStandard[rowRelation] || {};
 		rowListByRelationAndStandard[rowRelation][rowStandard] = standardRecord.get('topRowList');
 		totalRowCountByRelationAndStandard[rowRelation][rowStandard] = toNumber(standardRecord.get('standardRowCount'));
 	});
-	const {
-		shownRowList,
-		totalRowCountByRelation,
-		truncatedRowCountByRelation,
-		truncatedRowCountByRelationAndStandard,
-	} = allocateMappingRowsByRelation(rowListByRelationAndStandard, totalRowCountByRelationAndStandard);
+	const shownRowList = [];
+	const totalRowCountByRelation = {};
+	const truncatedRowCountByRelation = {};
+	const truncatedRowCountByRelationAndStandard = {};
+	const totalRowCountByRelationAndStandard = {};
+	const totalRowCountByHub = {};
+	const sumOf = (countByRelation) => Object.values(countByRelation).reduce((runningTotal, oneCount) => runningTotal + oneCount, 0);
+	hubList.forEach(({ hubName }) => {
+		const hubAllocation = allocateMappingRowsByRelation(rowListByHubRelationAndStandard[hubName] || {}, totalRowCountByHubRelationAndStandard[hubName] || {});
+		shownRowList.push(...hubAllocation.shownRowList);
+		totalRowCountByHub[hubName] = sumOf(hubAllocation.totalRowCountByRelation);
+		addCountsInto(totalRowCountByRelation, hubAllocation.totalRowCountByRelation);
+		addCountsInto(truncatedRowCountByRelation, hubAllocation.truncatedRowCountByRelation);
+		addNestedCountsInto(truncatedRowCountByRelationAndStandard, hubAllocation.truncatedRowCountByRelationAndStandard);
+		addNestedCountsInto(totalRowCountByRelationAndStandard, totalRowCountByHubRelationAndStandard[hubName] || {});
+	});
+	// the legacy ceds* row fields: kept, beside the hub* ones, only where the graph holds exactly one hub — the payload a
+	// single-hub gold always answered (the frozen rater payloads were recorded on one); on a several-hub graph a CTDL row
+	// labelled cedsDomain would be a lie, so they are absent there
+	const legacySingleHubFieldsWanted = hubList.length === 1;
 
 	const mappingRowList = shownRowList.map(rowObject => {
 		const rec = { get: (columnName) => rowObject[columnName] };
-		// cedsTuple: the CEDS anchor rendered as its full tuple (domain · property · range [· value]),
-		// with the canonicalKey in parens — so consumers show the tuple, not just the bare Global ID.
-		const tupleParts = [rec.get('cedsDomain'), rec.get('cedsProperty'), rec.get('cedsRange'), rec.get('cedsValue')].filter(Boolean);
+		// hubTuple: the hub card rendered as its full tuple (domain · property · range [· value]), with the card identifier in
+		// parens — so consumers show the tuple, not just the bare identifier. cedsTuple is its single-hub legacy name.
+		const tupleParts = [rec.get('hubDomain'), rec.get('hubProperty'), rec.get('hubRange'), rec.get('hubValue')].filter(Boolean);
+		const hubTuple = tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null;
 		const mappingRow = {
 			direction: rec.get('direction'),
 			fromSource: rec.get('fromSource'),
@@ -844,12 +872,21 @@ const shapeFindMappingsResult = (result) => {
 			viaMatchType: rec.get('viaMatchType'),
 			viaConfidence: rec.get('viaConfidence') != null ? Number(rec.get('viaConfidence')) : null,
 			viaPredicate: rec.get('viaPredicate'),
-			cedsDomain: rec.get('cedsDomain'),
-			cedsProperty: rec.get('cedsProperty'),
-			cedsRange: rec.get('cedsRange'),
-			cedsValue: rec.get('cedsValue'),
-			cedsQualifier: rec.get('cedsQualifier'),
-			cedsTuple: tupleParts.length ? `${tupleParts.join(' · ')} (${rec.get('toId')})` : null,
+			...(legacySingleHubFieldsWanted ? {
+				cedsDomain: rec.get('hubDomain'),
+				cedsProperty: rec.get('hubProperty'),
+				cedsRange: rec.get('hubRange'),
+				cedsValue: rec.get('hubValue'),
+				cedsQualifier: rec.get('hubQualifier'),
+				cedsTuple: hubTuple,
+			} : {}),
+			hubName: rec.get('hubName'),
+			hubDomain: rec.get('hubDomain'),
+			hubProperty: rec.get('hubProperty'),
+			hubRange: rec.get('hubRange'),
+			hubValue: rec.get('hubValue'),
+			hubQualifier: rec.get('hubQualifier'),
+			hubTuple,
 		};
 		// The judgment fields are always present (null on a graph that predates them). mappingSource is
 		// also the DEBUG flag: 'bridge-debug' marks an edge a debug judge produced mechanically, so it
@@ -880,7 +917,6 @@ const shapeFindMappingsResult = (result) => {
 	result.records.forEach((standardRecord) => standardRecord.get('directionList').forEach((direction) => {
 		totalRowCountByDirection[direction] = (totalRowCountByDirection[direction] || 0) + 1;
 	}));
-	const sumOf = (countByRelation) => Object.values(countByRelation).reduce((runningTotal, oneCount) => runningTotal + oneCount, 0);
 	return {
 		...listEnvelopeFor('findMappings', mappingRowList, sumOf(totalRowCountByRelation)),
 		totalRowCountByRelation,
@@ -888,8 +924,18 @@ const shapeFindMappingsResult = (result) => {
 		totalRowCountByRelationAndStandard,
 		truncatedRowCountByRelationAndStandard,
 		totalRowCountByDirection,
+		totalRowCountByHub,
 	};
 };
+
+// ⟪ctdlHub P7⟫ per-hub counts summed into the payload's totals, key by key (a relation, or a relation and a standard)
+const addCountsInto = (countByName, addedCountByName) => Object.keys(addedCountByName).forEach((countName) => {
+	countByName[countName] = (countByName[countName] || 0) + addedCountByName[countName];
+});
+const addNestedCountsInto = (countByOuterAndInnerName, addedCountByOuterAndInnerName) => Object.keys(addedCountByOuterAndInnerName).forEach((outerName) => {
+	countByOuterAndInnerName[outerName] = countByOuterAndInnerName[outerName] || {};
+	addCountsInto(countByOuterAndInnerName[outerName], addedCountByOuterAndInnerName[outerName]);
+});
 
 // ⟪campaign P4a, Q1⟫ one summary per CEDS tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
 // from the graph, most edges first, at most HUB_TUPLE_SUMMARY_CAP (hubTupleCount says how many there are)
@@ -897,7 +943,8 @@ const shapeHubTupleSummary = (hubTupleResult) => {
 	const summaryByToId = {};
 	hubTupleResult.records.forEach((relationRecord) => {
 		const toId = relationRecord.get('toId');
-		const summary = summaryByToId[toId] = summaryByToId[toId] || { toId, toName: relationRecord.get('toName'), edgeCount: 0, edgeCountByRelation: {}, elementCount: 0, elementCountByRelation: {}, instanceEdgeCount: 0, elementStableIdSet: new Set() };
+		const summaryIdentityText = `${relationRecord.get('hubName')}\u0000${toId}`; // ⟪ctdlHub P7⟫ a card is one hub's
+		const summary = summaryByToId[summaryIdentityText] = summaryByToId[summaryIdentityText] || { toId, toName: relationRecord.get('toName'), edgeCount: 0, edgeCountByRelation: {}, elementCount: 0, elementCountByRelation: {}, instanceEdgeCount: 0, elementStableIdSet: new Set(), hubName: relationRecord.get('hubName') };
 		const relation = relationRecord.get('relation');
 		summary.edgeCountByRelation[relation] = toNumber(relationRecord.get('edgeCount'));
 		summary.elementCountByRelation[relation] = toNumber(relationRecord.get('elementCount'));
@@ -913,8 +960,9 @@ const shapeHubTupleSummary = (hubTupleResult) => {
 
 // W-D-8 (campaign P1; DME half of G9): whether the build judged option values at all is read from the graph
 // (VALUE_TIER_JUDGMENT_COUNT_CYPHER), never assumed. With none, a null matchType means NOT JUDGED — the payload's
-// verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hub is read from
-// :HubDefinition (it was the literal 'CEDS').
+// verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hubs are read from
+// :HubDefinition (it was the literal 'CEDS'); ⟪ctdlHub P7⟫ every hub standard is excluded, and each row names its value
+// card's hub (a cross-standard equivalent is another standard's value on the SAME card, so never across hubs).
 const compareCodesets = (session, name, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
 	if (emptyNameRefusal) {
@@ -922,12 +970,12 @@ const compareCodesets = (session, name, callback) => {
 		return;
 	}
 	const taskList = new taskListPlus();
-	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => resolveHubList(session, mergeArgs(args, next, 'hubInventory')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
-		WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> $hubSource
+		WHERE toLower(os.name) CONTAINS toLower($name) AND NOT os._source IN $hubSourceList
 		RETURN count(os) AS matchedOptionSetCount
-	`, { name, hubSource: args.hubIdentity.hubSource }, (err, countResult) => {
+	`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList) }, (err, countResult) => {
 		if (err) {
 			next(err, args);
 			return;
@@ -950,20 +998,20 @@ const compareCodesets = (session, name, callback) => {
 		// are its cross-standard equivalents.
 		runCypherQuery(session, `
 			MATCH (os:ForgedNode {role: 'DmeOptionSet'})
-			WHERE toLower(os.name) CONTAINS toLower($name) AND os._source <> $hubSource
+			WHERE toLower(os.name) CONTAINS toLower($name) AND NOT os._source IN $hubSourceList
 			MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
 			OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference {referenceTier: 'value'})
-			OPTIONAL MATCH (hub)-[:HAS_CEDS_VALUE]->(cv:ForgedNode)
+			OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(args.hubInventory.hubList.map((hubRow) => hubRow.hubName), 'VALUE').join('|')}]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
 			WHERE ov._source <> os._source
 			WITH os, v, m, hub, cv, collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
 			ORDER BY os._source, os.name, v.name
 			WITH collect({ sourceStandard: os._source, optionSetName: os.name, sourceValue: v.name, matchType: type(m),
 			               confidence: m.mappingConfidence, mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind,
-			               mappingSource: m.mappingSource, cedsValue: cv.name, cedsValueKey: hub.canonicalKey,
+			               mappingSource: m.mappingSource, hubName: hub.hubName, hubValue: cv.name, hubValueKey: hub.canonicalKey,
 			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList
 			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount
-		`, { name, hubSource: args.hubIdentity.hubSource, rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, mergeArgs(args, next, 'valueResult'));
+		`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList), rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, mergeArgs(args, next, 'valueResult'));
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
@@ -979,9 +1027,10 @@ const compareCodesets = (session, name, callback) => {
 	});
 };
 
-const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, matchedOptionSetCount }) => {
+const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, matchedOptionSetCount, hubInventory }) => {
 	const valueRecord = valueResult.records[0];
 	const valuesJudged = valueTierJudgmentCount > 0;
+	const legacySingleHubFieldsWanted = hubInventory.hubList.length === 1; // as findMappings: ceds* names on a one-hub graph only
 	const valueRowList = valueRecord.get('valueRowList').map((oneRow) => {
 		const plainRow = serializeValue(oneRow);
 		const shapedRow = {
@@ -993,8 +1042,10 @@ const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, match
 			...(plainRow.mappingConfidence != null ? { mappingConfidence: Number(plainRow.mappingConfidence) } : {}),
 			...(plainRow.mappingKind != null ? { mappingKind: plainRow.mappingKind } : {}),
 			...(plainRow.mappingSource != null ? { mappingSource: plainRow.mappingSource } : {}),
-			cedsValue: plainRow.cedsValue,
-			cedsValueKey: plainRow.cedsValueKey,
+			...(legacySingleHubFieldsWanted ? { cedsValue: plainRow.hubValue, cedsValueKey: plainRow.hubValueKey } : {}),
+			hubName: plainRow.hubName,
+			hubValue: plainRow.hubValue,
+			hubValueKey: plainRow.hubValueKey,
 		};
 		if (valuesJudged) {
 			shapedRow.crossStandardEquivalents = plainRow.crossStandardEquivalents.filter((equivalentText) => equivalentText && !equivalentText.startsWith('null'));
@@ -1007,13 +1058,16 @@ const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, match
 		valueTierJudgmentCount,
 		matchedOptionSetCount,
 		...listEnvelopeFor('compareCodesets', valueRowList, toNumber(valueRecord.get('totalRowCount'))),
+		hubList: hubListFieldOf(hubInventory.hubList),
 	};
 };
 
 // W-D-9 (campaign P1; A10 ruled excludeHub): the hub does not map to itself, so the backlog of the NON-hub standards is
 // listed; the hub is named in the result. UNMAPPED_HUB_POLICY picks the clause from this table (data, not a branch).
+// ⟪ctdlHub P7⟫ EVERY hub standard is excluded: a hub maps to no hub in this lane (the declared CEDS-CTDL seam is
+// DECLARED_CORRESPONDENCE, never a match edge).
 const HUB_POLICY_PROPERTY_FILTER_BY_NAME = Object.freeze({
-	excludeHub: 'f._source <> $hubSource',
+	excludeHub: 'NOT f._source IN $hubSourceList',
 	reportHubSeparately: 'true',
 });
 const hubPolicyPropertyFilter = () => {
@@ -1035,11 +1089,12 @@ const unmappedFields = (session, params, callback) => {
 			callback('', standardFilter.refusal);
 			return;
 		}
-		resolveHubIdentity(session, (hubError, hubIdentity) => {
+		resolveHubList(session, (hubError, hubInventory) => {
 			if (hubError) {
 				callback(hubError);
 				return;
 			}
+			const hubSourceList = hubSourceListOf(hubInventory.hubList);
 			runCypherQuery(session, `
 				MATCH (f:ForgedNode {role: 'DmeProperty'})
 				WHERE ($sourceList IS NULL OR f._source IN $sourceList)
@@ -1051,9 +1106,9 @@ const unmappedFields = (session, params, callback) => {
 				  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 				WITH f ORDER BY f._source, f.name
 				WITH collect({ standard: f._source, fieldName: f.name, path: f.path, description: f.description,
-				               isHubStandard: f._source = $hubSource }) AS rowList
+				               isHubStandard: f._source IN $hubSourceList }) AS rowList
 				RETURN rowList[..$limit] AS unmappedRowList, size(rowList) AS totalRowCount
-			`, { limit: neo4j.int(limit), sourceList: standardFilter.sourceList, hubSource: hubIdentity.hubSource }, (err, result) => {
+			`, { limit: neo4j.int(limit), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
 				if (err) {
 					callback(err);
 					return;
@@ -1061,9 +1116,10 @@ const unmappedFields = (session, params, callback) => {
 				const unmappedRecord = result.records[0];
 				callback('', {
 					...listEnvelopeFor('unmappedFields', unmappedRecord.get('unmappedRowList').map(serializeValue), toNumber(unmappedRecord.get('totalRowCount'))),
-					hubStandard: hubIdentity.hubSource,
+					...legacyHubStandardFieldOf(hubInventory.hubList),
 					hubPolicy: UNMAPPED_HUB_POLICY,
 					...familyExpansionFieldsFor(standardFilter),
+					hubStandardList: hubSourceList,
 				});
 			});
 		});
@@ -1113,23 +1169,30 @@ const getStats = (session, callback) => {
 	// Mapping coverage over DmeProperty nodes. A SIF Question / PESC element counts as mapped when
 	// its mapping lives on one of its HAS_INSTANCE instances (the bridges fan verdicts out there).
 	// W-D-9 (A10 excludeHub): the hub's own properties are counted apart, never in the denominator.
-	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => resolveHubList(session, mergeArgs(args, next, 'hubInventory')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (f:ForgedNode {role: 'DmeProperty'})
-		WITH f, f._source = $hubSource AS isHubProperty,
+		WITH f, f._source IN $hubSourceList AS isHubProperty,
 		     ((f)-->(:HubReference) OR (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)) AS isMapped
 		WITH count(CASE WHEN ${hubPolicyPropertyFilter()} THEN 1 END) AS totalProperties,
 		     count(CASE WHEN ${hubPolicyPropertyFilter()} AND isMapped THEN 1 END) AS mappedProperties,
 		     count(CASE WHEN isHubProperty THEN 1 END) AS hubPropertyCount
 		RETURN totalProperties, mappedProperties, hubPropertyCount
-	`, { hubSource: args.hubIdentity.hubSource }, mergeArgs(args, next, 'coverageResult')));
+	`, { hubSourceList: hubSourceListOf(args.hubInventory.hubList) }, mergeArgs(args, next, 'coverageResult')));
+	// ⟪ctdlHub P7⟫ per hub, the NON-hub properties mapped onto that hub's cards, counted live from the match edges (ruling
+	// SCARLET_ARROW 2026-10-21: the finisher's JSON string property is not parsed). Every hub is listed, zero stated.
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (f:ForgedNode {role: 'DmeProperty'}) WHERE ${hubPolicyPropertyFilter()}
+		MATCH (f)-[:HAS_INSTANCE*0..1]->(:ForgedNode)-->(hub:HubReference)
+		RETURN hub.hubName AS hubName, count(DISTINCT f) AS mappedPropertyCount
+	`, { hubSourceList: hubSourceListOf(args.hubInventory.hubList) }, mergeArgs(args, next, 'mappedByHubResult')));
 
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
 			return;
 		}
-		const { bySourceResult, byRoleResult, layerResult, mappingResult, otherMatchEdgeResult, coverageResult, hubIdentity } = args;
+		const { bySourceResult, byRoleResult, layerResult, mappingResult, otherMatchEdgeResult, coverageResult, mappedByHubResult, hubInventory } = args;
 		const layerNodeCountList = layerResult.records.map((rec) => ({ standard: rec.get('source'), layerKey: rec.get('layerKey'), layerVersion: rec.get('layerVersion'), nodeCount: toNumber(rec.get('count')) }));
 		const bySource = {};
 		bySourceResult.records.forEach((rec) => {
@@ -1151,9 +1214,14 @@ const getStats = (session, callback) => {
 		const coverage = {
 			totalProperties: toNumber(coverageRecord.get('totalProperties')),
 			mappedProperties: toNumber(coverageRecord.get('mappedProperties')),
-			hubStandard: hubIdentity.hubSource,
+			...legacyHubStandardFieldOf(hubInventory.hubList),
 			hubPropertyCount: toNumber(coverageRecord.get('hubPropertyCount')),
 			hubPolicy: UNMAPPED_HUB_POLICY,
+			hubStandardList: hubSourceListOf(hubInventory.hubList),
+			mappedPropertyCountByHub: Object.fromEntries(hubInventory.hubList.map(({ hubName }) => {
+				const hubRecord = mappedByHubResult.records.find((oneRecord) => oneRecord.get('hubName') === hubName);
+				return [hubName, hubRecord ? toNumber(hubRecord.get('mappedPropertyCount')) : 0];
+			})),
 		};
 		callback('', { bySource, byRole, layerNodeCountList, mappings, coverage });
 	});
@@ -1200,12 +1268,17 @@ const getListStandards = (session, callback) => {
 	// WEL (2026-10-07): the DME welcome screen renders this list, so each row says whether it IS the hub (read from the
 	// one :HubDefinition, never a literal) and how many match edges carry its nodes to the hub. A hub row's count is 0
 	// by construction: the hub does not map to itself.
-	taskList.push((args, next) => resolveHubIdentity(session, mergeArgs(args, next, 'hubIdentity')));
+	taskList.push((args, next) => resolveHubList(session, mergeArgs(args, next, 'hubInventory')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (r:DmeStandardRoot)
 		OPTIONAL MATCH (n:ForgedNode {_source: r._source})-[m:${MATCH_EDGE_PATTERN}]->(:HubReference)
 		RETURN r._source AS source, count(m) AS hubMatchEdgeCount
 	`, {}, mergeArgs(args, next, 'hubMatchEdgeResult')));
+	// ⟪ctdlHub P7⟫ the same edges per hub: which hub each standard reaches (every hub listed, zero stated)
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (n:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
+		RETURN n._source AS source, hub.hubName AS hubName, count(m) AS hubMatchEdgeCount
+	`, {}, mergeArgs(args, next, 'hubMatchEdgeByHubResult')));
 	taskList.push((args, next) => runCypherQuery(session, `
 		MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL
 		WITH d.standardFamily AS family, collect(d.sourceKey) AS sourceList
@@ -1217,6 +1290,11 @@ const getListStandards = (session, callback) => {
 			return;
 		}
 		const hubMatchEdgeCountBySource = Object.fromEntries(args.hubMatchEdgeResult.records.map((rec) => [rec.get('source'), toNumber(rec.get('hubMatchEdgeCount'))]));
+		const hubSourceList = hubSourceListOf(args.hubInventory.hubList);
+		const hubMatchEdgeCountByHubFor = (standardSource) => Object.fromEntries(args.hubInventory.hubList.map(({ hubName }) => {
+			const edgeRecord = args.hubMatchEdgeByHubResult.records.find((oneRecord) => oneRecord.get('source') === standardSource && oneRecord.get('hubName') === hubName);
+			return [hubName, edgeRecord ? toNumber(edgeRecord.get('hubMatchEdgeCount')) : 0];
+		}));
 		const standards = args.standardResult.records.map((rec) => ({
 			source: rec.get('source'),
 			standardKey: rec.get('standardKey'),
@@ -1230,9 +1308,10 @@ const getListStandards = (session, callback) => {
 			// educoreForge lane FIX, Fix 3 (TQ): the provenance of the standard's description text, from its card
 			descriptionSource: rec.get('descriptionSource'),
 			nodeCount: toNumber(rec.get('nodeCount')),
-			isHub: rec.get('source') === args.hubIdentity.hubSource,
+			isHub: hubSourceList.indexOf(rec.get('source')) !== -1,
 			hubMatchEdgeCount: hubMatchEdgeCountBySource[rec.get('source')],
 			mappedToHub: hubMatchEdgeCountBySource[rec.get('source')] > 0,
+			hubMatchEdgeCountByHub: hubMatchEdgeCountByHubFor(rec.get('source')),
 		}));
 		const familyList = args.familyResult.records.map((rec) => ({
 			family: rec.get('family'),
@@ -1241,10 +1320,12 @@ const getListStandards = (session, callback) => {
 		}));
 		const totals = {
 			standardCount: toNumber(args.standardCountResult.records[0].get('standardCount')),
-			hubSource: args.hubIdentity.hubSource,
+			...(args.hubInventory.hubList.length === 1 ? { hubSource: hubSourceList[0] } : {}),
 			familyList,
 			familyFieldPresent: familyList.length > 0,
 			...(familyList.length > 0 ? {} : { familyNote: "this build's StandardDefinitions carry no standardFamily; family totals are unavailable (the forges declare the family — W-C-4, rebuild P3)" }),
+			hubStandardList: hubSourceList,
+			hubList: hubListFieldOf(args.hubInventory.hubList),
 		};
 		callback('', { standards, count: standards.length, totals });
 	});
@@ -1704,6 +1785,14 @@ const graphRetriever = (session, query, config, params, callback) => {
 
 	const taskList = new taskListPlus();
 	taskList.push((args, next) => resolveSearchIndexes({ session, verbName: 'graphRetriever', searchMode: params.searchMode }, (indexError, searchIndexes) => (indexError ? next(indexError, args) : next('', { ...args, searchIndexes }))));
+	// ⟪ctdlHub P7⟫ traversal.cypher's incoming arm reads every hub's slot edges, so it is told the graph's hubs
+	taskList.push((args, next) => {
+		if (args.searchIndexes.refusal) {
+			next('', args);
+			return;
+		}
+		resolveHubList(session, mergeArgs(args, next, 'hubInventory'));
+	});
 	taskList.push((args, next) => {
 		if (args.searchIndexes.refusal) {
 			next('', args);
@@ -1717,7 +1806,8 @@ const graphRetriever = (session, query, config, params, callback) => {
 			next('', args);
 			return;
 		}
-		retrieve({ neo4jSession: session, hitList: args.searchResult.fusedRowList.slice(0, limitNumber), traversalFilePath: path.join(__dirname, 'traversal.cypher') }, (retrieveError, retrievedResult) =>
+		const traversalParameterByName = { hubIncomingSlotEdgeTypeList: allHubDecompositionEdgeTypeList(args.hubInventory.hubList.map((hubRow) => hubRow.hubName)) };
+		retrieve({ neo4jSession: session, hitList: args.searchResult.fusedRowList.slice(0, limitNumber), traversalFilePath: path.join(__dirname, 'traversal.cypher'), traversalParameterByName }, (retrieveError, retrievedResult) =>
 			retrieveError ? next(retrieveError, args) : next('', { ...args, retrievedResult }));
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {

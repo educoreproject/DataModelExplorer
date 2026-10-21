@@ -76,6 +76,14 @@ taskList.push((args, next) => {
 		(queryError) => next(`seed query failed: ${queryError.message}`, args),
 	);
 });
+// ⟪ctdlHub P7⟫ traversal.cypher's graph parameters, as graphRetriever builds them: every hub's slot edge types
+const { allHubDecompositionEdgeTypeList } = require(path.join(dmeDirPath, 'lib', 'toolPayloadContract.js'));
+taskList.push((args, next) => {
+	liveSession.run('MATCH (h:HubDefinition) RETURN h.hubName AS hubName ORDER BY hubName').then(
+		(queryResult) => next('', { ...args, traversalParameterByName: { hubIncomingSlotEdgeTypeList: allHubDecompositionEdgeTypeList(queryResult.records.map((oneRecord) => oneRecord.get('hubName'))) } }),
+		(queryError) => next(`hub query failed: ${queryError.message}`, args),
+	);
+});
 
 // THE SEARCH (lib/hybridRetrieval.js): [caseName, (args, done) => run, assertions]
 const SEARCH_CASE_LIST = [
@@ -111,10 +119,10 @@ const RETRIEVER_CASE_LIST = [
 		(args) => ({ neo4jSession: liveSession, hitList: undefined, traversalFilePath: realTraversalFilePath }),
 		(errorText, retrievedResult) => assert('hitList undefined → "graphRetriever: hitList must be the search\'s fused hit list (an array); got undefined."', errorText === "graphRetriever: hitList must be the search's fused hit list (an array); got undefined.", answerTextOf(errorText, retrievedResult))],
 	['a traversal file that exists but fails in Neo4j is refused by name (live)',
-		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: failingTraversalFilePath }),
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: failingTraversalFilePath, traversalParameterByName: args.traversalParameterByName }),
 		(errorText, retrievedResult) => assert('traversal Cypher error → "failingTraversal.cypher failed: <Neo4j message>"', /^failingTraversal\.cypher failed: Invalid input/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
 	['a traversal path that cannot be read is refused by name',
-		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: scratchDirPath }),
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: scratchDirPath, traversalParameterByName: args.traversalParameterByName }),
 		(errorText, retrievedResult) => assert('traversal path is a directory → "Reading <name> failed: EISDIR…"', new RegExp(`^Reading ${path.basename(scratchDirPath)} failed: EISDIR`).test(errorText || ''), answerTextOf(errorText, retrievedResult))],
 	['no traversal file present → the hits flat, and the result says so',
 		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: absentTraversalFilePath }),
@@ -127,8 +135,12 @@ const RETRIEVER_CASE_LIST = [
 	['no traversal file configured → the hits flat, and the result says so',
 		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList.slice(0, 2), traversalFilePath: '' }),
 		(errorText, retrievedResult) => assert('retrievalNote says no traversal file is configured', !errorText && !!retrievedResult && retrievedResult.retrievalMode === 'flat' && retrievedResult.resultCount === 2 && retrievedResult.retrievalNote === 'no traversal file configured; the search hits without graph traversal', answerTextOf(errorText, retrievedResult))],
-	['control: the real traversal answers its row list, each row carrying the hit\'s provenance unchanged (live)',
+	// ⟪ctdlHub P7⟫ a traversal that will run, told nothing about the graph's hubs, is refused by name before Neo4j sees it
+	['a traversal run without its graph parameters is refused by name',
 		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: realTraversalFilePath }),
+		(errorText, retrievedResult) => assert('traversalParameterByName absent → "graphRetriever: traversalParameterByName must be the object of traversal.cypher\'s graph parameters…"', /^graphRetriever: traversalParameterByName must be the object of traversal\.cypher's graph parameters/.test(errorText || ''), answerTextOf(errorText, retrievedResult))],
+	['control: the real traversal answers its row list, each row carrying the hit\'s provenance unchanged (live)',
+		(args) => ({ neo4jSession: liveSession, hitList: args.seededHitList, traversalFilePath: realTraversalFilePath, traversalParameterByName: args.traversalParameterByName }),
 		(errorText, retrievedResult) => {
 			assert('traversal answers without error', !errorText, answerTextOf(errorText, retrievedResult));
 			// W-D-10 (campaign P1): the traversal answers { retrievalMode, requestedHitCount, returnedHitCount, hitList }
