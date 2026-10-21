@@ -115,6 +115,10 @@ taskList.push((args, next) => {
 	const hubNamingList = textList.filter(({ oneValue }) => /\bCEDS\b/i.test(oneValue)).map(({ pathText }) => pathText);
 	assert('row-unit and count-unit text read by the model names no hub (\'hub tuple\', never \'CEDS tuple\')', textList.length > 10 && hubNamingList.length === 0, `${textList.length} texts; naming CEDS: ${hubNamingList.join(', ')}`);
 	assert('the per-hub identifier example table is gone from code (the examples are read from the graph)', !('HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME' in contract));
+	// ⟪lane R6⟫ a DECLARED_CORRESPONDENCE edge carries mappingKind 'authored' (its forge's stamp, block content), and askMilo
+	// has called it an 'authored mapping' (SCARLET_ARROW, 2026-10-21): the text the model reads says plainly that it is not
+	const schemaProviderSourceText = require('fs').readFileSync(path.join(dmeDirPath, '..', '..', '..', 'server', 'lib', 'schema-provider.js'), 'utf8');
+	assert('a declared correspondence is a published statement, never an \'authored mapping\' (row unit and getSchema text)', /never an 'authored mapping'/.test(contract.DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT) && /never an 'authored mapping'/.test(schemaProviderSourceText), contract.DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT.slice(-120));
 	next('', args);
 });
 

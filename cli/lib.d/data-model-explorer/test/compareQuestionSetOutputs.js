@@ -61,6 +61,7 @@ const LANE_R6_TEXT_REPLACEMENT_LIST = Object.freeze([
 	['EDGES into this CEDS tuple per relation', 'EDGES into this hub tuple per relation'],
 	['a CEDS Global ID looks like P000033 (property) or OV001637175776 (value)', 'a CEDS Global ID looks like P000001 (property) or OV000002113286 (value)'],
 	['a CTDL term CURIE looks like ceterms:Credential (term) or ceterms:name (property)', 'a CTDL term CURIE looks like ceterms:accommodationType (property) or accommodation:AccessibleHousing (value)'],
+	["never compose it with a match edge, never count it as mapped", "never compose it with a match edge, never count it as mapped. Its edge's mappingKind 'authored' names who published the statement: it is a published statement, never a mapping and never an 'authored mapping'"],
 ]);
 
 // the baseline brought to the R6 names: removed fields dropped, fields renamed IN PLACE (key order kept), values renamed,
