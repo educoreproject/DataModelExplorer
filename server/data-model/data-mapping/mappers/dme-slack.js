@@ -9,7 +9,7 @@
 //
 // Three responsibilities, all pure translation:
 //   1. getCypher(queryName, params) — parameterized element-lookup templates
-//      against the CURRENT golden schema (ForgedNode / HubReference / CEDS hub
+//      against the CURRENT golden schema (ForgedNode / HubReference hub
 //      tuples). User text travels ONLY in $params, never in query text. No
 //      CALL {} subqueries — these queries pass the hardened cypher validator
 //      (so a card is two named queries, merged by mergeElementCard).
@@ -31,7 +31,6 @@ const {
 	SLACK_CARD_CARRIED_BY_LIST,
 	SLACK_CARDABLE_ROLE_LIST,
 	cardHubSlotEdgeTypeTextFor,
-	HUB_SOURCE_LIST_CYPHER_TEXT,
 } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 
 // Slack hard limits are ~3k chars per section and ~50 blocks per message;
@@ -57,8 +56,8 @@ const hubDecompositionMatchText = ['DOMAIN', 'PROPERTY', 'RANGE'].map((slotName)
 	return `OPTIONAL MATCH (hub)-[${leafVariableName}SlotEdge]->(${leafVariableName}:ForgedNode) WHERE type(${leafVariableName}SlotEdge) = ${cardHubSlotEdgeTypeTextFor('hub', slotName)}`;
 }).join('\n\t\t\t\t\t\t');
 // one tuple's fields, in SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST order, for the two card arms. ⟪ctdlHub P7⟫ hubSource names the
-// card's hub (hubName is the CARD's name); the hub* leaf names are the hub-neutral ones, and mergeElementCard drops the
-// legacy ceds* names where the graph holds more than one hub (hubDefinitionCount)
+// card's hub (hubName is the CARD's name); the hub* leaf names are the hub-neutral ones. ⟪deCeds R6⟫ the legacy ceds* leaf
+// names are gone on every graph
 const cardTupleProjection = (carriedByText, instanceGroupListText, instanceCountText) => `{
 									mappingType: mappingType,
 									confidence: confidence,
@@ -66,9 +65,6 @@ const cardTupleProjection = (carriedByText, instanceGroupListText, instanceCount
 									mappingSource: mappingSource,
 									hubName: hub.name,
 									hubKey: hub.canonicalKey,
-									cedsDomain: hubDomain.name,
-									cedsProperty: hubProperty.name,
-									cedsRange: coalesce(hubRange.name, hub.rangeDatatype),
 									carriedBy: ${carriedByText},
 									instanceGroupList: ${instanceGroupListText},
 									instanceCount: ${instanceCountText},
@@ -129,7 +125,7 @@ const moduleFunction =
 					params: { term: String(queryParams.term || ''), cardableRoleList: SLACK_CARDABLE_ROLE_LIST },
 				},
 
-				// ----- elementCardOwn — one node's card, keyed by stableId: identity, the CEDS hub tuples on its
+				// ----- elementCardOwn — one node's card, keyed by stableId: identity, the hub tuples on its
 				// OWN match edges, and the peers from other standards on those hubs
 				elementCardOwn: {
 					cypher: `
@@ -148,8 +144,7 @@ const moduleFunction =
 								peerSource: peer._source,
 								mappingType: type(peerMatch),
 								hubSource: hub.hubName
-							}) AS peers,
-							size(${HUB_SOURCE_LIST_CYPHER_TEXT}) AS hubDefinitionCount
+							}) AS peers
 					`,
 					params: { stableId: String(queryParams.stableId || '') },
 				},
@@ -252,30 +247,23 @@ const moduleFunction =
 		};
 
 		// ----- the two card arms → one card; an undeclared carrier is refused by name (W-E-1)
-		// ⟪ctdlHub P7⟫ the legacy ceds* tuple names are kept beside hub* only where the graph holds one hub
-		// (hubDefinitionCount, read by the own arm); hubDefinitionCount itself is not part of the card
-		const LEGACY_SINGLE_HUB_TUPLE_FIELD_NAME_LIST = ['cedsDomain', 'cedsProperty', 'cedsRange'];
 		const mergeElementCard = ({ ownRow, viaInstanceRow }) => {
 			if (!ownRow || !ownRow.stableId) {
 				return { refusalText: 'mergeElementCard: the own arm returned no node', card: null };
 			}
-			const { hubDefinitionCount, ...ownCardRow } = ownRow;
-			const tupleFieldsFor = (tuple) => (hubDefinitionCount > 1
-				? Object.fromEntries(Object.entries(tuple).filter(([fieldName]) => LEGACY_SINGLE_HUB_TUPLE_FIELD_NAME_LIST.indexOf(fieldName) === -1))
-				: tuple);
-			const hubTuples = [...(ownCardRow.hubTuples || []), ...((viaInstanceRow || {}).hubTuples || [])].map(tupleFieldsFor);
+			const hubTuples = [...(ownRow.hubTuples || []), ...((viaInstanceRow || {}).hubTuples || [])];
 			const strangeTuple = hubTuples.find((tuple) => tuple.hubName && SLACK_CARD_CARRIED_BY_LIST.indexOf(tuple.carriedBy) === -1);
 			if (strangeTuple) {
 				return { refusalText: `mergeElementCard: carriedBy '${strangeTuple.carriedBy}' is not one of ${SLACK_CARD_CARRIED_BY_LIST.join(', ')}`, card: null };
 			}
 			const peerTextSet = new Set();
-			const peers = [...(ownCardRow.peers || []), ...((viaInstanceRow || {}).peers || [])].filter((peer) => {
+			const peers = [...(ownRow.peers || []), ...((viaInstanceRow || {}).peers || [])].filter((peer) => {
 				const peerText = JSON.stringify([peer.peerSource, peer.peerName, peer.mappingType]);
 				if (peerTextSet.has(peerText)) return false;
 				peerTextSet.add(peerText);
 				return true;
 			});
-			return { refusalText: '', card: { ...ownCardRow, hubTuples, peers } };
+			return { refusalText: '', card: { ...ownRow, hubTuples, peers } };
 		};
 
 		const carrierTextOf = (tuple) => {
@@ -390,7 +378,7 @@ const moduleFunction =
 			}
 			const deepLink = makeDeepLink({
 				dmeBaseUrl,
-				promptText: `Tell me about "${term}" — which standards model it and what CEDS tuple does it resolve to?`,
+				promptText: `Tell me about "${term}" — which standards model it and what hub tuple does it resolve to?`,
 			});
 			if (deepLink) {
 				contextParts.push(`<${deepLink}|Open in DME explorer>`);

@@ -7,6 +7,8 @@
 // Pure functions — no database access — so they are unit-testable and the
 // export access point stays a thin wrapper.
 
+const { STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+
 const EXPORT_COLUMNS = [
 	'refId',
 	'status',
@@ -90,19 +92,19 @@ function rowToCypher(row) {
 		return `// SKIPPED ${row.refId}: ${skip.join('; ')} — ${row.sourceStandard}:${row.sourceName} -> ${row.targetStandard}:${row.targetName}`;
 	}
 
-	// CEDS HubReference nodes share the CEDS _source and a leaf's name, so they
+	// a hub's HubReference nodes share the hub standard's _source and a leaf's name, so they
 	// are excluded explicitly: a proposal is between two standard elements, and
 	// the hub is the forge's business.
 	const match = (alias, source, name, id, path) => {
 		const clauses = [];
 		if (path) clauses.push(`${alias}.path = ${lit(path)}`);
-		if (id) clauses.push(`${alias}.stableId = ${lit(id)}`, `${alias}.cedsId = ${lit(id)}`, `${alias}._id = ${lit(id)}`);
+		if (id) clauses.push(`${alias}.stableId = ${lit(id)}`, ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `${alias}.${propertyName} = ${lit(id)}`), `${alias}._id = ${lit(id)}`);
 		clauses.push(`${alias}.name = ${lit(name)}`);
 		const carry = alias === 's' ? 's' : 's, t';
 		return [
 			`MATCH (${alias}:ForgedNode {_source: ${lit(source)}})`,
 			`WHERE NOT ${alias}:HubReference AND (${clauses.join(' OR ')})`,
-			`WITH ${carry} ORDER BY CASE WHEN ${path ? `${alias}.path = ${lit(path)}` : 'false'} THEN 0 WHEN ${id ? `${alias}.stableId = ${lit(id)} OR ${alias}.cedsId = ${lit(id)}` : 'false'} THEN 1 ELSE 2 END LIMIT 1`,
+			`WITH ${carry} ORDER BY CASE WHEN ${path ? `${alias}.path = ${lit(path)}` : 'false'} THEN 0 WHEN ${id ? [`${alias}.stableId = ${lit(id)}`, ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `${alias}.${propertyName} = ${lit(id)}`)].join(' OR ') : 'false'} THEN 1 ELSE 2 END LIMIT 1`,
 		].join('\n');
 	};
 

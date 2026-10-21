@@ -45,7 +45,7 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	// ⟪lane BM25⟫ and, for a mode with a keyword leg, fulltextIndexAbsent (hybridRetrieval.checkFulltextIndex)
 	search: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode): one row per node, best fused rank first', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidSearchMode', 'unknownStandard', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
 	graphRetriever: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode), with its traversal context: one row per hit node, best fused rank first', rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
-	findMappings: Object.freeze({ rowUnitText: "a mapping VIEW: one row per (direction, element, CEDS tuple, relation, via-relation). Rows are not edges: one graph edge can be more than one row (as 'incoming' through the CEDS leaf AND as 'equivalent' through another matched element), and an instanced element (SIF Question, PESC element) is ONE row for all of its instances. hubTupleSummaryList counts the edges and the elements", rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched']) }),
+	findMappings: Object.freeze({ rowUnitText: "a mapping VIEW: one row per (direction, element, hub tuple, relation, via-relation). Rows are not edges: one graph edge can be more than one row (as 'incoming' through the hub leaf AND as 'equivalent' through another matched element), and an instanced element (SIF Question, PESC element) is ONE row for all of its instances. hubTupleSummaryList counts the edges and the elements", rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched']) }),
 	compareCodesets: Object.freeze({ rowUnitText: 'an option value of a matched option set: one row per value', rowListFieldName: 'valueRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'noOptionSetMatched']) }),
 	unmappedFields: Object.freeze({ rowUnitText: 'a DmeProperty with no match edge on itself or on any of its instances: one row per property', rowListFieldName: 'unmappedRowList', refusalNameList: Object.freeze(['unknownFlag', 'unknownStandard', 'invalidLimit']) }),
 	stats: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag']) }),
@@ -59,7 +59,7 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	calculate: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag', 'unknownOperation', 'invalidNumberList', 'emptyNumberList', 'divisionByZero']) }), // A14
 	// ⟪lane GREP, 2026-10-11⟫ pattern and fuzzy-name search: the shape of a name, not its meaning (GREP_* below)
 	// ⟪lane DES, 2026-10-12; lane UNDES, 2026-10-13⟫ CEDS's Conceptual Model (the Ontology Guide V14 layer), read through its own verb
-	structure: Object.freeze({ rowUnitText: 'per --mode: a matched CEDS class with its Conceptual Model concepts (classConcepts), or a matched CEDS property with the event-date concepts the guide lists for it (propertyConcepts)', rowListFieldName: 'rowList', refusalNameList: Object.freeze(['unknownFlag', 'invalidStructureMode', 'emptyName', 'noGuideLayer', 'nothingMatched']) }),
+	structure: Object.freeze({ rowUnitText: 'per --mode: a matched class of a standard holding a conceptual-model layer, with the concepts that layer gives it (classConcepts), or a matched property with the event-date concepts the layer lists for it (propertyConcepts)', rowListFieldName: 'rowList', refusalNameList: Object.freeze(['unknownFlag', 'invalidStructureMode', 'emptyName', 'noGuideLayer', 'nothingMatched']) }),
 	grep: Object.freeze({ rowUnitText: 'a content node (:ForgedNode, never :GraphMeta) whose field matched: one row per node; regex mode orders rows by name, fuzzy mode by similarityScore (best first)', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyPattern', 'invalidGrepMode', 'invalidGrepField', 'invalidCaseSensitive', 'flagNotForGrepMode', 'invalidRegex', 'patternTooLong', 'grepTimeout', 'apocTextUnavailable', 'unknownStandard']) }),
 });
 
@@ -103,14 +103,14 @@ const STANDARD_FILTER_FAMILY_RULE = 'expandFamilyToReleases';
 const STANDARD_FAMILY_LIST_CYPHER = 'MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL RETURN d.standardFamily AS family, collect(d.sourceKey) AS sourceList ORDER BY family';
 // W-D-9 / W-D-8 / W-D-5: the hubs are read from the graph, never assumed. ⟪ctdlHub P7⟫ a graph may hold several (one
 // :HubDefinition each); every verb reads them all, ordered by hubName, and a graph holding none is an error by name.
-// canonicalKeyName is the hub's own name for its card identifier ('CEDS Global ID', 'CTDL term CURIE').
+// canonicalKeyName is the hub's own name for its card identifier, as its HubDefinition declares it.
 const HUB_LIST_CYPHER = 'MATCH (h:HubDefinition) RETURN h.hubName AS hubName, h._source AS hubSource, h.version AS hubVersion, h.canonicalKeyName AS canonicalKeyName ORDER BY hubName';
-// what an identifier looks like, per the hub's declared canonicalKeyName; findMappings' nothingMatched reason quotes it.
-// A hub whose canonicalKeyName has no row here is named without an example.
-const HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME = Object.freeze({
-	'CEDS Global ID': 'P000033 (property) or OV001637175776 (value)',
-	'CTDL term CURIE': 'ceterms:Credential (term) or ceterms:name (property)',
-});
+// what a hub card identifier looks like, read from the hub's OWN cards: the lowest canonicalKey per hub and tier (deCeds R6:
+// it was a table in code keyed by canonicalKeyName). findMappings' nothingMatched reason quotes it; a hub none of whose
+// cards carries a canonicalKey is said to have none to show.
+const HUB_IDENTIFIER_EXAMPLE_CYPHER = `MATCH (card:HubReference) WHERE card.hubName IN $hubNameList AND card.canonicalKey IS NOT NULL
+	WITH card.hubName AS hubName, card.referenceTier AS referenceTier, min(card.canonicalKey) AS exampleCanonicalKey
+	RETURN hubName, referenceTier, exampleCanonicalKey ORDER BY hubName, referenceTier`;
 // A10 (ruled 2026-10-06): the hub does not map to itself, so it is excluded from "unmapped" and from coverage and its
 // property count is reported beside them
 const UNMAPPED_HUB_POLICY = 'excludeHub';
@@ -183,7 +183,15 @@ const INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST = Object.freeze(['REFERENCES', 'RE
 // W-D-6 / W-D-7: findMappings matches a node by any of these; two rows are the same mapping when these agree. The
 // element is identified by its stableId (fromStableId), not by source + name: Ed-Fi alone holds three distinct BirthDate
 // properties, which a name identity would fold into one (the plan's list did; corrected in P1, DEVLOG-P1 W-D-7).
-const FIND_MAPPINGS_IDENTIFIER_FIELD_LIST = Object.freeze(['_id', 'path', 'stableId', 'cedsId']);
+// ⟪deCeds R6⟫ the property a standard's OWN node carries its native identifier in, where a standard's forge stamps one
+// apart from stableId (the CEDS forge's 'cedsId': C200013, OS000002, P000033). It is a standard's property, not a hub's;
+// the graph declares no per-standard identifier property name, so this is the one place the DME names it
+// (DEFERRED-rekey-102126, row R6-1: a StandardDefinition field the forges stamp would let this list go).
+const STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST = Object.freeze(['cedsId']);
+// a node's source identifier, as the endpoints and mappers return it (sourceId): its native identifier, else stableId,
+// else persistentId, else ''
+const sourceIdentifierCypherTextFor = (nodeVariableName) => `coalesce(${[...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST, 'stableId', 'persistentId'].map((propertyName) => `${nodeVariableName}.${propertyName}`).join(', ')}, '')`;
+const FIND_MAPPINGS_IDENTIFIER_FIELD_LIST = Object.freeze(['_id', 'path', 'stableId', ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST]);
 // ⟪campaign P4a, Q9 (acceptance iteration 2)⟫ an INSTANCE (DmeInstance) whose meaning is in its path — SIF
 // …/RaceList/Race/Code, a Field named Code — is invisible to a name lookup. findMappings also matches an instance by a
 // segment of its CONTEXT PATH: the path inside its group, above its own name (the leaf is its name, already matched).
@@ -218,9 +226,9 @@ const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 	totalRowCountByDirection: 'ROWS per direction; one graph edge can appear under more than one direction',
 	declaredCorrespondenceCount: `DECLARED CORRESPONDENCES touching a matched node (declaredCorrespondenceList shows at most ${DECLARED_CORRESPONDENCE_LIST_CAP}): published assertions, NOT mappings, in no other total`,
 	totalRowCountByHub: "ROWS per hub (each row names its card's hub in hubName); rows are shown hub by hub, each hub allocated the row cap on its own",
-	hubTupleCount: 'CEDS TUPLES (HubReferences) the rows reach; hubTupleSummaryList shows at most HUB_TUPLE_SUMMARY_CAP of them, most edges first',
-	edgeCount: 'EDGES: match edges in the graph into this CEDS tuple, each counted once, from any element (not only the matched ones)',
-	edgeCountByRelation: 'EDGES into this CEDS tuple per relation',
+	hubTupleCount: 'HUB TUPLES (HubReferences) the rows reach; hubTupleSummaryList shows at most HUB_TUPLE_SUMMARY_CAP of them, most edges first',
+	edgeCount: 'EDGES: match edges in the graph into this hub tuple, each counted once, from any element (not only the matched ones)',
+	edgeCountByRelation: 'EDGES into this hub tuple per relation',
 	elementCount: 'ELEMENTS: distinct elements with a match edge into this tuple; an instanced element (SIF Question, PESC element) counts ONCE for all its instances',
 	elementCountByRelation: 'ELEMENTS per relation',
 	instanceEdgeCount: 'EDGES into this tuple carried by instances (SIF Fields, PESC occurrences) rather than by the element itself',
@@ -327,9 +335,9 @@ const CALCULATE_OPERATION_ARITY_BY_NAME = Object.freeze({
 });
 
 // W-E-1 / W-E-2: the Slack element card
-// ⟪ctdlHub P7⟫ hubSource (the card's hub; hubName is the card's own name) and the hub-neutral leaf names follow; the ceds*
-// names are present only on a one-hub graph
-const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confidence', 'mappingKind', 'mappingSource', 'hubName', 'hubKey', 'cedsDomain', 'cedsProperty', 'cedsRange', 'carriedBy', 'instanceGroupList', 'instanceCount', 'hubSource', 'hubDomain', 'hubProperty', 'hubRange']);
+// ⟪ctdlHub P7⟫ hubSource (the card's hub; hubName is the card's own name) and the hub-neutral leaf names follow; ⟪deCeds R6⟫
+// the legacy ceds* leaf names are gone on every graph
+const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confidence', 'mappingKind', 'mappingSource', 'hubName', 'hubKey', 'carriedBy', 'instanceGroupList', 'instanceCount', 'hubSource', 'hubDomain', 'hubProperty', 'hubRange']);
 const SLACK_CARD_CARRIED_BY_LIST = Object.freeze(['own', 'instance']); // 'own' = edge on the carded node; 'instance' = on a HAS_INSTANCE child
 const SLACK_LOOKUP_LIMITS = Object.freeze({ searchPageSize: 8, cardLimit: 3, tupleLinesShown: 4, peerLinesShown: 6 });
 const SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST = Object.freeze(['stableId', 'name', 'source', 'role', 'description']);
@@ -383,7 +391,7 @@ module.exports = Object.freeze({
 	STANDARD_FILTER_FAMILY_RULE_LIST,
 	STANDARD_FAMILY_LIST_CYPHER,
 	HUB_LIST_CYPHER,
-	HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME,
+	HUB_IDENTIFIER_EXAMPLE_CYPHER,
 	UNMAPPED_HUB_POLICY,
 	HUB_DECOMPOSITION_SLOT_LIST,
 	HUB_TERM_SLOT_LIST,
@@ -398,6 +406,8 @@ module.exports = Object.freeze({
 	TRAVERSAL_MAPPING_LIST_NAME_LIST,
 	OPTION_SET_EDGE_TYPE_LIST,
 	INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST,
+	STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST,
+	sourceIdentifierCypherTextFor,
 	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,

@@ -8,7 +8,7 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 // ⟪ctdlHub P7⟫ a card's own hub names its slot edges
-const { cardHubSlotEdgeTypeTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -101,7 +101,7 @@ const moduleFunction = function ({
 		       n._source AS source,
 		       labels(n) AS labels,
 		       coalesce(n.description, n.definition, '') AS description,
-		       coalesce(n.cedsId, n.stableId, n.persistentId, '') AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),
 		         selfRel: type(r1),
@@ -111,7 +111,7 @@ const moduleFunction = function ({
 		         source: m._source,
 		         labels: labels(m),
 		         description: coalesce(m.description, m.definition, ''),
-		         sourceId: coalesce(m.cedsId, m.stableId, m.persistentId, ''),
+		         sourceId: ${sourceIdentifierCypherTextFor('m')},
 		         hub: hub.name,
 		         hubName: hub.hubName
 		       }) WHERE x.name IS NOT NULL][0..120] AS matches
