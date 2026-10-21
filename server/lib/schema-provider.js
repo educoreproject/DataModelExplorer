@@ -254,7 +254,8 @@ const renderSchema = ({
 // "1 hub: CEDS 14.0.0.0" / "2 hubs: CEDS 14.0.0.0, CTDL Release 20260327"
 const hubAnchorTextFor = (hubList) => `${hubList.length} hub${hubList.length === 1 ? '' : 's'}: ${hubList.map((hubRow) => `${hubRow.hubName} ${hubRow.hubVersion}`).join(', ')}`;
 // what each hub's cards are keyed by, in the hub's own words (HubDefinition.canonicalKeyName)
-const hubCardIdentifierTextFor = (hubList) => hubList.map((hubRow) => `${hubRow.hubName}: ${hubRow.canonicalKeyName || 'canonicalKey'}`).join('; ');
+// a HubDefinition that names no canonicalKeyName is SAID so, never given a stand-in name
+const hubCardIdentifierTextFor = (hubList) => hubList.map((hubRow) => `${hubRow.hubName}: ${hubRow.canonicalKeyName ? hubRow.canonicalKeyName : 'its HubDefinition names no canonicalKeyName'}`).join('; ');
 // the slot edges each hub's cards decompose through, per hub: the declared slots this graph actually holds (a hub that mints
 // no term tier has no HAS_<HUB>_TERM, and the text never names an edge the graph lacks)
 const hubDecompositionTextFor = (hubList, relationshipTypes) => hubList.map((hubRow) => hubDecompositionEdgeTypeList(hubRow.hubName).filter((edgeType) => relationshipTypes.includes(edgeType)).join(', ')).join('; ');

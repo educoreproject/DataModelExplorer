@@ -583,7 +583,11 @@ const hubListFieldOf = (hubList) => hubList.map(({ hubName, hubSource, hubVersio
 // what a hub card identifier looks like, per hub, from its declared canonicalKeyName (one hub: the sentence it always was)
 const hubIdentifierExampleText = (hubList) => hubList.map(({ canonicalKeyName, hubName }) => {
 	const exampleText = HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME[canonicalKeyName];
-	return exampleText ? `a ${canonicalKeyName} looks like ${exampleText}` : `a ${hubName} card identifier is its ${canonicalKeyName || 'canonicalKey'}`;
+	if (exampleText) {
+		return `a ${canonicalKeyName} looks like ${exampleText}`;
+	}
+	// no example declared for this identifier, or no canonicalKeyName at all: SAID so, never a stand-in name
+	return canonicalKeyName ? `a ${hubName} card identifier is its ${canonicalKeyName} (no example declared)` : `${hubName}'s HubDefinition names no canonicalKeyName`;
 }).join('; ');
 
 // W-D-5: the incoming arm reads EVERY hub slot, built from the one declared list. W-D-7: each arm returns the element's
