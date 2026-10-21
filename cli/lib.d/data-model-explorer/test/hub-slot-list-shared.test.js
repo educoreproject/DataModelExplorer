@@ -29,7 +29,10 @@ const forgeVocabulary = require(forgeVocabularyFilePath);
 assert('the DME slot list equals educoreForge HUB_DECOMPOSITION_SLOTS', JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST) === JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS), `${JSON.stringify(contract.HUB_DECOMPOSITION_SLOT_LIST)} vs ${JSON.stringify(forgeVocabulary.HUB_DECOMPOSITION_SLOTS)}`);
 // ⟪campaign P2⟫ and it is READ from graphContract.json (hubSlotList), not held as a literal copy
 assert('  read from graphContract.json hubSlotList, not a literal', /require\('\.\.\/contract\/graphContract\.json'\)\.hubSlotList/.test(readText(path.join(harness.dmeDirPath, 'lib', 'toolPayloadContract.js'))));
-assert('  and hubDecompositionEdgeTypeList matches the forge hubEdgeType()', sortedText(declaredEdgeTypeList) === sortedText(forgeVocabulary.HUB_DECOMPOSITION_SLOTS.map((slotName) => forgeVocabulary.hubEdgeType('CEDS', slotName))));
+// ⟪ctdlHub P7⟫ hubDecompositionEdgeTypeList also carries the TERM slots once the contract declares hubTermSlotList; the
+// non-term part is the forge's hubEdgeType() over HUB_DECOMPOSITION_SLOTS, and the term part is read from the contract
+assert('  and hubDecompositionEdgeTypeList matches the forge hubEdgeType() (plus the contract\'s term slots)', sortedText(declaredEdgeTypeList) === sortedText(forgeVocabulary.HUB_DECOMPOSITION_SLOTS.concat(contract.HUB_TERM_SLOT_LIST).map((slotName) => forgeVocabulary.hubEdgeType('CEDS', slotName))));
+assert('  the term slots are read from graphContract.json hubTermSlotList, not a literal', /hubTermSlotListOf\(require\('\.\.\/contract\/graphContract\.json'\)\)/.test(readText(path.join(harness.dmeDirPath, 'lib', 'toolPayloadContract.js'))) && JSON.stringify(contract.HUB_TERM_SLOT_LIST) === JSON.stringify(require(path.join(harness.dmeDirPath, 'contract', 'graphContract.json')).hubTermSlotList || []));
 
 const traversalText = readText(path.join(harness.dmeDirPath, 'traversal.cypher'));
 assert("traversal.cypher's incoming arm reads the declared slot edge types as $hubIncomingSlotEdgeTypeList (no literal alternation)", /OPTIONAL MATCH \(node\)<-\[slotEdge\]-\(hub:HubReference\)<-\[m:[A-Z_|]+\]-\(src:ForgedNode\)\s+WHERE type\(slotEdge\) IN \$hubIncomingSlotEdgeTypeList/.test(traversalText) && !/HAS_CEDS_/.test(traversalText));
