@@ -5,7 +5,7 @@
 // to object as published, either direction from the focus.
 const DECLARED_CORRESPONDENCE_EDGE_TYPE = 'DECLARED_CORRESPONDENCE';
 const DECLARED_CORRESPONDENCE_LIST_CAP = 50;
-const DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT = "a DECLARED CORRESPONDENCE: one standard's own published assertion relating its term to another standard's (sourcePredicate quoted verbatim). NOT a mapping: never report it as EXACT/CLOSE/BROAD/NARROW, never compose it with a match edge, never count it as mapped";
+const DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT = "a DECLARED CORRESPONDENCE: one standard's own published assertion relating its term to another standard's (sourcePredicate quoted verbatim). NOT a mapping: never report it as EXACT/CLOSE/BROAD/NARROW, never compose it with a match edge, never count it as mapped. Its edge's mappingKind 'authored' names who published the statement: it is a published statement, never a mapping and never an 'authored mapping'";
 const declaredCorrespondenceCypherFor = (focusMatchText) => `
 	MATCH (focus:ForgedNode) WHERE ${focusMatchText}
 	MATCH (focus)-[declaredEdge:${DECLARED_CORRESPONDENCE_EDGE_TYPE}]-(:ForgedNode)
