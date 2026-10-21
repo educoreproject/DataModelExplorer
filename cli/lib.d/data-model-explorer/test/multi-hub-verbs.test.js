@@ -125,7 +125,7 @@ taskList.push((args, next) => {
 	console.log('- 2. findMappings on two hubs');
 	runVerbOn(realSearchModule, 'findMappings', { name: 'Birthdate' }, FIND_MAPPINGS_RESPONDER_LIST, (verbError, payload, queryLog) => {
 		findMappingsAssertions('findMappings', verbError, payload, queryLog);
-		// ⟪deCeds R6⟫ each hub's identifier example is read from its own cards (the lowest canonicalKey per tier)
+		// ⟪lane R6⟫ each hub's identifier example is read from its own cards (the lowest canonicalKey per tier)
 		const refusalReasonResponderList = [HUB_LIST_RESPONDER, { pattern: /AS matchedNodeCount/, rowList: [{ matchedNodeCount: 0, instancePathMatchedNodeCount: 0 }] },
 			{ pattern: /AS exampleCanonicalKey/, rowList: [{ hubName: 'CEDS', referenceTier: 'property', exampleCanonicalKey: 'P000001' }, { hubName: 'CTDL', referenceTier: 'property', exampleCanonicalKey: 'ceterms:accommodationType' }] }];
 		runVerbOn(realSearchModule, 'findMappings', { name: 'zzNothing' }, refusalReasonResponderList, (refusalError, refusal) => {
@@ -204,7 +204,7 @@ taskList.push((args, next) => {
 	console.log('- 5. red twins (each must turn an assertion red)');
 	// the CLI's shebang line is not JavaScript the twin compiler accepts: it is dropped first
 	const twinOf = (find, replace) => loadWithMutations({ modulePath: searchModulePath, mutationList: [{ find: '#!/usr/bin/env node\n', replace: '' }, { find, replace }] });
-	// ⟪deCeds R6⟫ the legacy fields are gone on every graph; the twin restores one
+	// ⟪lane R6⟫ the legacy fields are gone on every graph; the twin restores one
 	const legacyKeptTwin = twinOf('\t\t\thubName: rec.get(\'hubName\'),\n\t\t\thubDomain: rec.get(\'hubDomain\'),', '\t\t\tcedsDomain: rec.get(\'hubDomain\'),\n\t\t\thubName: rec.get(\'hubName\'),\n\t\t\thubDomain: rec.get(\'hubDomain\'),');
 	const sharedCapTwin = twinOf('shownRowList.push(...hubAllocation.shownRowList);', 'shownRowList.push(...hubAllocation.shownRowList.slice(0, Math.max(0, 30 - shownRowList.length)));');
 	runVerbOn(legacyKeptTwin, 'findMappings', { name: 'Birthdate' }, FIND_MAPPINGS_RESPONDER_LIST, (legacyError, legacyPayload) => {

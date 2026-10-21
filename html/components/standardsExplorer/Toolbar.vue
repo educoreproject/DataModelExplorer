@@ -11,11 +11,13 @@ const store = useStandardsNeighbourhoodStore();
 const levelSummaryText = computed(() => {
 	if (!store.neighbourhood) return '';
 	const countByKind = {};
+	const hubNameByKind = {};
 	store.levelRowList.forEach((oneRow) => {
 		countByKind[oneRow.kind] = (countByKind[oneRow.kind] || 0) + 1;
+		hubNameByKind[oneRow.kind] ||= oneRow.hubName || null;
 	});
 	const kindText = Object.entries(countByKind)
-		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase()) : pluralKindNameOf(nodeKind)}`)
+		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind, hubNameByKind[nodeKind]).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase()) : pluralKindNameOf(nodeKind, hubNameByKind[nodeKind])}`)
 		.join(', ');
 	const versionComparison = store.neighbourhood.versionComparison;
 	const badgeText = versionComparison

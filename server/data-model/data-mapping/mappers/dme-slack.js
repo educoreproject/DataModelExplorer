@@ -56,7 +56,7 @@ const hubDecompositionMatchText = ['DOMAIN', 'PROPERTY', 'RANGE'].map((slotName)
 	return `OPTIONAL MATCH (hub)-[${leafVariableName}SlotEdge]->(${leafVariableName}:ForgedNode) WHERE type(${leafVariableName}SlotEdge) = ${cardHubSlotEdgeTypeTextFor('hub', slotName)}`;
 }).join('\n\t\t\t\t\t\t');
 // one tuple's fields, in SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST order, for the two card arms. ⟪ctdlHub P7⟫ hubSource names the
-// card's hub (hubName is the CARD's name); the hub* leaf names are the hub-neutral ones. ⟪deCeds R6⟫ the legacy ceds* leaf
+// card's hub (hubName is the CARD's name); the hub* leaf names are the hub-neutral ones. ⟪lane R6⟫ the legacy ceds* leaf
 // names are gone on every graph
 const cardTupleProjection = (carriedByText, instanceGroupListText, instanceCountText) => `{
 									mappingType: mappingType,

@@ -1,9 +1,9 @@
 <script setup>
-// Shown once the walk has passed through a CEDS element into another family: says so in that family's colour and
+// Shown once the walk has passed through a hub element into another family: says so in that family's colour and
 // offers the way back to the element the person started from.
 
 import { computed } from 'vue';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyStyleOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	crossing: { type: Object, required: true },
@@ -18,7 +18,7 @@ const homeStyle = computed(() => familyStyleOf(props.crossing.homeCrumb.standard
 	<div role="status" class="crossing-banner" :style="{ background: crossedStyle.tint, borderColor: crossedStyle.color }" data-testid="crossing-banner">
 		<span>
 			<b :style="{ color: crossedStyle.color }">You have crossed into {{ crossedStyle.displayName }}</b>
-			through the CEDS element {{ crossing.anchorCrumb.displayName }}. Everything below is {{ crossedStyle.displayName }}, not {{ homeStyle.displayName }}.
+			through the {{ kindDisplayNameOf('hubAnchor', crossing.anchorCrumb.hubName) }} {{ crossing.anchorCrumb.displayName }}. Everything below is {{ crossedStyle.displayName }}, not {{ homeStyle.displayName }}.
 		</span>
 		<v-btn size="small" variant="outlined" color="primary" data-testid="crossing-back" @click="emit('go-home')">Back to {{ crossing.homeCrumb.displayName }}</v-btn>
 	</div>

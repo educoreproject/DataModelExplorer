@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// de-ceds-payloads.test.js — deCeds R6 (educoreForge WORKORDER-R6-dmeDeCeds-102126, census clusters 1, 3, 4, 20). HERMETIC:
+// hub-neutral-payloads.test.js — lane R6 (hub-neutral DME) (educoreForge WORKORDER-R6-dmeDeCeds-102126, census clusters 1, 3, 4, 20). HERMETIC:
 // the verbs run through QUERY_HANDLER_BY_QUERY_TYPE on a STUB session holding ONE hub, the case P7 kept the legacy names for.
 // Asserts that no payload names one hub in its field names or wording:
 //   1. findMappings on a one-hub graph: no ceds* row field; the hub* fields and hubTuple carry the card;
@@ -11,7 +11,7 @@
 //      tier), not from a table in code; a hub whose cards carry no canonicalKey is said to have no example;
 //   5. RED TWINS (moduleTwin): the legacy fields restored, and the example table restored, each turn an assertion red.
 //
-//   node cli/lib.d/data-model-explorer/test/de-ceds-payloads.test.js
+//   node cli/lib.d/data-model-explorer/test/hub-neutral-payloads.test.js
 
 const path = require('path');
 const dmeDirPath = path.join(__dirname, '..');
@@ -70,7 +70,7 @@ const contract = require(path.join(dmeDirPath, 'lib', 'toolPayloadContract'));
 // the shebang line is not JavaScript the twin compiler accepts: it is dropped first
 const twinOf = (modulePath, mutationList) => loadWithMutations({ modulePath, mutationList: [{ find: '#!/usr/bin/env node\n', replace: '' }, ...mutationList] });
 
-console.log('\n=== deCeds R6: DME payloads name no one hub ===\n');
+console.log('\n=== lane R6 (hub-neutral DME): DME payloads name no one hub ===\n');
 const taskList = new taskListPlus();
 
 // ---- 1. findMappings on a one-hub graph
@@ -161,6 +161,6 @@ taskList.push((args, next) => {
 
 pipeRunner(taskList.getList(), {}, (pipeError) => {
 	if (pipeError) { failed++; console.log(`  FAIL: ${pipeError}`); }
-	console.log(`\n=== deCeds R6 payloads — Results: ${passed} passed, ${failed} failed ===\n`);
+	console.log(`\n=== lane R6 (hub-neutral DME) payloads — Results: ${passed} passed, ${failed} failed ===\n`);
 	process.exit(failed > 0 ? 1 : 0);
 });

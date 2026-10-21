@@ -556,7 +556,7 @@ const findMappings = (session, nameOrId, callback) => {
 		}
 		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus')), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
 	});
-	// ⟪deCeds R6⟫ nothing matched: what each hub's card identifier looks like, read from its own cards
+	// ⟪lane R6⟫ nothing matched: what each hub's card identifier looks like, read from its own cards
 	taskList.push((args, next) => {
 		if (args.matchedNodeCount !== 0) {
 			next('', args);

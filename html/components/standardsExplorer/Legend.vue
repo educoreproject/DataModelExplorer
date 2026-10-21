@@ -1,7 +1,11 @@
 <script setup>
 // The legend under the main card: bubbles, match kinds (colour and line), confidence tiers, and the marks.
 
-import { confidenceTierList, matchKindOrderList, matchStyleByKind } from '@/components/standardsExplorer/explorerVocabulary';
+import { computed } from 'vue';
+import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
+import { confidenceTierList, matchDescriptionOf, matchKindOrderList, matchStyleByKind } from '@/components/standardsExplorer/explorerVocabulary';
+
+const store = useStandardsNeighbourhoodStore();
 
 const LEGEND_KIND_LIST = [
 	{ nodeKind: 'family', standardFamily: 'PESC' },
@@ -9,13 +13,20 @@ const LEGEND_KIND_LIST = [
 	{ nodeKind: 'class', standardFamily: 'PESC' },
 	{ nodeKind: 'property', standardFamily: 'PESC' },
 	{ nodeKind: 'property', standardFamily: 'PESC', isUnmapped: true },
-	{ nodeKind: 'cedsAnchor', standardFamily: 'CEDS' },
-	{ nodeKind: 'cedsDomain', standardFamily: 'CEDS' },
 	{ nodeKind: 'standardGroup', standardFamily: 'SIF' },
 	{ nodeKind: 'instance', standardFamily: 'PESC' },
 	{ nodeKind: 'optionSet', standardFamily: 'PESC' },
 	{ nodeKind: 'support', standardFamily: 'PESC' },
 ];
+// ⟪lane R6⟫ a hub's own bubbles are shown for the hubs this page names (store.shownHubList, read from the rows), in
+// each hub's family colours; a page naming no hub shows them once, unnamed and neutral
+const legendKindList = computed(() => {
+	const hubList = store.shownHubList.length ? store.shownHubList : [{ hubName: null, standardFamily: null }];
+	const hubKindList = hubList.reduce((soFar, { hubName, standardFamily }) => soFar.concat([{ nodeKind: 'hubAnchor', hubName, standardFamily }, { nodeKind: 'hubDomain', hubName, standardFamily }]), []);
+	return [...LEGEND_KIND_LIST.slice(0, 5), ...hubKindList, ...LEGEND_KIND_LIST.slice(5)];
+});
+// the match descriptions are said of the page's hub when it names exactly one
+const legendHubName = computed(() => (store.shownHubList.length === 1 ? store.shownHubList[0].hubName : null));
 </script>
 
 <template>
@@ -24,17 +35,17 @@ const LEGEND_KIND_LIST = [
 		<div class="legend-column">
 			<span class="legend-head">Bubbles</span>
 			<div class="legend-kinds">
-				<span v-for="(oneKind, kindIndex) in LEGEND_KIND_LIST" :key="kindIndex">
-					<StandardsExplorerKindChip :node-kind="oneKind.nodeKind" :standard-family="oneKind.standardFamily" :is-unmapped="Boolean(oneKind.isUnmapped)" />
+				<span v-for="(oneKind, kindIndex) in legendKindList" :key="kindIndex">
+					<StandardsExplorerKindChip :node-kind="oneKind.nodeKind" :standard-family="oneKind.standardFamily" :hub-name="oneKind.hubName || null" :is-unmapped="Boolean(oneKind.isUnmapped)" />
 					<span v-if="oneKind.isUnmapped" class="legend-aside">(not mapped)</span>
 				</span>
 			</div>
 		</div>
 		<div class="legend-column">
-			<span class="legend-head">Match to CEDS</span>
+			<span class="legend-head">Match to {{ legendHubName || 'a hub' }}</span>
 			<span v-for="matchKind in matchKindOrderList" :key="matchKind" class="legend-row">
 				<span aria-hidden="true" class="legend-line" :style="{ borderTop: `${matchKind === 'narrow' ? 4 : 3}px ${matchStyleByKind[matchKind].lineStyle} ${matchStyleByKind[matchKind].color}` }" />
-				<b :style="{ color: matchStyleByKind[matchKind].color }">{{ matchKind }}</b> {{ matchStyleByKind[matchKind].description }}
+				<b :style="{ color: matchStyleByKind[matchKind].color }">{{ matchKind }}</b> {{ matchDescriptionOf(matchKind, legendHubName) }}
 			</span>
 		</div>
 		<div class="legend-column">
@@ -48,7 +59,7 @@ const LEGEND_KIND_LIST = [
 		<div class="legend-column">
 			<span class="legend-head">Marks</span>
 			<span class="legend-row"><span aria-hidden="true" class="legend-more">›</span>Has more inside</span>
-			<span class="legend-row"><span aria-hidden="true" class="legend-ring" />Ring: share mapped to CEDS</span>
+			<span class="legend-row"><span aria-hidden="true" class="legend-ring" />Ring: share mapped to {{ legendHubName || 'a hub' }}</span>
 			<span class="legend-row"><span class="legend-badge legend-badge-changed">Different in 1.8</span><span class="legend-badge legend-badge-new">New in 1.8</span> against the other version</span>
 			<span class="legend-row"><span class="legend-badge legend-badge-home">You started here</span></span>
 		</div>

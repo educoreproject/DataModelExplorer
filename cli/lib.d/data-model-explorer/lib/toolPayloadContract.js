@@ -105,7 +105,7 @@ const STANDARD_FAMILY_LIST_CYPHER = 'MATCH (d:StandardDefinition) WHERE d.standa
 // :HubDefinition each); every verb reads them all, ordered by hubName, and a graph holding none is an error by name.
 // canonicalKeyName is the hub's own name for its card identifier, as its HubDefinition declares it.
 const HUB_LIST_CYPHER = 'MATCH (h:HubDefinition) RETURN h.hubName AS hubName, h._source AS hubSource, h.version AS hubVersion, h.canonicalKeyName AS canonicalKeyName ORDER BY hubName';
-// what a hub card identifier looks like, read from the hub's OWN cards: the lowest canonicalKey per hub and tier (deCeds R6:
+// what a hub card identifier looks like, read from the hub's OWN cards: the lowest canonicalKey per hub and tier (lane R6 (hub-neutral DME):
 // it was a table in code keyed by canonicalKeyName). findMappings' nothingMatched reason quotes it; a hub none of whose
 // cards carries a canonicalKey is said to have none to show.
 const HUB_IDENTIFIER_EXAMPLE_CYPHER = `MATCH (card:HubReference) WHERE card.hubName IN $hubNameList AND card.canonicalKey IS NOT NULL
@@ -183,7 +183,7 @@ const INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST = Object.freeze(['REFERENCES', 'RE
 // W-D-6 / W-D-7: findMappings matches a node by any of these; two rows are the same mapping when these agree. The
 // element is identified by its stableId (fromStableId), not by source + name: Ed-Fi alone holds three distinct BirthDate
 // properties, which a name identity would fold into one (the plan's list did; corrected in P1, DEVLOG-P1 W-D-7).
-// ⟪deCeds R6⟫ the property a standard's OWN node carries its native identifier in, where a standard's forge stamps one
+// ⟪lane R6⟫ the property a standard's OWN node carries its native identifier in, where a standard's forge stamps one
 // apart from stableId (the CEDS forge's 'cedsId': C200013, OS000002, P000033). It is a standard's property, not a hub's;
 // the graph declares no per-standard identifier property name, so this is the one place the DME names it
 // (DEFERRED-rekey-102126, row R6-1: a StandardDefinition field the forges stamp would let this list go).
@@ -335,7 +335,7 @@ const CALCULATE_OPERATION_ARITY_BY_NAME = Object.freeze({
 });
 
 // W-E-1 / W-E-2: the Slack element card
-// ⟪ctdlHub P7⟫ hubSource (the card's hub; hubName is the card's own name) and the hub-neutral leaf names follow; ⟪deCeds R6⟫
+// ⟪ctdlHub P7⟫ hubSource (the card's hub; hubName is the card's own name) and the hub-neutral leaf names follow; ⟪lane R6⟫
 // the legacy ceds* leaf names are gone on every graph
 const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confidence', 'mappingKind', 'mappingSource', 'hubName', 'hubKey', 'carriedBy', 'instanceGroupList', 'instanceCount', 'hubSource', 'hubDomain', 'hubProperty', 'hubRange']);
 const SLACK_CARD_CARRIED_BY_LIST = Object.freeze(['own', 'instance']); // 'own' = edge on the carded node; 'instance' = on a HAS_INSTANCE child

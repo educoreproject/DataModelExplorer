@@ -28,6 +28,9 @@ process.global = {
 const { readGoldenContainerName } = require('./lib/goldenContainerName');
 const { resolveContainerConnection } = require('../data-model/lib/user-graph/container-connection-resolver');
 const neo4jGen = require('../data-model/lib/neo4j-instance/neo4j-instance')({ unused: true });
+// ⟪lane R6⟫ an anchor reaches its property through its OWN hub's slot edge, never a literal edge type
+const { cardHubSlotEdgeTypeTextFor } = require('../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const propertySlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'PROPERTY');
 
 let passed = 0;
 let failed = 0;
@@ -98,8 +101,13 @@ const matchKindSummary = mapper.matchKindSummaryOf([
 	{ matchEdgeType: 'CLOSE_MATCH', elementStableId: 'b' },
 ]);
 ok('twin: match kinds count distinct elements, strongest first', matchKindSummary.elementCount === 2 && matchKindSummary.strongestMatchKind === 'close' && matchKindSummary.matchKindCountList.map((oneCount) => `${oneCount.matchKind}${oneCount.elementCount}`).join() === 'close2,broad1', JSON.stringify(matchKindSummary));
-const cedsPropertyItem = mapper.mapChildItem({ stableId: 'p', name: 'P', labelList: ['CedsProperty', 'DmeProperty'], mappingList: [], hasStructuralChildren: false, cedsElementCount: 2, mappedElementCount: 0 });
-ok('twin: a CEDS property with CEDS elements is drillable even when nothing below it is structural', cedsPropertyItem.kind === 'cedsProperty' && cedsPropertyItem.hasChildren === true && cedsPropertyItem.cedsElementCount === 2);
+const cedsPropertyItem = mapper.mapChildItem({ stableId: 'p', name: 'P', labelList: ['CedsProperty', 'DmeProperty'], hubName: 'CEDS', mappingList: [], hasStructuralChildren: false, hubElementCount: 2, mappedElementCount: 0 });
+ok('twin: a CEDS property with CEDS elements is drillable even when nothing below it is structural', cedsPropertyItem.kind === 'hubProperty' && cedsPropertyItem.hasChildren === true && cedsPropertyItem.hubElementCount === 2);
+// ⟪lane R6⟫ a hub's own property and domain are named by the hub the node belongs to (hubName, read from the graph), never by a label
+const ctdlPropertyItem = mapper.mapChildItem({ stableId: 'c', name: 'C', labelList: ['CtdlProperty', 'DmeProperty'], hubName: 'CTDL', mappingList: [], hasStructuralChildren: false, hubElementCount: 1, mappedElementCount: 0 });
+const ctdlClassItem = mapper.mapChildItem({ stableId: 'k', name: 'K', labelList: ['CtdlClass', 'DmeClass'], hubName: 'CTDL', mappingList: [], hasStructuralChildren: true, propertyCount: 3, mappedPropertyCount: 1 });
+const edfiPropertyItem = mapper.mapChildItem({ stableId: 'e', name: 'E', labelList: ['EdfiProperty', 'DmeProperty'], hubName: null, mappingList: [], hasStructuralChildren: false, hubElementCount: 0, mappedElementCount: 0 });
+ok('twin: a CTDL hub property and class are hubProperty / hubDomain, carrying hubName CTDL; a non-hub property stays property', ctdlPropertyItem.kind === 'hubProperty' && ctdlPropertyItem.hubName === 'CTDL' && ctdlPropertyItem.hubElementCount === 1 && ctdlClassItem.kind === 'hubDomain' && ctdlClassItem.hubName === 'CTDL' && edfiPropertyItem.kind === 'property' && !('hubName' in edfiPropertyItem), JSON.stringify([ctdlPropertyItem, ctdlClassItem, edfiPropertyItem]));
 ok('twin: only families:all is the catalog id', mapper.isFamilyCatalogId('families:all') && !mapper.isFamilyCatalogId('families:PESC'));
 
 // ---- 1-5. live
@@ -200,27 +208,27 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 
 		// ---- 4. the CEDS-root walk to an anchor and out to the standards
 		(done) => cypher(
-			`MATCH (:DmeStandardRoot {stableId: $cedsRootStableId})-[:HAS_CLASS]->(cedsDomain)-[:HAS_PROPERTY]->(cedsProperty)<-[:HAS_CEDS_PROPERTY]-(anchor:HubReference {referenceTier: 'property'})
-			 WHERE EXISTS { MATCH (sifRoot:DmeStandardRoot {standardFamily: 'SIF'}) MATCH (anchor)<-[:${MATCH_EDGE_PATTERN_TEXT}]-(:ForgedNode {_source: sifRoot._source}) }
+			`MATCH (:DmeStandardRoot {stableId: $cedsRootStableId})-[:HAS_CLASS]->(cedsDomain)-[:HAS_PROPERTY]->(cedsProperty)<-[anchorSlotEdge]-(anchor:HubReference {referenceTier: 'property'})
+			 WHERE type(anchorSlotEdge) = ${propertySlotTextFor('anchor')} AND EXISTS { MATCH (sifRoot:DmeStandardRoot {standardFamily: 'SIF'}) MATCH (anchor)<-[:${MATCH_EDGE_PATTERN_TEXT}]-(:ForgedNode {_source: sifRoot._source}) }
 			 WITH cedsDomain, cedsProperty, anchor, COUNT { MATCH (anchor)<-[:${MATCH_EDGE_PATTERN_TEXT}]-(element) RETURN DISTINCT element } AS elementCount
 			 ORDER BY elementCount DESC, anchor.stableId LIMIT 1
 			 RETURN cedsDomain.stableId AS cedsDomainStableId, cedsProperty.stableId AS cedsPropertyStableId, anchor.stableId AS anchorStableId, elementCount,
-			        COUNT { (cedsProperty)<-[:HAS_CEDS_PROPERTY]-(:HubReference {referenceTier: 'property'}) } AS cedsElementCount,
-			        COUNT { MATCH (cedsDomain)-[:HAS_PROPERTY]->(member) WHERE EXISTS { (member)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:${MATCH_EDGE_PATTERN_TEXT}]-() } } AS mappedPropertyCount`,
+			        COUNT { MATCH (cedsProperty)<-[countSlotEdge]-(countAnchor:HubReference {referenceTier: 'property'}) WHERE type(countSlotEdge) = ${propertySlotTextFor('countAnchor')} } AS cedsElementCount,
+			        COUNT { MATCH (cedsDomain)-[:HAS_PROPERTY]->(member) WHERE EXISTS { MATCH (member)<-[memberSlotEdge]-(memberAnchor:HubReference)<-[:${MATCH_EDGE_PATTERN_TEXT}]-() WHERE type(memberSlotEdge) = ${propertySlotTextFor('memberAnchor')} } } AS mappedPropertyCount`,
 			{ cedsRootStableId: CEDS_ROOT_STABLE_ID },
 			(walkRowList) => {
 				const walkRow = walkRowList[0];
 				if (!walkRow) { ok('CEDS walk: the graph holds a CEDS property whose element SIF maps to', false, 'none found'); done(); return; }
 				ask({ action: 'node', stableId: CEDS_ROOT_STABLE_ID, compareVersion: true }, (rootError, rootLevel) => {
 					const domainItem = itemIn(rootLevel, walkRow.cedsDomainStableId) || {};
-					ok(`CEDS walk: the CEDS root lists the domain, ${walkRow.mappedPropertyCount} of its properties mapped to (this test's Cypher)`, !rootError && domainItem.kind === 'cedsDomain' && domainItem.mappedPropertyCount === walkRow.mappedPropertyCount, rootError || JSON.stringify(domainItem));
+					ok(`CEDS walk: the CEDS root lists the domain, ${walkRow.mappedPropertyCount} of its properties mapped to (this test's Cypher)`, !rootError && domainItem.kind === 'hubDomain' && domainItem.mappedPropertyCount === walkRow.mappedPropertyCount, rootError || JSON.stringify(domainItem));
 					ask({ action: 'node', stableId: walkRow.cedsDomainStableId, compareVersion: true }, (domainError, domainLevel) => {
 						const propertyItem = itemIn(domainLevel, walkRow.cedsPropertyStableId) || {};
-						ok('CEDS walk: the domain lists the CEDS property, drillable, with its CEDS elements counted', !domainError && propertyItem.kind === 'cedsProperty' && propertyItem.hasChildren === true && propertyItem.cedsElementCount === walkRow.cedsElementCount, domainError || JSON.stringify(propertyItem));
+						ok('CEDS walk: the domain lists the CEDS property, drillable, with its CEDS elements counted', !domainError && propertyItem.kind === 'hubProperty' && propertyItem.hasChildren === true && propertyItem.hubElementCount === walkRow.cedsElementCount, domainError || JSON.stringify(propertyItem));
 						ask({ action: 'node', stableId: walkRow.cedsPropertyStableId, compareVersion: true }, (propertyError, propertyLevel) => {
-							const elementGroup = groupOf(propertyLevel, 'USED_BY_CEDS_ELEMENT');
+							const elementGroup = groupOf(propertyLevel, 'USED_BY_HUB_ELEMENT');
 							const anchorItem = elementGroup.itemList.find((oneItem) => oneItem.stableId === walkRow.anchorStableId) || {};
-							ok(`CEDS walk: the CEDS property lists its ${walkRow.cedsElementCount} CEDS elements; the chosen one has ${walkRow.elementCount} elements mapped (this test's Cypher)`, !propertyError && elementGroup.count === walkRow.cedsElementCount && anchorItem.kind === 'cedsAnchor' && anchorItem.elementCount === walkRow.elementCount, propertyError || JSON.stringify(anchorItem));
+							ok(`CEDS walk: the CEDS property lists its ${walkRow.cedsElementCount} CEDS elements; the chosen one has ${walkRow.elementCount} elements mapped (this test's Cypher)`, !propertyError && elementGroup.count === walkRow.cedsElementCount && anchorItem.kind === 'hubAnchor' && anchorItem.elementCount === walkRow.elementCount, propertyError || JSON.stringify(anchorItem));
 							ok('CEDS walk: the CEDS property\'s ancestors are CEDS › its domain', !propertyError && propertyLevel.ancestorList.map((oneAncestor) => oneAncestor.stableId).join() === `${CEDS_ROOT_STABLE_ID},${walkRow.cedsDomainStableId}`, JSON.stringify((propertyLevel || {}).ancestorList));
 							ask({ action: 'node', stableId: walkRow.anchorStableId }, (anchorError, anchorLevel) => {
 								const standardGroup = groupOf(anchorLevel, 'MAPPED_FROM_STANDARD');
@@ -231,7 +239,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 									ok('CEDS walk: out to SIF: the SIF group opens with its elements', !groupError && groupOf(groupLevel, 'MAPPED_TO_ANCHOR').count === (sifGroup || {}).elementCount, groupError);
 									ask({ action: 'pathSummary', stableIdList: ['families:all', 'family:CEDS', CEDS_ROOT_STABLE_ID, walkRow.cedsDomainStableId, walkRow.cedsPropertyStableId, walkRow.anchorStableId, (sifGroup || {}).stableId] }, (summaryError, pathSummary) => {
 										const kindText = ((pathSummary || {}).nodeSummaryList || []).map((oneSummary) => oneSummary.kind).join(' › ');
-										ok('CEDS walk: the whole path names itself (a reload\'s breadcrumb)', !summaryError && kindText === 'familyCatalog › family › standard › cedsDomain › cedsProperty › cedsAnchor › standardGroup' && pathSummary.nodeSummaryList[0].name === 'Standards', summaryError || kindText);
+										ok('CEDS walk: the whole path names itself (a reload\'s breadcrumb)', !summaryError && kindText === 'familyCatalog › family › standard › hubDomain › hubProperty › hubAnchor › standardGroup' && pathSummary.nodeSummaryList[0].name === 'Standards', summaryError || kindText);
 										done();
 									});
 								});
@@ -244,16 +252,16 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 
 		// a CEDS property with code-level (value-tier) anchors lists only its property-tier ones: one per domain
 		(done) => cypher(
-			`MATCH (cedsProperty:CedsProperty)<-[:HAS_CEDS_PROPERTY]-(:HubReference {referenceTier: 'value'})
+			`MATCH (cedsProperty:CedsProperty)<-[valueSlotEdge]-(valueAnchor:HubReference {referenceTier: 'value'}) WHERE type(valueSlotEdge) = ${propertySlotTextFor('valueAnchor')}
 			 WITH DISTINCT cedsProperty LIMIT 1
 			 RETURN cedsProperty.stableId AS cedsPropertyStableId,
-			        COUNT { (cedsProperty)<-[:HAS_CEDS_PROPERTY]-(:HubReference {referenceTier: 'property'}) } AS propertyTierCount,
-			        COUNT { (cedsProperty)<-[:HAS_CEDS_PROPERTY]-(:HubReference {referenceTier: 'value'}) } AS valueTierCount`,
+			        COUNT { MATCH (cedsProperty)<-[propertyTierSlotEdge]-(propertyTierAnchor:HubReference {referenceTier: 'property'}) WHERE type(propertyTierSlotEdge) = ${propertySlotTextFor('propertyTierAnchor')} } AS propertyTierCount,
+			        COUNT { MATCH (cedsProperty)<-[valueTierSlotEdge]-(valueTierAnchor:HubReference {referenceTier: 'value'}) WHERE type(valueTierSlotEdge) = ${propertySlotTextFor('valueTierAnchor')} } AS valueTierCount`,
 			{},
 			(tierRowList) => {
 				const tierRow = tierRowList[0] || {};
 				ask({ action: 'node', stableId: tierRow.cedsPropertyStableId }, (propertyError, propertyLevel) => {
-					ok(`CEDS property with ${tierRow.valueTierCount} code-level anchors lists only its ${tierRow.propertyTierCount} CEDS elements (property tier)`, !propertyError && groupOf(propertyLevel, 'USED_BY_CEDS_ELEMENT').count === tierRow.propertyTierCount, propertyError || `${groupOf(propertyLevel, 'USED_BY_CEDS_ELEMENT').count}`);
+					ok(`CEDS property with ${tierRow.valueTierCount} code-level anchors lists only its ${tierRow.propertyTierCount} CEDS elements (property tier)`, !propertyError && groupOf(propertyLevel, 'USED_BY_HUB_ELEMENT').count === tierRow.propertyTierCount, propertyError || `${groupOf(propertyLevel, 'USED_BY_HUB_ELEMENT').count}`);
 					done();
 				});
 			},
