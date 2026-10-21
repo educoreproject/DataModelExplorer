@@ -91,6 +91,9 @@ const TWO_HUB_ADDITION_LIST = [
 	{ questionName: 'unmappedFields-CTDL', kind: 'cliVerb', verbName: 'unmappedFields', params: { standard: 'CTDL', limit: '20' } },
 	{ questionName: 'graphRetriever-credential', kind: 'cliVerb', verbName: 'graphRetriever', params: { query: 'credential', searchMode: 'keyword', limit: '5' } },
 	{ questionName: 'slackCard-ctdlName', kind: 'slackCard', elementLookup: { source: 'CTDL', name: 'name', role: 'DmeProperty' } },
+	// a hub ANCHOR page in the PESC Explorer: its context groups are named by the anchor's own hub's slot edges
+	{ questionName: 'standardsNeighbourhood-cedsAnchorBirthdate', kind: 'standardsNeighbourhood', cardLookup: { hubName: 'CEDS', name: 'Birthdate' } },
+	{ questionName: 'standardsNeighbourhood-ctdlAnchorName', kind: 'standardsNeighbourhood', cardLookup: { hubName: 'CTDL', name: 'Name' } },
 ];
 const PREDICATE_ALIGNMENT_QUESTION_LIST = [
 	{ questionName: 'dmeCrossSpecMappings-EdFiAddress', kind: 'httpGet', endpointFileName: 'dme-cross-spec-mappings.js', query: { source: 'EdFi', name: 'Address' } },
@@ -105,9 +108,11 @@ const QUESTION_LIST_BY_SET_NAME = Object.freeze({
 // ---- graph handles
 
 const ELEMENT_LOOKUP_CYPHER = 'MATCH (n:ForgedNode {_source: $source, name: $name, role: $role}) RETURN n.stableId AS stableId ORDER BY stableId LIMIT 1';
+// a property-tier hub card, by its hub and name (the first by stableId)
+const CARD_LOOKUP_CYPHER = "MATCH (n:HubReference {hubName: $hubName, referenceTier: 'property', name: $name}) RETURN n.stableId AS stableId ORDER BY stableId LIMIT 1";
 
 const lookUpStableId = (serverDb, elementLookup, callback) => {
-	serverDb.runQuery(ELEMENT_LOOKUP_CYPHER, elementLookup, (lookupError, recordList) => {
+	serverDb.runQuery(elementLookup.hubName ? CARD_LOOKUP_CYPHER : ELEMENT_LOOKUP_CYPHER, elementLookup, (lookupError, recordList) => {
 		if (lookupError) {
 			callback(lookupError);
 			return;
@@ -153,9 +158,10 @@ const answerByKind = {
 		accessPoint({ wordList: question.wordList }, (accessError, rowList) => callback('', accessError ? { accessError: String(accessError) } : rowList));
 	},
 	standardsNeighbourhood: ({ question, serverDb }, callback) => {
-		lookUpStableId(serverDb, question.elementLookup, (lookupError, stableId) => {
+		const lookup = question.elementLookup || question.cardLookup;
+		lookUpStableId(serverDb, lookup, (lookupError, stableId) => {
 			if (lookupError || !stableId) {
-				callback('', lookupError ? { lookupError: String(lookupError) } : { elementAbsent: question.elementLookup });
+				callback('', lookupError ? { lookupError: String(lookupError) } : { elementAbsent: lookup });
 				return;
 			}
 			const mapper = require(path.join(codeRootPath, 'server/data-model/data-mapping/mappers/standards-neighbourhood.js'))({});

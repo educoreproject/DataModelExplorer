@@ -535,23 +535,23 @@ function isGroupable(elements) {
 }
 
 // Which hub edges count as verified. EXACT_MATCH is the hub-verified
-// equivalence; the HAS_CEDS_* edges are how a CEDS anchor is bound to the hub
-// it defines, which is definitional and therefore at least as strong.
-const VERIFIED_RELS = new Set([
-	'EXACT_MATCH',
-	'HAS_CEDS_PROPERTY',
-	'HAS_CEDS_DOMAIN',
-	'HAS_CEDS_VALUE',
-]);
+// equivalence; a hub's own PROPERTY / DOMAIN / VALUE slot edges (HAS_<HUB>_<SLOT>,
+// e.g. HAS_CEDS_PROPERTY) are how a hub's anchor is bound to the hub it defines,
+// which is definitional and therefore at least as strong. ctdlHub P7: every hub's
+// slot edges, not CEDS's alone (a graph may hold CEDS and CTDL).
+const VERIFIED_RELS = new Set(['EXACT_MATCH']);
+const DEFINITIONAL_HUB_SLOT_EDGE_PATTERN = /^HAS_[A-Z][A-Z0-9]*_(PROPERTY|DOMAIN|VALUE)$/;
+const isVerifiedRel = (relationshipType) =>
+	VERIFIED_RELS.has(relationshipType) || DEFINITIONAL_HUB_SLOT_EDGE_PATTERN.test(relationshipType || '');
 
 // A cross-spec correspondence runs over two hub edges — the element's own
 // (selfRel) and the neighbour's (rel) — and is only as strong as the weaker of
 // them. Both verified means the pair is authoritative BY COMPOSITION: no
 // standard's documentation crosswalks directly to another's, so a SIF ↔ Ed-Fi
-// equivalence is two asserted legs meeting at a CEDS hub. Anything else is a
-// similarity-derived hypothesis.
+// equivalence is two asserted legs meeting at ONE hub card (never across hubs).
+// Anything else is a similarity-derived hypothesis.
 const isAuthoritativePair = (selfRel, rel) =>
-	VERIFIED_RELS.has(selfRel) && VERIFIED_RELS.has(rel);
+	isVerifiedRel(selfRel) && isVerifiedRel(rel);
 
 // -------------------------------------------------------------------------
 // Scoring a cross-spec row, for the "%" chip and for ranking.

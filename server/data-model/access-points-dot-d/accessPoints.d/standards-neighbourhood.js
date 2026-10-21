@@ -24,6 +24,9 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
+// ⟪ctdlHub P7, Q1 approved by SCARLET_ARROW 2026-10-21⟫ an anchor page names its context groups by the anchor's OWN hub's slot
+// edges (they were the literals HAS_CEDS_PROPERTY / HAS_CEDS_DOMAIN, wrong on a CTDL anchor)
+const { hubEdgeTypeFor } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 
 //START OF moduleFunction() ============================================================
 
@@ -319,7 +322,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) =>
-			runNamedQuery('anchorContextByStableId', { stableId: focusNode.stableId }, (queryError, contextRecordList) => next(queryError, { ...args, anchorContext: contextRecordList && contextRecordList[0] })),
+			runNamedQuery('anchorContextByStableId', { stableId: focusNode.stableId }, (queryError, contextRecordList) => {
+				const anchorContext = contextRecordList && contextRecordList[0];
+				if (!queryError && (!anchorContext || !anchorContext.hubName)) {
+					next(`${moduleName}: the hub anchor '${focusNode.stableId}' names no hubName; its context edges cannot be named`, args);
+					return;
+				}
+				next(queryError, { ...args, anchorContext });
+			}),
 		);
 		taskList.push((args, next) =>
 			runNamedQuery('anchorFanOutByStableId', { stableId: focusNode.stableId }, (queryError, fanOutRecordList) => next(queryError, { ...args, fanOutRecordList })),
@@ -335,8 +345,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				contextList.map((oneEntry) => ({ stableId: oneEntry.stableId, name: oneEntry.name, kind: itemKind, description: oneEntry.definition, hasChildren: Boolean(oneEntry.hasStructuralChildren) }));
 			const childGroupList = [
 				{ relationshipType: 'MAPPED_FROM_STANDARD', count: standardGroupList.length, truncated: false, itemList: standardGroupList },
-				{ relationshipType: 'HAS_CEDS_PROPERTY', count: args.anchorContext.cedsPropertyList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsPropertyList, 'cedsProperty') },
-				{ relationshipType: 'HAS_CEDS_DOMAIN', count: args.anchorContext.cedsDomainList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsDomainList, 'cedsDomain') },
+				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'PROPERTY'), count: args.anchorContext.cedsPropertyList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsPropertyList, 'cedsProperty') },
+				{ relationshipType: hubEdgeTypeFor(args.anchorContext.hubName, 'DOMAIN'), count: args.anchorContext.cedsDomainList.length, truncated: false, itemList: contextItemListOf(args.anchorContext.cedsDomainList, 'cedsDomain') },
 			].filter((oneGroup) => oneGroup.count > 0);
 			callback('', {
 				node: { ...focusNode, referenceTier: args.anchorContext.referenceTier, cedsPropertyList: args.anchorContext.cedsPropertyList, cedsDomainList: args.anchorContext.cedsDomainList },

@@ -266,7 +266,7 @@ const moduleFunction =
 			anchorContextByStableId: ({ stableId }) => ({
 				cypher: `
 					MATCH (anchor:HubReference {stableId: $stableId})
-					RETURN anchor.referenceTier AS referenceTier, anchor.domainName AS domainName, anchor.propertyName AS propertyName,
+					RETURN anchor.hubName AS hubName, anchor.referenceTier AS referenceTier, anchor.domainName AS domainName, anchor.propertyName AS propertyName,
 					       anchor.valueName AS valueName, anchor.rangeOptionSetName AS rangeOptionSetName,
 					       [(anchor)-[propertySlotEdge]->(cedsProperty) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} | { stableId: cedsProperty.stableId, name: cedsProperty.name, definition: coalesce(cedsProperty.definition, cedsProperty.description, ''),
 					         hasStructuralChildren: EXISTS { MATCH (cedsProperty)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS cedsPropertyList,
