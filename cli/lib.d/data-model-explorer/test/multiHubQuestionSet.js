@@ -14,13 +14,15 @@
 // the two-hub graph the same question. A question whose element the graph lacks is answered as { elementAbsent }.
 //
 // Run: node cli/lib.d/data-model-explorer/test/multiHubQuestionSet.js <containerName> <outputDirectoryPath> [questionSetName]
-//   questionSetName: singleHub (default: the regression set) or twoHub (singleHub plus the CTDL questions of step 7)
+//   questionSetName: singleHub (default: the regression set), twoHub (singleHub plus the CTDL questions of step 7), or
+//   predicateAlignment (two questions whose neighbourhoods hold BROAD_MATCH edges: the evidence for the RELATED_MATCH ->
+//   BROAD_MATCH change in the two endpoints, which the regression set's answers do not reach)
 
 const fs = require('fs');
 const path = require('path');
 
 const [containerName, outputDirectoryPath, questionSetNameArgument] = process.argv.slice(2);
-const QUESTION_SET_NAME_LIST = ['singleHub', 'twoHub'];
+const QUESTION_SET_NAME_LIST = ['singleHub', 'twoHub', 'predicateAlignment'];
 const questionSetName = questionSetNameArgument || 'singleHub';
 if (!containerName || !outputDirectoryPath || QUESTION_SET_NAME_LIST.indexOf(questionSetName) === -1) {
 	console.error(`usage: multiHubQuestionSet.js <containerName> <outputDirectoryPath> [${QUESTION_SET_NAME_LIST.join('|')}] (got ${JSON.stringify(process.argv.slice(2))})`);
@@ -90,9 +92,14 @@ const TWO_HUB_ADDITION_LIST = [
 	{ questionName: 'graphRetriever-credential', kind: 'cliVerb', verbName: 'graphRetriever', params: { query: 'credential', searchMode: 'keyword', limit: '5' } },
 	{ questionName: 'slackCard-ctdlName', kind: 'slackCard', elementLookup: { source: 'CTDL', name: 'name', role: 'DmeProperty' } },
 ];
+const PREDICATE_ALIGNMENT_QUESTION_LIST = [
+	{ questionName: 'dmeCrossSpecMappings-EdFiAddress', kind: 'httpGet', endpointFileName: 'dme-cross-spec-mappings.js', query: { source: 'EdFi', name: 'Address' } },
+	{ questionName: 'dmeEquivalents-institutionTelephone', kind: 'httpGet', endpointFileName: 'dme-equivalents.js', query: { term: 'institution telephone' } },
+];
 const QUESTION_LIST_BY_SET_NAME = Object.freeze({
 	singleHub: SINGLE_HUB_QUESTION_LIST,
 	twoHub: SINGLE_HUB_QUESTION_LIST.concat(TWO_HUB_ADDITION_LIST),
+	predicateAlignment: PREDICATE_ALIGNMENT_QUESTION_LIST,
 });
 
 // ---- graph handles

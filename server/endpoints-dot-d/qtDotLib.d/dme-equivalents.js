@@ -70,7 +70,9 @@ const moduleFunction = function ({
 	// The Schema Verifier's one fixed lookup: rank golden standard nodes by how many
 	// significant tokens of the term appear in their name, then walk each match's
 	// HubReference to collect its cross-standard equivalents (EXACT_MATCH is the
-	// hub-verified equivalence; CLOSE/NARROW/RELATED_MATCH are weaker suggestions).
+	// hub-verified equivalence; CLOSE/BROAD/NARROW_MATCH are weaker suggestions).
+	// ⟪ctdlHub P7⟫ the four-predicate vocabulary: RELATED_MATCH (no graph holds one) gave way to BROAD_MATCH, which the
+	// graph does hold and these queries never read until now.
 	//
 	// ⟪ctdlHub P7⟫ Every hub of the graph: a hub standard's own element ranks as the headline (it was the literal CEDS),
 	// an element reaches its card through that card's own hub's PROPERTY/DOMAIN/VALUE slot, and each equivalent names
@@ -104,10 +106,10 @@ const moduleFunction = function ({
 		      + CASE WHEN n._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} THEN 2 ELSE 0 END) AS score
 		ORDER BY score DESC LIMIT 20
 		OPTIONAL MATCH (n)-[elementHubEdge]-(hub:HubReference)
-		WHERE type(elementHubEdge) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		WHERE type(elementHubEdge) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH',
 		                               ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
 		OPTIONAL MATCH (hub)-[r2]-(m)
-		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH', ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}]
+		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH', ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}]
 		  AND m <> n AND (m:DmeProperty OR m:DmeClass OR (m:DmeOptionValue AND m._source = 'CTDL'))
 		RETURN labels(n) AS labels,
 		       n.name AS name,

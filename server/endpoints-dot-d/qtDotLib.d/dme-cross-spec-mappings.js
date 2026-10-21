@@ -89,10 +89,10 @@ const moduleFunction = function ({
 		  AND toLower(coalesce(n.name, '')) = $name
 		WITH n LIMIT 5
 		OPTIONAL MATCH (n)-[r1]-(hub:HubReference)
-		WHERE type(r1) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		WHERE type(r1) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH',
 		                   ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
 		OPTIONAL MATCH (hub)-[r2]-(m)
-		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'NARROW_MATCH',
 		                   ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
 		  AND m <> n
 		  AND coalesce(m._source, '') <> $source
