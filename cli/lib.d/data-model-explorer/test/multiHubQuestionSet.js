@@ -94,6 +94,9 @@ const TWO_HUB_ADDITION_LIST = [
 	// a hub ANCHOR page in the PESC Explorer: its context groups are named by the anchor's own hub's slot edges
 	{ questionName: 'standardsNeighbourhood-cedsAnchorBirthdate', kind: 'standardsNeighbourhood', cardLookup: { hubName: 'CEDS', name: 'Birthdate' } },
 	{ questionName: 'standardsNeighbourhood-ctdlAnchorName', kind: 'standardsNeighbourhood', cardLookup: { hubName: 'CTDL', name: 'Name' } },
+	// published cross-IRI assertions (DECLARED_CORRESPONDENCE), listed apart from every mapping
+	{ questionName: 'findMappings-CodedNotation', kind: 'cliVerb', verbName: 'findMappings', params: { name: 'Coded Notation' } },
+	{ questionName: 'explore-FederalGrant', kind: 'cliVerb', verbName: 'explore', params: { name: 'Federal Grant' } },
 ];
 const PREDICATE_ALIGNMENT_QUESTION_LIST = [
 	{ questionName: 'dmeCrossSpecMappings-EdFiAddress', kind: 'httpGet', endpointFileName: 'dme-cross-spec-mappings.js', query: { source: 'EdFi', name: 'Address' } },

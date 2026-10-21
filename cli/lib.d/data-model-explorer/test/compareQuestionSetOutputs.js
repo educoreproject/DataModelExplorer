@@ -36,6 +36,8 @@ const ALLOWED_ADDED_FIELD_NAME_LIST = Object.freeze([
 	'hubMatchEdgeCountByHub',
 	// Schema Verifier rows: whether the row's own standard is a hub (the name unmappedFields rows already use)
 	'isHubStandard',
+	// findMappings / explore: published cross-IRI assertions, listed apart and never a mapping (ruling 2026-10-21)
+	'declaredCorrespondenceList', 'declaredCorrespondenceCount', 'declaredCorrespondenceRowUnit',
 ]);
 const TEXT_ANSWER_CHANGE_ALLOWED_BY_FILE_NAME = Object.freeze({
 	'getSchemaText.txt': 'step 4: hub paragraph generated from HubDefinition, hubName filters in examples, matchBasis authority',

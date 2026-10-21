@@ -43,6 +43,9 @@ const {
 	hubSlotEdgeTypeList,
 	allHubDecompositionEdgeTypeList,
 	HUB_IDENTIFIER_EXAMPLE_TEXT_BY_CANONICAL_KEY_NAME,
+	DECLARED_CORRESPONDENCE_LIST_CAP,
+	DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
+	declaredCorrespondenceCypherFor,
 	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
@@ -545,6 +548,14 @@ const findMappings = (session, nameOrId, callback) => {
 		const toIdList = [...new Set(args.mappingResult.records.reduce((soFar, standardRecord) => soFar.concat(standardRecord.get('toIdList')), []))];
 		runCypherQuery(session, HUB_TUPLE_SUMMARY_CYPHER, { toIdList }, mergeArgs(args, next, 'hubTupleResult'));
 	});
+	// ⟪ctdlHub P7⟫ published cross-IRI assertions touching a matched node: listed APART, never a mapping row or count
+	taskList.push((args, next) => {
+		if (args.matchedNodeCount === 0) {
+			next('', args);
+			return;
+		}
+		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus')), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
+	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
 			callback(err);
@@ -568,9 +579,17 @@ const findMappings = (session, nameOrId, callback) => {
 			})),
 			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 			hubList: hubListFieldOf(args.hubInventory.hubList),
+			...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 		});
 	});
 };
+
+// ⟪ctdlHub P7⟫ the declared-correspondence block of a payload: the capped list, its count, and what a row is (NOT a mapping)
+const declaredCorrespondenceFieldsOf = (correspondenceRecord) => ({
+	declaredCorrespondenceList: correspondenceRecord.get('declaredCorrespondenceList').map(serializeValue),
+	declaredCorrespondenceCount: toNumber(correspondenceRecord.get('declaredCorrespondenceCount')),
+	declaredCorrespondenceRowUnit: DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
+});
 
 // ⟪ctdlHub P7⟫ the hub standards' _source values, in hub order
 const hubSourceListOf = (hubList) => hubList.map((hubRow) => hubRow.hubSource);
@@ -1338,7 +1357,8 @@ const getListStandards = (session, callback) => {
 // W-D-11 / W-D-12 (campaign P1): ONE entry per node, keyed by stableId (same-named nodes were merged by labels + name and
 // kept the last record's edges), with matchedNodeCount. The name match is exact unless nameMatch says caseInsensitive,
 // and an exact lookup ALWAYS reports its case-variant siblings (SIF splits BirthDate / birthDate) so the model can widen.
-const EXPLORE_NAME_MATCH_PREDICATE = "(($nameMatch = 'exact' AND n.name = $name) OR ($nameMatch = 'caseInsensitive' AND toLower(n.name) = toLower($name)))";
+const exploreNameMatchPredicateFor = (nodeVariable) => `(($nameMatch = 'exact' AND ${nodeVariable}.name = $name) OR ($nameMatch = 'caseInsensitive' AND toLower(${nodeVariable}.name) = toLower($name)))`;
+const EXPLORE_NAME_MATCH_PREDICATE = exploreNameMatchPredicateFor('n');
 
 const exploreNode = (session, params, callback) => {
 	const name = params.name;
@@ -1390,6 +1410,9 @@ const exploreNode = (session, params, callback) => {
 			  AND ($sourceList IS NULL OR s._source IN $sourceList) AND ${notLayerNodeText('s')}
 			RETURN count(s) AS caseVariantNodeCount, collect(DISTINCT s.name) AS caseVariantNameList
 		`, queryParams, mergeArgs(args, next, 'caseVariantResult')));
+		// ⟪ctdlHub P7⟫ the published cross-IRI assertions touching the explored node(s), listed apart, sourcePredicate verbatim
+		taskList.push((args, next) => runCypherQuery(session, declaredCorrespondenceCypherFor(`${exploreNameMatchPredicateFor('focus')} AND ($sourceList IS NULL OR focus._source IN $sourceList) AND ${notLayerNodeText('focus')}`),
+			{ ...queryParams, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult')));
 
 		pipeRunner(taskList.getList(), {}, (err, args) => {
 			if (err) {
@@ -1415,6 +1438,7 @@ const exploreNode = (session, params, callback) => {
 				caseVariantNodeCount,
 				caseVariantNameList: caseVariantRecord.get('caseVariantNameList'),
 				...familyExpansionFieldsFor(standardFilter),
+				...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 			});
 		});
 	});

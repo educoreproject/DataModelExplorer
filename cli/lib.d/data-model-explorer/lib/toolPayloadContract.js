@@ -1,3 +1,22 @@
+// ⟪ctdlHub P7, ruling SCARLET_ARROW 2026-10-21⟫ DECLARED_CORRESPONDENCE carries a standard's own published cross-IRI assertion
+// (owl:equivalentClass, skos:relatedMatch, owl:equivalentProperty …) verbatim. It is NOT a match edge: findMappings and
+// explore list it APART, in declaredCorrespondenceList, outside every mapping row and total, never labelled a match.
+// focusMatchText is a Cypher WHERE over the variable focus (the nodes the verb matched); each row is one edge, subject
+// to object as published, either direction from the focus.
+const DECLARED_CORRESPONDENCE_EDGE_TYPE = 'DECLARED_CORRESPONDENCE';
+const DECLARED_CORRESPONDENCE_LIST_CAP = 50;
+const DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT = "a DECLARED CORRESPONDENCE: one standard's own published assertion relating its term to another standard's (sourcePredicate quoted verbatim). NOT a mapping: never report it as EXACT/CLOSE/BROAD/NARROW, never compose it with a match edge, never count it as mapped";
+const declaredCorrespondenceCypherFor = (focusMatchText) => `
+	MATCH (focus:ForgedNode) WHERE ${focusMatchText}
+	MATCH (focus)-[declaredEdge:${DECLARED_CORRESPONDENCE_EDGE_TYPE}]-(:ForgedNode)
+	WITH DISTINCT declaredEdge
+	WITH startNode(declaredEdge) AS subject, declaredEdge, endNode(declaredEdge) AS object
+	ORDER BY subject._source, subject.name, declaredEdge.sourcePredicate, object._source, object.name, object.stableId
+	WITH collect({ sourceStandard: subject._source, subjectName: subject.name, subjectStableId: subject.stableId,
+	               sourcePredicate: declaredEdge.sourcePredicate, declaredBy: declaredEdge.declaredBy,
+	               targetStandard: object._source, objectName: object.name, objectStableId: object.stableId, objectKind: object.role }) AS correspondenceList
+	RETURN correspondenceList[..$declaredCorrespondenceCap] AS declaredCorrespondenceList, size(correspondenceList) AS declaredCorrespondenceCount`;
+
 'use strict';
 
 // toolPayloadContract.js — the ONE declaration of what every dme_* verb returns (CONTRACTS-declared-100626 §14; W-D-1,
@@ -197,6 +216,7 @@ const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 	totalRowCountByRelationAndStandard: 'ROWS per relation and source standard',
 	truncatedRowCountByRelationAndStandard: 'ROWS per relation and source standard not shown',
 	totalRowCountByDirection: 'ROWS per direction; one graph edge can appear under more than one direction',
+	declaredCorrespondenceCount: `DECLARED CORRESPONDENCES touching a matched node (declaredCorrespondenceList shows at most ${DECLARED_CORRESPONDENCE_LIST_CAP}): published assertions, NOT mappings, in no other total`,
 	totalRowCountByHub: "ROWS per hub (each row names its card's hub in hubName); rows are shown hub by hub, each hub allocated the row cap on its own",
 	hubTupleCount: 'CEDS TUPLES (HubReferences) the rows reach; hubTupleSummaryList shows at most HUB_TUPLE_SUMMARY_CAP of them, most edges first',
 	edgeCount: 'EDGES: match edges in the graph into this CEDS tuple, each counted once, from any element (not only the matched ones)',
@@ -385,6 +405,10 @@ module.exports = Object.freeze({
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
 	HUB_TUPLE_SUMMARY_CAP,
 	HUB_TUPLE_SUMMARY_CYPHER,
+	DECLARED_CORRESPONDENCE_EDGE_TYPE,
+	DECLARED_CORRESPONDENCE_LIST_CAP,
+	DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
+	declaredCorrespondenceCypherFor,
 	COMPARE_CODESETS_VERDICT_LIST,
 	COMPARE_CODESETS_ROW_CAP,
 	VALUE_TIER_JUDGMENT_COUNT_CYPHER,

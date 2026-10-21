@@ -73,6 +73,8 @@ const FIND_MAPPINGS_RESPONDER_LIST = [
 	{ pattern: /RETURN rowHub, rowRelation, rowStandard/, rowList: [findMappingsRecordOf('CTDL'), findMappingsRecordOf('CEDS')] },
 	{ pattern: /AS matchedInstanceCount/, rowList: [] },
 	{ pattern: /hub\.canonicalKey IN \$toIdList/, rowList: [] },
+	// ⟪ruling 2026-10-21⟫ one published assertion touches a matched node: it must be listed APART, never as a mapping row
+	{ pattern: /AS declaredCorrespondenceList/, rowList: [{ declaredCorrespondenceList: [{ sourceStandard: 'CTDL', subjectName: 'Federal Grant', subjectStableId: 'financialAid:FederalGrant', sourcePredicate: 'owl:equivalentClass', declaredBy: 'CTDL', targetStandard: 'CEDS', objectName: 'Other federal grants', objectStableId: 'ceds:x', objectKind: 'DmeOptionValue' }], declaredCorrespondenceCount: 1 }] },
 ];
 
 const searchModulePath = path.join(dmeDirPath, 'dataModelExplorerSearch.js');
@@ -116,6 +118,7 @@ const findMappingsAssertions = (answerLabel, verbError, payload, queryLog) => {
 	const mappingQueryText = ((queryLog || []).find((oneQuery) => /RETURN rowHub, rowRelation, rowStandard/.test(oneQuery.cypherText)) || {}).cypherText || '';
 	assert(`${answerLabel}: a card decomposes through BOTH hubs' edge types per slot`, mappingQueryText.includes('OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN|HAS_CTDL_DOMAIN]->(cd:ForgedNode)') && mappingQueryText.includes('[:HAS_CEDS_QUALIFIER|HAS_CTDL_QUALIFIER]->(cq:ForgedNode)'));
 	assert(`${answerLabel}: the incoming arm reads every hub's every slot`, mappingQueryText.includes(`MATCH (n)<-[:${contract.allHubDecompositionEdgeTypeList(['CEDS', 'CTDL']).join('|')}]-(hub:HubReference)`));
+	assert(`${answerLabel}: a declared correspondence is listed APART (sourcePredicate verbatim), in no mapping row or total`, payload.declaredCorrespondenceCount === 1 && payload.declaredCorrespondenceList[0].sourcePredicate === 'owl:equivalentClass' && /NOT a mapping/.test(payload.declaredCorrespondenceRowUnit) && rowList.every((oneRow) => oneRow.mappingType === 'EXACT_MATCH') && payload.totalRowCount === 80, JSON.stringify(payload.declaredCorrespondenceList));
 	assert(`${answerLabel}: no literal hub source in the query (toSource is read from the card)`, !/\$hubSource|'CEDS'/.test(mappingQueryText) && /hub\.hubName AS toSource/.test(mappingQueryText));
 };
 taskList.push((args, next) => {
@@ -207,7 +210,11 @@ taskList.push((args, next) => {
 		runVerbOn(sharedCapTwin, 'findMappings', { name: 'Birthdate' }, FIND_MAPPINGS_RESPONDER_LIST, (sharedError, sharedPayload) => {
 			const sharedRowList = (sharedPayload && sharedPayload.mappingRowList) || [];
 			assert('red twin (one cap shared across hubs): CTDL is crowded out, so the per-hub cap assertion would fail', sharedRowList.filter((oneRow) => oneRow.hubName === 'CTDL').length === 0 && sharedRowList.length === 30, `${sharedRowList.length} rows`);
-			next('', args);
+			const droppedCorrespondenceTwin = twinOf('...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),\n\t\t});\n\t});\n};', '});\n\t});\n};');
+			runVerbOn(droppedCorrespondenceTwin, 'findMappings', { name: 'Birthdate' }, FIND_MAPPINGS_RESPONDER_LIST, (droppedError, droppedPayload) => {
+				assert('red twin (declared correspondences not listed): the declared-correspondence assertion would fail', droppedPayload && !('declaredCorrespondenceList' in droppedPayload));
+				next('', args);
+			});
 		});
 	});
 });
