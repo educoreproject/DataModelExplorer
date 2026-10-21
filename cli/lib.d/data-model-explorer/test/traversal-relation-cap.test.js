@@ -17,6 +17,9 @@ const os = require('os');
 const path = require('path');
 const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const dmeDirPath = path.join(__dirname, '..');
+// ⟪lane R6⟫ a card reaches its hub's leaves through its OWN hub's slot edges, read from the contract (no hub literal)
+const { HUB_DECOMPOSITION_SLOT_LIST, cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
+const anySlotEdgeTypeListTextOf = (cardVariableName) => `[${HUB_DECOMPOSITION_SLOT_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
 const traversalFilePath = process.argv[2] || path.join(dmeDirPath, 'traversal.cypher');
 const neo4j = require(path.join(dmeDirPath, 'node_modules', 'neo4j-driver'));
 const configFileProcessor = require(path.join(dmeDirPath, 'node_modules', 'qtools-config-file-processor'));
@@ -91,7 +94,8 @@ taskList.push((args, next) => {
 taskList.push((args, next) => {
 	runQuery(
 		`MATCH (n) WHERE elementId(n) = $seedElementId
-		 MATCH (n)<-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_RANGE|HAS_CEDS_VALUE|HAS_CEDS_QUALIFIER]-(:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(:ForgedNode)
+		 MATCH (n)<-[slotEdge]-(card:HubReference)<-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]-(:ForgedNode)
+		 WHERE type(slotEdge) IN ${anySlotEdgeTypeListTextOf('card')}
 		 RETURN type(m) AS relation, count(*) AS totalCount`,
 		{ seedElementId: args.seedElementId },
 		(err, records) => {

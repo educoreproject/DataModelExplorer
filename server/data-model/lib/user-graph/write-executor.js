@@ -16,8 +16,8 @@
 //   - Additive-only: the executor refuses to SET/DELETE/REMOVE on any node lacking
 //     :UserContent (i.e. any golden node), with a clear error.
 //   - user->standard links name the standard by userLinkTargetRule.standardKeyName (stableId,
-//     carried by every standard) on a :ForgedNode in a declared linkable role; 'uri' (CEDS-only)
-//     is retired and refused by name.
+//     carried by every standard) on a :ForgedNode in a declared linkable role; 'uri' (a key only one
+//     standard carried) is retired and refused by name.
 //   - every user-made edge carries the declared stamp (userEdgeStampFieldList); the four match
 //     relation types are judge relations and are refused (userEdgeRule.matchRelationPolicy).
 

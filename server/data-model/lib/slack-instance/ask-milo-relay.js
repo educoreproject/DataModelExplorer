@@ -10,7 +10,7 @@
 // Slack-shaped differences the plan specifies:
 //   - spawn the repo's OWN askMilo.js via process.execPath, NO shell
 //   - qtools JSON-on-stdin; the question travels ONLY in fileList
-//   - singleCallPromptName=DataModelExplorer (the CEDS-anchored prompt config)
+//   - singleCallPromptName=DataModelExplorer (the DME's hub-anchored prompt config)
 //   - DmeUserRead/DmeUserWrite force-suppressed (Standard-mode discipline);
 //     never graphMode:'user', never the user-mode env branch
 //   - configPath derived from process.global.configurationSourceFilePath

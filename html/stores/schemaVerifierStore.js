@@ -207,7 +207,7 @@ const standardOf = (source, labels) =>
 // -------------------------------------------------------------------------
 // Snapshot fallback — client-side equivalents lookup over the bundled hub
 // snapshot. Mirrors the server's dme-equivalents ranking: token coverage
-// (hits*100), precision, +1 for property leaves, +2 for CEDS.
+// (hits*100), precision, +1 for property leaves, +2 for a hub's own anchor.
 //
 // Two token lists play different roles. ELIGIBILITY uses the significant
 // tokens (broad stop list — "name"/"code"/"id" match half the graph, so they
@@ -226,7 +226,7 @@ function scoreSnapshotMember(sigTokens, allTokens, minHits, member) {
 	const denom = Math.max(candWords, hits);
 	const prec = Math.round((10 * hits) / denom);
 	return (
-		hits * 100 + prec + (member.k === 'P' ? 1 : 0) + (member.source === 'CEDS' ? 2 : 0)
+		hits * 100 + prec + (member.k === 'P' ? 1 : 0) + (member.isHubAnchor ? 2 : 0)
 	);
 }
 
@@ -243,7 +243,7 @@ function keepTopHitTier(rows) {
 function searchSnapshot(snapshot, sigTokens, allTokens, minHits) {
 	const rows = [];
 	for (const hub of snapshot.hubs) {
-		// A hub's members: its CEDS anchor(s) plus its cross-standard matches.
+		// A hub's members: its hub anchor(s) plus its cross-standard matches.
 		// The anchor's "relationship" to the hub is definitional, so when it
 		// appears in another member's related list it is marked authoritative.
 		const members = [
@@ -352,7 +352,9 @@ function expandSnapshot(raw) {
 	if (!raw || raw.version !== 2) return raw;
 	const anchor = (id) => {
 		const [k, name, desc, path] = raw.ceds[id] || [];
-		return name ? { name, source: 'CEDS', id: id.includes(':') ? '' : id, k, desc: desc || '', path: path || '' } : null;
+		// ⟪lane R6⟫ the v2 snapshot is stored data: its 'ceds' field holds the anchors of the one hub it was cut from, so
+		// their source is that stored name; isHubAnchor (not the name) is what ranks them (scoreSnapshotMember)
+		return name ? { name, source: 'CEDS', id: id.includes(':') ? '' : id, k, desc: desc || '', path: path || '', isHubAnchor: true } : null;
 	};
 	return {
 		generated: raw.generated,

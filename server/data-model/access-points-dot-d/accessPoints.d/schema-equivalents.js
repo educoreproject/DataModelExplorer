@@ -24,7 +24,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		neo4jDb,
 		ownerName: moduleName,
 		requiredLabelList: mapper.requiredLabelList,
-		absentReason: 'the Schema Verifier reads the forged standards and their CEDS hub cards',
+		absentReason: 'the Schema Verifier reads the forged standards and their hub cards',
 	});
 
 	// ================================================================================

@@ -5,7 +5,7 @@
 //
 // Query types (via CLI flags):
 //   -search "query"        Hybrid search (keyword BM25 + vector, fused; --searchMode=hybrid|keyword|vector) across ALL standards
-//   -findMappings "name"   Find an element's CEDS concept (HubReference) + cross-standard equivalents
+//   -findMappings "name"   Find an element's hub concepts (HubReference) + cross-standard equivalents
 //   -compareCodesets "name" Compare codeset values between standards
 //   -unmappedFields        DmeProperty nodes with no cross-standard mapping
 //   -stats                 Counts by standard and role, mapping coverage
@@ -444,19 +444,19 @@ const JUDGMENT_CONFIDENCE_FIELD_NAME_LIST = ['mappingConfidence', 'viaMappingCon
 // INSTANCE NODES (HAS_INSTANCE) — lane D, 2026-10-01
 // =====================================================================
 //
-// SIF and PESC write their CEDS mapping edges onto INSTANCE nodes, not onto the element the
+// SIF and PESC write their hub mapping edges onto INSTANCE nodes, not onto the element the
 // DME finds. A SIF Question (DmeProperty) -[:HAS_INSTANCE]-> one Field (DmeInstance since P3) per object it
 // appears in; a PESC element declaration (DmeProperty) -[:HAS_INSTANCE]-> one occurrence
 // (DmeInstance since P3) per place it appears in the document. The bridges fan their verdicts out onto
-// those instances, so the declaration itself carries no mapping edge. CEDS and Ed-Fi have no
-// HAS_INSTANCE edges, and every arm below reduces to its old self on them.
+// those instances, so the declaration itself carries no mapping edge. A standard with no
+// HAS_INSTANCE edges reduces every arm below to its old self.
 //
 // An instance's GROUP is where it sits: the SIF Object that owns the Field (HAS_FIELD), else the
 // PESC occurrence's sectionPath. When neither exists the instance contributes no group name —
 // the count still includes it, and no group is invented.
 //
 // Instance fields are attached to a row ONLY when the row involves instances (an absent field
-// means "no instances", never null), so CEDS and Ed-Fi rows serialize exactly as before.
+// means "no instances", never null), so rows of a standard without instances serialize exactly as before.
 
 const instanceGroupOf = (instanceVariable) =>
 	`coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(${instanceVariable}) | groupObject.name]), ${instanceVariable}.sectionPath)`;
@@ -652,8 +652,8 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 		}
 		CALL {
 			WITH n
-			// outgoing: this element resolves to its CEDS tuple (a HubReference), shown via
-			// its decomposed CEDS domain/property, under any of the four relations.
+			// outgoing: this element resolves to a hub tuple (a HubReference), shown via
+			// its decomposed hub domain/property, under any of the four relations.
 			MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			${hubDecompositionMatchText}
 			WITH n, m, hub, cd, cp, cr, cv, cq, ${declarationOf('n')} AS nDeclaration
@@ -673,7 +673,7 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 			       null AS viaInstanceGroupList, null AS viaInstanceCount
 			UNION
 			WITH n
-			// shared-hub pair: another standard's element resolving to the SAME CEDS tuple.
+			// shared-hub pair: another standard's element resolving to the SAME hub tuple.
 			// Conservativity: 'equivalent' ONLY when BOTH hops are EXACT_MATCH (two judgments of
 			// sameness); an EXACT/CLOSE pair with a CLOSE hop is a hypothesis, 'candidateEquivalent';
 			// any BROAD/NARROW hop makes it 'related' (sharedHubDirectionOf). Both hops' evidence is returned: the
@@ -736,7 +736,7 @@ const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
 	UNION
 			WITH n
 			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
-			// live on its instances. One row per CEDS tuple and verdict, carrying the instance
+			// live on its instances. One row per hub tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
 			MATCH (n)-[:HAS_INSTANCE]->(instanceNode:ForgedNode)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 			WITH n, hub, type(m) AS instMatchType, m.mappingConfidence AS instConfidence, m.predicate AS instPredicate, m.mappingConfidence AS instMappingConfidence, m.mappingKind AS instMappingKind, m.mappingSource AS instMappingSource, m.mappingRationale AS instMappingRationale,
@@ -963,7 +963,7 @@ const addNestedCountsInto = (countByOuterAndInnerName, addedCountByOuterAndInner
 	addCountsInto(countByOuterAndInnerName[outerName], addedCountByOuterAndInnerName[outerName]);
 });
 
-// ⟪campaign P4a, Q1⟫ one summary per CEDS tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
+// ⟪campaign P4a, Q1⟫ one summary per hub tuple the rows reach: its match EDGES and distinct ELEMENTS by relation, read
 // from the graph, most edges first, at most HUB_TUPLE_SUMMARY_CAP (hubTupleCount says how many there are)
 const shapeHubTupleSummary = (hubTupleResult) => {
 	const summaryByToId = {};

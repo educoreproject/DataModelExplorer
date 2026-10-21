@@ -46,10 +46,10 @@ const moduleFunction = function ({
 	// element that merely CLOSE_MATCHes its hub gets nothing authoritative out of
 	// it, however solid the neighbour's own edge is.
 	//
-	// This matters most between two non-CEDS standards. No standard's
-	// documentation crosswalks directly to another's — each maps to CEDS — so a
+	// This matters most between two standards that are no hub. No standard's
+	// documentation crosswalks directly to another's — each maps to a hub — so a
 	// SIF ↔ Ed-Fi equivalence is authoritative BY COMPOSITION: two verified legs
-	// through one CEDS hub. Reporting `hub` on every row lets the UI say which
+	// through one hub card. Reporting `hub` on every row lets the UI say which
 	// concept carried the claim rather than implying a direct assertion.
 	//
 	// The element's own spec is excluded throughout: a mapping to yourself is not
