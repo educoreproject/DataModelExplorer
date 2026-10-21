@@ -137,6 +137,22 @@ const hubSlotEdgeTypeList = (hubNameList, slotName) => {
 };
 // every hub's every slot: the incoming arms' pattern (a hub leaf reached by any card of any hub)
 const allHubDecompositionEdgeTypeList = (hubNameList) => hubNameList.reduce((soFar, hubName) => soFar.concat(hubDecompositionEdgeTypeList(hubName)), []);
+// ⟪ctdlHub P7⟫ the same rule as a Cypher EXPRESSION over a card variable: the edge type of one slot of THAT card's own hub
+// (HAS_<toUpper(card.hubName)>_<SLOT>). For a query that reads no hub list first (the server's fixed queries): the card
+// names its hub, so the slot edge it decomposes through needs no literal and no parameter.
+const cardHubSlotEdgeTypeTextFor = (cardVariableName, slotName) => {
+	if (HUB_ALL_SLOT_LIST.indexOf(slotName) === -1) {
+		throw new Error(`toolPayloadContract.cardHubSlotEdgeTypeTextFor: '${slotName}' is not a declared hub slot (${HUB_ALL_SLOT_LIST.join(', ')})`);
+	}
+	if (!/^[A-Za-z][A-Za-z0-9]*$/.test(cardVariableName)) {
+		throw new Error(`toolPayloadContract.cardHubSlotEdgeTypeTextFor: '${cardVariableName}' is not a Cypher variable name`);
+	}
+	return `'HAS_' + toUpper(${cardVariableName}.hubName) + '_${slotName}'`;
+};
+// the hub standards' _source values, as a Cypher expression (a standard is a hub when some :HubDefinition names it). A
+// COLLECT subquery, not a pattern comprehension: a comprehension needs a relationship in its pattern (measured: Neo4j
+// refuses [(h:HubDefinition) | h._source]); the read-only validator admits COLLECT { }, measured.
+const HUB_SOURCE_LIST_CYPHER_TEXT = 'COLLECT { MATCH (hubDefinition:HubDefinition) RETURN hubDefinition._source }';
 
 // W-D-3: a traversal mapping list holds only real match edges — toId / hubKey is never null in any entry
 const TRAVERSAL_MAPPING_LIST_NAME_LIST = Object.freeze(['mappingsOutgoing', 'crossStandardEquivalents', 'mappingsIncoming', 'instanceView.mappingsViaInstances']);
@@ -291,7 +307,9 @@ const CALCULATE_OPERATION_ARITY_BY_NAME = Object.freeze({
 });
 
 // W-E-1 / W-E-2: the Slack element card
-const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confidence', 'mappingKind', 'mappingSource', 'hubName', 'hubKey', 'cedsDomain', 'cedsProperty', 'cedsRange', 'carriedBy', 'instanceGroupList', 'instanceCount']);
+// ⟪ctdlHub P7⟫ hubSource (the card's hub; hubName is the card's own name) and the hub-neutral leaf names follow; the ceds*
+// names are present only on a one-hub graph
+const SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST = Object.freeze(['mappingType', 'confidence', 'mappingKind', 'mappingSource', 'hubName', 'hubKey', 'cedsDomain', 'cedsProperty', 'cedsRange', 'carriedBy', 'instanceGroupList', 'instanceCount', 'hubSource', 'hubDomain', 'hubProperty', 'hubRange']);
 const SLACK_CARD_CARRIED_BY_LIST = Object.freeze(['own', 'instance']); // 'own' = edge on the carded node; 'instance' = on a HAS_INSTANCE child
 const SLACK_LOOKUP_LIMITS = Object.freeze({ searchPageSize: 8, cardLimit: 3, tupleLinesShown: 4, peerLinesShown: 6 });
 const SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST = Object.freeze(['stableId', 'name', 'source', 'role', 'description']);
@@ -355,6 +373,8 @@ module.exports = Object.freeze({
 	hubDecompositionEdgeTypeList,
 	hubSlotEdgeTypeList,
 	allHubDecompositionEdgeTypeList,
+	cardHubSlotEdgeTypeTextFor,
+	HUB_SOURCE_LIST_CYPHER_TEXT,
 	TRAVERSAL_MAPPING_LIST_NAME_LIST,
 	OPTION_SET_EDGE_TYPE_LIST,
 	INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST,

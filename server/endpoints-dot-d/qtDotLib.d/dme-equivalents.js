@@ -7,6 +7,8 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+// ⟪ctdlHub P7⟫ a card's own hub names its slot edges, and a standard is a hub when a :HubDefinition names it
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -70,6 +72,10 @@ const moduleFunction = function ({
 	// HubReference to collect its cross-standard equivalents (EXACT_MATCH is the
 	// hub-verified equivalence; CLOSE/NARROW/RELATED_MATCH are weaker suggestions).
 	//
+	// ⟪ctdlHub P7⟫ Every hub of the graph: a hub standard's own element ranks as the headline (it was the literal CEDS),
+	// an element reaches its card through that card's own hub's PROPERTY/DOMAIN/VALUE slot, and each equivalent names
+	// the hub of the ONE card it shares (hubName), so no equivalence crosses hubs.
+	//
 	// CTDL models many field-level concepts as concept-scheme values (CtdlConcept,
 	// labeled DmeOptionValue) rather than properties — nearly half its hub
 	// connections. Those are included; other standards' option values (e.g. Ed-Fi
@@ -95,11 +101,14 @@ const moduleFunction = function ({
 		WITH n, hits,
 		     (hits * 100 + prec
 		      + CASE WHEN n:DmeProperty THEN 1 ELSE 0 END
-		      + CASE WHEN n._source = 'CEDS' THEN 2 ELSE 0 END) AS score
+		      + CASE WHEN n._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} THEN 2 ELSE 0 END) AS score
 		ORDER BY score DESC LIMIT 20
-		OPTIONAL MATCH (n)-[:EXACT_MATCH|CLOSE_MATCH|NARROW_MATCH|RELATED_MATCH|HAS_CEDS_PROPERTY|HAS_CEDS_DOMAIN|HAS_CEDS_VALUE]-(hub:HubReference)
-		OPTIONAL MATCH (hub)-[r2:EXACT_MATCH|CLOSE_MATCH|NARROW_MATCH|RELATED_MATCH|HAS_CEDS_PROPERTY]-(m)
-		WHERE m <> n AND (m:DmeProperty OR m:DmeClass OR (m:DmeOptionValue AND m._source = 'CTDL'))
+		OPTIONAL MATCH (n)-[elementHubEdge]-(hub:HubReference)
+		WHERE type(elementHubEdge) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		                               ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
+		OPTIONAL MATCH (hub)-[r2]-(m)
+		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH', ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}]
+		  AND m <> n AND (m:DmeProperty OR m:DmeClass OR (m:DmeOptionValue AND m._source = 'CTDL'))
 		RETURN labels(n) AS labels,
 		       n.name AS name,
 		       n._source AS source,
@@ -110,7 +119,8 @@ const moduleFunction = function ({
 		         rel: type(r2),
 		         name: m.name,
 		         source: m._source,
-		         labels: labels(m)
+		         labels: labels(m),
+		         hubName: hub.hubName
 		       }) WHERE x.name IS NOT NULL][0..10] AS related
 		ORDER BY score DESC
 	`;

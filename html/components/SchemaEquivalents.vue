@@ -112,13 +112,26 @@ const relationColor = (relation) => (RELATION_DISPLAY_BY_RELATION[relation] || {
 const GROUP_COLORS = { Organization: 'blue-darken-1', Worker: 'deep-orange-darken-1' };
 const groupColor = (g) => GROUP_COLORS[g] || 'grey';
 
-// CEDS gets pulled to the front — it's the headline equivalence the tool promises.
+// The hub standards get pulled to the front — the headline equivalence the tool promises. ctdlHub P7: which
+// standards are hubs is the graph's answer (row.isHubStandard), not a name this file knows.
 function groupByStandard(rows) {
 	const groups = {};
+	const hubStandardSet = new Set(rows.filter((r) => r.isHubStandard).map((r) => r.standard));
 	for (const r of rows) (groups[r.standard] ||= []).push(r);
 	return Object.entries(groups).sort(([a], [b]) =>
-		(b === 'CEDS') - (a === 'CEDS') || a.localeCompare(b),
+		hubStandardSet.has(b) - hubStandardSet.has(a) || a.localeCompare(b),
 	);
+}
+
+// A node's judgments, grouped by the hub whose card carries them (in order of first appearance). With one hub there
+// is one group and it is drawn as before; with several, each hub's chips sit under their own label, never mixed.
+function relatedGroupsOf(row) {
+	const relatedListByHubName = new Map();
+	for (const rel of row.related) {
+		if (!relatedListByHubName.has(rel.hubName)) relatedListByHubName.set(rel.hubName, []);
+		relatedListByHubName.get(rel.hubName).push(rel);
+	}
+	return [...relatedListByHubName.entries()];
 }
 
 const groupedGraph = ref([]);
@@ -229,11 +242,11 @@ watch(
 
 		<v-divider class="mb-5" />
 
-		<!-- ── CEDS / cross-standard equivalents (live graph) ───────── -->
+		<!-- ── hub / cross-standard equivalents (live graph) ───────── -->
 		<div>
 			<div class="d-flex align-center mb-2">
 				<v-icon size="18" color="indigo" class="mr-2">mdi-graph-outline</v-icon>
-				<span class="text-subtitle-2 font-weight-bold">CEDS &amp; cross-standard equivalents</span>
+				<span class="text-subtitle-2 font-weight-bold">Hub &amp; cross-standard equivalents</span>
 				<v-chip
 					v-if="!store.graphError"
 					size="x-small"
@@ -304,9 +317,10 @@ watch(
 							</div>
 
 							<!-- cross-standard neighbours of this node -->
-							<div v-if="row.related.length" class="mt-2">
+							<div v-for="[hubName, hubRelatedList] in relatedGroupsOf(row)" :key="hubName" class="mt-2" :data-testid="`schema-equivalents-hub-group-${hubName}`">
+								<div v-if="relatedGroupsOf(row).length > 1" class="text-caption text-medium-emphasis mb-1">through the {{ hubName }} hub</div>
 								<v-chip
-									v-for="(rel, j) in row.related"
+									v-for="(rel, j) in hubRelatedList"
 									:key="j"
 									size="x-small"
 									class="mr-1 mb-1 rel-chip"
@@ -315,7 +329,7 @@ watch(
 									:title="(isCurated(relItem(rel))
 										? 'In your crosswalk — click to remove. '
 										: 'Click to add to your crosswalk. ')
-										+ `${rel.relation} — a judgment, not a fact: confidence ${rel.mappingConfidence}, kind ${rel.mappingKind}, source ${rel.mappingSource}${rel.edgeCount > 1 ? ` (${rel.edgeCount} edges)` : ''}`"
+										+ `${rel.relation} through the ${rel.hubName} hub — a judgment, not a fact: confidence ${rel.mappingConfidence}, kind ${rel.mappingKind}, source ${rel.mappingSource}${rel.edgeCount > 1 ? ` (${rel.edgeCount} edges)` : ''}`"
 									@click="toggleCurated(relItem(rel))"
 								>
 									<v-icon start size="12">{{ isCurated(relItem(rel)) ? 'mdi-check-circle' : 'mdi-scale-balance' }}</v-icon>

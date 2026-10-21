@@ -30,6 +30,8 @@ const {
 	SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST,
 	SLACK_CARD_CARRIED_BY_LIST,
 	SLACK_CARDABLE_ROLE_LIST,
+	cardHubSlotEdgeTypeTextFor,
+	HUB_SOURCE_LIST_CYPHER_TEXT,
 } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 
 // Slack hard limits are ~3k chars per section and ~50 blocks per message;
@@ -49,7 +51,14 @@ const MATCH_EDGE_PATTERN = Object.keys(MATCH_RELATION_WORD_BY_EDGE_TYPE).join('|
 const DEBUG_MAPPING_SOURCE = 'bridge-debug';
 // the instance's group: the SIF Object that owns the Field (HAS_FIELD), else the PESC occurrence's sectionPath
 const INSTANCE_GROUP_CYPHER = 'coalesce(head([(groupObject:ForgedNode)-[:HAS_FIELD]->(instanceNode) | groupObject.name]), instanceNode.sectionPath)';
-// one tuple's fields, in SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST order, for the two card arms
+// ⟪ctdlHub P7⟫ a card decomposes through its OWN hub's slot edges (they were HAS_CEDS_*): the card names its hub
+const hubDecompositionMatchText = ['DOMAIN', 'PROPERTY', 'RANGE'].map((slotName) => {
+	const leafVariableName = `hub${slotName.charAt(0)}${slotName.slice(1).toLowerCase()}`;
+	return `OPTIONAL MATCH (hub)-[${leafVariableName}SlotEdge]->(${leafVariableName}:ForgedNode) WHERE type(${leafVariableName}SlotEdge) = ${cardHubSlotEdgeTypeTextFor('hub', slotName)}`;
+}).join('\n\t\t\t\t\t\t');
+// one tuple's fields, in SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST order, for the two card arms. ⟪ctdlHub P7⟫ hubSource names the
+// card's hub (hubName is the CARD's name); the hub* leaf names are the hub-neutral ones, and mergeElementCard drops the
+// legacy ceds* names where the graph holds more than one hub (hubDefinitionCount)
 const cardTupleProjection = (carriedByText, instanceGroupListText, instanceCountText) => `{
 									mappingType: mappingType,
 									confidence: confidence,
@@ -57,12 +66,16 @@ const cardTupleProjection = (carriedByText, instanceGroupListText, instanceCount
 									mappingSource: mappingSource,
 									hubName: hub.name,
 									hubKey: hub.canonicalKey,
-									cedsDomain: cedsDomain.name,
-									cedsProperty: cedsProperty.name,
-									cedsRange: coalesce(cedsRange.name, hub.rangeDatatype),
+									cedsDomain: hubDomain.name,
+									cedsProperty: hubProperty.name,
+									cedsRange: coalesce(hubRange.name, hub.rangeDatatype),
 									carriedBy: ${carriedByText},
 									instanceGroupList: ${instanceGroupListText},
-									instanceCount: ${instanceCountText}
+									instanceCount: ${instanceCountText},
+									hubSource: hub.hubName,
+									hubDomain: hubDomain.name,
+									hubProperty: hubProperty.name,
+									hubRange: coalesce(hubRange.name, hub.rangeDatatype)
 								}`;
 
 //START OF moduleFunction() ============================================================
@@ -124,9 +137,7 @@ const moduleFunction =
 						OPTIONAL MATCH (n)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
 						WITH n, hub, type(m) AS mappingType, m.mappingConfidence AS confidence,
 							m.mappingKind AS mappingKind, m.mappingSource AS mappingSource
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cedsDomain:ForgedNode)
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cedsProperty:ForgedNode)
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cedsRange:ForgedNode)
+						${hubDecompositionMatchText}
 						OPTIONAL MATCH (peer:ForgedNode)-[peerMatch:${MATCH_EDGE_PATTERN}]->(hub)
 							WHERE peer._source <> n._source
 						RETURN n.name AS name, n._source AS source,
@@ -135,8 +146,10 @@ const moduleFunction =
 							collect(DISTINCT {
 								peerName: peer.name,
 								peerSource: peer._source,
-								mappingType: type(peerMatch)
-							}) AS peers
+								mappingType: type(peerMatch),
+								hubSource: hub.hubName
+							}) AS peers,
+							size(${HUB_SOURCE_LIST_CYPHER_TEXT}) AS hubDefinitionCount
 					`,
 					params: { stableId: String(queryParams.stableId || '') },
 				},
@@ -153,16 +166,15 @@ const moduleFunction =
 							${INSTANCE_GROUP_CYPHER} AS instanceGroupName
 						WITH n, hub, mappingType, confidence, mappingKind, mappingSource,
 							collect(DISTINCT instanceGroupName) AS instanceGroupList, count(*) AS instanceCount
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_DOMAIN]->(cedsDomain:ForgedNode)
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_PROPERTY]->(cedsProperty:ForgedNode)
-						OPTIONAL MATCH (hub)-[:HAS_CEDS_RANGE]->(cedsRange:ForgedNode)
+						${hubDecompositionMatchText}
 						OPTIONAL MATCH (peer:ForgedNode)-[peerMatch:${MATCH_EDGE_PATTERN}]->(hub)
 							WHERE peer._source <> n._source AND NOT (n)-[:HAS_INSTANCE]->(peer)
 						RETURN collect(DISTINCT ${cardTupleProjection("'instance'", 'instanceGroupList', 'instanceCount')}) AS hubTuples,
 							collect(DISTINCT {
 								peerName: peer.name,
 								peerSource: peer._source,
-								mappingType: type(peerMatch)
+								mappingType: type(peerMatch),
+								hubSource: hub.hubName
 							}) AS peers
 					`,
 					params: { stableId: String(queryParams.stableId || '') },
@@ -240,23 +252,30 @@ const moduleFunction =
 		};
 
 		// ----- the two card arms → one card; an undeclared carrier is refused by name (W-E-1)
+		// ⟪ctdlHub P7⟫ the legacy ceds* tuple names are kept beside hub* only where the graph holds one hub
+		// (hubDefinitionCount, read by the own arm); hubDefinitionCount itself is not part of the card
+		const LEGACY_SINGLE_HUB_TUPLE_FIELD_NAME_LIST = ['cedsDomain', 'cedsProperty', 'cedsRange'];
 		const mergeElementCard = ({ ownRow, viaInstanceRow }) => {
 			if (!ownRow || !ownRow.stableId) {
 				return { refusalText: 'mergeElementCard: the own arm returned no node', card: null };
 			}
-			const hubTuples = [...(ownRow.hubTuples || []), ...((viaInstanceRow || {}).hubTuples || [])];
+			const { hubDefinitionCount, ...ownCardRow } = ownRow;
+			const tupleFieldsFor = (tuple) => (hubDefinitionCount > 1
+				? Object.fromEntries(Object.entries(tuple).filter(([fieldName]) => LEGACY_SINGLE_HUB_TUPLE_FIELD_NAME_LIST.indexOf(fieldName) === -1))
+				: tuple);
+			const hubTuples = [...(ownCardRow.hubTuples || []), ...((viaInstanceRow || {}).hubTuples || [])].map(tupleFieldsFor);
 			const strangeTuple = hubTuples.find((tuple) => tuple.hubName && SLACK_CARD_CARRIED_BY_LIST.indexOf(tuple.carriedBy) === -1);
 			if (strangeTuple) {
 				return { refusalText: `mergeElementCard: carriedBy '${strangeTuple.carriedBy}' is not one of ${SLACK_CARD_CARRIED_BY_LIST.join(', ')}`, card: null };
 			}
 			const peerTextSet = new Set();
-			const peers = [...(ownRow.peers || []), ...((viaInstanceRow || {}).peers || [])].filter((peer) => {
+			const peers = [...(ownCardRow.peers || []), ...((viaInstanceRow || {}).peers || [])].filter((peer) => {
 				const peerText = JSON.stringify([peer.peerSource, peer.peerName, peer.mappingType]);
 				if (peerTextSet.has(peerText)) return false;
 				peerTextSet.add(peerText);
 				return true;
 			});
-			return { refusalText: '', card: { ...ownRow, hubTuples, peers } };
+			return { refusalText: '', card: { ...ownCardRow, hubTuples, peers } };
 		};
 
 		const carrierTextOf = (tuple) => {
@@ -275,11 +294,16 @@ const moduleFunction =
 			}
 
 			const realTuples = (card.hubTuples || []).filter(
-				(tuple) => tuple.hubName || tuple.cedsProperty,
+				(tuple) => tuple.hubName || tuple.hubProperty,
 			);
 			if (realTuples.length) {
-				lines.push('*CEDS hub tuple:*');
+				// ⟪ctdlHub P7⟫ one heading per hub, in the order the tuples arrive; a one-hub card reads as it always did
+				let headedHubSource = null;
 				realTuples.slice(0, SLACK_LOOKUP_LIMITS.tupleLinesShown).forEach((tuple) => {
+					if (tuple.hubSource !== headedHubSource) {
+						lines.push(`*${tuple.hubSource} hub tuple:*`);
+						headedHubSource = tuple.hubSource;
+					}
 					// an edge type outside the four is shown by its own name, never relabelled
 					const relationWord =
 						MATCH_RELATION_WORD_BY_EDGE_TYPE[tuple.mappingType] || tuple.mappingType;
@@ -289,9 +313,9 @@ const moduleFunction =
 					const debugText =
 						tuple.mappingSource === DEBUG_MAPPING_SOURCE ? ' ⚠ DEBUG placeholder, not a mapping' : '';
 					const tupleParts = [
-						tuple.cedsDomain,
-						tuple.cedsProperty,
-						tuple.cedsRange,
+						tuple.hubDomain,
+						tuple.hubProperty,
+						tuple.hubRange,
 					].filter(Boolean);
 					lines.push(
 						`• ${tupleParts.join(' › ')} — \`${tuple.hubKey || '?'}\` (${relationWord}${confidenceText}${sourceText})${carrierTextOf(tuple)}${debugText}`,
@@ -315,7 +339,7 @@ const moduleFunction =
 			}
 
 			if (!realTuples.length && !realPeers.length) {
-				lines.push('_No CEDS hub mapping recorded for this element._');
+				lines.push('_No hub mapping recorded for this element._');
 			}
 
 			return truncateWithAffordance(lines.join('\n'), SECTION_TEXT_CAP);

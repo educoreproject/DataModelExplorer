@@ -34,6 +34,11 @@ const requiredLabelList = Object.freeze(['ForgedNode', 'DmeStandardRoot', 'DmeCl
 // a JS number reaches Neo4j as a FLOAT and a slice bound refuses a float, so the cap is an integer in the Cypher text
 const GROUP_ITEM_CAP = 500;
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
+// ⟪ctdlHub P7⟫ an anchor reaches its property and domain through its OWN hub's slot edges (they were HAS_CEDS_PROPERTY /
+// HAS_CEDS_DOMAIN): the card names its hub, so no literal. The CedsProperty / CedsClass page kinds stay CEDS's own.
+const { cardHubSlotEdgeTypeTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const anchorPropertySlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'PROPERTY');
+const anchorDomainSlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'DOMAIN');
 
 // the outgoing relationships that make a node's children; everything else (embed texts, edit history, layers,
 // concept guides) is the graph's plumbing, not the standard's structure. Order is display order.
@@ -158,8 +163,8 @@ const moduleFunction =
 			// a CEDS property's CEDS elements (the anchors standards map to), with every judgment on each
 			cedsElementsByCedsPropertyStableId: ({ stableId }) => ({
 				cypher: `
-					MATCH (:CedsProperty {stableId: $stableId})<-[:HAS_CEDS_PROPERTY]-(anchor:HubReference)
-					WHERE anchor.referenceTier IN $cedsElementTierList
+					MATCH (:CedsProperty {stableId: $stableId})<-[propertySlotEdge]-(anchor:HubReference)
+					WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $cedsElementTierList
 					WITH anchor ORDER BY anchor.domainName, anchor.name
 					WITH count(anchor) AS itemCount, collect(anchor)[0..${GROUP_ITEM_CAP}] AS cappedAnchorList
 					UNWIND cappedAnchorList AS anchor
@@ -234,9 +239,9 @@ const moduleFunction =
 					         propertyCount: COUNT { (child)-[:HAS_PROPERTY|HAS_FIELD]->() },
 					         mappedPropertyCount: COUNT { MATCH (child)-[:HAS_PROPERTY|HAS_FIELD]->(member)
 					           WHERE EXISTS { (member)-[:HAS_INSTANCE*0..1]->()-[:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference) }
-					              OR EXISTS { (member)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } },
-					         cedsElementCount: COUNT { MATCH (child)<-[:HAS_CEDS_PROPERTY]-(anchor:HubReference) WHERE anchor.referenceTier IN $cedsElementTierList },
-					         mappedElementCount: COUNT { (child)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() },
+					              OR EXISTS { MATCH (member)<-[propertySlotEdge]-(memberAnchor:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('memberAnchor')} } },
+					         cedsElementCount: COUNT { MATCH (child)<-[propertySlotEdge]-(anchor:HubReference) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} AND anchor.referenceTier IN $cedsElementTierList },
+					         mappedElementCount: COUNT { MATCH (child)<-[propertySlotEdge]-(childAnchor:HubReference)<-[:${MATCH_EDGE_TYPE_TEXT}]-() WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('childAnchor')} },
 					         occurrenceCount: COUNT { (child)-[:HAS_INSTANCE]->() },
 					         releaseIndependentId: child.releaseIndependentId,
 					         definitionDigest: child.definitionDigest,
@@ -263,9 +268,9 @@ const moduleFunction =
 					MATCH (anchor:HubReference {stableId: $stableId})
 					RETURN anchor.referenceTier AS referenceTier, anchor.domainName AS domainName, anchor.propertyName AS propertyName,
 					       anchor.valueName AS valueName, anchor.rangeOptionSetName AS rangeOptionSetName,
-					       [(anchor)-[:HAS_CEDS_PROPERTY]->(cedsProperty) | { stableId: cedsProperty.stableId, name: cedsProperty.name, definition: coalesce(cedsProperty.definition, cedsProperty.description, ''),
+					       [(anchor)-[propertySlotEdge]->(cedsProperty) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} | { stableId: cedsProperty.stableId, name: cedsProperty.name, definition: coalesce(cedsProperty.definition, cedsProperty.description, ''),
 					         hasStructuralChildren: EXISTS { MATCH (cedsProperty)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS cedsPropertyList,
-					       [(anchor)-[:HAS_CEDS_DOMAIN]->(cedsDomain) | { stableId: cedsDomain.stableId, name: cedsDomain.name, definition: coalesce(cedsDomain.definition, cedsDomain.description, ''),
+					       [(anchor)-[domainSlotEdge]->(cedsDomain) WHERE type(domainSlotEdge) = ${anchorDomainSlotTextFor('anchor')} | { stableId: cedsDomain.stableId, name: cedsDomain.name, definition: coalesce(cedsDomain.definition, cedsDomain.description, ''),
 					         hasStructuralChildren: EXISTS { MATCH (cedsDomain)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList } }] AS cedsDomainList
 				`,
 				params: { stableId, childRelationshipTypeList: [...childRelationshipTypeList] },

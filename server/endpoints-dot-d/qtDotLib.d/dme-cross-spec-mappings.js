@@ -7,6 +7,8 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
+// ⟪ctdlHub P7⟫ a card's own hub names its slot edges
+const { cardHubSlotEdgeTypeTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -40,7 +42,7 @@ const moduleFunction = function ({
 	// The tier of a neighbour is a property of the PATH, not of one edge. Two hops
 	// are involved — the element's own edge to the hub (r1) and the neighbour's
 	// (r2) — and a correspondence is authoritative only when both are verified
-	// (EXACT_MATCH, or the definitional HAS_CEDS_* edge a CEDS anchor uses). An
+	// (EXACT_MATCH, or the definitional HAS_<HUB>_* slot edge a hub anchor uses). An
 	// element that merely CLOSE_MATCHes its hub gets nothing authoritative out of
 	// it, however solid the neighbour's own edge is.
 	//
@@ -52,6 +54,10 @@ const moduleFunction = function ({
 	//
 	// The element's own spec is excluded throughout: a mapping to yourself is not
 	// a crosswalk.
+	//
+	// ⟪ctdlHub P7⟫ Every hub of the graph: the definitional edge is the card's OWN hub's slot edge (it was HAS_CEDS_*),
+	// and each match names its card's hub (hubName) beside the card (hub). Two legs compose only through ONE card, so
+	// never across hubs.
 	//
 	// Both edges' `confidence` is returned when the forge stamped one (MAPS_TO-era
 	// edges carried 1.0; similarity-derived ones carry the vector score). It is
@@ -82,9 +88,13 @@ const moduleFunction = function ({
 		  AND n._source = $source
 		  AND toLower(coalesce(n.name, '')) = $name
 		WITH n LIMIT 5
-		OPTIONAL MATCH (n)-[r1:EXACT_MATCH|CLOSE_MATCH|NARROW_MATCH|RELATED_MATCH|HAS_CEDS_PROPERTY|HAS_CEDS_DOMAIN|HAS_CEDS_VALUE]-(hub:HubReference)
-		OPTIONAL MATCH (hub)-[r2:EXACT_MATCH|CLOSE_MATCH|NARROW_MATCH|RELATED_MATCH|HAS_CEDS_PROPERTY|HAS_CEDS_DOMAIN|HAS_CEDS_VALUE]-(m)
-		WHERE m <> n
+		OPTIONAL MATCH (n)-[r1]-(hub:HubReference)
+		WHERE type(r1) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		                   ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
+		OPTIONAL MATCH (hub)-[r2]-(m)
+		WHERE type(r2) IN ['EXACT_MATCH', 'CLOSE_MATCH', 'NARROW_MATCH', 'RELATED_MATCH',
+		                   ${cardHubSlotEdgeTypeTextFor('hub', 'PROPERTY')}, ${cardHubSlotEdgeTypeTextFor('hub', 'DOMAIN')}, ${cardHubSlotEdgeTypeTextFor('hub', 'VALUE')}]
+		  AND m <> n
 		  AND coalesce(m._source, '') <> $source
 		  AND (m:DmeProperty OR m:DmeClass OR (m:DmeOptionValue AND m._source = 'CTDL'))
 		RETURN n.name AS name,
@@ -102,7 +112,8 @@ const moduleFunction = function ({
 		         labels: labels(m),
 		         description: coalesce(m.description, m.definition, ''),
 		         sourceId: coalesce(m.cedsId, m.stableId, m.persistentId, ''),
-		         hub: hub.name
+		         hub: hub.name,
+		         hubName: hub.hubName
 		       }) WHERE x.name IS NOT NULL][0..120] AS matches
 	`;
 

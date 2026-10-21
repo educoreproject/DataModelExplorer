@@ -47,6 +47,9 @@ const stubResultByQueryFragment = [
 	// W-D-17 (campaign P1): the role and _source lines are read from the graph
 	{ queryFragment: 'DISTINCT n.role', records: [{ role: 'DmeProperty' }, { role: 'HubReference' }] },
 	{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },
+	// ⟪ctdlHub P7⟫ the hubs and the live matchBasis values are read from the graph
+	{ queryFragment: 'MATCH (h:HubDefinition)', records: [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }] },
+	{ queryFragment: 'matchEdge.matchBasis', records: [{ matchBasis: 'derived' }] },
 	{
 		queryFragment: 'db.schema.relTypeProperties()',
 		records: [
@@ -173,10 +176,48 @@ schemaProvider({ neo4jDb: undefined })((absentDbError) => {
 			'Every example that reads match edges returns mappingConfidence',
 			mappingExampleList.every((queryText) => queryText.includes('mappingConfidence')),
 		);
+		// ⟪ctdlHub P7⟫ the hub prose is generated from the graph, and every hub-reading example filters by hubName
+		assert('one hub: the anchor sentence names it with its version', schemaText.includes('anchored on 1 hub: CEDS 14.0.0.0'));
+		assert('matchBasis is named as where the authority lies, with the live values', crossSection.includes('`matchBasis`') && crossSection.includes('live values: derived') && /edge TYPE never carries authority/.test(crossSection));
+		assert('every example that reads match edges filters by hubName', mappingExampleList.every((queryText) => queryText.includes('hubName: $hubName')));
+		assert('a graph without HAS_TERM_REFERENCE / DECLARED_CORRESPONDENCE gets neither passage', !schemaText.includes('**HAS_TERM_REFERENCE**') && !schemaText.includes('**DECLARED_CORRESPONDENCE**'));
+		assert('the decomposition sentence names the graph\'s own slot edges, not a literal', crossSection.includes('(in this graph: HAS_CEDS_DOMAIN, HAS_CEDS_PROPERTY, HAS_CEDS_RANGE, HAS_CEDS_VALUE, HAS_CEDS_QUALIFIER)'));
 
-		finish();
+		twoHubChecks();
 	});
 });
+
+// ⟪ctdlHub P7⟫ the same provider over a graph holding TWO hubs, a term tier and declared correspondences; and over none
+function twoHubChecks() {
+	const twoHubStubDb = {
+		runQuery: (queryText, queryParams, callback) => {
+			if (queryText.includes('MATCH (h:HubDefinition)')) {
+				callback('', [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }, { hubName: 'CTDL', hubSource: 'CTDL', hubVersion: 'Release 20260327', canonicalKeyName: 'CTDL term CURIE' }]);
+				return;
+			}
+			if (queryText.includes('db.relationshipTypes()')) {
+				callback('', stubRelationshipTypeList.concat(['HAS_TERM_REFERENCE', 'DECLARED_CORRESPONDENCE']).map((relationshipType) => ({ relationshipType })));
+				return;
+			}
+			stubNeo4jDb.runQuery(queryText, queryParams, callback);
+		},
+	};
+	schemaProvider({ neo4jDb: twoHubStubDb })((twoHubError, twoHubText) => {
+		assert(`two hubs: renders without error (${twoHubError || 'none'})`, !twoHubError);
+		const text = twoHubText || '';
+		assert('two hubs: "anchored on 2 hubs: CEDS 14.0.0.0, CTDL Release 20260327"', text.includes('anchored on 2 hubs: CEDS 14.0.0.0, CTDL Release 20260327'));
+		assert('two hubs: each hub\'s card identifier in its own words', text.includes('CEDS: CEDS Global ID; CTDL: CTDL term CURIE'));
+		assert('two hubs: hubs are peers and never chain', /Hubs are peers and never chain/.test(text));
+		assert('two hubs: both hubs\' slot edges are listed', text.includes('HAS_CTDL_DOMAIN') && text.includes('HAS_CEDS_DOMAIN'));
+		assert('a graph holding HAS_TERM_REFERENCE gets the term-tier passage', text.includes('**HAS_TERM_REFERENCE**'));
+		assert('a graph holding DECLARED_CORRESPONDENCE is told it is NOT a match edge', text.includes('**DECLARED_CORRESPONDENCE** is NOT a match edge'));
+		const noHubStubDb = { runQuery: (queryText, queryParams, callback) => (queryText.includes('MATCH (h:HubDefinition)') ? callback('', []) : stubNeo4jDb.runQuery(queryText, queryParams, callback)) };
+		schemaProvider({ neo4jDb: noHubStubDb })((noHubError) => {
+			assert('a graph holding no :HubDefinition is refused by name', /holds no :HubDefinition node/.test(noHubError || ''));
+			finish();
+		});
+	});
+}
 
 function finish() {
 	console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);

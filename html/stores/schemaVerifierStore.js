@@ -1941,11 +1941,12 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 		},
 
 		// ------------------------------------------------------------
-		// CEDS / cross-standard equivalents — LIVE graph lookup (ported to the current graph, campaign P4b, A11).
+		// Hub / cross-standard equivalents — LIVE graph lookup (ported to the current graph, campaign P4b, A11).
 		// Sends the term's significant WORDS to POST /api/schemaEquivalents; the server runs the schema-equivalents
 		// mapper's query on the golden graph. Each row's `related` list holds JUDGMENTS (EXACT/CLOSE/BROAD/NARROW
-		// match edges through the CEDS hub), each with its mappingConfidence, mappingKind and mappingSource — none
-		// is authoritative. A refusal (for example a graph that lacks a label the query reads) is shown as-is.
+		// match edges through ONE hub card), each with its mappingConfidence, mappingKind and mappingSource — none
+		// is authoritative. ctdlHub P7: a graph may hold several hubs, so each judgment carries its hub (hubName) and each
+		// row says whether its own standard is a hub (isHubStandard). A refusal is shown as-is.
 
 		async lookupGraph(term) {
 			const wordList = significantTokens(term);
@@ -1957,7 +1958,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 			// 'Bearer undefined' (the server's reply to that is 'jwt malformed').
 			const loginStore = useLoginStore();
 			if (!loginStore.authtoken) {
-				this.graphError = 'Log in to look up CEDS and cross-standard equivalents in the live EDUcore graph.';
+				this.graphError = 'Log in to look up hub and cross-standard equivalents in the live EDUcore graph.';
 				return [];
 			}
 
@@ -1972,6 +1973,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 					name: oneRow.name,
 					description: oneRow.description,
 					sourceId: oneRow.sourceId,
+					isHubStandard: oneRow.isHubStandard === true,
 					related: (oneRow.related || []).map((oneRelated) => ({
 						standard: oneRelated.source,
 						name: oneRelated.name,
@@ -1981,6 +1983,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 						mappingKind: oneRelated.mappingKind,
 						mappingSource: oneRelated.mappingSource,
 						edgeCount: oneRelated.edgeCount,
+						hubName: oneRelated.hubName,
 					})),
 				}));
 				this.graphSource = 'live';

@@ -63,4 +63,13 @@ export const dmeExamplePromptList: DmeExamplePrompt[] = [
 		promptText: 'How do the loaded standards represent a student’s English learner status, and how confidently does each map to CEDS?',
 		requiredFamilyList: ['CEDS'],
 	},
+	// ctdlHub P7: CTDL as the second hub; offered only where the graph holds CTDL
+	{
+		promptText: 'What does ceterms:Credential map to? Name the hub of every mapping, and keep the two hubs apart.',
+		requiredFamilyList: ['CTDL'],
+	},
+	{
+		promptText: 'Which hubs does this graph hold, with their versions, and how many judged mappings reach each hub from each standard?',
+		requiredFamilyList: ['CEDS', 'CTDL'],
+	},
 ];

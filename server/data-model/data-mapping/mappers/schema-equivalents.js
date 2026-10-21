@@ -28,6 +28,11 @@ const requiredLabelList = Object.freeze(['ForgedNode', 'DmeProperty', 'DmeClass'
 // a JS number reaches Neo4j as a FLOAT and LIMIT refuses a float, so the limit is an integer in the Cypher text
 const CANDIDATE_LIMIT = 20;
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
+// ⟪ctdlHub P7⟫ every hub of the graph: a card names its property through its OWN hub's PROPERTY slot (it was
+// HAS_CEDS_PROPERTY), a hub standard's element ranks as the headline (it was the literal CEDS), and each judgment names
+// its card's hub (hubName)
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT = cardHubSlotEdgeTypeTextFor('hubCard', 'PROPERTY');
 
 //START OF moduleFunction() ============================================================
 
@@ -53,7 +58,7 @@ const moduleFunction =
 					     hitCount * 100
 					       + toInteger(round(10.0 * hitCount / (CASE WHEN candidateWordCount > hitCount THEN candidateWordCount ELSE hitCount END)))
 					       + CASE WHEN candidate:DmeProperty THEN 1 ELSE 0 END
-					       + CASE WHEN candidate._source = 'CEDS' THEN 2 ELSE 0 END AS relevanceScore
+					       + CASE WHEN candidate._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} THEN 2 ELSE 0 END AS relevanceScore
 					ORDER BY relevanceScore DESC, candidate.name
 					LIMIT ${CANDIDATE_LIMIT}
 					OPTIONAL MATCH (standardDefinition:StandardDefinition {sourceKey: candidate._source})
@@ -64,10 +69,11 @@ const moduleFunction =
 					       coalesce(candidate.definition, candidate.description, '') AS description,
 					       coalesce(candidate.cedsId, '') AS sourceId,
 					       relevanceScore,
-					       [(candidate)-[:HAS_INSTANCE*0..1]->(subjectNode)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference)-[:HAS_CEDS_PROPERTY]->(cedsProperty) |
-					         { relation: type(matchEdge), name: cedsProperty.name, source: cedsProperty._source, mappingConfidence: matchEdge.mappingConfidence, mappingKind: matchEdge.mappingKind, mappingSource: matchEdge.mappingSource }] AS towardHubList,
-					       [(candidate)<-[:HAS_CEDS_PROPERTY]-(:HubReference)<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(subjectNode) |
-					         { relation: type(matchEdge), name: coalesce(head([(ownerNode)-[:HAS_INSTANCE]->(subjectNode) | ownerNode.name]), subjectNode.name), source: subjectNode._source, mappingConfidence: matchEdge.mappingConfidence, mappingKind: matchEdge.mappingKind, mappingSource: matchEdge.mappingSource }] AS fromStandardList
+					       candidate._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} AS isHubStandard,
+					       [(candidate)-[:HAS_INSTANCE*0..1]->(subjectNode)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(hubCard:HubReference)-[propertySlotEdge]->(hubProperty) WHERE type(propertySlotEdge) = ${CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT} |
+					         { relation: type(matchEdge), name: hubProperty.name, source: hubProperty._source, mappingConfidence: matchEdge.mappingConfidence, mappingKind: matchEdge.mappingKind, mappingSource: matchEdge.mappingSource, hubName: hubCard.hubName }] AS towardHubList,
+					       [(candidate)<-[propertySlotEdge]-(hubCard:HubReference)<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(subjectNode) WHERE type(propertySlotEdge) = ${CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT} |
+					         { relation: type(matchEdge), name: coalesce(head([(ownerNode)-[:HAS_INSTANCE]->(subjectNode) | ownerNode.name]), subjectNode.name), source: subjectNode._source, mappingConfidence: matchEdge.mappingConfidence, mappingKind: matchEdge.mappingKind, mappingSource: matchEdge.mappingSource, hubName: hubCard.hubName }] AS fromStandardList
 					ORDER BY relevanceScore DESC, name
 				`,
 				params: { wordList, minimumHitCount },
@@ -89,14 +95,14 @@ const moduleFunction =
 		const summarizeJudgmentList = (judgmentList) => {
 			const summaryByGroupText = {};
 			(judgmentList || []).forEach((oneJudgment) => {
-				const groupText = [oneJudgment.relation, oneJudgment.source, oneJudgment.name, oneJudgment.mappingKind, oneJudgment.mappingSource].join('\u0000');
+				const groupText = [oneJudgment.relation, oneJudgment.source, oneJudgment.name, oneJudgment.mappingKind, oneJudgment.mappingSource, oneJudgment.hubName].join('\u0000');
 				const existingSummary = summaryByGroupText[groupText];
 				if (existingSummary) {
 					existingSummary.edgeCount += 1;
 					existingSummary.mappingConfidence = Math.max(existingSummary.mappingConfidence, oneJudgment.mappingConfidence);
 					return;
 				}
-				summaryByGroupText[groupText] = { relation: oneJudgment.relation, name: oneJudgment.name, source: oneJudgment.source, mappingConfidence: oneJudgment.mappingConfidence, mappingKind: oneJudgment.mappingKind, mappingSource: oneJudgment.mappingSource, edgeCount: 1 };
+				summaryByGroupText[groupText] = { relation: oneJudgment.relation, name: oneJudgment.name, source: oneJudgment.source, mappingConfidence: oneJudgment.mappingConfidence, mappingKind: oneJudgment.mappingKind, mappingSource: oneJudgment.mappingSource, edgeCount: 1, hubName: oneJudgment.hubName };
 			});
 			return Object.values(summaryByGroupText).sort((left, right) => right.mappingConfidence - left.mappingConfidence || left.name.localeCompare(right.name));
 		};
@@ -111,6 +117,7 @@ const moduleFunction =
 				sourceId: oneRecord.sourceId,
 				relevanceScore: oneRecord.relevanceScore,
 				related: summarizeJudgmentList((oneRecord.towardHubList || []).concat(oneRecord.fromStandardList || [])),
+				isHubStandard: oneRecord.isHubStandard,
 			}));
 
 		return { getCypher, mapEquivalentRows, requiredLabelList };

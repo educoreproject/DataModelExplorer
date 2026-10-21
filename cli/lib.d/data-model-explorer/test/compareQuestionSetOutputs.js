@@ -32,8 +32,10 @@ const ALLOWED_ADDED_FIELD_NAME_LIST = Object.freeze([
 	'hubSource',
 	// unmappedFields / stats / listStandards: the hub standards, all of them; stats: per hub, the properties mapped onto it
 	'hubStandardList', 'mappedPropertyCountByHub',
-	// listStandards rows: the hub this standard IS, and its match edges per hub
+	// listStandards rows: their match edges per hub
 	'hubMatchEdgeCountByHub',
+	// Schema Verifier rows: whether the row's own standard is a hub (the name unmappedFields rows already use)
+	'isHubStandard',
 ]);
 const TEXT_ANSWER_CHANGE_ALLOWED_BY_FILE_NAME = Object.freeze({
 	'getSchemaText.txt': 'step 4: hub paragraph generated from HubDefinition, hubName filters in examples, matchBasis authority',
