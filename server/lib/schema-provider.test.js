@@ -34,7 +34,7 @@ const skosPredicateList = ['exactMatch', 'closeMatch', 'broadMatch', 'narrowMatc
 
 // A graph that holds three of the four match types, so the live listing must
 // omit the absent one rather than invent its properties.
-const stubRelationshipTypeList = ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'HAS_PROPERTY'];
+const stubRelationshipTypeList = ['EXACT_MATCH', 'CLOSE_MATCH', 'BROAD_MATCH', 'HAS_PROPERTY', 'HAS_CEDS_DOMAIN', 'HAS_CEDS_PROPERTY', 'HAS_CEDS_RANGE', 'HAS_CEDS_VALUE', 'HAS_CEDS_QUALIFIER'];
 const stubMatchEdgePropertyList = ['mappingConfidence', 'mappingKind', 'mappingSource', 'predicate', 'zzStubOnlyProperty'];
 
 const stubResultByQueryFragment = [
@@ -196,7 +196,7 @@ function twoHubChecks() {
 				return;
 			}
 			if (queryText.includes('db.relationshipTypes()')) {
-				callback('', stubRelationshipTypeList.concat(['HAS_TERM_REFERENCE', 'DECLARED_CORRESPONDENCE']).map((relationshipType) => ({ relationshipType })));
+				callback('', stubRelationshipTypeList.concat(['HAS_TERM_REFERENCE', 'DECLARED_CORRESPONDENCE', 'HAS_CTDL_DOMAIN', 'HAS_CTDL_PROPERTY', 'HAS_CTDL_RANGE', 'HAS_CTDL_VALUE']).map((relationshipType) => ({ relationshipType })));
 				return;
 			}
 			stubNeo4jDb.runQuery(queryText, queryParams, callback);
@@ -209,6 +209,7 @@ function twoHubChecks() {
 		assert('two hubs: each hub\'s card identifier in its own words', text.includes('CEDS: CEDS Global ID; CTDL: CTDL term CURIE'));
 		assert('two hubs: hubs are peers and never chain', /Hubs are peers and never chain/.test(text));
 		assert('two hubs: both hubs\' slot edges are listed', text.includes('HAS_CTDL_DOMAIN') && text.includes('HAS_CEDS_DOMAIN'));
+		assert('a slot edge the graph does not hold is not named (CTDL here holds no QUALIFIER edge)', !text.includes('HAS_CTDL_QUALIFIER'));
 		assert('a graph holding HAS_TERM_REFERENCE gets the term-tier passage', text.includes('**HAS_TERM_REFERENCE**'));
 		assert('a graph holding DECLARED_CORRESPONDENCE is told it is NOT a match edge', text.includes('**DECLARED_CORRESPONDENCE** is NOT a match edge'));
 		const noHubStubDb = { runQuery: (queryText, queryParams, callback) => (queryText.includes('MATCH (h:HubDefinition)') ? callback('', []) : stubNeo4jDb.runQuery(queryText, queryParams, callback)) };

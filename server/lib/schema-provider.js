@@ -255,8 +255,9 @@ const renderSchema = ({
 const hubAnchorTextFor = (hubList) => `${hubList.length} hub${hubList.length === 1 ? '' : 's'}: ${hubList.map((hubRow) => `${hubRow.hubName} ${hubRow.hubVersion}`).join(', ')}`;
 // what each hub's cards are keyed by, in the hub's own words (HubDefinition.canonicalKeyName)
 const hubCardIdentifierTextFor = (hubList) => hubList.map((hubRow) => `${hubRow.hubName}: ${hubRow.canonicalKeyName || 'canonicalKey'}`).join('; ');
-// the slot edges each hub's cards decompose through, per hub
-const hubDecompositionTextFor = (hubList) => hubList.map((hubRow) => hubDecompositionEdgeTypeList(hubRow.hubName).join(', ')).join('; ');
+// the slot edges each hub's cards decompose through, per hub: the declared slots this graph actually holds (a hub that mints
+// no term tier has no HAS_<HUB>_TERM, and the text never names an edge the graph lacks)
+const hubDecompositionTextFor = (hubList, relationshipTypes) => hubList.map((hubRow) => hubDecompositionEdgeTypeList(hubRow.hubName).filter((edgeType) => relationshipTypes.includes(edgeType)).join(', ')).join('; ');
 // the passages that exist only when the graph holds what they describe
 const termTierTextFor = (relationshipTypes) => (relationshipTypes.includes('HAS_TERM_REFERENCE')
 	? `\n\nA hub may also mint a **term** tier: one HubReference per hub-native term (\`referenceTier\` 'term', keyed by \`termIri\`, no \`canonicalKey\`), decomposing to its term by its own slot edge (e.g. HAS_CTDL_TERM). Each property-tier card points at the term card of its own property by **HAS_TERM_REFERENCE** (card to card, not a decomposition), so every match landing anywhere on one term is one hop away: \`(term:HubReference {referenceTier: 'term'})<-[:HAS_TERM_REFERENCE]-(propertyCard)\`. The graph's SchemaView nodes document both edges.`
@@ -305,7 +306,7 @@ Two source elements that resolve to the SAME HubReference are related through th
 
 **Hubs are peers and never chain.** Two elements are equivalent through a hub only when both reach the SAME card; a card of one hub never leads to a card of another. Name the hub of every mapping you report (\`hub.hubName\`), filter every query by it, and when an element reaches cards of two hubs, report the two hubs separately, never as one list.
 
-A HubReference decomposes to its own hub's leaves via HAS_<HUB>_DOMAIN, HAS_<HUB>_PROPERTY, HAS_<HUB>_RANGE, HAS_<HUB>_VALUE, HAS_<HUB>_QUALIFIER (in this graph: ${hubDecompositionTextFor(hubList)}) — so a match reads back as an ordinary property/value target of that hub's standard.${termTierTextFor(relationshipTypes)}${declaredCorrespondenceTextFor(relationshipTypes)}
+A HubReference decomposes to its own hub's leaves via HAS_<HUB>_DOMAIN, HAS_<HUB>_PROPERTY, HAS_<HUB>_RANGE, HAS_<HUB>_VALUE, HAS_<HUB>_QUALIFIER (in this graph: ${hubDecompositionTextFor(hubList, relationshipTypes)}) — so a match reads back as an ordinary property/value target of that hub's standard.${termTierTextFor(relationshipTypes)}${declaredCorrespondenceTextFor(relationshipTypes)}
 
 Match edges originate from source-standard elements (DmeProperty; in SIF and PESC, the DmeInstance nodes described below; DmeOptionSet/DmeOptionValue where a build judges codesets) and point at a :HubReference. (Legacy SPECIFIED_MAPPING/IMPLIED_MAPPING edges, which pointed directly at hub leaf nodes, are retired in the equivalence graph.)
 
