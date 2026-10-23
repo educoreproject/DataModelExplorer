@@ -1,0 +1,69 @@
+{
+  "node": {
+    "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+    "name": "Birthdate",
+    "kind": "hubProperty",
+    "hubName": "CEDS",
+    "description": "The year, month and day on which a person was born.",
+    "path": "Person Birth.Birthdate",
+    "standardKey": "ceds",
+    "standardFamily": "CEDS",
+    "releaseLabel": "CEDS",
+    "version": "14.0.0.0",
+    "rootStableId": "https://w3id.org/CEDStandards/terms/",
+    "rootName": "CEDS",
+    "hasVersionIdentity": false,
+    "otherVersionList": []
+  },
+  "ancestorList": [
+    {
+      "stableId": "https://w3id.org/CEDStandards/terms/",
+      "name": "CEDS",
+      "kind": "standard"
+    },
+    {
+      "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+      "name": "Person Birth",
+      "kind": "hubDomain",
+      "hubName": "CEDS"
+    }
+  ],
+  "childGroupList": [
+    {
+      "relationshipType": "USED_BY_HUB_ELEMENT",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "Birthdate",
+          "kind": "hubAnchor",
+          "hubName": "CEDS",
+          "description": "The year, month and day on which a person was born.",
+          "hasChildren": true,
+          "standardFamily": "CEDS",
+          "hubDomainName": "Person Birth",
+          "elementCount": 74,
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 35
+            },
+            {
+              "matchKind": "narrow",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 38
+            }
+          ],
+          "strongestMatchKind": "exact"
+        }
+      ]
+    }
+  ],
+  "mappingList": [],
+  "instanceFolding": null,
+  "versionComparison": null
+}

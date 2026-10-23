@@ -26,6 +26,30 @@ const { LIVE_SOURCE_LIST_CYPHER, OPTION_SET_EDGE_TYPE_LIST, HUB_LIST_CYPHER, HUB
 // may hold several (CEDS and CTDL), each a peer; an equivalence runs through ONE card, so never across hubs
 const LIVE_MATCH_BASIS_LIST_CYPHER = 'MATCH ()-[matchEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) WHERE matchEdge.matchBasis IS NOT NULL RETURN DISTINCT matchEdge.matchBasis AS matchBasis ORDER BY matchBasis';
 
+// ⟪lane zbE, E2-4⟫ each label's property names, from the nodes themselves. It replaces CALL db.schema.nodeTypeProperties(),
+// which took 45-71 s on GOLD_EVAL_261021_ctdlHub (268k nodes) and so overran the golden handle's 30 s timeout: getSchema
+// failed live (measured 2026-10-22). This scan took 13 s there and yields the identical label -> property SETS on all 194
+// labels (measured; schema-provider-live-timing.test.js re-proves it). The one difference: names are ALPHABETICAL within a
+// label line, where nodeTypeProperties gave its own internal order.
+const LABEL_PROPERTY_NAME_LIST_CYPHER = `MATCH (n)
+	UNWIND labels(n) AS label
+	UNWIND keys(n) AS propertyName
+	WITH label, propertyName ORDER BY propertyName
+	RETURN label, collect(DISTINCT propertyName) AS properties
+	ORDER BY label`;
+
+// ⟪lane zbE, E2-4⟫ the build identity a rendered schema text is cached under (per schema-provider instance, so a user
+// graph, which gets its own instance per request, never reads the golden graph's text). A graph whose passport is absent
+// or not singular is described afresh on every call: it has no identity to cache under.
+const PASSPORT_IDENTITY_CYPHER = 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.manifestRefId AS manifestRefId, p.builtAt AS builtAt, p.graphContractSha256 AS graphContractSha256 LIMIT 2';
+const PASSPORT_IDENTITY_FIELD_LIST = Object.freeze(['graphName', 'manifestRefId', 'builtAt', 'graphContractSha256']);
+const passportIdentityTextFor = (passportRecordList) => {
+	if (passportRecordList.length !== 1) return '';
+	const passportRecord = passportRecordList[0];
+	if (PASSPORT_IDENTITY_FIELD_LIST.some((fieldName) => typeof passportRecord[fieldName] !== 'string' || passportRecord[fieldName] === '')) return '';
+	return PASSPORT_IDENTITY_FIELD_LIST.map((fieldName) => passportRecord[fieldName]).join('|');
+};
+
 const LIVE_ROLE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n.role IS NOT NULL RETURN DISTINCT n.role AS role ORDER BY role';
 
 // ⟪lane zbE, E2-1⟫ the marker for an edge type whose meaning the GRAPH defines: its line is the description on the
@@ -434,13 +458,31 @@ RETURN os._source AS sourceStandard, os.name AS optionSet,
 // ----------------------------------------------------------------------------
 // Main: factory taking { neo4jDb }, returning callback-style schema fetcher.
 
-const moduleFunction = ({ neo4jDb }) => (callback) => {
+const moduleFunction = ({ neo4jDb }) => {
+	const schemaTextByPassportIdentity = {};
+	return (callback) => {
 	if (!neo4jDb) {
 		callback('schema-provider: neo4jDb not available');
 		return;
 	}
 
 	const taskList = new taskListPlus();
+
+	// ⟪lane zbE, E2-4⟫ a graph already described under this passport identity is answered from the cache
+	taskList.push((args, next) => {
+		neo4jDb.runQuery(PASSPORT_IDENTITY_CYPHER, {}, (err, records) => {
+			if (err) {
+				next(`schema-provider: passport identity read failed: ${err}`, args);
+				return;
+			}
+			const passportIdentityText = passportIdentityTextFor(records);
+			if (passportIdentityText && schemaTextByPassportIdentity[passportIdentityText]) {
+				next('skipRestOfPipe', { ...args, passportIdentityText, schemaText: schemaTextByPassportIdentity[passportIdentityText] });
+				return;
+			}
+			next('', { ...args, passportIdentityText });
+		});
+	});
 
 	taskList.push((args, next) => {
 		neo4jDb.runQuery(
@@ -475,16 +517,12 @@ const moduleFunction = ({ neo4jDb }) => (callback) => {
 
 	taskList.push((args, next) => {
 		neo4jDb.runQuery(
-			`CALL db.schema.nodeTypeProperties()
-			   YIELD nodeLabels, propertyName
-			 UNWIND nodeLabels AS label
-			 RETURN label, collect(DISTINCT propertyName) AS properties
-			 ORDER BY label`,
+			LABEL_PROPERTY_NAME_LIST_CYPHER,
 			{},
 			(err, records) => {
 				if (err) {
 					next(
-						`schema-provider: db.schema.nodeTypeProperties() failed: ${err}`,
+						`schema-provider: label property names failed: ${err}`,
 						args,
 					);
 					return;
@@ -601,12 +639,22 @@ const moduleFunction = ({ neo4jDb }) => (callback) => {
 	});
 
 	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err === 'skipRestOfPipe') {
+			callback('', args.schemaText);
+			return;
+		}
 		if (err) {
 			callback(err);
 			return;
 		}
-		callback('', renderSchema(args));
+		const schemaText = renderSchema(args);
+		if (args.passportIdentityText) {
+			schemaTextByPassportIdentity[args.passportIdentityText] = schemaText;
+		}
+		callback('', schemaText);
 	});
+	};
 };
 
 module.exports = moduleFunction;
+module.exports.LABEL_PROPERTY_NAME_LIST_CYPHER = LABEL_PROPERTY_NAME_LIST_CYPHER;

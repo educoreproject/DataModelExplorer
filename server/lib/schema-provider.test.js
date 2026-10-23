@@ -44,6 +44,9 @@ const stubResultByQueryFragment = [
 		records: stubRelationshipTypeList.map((relationshipType) => ({ relationshipType })),
 	},
 	{ queryFragment: 'db.schema.nodeTypeProperties()', records: [{ label: 'CedsProperty', properties: ['name'] }] },
+	// ⟪lane zbE, E2-4⟫ the label property names are read by a keys() scan; the passport identity keys the text cache
+	{ queryFragment: 'UNWIND keys(n)', records: [{ label: 'CedsProperty', properties: ['name'] }] },
+	{ queryFragment: 'MATCH (p:GraphProvenance)', records: [] },
 	// W-D-17 (campaign P1): the role and _source lines are read from the graph
 	{ queryFragment: 'DISTINCT n.role', records: [{ role: 'DmeProperty' }, { role: 'HubReference' }] },
 	{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },

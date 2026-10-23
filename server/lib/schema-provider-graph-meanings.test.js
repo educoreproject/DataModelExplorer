@@ -34,6 +34,8 @@ const stubNeo4jDbFor = ({ relationshipTypeList, schemaViewRecordList }) => {
 		{ queryFragment: 'db.labels()', records: [{ label: 'CedsProperty' }, { label: 'ForgedNode' }] },
 		{ queryFragment: 'db.relationshipTypes()', records: relationshipTypeList.map((relationshipType) => ({ relationshipType })) },
 		{ queryFragment: 'db.schema.nodeTypeProperties()', records: [{ label: 'CedsProperty', properties: ['name'] }] },
+		{ queryFragment: 'UNWIND keys(n)', records: [{ label: 'CedsProperty', properties: ['name'] }] },
+		{ queryFragment: 'MATCH (p:GraphProvenance)', records: [] },
 		{ queryFragment: 'DISTINCT n.role', records: [{ role: 'DmeProperty' }] },
 		{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },
 		{ queryFragment: 'MATCH (h:HubDefinition)', records: [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }] },

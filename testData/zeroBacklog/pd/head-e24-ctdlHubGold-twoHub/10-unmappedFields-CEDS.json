@@ -1,0 +1,12 @@
+{
+  "unmappedRowList": [],
+  "totalRowCount": 0,
+  "returnedRowCount": 0,
+  "truncatedRowCount": 0,
+  "rowUnit": "a DmeProperty with no match edge on itself or on any of its instances: one row per property",
+  "hubPolicy": "excludeHub",
+  "hubStandardList": [
+    "CEDS",
+    "CTDL"
+  ]
+}
