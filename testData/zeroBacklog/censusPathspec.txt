@@ -1,0 +1,12 @@
+.
+:(exclude,glob)**/node_modules/**
+:(exclude,glob)html/data/**
+:(exclude,glob)**/*rater*
+:(exclude,glob)**/*rater*/**
+:(exclude,glob)**/*Rater*
+:(exclude,glob)cli/lib.d/ceds-graphinator/**
+:(exclude,glob)cli/lib.d/ceds-ontology/**
+:(exclude,glob)cli/lib.d/ceds-ontology14/**
+:(exclude,glob)cli/lib.d/index-ontology14-for-milo/**
+:(exclude,glob)cli/lib.d/index-data-model-explorer-for-milo/**
+:(exclude,glob)**/*.md
