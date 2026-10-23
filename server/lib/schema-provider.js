@@ -39,11 +39,16 @@ const MATCH_BASIS_MEANING_BY_VALUE = Object.freeze({
 // failed live (measured 2026-10-22). This scan took 13 s there and yields the identical label -> property SETS on all 194
 // labels (measured; schema-provider-live-timing.test.js re-proves it). The one difference: names are ALPHABETICAL within a
 // label line, where nodeTypeProperties gave its own internal order.
+// The (label, propertyName) pairs are made DISTINCT before the sort, so the sort holds only the distinct pairs instead
+// of one row per property of every node. The earlier form sorted every row and, on the 2 GB-heap demo container
+// (GOLD_EVAL_261023_zeroBacklog, 294k nodes), hit dbms.memory.transaction.total.max (measured 2026-10-23). Output is
+// byte-identical on that gold (md5 of the plain result, measured), 4 s against 10 s locally.
 const LABEL_PROPERTY_NAME_LIST_CYPHER = `MATCH (n)
 	UNWIND labels(n) AS label
 	UNWIND keys(n) AS propertyName
+	WITH DISTINCT label, propertyName
 	WITH label, propertyName ORDER BY propertyName
-	RETURN label, collect(DISTINCT propertyName) AS properties
+	RETURN label, collect(propertyName) AS properties
 	ORDER BY label`;
 
 // ⟪lane zbE, E2-4⟫ the build identity a rendered schema text is cached under (per schema-provider instance, so a user
