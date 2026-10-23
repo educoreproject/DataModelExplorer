@@ -15,6 +15,9 @@ export const familyStyleByName = Object.freeze({
 	SIF: { color: '#6B3FA0', tint: '#F1EBF8', displayName: 'SIF' },
 	EdFi: { color: '#1E7A4C', tint: '#E6F4EC', displayName: 'Ed-Fi' },
 	CEDS: { color: '#00797C', fill: '#00B5B8', tint: '#E0F6F6', displayName: 'CEDS' },
+	// ⟪lane zbE, E2-5⟫ a hub needs `fill` (its anchors are drawn with it); crimson, clear of the four families and the four
+	// match-kind colours. Chosen by the builder; the hue is TQ's to change.
+	CTDL: { color: '#A3195B', fill: '#D6337F', tint: '#FBE8F1', displayName: 'CTDL' },
 });
 
 export const familyStyleOf = (standardFamily) =>
