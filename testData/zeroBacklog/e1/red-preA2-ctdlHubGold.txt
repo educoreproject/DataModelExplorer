@@ -1,0 +1,11 @@
+{
+  "refusedByName": "findMappings",
+  "refusalName": "nativeIdentifierUnstamped",
+  "reason": "none of this graph's 14 :StandardDefinition nodes carries nativeIdentifierPropertyName: it was built before the forges stamped it (educoreForge zeroBacklog lane A2); rebuild it, or read it with a reader from its own era"
+}
+
+{
+  "refusedByName": "structure",
+  "refusalName": "layerUsageTipsAbsent",
+  "reason": "this graph's guide layer root carries no layerUsageTips (the layer's own description of what it holds); it was built before educoreForge lane A2 stamped it; rebuild it, or read it with a reader from its own era."
+}
