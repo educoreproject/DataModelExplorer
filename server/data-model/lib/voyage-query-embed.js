@@ -34,13 +34,26 @@ const resolveVoyageApiKey = () => {
 	}
 };
 
+// Voyage is not deterministic: the same text comes back as one of two vectors about 0.001 apart (measured 2026-10-23,
+// lane zbE), enough to reorder near-tied results between two identical searches. The FIRST vector for a (model, text) pair
+// is kept and reused for the life of the process, so identical asks rank identically. Bounded: the oldest entry is
+// dropped past QUERY_EMBEDDING_CACHE_SIZE. (The CLI search's hybridRetrieval.js keeps the same rule for its embedder.)
+const QUERY_EMBEDDING_CACHE_SIZE = 1000;
+const queryEmbeddingByModelAndText = new Map();
+
 // (text, { apiKey, model }, callback(err, vector))
 const embedQueryText = (text, { apiKey, model = DEFAULT_MODEL } = {}, callback) => {
 	if (!apiKey) {
 		callback('voyage-query-embed: no voyageApiKey configured');
 		return;
 	}
-	const body = JSON.stringify({ model, input: [String(text || '').slice(0, 2000)], input_type: 'query' });
+	const queryText = String(text || '').slice(0, 2000);
+	const cacheEntryName = `${model}\u0000${queryText}`;
+	if (queryEmbeddingByModelAndText.has(cacheEntryName)) {
+		callback('', queryEmbeddingByModelAndText.get(cacheEntryName));
+		return;
+	}
+	const body = JSON.stringify({ model, input: [queryText], input_type: 'query' });
 	const req = https.request(
 		{
 			hostname: 'api.voyageai.com',
@@ -69,6 +82,10 @@ const embedQueryText = (text, { apiKey, model = DEFAULT_MODEL } = {}, callback) 
 					callback('Voyage: no embedding in response');
 					return;
 				}
+				if (queryEmbeddingByModelAndText.size >= QUERY_EMBEDDING_CACHE_SIZE) {
+					queryEmbeddingByModelAndText.delete(queryEmbeddingByModelAndText.keys().next().value);
+				}
+				queryEmbeddingByModelAndText.set(cacheEntryName, vec);
 				callback('', vec);
 			});
 		},

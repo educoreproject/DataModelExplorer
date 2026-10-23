@@ -216,15 +216,21 @@ const moduleFunction =
 			}
 			// The golden DME connection is the hardened READ seam: sessions open in
 			// READ mode and auto-commit transactions carry a wall-clock timeout
-			// (dataModelExplorerSearch queryTimeoutMs, default 30s). It does NOT pass
-			// writeCapable, so it has no runTransaction either (W-E-10): the golden
-			// graph has no write path from this server.
+			// (dataModelExplorerSearch queryTimeoutMs, REQUIRED: a missing or non-positive value is refused by
+			// name, never defaulted). It does NOT pass writeCapable, so it has no runTransaction either (W-E-10):
+			// the golden graph has no write path from this server.
+			const queryTimeoutMs = parseInt(dmeCfg.queryTimeoutMs, 10);
+			if (!(queryTimeoutMs > 0)) {
+				xLog.error(`neo4j-instance: [dataModelExplorerSearch] queryTimeoutMs is required and must be a positive integer of milliseconds (got '${dmeCfg.queryTimeoutMs}'); the DME graph is NOT connected`);
+				next('', { ...args, neo4jDb: null });
+				return;
+			}
 			const neo4jConfig = {
 				neo4jBoltUri: conn.boltUri,
 				neo4jUser: conn.user,
 				neo4jPassword: conn.password,
 				readOnly: true,
-				queryTimeoutMs: parseInt(dmeCfg.queryTimeoutMs, 10) || 30000,
+				queryTimeoutMs,
 			};
 
 			const neo4jGen = require('./lib/neo4j-instance/neo4j-instance')({ unused: true });

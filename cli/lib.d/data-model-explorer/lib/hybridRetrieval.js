@@ -127,8 +127,30 @@ const checkFulltextIndex = ({ session, verbName }, callback) => {
 	});
 };
 
+// The Voyage query embedder is not deterministic: the same text comes back as one of two vectors about 0.001 apart (measured
+// 2026-10-23, lane zbE), enough to swap near-tied rows between two identical asks. So the FIRST vector a query text gets is
+// kept and reused for that text for the life of the process, and identical asks rank identically. One map serves every
+// embedder because the reader has exactly one query-embedder declaration (queryEmbedderContract.js). Bounded: the oldest
+// text is dropped past QUERY_EMBEDDING_CACHE_SIZE.
+const QUERY_EMBEDDING_CACHE_SIZE = 1000;
+const queryEmbeddingByText = new Map();
+
 const embedQueryText = (queryText, embedder, callback) => {
-	embedder.embed([queryText], (embedderError, embeddingList) => (embedderError ? callback(`Embedding the query failed: ${embedderError}`) : callback('', embeddingList[0])));
+	if (queryEmbeddingByText.has(queryText)) {
+		callback('', queryEmbeddingByText.get(queryText));
+		return;
+	}
+	embedder.embed([queryText], (embedderError, embeddingList) => {
+		if (embedderError) {
+			callback(`Embedding the query failed: ${embedderError}`);
+			return;
+		}
+		if (queryEmbeddingByText.size >= QUERY_EMBEDDING_CACHE_SIZE) {
+			queryEmbeddingByText.delete(queryEmbeddingByText.keys().next().value);
+		}
+		queryEmbeddingByText.set(queryText, embeddingList[0]);
+		callback('', embeddingList[0]);
+	});
 };
 
 // LEG_RUNNER_BY_NAME — one runner per leg; runSearchLegs runs the ones the mode names, in that order. THE LEG INTERFACE
@@ -227,4 +249,4 @@ const searchAndFuse = (searchSpecification, callback) => {
 
 module.exports = {
 	resolveSearchIndexes,
-	searchAndFuse, searchLegListFor, escapeLuceneQueryText, keywordQueryTextFor, fuseRankedLegs, checkFulltextIndex, runSearchLegs, KEYWORD_LEG_CYPHER, VECTOR_LEG_CYPHER, FULLTEXT_INDEX_CYPHER, LUCENE_SPECIAL_CHARACTER_PATTERN };
+	searchAndFuse, searchLegListFor, embedQueryText, escapeLuceneQueryText, keywordQueryTextFor, fuseRankedLegs, checkFulltextIndex, runSearchLegs, KEYWORD_LEG_CYPHER, VECTOR_LEG_CYPHER, FULLTEXT_INDEX_CYPHER, LUCENE_SPECIAL_CHARACTER_PATTERN };

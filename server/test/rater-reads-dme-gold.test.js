@@ -49,8 +49,11 @@ bootRaterServer({ scratchDirPath: path.join(scratchDirPath, 'withGold'), raterTo
 		const sourceFileList = ['server/data-model/lib/rater-tool/rater-tool-access.js', 'server/data-model/lib/rater-tool/rater-graph.js', 'cli/lib.d/rater-tool/raterTool.js', 'cli/lib.d/rater-tool/lib/buildSample.js', 'cli/lib.d/rater-tool/lib/buildSuggested.js'];
 		const deadNameHitList = sourceFileList.filter((relativePath) => /raterTool(Config)?\.goldenContainerName|frozenInputsFromAnotherGold|\[raterTool\] goldenContainerName/.test(fs.readFileSync(path.join(codeRootPath, relativePath), 'utf8')));
 		ok('3. no rater source names the retired pin (raterTool.goldenContainerName, frozenInputsFromAnotherGold)', deadNameHitList.length === 0, deadNameHitList.join(', '));
+		// the configs repo keeps one folder per instance under instanceSpecific/; a deployed server holds ONE instance's
+		// files flat in configs/, so there the one raterTool.ini is checked
 		const instanceDirPath = path.join(configsDirPath, 'instanceSpecific');
-		const iniWithPinList = fs.readdirSync(instanceDirPath).map((instanceName) => path.join(instanceDirPath, instanceName, 'raterTool.ini')).filter((iniPath) => fs.existsSync(iniPath) && /^\s*goldenContainerName\s*=/m.test(fs.readFileSync(iniPath, 'utf8')));
+		const raterIniPathList = fs.existsSync(instanceDirPath) ? fs.readdirSync(instanceDirPath).map((instanceName) => path.join(instanceDirPath, instanceName, 'raterTool.ini')) : [path.join(configsDirPath, 'raterTool.ini')];
+		const iniWithPinList = raterIniPathList.filter((iniPath) => fs.existsSync(iniPath) && /^\s*goldenContainerName\s*=/m.test(fs.readFileSync(iniPath, 'utf8')));
 		ok(`   and no raterTool.ini under ${configsDirPath} carries goldenContainerName`, iniWithPinList.length === 0, iniWithPinList.join(', '));
 		finish();
 	});

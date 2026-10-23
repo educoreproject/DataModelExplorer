@@ -9,7 +9,9 @@ const os = require('os');
 const path = require('path');
 const configFileProcessor = require('qtools-config-file-processor');
 
-// test/lib -> test -> server -> the code root; configs sit beside the code root (code/../configs)
+// test/lib -> test -> server -> the code root; configs sit beside the code root (code/../configs). On the dev Mac the
+// instance's files are in configs/instanceSpecific/qbook; on a deployed server deployPrograms copies them FLAT into configs/.
+// Every live test that reads the server's configs takes its directory from here, so it runs in both places.
 const serverConfigDirPath = () => {
 	const hostName = os.hostname();
 	const instanceDirName = hostName === 'qMini.local' || hostName === 'qbook.local' ? 'instanceSpecific/qbook' : '';
@@ -49,4 +51,4 @@ const goldenDmeConfigForTests = () => {
 	return { ...serverDmeSection, goldenContainerName, neo4jBoltUri: boltUri, neo4jUser: user, neo4jPassword: password };
 };
 
-module.exports = { readGoldenContainerName, goldenDmeConfigForTests };
+module.exports = { readGoldenContainerName, goldenDmeConfigForTests, serverConfigDirPath };

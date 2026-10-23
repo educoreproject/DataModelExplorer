@@ -32,7 +32,7 @@ process.global = {
 	commandLineParameters: { switches: {}, values: {} },
 };
 
-const { readGoldenContainerName } = require('./lib/goldenContainerName');
+const { readGoldenContainerName, serverConfigDirPath } = require('./lib/goldenContainerName');
 const { resolveContainerConnection } = require('../data-model/lib/user-graph/container-connection-resolver');
 const neo4jGen = require('../data-model/lib/neo4j-instance/neo4j-instance')({ unused: true });
 
@@ -50,7 +50,6 @@ const ACCESS_POINT_PATH = path.join(CODE_ROOT_PATH, 'server/data-model/access-po
 const MANIFEST_ENDPOINT_PATH = path.join(CODE_ROOT_PATH, 'server/endpoints-dot-d/qtDotLib.d/standard-downloads-manifest.js');
 const FILE_ENDPOINT_PATH = path.join(CODE_ROOT_PATH, 'server/endpoints-dot-d/qtDotLib.d/standard-downloads-file.js');
 const TOKEN_TOOLS_PATH = path.join(CODE_ROOT_PATH, 'server/lib/access-token-header-tools.js');
-const QBOOK_CONFIG_DIR_PATH = path.join(CODE_ROOT_PATH, '..', 'configs', 'instanceSpecific', 'qbook') + '/';
 
 const mapper = require(MAPPER_PATH)({});
 const goldenContainerName = readGoldenContainerName();
@@ -127,7 +126,7 @@ if (goldenConnection.error) {
 	console.log(`  FAIL: golden connection: ${goldenConnection.error}`);
 	process.exit(1);
 }
-const realRootDirPath = process.env.STANDARD_DOWNLOADS_REAL_ROOT_DIR_PATH || ((configFileProcessor.getConfig('startApiServer.ini', QBOOK_CONFIG_DIR_PATH) || {}).standardDownloads || {}).downloadArtifactsRootDirPath;
+const realRootDirPath = process.env.STANDARD_DOWNLOADS_REAL_ROOT_DIR_PATH || ((configFileProcessor.getConfig('startApiServer.ini', serverConfigDirPath(), { resolve: true }) || {}).standardDownloads || {}).downloadArtifactsRootDirPath;
 
 neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUser: goldenConnection.user, neo4jPassword: goldenConnection.password, readOnly: true, queryTimeoutMs: 60000 }, (connectError, goldenDb) => {
 	if (connectError) {

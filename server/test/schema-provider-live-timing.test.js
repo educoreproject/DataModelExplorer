@@ -7,7 +7,7 @@
 // 2026-10-22). The P-d question set never saw it, because it opens its own handle at 120 s. LIVE, READ session, the graph
 // the DEV pointer names (GOLDEN_CONTAINER overrides).
 //   1. schema-provider renders on a handle carrying the server's configured timeout (startApiServer.ini
-//      [dataModelExplorerSearch] queryTimeoutMs, with data-model.js:227's rule: absent means 30000);
+//      [dataModelExplorerSearch] queryTimeoutMs, REQUIRED as in data-model.js: absent is refused by name);
 //   2. the keys() scan it now uses gives the SAME label -> property-name sets as db.schema.nodeTypeProperties() (read on a
 //      long handle), so the one change in the text is alphabetical order within a label line;
 //   3. RED TWIN: a schema-provider copy still calling db.schema.nodeTypeProperties() FAILS on the configured handle (if it
@@ -16,7 +16,6 @@
 //   /usr/local/bin/node server/test/schema-provider-live-timing.test.js      (about two minutes)
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 process.global = { xLog: { status: () => {}, error: () => {}, verbose: () => {} } };
 const configFileProcessor = require('qtools-config-file-processor');
@@ -24,7 +23,7 @@ const schemaProviderFilePath = path.join(__dirname, '..', 'lib', 'schema-provide
 const schemaProvider = require(schemaProviderFilePath);
 const { LABEL_PROPERTY_NAME_LIST_CYPHER } = schemaProvider;
 const { resolveContainerConnection } = require('../data-model/lib/user-graph/container-connection-resolver');
-const { readGoldenContainerName } = require('./lib/goldenContainerName');
+const { readGoldenContainerName, serverConfigDirPath } = require('./lib/goldenContainerName');
 const neo4jGen = require('../data-model/lib/neo4j-instance/neo4j-instance')({ unused: true });
 
 const LONG_HANDLE_TIMEOUT_MS = 300000;
@@ -43,11 +42,15 @@ const finish = (handleList) => {
 	process.exit(failed > 0 ? 1 : 0);
 };
 
-// the server's golden-handle timeout: startApiServer.ini [dataModelExplorerSearch] queryTimeoutMs, data-model.js:227's rule
+// the server's golden-handle timeout: startApiServer.ini [dataModelExplorerSearch] queryTimeoutMs. data-model.js refuses
+// to connect without it, so this test refuses too rather than assuming a value.
 const configuredHandleTimeoutMs = () => {
-	const instanceDirName = os.hostname() === 'qMini.local' || os.hostname() === 'qbook.local' ? 'instanceSpecific/qbook' : '';
-	const serverConfig = configFileProcessor.getConfig('startApiServer.ini', path.join(__dirname, '..', '..', '..', 'configs', instanceDirName) + '/') || {};
-	return parseInt((serverConfig.dataModelExplorerSearch || {}).queryTimeoutMs, 10) || 30000;
+	const serverConfig = configFileProcessor.getConfig('startApiServer.ini', serverConfigDirPath()) || {};
+	const queryTimeoutMs = parseInt((serverConfig.dataModelExplorerSearch || {}).queryTimeoutMs, 10);
+	if (!(queryTimeoutMs > 0)) {
+		throw new Error(`schema-provider-live-timing: ${serverConfigDirPath()}startApiServer.ini declares no positive [dataModelExplorerSearch] queryTimeoutMs`);
+	}
+	return queryTimeoutMs;
 };
 
 const propertySetTextByLabelOf = (recordList) => {
