@@ -1,0 +1,5 @@
+{
+  "refusedByName": "graphRetriever",
+  "refusalName": "graphContractMismatch",
+  "reason": "graph contract 6e452d62af4825fb6c731b099a6edc5143c896c86fe24c63d14f3ba02e34e76f is not the contract this reader was built against (1e2d39d79376e1a04e818efa849a4ffa59bf69fa03093fdcc03bf8737f40039d) — rebuild the graph with the current educoreForge, or read it with a reader from its own era"
+}

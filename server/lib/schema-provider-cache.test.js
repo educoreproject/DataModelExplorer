@@ -45,7 +45,7 @@ const countingStubFor = (passportHolder, labelText) => {
 		{ queryFragment: 'DISTINCT n.role', recordsOf: () => [{ role: 'DmeProperty' }] },
 		{ queryFragment: 'DISTINCT n._source', recordsOf: () => [{ source: 'CEDS' }] },
 		{ queryFragment: 'MATCH (h:HubDefinition)', recordsOf: () => [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }] },
-		{ queryFragment: 'matchEdge.matchBasis', recordsOf: () => [{ matchBasis: 'derived' }] },
+		{ queryFragment: 'AS matchBasis', recordsOf: () => [{ matchBasis: 'derived' }] },
 	];
 	return {
 		queryLog,

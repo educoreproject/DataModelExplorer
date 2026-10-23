@@ -39,7 +39,7 @@ const stubNeo4jDbFor = ({ relationshipTypeList, schemaViewRecordList }) => {
 		{ queryFragment: 'DISTINCT n.role', records: [{ role: 'DmeProperty' }] },
 		{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },
 		{ queryFragment: 'MATCH (h:HubDefinition)', records: [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }] },
-		{ queryFragment: 'matchEdge.matchBasis', records: [{ matchBasis: 'derived' }] },
+		{ queryFragment: 'AS matchBasis', records: [{ matchBasis: 'derived' }] },
 		{ queryFragment: 'db.schema.relTypeProperties()', records: [] },
 		{ queryFragment: 'SchemaView', records: schemaViewRecordList },
 	];

@@ -24,7 +24,15 @@ const { pipeRunner, taskListPlus } =
 const { LIVE_SOURCE_LIST_CYPHER, OPTION_SET_EDGE_TYPE_LIST, HUB_LIST_CYPHER, HUB_DECOMPOSITION_SLOT_LIST, hubDecompositionEdgeTypeList } = require('../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 // ⟪ctdlHub P7⟫ the hubs are read from the graph (every :HubDefinition), and the hub prose is generated from them: a graph
 // may hold several (CEDS and CTDL), each a peer; an equivalence runs through ONE card, so never across hubs
-const LIVE_MATCH_BASIS_LIST_CYPHER = 'MATCH ()-[matchEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) WHERE matchEdge.matchBasis IS NOT NULL RETURN DISTINCT matchEdge.matchBasis AS matchBasis ORDER BY matchBasis';
+// ⟪lane zbE, E2-3⟫ every matchBasis value the graph carries: the match edges' AND DECLARED_CORRESPONDENCE's (whose value is
+// 'declared'); each is described by MATCH_BASIS_MEANING_BY_VALUE, and a value the registry does not know is refused by name
+const LIVE_MATCH_BASIS_LIST_CYPHER = 'MATCH ()-[basisEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH|DECLARED_CORRESPONDENCE]->() WHERE basisEdge.matchBasis IS NOT NULL RETURN DISTINCT basisEdge.matchBasis AS matchBasis ORDER BY matchBasis';
+const MATCH_BASIS_MEANING_BY_VALUE = Object.freeze({
+	derived: 'a judgment (a judge chose the relation and its confidence), never an established fact',
+	standard: 'the source standard\'s own published mapping',
+	declaredIdentity: 'the same IRI declared on both sides',
+	declared: 'on DECLARED_CORRESPONDENCE only: a published statement carried verbatim from its source, never a mapping and never an \'authored mapping\'',
+});
 
 // ⟪lane zbE, E2-4⟫ each label's property names, from the nodes themselves. It replaces CALL db.schema.nodeTypeProperties(),
 // which took 45-71 s on GOLD_EVAL_261021_ctdlHub (268k nodes) and so overran the golden handle's 30 s timeout: getSchema
@@ -331,7 +339,7 @@ No match edge is a fact. Each records a decision in three fields — read them, 
 
 - **\`mappingKind\`** — how the mapping came to exist: \`inferred\` (a judge chose it — today an LLM judge choosing among hub candidates retrieved for the element) or \`authored\` (a document named it: a published crosswalk or the standard's own specification).
 - **\`mappingSource\`** — who decided: \`bridge-<judgeName>\` for a judged edge, naming the actual judge (e.g. \`bridge-jev\`), \`crosswalk-<name>\` or \`standard-<name>\` for an authored one. **\`bridge-debug\`** means a DEBUG judge produced the edge mechanically: a placeholder that says nothing about meaning — never present it as a mapping.
-- **\`matchBasis\`** — WHERE THE AUTHORITY LIES, and the one field that says it (live values: ${liveMatchBasisList.length ? liveMatchBasisList.join(', ') : 'none recorded in this graph'}): \`derived\` is a judgment, \`standard\` the source standard's own published mapping, \`declaredIdentity\` the same IRI declared on both sides. The edge TYPE never carries authority: an EXACT_MATCH may be derived, a CLOSE_MATCH may be published. Filter on \`matchBasis\`, not on the relation.
+- **\`matchBasis\`** — WHERE THE AUTHORITY LIES, and the one field that says it (live values: ${liveMatchBasisList.length ? liveMatchBasisList.join(', ') : 'none recorded in this graph'})${liveMatchBasisList.length ? `: ${liveMatchBasisList.map((matchBasisValue) => `\`${matchBasisValue}\` — ${MATCH_BASIS_MEANING_BY_VALUE[matchBasisValue]}`).join('; ')}` : ''}. The edge TYPE never carries authority: an EXACT_MATCH may be derived, a CLOSE_MATCH may be published. Filter on \`matchBasis\`, not on the relation.
 - **\`mappingConfidence\`** — on judged edges only, the judge's confidence, 0–1. Current builds use three bands: 0.9 strong, 0.7 moderate, 0.5 weak but real; a debug judge's edges carry 0. Authored edges carry none. (Graphs built before these three fields carry the number only as \`confidence\`.)
 
 **Relation and confidence are independent axes.** The relation says WHAT correspondence is asserted; the confidence says HOW SURE the judge is of it. An EXACT_MATCH at 0.5 is a weakly held claim of sameness; a NARROW_MATCH at 0.9 is a firmly held claim that the hub tuple is narrower. Never read EXACT_MATCH as "more certain", a high confidence as "more exact", or a mapping as authoritative unless its \`matchBasis\` is \`standard\` or \`declaredIdentity\` (on a graph that predates matchBasis: unless its \`mappingKind\` is \`authored\`). Present every mapping with its relation, confidence and source. The full live property list is in Match Edge Properties above.
@@ -604,7 +612,13 @@ const moduleFunction = ({ neo4jDb }) => {
 				next(`schema-provider: live matchBasis list failed: ${err}`, args);
 				return;
 			}
-			next('', { ...args, liveMatchBasisList: records.map((r) => r.matchBasis) });
+			const liveMatchBasisList = records.map((r) => r.matchBasis);
+			const undescribedMatchBasisList = liveMatchBasisList.filter((matchBasisValue) => !MATCH_BASIS_MEANING_BY_VALUE[matchBasisValue]);
+			if (undescribedMatchBasisList.length) {
+				next(`schema-provider: this graph carries matchBasis value(s) with no declared meaning (MATCH_BASIS_MEANING_BY_VALUE): ${undescribedMatchBasisList.join(', ')}`, args);
+				return;
+			}
+			next('', { ...args, liveMatchBasisList });
 		});
 	});
 

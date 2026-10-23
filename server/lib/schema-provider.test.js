@@ -52,7 +52,7 @@ const stubResultByQueryFragment = [
 	{ queryFragment: 'DISTINCT n._source', records: [{ source: 'CEDS' }] },
 	// ⟪ctdlHub P7⟫ the hubs and the live matchBasis values are read from the graph
 	{ queryFragment: 'MATCH (h:HubDefinition)', records: [{ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14.0.0.0', canonicalKeyName: 'CEDS Global ID' }] },
-	{ queryFragment: 'matchEdge.matchBasis', records: [{ matchBasis: 'derived' }] },
+	{ queryFragment: 'AS matchBasis', records: [{ matchBasis: 'derived' }] },
 	{
 		queryFragment: 'db.schema.relTypeProperties()',
 		records: [

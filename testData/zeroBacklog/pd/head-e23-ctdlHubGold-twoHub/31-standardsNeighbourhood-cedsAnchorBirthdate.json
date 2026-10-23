@@ -1,0 +1,301 @@
+{
+  "node": {
+    "stableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+    "name": "Birthdate",
+    "kind": "hubAnchor",
+    "hubName": "CEDS",
+    "description": "The year, month and day on which a person was born.",
+    "path": null,
+    "standardKey": "ceds",
+    "standardFamily": "CEDS",
+    "releaseLabel": "CEDS",
+    "version": "14.0.0.0",
+    "rootStableId": "https://w3id.org/CEDStandards/terms/",
+    "rootName": "CEDS",
+    "hasVersionIdentity": false,
+    "referenceTier": "property",
+    "hubPropertyList": [
+      {
+        "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+        "hasStructuralChildren": false,
+        "name": "Birthdate",
+        "definition": "The year, month and day on which a person was born."
+      }
+    ],
+    "hubDomainList": [
+      {
+        "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+        "hasStructuralChildren": true,
+        "name": "Person Birth",
+        "definition": "Information related to the birth of a person"
+      }
+    ]
+  },
+  "ancestorList": [],
+  "childGroupList": [
+    {
+      "relationshipType": "MAPPED_FROM_STANDARD",
+      "count": 10,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "standardGroup:pescacademiceportfolio1v0v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-AcademicEportfolio-1.0.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pescacademiceportfolio1v0v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "AcademicEportfolio",
+          "version": "1.0.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 9
+            },
+            {
+              "matchKind": "narrow",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 17
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 27,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:sif260928@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "SIF260928",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "sif260928",
+          "standardFamily": "SIF",
+          "releaseLabel": "sif260928",
+          "version": "4.3",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 12
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 12,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pescdocumentrequest1v0v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-DocumentRequest-1.0.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pescdocumentrequest1v0v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "DocumentRequest",
+          "version": "1.0.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 3
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 6
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 9,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pescdocumentresponse1v0v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-DocumentResponse-1.0.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pescdocumentresponse1v0v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "DocumentResponse",
+          "version": "1.0.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 2
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 4
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 6,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pesclearningrecord1v0v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-LearningRecord-1.0.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesclearningrecord1v0v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "LearningRecord",
+          "version": "1.0.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 2
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 4
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 6,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:edfi@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "EdFi",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "edfi",
+          "standardFamily": "EdFi",
+          "releaseLabel": "EdFi",
+          "version": "5.2.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 3
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 3,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pesccollegetranscript1v7v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-CollegeTranscript-1.7.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesccollegetranscript1v7v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "CollegeTranscript",
+          "version": "1.7.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 2
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 3,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pesccollegetranscript1v8v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-CollegeTranscript-1.8.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesccollegetranscript1v8v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "CollegeTranscript",
+          "version": "1.8.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 2
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 3,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:pesctestscorereport1v1v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-TestScoreReport-1.1.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesctestscorereport1v1v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "TestScoreReport",
+          "version": "1.1.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 2
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 3,
+          "strongestMatchKind": "exact"
+        },
+        {
+          "stableId": "standardGroup:peschighschooltranscript1v6v0@https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4d7d021fa0563d1460807b5a530e333130d4752f646445ccb9cab8bb76a0b795",
+          "name": "PESC-HighSchoolTranscript-1.6.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "peschighschooltranscript1v6v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "HighSchoolTranscript",
+          "version": "1.6.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "exact",
+              "elementCount": 1
+            },
+            {
+              "matchKind": "broad",
+              "elementCount": 1
+            }
+          ],
+          "maximumConfidence": 0.9,
+          "elementCount": 2,
+          "strongestMatchKind": "exact"
+        }
+      ]
+    },
+    {
+      "relationshipType": "HAS_CEDS_PROPERTY",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+          "name": "Birthdate",
+          "kind": "hubProperty",
+          "hubName": "CEDS",
+          "description": "The year, month and day on which a person was born.",
+          "hasChildren": false
+        }
+      ]
+    },
+    {
+      "relationshipType": "HAS_CEDS_DOMAIN",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+          "name": "Person Birth",
+          "kind": "hubDomain",
+          "hubName": "CEDS",
+          "description": "Information related to the birth of a person",
+          "hasChildren": true
+        }
+      ]
+    }
+  ],
+  "mappingList": []
+}

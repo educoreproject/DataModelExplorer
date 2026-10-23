@@ -1,0 +1,161 @@
+{
+  "statusCode": 200,
+  "body": [
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "semantic": 0.7864805459976196,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.864812970161438,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.Staff.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "semantic": 0.7835485935211182,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.8454821705818176,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/inlineCommon.BirthData.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "semantic": 0.8402099013328552,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.8819811344146729,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        }
+      ]
+    }
+  ]
+}
