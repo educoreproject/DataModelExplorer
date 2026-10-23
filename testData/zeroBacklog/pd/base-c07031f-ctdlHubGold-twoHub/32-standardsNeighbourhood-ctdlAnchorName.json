@@ -1,0 +1,68 @@
+{
+  "node": {
+    "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260327/05ca46055c2e411505d6bb3c2bc9d8531f43928c05a2ec94293da891e354cc01",
+    "name": "Name",
+    "kind": "hubAnchor",
+    "hubName": "CTDL",
+    "description": "Name or title of the resource.",
+    "path": null,
+    "standardKey": "ctdl",
+    "standardFamily": "CTDL",
+    "releaseLabel": "CTDL",
+    "version": "Release 20260327",
+    "rootStableId": "ctdl:root",
+    "rootName": "CTDL",
+    "hasVersionIdentity": false,
+    "referenceTier": "property",
+    "hubPropertyList": [
+      {
+        "stableId": "ceterms:name",
+        "hasStructuralChildren": false,
+        "name": "Name",
+        "definition": "Name or title of the resource."
+      }
+    ],
+    "hubDomainList": [
+      {
+        "stableId": "ceterms:ProficiencyCertificate",
+        "hasStructuralChildren": true,
+        "name": "Proficiency Certificate",
+        "definition": "Examples of specific areas include language, typing, music, and dance."
+      }
+    ]
+  },
+  "ancestorList": [],
+  "childGroupList": [
+    {
+      "relationshipType": "HAS_CTDL_PROPERTY",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "ceterms:name",
+          "name": "Name",
+          "kind": "hubProperty",
+          "hubName": "CTDL",
+          "description": "Name or title of the resource.",
+          "hasChildren": false
+        }
+      ]
+    },
+    {
+      "relationshipType": "HAS_CTDL_DOMAIN",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "ceterms:ProficiencyCertificate",
+          "name": "Proficiency Certificate",
+          "kind": "hubDomain",
+          "hubName": "CTDL",
+          "description": "Examples of specific areas include language, typing, music, and dance.",
+          "hasChildren": true
+        }
+      ]
+    }
+  ],
+  "mappingList": []
+}

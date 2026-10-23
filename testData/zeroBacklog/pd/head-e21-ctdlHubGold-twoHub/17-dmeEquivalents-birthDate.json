@@ -1,0 +1,373 @@
+{
+  "statusCode": 200,
+  "body": [
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsProperty",
+        "DmeProperty"
+      ],
+      "name": "Birthdate Verification",
+      "source": "CEDS",
+      "description": "The evidence by which a child's date of birth is confirmed.",
+      "sourceId": "P000428",
+      "score": 213,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsProperty",
+        "DmeProperty"
+      ],
+      "name": "Birthdate",
+      "source": "CEDS",
+      "description": "The year, month and day on which a person was born.",
+      "sourceId": "P000033",
+      "score": 213,
+      "related": [
+        {
+          "name": "BirthDate",
+          "rel": "EXACT_MATCH",
+          "hubName": "CEDS",
+          "source": "EdFi",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "EdfiProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "birthDate",
+      "source": "SIF260928",
+      "description": "The year, month and day on which a person was born.",
+      "sourceId": "sif260928:question/bde8e79d54adb05b6aab244eaf0bc53704fe771de8a3c41e3794bd960cbaf980",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v8v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.8.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#BirthType/el/1:BirthDate",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDate",
+      "source": "SIF260928",
+      "description": "The person's date of birth.",
+      "sourceId": "sif260928:question/5a7f67c5d8071e87f36719ee18d0fad1e66e453d7aa3d4a0982fe8c441486d94",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "name": "BirthDate",
+      "source": "EdFi",
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+      "score": 211,
+      "related": [
+        {
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        },
+        {
+          "name": "BirthDate",
+          "rel": "EXACT_MATCH",
+          "hubName": "CEDS",
+          "source": "EdFi",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "EdfiProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDate",
+      "source": "SIF260928",
+      "description": "The person's date of birth.",
+      "sourceId": "sif260928:question/7858f32c3e7084a3cdcea3d9423f33f791e12a55f47ea94c9020252413336690",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDateVerification",
+      "source": "SIF260928",
+      "description": "",
+      "sourceId": "sif260928:question/b6966a48c0b779dfb5a9eeb63a7e2b86be58980db5bdf9b45858d2850223da10",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDate",
+      "source": "SIF260928",
+      "description": "The person's date of birth.",
+      "sourceId": "sif260928:question/eb9dce1dbbed53e25aa5f422d438593e024b4dce8467963531c3a448ac24cb51",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "birthDate",
+      "source": "SIF260928",
+      "description": "The year, month and day on which a person was born.",
+      "sourceId": "sif260928:question/f83c921fec67d7f0d4ee24f810e327b6ca805aca324743e52ee7c89df0d2f454",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v8v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.8.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#IndexType/el/2:BirthDate",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v8v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.8.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v8v0:type/urn:org:pesc:sector:AcademicRecord:v1.13.0#BirthType/el/1:BirthDate",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "name": "BirthDate",
+      "source": "EdFi",
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.Staff.BirthDate",
+      "score": 211,
+      "related": [
+        {
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        },
+        {
+          "name": "BirthDate",
+          "rel": "EXACT_MATCH",
+          "hubName": "CEDS",
+          "source": "EdFi",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "EdfiProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDate",
+      "source": "SIF260928",
+      "description": "The person's date of birth.",
+      "sourceId": "sif260928:question/77778159015aa9d8b4bfc223cb156fda47a1ef45584313d177383cc2398d8388",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "name": "BirthDate",
+      "source": "EdFi",
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/inlineCommon.BirthData.BirthDate",
+      "score": 211,
+      "related": [
+        {
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        },
+        {
+          "name": "BirthDate",
+          "rel": "EXACT_MATCH",
+          "hubName": "CEDS",
+          "source": "EdFi",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "EdfiProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDate",
+      "source": "SIF260928",
+      "description": "",
+      "sourceId": "sif260928:question/19c4b7e4649ef9c7583250f3da5534482519a081b9fbd9f24615c040def381ab",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "name": "BirthDateVerification",
+      "source": "SIF260928",
+      "description": "",
+      "sourceId": "sif260928:question/cce03f7d63c8077bbc8ca3a77d8cc419bff3bdb6a7981219aeac28577d21c2e5",
+      "score": 211,
+      "related": []
+    },
+    {
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "name": "BirthDate",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "description": "Date of Birth",
+      "sourceId": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate",
+      "score": 211,
+      "related": []
+    }
+  ]
+}

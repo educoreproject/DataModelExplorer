@@ -28,6 +28,13 @@ const LIVE_MATCH_BASIS_LIST_CYPHER = 'MATCH ()-[matchEdge:EXACT_MATCH|CLOSE_MATC
 
 const LIVE_ROLE_LIST_CYPHER = 'MATCH (n:ForgedNode) WHERE n.role IS NOT NULL RETURN DISTINCT n.role AS role ORDER BY role';
 
+// ⟪lane zbE, E2-1⟫ the marker for an edge type whose meaning the GRAPH defines: its line is the description on the
+// graph's own SchemaView node (stableId schemaView:edgeType:<TYPE>), read at run time. REFERENCES was hand-described as
+// 'intra-standard cross reference' while 227 REFERENCES edges of GOLD_EVAL_261021_ctdlHub cross _source (measured).
+const MEANING_FROM_GRAPH_SCHEMA_VIEW = Object.freeze({ meaningSource: 'graphSchemaView' });
+const schemaViewStableIdFor = (edgeType) => `schemaView:edgeType:${edgeType}`;
+const SCHEMA_VIEW_DESCRIPTION_CYPHER = 'MATCH (schemaViewNode:SchemaView) WHERE schemaViewNode.stableId IN $stableIdList RETURN schemaViewNode.stableId AS stableId, schemaViewNode.description AS description';
+
 // the structural edge types the guidance explains, each with what it means; the section lists those the live graph
 // holds (an edge type the graph lacks is not described as if it existed)
 const STRUCTURAL_EDGE_MEANING_BY_TYPE = {
@@ -37,7 +44,7 @@ const STRUCTURAL_EDGE_MEANING_BY_TYPE = {
 	HAS_OPTION_SET: 'a property owns its code list (CEDS, Ed-Fi, PESC); in SIF the Question\'s instance Field points at its Codeset (read SIF code lists through the instances), and the root owns each Codeset',
 	HAS_VALUE: 'an option set owns its values',
 	HAS_SUPPORT: 'from a standard root only, to its support/type scaffolding',
-	REFERENCES: 'intra-standard cross reference',
+	REFERENCES: MEANING_FROM_GRAPH_SCHEMA_VIEW,
 	REFERENCES_TYPE: 'a property refers to its type (Ed-Fi, PESC)',
 	REFERENCES_OBJECT: 'SIF: a Field refers to the Object it holds',
 	HAS_INSTANCE: 'SIF/PESC: an element stands for each of its occurrences',
@@ -169,6 +176,7 @@ const renderSchema = ({
 	liveSourceList,
 	hubList,
 	liveMatchBasisList,
+	graphDefinedMeaningByEdgeType,
 }) => {
 	const { grouped, infrastructure, other } = groupLabels(labels);
 
@@ -245,7 +253,7 @@ const renderSchema = ({
 	const sampleLabelList = grouped.map((labelGroup) => labelGroup.labels.find((labelName) => labelGroup.prefixes.indexOf(labelName) === -1) || labelGroup.labels[0]).filter(Boolean).slice(0, 4);
 	const structuralEdgeLineList = Object.keys(STRUCTURAL_EDGE_MEANING_BY_TYPE)
 		.filter((edgeType) => relationshipTypes.includes(edgeType))
-		.map((edgeType) => `- **${edgeType}** — ${STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType]}`);
+		.map((edgeType) => `- **${edgeType}** — ${STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType] === MEANING_FROM_GRAPH_SCHEMA_VIEW ? graphDefinedMeaningByEdgeType[edgeType] : STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType]}`);
 	lines.push(curatedGuidanceFor({ liveRoleList, liveSourceList, sampleLabelList, structuralEdgeLineList, hubList, liveMatchBasisList, relationshipTypes }));
 
 	return lines.join('\n');
@@ -559,6 +567,36 @@ const moduleFunction = ({ neo4jDb }) => (callback) => {
 				return;
 			}
 			next('', { ...args, liveMatchBasisList: records.map((r) => r.matchBasis) });
+		});
+	});
+
+	// ⟪lane zbE, E2-1⟫ the graph's own definition of each graph-defined edge type it holds; one it holds but does not
+	// define is refused by name (describing it from memory is how the false REFERENCES line arose)
+	taskList.push((args, next) => {
+		const graphDefinedEdgeTypeList = Object.keys(STRUCTURAL_EDGE_MEANING_BY_TYPE).filter((edgeType) => STRUCTURAL_EDGE_MEANING_BY_TYPE[edgeType] === MEANING_FROM_GRAPH_SCHEMA_VIEW && args.relationshipTypes.includes(edgeType));
+		if (graphDefinedEdgeTypeList.length === 0) {
+			next('', { ...args, graphDefinedMeaningByEdgeType: {} });
+			return;
+		}
+		neo4jDb.runQuery(SCHEMA_VIEW_DESCRIPTION_CYPHER, { stableIdList: graphDefinedEdgeTypeList.map(schemaViewStableIdFor) }, (err, records) => {
+			if (err) {
+				next(`schema-provider: SchemaView edge-type definitions failed: ${err}`, args);
+				return;
+			}
+			const descriptionByStableId = {};
+			records.forEach((r) => {
+				descriptionByStableId[r.stableId] = r.description;
+			});
+			const undefinedStableIdList = graphDefinedEdgeTypeList.map(schemaViewStableIdFor).filter((stableId) => typeof descriptionByStableId[stableId] !== 'string' || descriptionByStableId[stableId].trim() === '');
+			if (undefinedStableIdList.length > 0) {
+				next(`schema-provider: this graph holds edge type(s) whose meaning only the graph defines, but has no SchemaView description for ${undefinedStableIdList.join(', ')}`, args);
+				return;
+			}
+			const graphDefinedMeaningByEdgeType = {};
+			graphDefinedEdgeTypeList.forEach((edgeType) => {
+				graphDefinedMeaningByEdgeType[edgeType] = descriptionByStableId[schemaViewStableIdFor(edgeType)];
+			});
+			next('', { ...args, graphDefinedMeaningByEdgeType });
 		});
 	});
 

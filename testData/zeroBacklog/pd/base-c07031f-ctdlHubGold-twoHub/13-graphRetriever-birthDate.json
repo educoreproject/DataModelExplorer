@@ -1,0 +1,458 @@
+{
+  "retrievalMode": "traversal",
+  "requestedHitCount": 5,
+  "returnedHitCount": 5,
+  "hitList": [
+    {
+      "node": {
+        "cedsId": "OV000618151887",
+        "role": "DmeOptionValue",
+        "description": "Birth certificate was used as evidence to verify a person's name, address, date of birth, etc.",
+        "path": "Personal Information Verification.Birth certificate",
+        "searchText": "CEDS | Personal Information Verification | Personal Information Verification | Birth certificate",
+        "notation": "01004",
+        "hubName": "CEDS",
+        "definition": "Birth certificate was used as evidence to verify a person's name, address, date of birth, etc.",
+        "hubVersion": "14.0.0.0",
+        "stableId": "https://w3id.org/CEDStandards/terms/NI000618151887",
+        "creator": "Common Education Data Standards",
+        "rangeOptionSetId": "OS000618",
+        "prefLabel": "Birth certificate",
+        "declaredTypes": [
+          "https://w3id.org/CEDStandards/terms/C000618",
+          "http://www.w3.org/2004/02/skos/core#Concept"
+        ],
+        "crossRefs": "[{\"system\":\"ceds\",\"id\":\"OV000618151887\",\"raw\":\"NI000618151887\",\"locator\":\"dc:identifier\"}]",
+        "uri": "https://w3id.org/CEDStandards/terms/NI000618151887",
+        "parentId": "https://w3id.org/CEDStandards/terms/C000618",
+        "cedsOriginalAnchorPropertyName": "dc:identifier",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 4,
+        "canonicalKey": "OV000618151887",
+        "name": "Birth certificate",
+        "_source": "CEDS",
+        "_id": "https://w3id.org/CEDStandards/terms/NI000618151887"
+      },
+      "hitRank": 1,
+      "fusedScore": 0.01639344262295082,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 1,
+      "keywordScore": 7.55241584777832,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsOptionValue",
+        "DmeOptionValue"
+      ],
+      "role": "DmeOptionValue",
+      "source": "CEDS",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    },
+    {
+      "node": {
+        "cedsId": "OV000618151902",
+        "role": "DmeOptionValue",
+        "description": "A birth registration form was used as evidence to verify a person's name, address, date of birth, etc.",
+        "path": "Personal Information Verification.Birth Registration Form",
+        "searchText": "CEDS | Personal Information Verification | Personal Information Verification | Birth Registration Form",
+        "notation": "73102",
+        "hubName": "CEDS",
+        "definition": "A birth registration form was used as evidence to verify a person's name, address, date of birth, etc.",
+        "hubVersion": "14.0.0.0",
+        "stableId": "https://w3id.org/CEDStandards/terms/NI000618151902",
+        "creator": "Common Education Data Standards",
+        "rangeOptionSetId": "OS000618",
+        "prefLabel": "Birth Registration Form",
+        "declaredTypes": [
+          "https://w3id.org/CEDStandards/terms/C000618",
+          "http://www.w3.org/2004/02/skos/core#Concept"
+        ],
+        "crossRefs": "[{\"system\":\"ceds\",\"id\":\"OV000618151902\",\"raw\":\"NI000618151902\",\"locator\":\"dc:identifier\"}]",
+        "uri": "https://w3id.org/CEDStandards/terms/NI000618151902",
+        "parentId": "https://w3id.org/CEDStandards/terms/C000618",
+        "cedsOriginalAnchorPropertyName": "dc:identifier",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 4,
+        "canonicalKey": "OV000618151902",
+        "name": "Birth Registration Form",
+        "_source": "CEDS",
+        "_id": "https://w3id.org/CEDStandards/terms/NI000618151902"
+      },
+      "hitRank": 2,
+      "fusedScore": 0.016129032258064516,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 2,
+      "keywordScore": 6.817077159881592,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsOptionValue",
+        "DmeOptionValue"
+      ],
+      "role": "DmeOptionValue",
+      "source": "CEDS",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    },
+    {
+      "node": {
+        "typeAsWritten": "core:BirthDateType",
+        "sourceFileName": "CoreMain_v1.17.0.xsd",
+        "role": "DmeProperty",
+        "definitionDigest": "84c7212d78805d592ea71465e13415998c51e893a0aaa8fae53b64f955b171c1",
+        "sequencePosition": 1,
+        "sequenceOrdinal": 0,
+        "typeName": "BirthDateType",
+        "occurrenceSectionList": [
+          "CollegeTranscript/Student/Person"
+        ],
+        "description": "Date of Birth",
+        "reachableFromRoot": true,
+        "orderSemantics": "normative",
+        "path": "type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate",
+        "documentationValueList": [
+          "Date of Birth"
+        ],
+        "searchText": "PESC-CollegeTranscript-1.7.0 | BirthDate",
+        "effectiveDocumentation": "Date of Birth",
+        "contextPathCount": 1,
+        "contextPathSampleList": [
+          "College Transcript / Student / Person / Birth / Birth Date"
+        ],
+        "typeQName": "urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+        "documentationSource": "own",
+        "releaseIndependentId": "type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate",
+        "stableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate",
+        "contextText": "College Transcript / Student / Person / Birth / Birth Date",
+        "minOccursAsWritten": "0",
+        "documentation": "Date of Birth",
+        "crossRefs": "[]",
+        "siblingCount": 8,
+        "pesccollegetranscript1v7v0StableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate",
+        "parentId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType",
+        "owningTypeName": "BirthType",
+        "reachableVia": "content",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 2,
+        "name": "BirthDate",
+        "_source": "PESC-CollegeTranscript-1.7.0",
+        "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType/el/1:BirthDate"
+      },
+      "hitRank": 3,
+      "fusedScore": 0.015873015873015872,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 3,
+      "keywordScore": 5.692387104034424,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "role": "DmeProperty",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "parentClasses": [
+        {
+          "name": "BirthType",
+          "path": "type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#BirthType"
+        }
+      ],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [
+        {
+          "name": "BirthDateType",
+          "referenceEdgeType": "REFERENCES_TYPE",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:dataType/urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+          "role": "DmeSupport"
+        }
+      ],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": [],
+      "instanceView": {
+        "ownedFieldCount": 0,
+        "structuralChildCount": 0,
+        "mappingsViaInstancesTruncatedByRelation": [],
+        "instanceTotal": 1,
+        "structuralParents": [],
+        "instancesByGroup": [
+          {
+            "instanceCount": 1,
+            "pathSampleList": [
+              "CollegeTranscript/Student/Person/Birth/BirthDate"
+            ],
+            "group": "CollegeTranscript/Student/Person"
+          }
+        ],
+        "ownedFields": [],
+        "owningObjects": [],
+        "structuralChildren": [],
+        "mappingsViaInstances": [
+          {
+            "toId": "P000033",
+            "matchPredicate": "exactMatch",
+            "instanceGroupCount": 1,
+            "confidence": 0.9,
+            "toSource": "CEDS",
+            "mappingConfidence": 0.9,
+            "instanceGroupList": [
+              "CollegeTranscript/Student/Person"
+            ],
+            "toName": "Birthdate",
+            "instanceCount": 1,
+            "mappingType": "EXACT_MATCH",
+            "mappingKind": "inferred",
+            "mappingSource": "bridge-jev",
+            "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Birthdate\" with probability 1 and confidence 1. Next: \"Birthdate Verification\" (0), \"Initial License Date\" (0). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: exactMatch with probability 0.9400000000000001 and confidence 0.92. Next: closeMatch (0.06), broadMatch (0)."
+          }
+        ],
+        "instanceOf": null
+      }
+    },
+    {
+      "node": {
+        "typeAsWritten": "core:BirthDateType",
+        "sourceFileName": "CoreMain_v1.17.0.xsd",
+        "role": "DmeProperty",
+        "definitionDigest": "0000cf265b9a2b9fdf7fce77619fc78f41457620e7e13ab786674a858762150b",
+        "sequencePosition": 2,
+        "sequenceOrdinal": 1,
+        "typeName": "BirthDateType",
+        "description": "Date of Birth",
+        "reachableFromRoot": false,
+        "orderSemantics": "normative",
+        "path": "type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate",
+        "documentationValueList": [
+          "Date of Birth"
+        ],
+        "searchText": "PESC-CollegeTranscript-1.7.0 | BirthDate",
+        "effectiveDocumentation": "Date of Birth",
+        "typeQName": "urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+        "documentationSource": "own",
+        "releaseIndependentId": "type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate",
+        "stableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate",
+        "minOccursAsWritten": "0",
+        "documentation": "Date of Birth",
+        "crossRefs": "[]",
+        "siblingCount": 3,
+        "pesccollegetranscript1v7v0StableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate",
+        "parentId": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType",
+        "owningTypeName": "IndexType",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 2,
+        "name": "BirthDate",
+        "_source": "PESC-CollegeTranscript-1.7.0",
+        "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType/el/2:BirthDate"
+      },
+      "hitRank": 4,
+      "fusedScore": 0.015625,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 4,
+      "keywordScore": 5.692387104034424,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "role": "DmeProperty",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "parentClasses": [
+        {
+          "name": "IndexType",
+          "path": "type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:core:CoreMain:v1.17.0#IndexType"
+        }
+      ],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [
+        {
+          "name": "BirthDateType",
+          "referenceEdgeType": "REFERENCES_TYPE",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:dataType/urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+          "role": "DmeSupport"
+        }
+      ],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    },
+    {
+      "node": {
+        "typeAsWritten": "core:BirthDateType",
+        "sourceFileName": "AcademicRecord_v1.11.0.xsd",
+        "role": "DmeProperty",
+        "definitionDigest": "84c7212d78805d592ea71465e13415998c51e893a0aaa8fae53b64f955b171c1",
+        "sequencePosition": 1,
+        "sequenceOrdinal": 0,
+        "typeName": "BirthDateType",
+        "description": "Date of Birth",
+        "reachableFromRoot": false,
+        "orderSemantics": "normative",
+        "path": "type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate",
+        "documentationValueList": [
+          "Date of Birth"
+        ],
+        "searchText": "PESC-CollegeTranscript-1.7.0 | BirthDate",
+        "effectiveDocumentation": "Date of Birth",
+        "typeQName": "urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+        "documentationSource": "own",
+        "releaseIndependentId": "type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate",
+        "stableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate",
+        "minOccursAsWritten": "0",
+        "documentation": "Date of Birth",
+        "crossRefs": "[]",
+        "siblingCount": 6,
+        "pesccollegetranscript1v7v0StableId": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate",
+        "parentId": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType",
+        "owningTypeName": "BirthType",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 2,
+        "name": "BirthDate",
+        "_source": "PESC-CollegeTranscript-1.7.0",
+        "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType/el/1:BirthDate"
+      },
+      "hitRank": 5,
+      "fusedScore": 0.015384615384615385,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 5,
+      "keywordScore": 5.692387104034424,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "PescCollegeTranscript1v7v0Element"
+      ],
+      "role": "DmeProperty",
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "parentClasses": [
+        {
+          "name": "BirthType",
+          "path": "type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#BirthType"
+        }
+      ],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [
+        {
+          "name": "BirthDateType",
+          "referenceEdgeType": "REFERENCES_TYPE",
+          "_source": "PESC-CollegeTranscript-1.7.0",
+          "_id": "pesccollegetranscript1v7v0:dataType/urn:org:pesc:core:CoreMain:v1.17.0#BirthDateType",
+          "role": "DmeSupport"
+        }
+      ],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    }
+  ],
+  "searchMode": "keyword",
+  "legHitCountByName": {
+    "keyword": 59
+  },
+  "rrfConstant": 60,
+  "scoreUnitByField": {
+    "fusedScore": "reciprocal rank fusion: the sum, over the legs that found the node, of 1 / (60 + rank); comparable only within one result",
+    "keywordRank": "1-based rank in the keyword (BM25) leg after the standard filter; null when that leg did not find the node",
+    "keywordScore": "Lucene BM25 score from the fulltext index: unbounded and relative to this query; null when the keyword leg did not find the node",
+    "vectorRank": "1-based rank in the vector leg after the standard filter; null when that leg did not find the node",
+    "vectorScore": "cosine similarity as Neo4j reports it, (1 + cosine) / 2 in [0, 1]; null when the vector leg did not find the node",
+    "foundByLegList": "the legs that found the node: 'keyword', 'vector' or both"
+  }
+}

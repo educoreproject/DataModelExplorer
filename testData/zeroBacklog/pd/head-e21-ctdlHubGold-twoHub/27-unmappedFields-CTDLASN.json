@@ -1,0 +1,153 @@
+{
+  "unmappedRowList": [
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Ability Embodied",
+      "fieldName": "Ability Embodied",
+      "description": "Enduring attributes of the individual that influence performance are embodied either directly or indirectly in this resource.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Align From",
+      "fieldName": "Align From",
+      "description": "An alignment is an assertion of some degree of equivalency between the subject and the object of the assertion.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Align To",
+      "fieldName": "Align To",
+      "description": "An alignment is an assertion of some degree of equivalency between the subject and the object of the assertion.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Alternative Coded Notation",
+      "fieldName": "Alternative Coded Notation",
+      "description": "Unlike the codedNotation property, the value for the altCodedNotation property need not be an official identifier created by the promulgating agency. It must be an identifier in common use among end-users of the competency. This property should be seldom used and only with a clear demonstration of need (i.e., in common use). For example, in the Common Core State Standards (Math) in the U.S., the official codedNotation of \"CCSS.Math.Content.1.NBT.C.4\" is abbreviated in common use by end-users to the unofficial altCodedNotation of \"1.NBT.4\".",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Concept.Alternative Label",
+      "fieldName": "Alternative Label",
+      "description": "Non-preferred label for the concept used to relate a concept synonym to the preferred label.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Progression Model.Approximate Date Created",
+      "fieldName": "Approximate Date Created",
+      "description": "The value should be in ISO 8601 date format; specifically YYYY or YYY-MM.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Progression Model.Approximate Date Modified",
+      "fieldName": "Approximate Date Modified",
+      "description": "The value should be in ISO 8601 date format; specifically YYYY or YYYY-MM.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Author",
+      "fieldName": "Author",
+      "description": "A person or organization chiefly responsible for the intellectual or artistic content of this competency framework or competency.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Criterion Level.Benchmark Label",
+      "fieldName": "Benchmark Label",
+      "description": "Label for the level achieved as defined by the Rubric Criterion.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Criterion Level.Benchmark Text",
+      "fieldName": "Benchmark Text",
+      "description": "Description of the level achieved as defined by the Rubric Criterion.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Broad Alignment",
+      "fieldName": "Broad Alignment",
+      "description": "The referenced competency covers all of the relevant concepts in this competency as well as relevant concepts not found in this competency.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Concept.Broad Match",
+      "fieldName": "Broad Match",
+      "description": "Assertion indicates that the referenced concept is broader in some way than this concept.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Progression Level.Broader",
+      "fieldName": "Broader",
+      "description": "Concept that is broader in some way than this concept.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Concept.Change Note",
+      "fieldName": "Change Note",
+      "description": "Text describing a significant change to the concept.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Concept.Close Match",
+      "fieldName": "Close Match",
+      "description": "Assertion indicates that two concepts are sufficiently similar that they can be used interchangeably.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Coded Notation",
+      "fieldName": "Coded Notation",
+      "description": "This property should be used only for codes created by the promulgating body. For alternative competency notations in common use in the community of practice, but not endorsed by the promulgating body, the altCodedNotation property can be used (sparingly on clear evidence of common use and need).",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Comment",
+      "fieldName": "Comment",
+      "description": "Use this property when the text provides useful context for this resource.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Competency Category",
+      "fieldName": "Competency Category",
+      "description": "This property points to a class, not to instances of that class. For example, where two competencies in a competency framework have been identified respectively by the promulgating agency as \"Strand: Renaissance\" and \"Strand: Social history\", the statementLabel for both these competencies is \"Strand\".",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Competency Label",
+      "fieldName": "Competency Label",
+      "description": "Short identifying phrase or name applied to a competency by the creator of the competency framework.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "CTDLASN",
+      "path": "Competency.Competency Text",
+      "fieldName": "Competency Text",
+      "description": "The text of the competency.",
+      "isHubStandard": false
+    }
+  ],
+  "totalRowCount": 97,
+  "returnedRowCount": 20,
+  "truncatedRowCount": 77,
+  "rowUnit": "a DmeProperty with no match edge on itself or on any of its instances: one row per property",
+  "hubPolicy": "excludeHub",
+  "hubStandardList": [
+    "CEDS",
+    "CTDL"
+  ]
+}

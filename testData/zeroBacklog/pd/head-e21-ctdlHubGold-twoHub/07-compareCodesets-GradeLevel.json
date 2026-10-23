@@ -1,0 +1,5 @@
+{
+  "refusedByName": "compareCodesets",
+  "refusalName": "noOptionSetMatched",
+  "reason": "'Grade Level' matches no option set by name in any non-hub standard (SIF option sets carry no name in this build and cannot be found by name)."
+}
