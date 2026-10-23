@@ -259,19 +259,37 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				ok(`NameType: each of ${propertyRowList.length} properties' strongest mapping equals this test's Cypher`, disagreementList.length === 0 && found.nameTypeProperties.length === propertyRowList.length, disagreementList.join('; '));
 				const kindSet = new Set(found.nameTypeProperties.filter((oneItem) => oneItem.mapping).map((oneItem) => oneItem.mapping.matchKind));
 				ok('NameType: all four match kinds present (exact, close, narrow, broad)', ['exact', 'close', 'narrow', 'broad'].every((matchKind) => kindSet.has(matchKind)), [...kindSet].join());
-				ok('NameType: an unmapped property reads mapping null', found.nameTypeProperties.some((oneItem) => oneItem.mapping === null));
+				// ⟪lane zbE⟫ which NameType properties are unmapped is graph content (a second hub's judgments can map them all),
+				// so the rule is checked both ways from this test's own Cypher: exactly the edge-less properties read null
+				const unmappedNameList = propertyRowList.filter((oneRow) => !oneRow.judgmentList.some((oneJudgment) => oneJudgment.edgeType)).map((oneRow) => oneRow.propertyName).sort();
+				const nullNameList = found.nameTypeProperties.filter((oneItem) => oneItem.mapping === null).map((oneItem) => oneItem.name).sort();
+				ok(`NameType: exactly the properties with no match edge (${unmappedNameList.length}) read mapping null`, JSON.stringify(nullNameList) === JSON.stringify(unmappedNameList), `null ${JSON.stringify(nullNameList)} vs Cypher ${JSON.stringify(unmappedNameList)}`);
 				const firstNameItem = found.nameTypeProperties.find((oneItem) => oneItem.name === 'FirstName') || {};
 				found.firstNamePropertyStableId = firstNameItem.stableId;
 				found.firstNameAnchorStableId = firstNameItem.mapping && firstNameItem.mapping.anchor.stableId;
 				done();
 			},
 		),
-		(done) => ask({ action: 'node', stableId: found.firstNamePropertyStableId }, (nodeError, propertyLevel) => {
-			ok('FirstName: occurrences map identically, so they fold; its mapping is close to First Name', !nodeError && propertyLevel.instanceFolding.folded === true && propertyLevel.instanceFolding.occurrenceCount > 1 && propertyLevel.mappingList[0].matchKind === 'close' && propertyLevel.mappingList[0].anchor.name === 'First Name', nodeError || JSON.stringify(propertyLevel.instanceFolding));
-			ok('FirstName: the ancestor chain runs root › NameType', (propertyLevel.ancestorList || []).map((oneAncestor) => oneAncestor.name).join(' › ').endsWith('NameType'));
-			ok('FirstName: the folded occurrence group is flagged folded', groupOf(propertyLevel, 'HAS_INSTANCE').folded === true);
-			done();
-		}),
+		// ⟪lane zbE⟫ whether FirstName's occurrences fold is graph content (a second hub can judge them differently); the
+		// fold rule is checked on the folding this test's own Cypher predicts, and the CEDS fact on its CEDS entry
+		(done) => cypher(
+			`MATCH (propertyNode {stableId: $propertyStableId})-[:HAS_INSTANCE]->(occurrence)
+			 OPTIONAL MATCH (occurrence)-[matchEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(anchor:HubReference)
+			 WITH occurrence, collect(type(matchEdge) + '|' + anchor.stableId + '|' + toString(matchEdge.mappingConfidence)) AS judgmentList
+			 RETURN collect(judgmentList) AS judgmentListByOccurrence`,
+			{ propertyStableId: found.firstNamePropertyStableId },
+			(occurrenceRowList) => {
+				const judgmentListByOccurrence = (occurrenceRowList[0] || {}).judgmentListByOccurrence || [];
+				const expectFolded = judgmentListByOccurrence.length > 1 && new Set(judgmentListByOccurrence.map((judgmentList) => [...judgmentList].sort().join(','))).size === 1;
+				ask({ action: 'node', stableId: found.firstNamePropertyStableId }, (nodeError, propertyLevel) => {
+					ok(`FirstName: folded is ${expectFolded} exactly as its ${judgmentListByOccurrence.length} occurrences' judgments predict (this test's Cypher)`, !nodeError && propertyLevel.instanceFolding.folded === expectFolded && propertyLevel.instanceFolding.occurrenceCount > 1, nodeError || JSON.stringify(propertyLevel.instanceFolding));
+					ok('FirstName: its CEDS mapping is close to First Name', !nodeError && (propertyLevel.mappingList || []).some((oneMapping) => oneMapping.matchKind === 'close' && oneMapping.anchor.name === 'First Name'), JSON.stringify((propertyLevel.mappingList || []).slice(0, 3)).slice(0, 220));
+					ok('FirstName: the ancestor chain runs root › NameType', (propertyLevel.ancestorList || []).map((oneAncestor) => oneAncestor.name).join(' › ').endsWith('NameType'));
+					ok('FirstName: the occurrence group\'s folded flag agrees', groupOf(propertyLevel, 'HAS_INSTANCE').folded === expectFolded);
+					done();
+				});
+			},
+		),
 		// a property whose occurrences map differently, found by this test's own Cypher (which one varies by golden)
 		(done) => cypher(
 			`MATCH (:DmeStandardRoot {standardKey: 'pesccollegetranscript1v8v0'})-[:HAS_CLASS]->()-[:HAS_PROPERTY]->(propertyNode)-[:HAS_INSTANCE]->(occurrence)
@@ -290,7 +308,17 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				}
 				ask({ action: 'node', stableId: differingRow.stableId }, (nodeError, propertyLevel) => {
 					ok(`${differingRow.name}: occurrences map differently (this test's Cypher), so they are shown`, !nodeError && propertyLevel.instanceFolding.folded === false && groupOf(propertyLevel, 'HAS_INSTANCE').folded === false, nodeError || JSON.stringify(propertyLevel.instanceFolding));
-					done();
+					// ⟪lane zbE⟫ and its converse, on whichever mapped property this golden folds (no longer FirstName by name)
+					const identicalRow = propertyRowList.find((oneRow) => oneRow.occurrenceCount > 1 && oneRow.judgmentListByOccurrence[0].length > 0 && new Set(oneRow.judgmentListByOccurrence.map(signatureOf)).size === 1);
+					if (!identicalRow) {
+						ok('this golden has a mapped College Transcript 1.8.0 property whose occurrences map identically', false);
+						done();
+						return;
+					}
+					ask({ action: 'node', stableId: identicalRow.stableId }, (foldError, foldLevel) => {
+						ok(`${identicalRow.name}: occurrences map identically (this test's Cypher), so they fold`, !foldError && foldLevel.instanceFolding.folded === true && groupOf(foldLevel, 'HAS_INSTANCE').folded === true, foldError || JSON.stringify(foldLevel.instanceFolding));
+						done();
+					});
 				});
 			},
 		),

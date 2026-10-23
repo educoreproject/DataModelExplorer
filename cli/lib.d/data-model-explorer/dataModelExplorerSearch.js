@@ -876,6 +876,9 @@ const shapeFindMappingsResult = (result, hubList) => {
 	const truncatedRowCountByRelationAndStandard = {};
 	const totalRowCountByRelationAndStandard = {};
 	const totalRowCountByHub = {};
+	// ⟪lane zbE⟫ the per-hub split the allocation works on, published so a reader (and the standard-share gate) can check the
+	// round-robin hub by hub; the relation and relation-and-standard totals above stay summed over the hubs
+	const truncatedRowCountByHubRelationAndStandard = {};
 	const sumOf = (countByRelation) => Object.values(countByRelation).reduce((runningTotal, oneCount) => runningTotal + oneCount, 0);
 	hubList.forEach(({ hubName }) => {
 		const hubAllocation = allocateMappingRowsByRelation(rowListByHubRelationAndStandard[hubName] || {}, totalRowCountByHubRelationAndStandard[hubName] || {});
@@ -885,6 +888,7 @@ const shapeFindMappingsResult = (result, hubList) => {
 		addCountsInto(truncatedRowCountByRelation, hubAllocation.truncatedRowCountByRelation);
 		addNestedCountsInto(truncatedRowCountByRelationAndStandard, hubAllocation.truncatedRowCountByRelationAndStandard);
 		addNestedCountsInto(totalRowCountByRelationAndStandard, totalRowCountByHubRelationAndStandard[hubName] || {});
+		truncatedRowCountByHubRelationAndStandard[hubName] = hubAllocation.truncatedRowCountByRelationAndStandard;
 	});
 	const mappingRowList = shownRowList.map(rowObject => {
 		const rec = { get: (columnName) => rowObject[columnName] };
@@ -951,6 +955,8 @@ const shapeFindMappingsResult = (result, hubList) => {
 		truncatedRowCountByRelationAndStandard,
 		totalRowCountByDirection,
 		totalRowCountByHub,
+		totalRowCountByHubRelationAndStandard: Object.fromEntries(hubList.map(({ hubName }) => [hubName, totalRowCountByHubRelationAndStandard[hubName] || {}])),
+		truncatedRowCountByHubRelationAndStandard: Object.fromEntries(hubList.map(({ hubName }) => [hubName, truncatedRowCountByHubRelationAndStandard[hubName] || {}])),
 	};
 };
 

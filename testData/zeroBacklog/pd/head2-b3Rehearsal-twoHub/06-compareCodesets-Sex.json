@@ -1,0 +1,84 @@
+{
+  "verdict": "valuesNotJudgedInThisBuild",
+  "verdictText": "This build contains no value-level judgments (0 match edges leave an option value); matchType null means NOT JUDGED, not 'does not align'.",
+  "valueTierJudgmentCount": 0,
+  "matchedOptionSetCount": 2,
+  "valueRowList": [
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Female",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Male",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Non-binary",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Not Selected",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    },
+    {
+      "sourceStandard": "SIF260928",
+      "optionSetName": "xContact/sex, xStaff/sex, demographics/sex and 2 more",
+      "sourceValue": "Female",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    },
+    {
+      "sourceStandard": "SIF260928",
+      "optionSetName": "xContact/sex, xStaff/sex, demographics/sex and 2 more",
+      "sourceValue": "Male",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null
+    }
+  ],
+  "totalRowCount": 6,
+  "returnedRowCount": 6,
+  "truncatedRowCount": 0,
+  "rowUnit": "an option value of a matched option set: one row per value",
+  "hubList": [
+    {
+      "hubName": "CEDS",
+      "hubSource": "CEDS",
+      "hubVersion": "14.0.0.0"
+    },
+    {
+      "hubName": "CTDL",
+      "hubSource": "CTDL",
+      "hubVersion": "Release 20260927"
+    }
+  ]
+}

@@ -276,10 +276,16 @@ series(
 			};
 			const cardTextOf = (card) => mapper.buildLookupBlocks({ term: 't', cards: [card], totalMatches: 1, dmeBaseUrl: 'https://qbook.work' }).map((block) => (block.text ? block.text.text : '')).join('\n');
 			readCard('sif260928:question/77778159015aa9d8b4bfc223cb156fda47a1ef45584313d177383cc2398d8388', (err, { card, refusalText } = {}) => {
+				// ⟪lane zbE⟫ per hub (a tuple's hubSource; its hubName is the card's own name): the card holds each hub's tuples; the CEDS fact below holds on the CEDS hub's tuples, and a
+				// second hub's tuples (CTDL, once it has match edges) are carried the same way, never mixed into CEDS's count
 				const realTuples = card ? card.hubTuples.filter((tuple) => tuple.hubName) : [];
-				ok('SIF Question BirthDate (0 own edges, 6 instance edges): ONE real tuple, P000033, carriedBy instance, instanceCount 6, groups include StudentPersonal',
-					!err && !refusalText && realTuples.length === 1 && realTuples[0].hubKey === 'P000033' && realTuples[0].carriedBy === 'instance' && realTuples[0].instanceCount === 6 && realTuples[0].instanceGroupList.includes('StudentPersonal'),
-					err || refusalText || JSON.stringify(realTuples).slice(0, 220));
+				const cedsTuples = realTuples.filter((tuple) => tuple.hubSource === 'CEDS');
+				const otherHubTuples = realTuples.filter((tuple) => tuple.hubSource !== 'CEDS');
+				ok('SIF Question BirthDate (0 own edges, 6 instance edges): ONE real CEDS tuple, P000033, carriedBy instance, instanceCount 6, groups include StudentPersonal',
+					!err && !refusalText && cedsTuples.length === 1 && cedsTuples[0].hubKey === 'P000033' && cedsTuples[0].carriedBy === 'instance' && cedsTuples[0].instanceCount === 6 && cedsTuples[0].instanceGroupList.includes('StudentPersonal'),
+					err || refusalText || JSON.stringify(cedsTuples).slice(0, 220));
+				ok(`  any other hub's tuples (${otherHubTuples.length}) are carried by the same instances (carriedBy instance, instanceCount >= 1)`,
+					otherHubTuples.every((tuple) => tuple.carriedBy === 'instance' && tuple.instanceCount >= 1), JSON.stringify(otherHubTuples).slice(0, 220));
 				ok('  every tuple field is declared (SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST)', !!card && card.hubTuples.every((tuple) => Object.keys(tuple).every((fieldName) => SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST.includes(fieldName))));
 				ok("  the card text says 'via 6 instances'", !!card && /via 6 instances/.test(cardTextOf(card)), card ? cardTextOf(card).split('\n').find((lineText) => lineText.includes('P000033')) : '');
 				readCard('pesccollegetranscript1v8v0:type/urn:org:pesc:core:CoreMain:v1.19.0#BirthType/el/1:BirthDate', (pescError, pescCard) => {

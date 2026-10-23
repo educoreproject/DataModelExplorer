@@ -1,0 +1,71 @@
+{
+  "bySource": {
+    "CEDS": 126489,
+    "SIF260928": 39268,
+    "PESC-AcademicEportfolio-1.0.0": 16885,
+    "CTDL": 16127,
+    "EdFi": 9617,
+    "PESC-CollegeTranscript-1.8.0": 8997,
+    "PESC-TestScoreReport-1.1.0": 8898,
+    "PESC-LearningRecord-1.0.0": 8829,
+    "PESC-HighSchoolTranscript-1.6.0": 8503,
+    "PESC-CollegeTranscript-1.7.0": 8501,
+    "PESC-DocumentRequest-1.0.0": 8253,
+    "PESC-DocumentResponse-1.0.0": 8057,
+    "UNSCOPED": 422,
+    "CTDLQData": 215,
+    "CTDLASN": 119
+  },
+  "byRole": {
+    "HubReference": 108598,
+    "DmeOptionValue": 49635,
+    "DmeEmbedText": 40488,
+    "DmeInstance": 29808,
+    "DmeProperty": 20346,
+    "DmeSupport": 11754,
+    "DmeOptionSet": 3168,
+    "DmeClass": 2981,
+    "DmeEditHistoryEntry": 1920,
+    "DmeVocabularyTerm": 26,
+    "DmeRestriction": 18,
+    "DmeStandardRoot": 14,
+    "HubDefinition": 2
+  },
+  "layerNodeCountList": [
+    {
+      "standard": "CEDS",
+      "layerKey": "guide",
+      "layerVersion": "14",
+      "nodeCount": 9
+    },
+    {
+      "standard": "CEDS",
+      "layerKey": "textRepair",
+      "layerVersion": "14.0.0.0",
+      "nodeCount": 835
+    }
+  ],
+  "mappings": {
+    "BROAD_MATCH": 9561,
+    "NARROW_MATCH": 9855,
+    "EXACT_MATCH": 10211,
+    "CLOSE_MATCH": 13307,
+    "otherMatchEdgeCountByType": {
+      "HAS_TERM_REFERENCE": 7459
+    }
+  },
+  "coverage": {
+    "totalProperties": 17625,
+    "mappedProperties": 10272,
+    "hubPropertyCount": 2721,
+    "hubPolicy": "excludeHub",
+    "hubStandardList": [
+      "CEDS",
+      "CTDL"
+    ],
+    "mappedPropertyCountByHub": {
+      "CEDS": 5746,
+      "CTDL": 9952
+    }
+  }
+}

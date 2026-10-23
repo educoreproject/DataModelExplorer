@@ -226,6 +226,8 @@ const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 	totalRowCountByDirection: 'ROWS per direction; one graph edge can appear under more than one direction',
 	declaredCorrespondenceCount: `DECLARED CORRESPONDENCES touching a matched node (declaredCorrespondenceList shows at most ${DECLARED_CORRESPONDENCE_LIST_CAP}): published assertions, NOT mappings, in no other total`,
 	totalRowCountByHub: "ROWS per hub (each row names its card's hub in hubName); rows are shown hub by hub, each hub allocated the row cap on its own",
+	totalRowCountByHubRelationAndStandard: 'ROWS per hub, relation and source standard: the split each hub\'s allocation shares round-robin (every hub listed, {} when it has none)',
+	truncatedRowCountByHubRelationAndStandard: 'ROWS per hub, relation and source standard not shown',
 	hubTupleCount: 'HUB TUPLES (HubReferences) the rows reach; hubTupleSummaryList shows at most HUB_TUPLE_SUMMARY_CAP of them, most edges first',
 	edgeCount: 'EDGES: match edges in the graph into this hub tuple, each counted once, from any element (not only the matched ones)',
 	edgeCountByRelation: 'EDGES into this hub tuple per relation',

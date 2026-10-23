@@ -1,0 +1,1005 @@
+{
+  "refusalText": "",
+  "card": {
+    "name": "race",
+    "source": "SIF260928",
+    "description": "Indicates the racial origins of a person. The possible values are: AmericanIndianOrAlaskaNative, Asian, BlackOrAfricanAmerican, NativeHawaiianOrOtherPacificIslander, White, DemographicRaceTwoOrMoreRaces.",
+    "path": "referenceObjects/student/demographics/races/race/race",
+    "stableId": "sif260928:question/07c8fefa41579ef5a808f7d0c198593ce4c97b842bc72cc0875026d6d5e4cd6d",
+    "hubTuples": [
+      {
+        "confidence": null,
+        "hubDomain": null,
+        "carriedBy": "own",
+        "instanceGroupList": [],
+        "instanceCount": 0,
+        "mappingType": null,
+        "hubRange": null,
+        "mappingKind": null,
+        "hubName": null,
+        "mappingSource": null,
+        "hubKey": null,
+        "hubSource": null,
+        "hubProperty": null
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Quality Assurance Credential",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Credential Type",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Bachelor of Science Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Associate of Applied Science Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Associate Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Apprentice Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Secondary School Diploma",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Micro-Credential",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Research Doctorate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Higher Education Level 1 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Proficiency Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Post-Baccalaureate Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Technical Level 1 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Associate of Applied Arts Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Diploma",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Technical Level 3 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Higher Education Level 2 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "General Education Development (GED)",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Pre-Apprenticeship Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Bachelor's Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Certificate of Participation",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Bachelor of Arts Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Professional Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Digital Badge",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Work-Based Learning Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Professional Doctorate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Master of Arts Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Doctoral Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Associate of Arts Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Associate of Science Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Journeyman Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "General Education Level 1 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Secondary Education Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Open Badge",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Post-Master Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Technical Level 2 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Basic Technical Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Specialist Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Master's Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "General Education Level 2 Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Academic Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Master of Science Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Certificate of Completion",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Degree",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "License",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Master Trade Certificate",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Badge",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0,
+        "hubDomain": "Certification",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Certification",
+        "mappingKind": "inferred",
+        "hubName": "Credential Type",
+        "mappingSource": "bridge-debug",
+        "hubKey": "ceterms:credentialType",
+        "hubSource": "CTDL",
+        "hubProperty": "Credential Type"
+      },
+      {
+        "confidence": 0.5,
+        "hubDomain": "Person Demographic Race",
+        "carriedBy": "instance",
+        "instanceGroupList": [
+          "xTransferIep"
+        ],
+        "instanceCount": 1,
+        "mappingType": "BROAD_MATCH",
+        "hubRange": "Race and Ethnicity",
+        "mappingKind": "inferred",
+        "hubName": "Has Race And Ethnicity",
+        "mappingSource": "bridge-jev",
+        "hubKey": "P001943",
+        "hubSource": "CEDS",
+        "hubProperty": "Has Race And Ethnicity"
+      }
+    ],
+    "peers": [
+      {
+        "peerName": null,
+        "mappingType": null,
+        "peerSource": null,
+        "hubSource": null
+      },
+      {
+        "peerName": "CourseCIPCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CTDL"
+      },
+      {
+        "peerName": "SchoolAssignedPersonID",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-DocumentRequest-1.0.0",
+        "hubSource": "CTDL"
+      },
+      {
+        "peerName": "NSN",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-LearningRecord-1.0.0",
+        "hubSource": "CTDL"
+      },
+      {
+        "peerName": "RaceCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "LocalEthnicityRaceCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "EthnicityCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "RaceEthnicityCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "HispanicLatinoEthnicity",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "EdFi",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "OldEthnicity",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "EdFi",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "EthnicityCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "NoteMessage",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "LocalEthnicityRaceCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "RaceCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "RaceEthnicityCode",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "CanadianEthnicityRace",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "AncestryEthnicOrigin",
+        "mappingType": "CLOSE_MATCH",
+        "peerSource": "EdFi",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "EthnicityRace",
+        "mappingType": "CLOSE_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "RaceEthnicity",
+        "mappingType": "CLOSE_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "EthnicityRace",
+        "mappingType": "CLOSE_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "RaceEthnicity",
+        "mappingType": "CLOSE_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      }
+    ]
+  }
+}

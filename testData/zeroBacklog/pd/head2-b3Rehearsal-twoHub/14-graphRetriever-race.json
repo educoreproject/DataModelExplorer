@@ -1,0 +1,762 @@
+{
+  "retrievalMode": "traversal",
+  "requestedHitCount": 5,
+  "returnedHitCount": 5,
+  "hitList": [
+    {
+      "node": {
+        "stableId": "sif260928:question/b009e5bf939b1ffcda7b7b43d4c6e129a499e5b556ae415d22367d538fa285d9",
+        "objectNameSampleList": [
+          "EmployeeCredential"
+        ],
+        "contextText": "Race",
+        "role": "DmeProperty",
+        "description": "Primary employee's race",
+        "crossRefs": "[]",
+        "parentId": "sif260928:root",
+        "questionRefId": "b009e5bf939b1ffcda7b7b43d4c6e129a499e5b556ae415d22367d538fa285d9",
+        "path": "Race",
+        "searchText": "SIF260928 | Race",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 1,
+        "instanceCount": 1,
+        "relativePath": "Race",
+        "objectNameList": [
+          "EmployeeCredential"
+        ],
+        "name": "Race",
+        "sif260928StableId": "sif260928:question/b009e5bf939b1ffcda7b7b43d4c6e129a499e5b556ae415d22367d538fa285d9",
+        "_source": "SIF260928",
+        "_id": "sif260928:question/b009e5bf939b1ffcda7b7b43d4c6e129a499e5b556ae415d22367d538fa285d9",
+        "sharedBlock": "model"
+      },
+      "hitRank": 1,
+      "fusedScore": 0.01639344262295082,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 1,
+      "keywordScore": 8.25230884552002,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "Sif260928Question"
+      ],
+      "role": "DmeProperty",
+      "source": "SIF260928",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": [],
+      "instanceView": {
+        "ownedFieldCount": 0,
+        "structuralChildCount": 0,
+        "mappingsViaInstancesTruncatedByRelation": [],
+        "instanceTotal": 1,
+        "structuralParents": [],
+        "instancesByGroup": [
+          {
+            "instanceCount": 1,
+            "pathSampleList": [
+              "/EmployeeCredentials/EmployeeCredential/Race"
+            ],
+            "group": "EmployeeCredential"
+          }
+        ],
+        "ownedFields": [],
+        "owningObjects": [],
+        "structuralChildren": [],
+        "mappingsViaInstances": [
+          {
+            "toId": "P001943",
+            "matchPredicate": "broadMatch",
+            "instanceGroupCount": 1,
+            "confidence": 0.5,
+            "toSource": "CEDS",
+            "mappingConfidence": 0.5,
+            "instanceGroupList": [
+              "EmployeeCredential"
+            ],
+            "toName": "Has Race And Ethnicity",
+            "instanceCount": 1,
+            "mappingType": "BROAD_MATCH",
+            "mappingKind": "inferred",
+            "mappingSource": "bridge-jev",
+            "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Race And Ethnicity\" with probability 0.45 and confidence 0.43. Next: \"Has Person Demographic Race\" (0.27), NONE (0.26). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.67 and confidence 0.56. Next: closeMatch (0.28), exactMatch (0.05)."
+          },
+          {
+            "toId": "ceterms:requires",
+            "matchPredicate": "narrowMatch",
+            "instanceGroupCount": 1,
+            "confidence": 0,
+            "toSource": "CTDL",
+            "mappingConfidence": 0,
+            "instanceGroupList": [
+              "EmployeeCredential"
+            ],
+            "toName": "Requires",
+            "instanceCount": 1,
+            "mappingType": "NARROW_MATCH",
+            "mappingKind": "inferred",
+            "mappingSource": "bridge-debug",
+            "mappingRationale": "DEBUG JUDGE (INVALID_DEBUG) — NO INTELLIGENCE WAS APPLIED AND THIS IS NOT A JUDGMENT. Rule 'digest' over a pool of 40: digest bucket 17 of 42 selected candidate 18, reported with category 'moderate'. Nothing about the source element or any candidate was read, compared, or weighed. Any edge or abstention carrying this rationale is a plumbing artifact and must never be used as evidence of a mapping."
+          }
+        ],
+        "instanceOf": null
+      }
+    },
+    {
+      "node": {
+        "stableId": "demoCat:Race",
+        "role": "DmeOptionValue",
+        "description": "Means of indicating the race / ethnicity of subjects, categorized according to widely recognized standards.",
+        "crossRefs": "[]",
+        "uri": "demoCat:Race",
+        "parentId": "qdata:DemographicCategory",
+        "path": "Demographic Category.Race",
+        "searchText": "CTDLQData | Demographic Category | Demographic Category | Race",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 2,
+        "name": "Race",
+        "_source": "CTDLQData",
+        "_id": "demoCat:Race",
+        "status": "unstable"
+      },
+      "hitRank": 2,
+      "fusedScore": 0.016129032258064516,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 2,
+      "keywordScore": 7.0868730545043945,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeOptionValue",
+        "CtdlqdataConcept"
+      ],
+      "role": "DmeOptionValue",
+      "source": "CTDLQData",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    },
+    {
+      "node": {
+        "stableId": "https://w3id.org/CEDStandards/terms/C200282",
+        "creator": "Common Education Data Standards",
+        "cedsId": "C200282",
+        "role": "DmeClass",
+        "description": "The associations of a person to a race. Multiple associations are allowed.",
+        "crossRefs": "[{\"system\":\"ceds\",\"id\":\"C200282\",\"raw\":\"C200282\",\"locator\":\"dc:identifier\"}]",
+        "uri": "https://w3id.org/CEDStandards/terms/C200282",
+        "domainId": "C200282",
+        "parentId": "https://w3id.org/CEDStandards/terms/",
+        "cedsOriginalAnchorPropertyName": "dc:identifier",
+        "path": "Person Demographic Race",
+        "searchText": "CEDS | CEDS | Person Demographic Race",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 1,
+        "notation": "PersonDemographicRace",
+        "name": "Person Demographic Race",
+        "hubName": "CEDS",
+        "_source": "CEDS",
+        "definition": "The associations of a person to a race. Multiple associations are allowed.",
+        "_id": "https://w3id.org/CEDStandards/terms/C200282",
+        "hubVersion": "14.0.0.0"
+      },
+      "hitRank": 3,
+      "fusedScore": 0.015873015873015872,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 3,
+      "keywordScore": 5.936163902282715,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsClass",
+        "DmeClass"
+      ],
+      "role": "DmeClass",
+      "source": "CEDS",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [
+        {
+          "name": "Base CEDS Resource",
+          "_source": "CEDS",
+          "_id": "https://w3id.org/CEDStandards/terms/C000000"
+        }
+      ],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [
+        {
+          "name": "Has Person Demographic Race",
+          "referenceEdgeType": "REFERENCES",
+          "_source": "CEDS",
+          "_id": "https://w3id.org/CEDStandards/terms/P600035",
+          "role": "DmeProperty"
+        }
+      ],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "edfi:property/domainEntity.ApplicantProfile.Race",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "Race",
+          "hubName": "Has Person Demographic Race",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P600035",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Person Demographic Race\" with probability 0.98 and confidence 0.98. Next: NONE (0.02), \"Military Induction Date\" (0). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.58 and confidence 0.44. Next: broadMatch (0.29), exactMatch (0.12).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AcademicRecord:v1.10.0#K12PersonType/el/17:EthnicityRace/at/AcademicEPortfolio/Education/HSTranscript/Student/Person/EthnicityRace",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "EthnicityRace",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.9 and confidence 0.9. Next: \"Has Person Demographic Race\" (0.08), NONE (0.02). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.55 and confidence 0.4. Next: exactMatch (0.28), broadMatch (0.15).",
+          "fromSource": "PESC-AcademicEportfolio-1.0.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "peschighschooltranscript1v6v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#K12PersonType/el/17:EthnicityRace/at/HighSchoolTranscript/Student/Person/EthnicityRace",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "EthnicityRace",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.85 and confidence 0.85. Next: \"Has Person Demographic Race\" (0.12), NONE (0.03). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.58 and confidence 0.44. Next: exactMatch (0.21), broadMatch (0.2).",
+          "fromSource": "PESC-HighSchoolTranscript-1.6.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "sif260928:field/StudentPersonals/StudentPersonal/Demographics/RaceEthnicityDeclined",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.84 and confidence 0.83. Next: NONE (0.14), \"Has K12 Student Home Language Survey\" (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.5599999999999999 and confidence 0.41. Next: exactMatch (0.31), narrowMatch (0.11).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "edfi:property/association.StudentEducationOrganizationAssociation.AncestryEthnicOrigin",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "AncestryEthnicOrigin",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.8200000000000001 and confidence 0.81. Next: NONE (0.15), \"Has Person Demographic Race\" (0.02). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.64 and confidence 0.52. Next: broadMatch (0.21), exactMatch (0.12).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "broadMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "edfi:property/domainEntity.RecruitmentEventAttendance.Race",
+          "mappingType": "BROAD_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "Race",
+          "hubName": "Has Person Demographic Race",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P600035",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Person Demographic Race\" with probability 0.96 and confidence 0.96. Next: NONE (0.04), \"Military Induction Date\" (0). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.65 and confidence 0.53. Next: closeMatch (0.3), exactMatch (0.03).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "broadMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "pescacademiceportfolio1v0v0:type/urn:org:pesc:core:CoreMain:v1.16.0#RaceEthnicityType/el/1:RaceEthnicityCode/at/AcademicEPortfolio/Education/HSTranscript/Student/Person/RaceEthnicity/RaceEthnicityCode",
+          "mappingType": "BROAD_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityCode",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.8200000000000001 and confidence 0.82. Next: \"Has Person Demographic Race\" (0.09), NONE (0.07). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.63 and confidence 0.51. Next: closeMatch (0.31), narrowMatch (0.04).",
+          "fromSource": "PESC-AcademicEportfolio-1.0.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "broadMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "sif260928:field/StudentContactPersonals/StudentContactPersonal/PersonInfo/Demographics/HispanicLatino",
+          "mappingType": "BROAD_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "HispanicLatino",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Race And Ethnicity\" with probability 0.8 and confidence 0.8. Next: NONE (0.13), \"Has Person Demographic Race\" (0.06999999999999999). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.94 and confidence 0.92. Next: closeMatch (0.04), exactMatch (0.01).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "broadMatch",
+          "confidence": 0.7,
+          "mappingConfidence": 0.7,
+          "fromId": "peschighschooltranscript1v6v0:type/urn:org:pesc:core:CoreMain:v1.17.0#EthnicityRaceType/el/1:EthnicityCode/at/HighSchoolTranscript/Student/Person/EthnicityRace/EthnicityCode",
+          "mappingType": "BROAD_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "EthnicityCode",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.73 and confidence 0.72. Next: NONE (0.23), \"Has Person Demographic Race\" (0.03). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.86 and confidence 0.81. Next: closeMatch (0.12), exactMatch (0.01).",
+          "fromSource": "PESC-HighSchoolTranscript-1.6.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "broadMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "edfi:property/domainEntity.Candidate.OldEthnicity",
+          "mappingType": "BROAD_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "OldEthnicity",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.9 and confidence 0.89. Next: NONE (0.07), \"Has Person Demographic Race\" (0.03). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: broadMatch with probability 0.64 and confidence 0.52. Next: closeMatch (0.31), exactMatch (0.03).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "narrowMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "sif260928:field/StudentContacts/StudentContact/Demographics/RaceEthnicityDeclined",
+          "mappingType": "NARROW_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.93 and confidence 0.93. Next: NONE (0.05), \"Has Race And Ethnicity\" (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: narrowMatch with probability 0.48 and confidence 0.31. Next: closeMatch (0.44), exactMatch (0.07).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "narrowMatch",
+          "confidence": 0.7,
+          "mappingConfidence": 0.7,
+          "fromId": "sif260928:field/EmployeeCredentials/EmployeeCredential/Demographics/RaceEthnicityDeclined",
+          "mappingType": "NARROW_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.79 and confidence 0.78. Next: NONE (0.2), \"Has Race And Ethnicity\" (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: narrowMatch with probability 0.54 and confidence 0.39. Next: closeMatch (0.38), exactMatch (0.06).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "narrowMatch",
+          "confidence": 0.7,
+          "mappingConfidence": 0.7,
+          "fromId": "sif260928:field/EmployeeRecertifications/EmployeeRecertification/Demographics/RaceEthnicityDeclined",
+          "mappingType": "NARROW_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.79 and confidence 0.78. Next: NONE (0.2), \"Has Race And Ethnicity\" (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: narrowMatch with probability 0.54 and confidence 0.39. Next: closeMatch (0.38), exactMatch (0.06).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AdmissionsPersonType/el/9:EthnicityRace/at/AcademicEPortfolio/Education/ApplicationForAdmission/Applicant/Application/Sponsor/SponsorPerson/EthnicityRace",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "EthnicityRace",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.96 and confidence 0.96. Next: \"Has Person Demographic Race\" (0.03), NONE (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.53 and confidence 0.37. Next: exactMatch (0.4), broadMatch (0.06).",
+          "fromSource": "PESC-AcademicEportfolio-1.0.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "peschighschooltranscript1v6v0:type/urn:org:pesc:sector:AcademicRecord:v1.11.0#K12PersonType/el/16:RaceEthnicity/at/HighSchoolTranscript/Student/Person/RaceEthnicity",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicity",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.93 and confidence 0.93. Next: \"Has Person Demographic Race\" (0.04), NONE (0.03). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.47 and confidence 0.29. Next: broadMatch (0.41), exactMatch (0.1).",
+          "fromSource": "PESC-HighSchoolTranscript-1.6.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "sif260928:field/StudentContactPersonals/StudentContactPersonal/PersonInfo/Demographics/RaceEthnicityDeclined",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.97 and confidence 0.97. Next: NONE (0.03), \"NCES SIDE Estimate\" (0). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.58 and confidence 0.44. Next: exactMatch (0.29), narrowMatch (0.11).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "edfi:property/domainEntity.Staff.AncestryEthnicOrigin",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "AncestryEthnicOrigin",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.92 and confidence 0.91. Next: NONE (0.05), \"Has Person Demographic Race\" (0.03). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.64 and confidence 0.52. Next: broadMatch (0.21), exactMatch (0.14).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.9,
+          "mappingConfidence": 0.9,
+          "fromId": "pescacademiceportfolio1v0v0:type/urn:org:pesc:sector:AdmissionsRecord:v1.4.0#AdmissionsPersonType/el/9:EthnicityRace/at/AcademicEPortfolio/Education/ApplicationForAdmission/Applicant/Family/FamilyMember/EthnicityRace",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "EthnicityRace",
+          "hubName": "Has Race And Ethnicity",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001943",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Race And Ethnicity\" with probability 0.96 and confidence 0.96. Next: \"Has Person Demographic Race\" (0.03), NONE (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.53 and confidence 0.37. Next: exactMatch (0.4), broadMatch (0.06).",
+          "fromSource": "PESC-AcademicEportfolio-1.0.0",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.7,
+          "mappingConfidence": 0.7,
+          "fromId": "sif260928:field/StaffPersonals/StaffPersonal/Demographics/RaceEthnicityDeclined",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "RaceEthnicityDeclined",
+          "hubName": "Has Federal Race and Ethnicity Declined",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P001944",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-cf8d41f82791 chose \"Has Federal Race and Ethnicity Declined\" with probability 0.76 and confidence 0.74. Next: NONE (0.23), \"Has Race And Ethnicity\" (0.01). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.47 and confidence 0.3. Next: narrowMatch (0.41), exactMatch (0.07).",
+          "fromSource": "SIF260928",
+          "hubSource": "CEDS"
+        },
+        {
+          "matchPredicate": "closeMatch",
+          "confidence": 0.7,
+          "mappingConfidence": 0.7,
+          "fromId": "edfi:property/domainEntity.Candidate.Race",
+          "mappingType": "CLOSE_MATCH",
+          "mappingKind": "inferred",
+          "fromName": "Race",
+          "hubName": "Has Person Demographic Race",
+          "mappingSource": "bridge-jev",
+          "hubKey": "P600035",
+          "mappingRationale": "jev:jev-1.13.0:data:cfg-03f64470322c chose \"Has Person Demographic Race\" with probability 0.62 and confidence 0.59. Next: \"Has Race And Ethnicity\" (0.33), NONE (0.05). Jev reports probabilities, not reasons; this rationale is written by jevJudgeClient from those numbers. Relation: closeMatch with probability 0.6 and confidence 0.47. Next: broadMatch (0.3), exactMatch (0.09).",
+          "fromSource": "EdFi",
+          "hubSource": "CEDS"
+        }
+      ],
+      "mappingsIncomingTruncatedByRelation": [
+        {
+          "hub": "CEDS",
+          "truncatedCount": 5,
+          "relation": "CLOSE_MATCH"
+        },
+        {
+          "hub": "CEDS",
+          "truncatedCount": 54,
+          "relation": "BROAD_MATCH"
+        }
+      ],
+      "mappingsIncomingTruncatedByRelationAndStandard": [
+        {
+          "standard": "PESC-AcademicEportfolio-1.0.0",
+          "hub": "CEDS",
+          "truncatedCount": 4,
+          "relation": "CLOSE_MATCH"
+        },
+        {
+          "standard": "SIF260928",
+          "hub": "CEDS",
+          "truncatedCount": 1,
+          "relation": "CLOSE_MATCH"
+        },
+        {
+          "standard": "EdFi",
+          "hub": "CEDS",
+          "truncatedCount": 7,
+          "relation": "BROAD_MATCH"
+        },
+        {
+          "standard": "PESC-AcademicEportfolio-1.0.0",
+          "hub": "CEDS",
+          "truncatedCount": 19,
+          "relation": "BROAD_MATCH"
+        },
+        {
+          "standard": "SIF260928",
+          "hub": "CEDS",
+          "truncatedCount": 24,
+          "relation": "BROAD_MATCH"
+        },
+        {
+          "standard": "PESC-HighSchoolTranscript-1.6.0",
+          "hub": "CEDS",
+          "truncatedCount": 4,
+          "relation": "BROAD_MATCH"
+        }
+      ]
+    },
+    {
+      "node": {
+        "cedsId": "OV001943162282",
+        "role": "DmeOptionValue",
+        "description": "The category used to report a person whose race and ethnicity are not known.",
+        "path": "Race and Ethnicity.Race and Ethnicity Unknown",
+        "searchText": "CEDS | Race and Ethnicity | Race and Ethnicity | Race and Ethnicity Unknown",
+        "notation": "RaceAndEthnicityUnknown",
+        "hubName": "CEDS",
+        "definition": "The category used to report a person whose race and ethnicity are not known.",
+        "hubVersion": "14.0.0.0",
+        "stableId": "https://w3id.org/CEDStandards/terms/NI001943162282",
+        "creator": "Common Education Data Standards",
+        "rangeOptionSetId": "OS001943",
+        "prefLabel": "Race and Ethnicity Unknown",
+        "declaredTypes": [
+          "https://w3id.org/CEDStandards/terms/C001943",
+          "http://www.w3.org/2004/02/skos/core#Concept"
+        ],
+        "crossRefs": "[{\"system\":\"ceds\",\"id\":\"OV001943162282\",\"raw\":\"NI001943162282\",\"locator\":\"dc:identifier\"}]",
+        "uri": "https://w3id.org/CEDStandards/terms/NI001943162282",
+        "parentId": "https://w3id.org/CEDStandards/terms/C001943",
+        "cedsOriginalAnchorPropertyName": "dc:identifier",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 4,
+        "canonicalKey": "OV001943162282",
+        "name": "Race and Ethnicity Unknown",
+        "_source": "CEDS",
+        "_id": "https://w3id.org/CEDStandards/terms/NI001943162282"
+      },
+      "hitRank": 4,
+      "fusedScore": 0.015625,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 4,
+      "keywordScore": 5.631045341491699,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsOptionValue",
+        "DmeOptionValue"
+      ],
+      "role": "DmeOptionValue",
+      "source": "CEDS",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [],
+      "supports": [],
+      "superClasses": [],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    },
+    {
+      "node": {
+        "stableId": "https://w3id.org/CEDStandards/terms/C001421",
+        "creator": "Common Education Data Standards",
+        "cedsId": "OS001421",
+        "role": "DmeOptionSet",
+        "rangeOptionSetId": "OS001421",
+        "declaredTypes": [
+          "http://www.w3.org/2004/02/skos/core#ConceptScheme"
+        ],
+        "prefLabel": "Other Race Indicator",
+        "description": "Race other than American Indian, Black, Asian, White, Native Pacific Islander",
+        "crossRefs": "[{\"system\":\"ceds\",\"id\":\"OS001421\",\"raw\":\"C001421\",\"locator\":\"dc:identifier\"}]",
+        "uri": "https://w3id.org/CEDStandards/terms/C001421",
+        "parentId": "https://w3id.org/CEDStandards/terms/P001421",
+        "cedsOriginalAnchorPropertyName": "dc:identifier",
+        "path": "Other Race Indicator",
+        "searchText": "CEDS | Other Race Indicator",
+        "embeddingModelVersion": "voyage-4-large",
+        "depth": 3,
+        "notation": "OtherRaceIndicator",
+        "name": "Other Race Indicator",
+        "hubName": "CEDS",
+        "_source": "CEDS",
+        "definition": "Race other than American Indian, Black, Asian, White, Native Pacific Islander",
+        "_id": "https://w3id.org/CEDStandards/terms/C001421",
+        "hubVersion": "14.0.0.0"
+      },
+      "hitRank": 5,
+      "fusedScore": 0.015384615384615385,
+      "foundByLegList": [
+        "keyword"
+      ],
+      "keywordRank": 5,
+      "keywordScore": 5.273108959197998,
+      "vectorRank": null,
+      "vectorScore": null,
+      "nodeLabels": [
+        "ForgedNode",
+        "StandardBase",
+        "CedsOptionSet",
+        "DmeOptionSet"
+      ],
+      "role": "DmeOptionSet",
+      "source": "CEDS",
+      "parentClasses": [],
+      "optionSets": [],
+      "optionSetCount": 0,
+      "optionValues": [
+        {
+          "name": "No",
+          "description": null,
+          "_id": "https://w3id.org/CEDStandards/terms/NI001421100002"
+        },
+        {
+          "name": "Yes",
+          "description": null,
+          "_id": "https://w3id.org/CEDStandards/terms/NI001421100001"
+        }
+      ],
+      "supports": [],
+      "superClasses": [
+        {
+          "name": "Base CEDS Resource",
+          "_source": "CEDS",
+          "_id": "https://w3id.org/CEDStandards/terms/C000000"
+        }
+      ],
+      "subClasses": [],
+      "ownedClasses": [],
+      "referencesTo": [],
+      "referencedBy": [],
+      "mappingsOutgoing": [],
+      "mappingsOutgoingTruncatedByRelation": [],
+      "crossStandardEquivalents": [],
+      "crossStandardEquivalentsTruncatedByRelation": [],
+      "crossStandardEquivalentsTruncatedByRelationAndStandard": [],
+      "mappingsIncoming": [],
+      "mappingsIncomingTruncatedByRelation": [],
+      "mappingsIncomingTruncatedByRelationAndStandard": []
+    }
+  ],
+  "searchMode": "keyword",
+  "legHitCountByName": {
+    "keyword": 100
+  },
+  "rrfConstant": 60,
+  "scoreUnitByField": {
+    "fusedScore": "reciprocal rank fusion: the sum, over the legs that found the node, of 1 / (60 + rank); comparable only within one result",
+    "keywordRank": "1-based rank in the keyword (BM25) leg after the standard filter; null when that leg did not find the node",
+    "keywordScore": "Lucene BM25 score from the fulltext index: unbounded and relative to this query; null when the keyword leg did not find the node",
+    "vectorRank": "1-based rank in the vector leg after the standard filter; null when that leg did not find the node",
+    "vectorScore": "cosine similarity as Neo4j reports it, (1 + cosine) / 2 in [0, 1]; null when the vector leg did not find the node",
+    "foundByLegList": "the legs that found the node: 'keyword', 'vector' or both"
+  }
+}

@@ -7,8 +7,8 @@
 // graph the DME config points at. Checks, on BirthDate:
 //   - every standard with a match edge into a CEDS 'Birthdate…' hub (direct count, independent of findMappings,
 //     instances counted as their declaration) shows at least one row — Ed-Fi named explicitly;
-//   - within each relation, the rows are shared round-robin: a relation showing N rows over S standards shows
-//     min(N, S) distinct standards;
+//   - within each HUB and relation, the rows are shared round-robin: N rows over S standards show min(N, S) distinct
+//     standards (per hub since ctdlHub P7);
 //   - the result reports totalRowCountByRelationAndStandard / truncatedRowCountByRelationAndStandard, and for every
 //     relation and standard shown + truncated = total, and the per-standard totals sum to totalRowCountByRelation.
 //
@@ -59,20 +59,34 @@ const hasStandardShape = result.totalRowCountByRelationAndStandard && result.tru
 assert('result carries totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard', !!hasStandardShape);
 if (!hasStandardShape) { finish(); }
 
+// ⟪lane zbE⟫ the round-robin runs PER HUB (ctdlHub P7): each hub's rows of a relation are shared across the standards
+// mapped to THAT hub. The one shared check this test made went red on the first graph with CTDL match edges
+// (DEV_b3Rehearsal), so it is made hub by hub, from findMappings' per-hub split (totalRowCountByHubRelationAndStandard)
+const hasHubShape = result.totalRowCountByHubRelationAndStandard && result.truncatedRowCountByHubRelationAndStandard;
+assert('result carries totalRowCountByHubRelationAndStandard and truncatedRowCountByHubRelationAndStandard', !!hasHubShape);
+if (!hasHubShape) { finish(); }
+Object.keys(result.totalRowCountByHubRelationAndStandard).forEach((hubName) => {
+	MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
+		const totalByStandard = result.totalRowCountByHubRelationAndStandard[hubName][edgeType] || {};
+		const truncatedByStandard = (result.truncatedRowCountByHubRelationAndStandard[hubName] || {})[edgeType] || {};
+		const relationRowList = result.mappingRowList.filter((row) => row.hubName === hubName && rowRelationOf(row) === edgeType);
+		const relationStandardCount = Object.keys(totalByStandard).length;
+		const shownStandardCount = new Set(relationRowList.map((row) => row.fromSource)).size;
+		assert(`${hubName} ${edgeType}: ${relationRowList.length} rows over ${relationStandardCount} standards show ${shownStandardCount} = min(rows, standards)`,
+			shownStandardCount === Math.min(relationRowList.length, relationStandardCount));
+		Object.keys(totalByStandard).forEach((standardName) => {
+			const shownCount = relationRowList.filter((row) => row.fromSource === standardName).length;
+			assert(`${hubName} ${edgeType} ${standardName}: shown ${shownCount} + truncated ${truncatedByStandard[standardName]} = total ${totalByStandard[standardName]}`,
+				shownCount + truncatedByStandard[standardName] === totalByStandard[standardName]);
+		});
+	});
+});
+// the summed totals still agree with the per-hub split, relation by relation and standard by standard
 MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {
 	const totalByStandard = result.totalRowCountByRelationAndStandard[edgeType] || {};
-	const truncatedByStandard = result.truncatedRowCountByRelationAndStandard[edgeType] || {};
-	const relationRowList = result.mappingRowList.filter((row) => rowRelationOf(row) === edgeType);
-	const relationStandardCount = Object.keys(totalByStandard).length;
-	const shownStandardCount = new Set(relationRowList.map((row) => row.fromSource)).size;
-	assert(`${edgeType}: ${relationRowList.length} rows over ${relationStandardCount} standards show ${shownStandardCount} = min(rows, standards)`,
-		shownStandardCount === Math.min(relationRowList.length, relationStandardCount));
 	const standardTotalSum = Object.values(totalByStandard).reduce((runningSum, standardTotal) => runningSum + standardTotal, 0);
 	assert(`${edgeType}: per-standard totals sum to the relation total (${standardTotalSum})`, standardTotalSum === (result.totalRowCountByRelation[edgeType] || 0));
-	Object.keys(totalByStandard).forEach((standardName) => {
-		const shownCount = relationRowList.filter((row) => row.fromSource === standardName).length;
-		assert(`${edgeType} ${standardName}: shown ${shownCount} + truncated ${truncatedByStandard[standardName]} = total ${totalByStandard[standardName]}`,
-			shownCount + truncatedByStandard[standardName] === totalByStandard[standardName]);
-	});
+	const hubSplitTotal = Object.values(result.totalRowCountByHubRelationAndStandard).reduce((runningSum, hubSplit) => runningSum + Object.values(hubSplit[edgeType] || {}).reduce((hubSum, oneCount) => hubSum + oneCount, 0), 0);
+	assert(`${edgeType}: the per-hub split sums to the relation total (${hubSplitTotal})`, hubSplitTotal === (result.totalRowCountByRelation[edgeType] || 0));
 });
 finish();
