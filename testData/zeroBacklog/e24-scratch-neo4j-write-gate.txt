@@ -1,0 +1,17 @@
+
+=== W-E-10 server half: no write path unless asked for by name ===
+
+  PASS: the golden DME handle (data-model.js) does NOT pass writeCapable
+  PASS: dme-user-cypher-query opens its clone connection readOnly: true
+  PASS:   with a queryTimeoutMs
+  PASS:   and the false "read-only enforced this phase" comment is gone
+  PASS: a golden-shaped handle (readOnly, no writeCapable) connects
+  PASS: runTransaction on it REFUSES BY NAME
+  PASS:   before the caller's function ever ran (the Use Case Editor save cannot reach tx.run)
+  PASS: and runQuery on it is refused by Neo4j (READ access mode)
+  PASS: a handle that asks for writeCapable BY NAME connects
+  PASS:   and its runTransaction reaches tx.run (rolled back on purpose; the write path is real)
+  PASS: and the scratch graph holds NO probe node afterwards
+
+=== Results: 11 passed, 0 failed ===
+

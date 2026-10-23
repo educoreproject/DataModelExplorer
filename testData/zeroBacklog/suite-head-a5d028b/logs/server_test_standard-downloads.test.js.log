@@ -1,0 +1,36 @@
+
+=== Standard downloads: manifest, files, refusals ===
+
+  PASS: manifest: every entry, stamped with the golden
+  PASS: manifest: an entry carries only the whitelisted fields
+  PASS: filter family
+  PASS: filter group
+  PASS: filter standardKey
+  PASS: filter facet
+  PASS: filters together, and each named back
+  PASS: an unknown filter is refused by name
+  PASS: file: the bytes, with the manifest's sha256
+  PASS: an unknown id is refused by name
+  PASS: a path-traversal id is refused by name (and nothing is read)
+  PASS: a deep path-traversal id is refused by name
+  PASS: an unavailable entry is refused with its reason
+  PASS: a file whose bytes changed is refused by name
+  PASS: a manifest for another graph contract is refused by name
+  PASS: ...and no file is served from it
+  PASS: a manifest for another graph name is refused by name
+  PASS: no downloads for the golden is refused by name
+  PASS: a manifest entry lacking a field is refused by name, never filled in
+  PASS: source URL: carried out verbatim (address, relation, wording, page, note)
+  PASS: source URL: not recorded is every field present and null
+  PASS: source URL: a manifest of the earlier format /1 is refused by name
+  PASS: source URL: an entry lacking sourceUrlNote is refused, never filled in
+  PASS: an unconfigured server refuses by name
+  PASS: an unknown action is refused
+  PASS: manifest endpoint: 200 as [result], filtered by the body
+  PASS: manifest endpoint: 401 for a public (not logged-in) caller
+  PASS: file endpoint: the zip as an attachment, its sha256 in X-Download-Sha256
+  PASS: file endpoint: a traversal id is 400 with the refusal
+  PASS: file endpoint: 401 for a public (not logged-in) caller
+  FAIL: the real downloads for the golden exist (qbook [standardDownloads]) — /Users/tqwhite/Documents/webdev/educoreForge/system/dataStores/downloadArtifacts/GOLD_EVAL_261021_ctdlHub/downloads.json is absent: run educoreForge downloadArtifacts for this golden
+
+30 passed, 1 failed

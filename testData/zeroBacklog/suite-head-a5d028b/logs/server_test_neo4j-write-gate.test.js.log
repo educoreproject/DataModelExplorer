@@ -1,0 +1,12 @@
+
+=== W-E-10 server half: no write path unless asked for by name ===
+
+  PASS: the golden DME handle (data-model.js) does NOT pass writeCapable
+  PASS: dme-user-cypher-query opens its clone connection readOnly: true
+  PASS:   with a queryTimeoutMs
+  PASS:   and the false "read-only enforced this phase" comment is gone
+
+REFUSED: the live half needs DME_SCRATCH_BOLT_URI and DME_SCRATCH_NEO4J_PASSWORD naming a SCRATCH Neo4j; there is no default.
+
+=== Results: 4 passed, 1 failed ===
+

@@ -1,0 +1,36 @@
+
+=== Standards Explorer, every family: the families catalog and each family walked ===
+
+  PASS: twin: a one-standard family carries its version; a many-standard family does not
+  PASS: twin: a family item is drillable to family:<name>
+  PASS: twin: match kinds count distinct elements, strongest first
+  PASS: twin: a CEDS property with CEDS elements is drillable even when nothing below it is structural
+  PASS: twin: a CTDL hub property and class are hubProperty / hubDomain, carrying hubName CTDL; a non-hub property stays property
+  PASS: twin: only families:all is the catalog id
+  PASS: families:all: 7 families, as this test's Cypher counts them
+  PASS: families:all: each family's standards and classes equal this test's Cypher
+  PASS: families:all: SIF, Ed-Fi, CEDS and PESC are among them (read, not listed)
+  PASS: endpoint: families:all is answered 200 as [result]
+  PASS: every family (7) and every standard root (14) opens, its classes counted as this test's Cypher counts them
+  PASS: SIF: the root lists the class this test's Cypher picked (sif260928:object/StudentAcademicRecords/StudentAcademicRecord)
+  PASS: SIF: the class opens with its 595 members (true count) under the root
+  PASS: SIF: a member of that class opens, its ancestors root › class
+  PASS: EdFi: the root lists the class this test's Cypher picked (edfi:domainEntity/Candidate)
+  PASS: EdFi: the class opens with its 36 members (true count) under the root
+  PASS: EdFi: a member of that class opens, its ancestors root › class
+  PASS: CEDS: the root lists the class this test's Cypher picked (https://w3id.org/CEDStandards/terms/C200228)
+  PASS: CEDS: the class opens with its 53 members (true count) under the root
+  PASS: CEDS: a member of that class opens, its ancestors root › class
+  PASS: CEDS walk: the CEDS root lists the domain, 5 of its properties mapped to (this test's Cypher)
+  PASS: CEDS walk: the domain lists the CEDS property, drillable, with its CEDS elements counted
+  PASS: CEDS walk: the CEDS property lists its 1 CEDS elements; the chosen one has 317 elements mapped (this test's Cypher)
+  PASS: CEDS walk: the CEDS property's ancestors are CEDS › its domain
+  PASS: CEDS walk: the anchor groups its 317 elements by standard, SIF among them
+  PASS: CEDS walk: out to SIF: the SIF group opens with its elements
+  PASS: CEDS walk: the whole path names itself (a reload's breadcrumb)
+  PASS: CEDS property with 55412 code-level anchors lists only its 7 CEDS elements (property tier)
+  PASS: refusal: a families: id that is not the catalog
+  PASS: refusal: a path beginning at a families: id that is not the catalog
+
+=== Results: 30 passed, 0 failed ===
+

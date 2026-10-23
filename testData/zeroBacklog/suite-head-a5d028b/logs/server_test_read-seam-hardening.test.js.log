@@ -1,0 +1,16 @@
+
+=== Read-seam hardening gate (golden: GOLD_EVAL_261021_ctdlHub) ===
+
+  PASS: write via runQuery refused by READ mode — Neo4jError: Writing in read access mode not allowed. Attempted write to neo4j
+  PASS: no test node exists after refused write
+  PASS: heavy query killed at timeout — 2513ms — Neo4jError: The transaction has been terminated. Retry your operation in a new transaction
+  PASS: runTransaction on the golden handle REFUSES BY NAME (no writeCapable) — runTransaction: this connection was opened read-only; pass writeCapable:true by name
+  PASS: golden holds no test node (nothing was written)
+  PASS: access point loads with hardened db
+  PASS: un-LIMITed query capped by enforced LIMIT — rows: 100
+  PASS: oversized LIMIT clamped to cap — rows: 100
+  PASS: small LIMIT untouched — rows: 5
+  PASS: CALL dbms.* rejected through access point — CALL to procedure 'dbms.listConfig' is not permitted. Allowed procedures: db.labels, db.re
+
+=== Results: 10 passed, 0 failed ===
+

@@ -1,0 +1,13 @@
+
+=== W-D-9 unmappedFields / stats: standard, totals, the hub excluded ===
+
+  PASS: provider: dme_unmapped_fields declares standard and limit, both passed as flags
+  PASS:   limit is an integer
+  PASS: --standard=EdFi: every row is EdFi, totalRowCount === 798
+  PASS:   envelope: returnedRowCount 3, truncatedRowCount = total − 3
+  PASS: no filter: every hub (CEDS, CTDL) is excluded — no row from one, totalRowCount === 11879
+  PASS: --limit=abc is refused by name (invalidLimit)
+  PASS: stats coverage: hubs CEDS, CTDL, totalProperties 17625, mapped 5746, hubPropertyCount 2702
+
+=== W-D-9 unmappedFields / stats: standard, totals, the hub excluded — Results: 7 passed, 0 failed ===
+

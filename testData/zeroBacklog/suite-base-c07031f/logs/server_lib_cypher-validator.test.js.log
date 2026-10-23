@@ -1,0 +1,90 @@
+
+=== Cypher Validator Tests ===
+
+Read-only queries (should pass):
+  PASS: Simple MATCH/RETURN
+  PASS: Property contains "set" (lowercase in value)
+  PASS: String literal contains CREATE keyword
+  PASS: OPTIONAL MATCH with relationship traversal
+  PASS: ORDER BY and LIMIT
+  PASS: WITH and UNWIND
+
+Write queries (should fail):
+  PASS: CREATE node
+  PASS: SET property
+  PASS: DELETE node
+  PASS: DETACH DELETE
+  PASS: MERGE
+  PASS: REMOVE property
+  PASS: DROP INDEX
+  PASS: LOAD CSV
+  PASS: Mixed case CrEaTe
+
+CALL gating — allowlisted procedures (should pass):
+  PASS: CALL db.labels()
+  PASS: CALL db.schema.visualization()
+  PASS: CALL db.index.vector.queryNodes
+  PASS: CALL db.index.fulltext.queryNodes
+  PASS: Mixed case CALL DB.LABELS()
+  PASS: String literal containing CALL apoc
+
+CALL gating — non-allowlisted (should fail):
+  PASS: CALL apoc.load.json
+  PASS: CALL apoc.periodic.iterate
+  PASS: CALL dbms.listConfig
+  PASS: CALL dbms.components
+  PASS: CALL { subquery }
+  PASS: CALL { } IN TRANSACTIONS
+  PASS: CALL db.createLabel (not allowlisted)
+  PASS: Allowlisted CALL followed by disallowed CALL
+
+Validator bypasses (W-E-9, should fail):
+  PASS: B1 bypass refused: WITH "it's" AS a CREATE (n:X) RETURN 'z'
+  PASS: B2 bypass refused: LOAD  CSV FROM "http://x" AS r RETURN r
+  PASS: B3 bypass refused: SHOW USERS
+  PASS: B4 bypass refused: MATCH (n) /* ' */ CREATE (m:X) /* ' */ RETURN 1
+  PASS: B5 bypass refused: RETURN apoc.cypher.runFirstColumnSingle("CALL apoc.load.json('http://x') YIELD value RETURN value", {}) AS v
+  PASS: B6 bypass refused: USE system MATCH (n) RETURN n
+  PASS: B7 bypass refused: TERMINATE TRANSACTIONS "neo4j-transaction-1"
+  PASS: B8 bypass refused: MATCH (n:`'`) CREATE (m:X) RETURN '`'
+  PASS: B9 bypass refused: RETURN apoc.text.levenshteinSimilarityX('a', 'b')
+  PASS: B10 bypass refused: RETURN apoc.textlevenshteinSimilarity('a', 'b')
+  PASS: B11 bypass refused: RETURN apoc.text.clean(apoc.cypher.runFirstColumnSingle("RETURN 1", {})) AS v
+  PASS: B12 bypass refused: RETURN apoc.cypher.runFirstColumnSingle /* a comment */ ("RETURN 1", {}) AS v
+  PASS: B13 bypass refused: RETURN `apoc`.cypher.runFirstColumnSingle("RETURN 1", {}) AS v
+  PASS: B14 bypass refused: RETURN apoc . cypher . runFirstColumnSingle("RETURN 1", {}) AS v
+  PASS: B15 bypass refused: CALL apoc.text.clean('x')
+  PASS: B16 bypass refused: RETURN APOC.TEXT.CLEAN('x')
+  PASS: B17 bypass refused: RETURN apoc.`text`.clean(apoc.`cypher`.runFirstColumnSingle('RETURN 1', {}))
+
+Allowed apoc.text functions and harmless literals (lane GREP, should pass):
+  PASS: A1 allowed: MATCH (n:ForgedNode) RETURN n.name, apoc.text.levenshteinSimilarity(apoc.text.clean(n.name), apoc.text.clean($name)) AS s ORDER BY s DESC LIMIT 5
+  PASS: A2 allowed: RETURN apoc.text.levenshteinDistance('a', 'b'), apoc.text.jaroWinklerDistance('a', 'b'), apoc.text.sorensenDiceSimilarity('a', 'b')
+  PASS: A3 allowed: RETURN apoc.text.fuzzyMatch('BrithDate', 'BirthDate'), apoc.text.compareCleaned('Birth Date', 'birthdate')
+  PASS: A4 allowed: RETURN apoc.text.clean /* a comment */ ('A b'), apoc.text.clean
+('C d')
+  PASS: A5 allowed: RETURN apoc.`text`.clean('A b')
+  PASS: A6 allowed: RETURN 'apoc.cypher.runFirstColumnSingle(' AS t, "apoc.load.json('http://x')" AS u
+  PASS: each allowed name alone: apoc.text.levenshteinSimilarity
+  PASS: each allowed name alone: apoc.text.levenshteinDistance
+  PASS: each allowed name alone: apoc.text.jaroWinklerDistance
+  PASS: each allowed name alone: apoc.text.sorensenDiceSimilarity
+  PASS: each allowed name alone: apoc.text.fuzzyMatch
+  PASS: each allowed name alone: apoc.text.clean
+  PASS: each allowed name alone: apoc.text.compareCleaned
+
+Legitimate reads beside the new rules (should pass):
+  PASS: a property literally named in a string after a comment
+  PASS: a backtick-quoted label holding a keyword is an identifier, not a clause
+  PASS: a function that is not on the blocked prefix list
+  PASS: an unterminated string literal is refused, never guessed at
+
+Regular-expression operator (should fail; the literal case should pass):
+  PASS: R1 refused: MATCH (n) WHERE n.name =~ '(a+)+$' RETURN n
+  PASS: R2 refused: MATCH (n) WHERE n.name=~'.*RefId' RETURN count(n)
+  PASS: R3 refused: MATCH (n) WITH n, '(?i).*student.*' AS p WHERE n.description =~ p RETURN n.name
+  PASS: R4 refused: MATCH (n) RETURN [x IN n.aliases WHERE x =~ "(\w+\s?)*"] AS hits
+  PASS: =~ inside a string literal is text, not the operator
+
+=== Results: 68 passed, 0 failed ===
+

@@ -1,0 +1,26 @@
+
+=== W-E-10: every DME verb opens a READ session ===
+
+  PASS: the module declares its verbs
+  PASS: WRITE_CAPABLE_QUERY_TYPE_LIST is declared and EMPTY (the DME CLI has no write verb)
+  PASS: every verb not declared write-capable gets a READ session
+  PASS: the only raw Cypher tool any DME provider offers is dme_raw_cypher
+
+--- live, on the scratch graph bolt://localhost:7895 ---
+  PASS: search: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: graphRetriever: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: findMappings: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: compareCodesets: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: unmappedFields: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: stats: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: listStandards: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: rawCypher: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: explore: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: history: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: describeGraph: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: grep: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: structure: a CREATE in the session this verb opens is refused by Neo4j (AccessMode)
+  PASS: and the scratch graph holds NO probe node afterwards
+
+=== Results: 18 passed, 0 failed ===
+

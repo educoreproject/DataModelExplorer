@@ -1,0 +1,14 @@
+
+=== SEC-2 gate ===
+
+  PASS: cypher endpoint: anonymous request → 401
+  PASS: cypher endpoint: wrong secret → 401
+  PASS: cypher endpoint: correct secret but proxied origin → 401
+  PASS: cypher endpoint: internal call (secret + loopback) passes — status 200
+  PASS: cypher endpoint: anonymous GET (schema) → 401
+  PASS: MCP: anonymous request → 401
+  PASS: MCP: proxied origin → 401
+  PASS: MCP: internal call passes the gate (reaches MCP logic) — status 400
+
+=== Results: 8 passed, 0 failed ===
+

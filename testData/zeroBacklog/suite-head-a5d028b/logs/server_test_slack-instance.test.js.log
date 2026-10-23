@@ -1,0 +1,32 @@
+
+=== slack-instance driver gate ===
+
+Signature verification:
+  PASS: valid signature accepted
+  PASS: invalid signature rejected
+  PASS: stale (400s) correctly-signed request rejected
+  PASS: tampered body rejected
+  PASS: malformed timestamp rejected
+  PASS: missing headers rejected
+
+Event dedupe:
+  PASS: first event_id passes
+  PASS: retried event_id flagged duplicate
+  PASS: different event_id passes
+  PASS: oldest id evicted at cache cap (re-presented Ev0001 passes)
+  PASS: missing event_id treated as non-duplicate
+
+Outbound (injected transport):
+  PASS: postResponse posts message to response_url
+  PASS: postResponse sends no credential header
+  PASS: postResponse refuses non-Slack-hooks URL — postResponse: responseUrl is not a Slack hooks URL
+  PASS: postMessage targets chat.postMessage with channel merged
+  PASS: postMessage carries bearer auth to Slack API only
+  PASS: Slack ok:false surfaces as error naming the Slack code
+
+Credential hygiene:
+  PASS: bot token value never appears in any log line
+  PASS: signing secret value never appears in any log line
+
+=== Results: 19 passed, 0 failed ===
+

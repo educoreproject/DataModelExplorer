@@ -1,0 +1,10 @@
+
+=== W-D-15 describeGraph reads StandardDefinition by §5, prints _source ===
+
+  PASS: describeGraph.js coalesces no second vocabulary into the standards read
+  PASS: every standards[i] has exactly the §5 field names (26)
+  PASS:   every sourceKey is a live _source value (the filter vocabulary)
+  PASS:   the card line for PESC CT names PESC-CollegeTranscript-1.8.0 with the token in parentheses
+
+=== W-D-15 describeGraph reads StandardDefinition by §5, prints _source — Results: 4 passed, 0 failed ===
+

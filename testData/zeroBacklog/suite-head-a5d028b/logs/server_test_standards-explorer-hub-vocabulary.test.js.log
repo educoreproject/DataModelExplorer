@@ -1,0 +1,20 @@
+
+=== lane R6 (hub-neutral DME): the standards explorer names hubs from the data ===
+
+- 1. the vocabulary
+  PASS: a hub anchor, property and domain are named by the row's hub
+  PASS: a hub kind on a row naming no hub says 'hub', never a stand-in hub name
+  PASS: plurals follow the hub
+  PASS: a non-hub kind is unchanged by a hub name
+  PASS: the mapping and hub-element groups name the hub
+  PASS: a hub anchor's context groups (HAS_<HUB>_PROPERTY / _DOMAIN) are named for any hub, and are secondary
+  PASS: a match kind's description names the hub
+  PASS: the mapped-text helper is named for hubs (hubMappedTextOf)
+- 2. rename completeness
+  PASS: no retired one-hub kind, relationship or field name in the 19 explorer files
+  PASS: the legend carries no fixed version number; its version badges come from the page's versionComparison
+- 3. red twin
+  PASS: red twin (a hub kind label fixed to one hub): the hub-naming assertion fails
+
+=== Results: 11 passed, 0 failed ===
+

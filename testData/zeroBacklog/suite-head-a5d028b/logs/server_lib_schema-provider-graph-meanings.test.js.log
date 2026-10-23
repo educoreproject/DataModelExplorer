@@ -1,0 +1,12 @@
+
+=== Schema Provider: graph-defined edge meanings (E2-1) ===
+
+  PASS: renders when the graph defines REFERENCES (no error)
+  PASS: the REFERENCES line is the graph's own SchemaView description
+  PASS: the hand-written 'intra-standard cross reference' text is gone
+  PASS: a hand-described edge (HAS_PROPERTY) still renders its line
+  PASS: a graph holding REFERENCES without its SchemaView definition is refused by name
+  PASS: a graph without REFERENCES needs no definition (no error)
+  PASS:   and prints no REFERENCES line
+
+7 passed, 0 failed

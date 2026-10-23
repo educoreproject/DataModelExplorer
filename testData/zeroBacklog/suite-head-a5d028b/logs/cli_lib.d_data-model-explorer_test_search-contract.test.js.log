@@ -1,0 +1,11 @@
+
+=== W-D-10 dme_search over-fetch, envelope, short page named; retriever hitList ===
+
+  FAIL: filtered search answers the envelope (resultList, totalRowCount, returnedRowCount, truncatedRowCount) — {"refusedByName":"search","refusalName":"graphContractMismatch","reason":"graph contract 6e452d62af4825fb6c731b099a6edc5143c896c86fe24c63d14f3ba02e34e76f is not the contract this reader was built agai
+  FAIL:   a full page of 20, or a shortPageNote naming the short page — 0 rows; note undefined
+  FAIL:   every row is from SIF260928
+  FAIL:   overFetchWindow is reported — undefined
+  FAIL: retriever: { retrievalMode: traversal, requestedHitCount 3, returnedHitCount === hitList.length } — {"refusedByName":"graphRetriever","refusalName":"graphContractMismatch","reason":"graph contract 6e452d62af4825fb6c731b099a6edc5143c896c86fe24c63d14f3ba02e34e76
+
+=== W-D-10 dme_search over-fetch, envelope, short page named; retriever hitList — Results: 0 passed, 5 failed ===
+

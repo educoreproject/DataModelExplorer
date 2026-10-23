@@ -1,0 +1,41 @@
+
+=== ctdlHub P7: the DME verbs on a two-hub graph (stub session) ===
+
+- 1. the hub list
+  PASS: a graph holding no :HubDefinition is an error by name
+  PASS: a :HubDefinition lacking _source is an error by name
+  PASS: two hubs answer a two-entry hub list, no refusal
+- 2. findMappings on two hubs
+  PASS: findMappings: answers rows, no refusal
+  PASS: findMappings: every row names its hub, and toSource is that hub
+  PASS: findMappings: rows are contiguous per hub, in hubName order (CEDS then CTDL)
+  PASS: findMappings: each hub is allocated the row cap on its own (30 + 30 shown of 40 + 40)
+  PASS: findMappings: totalRowCountByHub and the envelope total
+  PASS: findMappings: hubList names both hubs
+  PASS: findMappings: the legacy ceds* row fields are absent on a two-hub graph; hubTuple is present
+  PASS: findMappings: a card decomposes through BOTH hubs' edge types per slot
+  PASS: findMappings: the incoming arm reads every hub's every slot
+  PASS: findMappings: a declared correspondence is listed APART (sourcePredicate verbatim), in no mapping row or total
+  PASS: findMappings: no literal hub source in the query (toSource is read from the card)
+  PASS: nothingMatched names each hub's identifier from its canonicalKeyName
+- 3. compareCodesets, unmappedFields, stats, listStandards on two hubs
+  PASS: compareCodesets: every hub standard is excluded ($hubSourceList = CEDS, CTDL)
+  PASS: compareCodesets: the value card decomposes through both hubs' VALUE edges
+  PASS: compareCodesets: the row names its hub; no legacy cedsValue on two hubs
+  PASS: unmappedFields: excludes every hub standard; names them in hubStandardList; no single hubStandard string
+  PASS: stats: per-hub mapped properties, every hub listed with zero stated; no single hubStandard string
+  PASS: listStandards: both hubs are isHub; a spoke is not
+  PASS: listStandards: hubMatchEdgeCountByHub per standard, every hub listed
+  PASS: listStandards: totals name both hubs; no single totals.hubSource string
+- 4. the term slot (fixture contract carrying hubTermSlotList)
+  PASS: fixture: the incoming arm gains HAS_CTDL_TERM (and HAS_CEDS_TERM, absent from a graph whose CEDS mints no term tier)
+  PASS: a contract without hubTermSlotList declares no term slot (the era rule)
+  PASS: a malformed hubTermSlotList throws by name
+  PASS: an undeclared slot name throws by name
+- 5. red twins (each must turn an assertion red)
+  PASS: red twin (ceds* kept on two hubs): the legacy-field assertion would fail
+  PASS: red twin (one cap shared across hubs): CTDL is crowded out, so the per-hub cap assertion would fail
+  PASS: red twin (declared correspondences not listed): the declared-correspondence assertion would fail
+
+=== ctdlHub P7 multi-hub verbs — Results: 30 passed, 0 failed ===
+

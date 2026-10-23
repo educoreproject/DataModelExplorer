@@ -1,0 +1,30 @@
+
+=== dme-slack endpoint + dispatch gate ===
+
+  PASS: unsigned request → 401
+  PASS: stale-signed request (400s) → 401
+  PASS: tampered signature → 401
+  PASS: signed /dme help acked fast with Working on it… — ack 4ms
+  PASS: help answer arrives out-of-band via response_url
+  PASS: signed /dme lookup birth date acked fast (Working on it…) — ack 6ms
+  PASS: lookup card set delivered (BirthDate + CEDS hub tuple present) — 8 blocks
+  PASS: lookup reply carries the DME deep link
+  PASS: lookup reply hints the bare AI form
+  PASS: lookup no-results names the term and teaches the bare AI form
+  PASS: bare question acks with the Thinking message
+  PASS: bare text routed to the AI default (cap fixture fired)
+  PASS: silent 'ask' alias routes to the AI default
+  PASS: help leads with question-default + lookup verb, echoing /tqdme
+  PASS: F-LIMIT-USER ($5 wording) delivered VERBATIM at $0.01 user cap
+  PASS: F-LIMIT-GLOBAL ($50 wording) delivered VERBATIM at $0.01 global cap
+  PASS: allowlist blocks a non-listed user with the A5 fixture
+  PASS: allowlisted user still passes under allowlist policy
+  PASS: url_verification challenge echoed (behind signature)
+  PASS: unsigned events request → 401
+  PASS: event_callback + retried event_id both ack 200 (idempotent)
+  PASS: live lookup: "showing k of N" with N the whole count (> the page of 8) — showing 3 of 39
+  PASS: live lookup: cards are delivered (the instance-carried card itself is gated in dme-slack-mapper.test.js)
+  PASS: graph-down lookup answers the A8 maintenance message
+
+=== Results: 24 passed, 0 failed ===
+

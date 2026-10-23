@@ -1,0 +1,14 @@
+describe-graph-omissions — BASELINE
+  PASS: a_contractDeclaresTheField
+  PASS: b_declarationRendered
+  PASS: c_measuredRowWithoutListRefused
+  PASS: d_notRunRowSaysSo
+describe-graph-omissions — TWIN SWEEP (each observed RED)
+  PASS: b_declarationRendered observed RED under 'declarationSectionDropped' (not by a stale find-text)
+  RED-OBSERVED b_declarationRendered twin='declarationSectionDropped' → FAIL: Standards: none — the graph carries no StandardDefinition | Recipe: sample (sample, sample) · manifest sample · hash sample · created sample · 0 block(s) | Lineage: basedOnManifestRefId none recorded 
+  PASS: c_measuredRowWithoutListRefused observed RED under 'measuredRowCheckRemoved' (not by a stale find-text)
+  RED-OBSERVED c_measuredRowWithoutListRefused twin='measuredRowCheckRemoved' → FAIL: the card threw: Cannot read properties of undefined (reading 'map')
+  PASS: d_notRunRowSaysSo observed RED under 'notRunLineDropped' (not by a stale find-text)
+  RED-OBSERVED d_notRunRowSaysSo twin='notRunLineDropped' → FAIL: Lineage: basedOnManifestRefId none recorded (none named at build) · chain none | Attestations (1): roundTrip notRun | Verdicts: pass 0 · fail 0 · notRun 1 · passWithAllowedLoss 0
+
+7 passed, 0 failed

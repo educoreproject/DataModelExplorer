@@ -1,0 +1,46 @@
+
+=== findMappings standard share within each relation (BirthDate) ===
+
+  PASS: the direct count finds Ed-Fi among the standards mapped to Birthdate
+  PASS: a row from EdFi is shown
+  PASS: a row from PESC-AcademicEportfolio-1.0.0 is shown
+  PASS: a row from PESC-CollegeTranscript-1.7.0 is shown
+  PASS: a row from PESC-CollegeTranscript-1.8.0 is shown
+  PASS: a row from PESC-DocumentRequest-1.0.0 is shown
+  PASS: a row from PESC-DocumentResponse-1.0.0 is shown
+  PASS: a row from PESC-HighSchoolTranscript-1.6.0 is shown
+  PASS: a row from PESC-LearningRecord-1.0.0 is shown
+  PASS: a row from PESC-TestScoreReport-1.1.0 is shown
+  PASS: a row from SIF260928 is shown
+  PASS: result carries totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard
+  PASS: EXACT_MATCH: 17 rows over 10 standards show 10 = min(rows, standards)
+  PASS: EXACT_MATCH: per-standard totals sum to the relation total (63)
+  PASS: EXACT_MATCH SIF260928: shown 1 + truncated 26 = total 27
+  PASS: EXACT_MATCH PESC-AcademicEportfolio-1.0.0: shown 2 + truncated 4 = total 6
+  PASS: EXACT_MATCH PESC-DocumentRequest-1.0.0: shown 2 + truncated 1 = total 3
+  PASS: EXACT_MATCH PESC-LearningRecord-1.0.0: shown 1 + truncated 2 = total 3
+  PASS: EXACT_MATCH PESC-DocumentResponse-1.0.0: shown 2 + truncated 1 = total 3
+  PASS: EXACT_MATCH PESC-HighSchoolTranscript-1.6.0: shown 2 + truncated 1 = total 3
+  PASS: EXACT_MATCH PESC-CollegeTranscript-1.7.0: shown 2 + truncated 1 = total 3
+  PASS: EXACT_MATCH PESC-TestScoreReport-1.1.0: shown 1 + truncated 2 = total 3
+  PASS: EXACT_MATCH PESC-CollegeTranscript-1.8.0: shown 2 + truncated 1 = total 3
+  PASS: EXACT_MATCH EdFi: shown 2 + truncated 7 = total 9
+  PASS: CLOSE_MATCH: 4 rows over 1 standards show 1 = min(rows, standards)
+  PASS: CLOSE_MATCH: per-standard totals sum to the relation total (4)
+  PASS: CLOSE_MATCH SIF260928: shown 4 + truncated 0 = total 4
+  PASS: BROAD_MATCH: 7 rows over 8 standards show 7 = min(rows, standards)
+  PASS: BROAD_MATCH: per-standard totals sum to the relation total (32)
+  PASS: BROAD_MATCH PESC-CollegeTranscript-1.8.0: shown 1 + truncated 3 = total 4
+  PASS: BROAD_MATCH PESC-LearningRecord-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: BROAD_MATCH PESC-CollegeTranscript-1.7.0: shown 1 + truncated 3 = total 4
+  PASS: BROAD_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: BROAD_MATCH PESC-HighSchoolTranscript-1.6.0: shown 1 + truncated 1 = total 2
+  PASS: BROAD_MATCH PESC-TestScoreReport-1.1.0: shown 0 + truncated 4 = total 4
+  PASS: BROAD_MATCH PESC-AcademicEportfolio-1.0.0: shown 1 + truncated 5 = total 6
+  PASS: BROAD_MATCH PESC-DocumentResponse-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: NARROW_MATCH: 2 rows over 1 standards show 1 = min(rows, standards)
+  PASS: NARROW_MATCH: per-standard totals sum to the relation total (2)
+  PASS: NARROW_MATCH PESC-AcademicEportfolio-1.0.0: shown 2 + truncated 0 = total 2
+
+=== Results: 40 passed, 0 failed ===
+

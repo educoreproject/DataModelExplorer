@@ -1,0 +1,11 @@
+PASS - T2.2 standard mode -> empty commandValues
+PASS - T2.2 standard mode -> empty env (no secret)
+PASS - user mode w/o version -> empty commandValues
+PASS - user mode w/o version -> empty env
+PASS - T2.1 dmeVersionRefId in command input
+PASS - T2.1 dmeApiBase is loopback executor URL
+PASS - T2.1 secret present in env (DME_INTERNAL_SECRET)
+PASS - T2.3 secret absent from command input (no dmeInternalSecret key)
+PASS - T2.3 secret string absent from serialized command input
+PASS - versionRefId alt key honored
+ALL_PASS

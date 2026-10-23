@@ -1,0 +1,21 @@
+
+=== /dme health gate ===
+
+xLog.error: HACKED: SQL statement in [sqlite-instance]
+  PASS: health dispatch completes
+  PASS: names the golden container
+  PASS: reports the passport content-node count, equal to the live count — live 267749
+  PASS: reports askMilo responsive
+  PASS: reports today’s spend with the team cap
+  PASS: reports uptime
+
+  --- health reply ---
+  | *DME/Slack bridge health*
+  | • Server uptime (bridge): 0d 0h 0m
+  | • Golden graph: `GOLD_EVAL_261021_ctdlHub` — 267749 content nodes · 14 standards · built 2026-10-21T13:13:41.367Z
+  | • askMilo: responsive (running now: 0)
+  | • Today's /dme ask spend (2026-10-22): you $0.00 · team $0.00 of $10
+  --- end ---
+
+=== Results: 6 passed, 0 failed ===
+

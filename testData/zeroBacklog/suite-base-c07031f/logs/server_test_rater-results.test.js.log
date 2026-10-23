@@ -1,0 +1,50 @@
+WARNING: finished with: /Users/tqwhite/Documents/webdev/educore/system/configs/instanceSpecific/qbook/raterTool.ini
+R4.1 aggregation on a fixture (pure)
+  PASS: E1: answered 3 of 3 (the moved rater is not assigned to survey A and is not counted)
+  PASS: E1 rows in order: t1 Best 2 Same 0; No match Best 1 Same –; t2 Best 0 Same 2 (Same-only card); t3 absent
+  PASS: E2: the rater-added card is marked added, titled as the raters saw it; Unsure is its own row
+  PASS: E3 (survey B, only the moved rater): listed with no rows, 0 of 1
+  PASS: default order: the disagreement (E2: two distinct Best answers; E1 also two) first by label, then the rest
+  PASS: the summary CSV, byte for byte
+  PASS: no note, rater name or foundBy anywhere in the fixture result or CSV
+  PASS: a target with no suggested list in suggested.json is refused by name (its cards would all read as added)
+  PASS: an answer naming a card that is neither suggested nor added is refused by name, not dropped
+R13.1 agreement by card and by property (pure)
+  PASS: F1 same card: agrees at both levels (Same card 2 of 2, Same property 2 of 2)
+  PASS: F2 same property, different class: Same card 1 of 2, Same property 2 of 2
+  PASS: F3 different property, and other qualifiers: Same card 1 of 3, Same property 1 of 3
+  PASS: F4 No match agrees with No match at both levels: 2 of 3, 2 of 3
+  PASS: the card rows are untouched by the property figures (F2: k1 Best 1, k2 Best 1)
+  PASS: the default order is still by card agreement (F2, F3, F4 split by card first; F1 last)
+  PASS: an unanswered target has no agreement figures (null), not a quiet zero
+  PASS: a chosen card with no CEDS property id is refused by name, never scored
+  PASS: the summary CSV carries both columns (F2 lines end ,1,2)
+  FAIL: an ID search gives a card not on t2's list, to add — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reac
+  FAIL: fixture saves all accepted (56) and res-c finished — 1 refused; finish 200
+R4.2 aggregation through the server
+  PASS: all 150 targets listed, answered or not
+  PASS: t1: 3 of 4 answered (res-d assigned, unanswered)
+  PASS: t1 rows: c1 Best 1, c3 Best 1, No match Best 1 (Same –), c2 Same-only (Best 0, Same 2) last
+  PASS: t1 card titles are what the raters saw (Class → Property (qualifiers))
+  FAIL: t2: the edited answer counts once, as its current value (Unsure), never as the No match or card saved before — [{"rowKind":"noMatch","candidateTitle":"No match in CEDS","cedsTupleId":null,"isAdded":false,"bestCount":1,"sameCount":null},{"rowKind":"unsure","candidateTitle":"Unsure","cedsTupleId":null,"isAdded":false,"bestCount":1,"sameCount":null}]
+  FAIL: t2: the rater-added card carries the added mark; suggested cards do not — {}
+  PASS: t3: the finished rater counts (1 of 4, No match)
+  PASS: in-progress raters count: res-a and res-b are in t1 though neither pressed Finish
+  PASS: a survey with no raters shows 0 of 0
+  PASS: default order: the two disagreements (t1, t2) first
+  PASS: the summary CSV is exactly resultsCsvTextOf(the JSON targets)
+  PASS: the CSV has one line per row, plus one per unanswered target, plus the header
+  PASS: results without a resultsFormat is refused by name
+R4.3 access
+  PASS: a rater token is refused
+  PASS: an anonymous call is refused
+R4.4 forbidden content
+  PASS: no rater name, who-text, note, history, foundBy, gold, mapping or split field in the payload or the CSV
+R13.2 agreement by property, through the server
+  PASS: every answered target: Same property >= Same card, and no more distinct Best properties than Best cards
+  PASS: t3 (one No match): Same card 1 of 1, Same property 1 of 1; unanswered targets have none
+  PASS: the summary CSV header ends with both agreement columns
+  PASS: a rater's item payload: its cards carry exactly the fields they carried before revision 13
+  PASS: a rater's item payload names no agreement figure
+
+=== rater-results (revisions 4 and 13) — Results: 37 passed, 4 failed ===

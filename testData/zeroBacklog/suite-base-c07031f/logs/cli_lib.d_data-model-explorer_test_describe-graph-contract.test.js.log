@@ -1,0 +1,18 @@
+describe-graph-contract — BASELINE
+  PASS: a_fullPassportRenders
+  PASS: b_missingFieldRefused
+  PASS: c_contractMismatchRefused
+  PASS: d_scalarListRefused
+  PASS: f_embedderChecked
+  PASS: e_historyAnswersThePassport
+describe-graph-contract — TWIN SWEEP (each observed RED)
+  PASS: b_missingFieldRefused observed RED under 'requiredCheckRemoved'
+  RED-OBSERVED b_missingFieldRefused twin='requiredCheckRemoved' → FAIL: rendered
+  PASS: c_contractMismatchRefused observed RED under 'shaCheckRemoved'
+  RED-OBSERVED c_contractMismatchRefused twin='shaCheckRemoved' → FAIL: rendered | passport shape not recognised — missing required field(s) graphContractSha256 declared in graphContract 6e452d62af48
+  PASS: d_scalarListRefused observed RED under 'listCheckRemoved'
+  RED-OBSERVED d_scalarListRefused twin='listCheckRemoved' → FAIL: the card threw: oneStd.mappingKindList.join is not a function
+  PASS: f_embedderChecked observed RED under 'embedderComparisonRemoved'
+  RED-OBSERVED f_embedderChecked twin='embedderComparisonRemoved' → FAIL: DEV_P2R1_jevAcceptance_vector | graphHasNoVectors | vectorIndexNotInPassport | DEV_P2R1_jevAcceptance_vector
+
+10 passed, 0 failed

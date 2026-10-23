@@ -1,0 +1,17 @@
+
+=== E2-2: graphRetriever mapping lists are capped per hub ===
+
+  PASS: 1. RED (base): mappingsOutgoing under the shared cap shows no ZZHUBB entry (ZZHUBA 20)
+  PASS: 1. RED (base): crossStandardEquivalents under the shared cap shows no ZZHUBB entry (ZZHUBA 20)
+  PASS: 1. RED (base): mappingsViaInstances under the shared cap shows no ZZHUBB entry (ZZHUBA 20)
+  PASS: 1. RED (base): mappingsIncoming under the shared cap shows no ZZHUBB entry (ZZHUBA 20)
+  PASS: 2. mappingsOutgoing: 20 ZZHUBA + 3 ZZHUBB entries, ZZHUBA's first
+  PASS:    mappingsOutgoing: truncation names its hub (ZZHUBA EXACT_MATCH 5 left out; nothing of ZZHUBB)
+  PASS: 2. crossStandardEquivalents: 20 ZZHUBA + 6 ZZHUBB entries, ZZHUBA's first
+  PASS:    crossStandardEquivalents: truncation names its hub (ZZHUBA EXACT_MATCH 30 left out; nothing of ZZHUBB)
+  PASS: 2. mappingsViaInstances: 20 ZZHUBA + 3 ZZHUBB entries, ZZHUBA's first
+  PASS:    mappingsViaInstances: truncation names its hub (ZZHUBA EXACT_MATCH 5 left out; nothing of ZZHUBB)
+  PASS: 2. mappingsIncoming: 20 ZZHUBA + 9 ZZHUBB entries, ZZHUBA's first
+  PASS:    mappingsIncoming: truncation names its hub (ZZHUBA EXACT_MATCH 55 left out; nothing of ZZHUBB)
+
+=== Results: 12 passed, 0 failed ===
