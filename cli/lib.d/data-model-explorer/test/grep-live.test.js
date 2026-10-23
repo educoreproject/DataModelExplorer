@@ -56,7 +56,8 @@ taskList.push((args, next) => runVerb(['-grep', '--pattern=BrithDate', '--mode=f
 	const payload = outcome.parsedStdout || {};
 	const resultList = payload.resultList || [];
 	const scoreList = resultList.map((oneRow) => oneRow.similarityScore);
-	assert('(d) fuzzy BrithDate: BirthDate first, every row at or above minimumSimilarity, best first', resultList.length > 0 && resultList[0].name.toLowerCase() === 'birthdate' && scoreList.every((oneScore, scoreIndex) => oneScore >= payload.minimumSimilarity && (scoreIndex === 0 || oneScore <= scoreList[scoreIndex - 1])) && payload.similarityFunctionName === 'apoc.text.levenshteinSimilarity', payloadSummaryOf(payload));
+	// ⟪lane zbE⟫ 'BirthDate' or 'Birth Date' (PESC_LD's spelling, an exact tie at 0.78 on GOLD_EVAL_261023_zeroBacklog): the same word
+	assert('(d) fuzzy BrithDate: BirthDate (or Birth Date) first, every row at or above minimumSimilarity, best first', resultList.length > 0 && resultList[0].name.replace(/\s+/g, '').toLowerCase() === 'birthdate' && scoreList.every((oneScore, scoreIndex) => oneScore >= payload.minimumSimilarity && (scoreIndex === 0 || oneScore <= scoreList[scoreIndex - 1])) && payload.similarityFunctionName === 'apoc.text.levenshteinSimilarity', payloadSummaryOf(payload));
 	runVerb(['-grep', '--pattern=DateOfBirth', '--mode=fuzzy'], (meaningErr, meaningOutcome) => {
 		const meaningPayload = meaningOutcome.parsedStdout || {};
 		assert('(d) fuzzy DateOfBirth does not find BirthDate: it matches spelling, not meaning', Array.isArray(meaningPayload.resultList) && !meaningPayload.resultList.some((oneRow) => oneRow.name.toLowerCase() === 'birthdate'), payloadSummaryOf(meaningPayload));

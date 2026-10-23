@@ -1,0 +1,45 @@
+
+=== graph retriever refusals (ruling C; lane BM25) — /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/code/cli/lib.d/data-model-explorer ===
+
+- embedder failure is refused by name
+  PASS: embedder failure → "Embedding the query failed: stub embedder down"
+- a failing vector leg query is refused by name
+  PASS: vector leg failing → "the vector leg failed on stubVectorIndex: stub vector query refused"
+- a failing keyword leg query is refused by name
+  PASS: keyword leg failing → "the keyword (BM25) leg failed on stubFulltextIndex: stub fulltext query refused"
+- an unknown searchMode is refused by name, not run as some leg
+  PASS: searchMode bm25 → "hybridRetrieval.runSearchLegs: searchMode 'bm25' is not one of hybrid, keyword, vector"
+- a graph with no fulltext index is refused by name (fulltextIndexAbsent)
+  PASS: no FULLTEXT index → refusal fulltextIndexAbsent naming the declaration and "found: none"
+- a second fulltext index is refused by name, not chosen
+  PASS: two FULLTEXT indexes → refusal fulltextIndexAbsent naming both
+- the declared fulltext index is found
+  PASS: one declared FULLTEXT index → { fulltextIndexName: G_fulltext }
+- an index listing failure is refused by name
+  PASS: SHOW INDEXES failing → "listing the graph's fulltext indexes failed: stub SHOW INDEXES refused"
+- a hit list that is not a list is refused by name
+  PASS: hitList undefined → "graphRetriever: hitList must be the search's fused hit list (an array); got undefined."
+- a traversal file that exists but fails in Neo4j is refused by name (live)
+  PASS: traversal Cypher error → "failingTraversal.cypher failed: <Neo4j message>"
+- a traversal path that cannot be read is refused by name
+  PASS: traversal path is a directory → "Reading <name> failed: EISDIR…"
+- no traversal file present → the hits flat, and the result says so
+  PASS: absent traversal file answers without error
+  PASS: retrievalMode is flat, retrievalNote names the absent file
+  PASS: flat results are the 3 hits in order, counted, each with its provenance and hitRank
+- no traversal file configured → the hits flat, and the result says so
+  PASS: retrievalNote says no traversal file is configured
+- a traversal run without its graph parameters is refused by name
+  PASS: traversalParameterByName absent → "graphRetriever: traversalParameterByName must be the object of traversal.cypher's graph parameters…"
+- control: the real traversal answers its row list, each row carrying the hit's provenance unchanged (live)
+  PASS: traversal answers without error
+  PASS: traversal answers hitList: 3 rows carrying graph context, counted
+  PASS: rows keep the hit order (hitRank 1..3, Birthdate first) and the hit provenance (foundByLegList, keywordRank, vectorRank null)
+- an empty query is refused by name, not answered with []
+  PASS: empty query → { refusedByName: graphRetriever, refusalName: emptyQuery, reason: "-graphRetriever requires a non-empty argument…" }
+- traversalMode (the never-built dynamic mode's switch) is refused by name
+  PASS: traversalMode supplied → { refusalName: traversalModeRemoved, reason: "graphRetriever traversalMode was removed…" }
+- searchMode bm25 is refused by name, with the valid modes
+  PASS: searchMode bm25 → { refusalName: invalidSearchMode, validValueList: [hybrid, keyword, vector] }
+
+22 passed, 0 failed

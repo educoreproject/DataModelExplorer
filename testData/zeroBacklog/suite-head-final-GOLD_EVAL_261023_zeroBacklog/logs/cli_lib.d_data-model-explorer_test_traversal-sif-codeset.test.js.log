@@ -1,0 +1,13 @@
+
+=== W-D-4 traversal reads SIF code sets through instances (HAS_OPTION_SET since P3), REFERENCES_TYPE and REFERENCES_OBJECT ===
+
+  PASS: SIF Question sif260928:question/01869bd486c3ae2d3c5e4…: optionSets lists its Fields' code set(s)
+  PASS:   every entry is viaInstance: true, _source SIF260928, with a non-null path and (P3, G18) a non-empty name
+  PASS:   optionSetCount === 1 (the test's count) and >= the list
+  PASS: control: a CEDS property still lists its HAS_OPTION_SET set, viaInstance: false
+  PASS:   optionSetCount === 1
+  PASS: Ed-Fi property: referencesTo carries its REFERENCES_TYPE target(s) (1)
+  PASS: both reference arms read REFERENCES|REFERENCES_TYPE|REFERENCES_OBJECT
+
+=== W-D-4 traversal reads SIF code sets through instances (HAS_OPTION_SET since P3), REFERENCES_TYPE and REFERENCES_OBJECT — Results: 7 passed, 0 failed ===
+

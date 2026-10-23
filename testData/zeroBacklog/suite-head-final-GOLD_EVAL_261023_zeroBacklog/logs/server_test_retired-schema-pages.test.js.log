@@ -1,0 +1,20 @@
+
+=== A11: pages on the retired schema are ported or retired ===
+
+  PASS: RETIRED dme-lookup: files gone, no nav links to it
+  PASS: RETIRED get-nodes (the /dm/lookup tree browser): files gone, no nav links to it
+  PASS: RETIRED edmatrix-report (the /util/edmatrix report): files gone, no nav links to it
+  PASS: RED TWIN retiredFileRestored turns the retirement conjunct red
+  PASS: PORTED schema verifier store: no Cypher POST, no retired label or edge, uses /api/schemaEquivalents
+  PASS: RED TWIN cypherPostRestored turns the store conjunct red
+  PASS: PORTED schema-equivalents mapper: requiredLabelList declared and every label live on the golden
+  PASS: RED TWIN fictitiousLabel (SifField) turns the live-label conjunct red
+  PASS: PORTED use-case-editor mapper: requiredLabelList declared
+  PASS: schema-equivalents access point exists
+  PASS: LIVE schema-equivalents: the CEDS Birthdate row carries judged equivalents (relation, mappingConfidence, mappingKind, mappingSource)
+  PASS: LIVE schema-equivalents: an empty word list is refused by name
+  PASS: use-case-editor refuses an inherited property name as an unknown action (constructor, __proto__, toString)
+  PASS: LIVE use-case-editor on a graph without use cases: refused by name, naming the absent labels — never [] with success
+
+=== Results: 14 passed, 0 failed ===
+

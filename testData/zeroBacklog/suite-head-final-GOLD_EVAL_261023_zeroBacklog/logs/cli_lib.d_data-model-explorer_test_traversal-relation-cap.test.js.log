@@ -1,0 +1,16 @@
+
+=== traversal relation cap (CEDS Birthdate, mappingsIncoming) ===
+
+  PASS: the seeded node is among the hits
+  PASS: mappingsIncomingTruncatedByRelation is returned
+  PASS: at most 20 entries
+  PASS: BROAD_MATCH entries are present (PESC Birthday)
+  PASS: BROAD_MATCH: shown 5 + truncated 35 = total 40
+  PASS: BROAD_MATCH: shown >= min(total, 5)
+  PASS: NARROW_MATCH: shown 1 + truncated 0 = total 1
+  PASS: NARROW_MATCH: shown >= min(total, 5)
+  FAIL: EXACT_MATCH: shown 14 + truncated 22 = total 35
+  PASS: EXACT_MATCH: shown >= min(total, 5)
+
+=== Results: 9 passed, 1 failed ===
+

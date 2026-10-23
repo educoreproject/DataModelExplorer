@@ -1,0 +1,16 @@
+
+=== W-D-16 every structural claim in the prompt holds on the live graph ===
+
+  PASS: the prompt says "No DmeProperty has HAS_SUPPORT." and the graph agrees (zero: 0)
+  PASS: the prompt says "HAS_SUPPORT edges start only at a DmeStandardRoot." and the graph agrees (zero: 0)
+  PASS: the prompt says "SIF objects own Fields by HAS_FIELD" and the graph agrees (positive: 15620)
+  PASS: the prompt says "a SIF Question hangs on the standard root, which owns it by HAS_PROPER" and the graph agrees (positive: 5018)
+  PASS: the prompt says "the edge to an option set is HAS_OPTION_SET in every standard" and the graph agrees (zero: 0)
+  PASS: the prompt says "for SIF it is read through the Question's Fields" and the graph agrees (positive: 1495)
+  PASS: the prompt says "every SIF code set is named from the elements that use it" and the graph agrees (zero: 0)
+  PASS: the prompt says "They never carry mappings: the INSTANCE nodes that carry SIF's and PES" and the graph agrees (zero: 0)
+  PASS: the prompt says "the INSTANCE nodes that carry SIF's and PESC's mappings are DmeInstanc" and the graph agrees (positive: 17811)
+  PASS: the prompt says "mappingRationale — on judged edges, the judge's own stated reason" and the graph agrees (positive: 19285)
+
+=== W-D-16 every structural claim in the prompt holds on the live graph — Results: 10 passed, 0 failed ===
+

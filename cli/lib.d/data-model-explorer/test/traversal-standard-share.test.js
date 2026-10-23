@@ -18,8 +18,10 @@ const path = require('path');
 const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const dmeDirPath = path.join(__dirname, '..');
 // ⟪lane R6⟫ a card reaches its hub's leaves through its OWN hub's slot edges, read from the contract (no hub literal)
-const { HUB_DECOMPOSITION_SLOT_LIST, cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
-const anySlotEdgeTypeListTextOf = (cardVariableName) => `[${HUB_DECOMPOSITION_SLOT_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
+// ⟪lane zbE⟫ EVERY slot, the term slot included: traversal.cypher's incoming arm walks HUB_ALL_SLOT_LIST (a term card, CEDS's
+// term tier since educoreForge A1, reaches the leaf through HAS_<HUB>_TERM), so the oracle must count the same edges
+const { HUB_ALL_SLOT_LIST, cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
+const anySlotEdgeTypeListTextOf = (cardVariableName) => `[${HUB_ALL_SLOT_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
 const traversalFilePath = process.argv[2] || path.join(dmeDirPath, 'traversal.cypher');
 const neo4j = require(path.join(dmeDirPath, 'node_modules', 'neo4j-driver'));
 const configFileProcessor = require(path.join(dmeDirPath, 'node_modules', 'qtools-config-file-processor'));
@@ -131,8 +133,12 @@ LIST_CHECK_LIST.forEach((listCheck) => {
 			const directStandardSet = new Set(records.map((record) => record.get('standardName')));
 			const shownStandardSet = new Set(args.entryList.map((entry) => entry[listCheck.standardFieldName]));
 			assert('Ed-Fi is among the standards the direct count finds', directStandardSet.has('EdFi') || listCheck.seedSource === 'EdFi');
+			// ⟪lane zbE⟫ a relation with more standards than its share of entries cannot show every standard (BROAD_MATCH: 5
+			// entries over 9 standards for Ed-Fi BirthDate on GOLD_EVAL_261023_zeroBacklog, measured); the rule is that NO
+			// standard is dropped silently: each is shown, or its truncation is reported by name
 			[...directStandardSet].sort().forEach((standardName) => {
-				assert(`an entry from ${standardName} is shown`, shownStandardSet.has(standardName));
+				const reportedTruncation = args.truncationList.some((oneTruncation) => oneTruncation.standard === standardName && Number(oneTruncation.truncatedCount) > 0);
+				assert(`an entry from ${standardName} is shown, or its truncation is reported`, shownStandardSet.has(standardName) || reportedTruncation, shownStandardSet.has(standardName) ? '' : 'neither shown nor reported');
 			});
 			Object.keys(totalCountByRelationAndStandard).forEach((relation) => {
 				const relationEntryList = args.entryList.filter((entry) => entryRelationOf(listCheck, entry) === relation);

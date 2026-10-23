@@ -1,0 +1,64 @@
+
+=== W-D-1: the DME tool payload contract ===
+
+  PASS: the refusal channel is the ruled one (stdout JSON, exit 0)
+  PASS:   and errors keep stderr + exit 1
+  PASS: the refusal object fields are declared, refusalName among them
+  PASS: the module is frozen
+  PASS: every dme_* tool maps to a VERB_PAYLOAD_CONTRACT row by its verb
+  PASS: every dme_* description tells the model what a refusedByName object means
+  PASS: every VERB_PAYLOAD_CONTRACT row is a verb some dme_* tool runs
+  PASS: dme_search: description names its row list 'resultList'
+  PASS:   and names totalRowCount
+  PASS: dme_grep: description names its row list 'resultList'
+  PASS: dme_structure: description names its row list 'rowList'
+  PASS: dme_graph_retriever: description names its row list 'hitList'
+  PASS: dme_explore: description names its row list 'entryList'
+  PASS:   and names totalRowCount
+  PASS: dme_find_mappings: description names its row list 'mappingRowList'
+  PASS:   and names totalRowCount
+  PASS: dme_compare_codesets: description names its row list 'valueRowList'
+  PASS:   and names totalRowCount
+  PASS: dme_unmapped_fields: description names its row list 'unmappedRowList'
+  PASS:   and names totalRowCount
+  PASS: dme_list_standards: description names its row list 'standards'
+  PASS: dme_raw_cypher: description names its row list 'records'
+  PASS: listEnvelopeFor builds { resultList, totalRowCount, returnedRowCount, truncatedRowCount, rowUnit }
+  PASS:   and every verb with a row list declares rowUnitText (a total says what it counts)
+  PASS:   and refuses a total smaller than the rows shown
+  PASS: refusalFor builds { refusedByName, refusalName, reason, validValueList }
+  PASS:   and refuses a refusal name its verb does not declare
+  PASS: DataModelExplorer.ini carries the three-way sentence
+  PASS:   and no longer says "If a tool returns no rows, say the graph contains no such data"
+  PASS: DataModelExplorerSlack.ini carries the three-way sentence
+  PASS:   and no longer says "If a tool returns no rows, say the graph contains no such data"
+  PASS: DataModelExplorer.ini: carries the A4 numbers rule verbatim
+  PASS:   and sends arithmetic on numbers it holds to dme_calculate (A14)
+  PASS:   structure: no DmeProperty line claims HAS_SUPPORT; HAS_SUPPORT starts only at a standard root; the card says the per-standard shape
+  PASS:   the standard filter takes a source from dme_list_standards (W-D-2)
+  PASS:   an exact lookup with case variants widens (W-D-12)
+  PASS:   no absent per-standard tools are promised (W-D-19)
+  PASS: DataModelExplorerSlack.ini: carries the A4 numbers rule verbatim
+  PASS:   and sends arithmetic on numbers it holds to dme_calculate (A14)
+  PASS:   structure: no DmeProperty line claims HAS_SUPPORT; HAS_SUPPORT starts only at a standard root; the card says the per-standard shape
+  PASS:   the standard filter takes a source from dme_list_standards (W-D-2)
+  PASS:   an exact lookup with case variants widens (W-D-12)
+  PASS:   no absent per-standard tools are promised (W-D-19)
+  PASS: the structure paragraph is byte-identical in both prompt files
+  PASS: dme_raw_cypher description ends with the A4 edit-2 sentence
+
+--- live (dev graph; instanceSpecific/qbook; nothing written) ---
+  PASS: -search  → exit 0, stdout { refusedByName: 'search', refusalName: 'emptyQuery' } with a reason
+  PASS: -findMappings  → exit 0, stdout { refusedByName: 'findMappings', refusalName: 'emptyName' } with a reason
+  PASS: -compareCodesets  → exit 0, stdout { refusedByName: 'compareCodesets', refusalName: 'emptyName' } with a reason
+  PASS: -explore --name= → exit 0, stdout { refusedByName: 'explore', refusalName: 'emptyName' } with a reason
+  PASS: -rawCypher --query= → exit 0, stdout { refusedByName: 'rawCypher', refusalName: 'emptyQuery' } with a reason
+  PASS: -rawCypher --query=CREATE (n:P0RefusalProbe) RETURN n → exit 0, stdout { refusedByName: 'rawCypher', refusalName: 'notReadOnly' } with a reason
+  PASS: -rawCypher --query=LOAD  CSV FROM "http://127.0.0.1:1/x" AS r RETURN r → exit 0, stdout { refusedByName: 'rawCypher', refusalName: 'notReadOnly' } with a reason
+  PASS: -graphRetriever  → exit 0, stdout { refusedByName: 'graphRetriever', refusalName: 'emptyQuery' } with a reason
+  PASS: -graphRetriever birth date --searchMode=bm25 → exit 0, stdout { refusedByName: 'graphRetriever', refusalName: 'invalidSearchMode' } with a reason
+  PASS: -graphRetriever birth date --limit=0 → exit 0, stdout { refusedByName: 'graphRetriever', refusalName: 'invalidLimit' } with a reason
+  PASS: -graphRetriever birth date --traversalMode=dynamic → exit 0, stdout { refusedByName: 'graphRetriever', refusalName: 'traversalModeRemoved' } with a reason
+
+=== Results: 56 passed, 0 failed ===
+

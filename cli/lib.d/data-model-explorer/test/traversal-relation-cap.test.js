@@ -18,8 +18,10 @@ const path = require('path');
 const { runTraversalFromVectorSeed } = require('./lib/traversalSeed'); // lane BM25: traversal.cypher walks from $hitList
 const dmeDirPath = path.join(__dirname, '..');
 // ⟪lane R6⟫ a card reaches its hub's leaves through its OWN hub's slot edges, read from the contract (no hub literal)
-const { HUB_DECOMPOSITION_SLOT_LIST, cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
-const anySlotEdgeTypeListTextOf = (cardVariableName) => `[${HUB_DECOMPOSITION_SLOT_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
+// ⟪lane zbE⟫ EVERY slot, the term slot included: traversal.cypher's incoming arm walks HUB_ALL_SLOT_LIST (a term card, CEDS's
+// term tier since educoreForge A1, reaches the leaf through HAS_<HUB>_TERM), so the oracle must count the same edges
+const { HUB_ALL_SLOT_LIST, cardHubSlotEdgeTypeTextFor } = require(path.join(__dirname, '..', 'lib', 'toolPayloadContract'));
+const anySlotEdgeTypeListTextOf = (cardVariableName) => `[${HUB_ALL_SLOT_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
 const traversalFilePath = process.argv[2] || path.join(dmeDirPath, 'traversal.cypher');
 const neo4j = require(path.join(dmeDirPath, 'node_modules', 'neo4j-driver'));
 const configFileProcessor = require(path.join(dmeDirPath, 'node_modules', 'qtools-config-file-processor'));

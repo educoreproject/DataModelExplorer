@@ -1,0 +1,12 @@
+
+=== W-D-13 dme_list_standards totals and familyList ===
+
+  PASS:   each row's isHub, hubMatchEdgeCount and mappedToHub equal the test's Cypher
+  PASS:   the hub rows are exactly the graph's hubs, and totals.hubStandardList names them
+  PASS: totals.standardCount === 15 (the test's count of :DmeStandardRoot)
+  PASS:   count === standards.length === totals.standardCount
+  PASS:   familyFieldPresent: each family's releaseCount equals the test's count; Σ releaseCount === standardCount
+  PASS:   each standard row carries standardKey, standardFamily and releaseLabel fields
+
+=== W-D-13 dme_list_standards totals and familyList — Results: 6 passed, 0 failed ===
+

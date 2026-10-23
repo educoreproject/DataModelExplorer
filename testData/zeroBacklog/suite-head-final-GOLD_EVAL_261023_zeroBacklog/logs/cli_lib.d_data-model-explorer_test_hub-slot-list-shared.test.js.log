@@ -1,0 +1,27 @@
+
+=== W-D-5 one declared hub-slot list for both incoming arms ===
+
+node:internal/modules/cjs/loader:1459
+  throw err;
+  ^
+
+Error: Cannot find module '/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/code/educoreForge/system/code/educoreForge/lib/vocabulary/vocabulary.js'
+Require stack:
+- /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/code/cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at Object.<anonymous> (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/code/cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js:28:25)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Object..js (node:internal/modules/cjs/loader:1943:10) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/code/cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js'
+  ]
+}
+
+Node.js v24.14.1

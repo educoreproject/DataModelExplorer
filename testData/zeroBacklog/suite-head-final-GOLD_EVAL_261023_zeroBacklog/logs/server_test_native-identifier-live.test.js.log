@@ -1,0 +1,13 @@
+
+=== E1: each standard's own identifier and the layer's own description, read from GOLD_EVAL_261023_zeroBacklog ===
+
+  PASS: 1. EdFi (declares metaEdId): 100 rows, each carries stableId, and sourceId = its own native identifier else stableId (61 show the native one)
+  PASS: 1. CEDS (declares cedsId): 100 rows, each carries stableId, and sourceId = its own native identifier else stableId (100 show the native one)
+  PASS: 1. CTDL (declares uri): 100 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one)
+  PASS: 1. PESC-CollegeTranscript-1.8.0 (declares none): 100 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one)
+  PASS: 0. dme-field-search answers (4 rows), each with stableId
+  PASS: 0. dme-semantic-search answers (5 rows), each with stableId
+  PASS: 2. findMappings finds Ed-Fi edfi:property/abstractEntity.EducationOrganization.Address by its metaEdId '1381'
+  PASS: 3. dme_structure carries the guide root's layerUsageTips, byte-identical
+
+=== native-identifier-live — Results: 8 passed, 0 failed ===

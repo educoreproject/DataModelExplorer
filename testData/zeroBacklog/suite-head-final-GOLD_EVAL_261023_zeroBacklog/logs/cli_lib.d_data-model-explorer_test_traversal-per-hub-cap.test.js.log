@@ -1,0 +1,4 @@
+
+=== E2-2: graphRetriever mapping lists are capped per hub ===
+
+REFUSED: this gate writes a fixture, so it needs DME_SCRATCH_BOLT_URI and DME_SCRATCH_NEO4J_PASSWORD naming a SCRATCH Neo4j; there is no default, and never the golden graph.

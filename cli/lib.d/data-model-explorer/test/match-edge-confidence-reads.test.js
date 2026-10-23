@@ -32,12 +32,16 @@ READER_SOURCE_PATH_LIST.forEach((sourcePath) => {
 	assert(`${path.basename(sourcePath)} reads no match edge's .confidence`, hitList.length === 0, `${hitList.length} read(s): ${hitList.slice(0, 4).join(' | ')}`);
 });
 
-runQuery(`MATCH ()-[r:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference)
+// ⟪lane zbE⟫ a JUDGED edge carries mappingConfidence; an AUTHORED one (mappingKind 'authored', e.g. PESC_LD's declared
+// identities, matchBasis declaredIdentity: 237 on GOLD_EVAL_261023_zeroBacklog, measured) carries none, as getSchema says
+runQuery(`MATCH ()-[r:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) WHERE coalesce(r.mappingKind, '') <> 'authored'
 	RETURN count(r) AS edgeCount, count(r.mappingConfidence) AS mappingConfidenceCount,
+	       COUNT { MATCH ()-[authoredEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) WHERE authoredEdge.mappingKind = 'authored' AND authoredEdge.mappingConfidence IS NOT NULL } AS authoredWithConfidenceCount,
 	       count(CASE WHEN r.confidence IS NOT NULL AND r.confidence <> r.mappingConfidence THEN 1 END) AS differingCount`, {}, (err, rowList) => {
 	if (err) { finish(err); return; }
 	const censusRow = rowList[0];
-	assert(`live control: every match edge carries mappingConfidence (${censusRow.mappingConfidenceCount} of ${censusRow.edgeCount})`, censusRow.edgeCount > 0 && censusRow.mappingConfidenceCount === censusRow.edgeCount);
+	assert(`live control: every judged (non-authored) match edge carries mappingConfidence (${censusRow.mappingConfidenceCount} of ${censusRow.edgeCount})`, censusRow.edgeCount > 0 && censusRow.mappingConfidenceCount === censusRow.edgeCount);
+	assert('live control: no authored match edge carries a mappingConfidence', censusRow.authoredWithConfidenceCount === 0, `${censusRow.authoredWithConfidenceCount}`);
 	assert('live control: no edge where confidence differs from mappingConfidence (the move changes no answer today)', censusRow.differingCount === 0, `${censusRow.differingCount}`);
 	finish();
 });

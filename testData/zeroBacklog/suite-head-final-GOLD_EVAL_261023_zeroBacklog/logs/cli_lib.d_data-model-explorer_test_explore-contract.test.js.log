@@ -1,0 +1,14 @@
+
+=== W-D-11/12 dme_explore: one entry per node; case variants reported ===
+
+  PASS: exact: matchedNodeCount === 15 (the test's count), one entry per node
+  PASS:   every entry carries a distinct stableId
+  PASS:   each entry's outgoingTotal / incomingTotal equal that node's own degree
+  PASS:   caseVariantNodeCount === 4, caseVariantNameList ["birthDate"]
+  PASS:   envelope: totalRowCount === matchedNodeCount, nameMatchMode exact
+  PASS: caseInsensitive: matchedNodeCount === 19 (every case variant)
+  PASS: --nameMatch=fuzzy is refused by name (invalidNameMatch) with the valid modes
+  PASS: a name no node bears is refused by name (nothingMatched)
+
+=== W-D-11/12 dme_explore: one entry per node; case variants reported — Results: 8 passed, 0 failed ===
+

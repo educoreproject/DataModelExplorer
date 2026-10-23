@@ -1,0 +1,49 @@
+WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-GOLD_EVAL_261023_zeroBacklog/system/configs/instanceSpecific/qbook/raterTool.ini
+  PASS a scratch admin account is made
+  PASS the admin adds pv-rater on survey A
+P8.1 preview item = rater item, apart from the card order
+  PASS the admin reads all 50 preview items of survey A
+  PASS every preview item is, field for field, the rater payload for that element (cards compared as a set)
+  PASS the payloads have exactly the same fields
+  PASS preview item N is View items N
+  PASS preview shows no saved answer and the progress of a rater with none
+  PASS preview's left-undone list is every item, numbered in the preview's own order (View items)
+P8.2 the preview card order is a stable shuffle
+  PASS a second read of item 7 gives the same card order
+  PASS the preview order is shuffled, not sorted (most items)
+  PASS the preview order is its own, not the rater's (most items)
+P8.3 forbidden fields
+  PASS no preview payload carries the gold, isMappedInGold, foundBy(Method), a score, a rank, the split, the kind, a seed or a name
+  PASS no preview payload text says gold, injected or preview
+P8.4 search and browse
+  FAIL every preview search answers with cards — 400 raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261 | 400 raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261 | 400 raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261
+  PASS the preview CEDS ID search is exactly the rater's
+  FAIL preview browse concepts, then a class, answer with content — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261 | raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261
+  PASS preview browse concepts is exactly the rater's
+  PASS no preview search or browse payload carries a forbidden field
+P8.5 refusals
+  PASS previewItem: a rater token is refused (401)
+  PASS previewItem: an anonymous call is refused (401)
+  PASS previewSearch: a rater token is refused (401)
+  PASS previewSearch: an anonymous call is refused (401)
+  PASS previewBrowse: a rater token is refused (401)
+  PASS previewBrowse: an anonymous call is refused (401)
+  PASS {"adminAction":"previewItem","surveyName":"Z","itemNumber":1} → surveyNameInvalid
+  PASS {"adminAction":"previewItem","itemNumber":1} → surveyNameInvalid
+  PASS {"adminAction":"previewItem","surveyName":"A","itemNumber":0} → itemNumberInvalid
+  PASS {"adminAction":"previewItem","surveyName":"A","itemNumber":51} → itemNumberInvalid
+  PASS {"adminAction":"previewItem","surveyName":"A"} → itemNumberInvalid
+  PASS {"adminAction":"previewSearch","surveyName":"B","elementStableId":"Ed-Fi:edfi:property/domainEntity.Certification.EducatorRole","searchMode":"words","queryText":"birth"} → elementNotInSurvey
+  PASS {"adminAction":"previewSearch","surveyName":"A","elementStableId":"Ed-Fi:edfi:property/domainEntity.Certification.EducatorRole","searchMode":"guess","queryText":"birth"} → searchModeInvalid
+  PASS {"adminAction":"previewBrowse","browseMode":"everything"} → browseModeInvalid
+P8.6 no rater path accepts an admin token; nothing was written
+  PASS /api/raterAnswerSave refuses an admin token (401)
+  PASS /api/raterFinish refuses an admin token (401)
+  PASS /api/raterItemGet refuses an admin token (401)
+  PASS /api/raterSearch refuses an admin token (401)
+  PASS /api/raterBrowse refuses an admin token (401)
+  PASS /api/raterProgress refuses an admin token (401)
+  PASS the store holds no answers
+  FAIL the search log holds only the rater's own search (the preview searches were not logged) — []
+
+=== rater-preview (revision 8) — Results: 37 passed, 3 failed ===

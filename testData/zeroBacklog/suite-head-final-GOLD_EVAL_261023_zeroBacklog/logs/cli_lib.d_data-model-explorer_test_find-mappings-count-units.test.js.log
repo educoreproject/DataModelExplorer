@@ -1,0 +1,15 @@
+
+=== P4a Q1: every findMappings total says what it counts (rows vs edges vs elements vs instances) ===
+
+  PASS: Birthdate: every count field in the payload is named in countUnitByField
+  PASS:   the envelope says what a row is (rowUnit), and that one edge can be more than one row
+  PASS:   totalRowCountByDirection sums to totalRowCount (106)
+  PASS:   hubTupleSummaryList names P000033
+  PASS:   P000033 BROAD_MATCH: edges 40, elements 18 (Cypher)
+  PASS:   P000033 NARROW_MATCH: edges 1, elements 1 (Cypher)
+  PASS:   P000033 EXACT_MATCH: edges 35, elements 19 (Cypher)
+  PASS:   P000033: edgeCount 76, elementCount 38, instanceEdgeCount 71 (Cypher)
+  PASS:   and the row total is NOT the edge total here (the reason the units must be named)
+
+=== P4a Q1: every findMappings total says what it counts (rows vs edges vs elements vs instances) — Results: 9 passed, 0 failed ===
+

@@ -1,0 +1,77 @@
+
+=== DEV-123 standards-neighbourhood: the PESC Explorer reads the graph ===
+
+  PASS: red twin: two comparison rows with one version identity are reported as a collision
+  PASS: version identity strips namespace versions and the element position
+  PASS: red twin: a property that only moved position reads unchanged, not new
+  PASS: version differences: equal digests answer no differences
+  PASS: red twin: a moved digest with nothing visible reads unexplained (a namespace version alone is no difference)
+  PASS: version differences: members are matched by version identity into added, missing and differing
+  PASS: comparison peer: the nearest lower version; the lowest compares with the nearest higher
+  PASS: strength order: exact > close > narrow > broad, whatever the confidence
+  PASS: a group whose true count exceeds its items reports truncated, with the true count
+  PASS: red twin: an unknown action is refused by name before any query runs
+  PASS: endpoint: logged-in roles only (user/client/admin, never public)
+  PASS: endpoint: the browser sends no Cypher (no cypher field read from the body)
+  PASS: catalog: answers the PESC family
+  PASS: catalog: 7 messages, 8 versions, as this test's Cypher counts them
+  PASS: catalog: College Transcript offers 1.7.0 and 1.8.0, in version order
+  PASS: family node: one item per message; a one-version message is its standard
+  PASS: family node: College Transcript is a release offering 1.7.0 and 1.8.0
+  PASS: release node: the version picker lists 1.8.0 then 1.7.0, each a drillable standard
+  PASS: refusal: a release the family does not have
+  PASS: College Transcript 1.8.0: answers its standard level
+  PASS: College Transcript 1.8.0: 222 classes, none truncated
+  PASS: ORACLE: 1.8.0 classes against 1.7.0 = 206 unchanged / 4 changed / 12 new
+  PASS: ORACLE: every class carries its badge
+  PASS: class items carry propertyCount and mappedPropertyCount for the pie ring
+  PASS: class items say whether they carry a version identity (the browser asks for tiles only when they do)
+  PASS: ORACLE: 1.7.0 classes against 1.8.0 = 206 / 4 / 0 only-in-1.7
+  PASS: ORACLE (independent Cypher, the spec's key): 206 / 4 / 12 / 0, 0 collisions
+  PASS: NameType: answers its class level (property badges did not collide)
+  PASS: NameType: the ancestor chain is the 1.8.0 root
+  PASS: NameType: property badges are computed against 1.7.0
+  PASS: NameType: the class itself carries a version badge
+  PASS: NameType: each of 9 properties' strongest mapping equals this test's Cypher
+  PASS: NameType: all four match kinds present (exact, close, narrow, broad)
+  PASS: NameType: exactly the properties with no match edge (1) read mapping null
+  PASS: FirstName: folded is true exactly as its 5 occurrences' judgments predict (this test's Cypher)
+  PASS: FirstName: its CEDS mapping is close to First Name
+  PASS: FirstName: the ancestor chain runs root › NameType
+  PASS: FirstName: the occurrence group's folded flag agrees
+  PASS: Address: occurrences map differently (this test's Cypher), so they are shown
+  PASS: AcademicAwardDate: occurrences map identically (this test's Cypher), so they fold
+  PASS: First Name: answers a CEDS anchor with its CEDS property and domain
+  PASS: First Name: groups by owning standard with SIF, EdFi and PESC present
+  PASS: First Name: 10 standard groups whose element counts equal this test's Cypher
+  PASS: First Name: each group's strongest match kind equals this test's Cypher, with per-kind counts
+  PASS: SIF group: lists exactly its 54 elements, each with a mapping to First Name
+  PASS: SIF element FirstName: resolves with its mapping and a SIF ancestor chain
+  PASS: Ed-Fi element FirstName: a property mapped at property level, drillable, under the EdFi root
+  PASS: pathSummary: names and kinds every crumb of a crossing path
+  PASS: FirstName (1.8.0): the node names its message's other version and carries a version identity
+  PASS: FirstName (1.8.0): one other version, 1.7.0, with a FirstName counterpart in the 1.7.0 standard
+  PASS: FirstName (1.7.0 counterpart): the ancestor chain runs to the 1.7.0 NameType
+  PASS: FirstName (1.7.0 counterpart): its mappings and folding are exactly what the node action answers for it
+  PASS: FirstName (1.7.0 counterpart): its badge state agrees with the class level's property badge
+  PASS: new in 1.8 (AcademicLearningType, one of 12): 1.7.0 answers counterpart null
+  PASS: changed (AcademicSessionType, one of 4): its 1.7.0 counterpart's digest differs by this test's Cypher
+  PASS: changed (AcademicSessionType): the counterpart reads 'changed' and names what differs (field, members)
+  PASS: DIGEST COVERAGE: all 80 moved digests among 4901 paired College Transcript nodes are explained by fields, members or types the page shows
+  PASS: one-version standard (AcademicEportfolio): an empty counterpart list, not a refusal, and an empty otherVersionList on the node
+  PASS: versionCounterparts refusal: unknown stableId, named
+  PASS: versionCounterparts refusal: absent stableId
+  PASS: versionCounterparts refusal: a synthetic id is not a graph node
+  PASS: endpoint: a versionCounterparts refusal is answered 400 with its reason
+  PASS: refusal: no action
+  PASS: refusal: empty stableId
+  PASS: refusal: unknown stableId, named
+  PASS: refusal: unknown family, naming the families present
+  PASS: refusal: malformed standard group id
+  PASS: refusal: a path with an unknown id
+  PASS: endpoint: a public (not logged-in) caller is answered 401
+  PASS: endpoint: a logged-in refusal is answered 400 with its reason
+  PASS: endpoint: a logged-in catalog request is answered 200 as [result]
+
+=== Results: 71 passed, 0 failed ===
+

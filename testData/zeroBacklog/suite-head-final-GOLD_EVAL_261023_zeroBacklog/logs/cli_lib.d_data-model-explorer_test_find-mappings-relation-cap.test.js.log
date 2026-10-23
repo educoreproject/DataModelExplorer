@@ -1,0 +1,18 @@
+
+=== findMappings relation cap (BirthDate) ===
+
+  PASS: result carries mappingRowList, totalRowCountByRelation, truncatedRowCountByRelation
+  PASS: at most 30 rows per hub ({"CEDS":30})
+  PASS: every row names its hub, and each hub with rows is in totalRowCountByHub
+  PASS: PESC 'Birthday' BROAD_MATCH row is shown
+  PASS: EXACT_MATCH: shown 17 >= min(total 64, 7)
+  PASS: EXACT_MATCH: shown + truncated = total
+  PASS: CLOSE_MATCH: shown 4 >= min(total 4, 7)
+  PASS: CLOSE_MATCH: shown + truncated = total
+  PASS: BROAD_MATCH: shown 7 >= min(total 36, 7)
+  PASS: BROAD_MATCH: shown + truncated = total
+  PASS: NARROW_MATCH: shown 2 >= min(total 2, 7)
+  PASS: NARROW_MATCH: shown + truncated = total
+
+=== Results: 12 passed, 0 failed ===
+
