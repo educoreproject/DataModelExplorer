@@ -1,0 +1,11 @@
+live part SKIPPED: DME_TEST_USERNAME / DME_TEST_PASSWORD are not set
+
+=== login POST and log redaction ===
+
+PASS - password value is not printed
+PASS - username stays readable
+PASS - secret, token, key and auth keys are redacted
+PASS - an empty query prints nothing
+
+=== Results: 4 passed, 0 failed ===
+

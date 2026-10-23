@@ -1,0 +1,36 @@
+
+=== Standard downloads: manifest, files, refusals ===
+
+  FAIL: manifest: every entry, stamped with the golden — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: manifest: an entry carries only the whitelisted fields — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: filter family — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: filter group — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: filter standardKey — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: filter facet — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: filters together, and each named back — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  PASS: an unknown filter is refused by name
+  FAIL: file: the bytes, with the manifest's sha256 — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: an unknown id is refused by name — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: a path-traversal id is refused by name (and nothing is read) — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: a deep path-traversal id is refused by name — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: an unavailable entry is refused with its reason — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: a file whose bytes changed is refused by name — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: a manifest for another graph contract is refused by name — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'); the manifest's graphContractSha256 ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff is not the golden's 1e2d39d79376e1a04e818efa849a4ffa59bf69fa03093fdcc03bf8737f40039d. Regenerate the downloads for this golden.
+  PASS: ...and no file is served from it
+  PASS: a manifest for another graph name is refused by name
+  PASS: no downloads for the golden is refused by name
+  PASS: a manifest entry lacking a field is refused by name, never filled in
+  FAIL: source URL: carried out verbatim (address, relation, wording, page, note) — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  FAIL: source URL: not recorded is every field present and null — downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden.
+  PASS: source URL: a manifest of the earlier format /1 is refused by name
+  PASS: source URL: an entry lacking sourceUrlNote is refused, never filled in
+  PASS: an unconfigured server refuses by name
+  PASS: an unknown action is refused
+  FAIL: manifest endpoint: 200 as [result], filtered by the body — 400 "downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate t
+  PASS: manifest endpoint: 401 for a public (not logged-in) caller
+  FAIL: file endpoint: the zip as an attachment, its sha256 in X-Download-Sha256 — 400 {}
+  FAIL: file endpoint: a traversal id is 400 with the refusal — 400 downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_261023_zeroBacklog', this server serves 'GOLD_EVAL_261023_zeroBacklog' (passport graphName 'DEV_gb_materialize_89598_45'). Regenerate the downloads for this golden. (BHt8A2hXTuY7)
+  PASS: file endpoint: 401 for a public (not logged-in) caller
+  FAIL: the real downloads for the golden exist (qbook [standardDownloads]) — /Users/tqwhite/Documents/webdev/educoreForge/system/dataStores/downloadArtifacts/GOLD_EVAL_261023_zeroBacklog/downloads.json is absent: run educoreForge downloadArtifacts for this golden
+
+11 passed, 20 failed

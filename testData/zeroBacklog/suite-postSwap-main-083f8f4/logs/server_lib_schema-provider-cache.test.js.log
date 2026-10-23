@@ -1,0 +1,12 @@
+
+=== Schema Provider: text cached per passport (E2-4) ===
+
+  PASS: first call renders (no error)
+  PASS: 1. the second call on one passport answers the same text
+  PASS:    and runs only the passport read
+  PASS: 2. a changed passport (builtAt) renders afresh
+  PASS: 3. a graph with no passport renders on every call
+  PASS:    and so does a graph with two passports
+  PASS: 4. a second instance with the same passport renders its OWN graph
+
+7 passed, 0 failed

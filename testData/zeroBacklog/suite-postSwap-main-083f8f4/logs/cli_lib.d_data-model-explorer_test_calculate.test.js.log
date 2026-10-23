@@ -1,0 +1,22 @@
+
+=== A14 dme_calculate ===
+
+  PASS: --operation=percent --numberList=1117,1904 → result 58.66596638655462
+  PASS: --operation=sum --numberList=2324,1904,5018 → result 9246
+  PASS: --operation=count --numberList=3,3,3,3,3,3,3 → result 7
+  PASS: --operation=average --numberList=1,2,3,4 → result 2.5
+  PASS: --operation=minimum --numberList=-2,5,0.5 → result -2
+  PASS: --operation=maximum --numberList=-2,5,0.5 → result 5
+  PASS: --operation=difference --numberList=18585,2324 → result 16261
+  PASS: --operation=ratio --numberList=5420,16261 → result 0.333312834389029
+  PASS: --operation=median --numberList=1,2 → refused: unknownOperation
+  PASS: --operation=sum --numberList=1,117,x → refused: invalidNumberList
+  PASS: --operation=sum --numberList=12% → refused: invalidNumberList
+  PASS: --operation=percent --numberList=1,2,3 → refused: invalidNumberList
+  PASS: --operation=ratio --numberList=4,0 → refused: divisionByZero
+  PASS: --operation=sum --numberList= → refused: emptyNumberList
+  PASS: --operation=sum → refused: emptyNumberList
+  PASS: provider dme_calculate exists and its operation enum equals the declared operations
+
+=== A14 dme_calculate — Results: 16 passed, 0 failed ===
+

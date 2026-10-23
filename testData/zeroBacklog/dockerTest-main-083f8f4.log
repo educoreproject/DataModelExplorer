@@ -1,0 +1,19 @@
+
+=== W-E-12: no clone password in graph_state_versions ===
+
+  PASS: STRUCTURAL: the graph-state-version mapper maps no liveBoltPassword
+  PASS: STRUCTURAL: no server source reads liveBoltPassword off a row (setLive only refuses an offered one)
+  PASS: STRUCTURAL: clone-manager launches every clone with DME_CLONE_NEO4J_AUTH=neo4j/<password> (the write side of ruling B; not exercised live here: provisioning a clone quiesces the golden)
+  PASS: a throwaway database opens
+  PASS: a pre-W-E-12 row with a liveBoltPassword column is set up
+  PASS: the migration runs
+  PASS:   and says it dropped the retired column
+  PASS: the table has NO liveBoltPassword column afterwards
+  PASS:   and the row keeps its other values
+  PASS:   and the secret's bytes are nowhere in the database file (DROP COLUMN rewrites the table)
+  PASS: a second run is a no-op (idempotent)
+  PASS: a clone-shaped container: the credential comes from its DME_CLONE_NEO4J_AUTH
+  PASS: a container carrying no credential (a clone opened before W-E-12) is refused by name: reopen this graph
+
+=== Results: 13 passed, 0 failed ===
+

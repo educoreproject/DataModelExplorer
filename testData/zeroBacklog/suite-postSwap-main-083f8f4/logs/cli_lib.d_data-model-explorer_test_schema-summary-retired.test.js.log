@@ -1,0 +1,13 @@
+
+=== W-D-18 schema-summary.json and the legacy traversal path are retired ===
+
+  PASS: schema-summary.json is gone
+  PASS: traversal.generated.cypher is gone
+  PASS: schemaExporter.js is gone
+  PASS: traversalGenerator.js has no legacy path (no buildCypherQuery, isPureModelSchema or schemaPath)
+  PASS: indexDataModelExplorer -generateTraversal no longer exports a schema
+  PASS: generateTraversal (no schema) emits the one template, equal to traversal.cypher
+  PASS:   and writes no generated copy
+
+=== W-D-18 — Results: 7 passed, 0 failed ===
+

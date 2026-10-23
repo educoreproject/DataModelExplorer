@@ -1,0 +1,10 @@
+
+=== dme_structure: the guide layer describes itself (E1-2) ===
+
+  PASS: (a) the answer carries the root's layerUsageTips verbatim
+  PASS:     the class lookup reads the layer standard's declared identifier (a stub name, zzLayerNativeId), not a literal cedsId
+  PASS: (b) a guide root without layerUsageTips is refused by name (layerUsageTipsAbsent)
+  PASS: (c) a layer standard that declares no native identifier is refused by name
+  PASS: (d) provider.json no longer carries the layer's own sentence, and points at layerUsageTips
+
+5 passed, 0 failed

@@ -1,0 +1,14 @@
+
+=== W-E-3: the Slack relay answers askMilo's response, not its report; a cut-off answer is marked ===
+
+  PASS: max_tokens report → answerText is the response alone (no ==== banner, no PROMPT: echo)
+  PASS:   and answerCutOff true, stopReason max_tokens
+  PASS:   the relay asked askMilo for its JSON report (switches.json)
+  PASS: end_turn report → answerCutOff false
+  PASS: a non-JSON report is a failure by name, never relayed as an answer
+  PASS: an askMiloJsPathOverride that is not an existing file is refused by name
+  PASS: Slack blocks for a cut-off answer say so
+  PASS:   and a whole answer does not
+
+=== Results: 8 passed, 0 failed ===
+

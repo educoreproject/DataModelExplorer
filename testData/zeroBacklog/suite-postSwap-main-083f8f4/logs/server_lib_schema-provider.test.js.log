@@ -1,0 +1,52 @@
+
+=== Schema Provider Tests ===
+
+  PASS: Refuses by name when neo4jDb is absent
+  PASS: Renders without error (none)
+  PASS: Returns a non-empty string
+  PASS: Guidance names match relation EXACT_MATCH
+  PASS: Guidance names SKOS predicate exactMatch
+  PASS: Guidance names match relation CLOSE_MATCH
+  PASS: Guidance names SKOS predicate closeMatch
+  PASS: Guidance names match relation BROAD_MATCH
+  PASS: Guidance names SKOS predicate broadMatch
+  PASS: Guidance names match relation NARROW_MATCH
+  PASS: Guidance names SKOS predicate narrowMatch
+  PASS: Guidance explains mappingConfidence
+  PASS: Guidance explains mappingKind
+  PASS: Guidance explains mappingSource
+  PASS: Guidance names mappingSource 'bridge-debug' as the debug marker
+  PASS: Guidance prose does not describe provenanceTier (match edges no longer carry it)
+  PASS: Guidance says every match edge is a judgment
+  PASS: Guidance says relation and confidence are independent axes
+  PASS: Does not say "— authored crosswalk"
+  PASS: Does not say "Trust as fact"
+  PASS: Does not say "Deterministic/authoritative"
+  PASS: Does not say "confidence (1.0)"
+  PASS: Does not say "rerankScore"
+  PASS: Does not say "cosineScore"
+  PASS: Does not say "EXACT_MATCH (authored)"
+  PASS: Does not say "golden_vector"
+  PASS: Does not say "(plus `:golden`)"
+  PASS: Lists match-edge properties read from the live graph
+  PASS: Live listing omits a match type the graph does not hold
+  PASS: Has example queries that read match edges (found 3)
+  PASS: Every example that reads match edges reads all four relations
+  PASS: Every example that reads match edges returns mappingConfidence
+  PASS: one hub: the anchor sentence names it with its version
+  PASS: matchBasis is named as where the authority lies, with the live values
+  PASS: every example that reads match edges filters by hubName
+  PASS: a graph without HAS_TERM_REFERENCE / DECLARED_CORRESPONDENCE gets neither passage
+  PASS: the decomposition sentence names the graph's own slot edges, not a literal
+  PASS: two hubs: renders without error (none)
+  PASS: two hubs: "anchored on 2 hubs: CEDS 14.0.0.0, CTDL Release 20260327"
+  PASS: two hubs: each hub's card identifier in its own words
+  PASS: two hubs: hubs are peers and never chain
+  PASS: two hubs: both hubs' slot edges are listed
+  PASS: a slot edge the graph does not hold is not named (CTDL here holds no QUALIFIER edge)
+  PASS: a graph holding HAS_TERM_REFERENCE gets the term-tier passage
+  PASS: a graph holding DECLARED_CORRESPONDENCE is told it is NOT a match edge
+  PASS: a graph holding no :HubDefinition is refused by name
+
+=== Results: 46 passed, 0 failed ===
+

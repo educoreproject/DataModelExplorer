@@ -1,0 +1,27 @@
+
+=== W-E-5/6/7 the user layer reads graph-contract §14 ===
+
+BASELINE — the real modules pass every conjunct
+  PASS: a_linksByStableIdToDeclaredRoles — MATCH (u:UserContent {userNodeId:$userNodeId}) MATCH (s:ForgedNode {stableId:$standardStableId}) WHERE s.role IN $linkableRoleList MERGE (u)-[r:ALIGNS_WITH]->(s) SET r += $userEdgeStamp RETURN type(r)
+  PASS: b_retiredKeyRefusedByName — all four refused naming the retired key
+  PASS: c_matchRelationsRefused — 5 refused before any statement
+  PASS: d_userEdgesCarryTheDeclaredStamp — both verbs stamp exactly the declared fields; ownerless refused
+  PASS: e_userLayerIsTextOnly — no vector written; migration refused naming textOnly
+  PASS: f_reEmitCapturesByStampKeyedOnStableId — stamp capture, stableId endpoints, no vector, refusal
+  PASS: g_replayReadsRetiredKeyAndNormalizes — uri rewritten, legacy stamped, vectors stripped, three refusals
+  PASS: h_providerTextsNameTheContract — provider texts and CLI carry the contract
+  PASS: i_saveRecordsTheGoldenVersion — golden version recorded; passport-less save refused
+
+THE TWIN SWEEP — every conjunct OBSERVED RED under an in-memory double
+  PASS: every conjunct has exactly one twin — 9 twins for 9 conjuncts
+  PASS: a_linksByStableIdToDeclaredRoles observed RED under 'roleFilterDropped' — MATCH (u:UserContent {userNodeId:$userNodeId}) MATCH (s:ForgedNode {stableId:$standardStableId}) MERGE (u)-[r:ALIGNS_WITH]->(s) SET r += $userEdgeStamp RETURN type(r) AS relType, s.stableId AS targetS
+  PASS: b_retiredKeyRefusedByName observed RED under 'retiredPayloadAccepted' — call 0: 'connectToStandard: standardStableId is required' | call 1: 'connectToStandard: standardStableId is required'
+  PASS: c_matchRelationsRefused observed RED under 'matchRelationAllowed' — call 0: '' (1 statements) | call 1: '' (1 statements) | call 2: '' (1 statements) | call 3: '' (1 statements) | call 4: '' (1 statements)
+  PASS: d_userEdgesCarryTheDeclaredStamp observed RED under 'stampLacksUserAuthored' — err '', stamp fields [authoredAt,userEdgeRefId,userRefId] | err '', stamp fields [authoredAt,userEdgeRefId,userRefId]
+  PASS: e_userLayerIsTextOnly observed RED under 'vectorStampWritten' — cypher names a vector
+  PASS: f_reEmitCapturesByStampKeyedOnStableId observed RED under 'captureByEndpointLabel' — edges not captured by stamp
+  PASS: g_replayReadsRetiredKeyAndNormalizes observed RED under 'retiredKeyNotRewritten' — retired endpoint not rewritten | a statement still binds uri
+  PASS: h_providerTextsNameTheContract observed RED under 'cliSendsUri' — write CLI does not send standardStableId
+  PASS: i_saveRecordsTheGoldenVersion observed RED under 'goldenVersionNotRecorded' — goldenVersionAuthoredAgainst 'unrecorded' | script header lacks the golden version
+
+=== Results: 19 passed, 0 failed ===

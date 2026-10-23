@@ -1,0 +1,17 @@
+
+=== P4a: container connection failures are refused by name, transient ones with a retry hint ===
+
+  PASS: docker timed out: refused by name 'dockerInspectFailed'
+  PASS: docker daemon unreachable: refused by name 'dockerInspectFailed'
+  PASS: no such container: refused by name 'containerAbsent'
+  PASS: container exited: refused by name 'containerNotRunning'
+  PASS: container restarting: refused by name 'containerNotRunning'
+  PASS: running, no bolt port published: refused by name 'noPublishedBoltPort'
+  PASS: running, no credential: refused by name 'noCredential'
+  PASS: a running container with a bolt port and NEO4J_AUTH resolves (password split on the first slash), with ONE docker call
+  PASS: a transient failure is not memoized: the retry the hint asks for succeeds
+  PASS: LIVE: the declared golden 'GOLD_EVAL_261023_zeroBacklog' resolves
+  PASS: LIVE: a plain absent name is refused as containerAbsent
+
+=== Results: 11 passed, 0 failed ===
+

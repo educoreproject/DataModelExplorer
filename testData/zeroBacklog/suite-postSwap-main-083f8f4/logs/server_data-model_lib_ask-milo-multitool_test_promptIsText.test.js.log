@@ -1,0 +1,15 @@
+
+=== W-E-4: a positional argument is the question, never a file ===
+
+  PASS: a mock run whose only positional is an existing file path exits 0
+  PASS:   and its prompt IS that path, verbatim
+  PASS:   and the file's body appears nowhere in the report
+  PASS: --promptFile, the ONE named route, still reads the file
+  PASS: -help says a positional argument is always literal text
+  PASS:   and no longer advertises "askMilo [options] /path/to/prompt-file.txt"
+  PASS: the relay composes askMilo's input in one exported function (askMiloInputFor)
+  PASS:   whose ONE positional is the Slack text, verbatim
+  PASS:   and which carries NO promptFile (a Slack user can never name a file)
+
+=== Results: 9 passed, 0 failed ===
+

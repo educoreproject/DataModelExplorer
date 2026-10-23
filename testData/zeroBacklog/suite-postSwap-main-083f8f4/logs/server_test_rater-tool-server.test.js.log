@@ -1,0 +1,102 @@
+WARNING: finished with: /Users/tqwhite/Documents/webdev/educore/system/configs/instanceSpecific/qbook/raterTool.ini
+  PASS: a scratch admin account is made
+  PASS: admin adds rater-x on survey A
+  PASS: admin adds rater-y on survey A
+  PASS: admin adds rater-z on survey A
+T3.5 shuffle
+  PASS: rater-x reads all 50 items
+  PASS: two raters on survey A see the same 50 elements
+  PASS: two raters on survey A get different item orders
+  PASS: the same element shows the same cards to both
+  PASS: two raters get different card orders for that element
+  PASS: on reload rater-x gets the same item 1 and the same card order
+T3.6 never shown (items)
+  PASS: no item payload carries foundByMethod, a score, a rank, the split, the kind, a seed or a rater name
+  PASS: no suggested card in an item payload carries foundBy
+  PASS: survey A's 7 gold-injected items: each injected card is in the payload with exactly the keys of every other card
+  PASS: no item payload text says gold or injected
+T3.1 the save matrix
+  PASS: valid Best → saved
+  PASS: Best + 2 Same → saved
+  PASS: No match → saved
+  PASS: Unsure + note (with an apostrophe: it's) → saved
+  PASS: nothing → answerKindInvalid
+  PASS: Unsure without note → unsureWithoutNote
+  PASS: Same without Best → sameWithoutBest
+  PASS: Same on the Best card → sameOnBest
+  PASS: two Bests → bestNotOne
+  PASS: secondsOnItem not a non-negative number → secondsOnItemInvalid
+  PASS: searchesTyped not a list of text → searchesTypedInvalid
+  PASS: a card not in the list → bestNotInList
+  PASS: the Unsure note comes back exactly, apostrophes single (the sqlite-instance doubling trap)
+T3.7 search
+  PASS: CEDS ID P001572 → Person Identification › Person Identifier cards
+  PASS: …with their qualifiers (Student Identifier, Staff Member Identifier among them)
+  PASS: a words search ("birth date") returns cards
+  PASS: a meaning search returns cards
+  PASS: a malformed CEDS ID is refused by name (cedsIdInvalid)
+T3.6 never shown (search)
+  PASS: no search payload carries foundBy(Method), a score or a rank
+  PASS: a card added from Search can be saved as Best
+  PASS: an added card that is not a CEDS card in the gold is refused
+T3.8 browse
+  PASS: 8 concepts
+  PASS: their class counts sum to the class total with a concept (400 = 400; CEDS classes in all 402)
+  PASS: Claim → an empty class list, without error
+  PASS: Person → 92 classes, Person Identification among them
+  PASS: Person Identification → its cards, P001572 among them, with its concept for the breadcrumb
+  PASS: an unknown concept is refused by name (unknownConcept)
+T3.2 history
+  PASS: rater-y save 1
+  PASS: rater-y save 2
+  PASS: rater-y save 3
+  PASS: one current row
+  PASS: three history rows, in order (noMatch, cards, unsure; sequence 1, 2, 3)
+  PASS: the current row is the third save
+T3.12 left undone
+  PASS: progress lists every unsaved item, in item order (the items not in savedItemNumberList)
+  PASS: each unsaved item names its standard and element, the same as the item itself
+T3.4 isolation
+  PASS: rater-x asking (even naming rater-y) for the element rater-y answered sees no answer of rater-y's
+  PASS: …and nothing in the payload names rater-y
+  PASS: rater-x's save naming rater-y lands on rater-x, rater-y's answer is untouched
+  PASS: a rater calling the admin endpoint → 401
+  PASS: no token → 401
+  PASS: an admin with no rater record is refused by name on rater endpoints (notARater or 401)
+T3.3 lock
+  PASS: Finish before every item is saved is refused (notAllItemsSaved)
+  PASS: Finish after all 50 are saved
+  PASS: …and its progress lists nothing left undone
+  PASS: a save after Finish is refused (answersLocked)
+  PASS: rater-z's 50 answers are unchanged by the refused save
+T3.11 download
+  PASS: JSON: every saved answer (57 = 57 in the store)
+  PASS: JSON: every chosen card carries foundBy, and the added card says search
+  PASS: JSON: every answer carries its history (at least one entry, the last equal to the current answer)
+  PASS: JSON: no foundByMethod anywhere in the download either (it is the analysis field of suggested.json only)
+  PASS: CSV: one row per saved answer (57)
+  PASS: CSV: has bestFoundBy, sameCards, addedCards, historyCount and historyJson columns
+  PASS: CSV: the search-added card is there with [search]
+admin actions
+  PASS: survey change once answers exist is refused (surveyChangeWithAnswers)
+  PASS: password reset
+  PASS: the new password signs in
+  PASS: an add without a password issues one (shown once)
+  PASS: the issued password signs in
+T3.10 passwords stored hashed
+  PASS: no test password appears in 2 sqlite files
+  PASS: red twin: the same scan finds a known plain text the tool stored ("written by x")
+  PASS: admin removes rater-z
+  PASS: rater-z can no longer sign in
+  PASS: rater-z's rows are gone from the store
+T3.9 refuse by name
+  PASS: a server whose frozen inputs record another gold boots
+  PASS: …and its rater tool is ON, reading the DME's gold (provenance only, ruling E4)
+  PASS: a server naming a gold that does not exist boots
+  PASS: words search → raterGoldenContainerUnresolvable (HTTP 400, no cards)
+  PASS: meaning search → raterGoldenContainerUnresolvable (HTTP 400, no cards)
+  PASS: CEDS ID search → raterGoldenContainerUnresolvable (HTTP 400, no cards)
+  PASS: browse concepts → raterGoldenContainerUnresolvable (HTTP 400, no cards)
+  PASS: save with an added card → raterGoldenContainerUnresolvable (HTTP 400, no cards)
+
+=== rater-tool-server (Phase 3) — Results: 85 passed, 0 failed ===

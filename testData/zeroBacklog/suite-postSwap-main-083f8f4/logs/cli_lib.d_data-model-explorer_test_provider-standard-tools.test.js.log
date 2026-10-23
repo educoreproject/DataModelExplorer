@@ -1,0 +1,7 @@
+
+=== W-D-19 provider.json exposes per-standard tools only for live standards ===
+
+  PASS: no per-standard tool for a standard the graph does not hold (0 per-standard tool(s); live: 15 sources)
+
+=== W-D-19 provider.json exposes per-standard tools only for live standards — Results: 1 passed, 0 failed ===
+

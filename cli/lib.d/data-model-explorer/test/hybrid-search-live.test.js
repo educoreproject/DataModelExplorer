@@ -8,7 +8,7 @@
 //       the ct17 manifest: the vector leg alone did not have it in its 100 nearest (LEAInfoRefId copies crowd it out)
 //   (b) the payload says what it did: searchMode, legHitCountByName, rrfConstant, scoreUnitByField; every row carries
 //       foundByLegList and both legs' rank and score fields (null where a leg did not find it)
-//   (c) a paraphrase is not harmed: when the keyword leg finds nothing (it asks for every word), the hybrid page IS the
+//   (c) a paraphrase is not harmed: when the keyword leg finds nothing (it asks for every word), the hybrid page IS the (⟪lane zbE⟫ checked in one answer: vector rank order 1..n)
 //       vector page, row for row
 //   (d) -graphRetriever runs the same search: --searchMode=keyword --limit=3 on LEAInfo answers the class first, its
 //       traversal context attached and its provenance unchanged
@@ -43,7 +43,13 @@ taskList.push((args, next) => runVerb(['-search', 'when was the student born'], 
 	runVerb(['-search', 'when was the student born', '--searchMode=vector'], (vectorErr, vectorOutcome) => {
 		const vectorPayload = vectorOutcome.parsedStdout || {};
 		const stableIdListOf = (payload) => (payload.resultList || []).map((oneRow) => oneRow.stableId);
-		assert('(c) a paraphrase: the keyword leg found nothing (every word required), so the hybrid page IS the vector page, row for row', (hybridPayload.legHitCountByName || {}).keyword === 0 && stableIdListOf(hybridPayload).length > 0 && JSON.stringify(stableIdListOf(hybridPayload)) === JSON.stringify(stableIdListOf(vectorPayload)), `keyword hits ${(hybridPayload.legHitCountByName || {}).keyword}; hybrid ${rowSummaryOf(hybridPayload.resultList)} vs vector ${rowSummaryOf(vectorPayload.resultList)}`);
+		// ⟪lane zbE⟫ the two calls embed the query SEPARATELY, and the query embedder does not answer byte-identically every
+		// time (measured on GOLD_EVAL_261023_zeroBacklog: two alternating embeddings, scores apart by ~0.001, so near-tie
+		// rows swap and the page edge moves). So 'the hybrid page IS the vector page' is checked inside ONE answer: every
+		// hybrid row was found by the vector leg alone, in vector rank order 1..n; and the two pages share their top row.
+		const hybridRowList = hybridPayload.resultList || [];
+		const vectorOrderedPage = hybridRowList.length > 0 && hybridRowList.every((oneRow, rowIndex) => JSON.stringify(oneRow.foundByLegList) === '["vector"]' && oneRow.vectorRank === rowIndex + 1 && oneRow.keywordRank === null);
+		assert('(c) a paraphrase: the keyword leg found nothing (every word required), so the hybrid page is the vector leg\'s page, in vector rank order, and both pages share their top row', (hybridPayload.legHitCountByName || {}).keyword === 0 && vectorOrderedPage && stableIdListOf(hybridPayload)[0] === stableIdListOf(vectorPayload)[0], `keyword hits ${(hybridPayload.legHitCountByName || {}).keyword}; hybrid ${rowSummaryOf(hybridPayload.resultList)} vs vector ${rowSummaryOf(vectorPayload.resultList)}`);
 		next('', args);
 	}, cliFilePath);
 }, cliFilePath));

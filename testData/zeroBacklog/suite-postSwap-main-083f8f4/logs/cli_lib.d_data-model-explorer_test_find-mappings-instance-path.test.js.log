@@ -1,0 +1,13 @@
+
+=== P4a Q9: findMappings finds an instance whose meaning is in its path ===
+
+  PASS: every one of 29808 DmeInstance nodes carries relativePath or path (none silently unsearchable)
+  PASS: 'race': the SIF objects holding a matched instance EQUAL the 12 the Cypher finds
+  PASS:   and its matchedInstanceGroupCount says how many
+  PASS:   and matchedInstanceCount equals the 61 SIF Fields (Cypher) — the Code, Proportion and @Codeset Fields under Race among them
+  PASS:   matchedNodeCount (353) = name matches (282) + instancePathMatchedNodeCount (71)
+  PASS: 'StudentPersonal' (SIF260928): matched instances 141 (Cypher, group root excluded), not all 15620 under the group root
+  PASS: 'CollegeTranscript' (PESC-CollegeTranscript-1.8.0): matched instances 0 (Cypher, group root excluded), not all 1367 under the group root
+
+=== P4a Q9: findMappings finds an instance whose meaning is in its path — Results: 7 passed, 0 failed ===
+

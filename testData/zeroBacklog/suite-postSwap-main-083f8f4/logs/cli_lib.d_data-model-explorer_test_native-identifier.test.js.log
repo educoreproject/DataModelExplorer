@@ -1,0 +1,15 @@
+native-identifier — BASELINE
+  PASS: a_declarationsRead
+  PASS: b_unstampedRefused
+  PASS: c_grammarRefused
+  PASS: d_sourceIdentifierCypher
+  PASS: e_lookupNames
+native-identifier — findMappings on stub graphs
+  PASS: f_findMappingsRefusesUnstamped: refused by name, and no search ran
+  PASS: f_findMappingsLooksUpDeclaredNames: n.cedsId, n.metaEdId and n.uri are lookup fields; nothingMatched lists them
+native-identifier — TWIN SWEEP (each observed RED)
+  PASS: b_unstampedRefused observed RED under 'unstampedCheckRemoved'
+  PASS: c_grammarRefused observed RED under 'grammarCheckRemoved'
+  PASS: d_sourceIdentifierCypher observed RED under 'perStandardCaseRemoved'
+
+10 passed, 0 failed

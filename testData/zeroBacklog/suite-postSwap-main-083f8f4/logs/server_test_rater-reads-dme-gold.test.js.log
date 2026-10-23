@@ -1,0 +1,10 @@
+
+=== E4: the CEDS Rater reads the DME's gold ===
+
+  PASS: 1. with no gold of its own and the DME's gold passed in, the rater tool is on
+  PASS:    and reads the DME's gold
+  PASS: 2. without the DME's gold it refuses by name, naming the DME's setting
+  PASS: 3. no rater source names the retired pin (raterTool.goldenContainerName, frozenInputsFromAnotherGold)
+  PASS:    and no raterTool.ini under /Users/tqwhite/Documents/webdev/educore/system/configs carries goldenContainerName
+
+=== rater-reads-dme-gold — Results: 5 passed, 0 failed ===
