@@ -291,7 +291,8 @@ const moduleFunction =
 		taskList.push((args, next) => {
 			const { sqlDbGen, dataModelLogInfoList } = args;
 			const { initRaterToolAccess } = require('./lib/rater-tool/rater-tool-access');
-			initRaterToolAccess({ raterToolConfig: getConfig('raterTool'), sqlDbGen, dataMapping: args.dataMapping }, (raterError, raterToolAccess) => {
+			// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer), never a gold of its own
+			initRaterToolAccess({ raterToolConfig: getConfig('raterTool'), goldenContainerName: (getConfig('dataModelExplorerSearch') || {}).goldenContainerName, sqlDbGen, dataMapping: args.dataMapping }, (raterError, raterToolAccess) => {
 				if (raterError) {
 					next(raterError, args);
 					return;

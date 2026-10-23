@@ -4,11 +4,12 @@
 // access points as `raterToolAccess` (lane RATER, 2026-10-14):
 //   - the rater store: its own sqlite file (raterTool.storeFilePath), created on first start;
 //   - the frozen inputs: sample.json and suggested.json from raterTool.frozenInputDirPath, never recomputed;
-//   - the named gold: raterTool.goldenContainerName, opened on first use and kept; while it cannot be reached every graph
-//     read is refused by name (and retried on the next request), never answered from another graph;
+//   - the gold: THE DME's configured gold (dataModelExplorerSearch.goldenContainerName, the golden pointer), passed in as
+//     goldenContainerName; ⟪lane zbE, E4, TQ ruling 2026-10-23⟫ the rater no longer pins a gold of its own. Opened on first
+//     use and kept; while it cannot be reached every graph read is refused by name (and retried on the next request);
 //   - the query embedder for meaning search.
 //
-//   initRaterToolAccess({ raterToolConfig, sqlDbGen, dataMapping }, callback(errText, raterToolAccess))
+//   initRaterToolAccess({ raterToolConfig, goldenContainerName, sqlDbGen, dataMapping }, callback(errText, raterToolAccess))
 //
 // raterToolAccess:
 //   setupRefusal                          null, or { refusalName, refusalText } when the tool cannot run at all
@@ -23,8 +24,8 @@ const path = require('path');
 const { openRaterGraph } = require('./rater-graph');
 const { createRaterEmbedder } = require('./rater-embedder');
 
-const RATER_SETUP_REFUSAL_NAME_LIST = Object.freeze(['raterToolNotConfigured', 'raterConfigInvalid', 'frozenInputsAbsent', 'frozenInputsFromAnotherGold']);
-const REQUIRED_CONFIG_NAME_LIST = Object.freeze(['goldenContainerName', 'storeFilePath', 'frozenInputDirPath', 'queryTimeoutMs']);
+const RATER_SETUP_REFUSAL_NAME_LIST = Object.freeze(['raterToolNotConfigured', 'raterConfigInvalid', 'frozenInputsAbsent']);
+const REQUIRED_CONFIG_NAME_LIST = Object.freeze(['storeFilePath', 'frozenInputDirPath', 'queryTimeoutMs']);
 const STORE_TABLE_NAME_BY_ROLE = Object.freeze({ raters: 'raters', answers: 'answers', answerHistory: 'answerHistory', searchLog: 'searchLog' });
 // the store's columns, declared: sqlite-instance adds a column only on a table's first save of it, so a query on a fresh
 // store would fail with 'no such column'. ensureStoreColumns adds any declared column a table lacks, at start-up.
@@ -75,7 +76,7 @@ const setupRefusalOf = (refusalName, refusalText) => {
 	return { setupRefusal: { refusalName, refusalText: `CEDS Rater: ${refusalText}` } };
 };
 
-const readFrozenInputs = ({ frozenInputDirPath, goldenContainerName }) => {
+const readFrozenInputs = ({ frozenInputDirPath }) => {
 	const sampleFilePath = path.join(frozenInputDirPath, 'sample.json');
 	const suggestedFilePath = path.join(frozenInputDirPath, 'suggested.json');
 	const absentFilePathList = [sampleFilePath, suggestedFilePath].filter((filePath) => !fs.existsSync(filePath));
@@ -84,10 +85,8 @@ const readFrozenInputs = ({ frozenInputDirPath, goldenContainerName }) => {
 	}
 	const sampleDocument = JSON.parse(fs.readFileSync(sampleFilePath, 'utf8'));
 	const suggestedDocument = JSON.parse(fs.readFileSync(suggestedFilePath, 'utf8'));
-	const mismatchList = [sampleDocument.goldenContainerName, suggestedDocument.goldenContainerName].filter((builtFromName) => builtFromName !== goldenContainerName);
-	if (mismatchList.length > 0) {
-		return setupRefusalOf('frozenInputsFromAnotherGold', `the frozen inputs were built from '${mismatchList[0]}' but raterTool.goldenContainerName is '${goldenContainerName}'. One gold for the whole rating period: rebuild the inputs or correct the config.`);
-	}
+	// the frozen documents still record the gold they were BUILT from (provenance); the tool reads the DME's gold, and
+	// raterGraphCorrectnessCheck.js (testData/zeroBacklog/e4) proved every frozen item reads identically on both
 	const elementByStableId = sampleDocument.elementList.reduce((soFar, element) => ({ ...soFar, [element.elementStableId]: element }), {});
 	const elementListBySurvey = sampleDocument.surveyNameList.reduce((soFar, surveyName) => ({
 		...soFar,
@@ -96,7 +95,7 @@ const readFrozenInputs = ({ frozenInputDirPath, goldenContainerName }) => {
 	return { sampleDocument, suggestedDocument, elementByStableId, elementListBySurvey, surveyNameList: sampleDocument.surveyNameList };
 };
 
-const initRaterToolAccess = ({ raterToolConfig, sqlDbGen, dataMapping }, callback) => {
+const initRaterToolAccess = ({ raterToolConfig, goldenContainerName, sqlDbGen, dataMapping }, callback) => {
 	if (!raterToolConfig) {
 		callback('', setupRefusalOf('raterToolNotConfigured', 'this server has no [raterTool] configuration (raterTool.ini merged into startApiServer.ini), so the rater tool is off here.'));
 		return;
@@ -109,7 +108,11 @@ const initRaterToolAccess = ({ raterToolConfig, sqlDbGen, dataMapping }, callbac
 		callback('', setupRefusalOf('raterConfigInvalid', `[raterTool] is missing or has unresolved ${missingNameList.join(', ') || 'queryTimeoutMs (a positive number)'}.`));
 		return;
 	}
-	const frozenInputs = readFrozenInputs({ frozenInputDirPath: raterToolConfig.frozenInputDirPath, goldenContainerName: raterToolConfig.goldenContainerName });
+	if (isAbsent(goldenContainerName)) {
+		callback('', setupRefusalOf('raterConfigInvalid', 'the DME names no gold (dataModelExplorerSearch.goldenContainerName, from _goldenContainer.ini); the rater reads the DME\'s gold and has none of its own.'));
+		return;
+	}
+	const frozenInputs = readFrozenInputs({ frozenInputDirPath: raterToolConfig.frozenInputDirPath });
 	if (frozenInputs.setupRefusal) {
 		callback('', frozenInputs);
 		return;
@@ -131,7 +134,7 @@ const initRaterToolAccess = ({ raterToolConfig, sqlDbGen, dataMapping }, callbac
 				graphCallback('', { raterGraph: openedRaterGraph });
 				return;
 			}
-			openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, queryTimeoutMs }, (openError, openResult) => {
+			openRaterGraph({ goldenContainerName, queryTimeoutMs }, (openError, openResult) => {
 				if (openError) {
 					graphCallback(openError);
 					return;
@@ -152,7 +155,7 @@ const initRaterToolAccess = ({ raterToolConfig, sqlDbGen, dataMapping }, callbac
 		};
 		callback('', {
 			setupRefusal: null,
-			goldenContainerName: raterToolConfig.goldenContainerName,
+			goldenContainerName,
 			storeFilePath: raterToolConfig.storeFilePath,
 			...frozenInputs,
 			getStoreTable,

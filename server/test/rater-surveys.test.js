@@ -23,6 +23,8 @@ const CODE_PATH = path.join(__dirname, '..', '..');
 const FROZEN_INPUT_DIR_PATH = path.join(CODE_PATH, 'cli', 'lib.d', 'rater-tool', 'frozenInputs');
 const configFileProcessor = require(require.resolve('qtools-config-file-processor', { paths: [path.join(__dirname, '..')] }));
 const realRaterToolConfig = configFileProcessor.getConfig('raterTool.ini', path.join(CODE_PATH, '..', 'configs', 'instanceSpecific', 'qbook') + '/', { resolve: true }).raterTool;
+// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer; GOLDEN_CONTAINER overrides), not a gold of its own
+const DME_GOLDEN_CONTAINER_NAME = require('./lib/goldenContainerName').readGoldenContainerName();
 
 let passCount = 0;
 let failCount = 0;
@@ -83,7 +85,7 @@ const ADMIN_PASSWORD = 'harbor lantern quietly 4471';
 const RATER_SURVEY_BY_NAME = { 'sv-a1': 'A', 'sv-a2': 'A', 'sv-a3': 'A', 'sv-b1': 'B', 'sv-b2': 'B' };
 const RATER_PASSWORD_BY_NAME = { 'sv-a1': 'amber meadow falcon 2210', 'sv-a2': 'cobalt river thistle 9081', 'sv-a3': 'saffron glacier pivot 5532', 'sv-b1': 'violet canyon ember 7714', 'sv-b2': 'linen harbor quartz 3307' };
 const WHO_TEXT_OF = (raterUserName) => `Surveys Test ${raterUserName}`;
-const raterToolConfig = { goldenContainerName: realRaterToolConfig.goldenContainerName, storeFilePath: path.join(scratchDirPath, 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey };
+const raterToolConfig = { storeFilePath: path.join(scratchDirPath, 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey };
 
 const postAs = (state, routePath, requestBody, authtoken, callback) => httpPost({ baseUrl: state.baseUrl, routePath, requestBody, authtoken }, (postError, response) => callback(postError ? { statusCode: 0, bodyText: postError, bodyJson: null } : response));
 // a tiny sequential runner, as in rater-results.test.js: each step is (state, next(nextState))
@@ -168,7 +170,7 @@ const serverStepList = [
 	},
 ];
 
-bootRaterServer({ scratchDirPath, raterToolConfig }, (bootError, harness) => {
+bootRaterServer({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, scratchDirPath, raterToolConfig }, (bootError, harness) => {
 	if (bootError) {
 		check('the harness boots', false, bootError);
 		finish(null);

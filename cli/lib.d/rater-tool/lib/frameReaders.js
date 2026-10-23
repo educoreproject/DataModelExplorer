@@ -23,6 +23,9 @@
 
 const OPTION_VALUE_SAMPLE_SIZE = 12;
 // revision 2: an element is MAPPED when a member (PESC: a member's occurrence) has any of the four match edges
+// ⟪lane zbE, E4⟫ the CEDS Rater's frame counts a member mapped only by an edge into a CEDS card: on a gold with a second hub
+// (CTDL, judged since zeroBacklog B3) an edge into a CTDL card is not a CEDS mapping
+const CEDS_HUB_NAME_TEXT = "'CEDS'";
 const MAPPING_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 
 const EDFI_FRAME_CYPHER = `
@@ -33,7 +36,7 @@ const EDFI_FRAME_CYPHER = `
 	OPTIONAL MATCH (optionSet)-[:HAS_VALUE]->(optionValue)
 	WITH owner, property, sharedType, optionSet, optionValue ORDER BY optionValue.name
 	WITH owner, property, sharedType, optionSet, collect(optionValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
-	RETURN property.stableId AS memberStableId, EXISTS { (property)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference) } AS memberIsMapped, property.name AS name, property.description AS definition,
+	RETURN property.stableId AS memberStableId, EXISTS { (property)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference {hubName: ${CEDS_HUB_NAME_TEXT}}) } AS memberIsMapped, property.name AS name, property.description AS definition,
 	       property.propertyType AS propertyType, sharedType.name AS sharedTypeName, optionSet.name AS optionSetName, optionValueSampleList,
 	       owner.name AS ownerName, owner.description AS ownerDefinition, property.path AS pathText
 	ORDER BY memberStableId`;
@@ -46,7 +49,7 @@ const SIF_FRAME_CYPHER = `
 	OPTIONAL MATCH (codeset)-[:HAS_VALUE]->(codesetValue)
 	WITH field, parentField, codeset, codesetValue ORDER BY codesetValue.name
 	WITH field, parentField, codeset, collect(codesetValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
-	RETURN field.stableId AS memberStableId, EXISTS { (field)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference) } AS memberIsMapped, field.sharedBlock AS sharedBlock, field.name AS name, field.description AS definition, field.type AS fieldTypeName,
+	RETURN field.stableId AS memberStableId, EXISTS { (field)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference {hubName: ${CEDS_HUB_NAME_TEXT}}) } AS memberIsMapped, field.sharedBlock AS sharedBlock, field.name AS name, field.description AS definition, field.type AS fieldTypeName,
 	       codeset.name AS optionSetName, optionValueSampleList, field.objectName AS objectName, field.parentPath AS parentPath,
 	       parentField.name AS parentFieldName, parentField.description AS parentFieldDefinition, field.xpath AS pathText
 	ORDER BY memberStableId`;
@@ -60,7 +63,7 @@ const PESC_FRAME_CYPHER = `
 	WITH owner, element, dataType, codeList, codeValue ORDER BY codeValue.name
 	WITH owner, element, dataType, codeList, collect(codeValue.name)[0..${OPTION_VALUE_SAMPLE_SIZE}] AS optionValueSampleList
 	// a PESC declaration is mapped through its occurrences in the message (stableId <declaration>/at/...)
-	OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH element.stableId + '/at/' AND (occurrence)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference)
+	OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH element.stableId + '/at/' AND (occurrence)-[:${MAPPING_EDGE_TYPE_TEXT}]->(:HubReference {hubName: ${CEDS_HUB_NAME_TEXT}})
 	WITH owner, element, dataType, codeList, optionValueSampleList, count(occurrence) > 0 AS memberIsMapped
 	RETURN element.stableId AS memberStableId, memberIsMapped, element.reachableFromRoot AS reachableFromRoot, element.name AS name, element.effectiveDocumentation AS definition, element.typeName AS pescTypeName,
 	       dataType.baseTypeQName AS baseTypeQName, codeList.name AS optionSetName, optionValueSampleList,

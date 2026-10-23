@@ -15,13 +15,16 @@
 
 const MEMBER_RULE_CYPHER_BY_NAME = Object.freeze({
 	memberCarriesEdge: (edgeTypeText) => `UNWIND $memberStableIdList AS memberStableId
-		MATCH (member:ForgedNode {stableId: memberStableId})-[:${edgeTypeText}]->(tuple:HubReference)
+		MATCH (member:ForgedNode {stableId: memberStableId})-[:${edgeTypeText}]->(tuple:HubReference {hubName: 'CEDS'})
 		RETURN DISTINCT tuple.stableId AS cedsTupleId, tuple.referenceTier AS referenceTier ORDER BY cedsTupleId`,
 	occurrencesCarryEdge: (edgeTypeText) => `UNWIND $memberStableIdList AS memberStableId
 		MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH memberStableId + '/at/'
-		MATCH (occurrence)-[:${edgeTypeText}]->(tuple:HubReference)
+		MATCH (occurrence)-[:${edgeTypeText}]->(tuple:HubReference {hubName: 'CEDS'})
 		RETURN DISTINCT tuple.stableId AS cedsTupleId, tuple.referenceTier AS referenceTier ORDER BY cedsTupleId`,
 });
+
+// ⟪lane zbE, E4⟫ only CEDS cards are gold for the CEDS Rater: on a gold with a second hub an element's CTDL cards (B3) must
+// never be injected into a CEDS candidate list
 
 // relationship types cannot be Cypher parameters, so they are checked to be plain type names before they are spliced in
 const EDGE_TYPE_NAME_PATTERN = /^[A-Z][A-Z_]*$/;

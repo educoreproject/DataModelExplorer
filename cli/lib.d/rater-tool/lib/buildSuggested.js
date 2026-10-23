@@ -15,7 +15,7 @@
 // reused when present for the same model and query text, so a rebuild never depends on the embedding service answering
 // identically twice (the frozen inputs are frozen).
 //
-//   buildSuggested({ raterToolConfig, outputDirPath, readConfigJson }, callback(errText, resultText))
+//   buildSuggested({ raterToolConfig, goldenContainerName, outputDirPath, readConfigJson }, callback(errText, resultText))
 
 const fs = require('fs');
 const path = require('path');
@@ -148,7 +148,7 @@ const mergeCandidateLists = ({ rankedTupleIdListByMethod, cardByTupleId, suggest
 	return { cardList, goldTupleIdList: sortedGoldTupleIdList, goldInjectedTupleIdList, mergeCountList };
 };
 
-const buildSuggested = ({ raterToolConfig, outputDirPath, readConfigJson }, callback) => {
+const buildSuggested = ({ raterToolConfig, goldenContainerName, outputDirPath, readConfigJson }, callback) => {
 	const { xLog } = process.global;
 	const suggestRules = readConfigJson('suggestRules.json');
 	const sampleFilePath = path.join(outputDirPath, 'sample.json');
@@ -183,7 +183,7 @@ const buildSuggested = ({ raterToolConfig, outputDirPath, readConfigJson }, call
 	const taskList = new taskListPlus();
 
 	taskList.push((args, next) => {
-		openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, queryTimeoutMs: parseInt(raterToolConfig.queryTimeoutMs, 10) }, (openError, openResult) => {
+		openRaterGraph({ goldenContainerName, queryTimeoutMs: parseInt(raterToolConfig.queryTimeoutMs, 10) }, (openError, openResult) => {
 			if (openError) {
 				next(openError, args);
 				return;
@@ -194,7 +194,7 @@ const buildSuggested = ({ raterToolConfig, outputDirPath, readConfigJson }, call
 			}
 			if (openResult.raterGraph.goldenContainerName !== sampleDocument.goldenContainerName) {
 				openResult.raterGraph.close();
-				next(`sample.json was drawn from '${sampleDocument.goldenContainerName}' but raterTool.ini names '${openResult.raterGraph.goldenContainerName}'; the frozen inputs must come from one gold`, args);
+				next(`sample.json was drawn from '${sampleDocument.goldenContainerName}' but the DME's gold is '${openResult.raterGraph.goldenContainerName}'; one build's frozen inputs must come from one gold (rebuild the sample on this gold first)`, args);
 				return;
 			}
 			next('', { ...args, raterGraph: openResult.raterGraph });

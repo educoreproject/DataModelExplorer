@@ -1,0 +1,51 @@
+T2.1 determinism
+  NOT APPLICABLE: two fresh runs give identical suggested.json — the frozen lists were built on GOLD_EVAL_261013_jevQuestionPerBridge; the DME's gold is GOLD_EVAL_261023_zeroBacklog
+  NOT APPLICABLE: the committed frozenInputs/suggested.json is exactly what the code builds — the frozen lists were built on GOLD_EVAL_261013_jevQuestionPerBridge; the DME's gold is GOLD_EVAL_261023_zeroBacklog
+T2.2 list sizes
+  PASS: one list per sampled element (150)
+  PASS: every list holds 1..20 cards
+    distribution (cards: elements): {"15":1,"16":1,"17":1,"18":2,"19":1,"20":144}
+T2.3 no identical cards in a list
+  PASS: no two cards in one list share class + property + qualifiers
+  PASS: no tuple id appears on two cards of one list
+T2.4 qualifiers kept and labelled
+  PASS: at least one sample list holds two cards differing only by qualifier
+  PASS: in every such list each card is kept and its qualifier label tells it apart
+merge red twins (no graph)
+  PASS: identical cards (t1, t2) collapse into one that remembers both tuple ids and both methods
+  PASS: a qualifier-only difference (t1 vs t3) is NOT collapsed
+  PASS: the cap holds, and interleaving gives words 1 a slot before meaning 2
+revision 3 merge red twins: gold injection (no graph)
+  PASS: no gold: the list is the search-built list (s1, s2, s3), nothing injected or displaced
+  PASS: one gold tuple off the list: injected as a card with the same fields; the LAST-ranked non-gold card (s3) leaves
+  PASS: a gold tuple already on the list (s3, ranked last) is never displaced; the next non-gold (s2) leaves instead; only g1 counts as injected
+  PASS: a gold tuple ranked by a search but beyond the cap (s4) is brought on, keeps its foundByMethod, and counts as injected
+  PASS: gold cards alone past the cap: all three kept, no non-gold card, goldCardOverCapCount 1
+  PASS: a gold tuple identical to a listed card (same class + property + qualifiers) joins that card instead of becoming a second one
+  PASS: an absent goldTupleIdList, or a gold tuple with no card, is refused by name (never quietly treated as no gold)
+revision 3 gates on the built suggested.json (against revision 2 at 1005e1d)
+  PASS: 120 mapped and 30 unmapped entries
+  PASS: no list is longer than 20 (no gold-over-cap case arose), and cardCount = the list length
+  PASS: every unmapped entry is byte-identical to revision 2 (30/30), and carries no gold field
+  PASS: every mapped entry carries goldTupleIdList (non-empty) and goldInjectedTupleIdList
+  PASS: every mapped list = revision 2 list − displaced non-gold cards + injected gold cards; kept cards byte-identical; goldInjectedTupleIdList = gold tuples not on revision 2's list
+    mapped items touched: 14; items whose revision 2 list held no gold tuple: 10
+revision 3: a sample element without a true/false isMappedInGold is refused by name, never treated as unmapped
+  NOT APPLICABLE: the build exits 1 naming isMappedInGold — the frozen lists were built on GOLD_EVAL_261013_jevQuestionPerBridge; the DME's gold is GOLD_EVAL_261023_zeroBacklog
+T2.5 card text matches the graph (10 seeded cards, this test's own Cypher)
+  PASS: Professional Development Activity → Professional Development Activity Approval End Date: property tier, every field equal
+  PASS: Credential Award → Has Credential Revoked Indicator: property tier, every field equal
+  PASS: Person Military → Military Current Rank: property tier, every field equal
+  PASS: Organization Financial → Financial Accounting Value: property tier, every field equal
+  PASS: Learning Resource → Learning Resource Subject Code System: property tier, every field equal
+  PASS: Person Degree Or Certificate → Name of Institution: property tier, every field equal
+  PASS: Person → Has Person Birth: property tier, every field equal
+  PASS: Role Attendance Event → Has Attendance Event Type: property tier, every field equal
+  PASS: Person Citizenship → Has United States Citizenship Status: property tier, every field equal
+  PASS: Person Name → Personal Title or Prefix: property tier, every field equal
+revision 3: every gold tuple of every mapped element is on its list (this test's own Cypher)
+  PASS: all 120 mapped items: every gold tuple (130 in all) is on the item's list
+  PASS: goldTupleIdList in suggested.json equals the gold read here, item for item
+  PASS: every gold tuple is property-tier (a card)
+
+=== raterSuggested (Phase 2) — Results: 34 passed, 0 failed, 3 not applicable on this gold ===

@@ -4,9 +4,10 @@
 // sqlite-instance (scratch files), data-mapping, password hashing, the user access points (user-by-username, user-login,
 // admin-create-user, host-params), the rater access points, the token middleware exactly as startApiServer wires it
 // (app-value-manager → hasValidToken → refreshauthtoken), the login endpoint, and the rater endpoints. Only the
-// configuration is the test's own. The gold is whatever raterToolConfig names (the real one, or a wrong one on purpose).
+// configuration is the test's own. The gold is whatever goldenContainerName names (⟪lane zbE, E4⟫ the DME's gold, as the
+// server passes it; or a wrong one on purpose).
 //
-//   bootRaterServer({ scratchDirPath, raterToolConfig }, callback(errText, { baseUrl, accessPointByName, raterToolAccess, close }))
+//   bootRaterServer({ scratchDirPath, raterToolConfig, goldenContainerName }, callback(errText, { baseUrl, accessPointByName, raterToolAccess, close }))
 //   httpPost({ baseUrl, routePath, requestBody, authtoken }, callback(errText, { statusCode, bodyText, bodyJson, authtoken }))
 
 const fs = require('fs');
@@ -42,7 +43,7 @@ const installProcessGlobal = () => {
 	};
 };
 
-const bootRaterServer = ({ scratchDirPath, raterToolConfig }, callback) => {
+const bootRaterServer = ({ scratchDirPath, raterToolConfig, goldenContainerName }, callback) => {
 	installProcessGlobal();
 	const express = require(require.resolve('express', { paths: [SERVER_PATH] }));
 	const bodyParser = require(require.resolve('body-parser', { paths: [SERVER_PATH] }));
@@ -63,7 +64,7 @@ const bootRaterServer = ({ scratchDirPath, raterToolConfig }, callback) => {
 			callback(`harness: seeding users: ${tableError || seedError}`);
 			return;
 		}
-		initRaterToolAccess({ raterToolConfig, sqlDbGen, dataMapping }, (accessError, raterToolAccess) => {
+		initRaterToolAccess({ raterToolConfig, goldenContainerName, sqlDbGen, dataMapping }, (accessError, raterToolAccess) => {
 			if (accessError) {
 				callback(`harness: rater tool access: ${accessError}`);
 				return;

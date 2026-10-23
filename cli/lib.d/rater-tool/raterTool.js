@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-// raterTool.js — the CEDS Rater's two build scripts (lane RATER, 2026-10-14). Both read the ONE gold named in
-// raterTool.ini [raterTool] goldenContainerName, read-only, and write frozen files the tool reads but never recomputes.
+// raterTool.js — the CEDS Rater's two build scripts (lane RATER, 2026-10-14). Both read the DME's gold (⟪lane zbE, E4⟫
+// dataModelExplorerSearch.ini's goldenContainerName, from _goldenContainer.ini: the rater pins no gold of its own),
+// read-only, and write frozen files the tool reads but never recomputes.
 //   -buildSample      the 150-element sample (50 Ed-Fi, 50 SIF, 50 PESC) dealt into surveys A, B, C, plus the 25/25
 //                     dev/sealed split: sample.json and sample-report.md
 //   -buildSuggested   each sampled element's candidate CEDS cards (15 by meaning + 15 by words, merged, capped at 20,
@@ -27,8 +28,9 @@ SYNOPSIS
     raterTool.js -help
 
 DESCRIPTION
-    Reads the gold named in raterTool.ini [raterTool] goldenContainerName (resolved by name through docker; refused by
-    name if it cannot be reached) and writes deterministic JSON: the same gold and seed give byte-identical files.
+    Reads the DME's gold, dataModelExplorerSearch.ini [dataModelExplorerSearch] goldenContainerName (merged from
+    _goldenContainer.ini; resolved by name through docker; refused by name if it cannot be reached), and writes
+    deterministic JSON: the same gold and seed give byte-identical files.
 
 ACTIONS
     -buildSample      Build each standard's frame of leaf elements, classify each element's kind, exclude the 13
@@ -56,7 +58,8 @@ EXIT STATUS
     0 on success or help; 1 when the build fails or is refused (the reason is printed).
 
 FILES
-    configs/instanceSpecific/<instance>/raterTool.ini   goldenContainerName, frozenInputDirPath, queryTimeoutMs, voyageApiKey
+    configs/instanceSpecific/<instance>/raterTool.ini   frozenInputDirPath, queryTimeoutMs, voyageApiKey
+    configs/instanceSpecific/<instance>/dataModelExplorerSearch.ini   goldenContainerName (the DME's gold)
     cli/lib.d/rater-tool/config/raterDraw.json           seed, counts, PESC releases, survey composition
     cli/lib.d/rater-tool/config/sampleExclusionList.json the 13 excluded elements
     cli/lib.d/rater-tool/config/kindRuleRegistry.json    how an element's kind is read from its type
@@ -74,6 +77,8 @@ const { switches = {}, values = {} } = commandLineParameters;
 const configDirPathByHostname = Object.freeze({ 'qMini.local': 'instanceSpecific/qbook', 'qbook.local': 'instanceSpecific/qbook' });
 const configDirPath = `${projectRoot}/configs/${configDirPathByHostname[os.hostname()] || ''}/`;
 const allConfig = configFileProcessor.getConfig('raterTool.ini', configDirPath, { resolve: true }) || {};
+// the DME's gold, read where the DME reads it
+const dmeGoldenContainerName = ((configFileProcessor.getConfig('dataModelExplorerSearch.ini', configDirPath, { resolve: true }) || {}).dataModelExplorerSearch || {}).goldenContainerName;
 
 process.global = Object.freeze({
 	xLog: Object.freeze({ status: (messageText) => process.stderr.write(`${messageText}\n`), error: (messageText) => process.stderr.write(`ERROR: ${messageText}\n`), result: (messageText) => process.stdout.write(`${messageText}\n`), verbose: () => {} }),
@@ -109,9 +114,13 @@ const runRaterTool = (callback) => {
 		callback(`no output directory: pass --outputDirPath or set raterTool.ini [raterTool] frozenInputDirPath (got ${JSON.stringify(outputDirPath)})`);
 		return;
 	}
+	if (!dmeGoldenContainerName) {
+		callback(`the DME names no gold: ${configDirPath}dataModelExplorerSearch.ini has no [dataModelExplorerSearch] goldenContainerName (merged from _goldenContainer.ini)`);
+		return;
+	}
 	fs.mkdirSync(outputDirPath, { recursive: true });
 	const readConfigJson = (configFileName) => JSON.parse(fs.readFileSync(path.join(__dirname, 'config', configFileName), 'utf8'));
-	ACTION_BY_NAME[requestedActionNameList[0]]({ raterToolConfig, outputDirPath, readConfigJson }, callback);
+	ACTION_BY_NAME[requestedActionNameList[0]]({ raterToolConfig, goldenContainerName: dmeGoldenContainerName, outputDirPath, readConfigJson }, callback);
 };
 
 runRaterTool((err, resultText) => {

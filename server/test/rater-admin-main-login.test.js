@@ -21,6 +21,8 @@ const CODE_PATH = path.join(__dirname, '..', '..');
 const FROZEN_INPUT_DIR_PATH = path.join(CODE_PATH, 'cli', 'lib.d', 'rater-tool', 'frozenInputs');
 const configFileProcessor = require(require.resolve('qtools-config-file-processor', { paths: [path.join(__dirname, '..')] }));
 const realRaterToolConfig = configFileProcessor.getConfig('raterTool.ini', path.join(CODE_PATH, '..', 'configs', 'instanceSpecific', 'qbook') + '/', { resolve: true }).raterTool;
+// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer; GOLDEN_CONTAINER overrides), not a gold of its own
+const DME_GOLDEN_CONTAINER_NAME = require('./lib/goldenContainerName').readGoldenContainerName();
 
 let passCount = 0;
 let failCount = 0;
@@ -35,7 +37,7 @@ const check = (testName, condition, detailText) => {
 };
 
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'raterAdminMainLoginTest-'));
-const raterToolConfig = { goldenContainerName: realRaterToolConfig.goldenContainerName, storeFilePath: path.join(scratchDirPath, 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey };
+const raterToolConfig = { storeFilePath: path.join(scratchDirPath, 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey };
 
 // main-site accounts, made through the real admin-create-user access point as /admin's Add/Edit User does; passwords are
 // made per run (no password literals in tests: noContainerLiterals.test.js)
@@ -130,7 +132,7 @@ const finish = (harness) => {
 	process.exit(failCount === 0 ? 0 : 1);
 };
 
-bootRaterServer({ scratchDirPath, raterToolConfig }, (bootError, harness) => {
+bootRaterServer({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, scratchDirPath, raterToolConfig }, (bootError, harness) => {
 	if (bootError) {
 		check('the harness boots', false, bootError);
 		finish(null);

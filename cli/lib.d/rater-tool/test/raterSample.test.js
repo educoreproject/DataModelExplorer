@@ -107,15 +107,15 @@ drawConfig.standardNameList.forEach((standardName) => {
 // T1.3 needs the gold: the excluded elements' own texts, read by this test's Cypher, never found in the sample
 console.log('T1.3 exclusions (against the gold)');
 process.global = { xLog: { status: () => {}, error: () => {}, verbose: () => {} } };
-const configFileProcessor = require('qtools-config-file-processor');
-const raterToolConfig = configFileProcessor.getConfig('raterTool.ini', path.join(__dirname, '..', '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook') + '/', { resolve: true }).raterTool;
+// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer; GOLDEN_CONTAINER overrides), as raterTool.js does
+const DME_GOLDEN_CONTAINER_NAME = require(path.join(__dirname, '..', '..', '..', '..', 'server', 'test', 'lib', 'goldenContainerName')).readGoldenContainerName();
 const { openRaterGraph } = require('../../../../server/data-model/lib/rater-tool/rater-graph');
 const EXCLUSION_TEXT_CYPHER_BY_STANDARD = {
 	'Ed-Fi': 'MATCH (p:EdfiProperty {path: $edFiPath}) RETURN p.name AS name, p.description AS definition',
 	SIF: 'MATCH (f:Sif260928Field {xpath: $sifXpath}) RETURN f.name AS name, f.description AS definition, f.type AS typeName',
 	PESC: 'MATCH (e:DmeProperty {_source: $pescSourceName, name: $elementName}) WHERE e.effectiveDocumentation = $definition RETURN e.name AS name, e.effectiveDocumentation AS definition',
 };
-openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, queryTimeoutMs: 30000 }, (openError, openResult) => {
+openRaterGraph({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, queryTimeoutMs: 30000 }, (openError, openResult) => {
 	if (openError || openResult.refusal) {
 		check('the named gold opens', false, openError || openResult.refusal.refusalText);
 		finish();
@@ -125,10 +125,10 @@ openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, query
 	// revision 2, against the gold with this test's own Cypher: every member's data-type marker and its mapping
 	const MEMBER_TRUTH_CYPHER = `UNWIND $memberStableIdList AS memberStableId
 		MATCH (member:ForgedNode {stableId: memberStableId})
-		OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH member.stableId + '/at/' AND (occurrence)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference)
+		OPTIONAL MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH member.stableId + '/at/' AND (occurrence)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference {hubName: 'CEDS'})
 		WITH member, count(occurrence) AS mappedOccurrenceCount
 		RETURN member.stableId AS memberStableId, member.sharedBlock AS sharedBlock, member.reachableFromRoot AS reachableFromRoot,
-		       EXISTS { (member)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) } OR mappedOccurrenceCount > 0 AS isMapped`;
+		       EXISTS { (member)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference {hubName: 'CEDS'}) } OR mappedOccurrenceCount > 0 AS isMapped`;
 	// red twins: a SIF field in the shared SIF_Metadata block and an unreachable PESC declaration, planted below
 	const PLANTED_SIF_SHARED_MEMBER = 'sif260928:field/AccountingPeriods/AccountingPeriod/SIF_Metadata/EducationFilter/BloomsTaxonomyLevels/BloomsTaxonomyLevel';
 	const PLANTED_PESC_UNREACHABLE_MEMBER = 'pesccollegetranscript1v8v0:group/urn:org:pesc:core:CoreMain:v1.19.0#OrganizationIDGroup/el/10:CSIS';

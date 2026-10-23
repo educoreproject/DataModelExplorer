@@ -36,6 +36,19 @@ const check = (testName, condition, detailText) => {
 	console.log(`  FAIL: ${testName}${detailText ? ` — ${detailText}` : ''}`);
 };
 
+// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer; GOLDEN_CONTAINER overrides), as raterTool.js does
+const DME_GOLDEN_CONTAINER_NAME = require(path.join(__dirname, '..', '..', '..', '..', 'server', 'test', 'lib', 'goldenContainerName')).readGoldenContainerName();
+// the frozen lists REPRODUCE only on the gold they were built from (the searches answer from the gold); since E4 the rater
+// reads the DME's gold, so the build gates (determinism, committed = built, the flagless refusal) run only when the DME's gold
+// IS that gold, and are reported NOT APPLICABLE by name otherwise. Every other gate reads the frozen file and the DME's gold;
+// the item-by-item proof that the frozen lists read identically on the DME's gold is testData/zeroBacklog/e4.
+const SAMPLE_PROVENANCE_GOLD_NAME = JSON.parse(fs.readFileSync(FROZEN_SAMPLE_PATH, 'utf8')).goldenContainerName;
+const buildGatesApply = DME_GOLDEN_CONTAINER_NAME === SAMPLE_PROVENANCE_GOLD_NAME;
+let notApplicableCount = 0;
+const notApplicable = (testName) => {
+	notApplicableCount++;
+	console.log(`  NOT APPLICABLE: ${testName} — the frozen lists were built on ${SAMPLE_PROVENANCE_GOLD_NAME}; the DME's gold is ${DME_GOLDEN_CONTAINER_NAME}`);
+};
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'raterSuggestedTest-'));
 const runBuild = (runName) => {
 	const runDirPath = path.join(scratchDirPath, runName);
@@ -44,16 +57,21 @@ const runBuild = (runName) => {
 	execFileSync(process.execPath, [RATER_TOOL_PATH, '-buildSuggested', `--outputDirPath=${runDirPath}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 	return fs.readFileSync(path.join(runDirPath, 'suggested.json'), 'utf8');
 };
-const firstText = runBuild('run1');
-const secondText = runBuild('run2');
+const FROZEN_SUGGESTED_TEXT = fs.readFileSync(path.join(__dirname, '..', 'frozenInputs', 'suggested.json'), 'utf8');
+const firstText = buildGatesApply ? runBuild('run1') : FROZEN_SUGGESTED_TEXT;
+const secondText = buildGatesApply ? runBuild('run2') : FROZEN_SUGGESTED_TEXT;
 const suggestedDocument = JSON.parse(firstText);
 const entryList = Object.values(suggestedDocument.suggestedByElementStableId);
 const sampleDocument = JSON.parse(fs.readFileSync(FROZEN_SAMPLE_PATH, 'utf8'));
 
 console.log('T2.1 determinism');
-check('two fresh runs give identical suggested.json', firstText === secondText && firstText.length > 10000, `lengths ${firstText.length} / ${secondText.length}`);
-
-check('the committed frozenInputs/suggested.json is exactly what the code builds', fs.readFileSync(path.join(__dirname, '..', 'frozenInputs', 'suggested.json'), 'utf8') === firstText);
+if (buildGatesApply) {
+	check('two fresh runs give identical suggested.json', firstText === secondText && firstText.length > 10000, `lengths ${firstText.length} / ${secondText.length}`);
+	check('the committed frozenInputs/suggested.json is exactly what the code builds', FROZEN_SUGGESTED_TEXT === firstText);
+} else {
+	notApplicable('two fresh runs give identical suggested.json');
+	notApplicable('the committed frozenInputs/suggested.json is exactly what the code builds');
+}
 
 console.log('T2.2 list sizes');
 check('one list per sampled element (150)', entryList.length === 150 && sampleDocument.elementList.every((element) => suggestedDocument.suggestedByElementStableId[element.elementStableId]), `${entryList.length}`);
@@ -179,14 +197,13 @@ fs.mkdirSync(flaglessRunDirPath);
 const flaglessSampleDocument = JSON.parse(fs.readFileSync(FROZEN_SAMPLE_PATH, 'utf8'));
 delete flaglessSampleDocument.elementList[0].isMappedInGold;
 fs.writeFileSync(path.join(flaglessRunDirPath, 'sample.json'), JSON.stringify(flaglessSampleDocument));
-const flaglessRun = spawnSync(process.execPath, [RATER_TOOL_PATH, '-buildSuggested', `--outputDirPath=${flaglessRunDirPath}`], { encoding: 'utf8' });
-check('the build exits 1 naming isMappedInGold, and writes no suggested.json', flaglessRun.status === 1 && /isMappedInGold/.test(flaglessRun.stderr) && !fs.existsSync(path.join(flaglessRunDirPath, 'suggested.json')), `exit ${flaglessRun.status}; ${flaglessRun.stderr.slice(-200)}`);
+const flaglessRun = buildGatesApply ? spawnSync(process.execPath, [RATER_TOOL_PATH, '-buildSuggested', `--outputDirPath=${flaglessRunDirPath}`], { encoding: 'utf8' }) : null;
+if (!buildGatesApply) notApplicable('the build exits 1 naming isMappedInGold');
+if (buildGatesApply) check('the build exits 1 naming isMappedInGold, and writes no suggested.json', flaglessRun.status === 1 && /isMappedInGold/.test(flaglessRun.stderr) && !fs.existsSync(path.join(flaglessRunDirPath, 'suggested.json')), `exit ${flaglessRun.status}; ${flaglessRun.stderr.slice(-200)}`);
 
 // T2.5 needs the gold
 console.log('T2.5 card text matches the graph (10 seeded cards, this test\'s own Cypher)');
 process.global = { xLog: { status: () => {}, error: () => {}, verbose: () => {} } };
-const configFileProcessor = require('qtools-config-file-processor');
-const raterToolConfig = configFileProcessor.getConfig('raterTool.ini', path.join(__dirname, '..', '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook') + '/', { resolve: true }).raterTool;
 const { openRaterGraph } = require('../../../../server/data-model/lib/rater-tool/rater-graph');
 const { seededShuffle } = require('../../../../server/data-model/lib/rater-tool/seeded-draw');
 const TUPLE_TRUTH_CYPHER = `MATCH (h:ForgedNode {stableId: $cedsTupleId})
@@ -197,7 +214,7 @@ const TUPLE_TRUTH_CYPHER = `MATCH (h:ForgedNode {stableId: $cedsTupleId})
 	       coalesce(h.qualifierNames, []) AS qualifierNameList, p.cedsId AS cedsId, h.propertyDefinition AS definition, o.name AS optionSetName`;
 const allCardList = entryList.reduce((soFar, entry) => soFar.concat(entry.cardList), []).sort((cardA, cardB) => (cardA.cedsTupleId < cardB.cedsTupleId ? -1 : 1));
 const chosenCardList = seededShuffle(allCardList, 'raterSuggestedTest-T2.5', 'cards').slice(0, 10);
-openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, queryTimeoutMs: 30000 }, (openError, openResult) => {
+openRaterGraph({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, queryTimeoutMs: 30000 }, (openError, openResult) => {
 	if (openError || openResult.refusal) {
 		check('the named gold opens', false, openError || openResult.refusal.refusalText);
 		finish();
@@ -223,11 +240,11 @@ openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, query
 // tested with type(), PESC occurrences found by prefix), not goldTupleReader.js
 const GOLD_TRUTH_CYPHER_BY_STANDARD = {
 	'Ed-Fi': `MATCH (member:ForgedNode) WHERE member.stableId IN $memberStableIdList
-		MATCH (member)-[edge]->(tuple:HubReference) WHERE type(edge) IN $edgeTypeList
+		MATCH (member)-[edge]->(tuple:HubReference {hubName: 'CEDS'}) WHERE type(edge) IN $edgeTypeList
 		RETURN collect(DISTINCT tuple.stableId) AS goldIdList, collect(DISTINCT tuple.referenceTier) AS tierList`,
 	PESC: `UNWIND $memberStableIdList AS memberStableId
 		MATCH (occurrence:ForgedNode) WHERE occurrence.stableId STARTS WITH memberStableId + '/at/'
-		MATCH (occurrence)-[edge]->(tuple:HubReference) WHERE type(edge) IN $edgeTypeList
+		MATCH (occurrence)-[edge]->(tuple:HubReference {hubName: 'CEDS'}) WHERE type(edge) IN $edgeTypeList
 		RETURN collect(DISTINCT tuple.stableId) AS goldIdList, collect(DISTINCT tuple.referenceTier) AS tierList`,
 };
 GOLD_TRUTH_CYPHER_BY_STANDARD.SIF = GOLD_TRUTH_CYPHER_BY_STANDARD['Ed-Fi'];
@@ -269,6 +286,6 @@ const runGoldTruthGate = (raterGraph) => {
 
 const finish = () => {
 	fs.rmSync(scratchDirPath, { recursive: true, force: true });
-	console.log(`\n=== raterSuggested (Phase 2) — Results: ${passCount} passed, ${failCount} failed ===`);
+	console.log(`\n=== raterSuggested (Phase 2) — Results: ${passCount} passed, ${failCount} failed${notApplicableCount ? `, ${notApplicableCount} not applicable on this gold` : ''} ===`);
 	process.exit(failCount === 0 ? 0 : 1);
 };

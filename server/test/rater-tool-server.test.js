@@ -10,7 +10,7 @@
 //   T3.6  never shown: item and search payloads carry no foundByMethod / score / rank / split / kind / other rater
 //   T3.7  search: CEDS ID P001572 → Person Identifier cards with qualifiers; words → cards; meaning → cards
 //   T3.8  browse: 8 concepts whose counts sum to the class total; Claim → an empty list, no error; a class → its cards
-//   T3.9  refuse by name: a config naming another gold → frozenInputsFromAnotherGold; a named gold that does not
+//   T3.9  frozen inputs recording another gold still run (E4: the rater reads the DME gold); a named gold that does not
 //         exist → raterGoldenContainerUnresolvable on every graph read; never data from another graph
 //   T3.10 passwords hashed: the test passwords appear in no sqlite file
 //   T3.11 download: JSON and CSV carry every saved answer, with foundBy and history
@@ -27,6 +27,8 @@ const CODE_PATH = path.join(__dirname, '..', '..');
 const FROZEN_INPUT_DIR_PATH = path.join(CODE_PATH, 'cli', 'lib.d', 'rater-tool', 'frozenInputs');
 const configFileProcessor = require(require.resolve('qtools-config-file-processor', { paths: [path.join(__dirname, '..')] }));
 const realRaterToolConfig = configFileProcessor.getConfig('raterTool.ini', path.join(CODE_PATH, '..', 'configs', 'instanceSpecific', 'qbook') + '/', { resolve: true }).raterTool;
+// ⟪lane zbE, E4⟫ the rater reads the DME's gold (the golden pointer; GOLDEN_CONTAINER overrides), not a gold of its own
+const DME_GOLDEN_CONTAINER_NAME = require('./lib/goldenContainerName').readGoldenContainerName();
 
 let passCount = 0;
 let failCount = 0;
@@ -44,7 +46,7 @@ const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'raterServerTest-')
 const ADMIN_PASSWORD = 'harbor lantern quietly 4471';
 const RESET_PASSWORD = 'indigo pebble harvest 6620';
 const RATER_PASSWORD_BY_NAME = { 'rater-x': 'amber meadow falcon 2210', 'rater-y': 'cobalt river thistle 9081', 'rater-z': 'saffron glacier pivot 5532' };
-const configOf = (overrideObject) => ({ goldenContainerName: realRaterToolConfig.goldenContainerName, storeFilePath: path.join(scratchDirPath, 'main', 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey, ...overrideObject });
+const configOf = (overrideObject) => ({ storeFilePath: path.join(scratchDirPath, 'main', 'rater.sqlite3'), frozenInputDirPath: FROZEN_INPUT_DIR_PATH, queryTimeoutMs: realRaterToolConfig.queryTimeoutMs, voyageApiKey: realRaterToolConfig.voyageApiKey, ...overrideObject });
 
 // a tiny sequential runner: each step is (state, next(state)); a thrown or failed step stops with a FAIL line
 const runSteps = (stepList, finalStep) => {
@@ -78,7 +80,7 @@ const login = (state, userName, password, callback) => post(state, '/api/login',
 const stepList = [
 	// ---------------------------------------------------------------- boot, admin, three raters
 	(state, next) =>
-		bootRaterServer({ scratchDirPath: path.join(scratchDirPath, 'main'), raterToolConfig: configOf({}) }, (bootError, harness) => {
+		bootRaterServer({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, scratchDirPath: path.join(scratchDirPath, 'main'), raterToolConfig: configOf({}) }, (bootError, harness) => {
 			if (bootError) {
 				check('the harness boots', false, bootError);
 				finish(state);
@@ -476,14 +478,20 @@ const stepList = [
 	// ---------------------------------------------------------------- T3.9 refuse by name
 	(state, next) => {
 		console.log('T3.9 refuse by name');
-		bootRaterServer({ scratchDirPath: path.join(scratchDirPath, 'otherGold'), raterToolConfig: configOf({ goldenContainerName: 'GOLD_EVAL_raterTest_noSuchContainer', storeFilePath: path.join(scratchDirPath, 'otherGold', 'rater.sqlite3') }) }, (bootError, harness) => {
-			check('a server whose config names another gold still boots', !bootError, bootError);
-			check('…and its rater tool is off with frozenInputsFromAnotherGold', harness && harness.raterToolAccess.setupRefusal && harness.raterToolAccess.setupRefusal.refusalName === 'frozenInputsFromAnotherGold');
-			harness.accessPointByName['rater-search']({ raterUserName: 'anyone', elementStableId: 'x', searchMode: 'words', queryText: 'birth' }, (searchError, searchAnswer) => {
-				check('…and its search refuses by that name, returning no cards', !searchError && searchAnswer.refusal && searchAnswer.refusal.refusalName === 'frozenInputsFromAnotherGold' && !searchAnswer.cardList);
-				harness.close();
-				next(state);
-			});
+		// ⟪lane zbE, E4, TQ ruling 2026-10-23⟫ the rater reads the DME's gold; frozen inputs that RECORD another gold (their
+		// build provenance) no longer turn the tool off: frozenInputsFromAnotherGold is retired, and the correctness check
+		// (testData/zeroBacklog/e4) proved every frozen item reads identically on the old rater gold and the DME's
+		const provenanceCopyDirPath = path.join(scratchDirPath, 'otherGoldFrozen');
+		fs.mkdirSync(provenanceCopyDirPath, { recursive: true });
+		['sample.json', 'suggested.json'].forEach((fileName) => {
+			const frozenDocument = JSON.parse(fs.readFileSync(path.join(FROZEN_INPUT_DIR_PATH, fileName), 'utf8'));
+			fs.writeFileSync(path.join(provenanceCopyDirPath, fileName), JSON.stringify({ ...frozenDocument, goldenContainerName: 'GOLD_EVAL_raterTest_someOtherGold' }));
+		});
+		bootRaterServer({ goldenContainerName: DME_GOLDEN_CONTAINER_NAME, scratchDirPath: path.join(scratchDirPath, 'otherGold'), raterToolConfig: configOf({ frozenInputDirPath: provenanceCopyDirPath, storeFilePath: path.join(scratchDirPath, 'otherGold', 'rater.sqlite3') }) }, (bootError, harness) => {
+			check('a server whose frozen inputs record another gold boots', !bootError, bootError);
+			check('…and its rater tool is ON, reading the DME\'s gold (provenance only, ruling E4)', harness && harness.raterToolAccess.setupRefusal === null && harness.raterToolAccess.goldenContainerName === DME_GOLDEN_CONTAINER_NAME, harness && JSON.stringify(harness.raterToolAccess.setupRefusal));
+			harness.close();
+			next(state);
 		});
 	},
 	(state, next) => {
@@ -494,7 +502,7 @@ const stepList = [
 			const frozenDocument = JSON.parse(fs.readFileSync(path.join(FROZEN_INPUT_DIR_PATH, fileName), 'utf8'));
 			fs.writeFileSync(path.join(frozenCopyDirPath, fileName), JSON.stringify({ ...frozenDocument, goldenContainerName: 'GOLD_EVAL_raterTest_noSuchContainer' }));
 		});
-		bootRaterServer({ scratchDirPath: path.join(scratchDirPath, 'unreachable'), raterToolConfig: configOf({ goldenContainerName: 'GOLD_EVAL_raterTest_noSuchContainer', frozenInputDirPath: frozenCopyDirPath, storeFilePath: path.join(scratchDirPath, 'unreachable', 'rater.sqlite3') }) }, (bootError, harness) => {
+		bootRaterServer({ goldenContainerName: 'GOLD_EVAL_raterTest_noSuchContainer', scratchDirPath: path.join(scratchDirPath, 'unreachable'), raterToolConfig: configOf({ frozenInputDirPath: frozenCopyDirPath, storeFilePath: path.join(scratchDirPath, 'unreachable', 'rater.sqlite3') }) }, (bootError, harness) => {
 			check('a server naming a gold that does not exist boots', !bootError, bootError);
 			harness.accessPointByName['admin-create-user']({ username: 'test-admin', password: ADMIN_PASSWORD, first: 'Test', last: 'Admin', emailAdr: 'test-admin@example.org', role: 'admin' }, () => {
 				const unreachableState = { baseUrl: harness.baseUrl };

@@ -1,6 +1,7 @@
 'use strict';
 
-// rater-graph.js — the CEDS Rater's ONE way to reach a graph: the container NAMED in raterTool.goldenContainerName,
+// rater-graph.js — the CEDS Rater's ONE way to reach a graph: the container NAMED by the DME's gold (⟪lane zbE, E4⟫
+// dataModelExplorerSearch.goldenContainerName, passed in by the caller),
 // resolved by container-connection-resolver, opened read-only. Used by the server (data-model.js) and by the
 // rater-tool CLI scripts, so both read the same frozen gold the same way.
 //
@@ -24,7 +25,7 @@ const refusalOf = (refusalName, refusalText) => {
 
 const openRaterGraph = ({ goldenContainerName, queryTimeoutMs, resolveConnection = resolveContainerConnection }, callback) => {
 	if (typeof goldenContainerName !== 'string' || goldenContainerName.trim() === '') {
-		callback('', refusalOf('raterGoldenContainerNotConfigured', 'raterTool.goldenContainerName is not configured; the tool reads only the gold it names, and names none.'));
+		callback('', refusalOf('raterGoldenContainerNotConfigured', 'no gold was named (the DME\'s dataModelExplorerSearch.goldenContainerName); the tool reads only the DME\'s gold, and none was given.'));
 		return;
 	}
 	if (!Number.isFinite(queryTimeoutMs) || queryTimeoutMs <= 0) {

@@ -1,0 +1,112 @@
+T1.1 determinism
+  PASS: two runs with the same seed give byte-identical sample.json
+T1.2 counts
+  PASS: 150 elements in all
+  PASS: Ed-Fi: exactly 50
+  PASS: SIF: exactly 50
+  PASS: PESC: exactly 50
+  PASS: survey A: exactly 50
+  PASS: survey A Ed-Fi: count in {16, 17}
+  PASS: survey A SIF: count in {16, 17}
+  PASS: survey A PESC: count in {16, 17}
+  PASS: survey B: exactly 50
+  PASS: survey B Ed-Fi: count in {16, 17}
+  PASS: survey B SIF: count in {16, 17}
+  PASS: survey B PESC: count in {16, 17}
+  PASS: survey C: exactly 50
+  PASS: survey C Ed-Fi: count in {16, 17}
+  PASS: survey C SIF: count in {16, 17}
+  PASS: survey C PESC: count in {16, 17}
+T1.4 no duplicates
+  PASS: no elementStableId appears twice
+  PASS: no two SIF/PESC elements share name + definition + type
+T1.5 strata (revision 2: per part, mapped 40 / unmapped 10)
+  PASS: Ed-Fi mapped: exactly 40
+  PASS: Ed-Fi mapped identifier: drawn 4 >= 4 (frame 41)
+  PASS: Ed-Fi mapped code: drawn 15 >= 4 (frame 230)
+  PASS: Ed-Fi mapped dateTime: drawn 5 >= 4 (frame 85)
+  PASS: Ed-Fi mapped number: drawn 6 >= 4 (frame 87)
+  PASS: Ed-Fi mapped indicator: drawn 4 >= 4 (frame 46)
+  PASS: Ed-Fi mapped freeText: drawn 6 >= 4 (frame 96)
+  PASS: Ed-Fi unmapped: exactly 10
+  PASS: Ed-Fi unmapped identifier: drawn 1 >= 0 (frame 22)
+  PASS: Ed-Fi unmapped code: drawn 3 >= 0 (frame 94)
+  PASS: Ed-Fi unmapped dateTime: drawn 2 >= 0 (frame 51)
+  PASS: Ed-Fi unmapped number: drawn 1 >= 0 (frame 33)
+  PASS: Ed-Fi unmapped indicator: drawn 1 >= 0 (frame 32)
+  PASS: Ed-Fi unmapped freeText: drawn 2 >= 0 (frame 77)
+  PASS: Ed-Fi: population counts recorded (mapped 585, unmapped 309)
+  PASS: SIF mapped: exactly 40
+  PASS: SIF mapped identifier: drawn 6 >= 4 (frame 146)
+  PASS: SIF mapped code: drawn 4 >= 4 (frame 67)
+  PASS: SIF mapped dateTime: drawn 7 >= 4 (frame 180)
+  PASS: SIF mapped number: drawn 4 >= 4 (frame 75)
+  PASS: SIF mapped indicator: drawn 4 >= 4 (frame 29)
+  PASS: SIF mapped freeText: drawn 15 >= 4 (frame 359)
+  PASS: SIF unmapped: exactly 10
+  PASS: SIF unmapped identifier: drawn 2 >= 0 (frame 84)
+  PASS: SIF unmapped code: drawn 0 >= 0 (frame 12)
+  PASS: SIF unmapped dateTime: drawn 1 >= 0 (frame 62)
+  PASS: SIF unmapped number: drawn 1 >= 0 (frame 57)
+  PASS: SIF unmapped indicator: drawn 1 >= 0 (frame 17)
+  PASS: SIF unmapped freeText: drawn 5 >= 0 (frame 223)
+  PASS: SIF: population counts recorded (mapped 856, unmapped 455)
+  PASS: PESC mapped: exactly 40
+  PASS: PESC mapped identifier: drawn 4 >= 4 (frame 30)
+  PASS: PESC mapped code: drawn 7 >= 4 (frame 115)
+  PASS: PESC mapped dateTime: drawn 4 >= 4 (frame 61)
+  PASS: PESC mapped number: drawn 4 >= 4 (frame 34)
+  PASS: PESC mapped indicator: drawn 4 >= 4 (frame 5)
+  PASS: PESC mapped freeText: drawn 17 >= 4 (frame 221)
+  PASS: PESC unmapped: exactly 10
+  PASS: PESC unmapped identifier: drawn 1 >= 0 (frame 21)
+  PASS: PESC unmapped code: drawn 3 >= 0 (frame 100)
+  PASS: PESC unmapped dateTime: drawn 1 >= 0 (frame 28)
+  PASS: PESC unmapped number: drawn 0 >= 0 (frame 21)
+  PASS: PESC unmapped indicator: drawn 0 >= 0 (frame 16)
+  PASS: PESC unmapped freeText: drawn 5 >= 0 (frame 180)
+  PASS: PESC: population counts recorded (mapped 466, unmapped 366)
+revision 2 frame rules
+  PASS: no element name begins with @
+  PASS: every element lists its member stable ids
+T1.6 completeness
+  PASS: every element has name, definition (or null + reason), type, path, owner name
+T1.7 split
+  PASS: Ed-Fi: 25 dev / 25 sealed
+  PASS: SIF: 25 dev / 25 sealed
+  PASS: PESC: 25 dev / 25 sealed
+T1.3 exclusions (against the gold)
+  PASS: every member (436, two planted) is in the gold
+  PASS: red twin: a planted SIF_Metadata field is seen by the shared-block check
+  PASS: red twin: a planted unreachable PESC declaration is seen by the reachability check
+  PASS: no SIF element has a member in a shared data-type block (sharedBlock other than model)
+  PASS: no PESC element has a member unreachable from the message root
+  PASS: isMappedInGold equals the gold for every element (any member, PESC through its occurrences)
+  PASS: Ed-Fi Staff.BirthDate: in the gold (1 rows) and absent from the sample
+  PASS: Ed-Fi Staff.BirthDate: red twin — planted in the sample, the check finds it
+  PASS: Ed-Fi ObjectiveAssessment.AcademicSubject: in the gold (1 rows) and absent from the sample
+  PASS: Ed-Fi ObjectiveAssessment.AcademicSubject: red twin — planted in the sample, the check finds it
+  PASS: Ed-Fi Course.CourseTitle: in the gold (1 rows) and absent from the sample
+  PASS: Ed-Fi Course.CourseTitle: red twin — planted in the sample, the check finds it
+  PASS: Ed-Fi StudentSchoolAssociation.ExitWithdrawDate: in the gold (1 rows) and absent from the sample
+  PASS: Ed-Fi StudentSchoolAssociation.ExitWithdrawDate: red twin — planted in the sample, the check finds it
+  PASS: Ed-Fi StudentSchoolAssociation.ClassOfSchoolYear: in the gold (1 rows) and absent from the sample
+  PASS: Ed-Fi StudentSchoolAssociation.ClassOfSchoolYear: red twin — planted in the sample, the check finds it
+  PASS: PESC PESC-CollegeTranscript-1.8.0 OrganizationName: in the gold (7 rows) and absent from the sample
+  PASS: PESC PESC-CollegeTranscript-1.8.0 OrganizationName: red twin — planted in the sample, the check finds it
+  PASS: SIF /StudentPersonals/StudentPersonal/ELL/@Codeset: in the gold (1 rows) and absent from the sample
+  PASS: SIF /StudentPersonals/StudentPersonal/ELL/@Codeset: red twin — planted in the sample, the check finds it
+  PASS: PESC PESC-CollegeTranscript-1.8.0 CourseCreditEarned: in the gold (2 rows) and absent from the sample
+  PASS: PESC PESC-CollegeTranscript-1.8.0 CourseCreditEarned: red twin — planted in the sample, the check finds it
+  PASS: SIF /StudentPersonals/StudentPersonal/@RefId: in the gold (1 rows) and absent from the sample
+  PASS: SIF /StudentPersonals/StudentPersonal/@RefId: red twin — planted in the sample, the check finds it
+  PASS: SIF /StudentPersonals/StudentPersonal/LocalId: in the gold (1 rows) and absent from the sample
+  PASS: SIF /StudentPersonals/StudentPersonal/LocalId: red twin — planted in the sample, the check finds it
+  PASS: PESC PESC-CollegeTranscript-1.8.0 AcademicAwardTitle: in the gold (3 rows) and absent from the sample
+  PASS: PESC PESC-CollegeTranscript-1.8.0 AcademicAwardTitle: red twin — planted in the sample, the check finds it
+  PASS: SIF /StudentPersonals/StudentPersonal/CohortYear: in the gold (1 rows) and absent from the sample
+  PASS: SIF /StudentPersonals/StudentPersonal/CohortYear: red twin — planted in the sample, the check finds it
+  PASS: PESC PESC-CollegeTranscript-1.8.0 DocumentID: in the gold (2 rows) and absent from the sample
+  PASS: PESC PESC-CollegeTranscript-1.8.0 DocumentID: red twin — planted in the sample, the check finds it
+
+=== raterSample (Phase 1) — Results: 102 passed, 0 failed ===

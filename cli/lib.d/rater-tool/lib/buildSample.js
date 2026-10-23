@@ -2,7 +2,7 @@
 
 // buildSample.js — the -buildSample action: frames → kinds → exclusions → draw → split → deal → sample.json + report.
 //
-//   buildSample({ raterToolConfig, outputDirPath, readConfigJson }, callback(errText, resultText))
+//   buildSample({ raterToolConfig, goldenContainerName, outputDirPath, readConfigJson }, callback(errText, resultText))
 
 const fs = require('fs');
 const path = require('path');
@@ -17,14 +17,14 @@ const SAMPLE_ELEMENT_FIELD_LIST = Object.freeze(['elementStableId', 'surveyName'
 
 const byText = (textA, textB) => (textA < textB ? -1 : textA > textB ? 1 : 0);
 
-const buildSample = ({ raterToolConfig, outputDirPath, readConfigJson }, callback) => {
+const buildSample = ({ raterToolConfig, goldenContainerName, outputDirPath, readConfigJson }, callback) => {
 	const drawConfig = readConfigJson('raterDraw.json');
 	const { exclusionList } = readConfigJson('sampleExclusionList.json');
 	const kindRuleRegistry = readConfigJson('kindRuleRegistry.json');
 	const taskList = new taskListPlus();
 
 	taskList.push((args, next) => {
-		openRaterGraph({ goldenContainerName: raterToolConfig.goldenContainerName, queryTimeoutMs: parseInt(raterToolConfig.queryTimeoutMs, 10) }, (openError, openResult) => {
+		openRaterGraph({ goldenContainerName, queryTimeoutMs: parseInt(raterToolConfig.queryTimeoutMs, 10) }, (openError, openResult) => {
 			if (openError) {
 				next(openError, args);
 				return;
@@ -78,7 +78,7 @@ const buildSample = ({ raterToolConfig, outputDirPath, readConfigJson }, callbac
 			.sort((elementA, elementB) => byText(elementA.surveyName, elementB.surveyName) || byText(elementA.standard, elementB.standard) || byText(elementA.elementStableId, elementB.elementStableId));
 		const sampleDocument = {
 			sampleFormatVersion: 2,
-			goldenContainerName: raterToolConfig.goldenContainerName,
+			goldenContainerName,
 			sampleSeedText: drawConfig.sampleSeedText,
 			perStandardDrawCount: drawConfig.perStandardDrawCount,
 			surveyNameList: drawConfig.surveyNameList,
