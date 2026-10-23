@@ -22,8 +22,10 @@
 //   (class name, then qualifier order). HubReference nodes carry no description, so searching them directly would match
 //   property names only. Words are escaped by the DME's own escapeLuceneQueryText; wordJoinName 'and' is the DME's rule
 //   (every word, keywordQueryTextFor), 'or' is Lucene's default (any word, more matching words rank higher).
-// searchByMeaning — the DME's vector index (:ForgedNode(embedding)), held to property-tier HubReference nodes, whose
-//   embedding is of class · property · definition · class definition · qualifier.
+// searchByMeaning — the DME's vector index (:ForgedNode(embedding)), held to property-tier HubReference nodes OF THE CEDS
+//   HUB, whose embedding is of class · property · definition · class definition · qualifier. ⟪lane zbE, E4⟫ on a graph with
+//   a second hub the index also holds CTDL property-tier cards; unfiltered, 2 of an element's 15 meaning hits were CTDL
+//   cards on GOLD_EVAL_261023_zeroBacklog (measured), which this CEDS-only tool would have shown as broken CEDS cards.
 
 const { escapeLuceneQueryText, keywordQueryTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/hybridRetrieval');
 
@@ -80,7 +82,7 @@ const CYPHER_BY_READ = Object.freeze({
 		WITH tuple, propertyRank ORDER BY propertyRank, tuple.domainName, coalesce(tuple.qualifierNames, []), tuple.stableId
 		RETURN collect(tuple.stableId)[0..$windowSize] AS cedsTupleIdList`,
 	byMeaning: `CALL db.index.vector.queryNodes($vectorIndexName, $vectorCandidateCount, $embedding) YIELD node, score
-		WHERE node:HubReference AND node.referenceTier = 'property'
+		WHERE node:HubReference AND node.referenceTier = 'property' AND node.hubName = 'CEDS'
 		WITH node, score ORDER BY score DESC, node.stableId LIMIT $windowSize
 		RETURN collect(node.stableId) AS cedsTupleIdList`,
 });
