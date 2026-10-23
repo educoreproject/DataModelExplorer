@@ -24,6 +24,7 @@ process.global = {
 };
 
 const { readGoldenContainerName } = require('./lib/goldenContainerName');
+const { LAYER_LABEL } = require('../../cli/lib.d/data-model-explorer/lib/layerScope');
 const { resolveContainerConnection } = require('../data-model/lib/user-graph/container-connection-resolver');
 const neo4jGen = require('../data-model/lib/neo4j-instance/neo4j-instance')({ unused: true });
 
@@ -68,7 +69,11 @@ const inventoryDisagreementList = (standardInventory, expected) => {
 		const listedFamily = (totals.familyList || []).find((candidateFamily) => candidateFamily.family === oneFamily.family) || {};
 		if (listedFamily.releaseCount !== oneFamily.releaseCount) disagreementList.push(`family ${oneFamily.family} releaseCount ${listedFamily.releaseCount} vs Cypher ${oneFamily.releaseCount}`);
 	});
-	if (totals.hubSource !== expected.hubSource || standardList.filter((oneStandard) => oneStandard.isHub).map((oneStandard) => oneStandard.source).join() !== expected.hubSource) disagreementList.push(`hub ${totals.hubSource} vs Cypher ${expected.hubSource}`);
+	// ⟪lane zbE, E2-4⟫ a graph may hold several hubs (CEDS and CTDL since ctdlHub P7): the verb names them in totals.hubList
+	// and marks each hub standard isHub; the single totals.hubSource this test once read no longer exists
+	const listedHubSourceText = (totals.hubList || []).map((oneHub) => oneHub.hubSource).sort().join();
+	const flaggedHubSourceText = standardList.filter((oneStandard) => oneStandard.isHub).map((oneStandard) => oneStandard.source).sort().join();
+	if (listedHubSourceText !== expected.hubSourceText || flaggedHubSourceText !== expected.hubSourceText) disagreementList.push(`hubs totals.hubList [${listedHubSourceText}] / isHub [${flaggedHubSourceText}] vs Cypher [${expected.hubSourceText}]`);
 	if (sumOf('nodeCount') !== expected.forgedNodeCount) disagreementList.push(`Σ nodeCount ${sumOf('nodeCount')} vs Cypher ${expected.forgedNodeCount}`);
 	if (sumOf('hubMatchEdgeCount') !== expected.hubMatchEdgeCount) disagreementList.push(`Σ hubMatchEdgeCount ${sumOf('hubMatchEdgeCount')} vs Cypher ${expected.hubMatchEdgeCount}`);
 	return disagreementList;
@@ -77,8 +82,10 @@ const inventoryDisagreementList = (standardInventory, expected) => {
 const EXPECTED_CYPHER_BY_NAME = Object.freeze({
 	standardCount: 'MATCH (r:DmeStandardRoot) RETURN count(r) AS standardCount',
 	familyCountList: 'MATCH (d:StandardDefinition) WHERE d.standardFamily IS NOT NULL RETURN d.standardFamily AS family, count(d) AS releaseCount',
-	hubSource: 'MATCH (h:HubDefinition) RETURN h._source AS hubSource',
-	forgedNodeCount: 'MATCH (r:DmeStandardRoot) MATCH (n:ForgedNode {_source: r._source}) RETURN count(n) AS forgedNodeCount',
+	hubSourceText: 'MATCH (h:HubDefinition) WITH h._source AS hubSource ORDER BY hubSource RETURN reduce(joinedText = \'\', oneSource IN collect(hubSource) | joinedText + CASE joinedText WHEN \'\' THEN \'\' ELSE \',\' END + oneSource) AS hubSourceText',
+	// ⟪lane zbE, E2-4⟫ a standard's population excludes its LAYER nodes (lane DES: layers are out of every standard
+	// population); the layer label is the graph contract's, read through layerScope
+	forgedNodeCount: `MATCH (r:DmeStandardRoot) MATCH (n:ForgedNode {_source: r._source}) WHERE NOT n:\`${LAYER_LABEL}\` RETURN count(n) AS forgedNodeCount`,
 	hubMatchEdgeCount: 'MATCH (r:DmeStandardRoot) MATCH (:ForgedNode {_source: r._source})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) RETURN count(m) AS hubMatchEdgeCount',
 });
 
@@ -132,12 +139,16 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		loadAccessPoint()({}, (accessPointError, standardInventory) => {
 			ok('live: the access point answers an inventory', !accessPointError && standardInventory && Array.isArray(standardInventory.standards), accessPointError);
 			const disagreementList = inventoryDisagreementList(standardInventory || {}, expected);
-			ok(`live: totals equal this test's Cypher (${expected.standardCount} standards, ${expected.familyCountList.length} families, hub ${expected.hubSource}, Σ nodeCount ${expected.forgedNodeCount}, Σ hubMatchEdgeCount ${expected.hubMatchEdgeCount})`, disagreementList.length === 0, disagreementList.join('; '));
+			ok(`live: totals equal this test's Cypher (${expected.standardCount} standards, ${expected.familyCountList.length} families, hubs ${expected.hubSourceText}, Σ nodeCount ${expected.forgedNodeCount}, Σ hubMatchEdgeCount ${expected.hubMatchEdgeCount})`, disagreementList.length === 0, disagreementList.join('; '));
 
 			const oneStandardDropped = { ...standardInventory, standards: standardInventory.standards.slice(1) };
 			ok('red twin: an inventory missing one standard turns the Cypher conjunct red', inventoryDisagreementList(oneStandardDropped, expected).length > 0);
 			const edgeCountWrong = { ...standardInventory, standards: standardInventory.standards.map((oneStandard, standardIndex) => (standardIndex === 1 ? { ...oneStandard, hubMatchEdgeCount: oneStandard.hubMatchEdgeCount + 1 } : oneStandard)) };
 			ok('red twin: one wrong hubMatchEdgeCount turns the Cypher conjunct red', inventoryDisagreementList(edgeCountWrong, expected).length > 0);
+			const hubDropped = { ...standardInventory, totals: { ...standardInventory.totals, hubList: (standardInventory.totals.hubList || []).slice(1) } };
+			ok('red twin: a hub missing from totals.hubList turns the hub conjunct red', inventoryDisagreementList(hubDropped, expected).some((disagreementText) => disagreementText.indexOf('hubs ') === 0));
+			const layerCounted = { ...standardInventory, standards: standardInventory.standards.map((oneStandard, standardIndex) => (standardIndex === 0 ? { ...oneStandard, nodeCount: oneStandard.nodeCount + 1 } : oneStandard)) };
+			ok('red twin: one node too many (a layer node counted) turns the Σ nodeCount conjunct red', inventoryDisagreementList(layerCounted, expected).some((disagreementText) => disagreementText.indexOf('Σ nodeCount') === 0));
 
 			execFile(process.execPath, [DME_SEARCH_PATH, '-listStandards'], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }, (execError, stdoutText) => {
 				let cliInventory = {};
