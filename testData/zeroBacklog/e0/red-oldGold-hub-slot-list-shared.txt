@@ -1,0 +1,16 @@
+
+=== W-D-5 one declared hub-slot list for both incoming arms ===
+
+  PASS: the DME slot list equals educoreForge HUB_DECOMPOSITION_SLOTS
+  PASS:   read from graphContract.json hubSlotList, not a literal
+  PASS:   and hubDecompositionEdgeTypeList matches the forge hubEdgeType() (plus the contract's term slots)
+  PASS:   the term slots are read from graphContract.json hubTermSlotList, not a literal
+  PASS: traversal.cypher's incoming arm reads the declared slot edge types as $hubIncomingSlotEdgeTypeList (no literal alternation)
+  PASS:   and graphRetriever passes it from the hub list
+  PASS: findMappings carries no literal hub-slot alternation (it is built from the declaration)
+  PASS: findMappings builds its incoming pattern from allHubDecompositionEdgeTypeList
+  PASS: live: every hub edge type the graph holds is a declared slot of its hub (an undeclared slot goes red)
+  PASS: live: each hub holds every hubSlotList slot (DOMAIN..QUALIFIER) the forge declares
+
+=== W-D-5 one declared hub-slot list for both incoming arms — Results: 10 passed, 0 failed ===
+

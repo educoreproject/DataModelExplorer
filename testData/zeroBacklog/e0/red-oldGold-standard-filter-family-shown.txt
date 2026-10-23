@@ -1,0 +1,17 @@
+
+=== P4a: a family-expanded standard filter says it was expanded (expandedFromFamily) ===
+
+  PASS: DataModelExplorer.ini tells the model to say when a family was expanded (expandedFromFamily)
+  PASS: DataModelExplorerSlack.ini tells the model to say when a family was expanded (expandedFromFamily)
+  FAIL: search --standard=PESC: expandedFromFamily 'PESC' and expandedToSourceList = the 8 releases (Cypher) — {"refusalName":"graphContractMismatch"}
+  FAIL:   and standardFilterNote names the family
+  FAIL: search --standard=EdFi (an exact _source): no expandedFromFamily — {"status":0,"refusalName":"graphContractMismatch"}
+  PASS: explore --standard=PESC: expandedFromFamily 'PESC' and expandedToSourceList = the 8 releases (Cypher)
+  PASS:   and standardFilterNote names the family
+  PASS: explore --standard=EdFi (an exact _source): no expandedFromFamily
+  PASS: unmappedFields --standard=PESC: expandedFromFamily 'PESC' and expandedToSourceList = the 8 releases (Cypher)
+  PASS:   and standardFilterNote names the family
+  PASS: unmappedFields --standard=EdFi (an exact _source): no expandedFromFamily
+
+=== P4a: a family-expanded standard filter says it was expanded (expandedFromFamily) — Results: 8 passed, 3 failed ===
+

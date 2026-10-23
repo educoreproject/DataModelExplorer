@@ -1,0 +1,13 @@
+
+=== lane BM25 hybrid search (keyword BM25 + vector, fused) ===
+
+  FAIL: (a) hybrid (the default) finds the SIF LEAInfo class on the page, through the keyword leg — []
+  FAIL: (b) the payload says what it did: searchMode, legHitCountByName (keyword, vector), rrfConstant, scoreUnitByField — {}
+  FAIL: (b) every row carries foundByLegList and both legs' rank and score fields — []
+  FAIL: (a) keyword mode ranks the LEAInfo class first, and runs no vector leg — []
+  FAIL: (c) a paraphrase: the keyword leg found nothing (every word required), so the hybrid page IS the vector page, row for row — keyword hits undefined; hybrid [] vs vector []
+  FAIL: (d) -graphRetriever runs the same search: the LEAInfo class first, with traversal context and its provenance — {"refusedByName":"graphRetriever","refusalName":"graphContractMismatch","reason":"graph contract 6e452d62af4825fb6c731b099a6edc5143c896c86fe24c63d14f3ba02e34e76f is not the contract this reader was built against (1e2d39d79376e1a04e818efa849a4ffa59bf69fa03093fdcc03bf8737f40039d) — rebuild the graph w
+  PASS: (e) an unknown mode is refused by name with the valid modes, by both verbs
+
+=== lane BM25 hybrid search (keyword BM25 + vector, fused) — Results: 1 passed, 6 failed ===
+

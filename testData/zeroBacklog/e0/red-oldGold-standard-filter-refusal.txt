@@ -1,0 +1,37 @@
+
+=== W-D-2 standard filter: unknown standards are refused by name with the live list ===
+
+  PASS: dme_search: names no standard the graph does not hold
+  PASS: dme_search: its standard input says the value comes from dme_list_standards
+  PASS: dme_grep: names no standard the graph does not hold
+  PASS: dme_grep: its standard input says the value comes from dme_list_standards
+  PASS: dme_structure: names no standard the graph does not hold
+  PASS: dme_graph_retriever: names no standard the graph does not hold
+  PASS: dme_explore: names no standard the graph does not hold
+  PASS: dme_explore: its standard input says the value comes from dme_list_standards
+  PASS: dme_find_mappings: names no standard the graph does not hold
+  PASS: dme_compare_codesets: names no standard the graph does not hold
+  PASS: dme_unmapped_fields: names no standard the graph does not hold
+  PASS: dme_unmapped_fields: its standard input says the value comes from dme_list_standards
+  PASS: dme_stats: names no standard the graph does not hold
+  PASS: dme_list_standards: names no standard the graph does not hold
+  PASS: dme_describe_graph: names no standard the graph does not hold
+  PASS: dme_raw_cypher: names no standard the graph does not hold
+  PASS: dme_history: names no standard the graph does not hold
+  PASS: dme_calculate: names no standard the graph does not hold
+  FAIL: -search student birth date --standard=SEDM → exit 0, refusedByName 'search', refusalName 'unknownStandard' — exit 0; {"refusedByName":"search","refusalName":"graphContractMismatch","reason":"graph contract 6e452d62af4825fb6c731b099a6edc5143c896c86fe24c63d14f3ba02e34e76f is not the contract this reader was built agai 
+  FAIL:   validValueList is exactly the live _source list (no null, read at call time)
+  PASS: -explore --name=BirthDate --standard=SIF2 → exit 0, refusedByName 'explore', refusalName 'unknownStandard'
+  PASS:   validValueList is exactly the live _source list (no null, read at call time)
+  PASS: -explore --name=BirthDate --standard=PESC-CollegeTranscript → exit 0, refusedByName 'explore', refusalName 'unknownStandard'
+  PASS:   validValueList is exactly the live _source list (no null, read at call time)
+  PASS: -unmappedFields --standard=SEDM --limit=3 → exit 0, refusedByName 'unmappedFields', refusalName 'unknownStandard'
+  PASS:   validValueList is exactly the live _source list (no null, read at call time)
+  PASS: control: --standard=SIF260928 (a live _source) answers rows, all from SIF260928
+  PASS: family SIF is declared (SIF260928)
+  PASS: --standard=SIF expands: rows, every one from the family, from at least 1 release(s)
+  PASS: family PESC is declared (PESC-AcademicEportfolio-1.0.0, PESC-CollegeTranscript-1.7.0, PESC-CollegeTranscript-1.8.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0, PESC-HighSchoolTranscript-1.6.0, PESC-LearningRecord-1.0.0, PESC-TestScoreReport-1.1.0)
+  PASS: --standard=PESC expands: rows, every one from the family, from at least 2 release(s)
+
+=== W-D-2 standard filter: unknown standards are refused by name with the live list — Results: 29 passed, 2 failed ===
+

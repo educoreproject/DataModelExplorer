@@ -290,9 +290,12 @@
 		]
 	},
 	"listNameRuleExemptionByName": {
+		"declaredCorrespondenceList": "JSON string (ctdl-family-forge jsonLdVocabularyWalk.js; a concept's declared skos correspondences)",
 		"fileAnnotationList": "JSON string (pesc-release-forge walk.js)",
 		"fileCommentList": "JSON string (pesc-release-forge walk.js; forgeClean lane CLEAN, G20)",
+		"foreignTermEntryList": "JSON string (ctdl-family-forge jsonLdVocabularyHooks.js; on each CTDL-family root, the terms it imports)",
 		"importList": "JSON string (pesc-release-forge walk.js)",
+		"nativeDeclarationAnomalyList": "JSON string (ctdl-family-forge jsonLdVocabularyWalk.js; what a node's own declaration says oddly)",
 		"schemaAttributeList": "JSON string (pesc-release-forge walk.js)",
 		"standardsIncluded": "a Cypher literal list on the passport, never through pgToStored"
 	},
@@ -600,6 +603,13 @@
 			"meaning": "present iff frameworkFingerprint is absent: why",
 			"name": "frameworkFingerprintBasis",
 			"required": false,
+			"type": "string",
+			"writer": "finish"
+		},
+		{
+			"meaning": "the graph's structural version (V.<number>), declared by the operator in graphBuilder.ini [replay-manager]; it moves when the graph's STRUCTURE moves (a new tier, a new edge kind), never with content",
+			"name": "structuralVersion",
+			"required": true,
 			"type": "string",
 			"writer": "finish"
 		}
@@ -932,7 +942,7 @@
 			"type": "string"
 		},
 		{
-			"meaning": "the family the standard belongs to (STANDARD_FAMILY: CEDS, EdFi, SIF, PESC, CTDL, CTDLASN, CTDLQData), declared by its forge; a family name in a DME standard filter expands to these (ruling A5)",
+			"meaning": "the family the standard belongs to (STANDARD_FAMILY: CEDS, EdFi, SIF, PESC, CTDL, CTDLASN, CTDLQData, PESCLD), declared by its forge; a family name in a DME standard filter expands to these (ruling A5)",
 			"name": "standardFamily",
 			"required": true,
 			"type": "string"
@@ -948,8 +958,15 @@
 			"name": "descriptionSource",
 			"required": true,
 			"type": "string"
+		},
+		{
+			"meaning": "the property name carrying the standard's OWN native identifier on its content nodes, declared by its forge, so a reader never assumes one standard's identifier name for every standard",
+			"name": "nativeIdentifierPropertyName",
+			"required": false,
+			"type": "string"
 		}
 	],
+	"structuralVersionPatternSource": "^V\\.[0-9]+$",
 	"usagePatternFieldList": [
 		{
 			"meaning": "the exemplar's name",
