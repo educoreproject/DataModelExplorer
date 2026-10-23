@@ -1479,7 +1479,8 @@ const shapeExploreEntryList = (outgoingResult, incomingResult) => {
 // ⟪campaign P2, V2-C04⟫ dme_history answers THE passport — one row, read by contract through passportReader. It is not an
 // event log (no load/embed/bridge history is recorded anywhere); until P2 it read nine retired passport names and turned
 // every null into 0, so it reported 'nodeCount 0' for a graph of 243,796 nodes.
-const HISTORY_PASSPORT_FIELD_NAME_LIST = Object.freeze(['graphName', 'scratchGraphName', 'manifestRefId', 'builtAt', 'standardsIncluded', 'contentNodeCount', 'contentEdgeCount', 'trustworthyForMeaning', 'trustBasis', 'recipeName', 'recipeHash', 'engineVersions']);
+// ⟪lane zbE, E2-10⟫ structuralVersion (graph contract D0, required) rides with the graph's name
+const HISTORY_PASSPORT_FIELD_NAME_LIST = Object.freeze(['graphName', 'structuralVersion', 'scratchGraphName', 'manifestRefId', 'builtAt', 'standardsIncluded', 'contentNodeCount', 'contentEdgeCount', 'trustworthyForMeaning', 'trustBasis', 'recipeName', 'recipeHash', 'engineVersions']);
 const historyEvents = (session, params, callback) => {
 	readPassport({ session, verbName: 'history' }, (err, passportRead) => {
 		if (err) {

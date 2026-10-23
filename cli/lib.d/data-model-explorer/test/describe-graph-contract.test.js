@@ -31,7 +31,7 @@ const SAMPLE_BY_NAME = {
 	vectorIndexNameList: ['DEV_P2R1_jevAcceptance_embedText_vector', 'DEV_P2R1_jevAcceptance_vector'], judgeIdentityList: ['jev:jev-1.13.0:data:rel-04bab2bc4b28'],
 	engineVersions: JSON.stringify({ replayManager: 'finish/1', replayEngine: 'a'.repeat(64), serializer: '1', forgeFramework: 'b'.repeat(64), bridgeFramework: 'c'.repeat(64) }),
 	meaningTierBreakdown: JSON.stringify([{ edgeType: 'EXACT_MATCH', mappingKind: 'inferred', mappingSource: 'bridge-jev', tierCount: 12681 }]),
-	contentNodeCount: 243796, manifestRefId: 'e'.repeat(64), recipeHash: 'd'.repeat(64), recipeName: 'goldJevFresh',
+	contentNodeCount: 243796, manifestRefId: 'e'.repeat(64), recipeHash: 'd'.repeat(64), recipeName: 'goldJevFresh', structuralVersion: 'V.09',
 };
 const passportWith = (overrideByName = {}, omittedNameList = []) => {
 	const storedPassport = contract.passportFieldList.reduce((soFar, oneRow) => {
@@ -118,6 +118,17 @@ const conjunctByName = {
 	d_scalarListRefused: (mutationList, done) =>
 		describeWith({ storedPassport: passportWith(), standardOverride: { mappingKindList: 'inferred' } }, mutationList, (err, result) =>
 			done({ pass: result.refusalName === 'standardDefinitionShapeNotRecognised' && /mappingKindList as a scalar, declared stringList/.test(result.reason), detail: err || result.reason || 'rendered' })),
+	// ⟪lane zbE, E2-10 (census 74)⟫ the passport's structuralVersion (graph contract D0, required) is SHOWN wherever the DME
+	// shows the passport: describeGraph's card and dme_history's row
+	g_structuralVersionShown: (mutationList, done) =>
+		describeWith({ storedPassport: passportWith() }, mutationList, (err, result) => {
+			const graphLine = (result.card || '').split('\n').find((lineText) => lineText.indexOf('Graph: ') === 0) || '';
+			const { QUERY_HANDLER_BY_QUERY_TYPE } = require('../dataModelExplorerSearch');
+			QUERY_HANDLER_BY_QUERY_TYPE.history(sessionDouble({ storedPassport: passportWith() }), {}, {}, (historyErr, historyPayload) => {
+				const historyRow = ((historyPayload || {}).rows || (historyPayload || {}).historyList || Object.values(historyPayload || {}).find(Array.isArray) || [])[0] || {};
+				done({ pass: !err && /structural version V\.09/.test(graphLine) && !historyErr && historyRow.structuralVersion === 'V.09', detail: `${graphLine} | history ${JSON.stringify(historyRow).slice(0, 160)}` });
+			});
+		}),
 	f_embedderChecked: (mutationList, done) => {
 		const { checkGraphEmbeddingContract } = moduleFor('lib/graphEmbeddingContract.js', mutationList.graphEmbeddingContract || []);
 		const run = (sessionSpec, next) => checkGraphEmbeddingContract({ session: sessionDouble(sessionSpec), verbName: 'search' }, (err, verdict) => next(verdict || {}));

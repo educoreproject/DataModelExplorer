@@ -385,7 +385,7 @@
 		{
 			"definition": {
 				"name": "dme_history",
-				"description": "The build passport of this graph (ONE row): graph name, manifest, recipe name and hash, engine versions, standards included, content node and edge counts, and the trust verdict. It is NOT an event log — no load/embed/bridge history is recorded anywhere. Prefer dme_describe_graph, which renders the same passport with the recipe, the standards and every build attestation. Takes no input. If the result is an object carrying refusedByName, read its reason: passportAbsent (the graph was never finished), graphContractMismatch (the graph was built before this reader's graph contract, or after it) and passportShapeNotRecognised (the passport lacks a declared field) are answers about the GRAPH, not 'no such data'.",
+				"description": "The build passport of this graph (ONE row): graph name, structural version (V.<number>: it moves when the graph's STRUCTURE moves, never with content), manifest, recipe name and hash, engine versions, standards included, content node and edge counts, and the trust verdict. It is NOT an event log — no load/embed/bridge history is recorded anywhere. Prefer dme_describe_graph, which renders the same passport with the recipe, the standards and every build attestation. Takes no input. If the result is an object carrying refusedByName, read its reason: passportAbsent (the graph was never finished), graphContractMismatch (the graph was built before this reader's graph contract, or after it) and passportShapeNotRecognised (the passport lacks a declared field) are answers about the GRAPH, not 'no such data'.",
 				"input_schema": {
 					"type": "object",
 					"properties": {}

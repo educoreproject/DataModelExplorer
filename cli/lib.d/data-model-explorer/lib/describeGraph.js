@@ -235,7 +235,7 @@ const attestationDetailText = (oneAttestation) =>
 const renderCard = ({ passport, readerContractSha256, recipe, blocks, blockTotal, blocksTruncated, lineage, standards, attestations }) => {
 	const lines = [];
 	const engineVersions = passport.engineVersions;
-	lines.push(`Graph: ${passport.graphName} · scratch ${passport.scratchGraphName || 'not yet stamped'} · built ${passport.builtAt} · manifest ${shortText(passport.manifestRefId, 8)}`);
+	lines.push(`Graph: ${passport.graphName} · structural version ${passport.structuralVersion} · scratch ${passport.scratchGraphName || 'not yet stamped'} · built ${passport.builtAt} · manifest ${shortText(passport.manifestRefId, 8)}`);
 	lines.push(`Engines: replayManager ${engineVersions.replayManager} · replayEngine ${shortText(engineVersions.replayEngine, 12)} · serializer ${engineVersions.serializer} · forgeFramework ${shortText(engineVersions.forgeFramework, 12)} · bridgeFramework ${shortText(engineVersions.bridgeFramework, 12)}`);
 	lines.push(`Embeddings: ${passport.embeddingBasis ? passport.embeddingBasis : `${passport.embeddingModelVersion} × ${passport.embeddingDims}`} · vector indexes ${passport.vectorIndexNameList.join(', ') || 'none'}`);
 	lines.push(`Judges: ${passport.judgeIdentityList.join(', ') || 'none'} · renderers ${passport.rendererVersionList.join(', ') || 'none'}`);
