@@ -4,6 +4,11 @@
 // @concept: [[SchemaVerifier]]
 // @concept: [[SecurityFirstPattern]]
 
+// ⟪lane zbE⟫ LIMIT takes an INTEGER: a JS number reaches Neo4j as a float ('5.0') and the query is refused, so every
+// limit is passed as neo4j.int (measured failing on the live DEV server 2026-10-23: spec-elements, field-search,
+// semantic-search). A description may be a LIST (CEDS P600571 carries two, measured), so a text filter joins it
+// instead of calling toLower on a list.
+const neo4j = require('neo4j-driver');
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
@@ -114,7 +119,7 @@ const moduleFunction = function ({
 			const queryData = {
 				action: 'query',
 				query: elementsQueryFor(nativeIdentifierDeclarationList),
-				params: { source, search, limit },
+				params: { source, search, limit: neo4j.int(limit) },
 			};
 
 			const localCallback = (err, result) => {

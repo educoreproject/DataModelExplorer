@@ -1,0 +1,113 @@
+{
+  "node": {
+    "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/01d62fd98414f501a5c1f195ef8809d1730b51a5a5bdc534d693a32450a16029",
+    "name": "Name",
+    "kind": "hubAnchor",
+    "hubName": "CTDL",
+    "description": "Name or title of the resource.",
+    "path": null,
+    "standardKey": "ctdl",
+    "standardFamily": "CTDL",
+    "releaseLabel": "CTDL",
+    "version": "Release 20260927",
+    "rootStableId": "ctdl:root",
+    "rootName": "CTDL",
+    "hasVersionIdentity": false,
+    "referenceTier": "property",
+    "hubPropertyList": [
+      {
+        "stableId": "ceterms:name",
+        "hasStructuralChildren": false,
+        "name": "Name",
+        "definition": "Name or title of the resource."
+      }
+    ],
+    "hubDomainList": [
+      {
+        "stableId": "ceterms:BachelorOfScienceDegree",
+        "hasStructuralChildren": true,
+        "name": "Bachelor of Science Degree",
+        "definition": "Equivalent to an award at UNESCO ISCED 2011, Level 6, and United States IPEDS Award Level 5."
+      }
+    ]
+  },
+  "ancestorList": [],
+  "childGroupList": [
+    {
+      "relationshipType": "MAPPED_FROM_STANDARD",
+      "count": 2,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "standardGroup:pesccollegetranscript1v7v0@https://w3id.org/EDUcore/CTDL/hub/Release_20260927/01d62fd98414f501a5c1f195ef8809d1730b51a5a5bdc534d693a32450a16029",
+          "name": "PESC-CollegeTranscript-1.7.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesccollegetranscript1v7v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "CollegeTranscript",
+          "version": "1.7.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "broad",
+              "elementCount": 2
+            }
+          ],
+          "maximumConfidence": 0.5,
+          "elementCount": 2,
+          "strongestMatchKind": "broad"
+        },
+        {
+          "stableId": "standardGroup:pesccollegetranscript1v8v0@https://w3id.org/EDUcore/CTDL/hub/Release_20260927/01d62fd98414f501a5c1f195ef8809d1730b51a5a5bdc534d693a32450a16029",
+          "name": "PESC-CollegeTranscript-1.8.0",
+          "kind": "standardGroup",
+          "hasChildren": true,
+          "standardKey": "pesccollegetranscript1v8v0",
+          "standardFamily": "PESC",
+          "releaseLabel": "CollegeTranscript",
+          "version": "1.8.0",
+          "matchKindCountList": [
+            {
+              "matchKind": "broad",
+              "elementCount": 2
+            }
+          ],
+          "maximumConfidence": 0.5,
+          "elementCount": 2,
+          "strongestMatchKind": "broad"
+        }
+      ]
+    },
+    {
+      "relationshipType": "HAS_CTDL_PROPERTY",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "ceterms:name",
+          "name": "Name",
+          "kind": "hubProperty",
+          "hubName": "CTDL",
+          "description": "Name or title of the resource.",
+          "hasChildren": false
+        }
+      ]
+    },
+    {
+      "relationshipType": "HAS_CTDL_DOMAIN",
+      "count": 1,
+      "truncated": false,
+      "itemList": [
+        {
+          "stableId": "ceterms:BachelorOfScienceDegree",
+          "name": "Bachelor of Science Degree",
+          "kind": "hubDomain",
+          "hubName": "CTDL",
+          "description": "Equivalent to an award at UNESCO ISCED 2011, Level 6, and United States IPEDS Award Level 5.",
+          "hasChildren": true
+        }
+      ]
+    }
+  ],
+  "mappingList": []
+}

@@ -1,0 +1,197 @@
+{
+  "refusalText": "",
+  "card": {
+    "name": "BirthDate",
+    "source": "EdFi",
+    "description": "The month, day, and year on which an individual was born.",
+    "path": "ApplicantProfile.BirthDate",
+    "stableId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+    "hubTuples": [
+      {
+        "confidence": 0.9,
+        "hubDomain": "Person Birth",
+        "carriedBy": "own",
+        "instanceGroupList": [],
+        "instanceCount": 0,
+        "mappingType": "EXACT_MATCH",
+        "hubRange": "date",
+        "mappingKind": "inferred",
+        "hubName": "Birthdate",
+        "mappingSource": "bridge-jev",
+        "hubKey": "P000033",
+        "hubSource": "CEDS",
+        "hubProperty": "Birthdate"
+      }
+    ],
+    "peers": [
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.8.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.8.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.7.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.7.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-LearningRecord-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-TestScoreReport-1.1.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-TestScoreReport-1.1.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-LearningRecord-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-DocumentResponse-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-DocumentRequest-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-DocumentResponse-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthYear",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESC-DocumentRequest-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birthday",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESCLD",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birth Year",
+        "mappingType": "BROAD_MATCH",
+        "peerSource": "PESCLD",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "Birth",
+        "mappingType": "NARROW_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-AcademicEportfolio-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-LearningRecord-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-DocumentRequest-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-DocumentResponse-1.0.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.7.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-HighSchoolTranscript-1.6.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-TestScoreReport-1.1.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "PESC-CollegeTranscript-1.8.0",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "birthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "SIF260928",
+        "hubSource": "CEDS"
+      },
+      {
+        "peerName": "BirthDate",
+        "mappingType": "EXACT_MATCH",
+        "peerSource": "SIF260928",
+        "hubSource": "CEDS"
+      }
+    ]
+  }
+}

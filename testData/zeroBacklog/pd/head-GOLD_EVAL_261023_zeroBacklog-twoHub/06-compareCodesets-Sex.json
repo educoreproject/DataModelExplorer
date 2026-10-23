@@ -1,0 +1,89 @@
+{
+  "verdict": "judged",
+  "valueTierJudgmentCount": 140,
+  "matchedOptionSetCount": 2,
+  "valueRowList": [
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Female",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Male",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Non-binary",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    },
+    {
+      "sourceStandard": "EdFi",
+      "optionSetName": "Sex",
+      "sourceValue": "Not Selected",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    },
+    {
+      "sourceStandard": "SIF260928",
+      "optionSetName": "xContact/sex, xStaff/sex, demographics/sex and 2 more",
+      "sourceValue": "Female",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    },
+    {
+      "sourceStandard": "SIF260928",
+      "optionSetName": "xContact/sex, xStaff/sex, demographics/sex and 2 more",
+      "sourceValue": "Male",
+      "matchType": null,
+      "confidence": null,
+      "hubName": null,
+      "hubValue": null,
+      "hubValueKey": null,
+      "crossStandardEquivalents": []
+    }
+  ],
+  "totalRowCount": 6,
+  "returnedRowCount": 6,
+  "truncatedRowCount": 0,
+  "rowUnit": "an option value of a matched option set: one row per value",
+  "hubList": [
+    {
+      "hubName": "CEDS",
+      "hubSource": "CEDS",
+      "hubVersion": "14.0.0.0"
+    },
+    {
+      "hubName": "CTDL",
+      "hubSource": "CTDL",
+      "hubVersion": "Release 20260927"
+    }
+  ]
+}

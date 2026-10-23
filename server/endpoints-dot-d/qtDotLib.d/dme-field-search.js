@@ -17,6 +17,11 @@
 // Read-only and public, like dme-spec-elements. Complements dme-semantic-search,
 // which anchors on an existing element's vector instead of typed text.
 
+// ⟪lane zbE⟫ LIMIT takes an INTEGER: a JS number reaches Neo4j as a float ('5.0') and the query is refused, so every
+// limit is passed as neo4j.int (measured failing on the live DEV server 2026-10-23: spec-elements, field-search,
+// semantic-search). A description may be a LIST (CEDS P600571 carries two, measured), so a text filter joins it
+// instead of calling toLower on a list.
+const neo4j = require('neo4j-driver');
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
@@ -77,7 +82,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	const lexicalQueryFor = (nativeIdentifierDeclarationList) => `
 		${CANDIDATES}
 		  AND (toLower(coalesce(n.name, '')) CONTAINS $q
-		       OR toLower(coalesce(n.description, '')) CONTAINS $q
+		       OR toLower(reduce(descriptionText = '', descriptionPart IN CASE WHEN n.description IS :: LIST<ANY> THEN n.description ELSE [coalesce(n.description, '')] END | descriptionText + ' ' + toString(descriptionPart))) CONTAINS $q
 		       OR toLower(coalesce(n.path, '')) CONTAINS $q)
 		WITH n,
 		     CASE
@@ -167,7 +172,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 					q: q.toLowerCase(),
 					target,
 					exclude,
-					limit,
+					limit: neo4j.int(limit),
 					roles,
 					qvec: semantic ? qvec : [],
 					basis: semantic ? 'semantic' : 'lexical',

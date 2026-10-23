@@ -1,0 +1,5 @@
+{
+  "refusedByName": "findMappings",
+  "refusalName": "nothingMatched",
+  "reason": "'zzqqxxNoSuchElement' matches no node by name, _id, path, stableId, cedsId, metaEdId, uri, xpath; a CEDS Global ID looks like P000001 (property) or OV000002113286 (value); a CTDL term CURIE looks like ceterms:accommodationType (property) or accommodation:AccessibleHousing (value) — read one from dme_search or dme_explore."
+}

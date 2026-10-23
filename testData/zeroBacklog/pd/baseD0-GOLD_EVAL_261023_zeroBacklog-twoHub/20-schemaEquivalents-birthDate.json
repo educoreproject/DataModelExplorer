@@ -1,0 +1,655 @@
+[
+  {
+    "name": "Birthdate",
+    "source": "CEDS",
+    "standardFamily": "CEDS",
+    "role": "DmeProperty",
+    "description": "The year, month and day on which a person was born.",
+    "sourceId": "P000033",
+    "relevanceScore": 213,
+    "related": [
+      {
+        "relation": "NARROW_MATCH",
+        "name": "Birth",
+        "source": "PESC-AcademicEportfolio-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "birthDate",
+        "source": "SIF260928",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "EdFi",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 3,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-AcademicEportfolio-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 9,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-LearningRecord-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-DocumentRequest-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 3,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-DocumentResponse-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-CollegeTranscript-1.7.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-HighSchoolTranscript-1.6.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-TestScoreReport-1.1.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "PESC-CollegeTranscript-1.8.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDate",
+        "source": "SIF260928",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 10,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-CollegeTranscript-1.8.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-CollegeTranscript-1.7.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-HighSchoolTranscript-1.6.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-LearningRecord-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-TestScoreReport-1.1.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-AcademicEportfolio-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 9,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-DocumentRequest-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 3,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESC-DocumentResponse-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-LearningRecord-1.0.0",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birth Year",
+        "source": "PESCLD",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-CollegeTranscript-1.8.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-CollegeTranscript-1.7.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-TestScoreReport-1.1.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-AcademicEportfolio-1.0.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 8,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-DocumentResponse-1.0.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "BirthYear",
+        "source": "PESC-DocumentRequest-1.0.0",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 3,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "BROAD_MATCH",
+        "name": "Birthday",
+        "source": "PESCLD",
+        "mappingConfidence": 0.5,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": true
+  },
+  {
+    "name": "Birthdate Verification",
+    "source": "CEDS",
+    "standardFamily": "CEDS",
+    "role": "DmeProperty",
+    "description": "The evidence by which a child's date of birth is confirmed.",
+    "sourceId": "P000428",
+    "relevanceScore": 213,
+    "related": [
+      {
+        "relation": "CLOSE_MATCH",
+        "name": "BirthDateVerification",
+        "source": "SIF260928",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 3,
+        "hubName": "CEDS"
+      },
+      {
+        "relation": "EXACT_MATCH",
+        "name": "BirthDateVerification",
+        "source": "SIF260928",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 2,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": true
+  },
+  {
+    "name": "Birth Date",
+    "source": "PESCLD",
+    "standardFamily": "PESCLD",
+    "role": "DmeProperty",
+    "description": "",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-HighSchoolTranscript-1.6.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "SIF260928",
+    "standardFamily": "SIF",
+    "role": "DmeProperty",
+    "description": "The person's date of birth.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.7.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.8.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.7.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "SIF260928",
+    "standardFamily": "SIF",
+    "role": "DmeProperty",
+    "description": "The person's date of birth.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.7,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.8.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "EdFi",
+    "standardFamily": "EdFi",
+    "role": "DmeProperty",
+    "description": "The month, day, and year on which an individual was born.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "EdFi",
+    "standardFamily": "EdFi",
+    "role": "DmeProperty",
+    "description": "The month, day, and year on which an individual was born.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "EdFi",
+    "standardFamily": "EdFi",
+    "role": "DmeProperty",
+    "description": "The month, day, and year on which an individual was born.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "SIF260928",
+    "standardFamily": "SIF",
+    "role": "DmeProperty",
+    "description": "The person's date of birth.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 6,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "SIF260928",
+    "standardFamily": "SIF",
+    "role": "DmeProperty",
+    "description": "",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-HighSchoolTranscript-1.6.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.8.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-CollegeTranscript-1.7.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "SIF260928",
+    "standardFamily": "SIF",
+    "role": "DmeProperty",
+    "description": "The person's date of birth.",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  },
+  {
+    "name": "BirthDate",
+    "source": "PESC-HighSchoolTranscript-1.6.0",
+    "standardFamily": "PESC",
+    "role": "DmeProperty",
+    "description": "Date of Birth",
+    "sourceId": "",
+    "relevanceScore": 211,
+    "related": [
+      {
+        "relation": "EXACT_MATCH",
+        "name": "Birthdate",
+        "source": "CEDS",
+        "mappingConfidence": 0.9,
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "edgeCount": 1,
+        "hubName": "CEDS"
+      }
+    ],
+    "isHubStandard": false
+  }
+]

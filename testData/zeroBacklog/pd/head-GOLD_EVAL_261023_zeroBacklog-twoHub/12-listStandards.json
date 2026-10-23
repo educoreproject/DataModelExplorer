@@ -1,0 +1,390 @@
+{
+  "standards": [
+    {
+      "source": "CEDS",
+      "standardKey": "ceds",
+      "name": "CEDS",
+      "standardName": "Common Education Data Standards",
+      "description": "Common Education Data Standards ontology, version 14.0.0.0",
+      "version": "14.0.0.0",
+      "sourceUrl": "https://w3id.org/CEDStandards/terms/",
+      "standardFamily": "CEDS",
+      "releaseLabel": "CEDS",
+      "descriptionSource": "dc:description: the Dublin Core description literal of each term in the CEDS ontology RDF (every value carried)",
+      "nodeCount": 149726,
+      "isHub": true,
+      "hubMatchEdgeCount": 0,
+      "mappedToHub": false,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 0,
+        "CTDL": 0
+      }
+    },
+    {
+      "source": "CTDL",
+      "standardKey": "ctdl",
+      "name": "CTDL",
+      "standardName": "Credential Transparency Description Language",
+      "description": "Credential Transparency Description Language (Credential Engine) — 137 classes, 397 properties, 36 concept schemes, 457 concepts",
+      "version": "Release 20260927",
+      "sourceUrl": "https://credreg.net/ctdl/schema/encoding/json",
+      "standardFamily": "CTDL",
+      "releaseLabel": "CTDL",
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL JSON-LD schema",
+      "nodeCount": 16127,
+      "isHub": true,
+      "hubMatchEdgeCount": 0,
+      "mappedToHub": false,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 0,
+        "CTDL": 0
+      }
+    },
+    {
+      "source": "CTDLASN",
+      "standardKey": "ctdlasn",
+      "name": "CTDLASN",
+      "standardName": "Credential Transparency Description Language — Achievement Standards Network (CTDL-ASN)",
+      "description": "Credential Transparency Description Language — Achievement Standards Network (CTDL-ASN) (Credential Engine) — 11 classes, 97 properties, 2 concept schemes, 8 concepts",
+      "version": "20260626",
+      "sourceUrl": "https://credreg.net/ctdlasn/schema/encoding/json",
+      "standardFamily": "CTDLASN",
+      "releaseLabel": "CTDLASN",
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-ASN JSON-LD schema",
+      "nodeCount": 119,
+      "isHub": false,
+      "hubMatchEdgeCount": 0,
+      "mappedToHub": false,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 0,
+        "CTDL": 0
+      }
+    },
+    {
+      "source": "CTDLQData",
+      "standardKey": "ctdlqdata",
+      "name": "CTDLQData",
+      "standardName": "Credential Transparency Description Language — Quantitative Data (CTDL-QData)",
+      "description": "Credential Transparency Description Language — Quantitative Data (CTDL-QData) (Credential Engine) — 11 classes, 82 properties, 8 concept schemes, 113 concepts",
+      "version": "20260626",
+      "sourceUrl": "https://credreg.net/qdata/schema/encoding/json?includemetaproperties=false",
+      "standardFamily": "CTDLQData",
+      "releaseLabel": "CTDLQData",
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-QData JSON-LD schema",
+      "nodeCount": 215,
+      "isHub": false,
+      "hubMatchEdgeCount": 0,
+      "mappedToHub": false,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 0,
+        "CTDL": 0
+      }
+    },
+    {
+      "source": "EdFi",
+      "standardKey": "edfi",
+      "name": "EdFi",
+      "standardName": "Ed-Fi Data Standard",
+      "description": "Ed-Fi Data Standard — 849 MetaEd constructs, 1904 properties, 3522 descriptor code values",
+      "version": "5.2.0",
+      "sourceUrl": "https://github.com/Ed-Fi-Alliance-OSS/Ed-Fi-Data-Standard",
+      "standardFamily": "EdFi",
+      "releaseLabel": "EdFi",
+      "descriptionSource": "MetaEd 'documentation': the documentation text written on each Ed-Fi model construct and property",
+      "nodeCount": 9617,
+      "isHub": false,
+      "hubMatchEdgeCount": 1389,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 1106,
+        "CTDL": 283
+      }
+    },
+    {
+      "source": "PESC-AcademicEportfolio-1.0.0",
+      "standardKey": "pescacademiceportfolio1v0v0",
+      "name": "PESC-AcademicEportfolio-1.0.0",
+      "standardName": "PESC Academic ePortfolio v1.0.0",
+      "description": null,
+      "version": "1.0.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "AcademicEportfolio",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 16885,
+      "isHub": false,
+      "hubMatchEdgeCount": 4949,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 3290,
+        "CTDL": 1659
+      }
+    },
+    {
+      "source": "PESC-CollegeTranscript-1.7.0",
+      "standardKey": "pesccollegetranscript1v7v0",
+      "name": "PESC-CollegeTranscript-1.7.0",
+      "standardName": "PESC College Transcript v1.7.0",
+      "description": null,
+      "version": "1.7.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "CollegeTranscript",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8501,
+      "isHub": false,
+      "hubMatchEdgeCount": 876,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 575,
+        "CTDL": 301
+      }
+    },
+    {
+      "source": "PESC-CollegeTranscript-1.8.0",
+      "standardKey": "pesccollegetranscript1v8v0",
+      "name": "PESC-CollegeTranscript-1.8.0",
+      "standardName": "PESC College Transcript v1.8.0",
+      "description": null,
+      "version": "1.8.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "CollegeTranscript",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8997,
+      "isHub": false,
+      "hubMatchEdgeCount": 1064,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 713,
+        "CTDL": 351
+      }
+    },
+    {
+      "source": "PESC-DocumentRequest-1.0.0",
+      "standardKey": "pescdocumentrequest1v0v0",
+      "name": "PESC-DocumentRequest-1.0.0",
+      "standardName": "PESC Document Request v1.0.0",
+      "description": null,
+      "version": "1.0.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "DocumentRequest",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8253,
+      "isHub": false,
+      "hubMatchEdgeCount": 538,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 327,
+        "CTDL": 211
+      }
+    },
+    {
+      "source": "PESC-DocumentResponse-1.0.0",
+      "standardKey": "pescdocumentresponse1v0v0",
+      "name": "PESC-DocumentResponse-1.0.0",
+      "standardName": "PESC Document Response v1.0.0",
+      "description": null,
+      "version": "1.0.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "DocumentResponse",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8057,
+      "isHub": false,
+      "hubMatchEdgeCount": 393,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 243,
+        "CTDL": 150
+      }
+    },
+    {
+      "source": "PESC-HighSchoolTranscript-1.6.0",
+      "standardKey": "peschighschooltranscript1v6v0",
+      "name": "PESC-HighSchoolTranscript-1.6.0",
+      "standardName": "PESC High School Transcript v1.6.0",
+      "description": null,
+      "version": "1.6.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "HighSchoolTranscript",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8503,
+      "isHub": false,
+      "hubMatchEdgeCount": 906,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 626,
+        "CTDL": 280
+      }
+    },
+    {
+      "source": "PESC-LearningRecord-1.0.0",
+      "standardKey": "pesclearningrecord1v0v0",
+      "name": "PESC-LearningRecord-1.0.0",
+      "standardName": "PESC Learning Record v1.0.0",
+      "description": null,
+      "version": "1.0.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "LearningRecord",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8829,
+      "isHub": false,
+      "hubMatchEdgeCount": 1044,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 690,
+        "CTDL": 354
+      }
+    },
+    {
+      "source": "PESC-TestScoreReport-1.1.0",
+      "standardKey": "pesctestscorereport1v1v0",
+      "name": "PESC-TestScoreReport-1.1.0",
+      "standardName": "PESC Test Score Report v1.1.0",
+      "description": null,
+      "version": "1.1.0",
+      "sourceUrl": null,
+      "standardFamily": "PESC",
+      "releaseLabel": "TestScoreReport",
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "nodeCount": 8898,
+      "isHub": false,
+      "hubMatchEdgeCount": 1069,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 720,
+        "CTDL": 349
+      }
+    },
+    {
+      "source": "PESCLD",
+      "standardKey": "pescld",
+      "name": "PESCLD",
+      "standardName": "PESC College Transcript in JSON-LD (PESC_LD)",
+      "description": null,
+      "version": "0.0.2",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18HzS4phUl7olmUEjh0deA3vgVPdque4_iGzK7_zTWLE/",
+      "standardFamily": "PESCLD",
+      "releaseLabel": "PESCLD",
+      "descriptionSource": "a TAP row's 'note' column, its usage note, carried verbatim as description (and as usageNote): it is not a definition; the package publishes labels and usage notes only, no definitions, so a row without a note and every shape carry no description",
+      "nodeCount": 1084,
+      "isHub": false,
+      "hubMatchEdgeCount": 322,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 285,
+        "CTDL": 37
+      }
+    },
+    {
+      "source": "SIF260928",
+      "standardKey": "sif260928",
+      "name": "SIF260928",
+      "standardName": "SIF Implementation Specification (sif260928 rebuild)",
+      "description": null,
+      "version": "4.3",
+      "sourceUrl": null,
+      "standardFamily": "SIF",
+      "releaseLabel": "sif260928",
+      "descriptionSource": "the 'Description' column of the SIF 4.3 specification's element tables (one cell per field row)",
+      "nodeCount": 39268,
+      "isHub": false,
+      "hubMatchEdgeCount": 6972,
+      "mappedToHub": true,
+      "hubMatchEdgeCountByHub": {
+        "CEDS": 4689,
+        "CTDL": 2283
+      }
+    }
+  ],
+  "count": 15,
+  "totals": {
+    "standardCount": 15,
+    "familyList": [
+      {
+        "family": "CEDS",
+        "releaseCount": 1,
+        "sourceList": [
+          "CEDS"
+        ]
+      },
+      {
+        "family": "CTDL",
+        "releaseCount": 1,
+        "sourceList": [
+          "CTDL"
+        ]
+      },
+      {
+        "family": "CTDLASN",
+        "releaseCount": 1,
+        "sourceList": [
+          "CTDLASN"
+        ]
+      },
+      {
+        "family": "CTDLQData",
+        "releaseCount": 1,
+        "sourceList": [
+          "CTDLQData"
+        ]
+      },
+      {
+        "family": "EdFi",
+        "releaseCount": 1,
+        "sourceList": [
+          "EdFi"
+        ]
+      },
+      {
+        "family": "PESC",
+        "releaseCount": 8,
+        "sourceList": [
+          "PESC-AcademicEportfolio-1.0.0",
+          "PESC-CollegeTranscript-1.7.0",
+          "PESC-CollegeTranscript-1.8.0",
+          "PESC-DocumentRequest-1.0.0",
+          "PESC-DocumentResponse-1.0.0",
+          "PESC-HighSchoolTranscript-1.6.0",
+          "PESC-LearningRecord-1.0.0",
+          "PESC-TestScoreReport-1.1.0"
+        ]
+      },
+      {
+        "family": "PESCLD",
+        "releaseCount": 1,
+        "sourceList": [
+          "PESCLD"
+        ]
+      },
+      {
+        "family": "SIF",
+        "releaseCount": 1,
+        "sourceList": [
+          "SIF260928"
+        ]
+      }
+    ],
+    "familyFieldPresent": true,
+    "hubStandardList": [
+      "CEDS",
+      "CTDL"
+    ],
+    "hubList": [
+      {
+        "hubName": "CEDS",
+        "hubSource": "CEDS",
+        "hubVersion": "14.0.0.0"
+      },
+      {
+        "hubName": "CTDL",
+        "hubSource": "CTDL",
+        "hubVersion": "Release 20260927"
+      }
+    ]
+  }
+}

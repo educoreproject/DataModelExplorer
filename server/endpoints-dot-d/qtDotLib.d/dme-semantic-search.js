@@ -18,6 +18,11 @@
 // This is what lets a user hand-pick a mapping where the graph has no implied
 // one yet. It is read-only and, like dme-spec-elements, public.
 
+// ⟪lane zbE⟫ LIMIT takes an INTEGER: a JS number reaches Neo4j as a float ('5.0') and the query is refused, so every
+// limit is passed as neo4j.int (measured failing on the live DEV server 2026-10-23: spec-elements, field-search,
+// semantic-search). A description may be a LIST (CEDS P600571 carries two, measured), so a text filter joins it
+// instead of calling toLower on a list.
+const neo4j = require('neo4j-driver');
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
@@ -60,7 +65,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		  AND n.role IN $roles
 		  AND ($q = ''
 		       OR toLower(coalesce(n.name, '')) CONTAINS $q
-		       OR toLower(coalesce(n.description, '')) CONTAINS $q
+		       OR toLower(reduce(descriptionText = '', descriptionPart IN CASE WHEN n.description IS :: LIST<ANY> THEN n.description ELSE [coalesce(n.description, '')] END | descriptionText + ' ' + toString(descriptionPart))) CONTAINS $q
 		       OR toLower(coalesce(n.path, '')) CONTAINS $q)
 		WITH src, n, vector.similarity.cosine(src.embedding, n.embedding) AS score
 		ORDER BY score DESC
@@ -123,7 +128,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			const queryData = {
 				action: 'query',
 				query: searchQueryFor(nativeIdentifierDeclarationList),
-				params: { source, path, name, target, q, roles, limit },
+				params: { source, path, name, target, q, roles, limit: neo4j.int(limit) },
 			};
 
 			accessPointsDotD['dme-cypher-query'](queryData, (err, result) => {

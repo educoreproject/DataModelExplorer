@@ -1,0 +1,153 @@
+{
+  "unmappedRowList": [
+    {
+      "standard": "EdFi",
+      "path": "StaffAbsenceEvent.AbsenceEventReason",
+      "fieldName": "AbsenceEventReason",
+      "description": "Expanded reason for the staff absence.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "StaffSchoolAssociation.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The academic subjects the individual is eligible to teach.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "CurrentPosition.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The academic subject the staff person's assignment to a school.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Application.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The academic subject for which the application is made.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "OpenStaffPosition.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The teaching field required for the open staff position.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "OrganizationDepartment.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The intended major subject area of the department.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Session.AcademicWeek",
+      "fieldName": "AcademicWeek",
+      "description": "The academic weeks associated with the school year.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Application.AcceptedDate",
+      "fieldName": "AcceptedDate",
+      "description": "The date of acceptance, if offered.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Diploma.Achievement",
+      "fieldName": "Achievement",
+      "description": "An entity that includes information about achievement earned by a student upon fulfilling a specified criteria.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Recognition.Achievement",
+      "fieldName": "Achievement",
+      "description": "An entity that includes information about achievement earned by an individual upon fulfilling a specified criteria.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "PerformanceEvaluationRating.ActualDate",
+      "fieldName": "ActualDate",
+      "description": "The month, day, and year on which the performance evaluation was conducted.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "PerformanceEvaluationRating.ActualTime",
+      "fieldName": "ActualTime",
+      "description": "An indication of the the time at which the performance evaluation was conducted.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "LearningResource.AdditionalAuthorsIndicator",
+      "fieldName": "AdditionalAuthorsIndicator",
+      "description": "Indicates whether there are additional un-named authors. In a research report, this is often marked by the abbreviation \"et al\".",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Contact.Address",
+      "fieldName": "Address",
+      "description": "Contact's address, if different from the student address.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "InternationalAddress.AddressLine2",
+      "fieldName": "AddressLine2",
+      "description": "The second line of the address.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "InternationalAddress.AddressLine3",
+      "fieldName": "AddressLine3",
+      "description": "The third line of the address.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "InternationalAddress.AddressLine4",
+      "fieldName": "AddressLine4",
+      "description": "The fourth line of the address.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "AssessmentAdministrationParticipation.AdministrationPointOfContact",
+      "fieldName": "AdministrationPointOfContact",
+      "description": "Pre-identified contacts for education organizations administering the assessment.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "AggregatedSurveyQuestionMatrixElementResponse.AggregatedMatrixElement",
+      "fieldName": "AggregatedMatrixElement",
+      "description": "For aggregated matrix questions, the text identifying each row of the matrix.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Aid.AidConditionDescription",
+      "fieldName": "AidConditionDescription",
+      "description": "The description of the condition (e.g., placement in a high need school) under which the aid was given.",
+      "isHubStandard": false
+    }
+  ],
+  "totalRowCount": 714,
+  "returnedRowCount": 20,
+  "truncatedRowCount": 694,
+  "rowUnit": "a DmeProperty with no match edge on itself or on any of its instances: one row per property",
+  "hubPolicy": "excludeHub",
+  "hubStandardList": [
+    "CEDS",
+    "CTDL"
+  ]
+}

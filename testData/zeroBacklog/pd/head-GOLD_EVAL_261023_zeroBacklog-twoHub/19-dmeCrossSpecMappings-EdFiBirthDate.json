@@ -1,0 +1,290 @@
+{
+  "statusCode": 200,
+  "body": [
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+      "stableId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+          "semantic": 0.7864805459976196,
+          "confidence": null,
+          "description": "Information related to the birth of a person",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "P000033",
+          "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+          "semantic": 0.864812970161438,
+          "confidence": null,
+          "description": "The year, month and day on which a person was born.",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthday",
+          "stableId": "pescld:shape/PersonShape/pesc:birthday",
+          "semantic": 0.7832778096199036,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthday",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthYear",
+          "stableId": "pescld:shape/PersonShape/pesc:birthYear",
+          "semantic": 0.7699767351150513,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birth Year",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "1647",
+      "stableId": "edfi:property/domainEntity.Staff.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+          "semantic": 0.7835485935211182,
+          "confidence": null,
+          "description": "Information related to the birth of a person",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "P000033",
+          "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+          "semantic": 0.8454821705818176,
+          "confidence": null,
+          "description": "The year, month and day on which a person was born.",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthday",
+          "stableId": "pescld:shape/PersonShape/pesc:birthday",
+          "semantic": 0.8259115815162659,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthday",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthYear",
+          "stableId": "pescld:shape/PersonShape/pesc:birthYear",
+          "semantic": 0.7743880748748779,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birth Year",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "753",
+      "stableId": "edfi:property/inlineCommon.BirthData.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "stableId": "https://w3id.org/CEDStandards/terms/C200376",
+          "semantic": 0.8402099013328552,
+          "confidence": null,
+          "description": "Information related to the birth of a person",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "P000033",
+          "stableId": "https://w3id.org/CEDStandards/terms/P000033",
+          "semantic": 0.8819811344146729,
+          "confidence": null,
+          "description": "The year, month and day on which a person was born.",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthday",
+          "stableId": "pescld:shape/PersonShape/pesc:birthday",
+          "semantic": 0.7981390953063965,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birthday",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        },
+        {
+          "sourceId": "pescld:shape/PersonShape/pesc:birthYear",
+          "stableId": "pescld:shape/PersonShape/pesc:birthYear",
+          "semantic": 0.7763270735740662,
+          "confidence": null,
+          "description": "",
+          "selfRel": "EXACT_MATCH",
+          "source": "PESCLD",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "PescLdProperty"
+          ],
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "name": "Birth Year",
+          "rel": "BROAD_MATCH",
+          "hubName": "CEDS"
+        }
+      ]
+    }
+  ]
+}

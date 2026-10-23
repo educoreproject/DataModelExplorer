@@ -1,0 +1,13 @@
+
+=== E1: each standard's own identifier and the layer's own description, read from DEV_zeroBacklog ===
+
+  FAIL: 1. EdFi (declares metaEdId): 0 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one) — status 401: Neo4j query failed: Neo4jError: LIMIT: Invalid input. '1000.0' is not a valid value. Must be a non-negative integer. (kF7BiPvKWVue)
+  FAIL: 1. CEDS (declares cedsId): 0 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one) — status 401: Neo4j query failed: Neo4jError: LIMIT: Invalid input. '1000.0' is not a valid value. Must be a non-negative integer. (Ev8CqF95Uf6j)
+  FAIL: 1. CTDL (declares uri): 0 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one) — status 401: Neo4j query failed: Neo4jError: LIMIT: Invalid input. '1000.0' is not a valid value. Must be a non-negative integer. (59JMPIgfNDHx)
+  FAIL: 1. PESC-CollegeTranscript-1.8.0 (declares none): 0 rows, each carries stableId, and sourceId = its own native identifier else stableId (0 show the native one) — status 401: Neo4j query failed: Neo4jError: LIMIT: Invalid input. '1000.0' is not a valid value. Must be a non-negative integer. (WSTIgDPEJpKs)
+  FAIL: 0. dme-field-search answers (0 rows), each with stableId — status 401: "Neo4j query failed: Neo4jError: LIMIT: Invalid input. '5.0' is not a valid value. Must be a non-negative integer. (HqSYbPnKkXJ7)"
+  FAIL: 0. dme-semantic-search answers (0 rows), each with stableId — status 401: "Neo4j query failed: Neo4jError: LIMIT: Invalid input. '5.0' is not a valid value. Must be a non-negative integer. (aruqozH7Gret)"
+  FAIL: 2. findMappings finds Ed-Fi edfi:property/abstractEntity.EducationOrganization.Address by its metaEdId '1381' — {"mappingRowList":[],"totalRowCount":0,"returnedRowCount":0,"truncatedRowCount":0,"rowUnit":"a mapping VIEW: one row per (direction, element, hub tuple, relation, via-relation). Rows are not edges: on
+  FAIL: 3. dme_structure carries the guide root's layerUsageTips, byte-identical — {"rowList":[{"classId":"C200013","className":"Assessment Administration","guideV14ClassName":"Assessment Administration","primaryConcept":"Event","secondaryConcept":"Membership","primaryConceptDefinit
+
+=== native-identifier-live — Results: 0 passed, 8 failed ===
