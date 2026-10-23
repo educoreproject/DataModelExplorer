@@ -139,25 +139,25 @@ export const dmeExamplePromptList: DmeExamplePrompt[] = [
 		promptText: 'Which build attestations does this graph carry, what does each check, and do they all pass?',
 		requiredFamilyList: [],
 	},
+	{
+		promptText: 'Which PESC JSON-LD College Transcript elements carry a ceds: identifier, and does each land on the CEDS card with that identifier by declared identity rather than by a judge?',
+		requiredFamilyList: ['CEDS', 'PESCLD'],
+	},
+	{
+		promptText: 'Which PESC JSON-LD elements reuse ceterms: terms, and which CTDL term HubReference card does each land on?',
+		requiredFamilyList: ['CTDL', 'PESCLD'],
+	},
+	{
+		promptText: 'PESC JSON-LD elements carry labels but no definitions. How many have a definition, and how were the label-only elements placed on a hub?',
+		requiredFamilyList: ['PESCLD'],
+	},
+	{
+		promptText: 'Show a College Transcript concept such as course credit in both PESC encodings, XML 1.8.0 and JSON-LD, side by side, with the hub card each lands on.',
+		requiredFamilyList: ['CEDS', 'CTDL', 'PESC', 'PESCLD'],
+	},
 ];
 
-// FUTURE — PESC_LD (PESC's JSON-LD College Transcript) is not in the graph yet. These prompts are NOT shipped: move each
-// into the list above only after the PESC_LD forge lands AND the prompt has been answered on that graph. Replace
-// 'PESCLD' with the standardFamily the PESC_LD forge actually declares (dme_list_standards prints it).
-//
-//	{
-//		promptText: 'Which PESC JSON-LD College Transcript elements carry a ceds: identifier, and does each land on the CEDS card with that identifier by declared identity rather than by a judge?',
-//		requiredFamilyList: ['CEDS', 'PESCLD'],
-//	},
-//	{
-//		promptText: 'Which PESC JSON-LD elements reuse ceterms: terms, and which CTDL term HubReference card does each land on?',
-//		requiredFamilyList: ['CTDL', 'PESCLD'],
-//	},
-//	{
-//		promptText: 'PESC JSON-LD elements carry labels but no definitions. How many have a definition, and how were the label-only elements placed on a hub?',
-//		requiredFamilyList: ['PESCLD'],
-//	},
-//	{
-//		promptText: 'Show a College Transcript concept such as course credit in both PESC encodings, XML 1.8.0 and JSON-LD, side by side, with the hub card each lands on.',
-//		requiredFamilyList: ['CEDS', 'CTDL', 'PESC', 'PESCLD'],
-//	},
+// ⟪lane zbE, E2-7 (census 69)⟫ the last four prompts (PESC_LD) came live once the PESC_LD forge was on the final gold
+// (GOLD_EVAL_261023_zeroBacklog) and each was answered correctly there: verdicts in educore
+// testData/zeroBacklog/samplePrompts/answers-GOLD_EVAL_261023_zeroBacklog/VERDICTS-samplePrompts-102326.md. Their family
+// name is the one the forge declares (StandardDefinition.standardFamily 'PESCLD', measured).

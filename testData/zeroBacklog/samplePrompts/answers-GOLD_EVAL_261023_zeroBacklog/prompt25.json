@@ -1,0 +1,22 @@
+{
+	"promptId": "prompt25",
+	"promptText": "What does CTDL-ASN declare equivalent to in CTDL? Show each pair and the predicate.",
+	"exitCode": 0,
+	"costUsd": 0.56463,
+	"answer": {
+		"mode": "singleCall",
+		"promptName": "DataModelExplorer",
+		"prompt": "What does CTDL-ASN declare equivalent to in CTDL? Show each pair and the predicate.",
+		"response": "**re: What does CTDL-ASN declare equivalent to in CTDL? Show each pair and the predicate.**\n\nThe CTDL-ASN schema itself (source `declared-ctdlasnCtdlDeclaredCorrespondence`, `mappingKind: authored`) declares exactly **4 correspondences** to CTDL, all using `owl:equivalentProperty`. These are the standard's own published assertions — not inferred judgments.\n\n> ⚠️ Important framing: these are `DECLARED_CORRESPONDENCE` edges, not hub match edges. They record what the CTDL-ASN specification itself asserted about its relationship to CTDL terms. `owl:equivalentProperty` is the predicate the standard used — quoted verbatim. They are **not** the same as the EXACT_MATCH/CLOSE_MATCH mapping model used for cross-standard alignment in this graph; never treat them as hub-mediated equivalences.\n\n<control>\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse; font-size:0.9em; width:100%\">\n  <thead style=\"background:#f0f0f0\">\n    <tr>\n      <th>CTDL-ASN Term</th>\n      <th>CTDL-ASN URI</th>\n      <th>Predicate (verbatim)</th>\n      <th>CTDL Term</th>\n      <th>CTDL URI</th>\n      <th>Kind</th>\n      <th>Source</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>Coded Notation</td>\n      <td><code>ceasn:codedNotation</code></td>\n      <td><code>owl:equivalentProperty</code></td>\n      <td>Coded Notation</td>\n      <td><code>ceterms:codedNotation</code></td>\n      <td>authored</td>\n      <td>declared-ctdlasnCtdlDeclaredCorrespondence</td>\n    </tr>\n    <tr>\n      <td>Concept Keyword</td>\n      <td><code>ceasn:conceptKeyword</code></td>\n      <td><code>owl:equivalentProperty</code></td>\n      <td>Keyword</td>\n      <td><code>ceterms:keyword</code></td>\n      <td>authored</td>\n      <td>declared-ctdlasnCtdlDeclaredCorrespondence</td>\n    </tr>\n    <tr>\n      <td>Concept Term</td>\n      <td><code>ceasn:conceptTerm</code></td>\n      <td><code>owl:equivalentProperty</code></td>\n      <td>Subject</td>\n      <td><code>ceterms:subject</code></td>\n      <td>authored</td>\n      <td>declared-ctdlasnCtdlDeclaredCorrespondence</td>\n    </tr>\n    <tr>\n      <td>Education Level Type</td>\n      <td><code>ceasn:educationLevelType</code></td>\n      <td><code>owl:equivalentProperty</code></td>\n      <td>Audience Level Type</td>\n      <td><code>ceterms:audienceLevelType</code></td>\n      <td>authored</td>\n      <td>declared-ctdlasnCtdlDeclaredCorrespondence</td>\n    </tr>\n  </tbody>\n</table>\n</control>\n\n**Key observations:**\n\n- All 4 use `owl:equivalentProperty` — the strongest OWL predicate for properties, asserting that the two properties are semantically interchangeable. This is the standard's own claim, not this graph's judgment.\n- Three of the four involve **renaming** across the vocabulary boundary: `conceptKeyword` → `keyword`, `conceptTerm` → `subject`, `educationLevelType` → `audienceLevelType`. The fourth (`codedNotation` → `codedNotation`) is a same-local-name case with different prefixes (`ceasn:` vs. `ceterms:`).\n- CTDL-ASN has 97 properties total; only these 4 carry authored cross-standard declarations to CTDL. The remaining CTDL-ASN properties have no such authored statement — though many are connected to CTDL structurally (the build also loaded a `ctdlFamilyStructure` relationship block linking the two).",
+		"stopReason": "end_turn",
+		"answerCutOff": false,
+		"model": "claude-sonnet-4-6",
+		"cost": {
+			"inputTokens": 180740,
+			"outputTokens": 1494,
+			"usd": 0.56463
+		},
+		"elapsedSeconds": 34.07
+	},
+	"stderrTail": "Cost: $0.5646  (180740 input / 1494 output)  Model: claude-sonnet-4-6  Elapsed: 34.1s\nSession saved: fern_range\n"
+}

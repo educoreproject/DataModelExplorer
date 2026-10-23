@@ -1,0 +1,35 @@
+runSamplePrompts: 33 of 33 prompts, stop line USD 55
+prompt01 exit=0 parsed=true cost=0.348783 running=0.3488
+prompt02 exit=0 parsed=true cost=0.180843 running=0.5296
+prompt03 exit=0 parsed=true cost=0.21971100000000002 running=0.7493
+prompt04 exit=0 parsed=true cost=0.6090599999999999 running=1.3584
+prompt05 exit=0 parsed=true cost=0.237168 running=1.5956
+prompt06 exit=0 parsed=true cost=1.048635 running=2.6442
+prompt07 exit=0 parsed=true cost=0.37823700000000005 running=3.0224
+prompt08 exit=0 parsed=true cost=0.40064399999999994 running=3.4231
+prompt09 exit=0 parsed=true cost=0.606363 running=4.0294
+prompt10 exit=0 parsed=true cost=0.22224300000000002 running=4.2517
+prompt11 exit=0 parsed=true cost=1.9194270000000002 running=6.1711
+prompt12 exit=0 parsed=true cost=0.597978 running=6.7691
+prompt13 exit=0 parsed=true cost=2.41908 running=9.1882
+prompt14 exit=0 parsed=true cost=0.15478799999999998 running=9.3430
+prompt15 exit=0 parsed=true cost=0.28349100000000005 running=9.6265
+prompt16 exit=0 parsed=true cost=0.289716 running=9.9162
+prompt17 exit=0 parsed=true cost=0.854304 running=10.7705
+prompt18 exit=0 parsed=true cost=0.760083 running=11.5306
+prompt19 exit=0 parsed=true cost=0.9359460000000001 running=12.4665
+prompt20 exit=0 parsed=true cost=0.31960500000000003 running=12.7861
+prompt21 exit=0 parsed=true cost=0.6496799999999999 running=13.4358
+prompt22 exit=0 parsed=true cost=0.391641 running=13.8274
+prompt23 exit=0 parsed=true cost=1.541334 running=15.3688
+prompt24 exit=0 parsed=true cost=0.396243 running=15.7650
+prompt25 exit=0 parsed=true cost=0.56463 running=16.3296
+prompt26 exit=0 parsed=true cost=2.384766 running=18.7144
+prompt27 exit=0 parsed=true cost=0.34251 running=19.0569
+prompt28 exit=0 parsed=true cost=0.706713 running=19.7636
+prompt29 exit=0 parsed=true cost=0.279618 running=20.0432
+prompt30 exit=0 parsed=true cost=2.626464 running=22.6697
+prompt31 exit=0 parsed=true cost=1.2999779999999999 running=23.9697
+prompt32 exit=0 parsed=true cost=1.048995 running=25.0187
+prompt33 exit=0 parsed=true cost=0.536622 running=25.5553
+runSamplePrompts: DONE 33 prompts, measured total USD 25.5553
