@@ -1,0 +1,13 @@
+
+=== W-D-17 schema-provider: roles, sources and labels from the live graph ===
+
+  PASS: renders
+  PASS: the role line lists exactly the 16 live roles
+  PASS: the _source line lists exactly the live _source values
+  PASS: no literal label or source the graph does not hold (LIF, SifField, LifProperty)
+  PASS: DmeProperty is no longer said to own HAS_SUPPORT
+  PASS: the codeset example reaches SIF code sets through instances by HAS_OPTION_SET alone (campaign P3, S3: CONSTRAINED_BY retired)
+  PASS: the Structural Edges section names REFERENCES_TYPE and REFERENCES_OBJECT
+
+=== W-D-17 — Results: 7 passed, 0 failed ===
+

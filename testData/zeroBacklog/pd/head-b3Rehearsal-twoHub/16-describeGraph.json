@@ -1,0 +1,867 @@
+{
+  "passport": {
+    "passportKey": "graphProvenance",
+    "builtAt": "2026-10-23T04:45:49.430Z",
+    "manifestRefId": "5b8f3863997eee006ace5ab73cf2f8a163b00e5b529a02eaa78172f4c1b52805",
+    "graphName": "DEV_gb_materialize_32146_38",
+    "contentNodeCount": 269602,
+    "contentEdgeCount": 904136,
+    "standardCount": 14,
+    "standardsIncluded": [
+      "CEDS",
+      "CTDL",
+      "CTDLASN",
+      "CTDLQData",
+      "EdFi",
+      "PESC-AcademicEportfolio-1.0.0",
+      "PESC-CollegeTranscript-1.7.0",
+      "PESC-CollegeTranscript-1.8.0",
+      "PESC-DocumentRequest-1.0.0",
+      "PESC-DocumentResponse-1.0.0",
+      "PESC-HighSchoolTranscript-1.6.0",
+      "PESC-LearningRecord-1.0.0",
+      "PESC-TestScoreReport-1.1.0",
+      "SIF260928"
+    ],
+    "meaningBearingEdgeCount": 44834,
+    "meaningTierBreakdown": [
+      {
+        "edgeType": "BROAD_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-debug",
+        "tierCount": 7534
+      },
+      {
+        "edgeType": "BROAD_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "tierCount": 2027
+      },
+      {
+        "edgeType": "CLOSE_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-debug",
+        "tierCount": 7780
+      },
+      {
+        "edgeType": "CLOSE_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "tierCount": 5527
+      },
+      {
+        "edgeType": "DECLARED_CORRESPONDENCE",
+        "mappingKind": "authored",
+        "mappingSource": "declared-ctdlCedsDeclaredCorrespondence",
+        "tierCount": 53
+      },
+      {
+        "edgeType": "DECLARED_CORRESPONDENCE",
+        "mappingKind": "authored",
+        "mappingSource": "declared-ctdlasnCtdlDeclaredCorrespondence",
+        "tierCount": 4
+      },
+      {
+        "edgeType": "EXACT_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-debug",
+        "tierCount": 7076
+      },
+      {
+        "edgeType": "EXACT_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "tierCount": 3135
+      },
+      {
+        "edgeType": "HAS_EVENT_DATE_CONCEPT",
+        "provenanceTier": "spec-authoritative",
+        "tierCount": 418
+      },
+      {
+        "edgeType": "HAS_PRIMARY_CONCEPT",
+        "provenanceTier": "spec-authoritative",
+        "tierCount": 400
+      },
+      {
+        "edgeType": "HAS_SECONDARY_CONCEPT",
+        "provenanceTier": "spec-authoritative",
+        "tierCount": 191
+      },
+      {
+        "edgeType": "NARROW_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-debug",
+        "tierCount": 7565
+      },
+      {
+        "edgeType": "NARROW_MATCH",
+        "mappingKind": "inferred",
+        "mappingSource": "bridge-jev",
+        "tierCount": 2290
+      },
+      {
+        "edgeType": "REPAIRS_TEXT_OF",
+        "provenanceTier": "spec-authoritative",
+        "tierCount": 834
+      }
+    ],
+    "trustworthyForMeaning": false,
+    "trustBasis": "invalidDebugPresent",
+    "trustNote": "29955 of 44834 meaning-bearing edge(s) carry the mappingSource 'bridge-debug' (mappingConfidence 0): a debug judge that takes the first candidate unconditionally. NOTHING informed those choices. They are recorded honestly rather than dressed as inference, and their presence makes this graph unfit to be relied on for meaning — which is the true answer and the one this passport is required to give.",
+    "previousManifestRefIdBasis": "unavailable: this generation has no graphs table, so no prior build is recorded anywhere for this writer to read. Recorded as an explicit basis rather than an absent property, because an absent property is indistinguishable from one never written.",
+    "engineVersions": {
+      "replayManager": "finish/1",
+      "replayEngine": "cb18a763a3e31b9ada2af1d4d337374695819c43f294506e96b943f6cc47c0de",
+      "serializer": "2",
+      "forgeFramework": "b99b0eb595ad00bd47919160cc8f7826b5cb200fffca8db7636c7f55d9e60bb8",
+      "bridgeFramework": "a3da37392631678d130edb99e1bcf428c6b8a8eded57f3e259909a5d6832b104"
+    },
+    "embeddingModelVersion": "voyage-4-large",
+    "embeddingDims": 1024,
+    "judgeIdentityList": [
+      "debug:digest",
+      "jev:jev-1.13.0:data:cfg-03f64470322c",
+      "jev:jev-1.13.0:data:cfg-cf8d41f82791"
+    ],
+    "rendererVersionList": [
+      "bridgeEvidenceRenderer-derivedJudgeSlot-v1",
+      "bridgeEvidenceRenderer-derivedJudgeSlotOwningDefinition-v1"
+    ],
+    "recipeHash": "bf06183e92f11385f3c71f806a04eb1d81a0bf971fb431b88ec9538c615de8a2",
+    "recipeName": "ctdlJudgedAll",
+    "vectorIndexNameList": [
+      "DEV_gb_materialize_32146_38_embedText_vector",
+      "DEV_gb_materialize_32146_38_vector"
+    ],
+    "graphContractSha256": "1e2d39d79376e1a04e818efa849a4ffa59bf69fa03093fdcc03bf8737f40039d",
+    "frameworkFingerprintBasis": "the decision blocks this build materialised disagree: 4a48db61475801f9a1201191607470c85bbe1d446571f7139c88c9b6b66f272e, a3da37392631678d130edb99e1bcf428c6b8a8eded57f3e259909a5d6832b104, f1f8d7a737b27451fe60cb867984ed72e309b6a909da21e6988c64aa826d24e1",
+    "structuralVersion": "V.09"
+  },
+  "readerContractSha256": "1e2d39d79376e1a04e818efa849a4ffa59bf69fa03093fdcc03bf8737f40039d",
+  "recipe": {
+    "recipeName": "ctdlJudgedAll",
+    "createdAt": "2026-10-23 04:41:02",
+    "stableId": "manifestRecipe:5b8f3863997eee006ace5ab73cf2f8a163b00e5b529a02eaa78172f4c1b52805",
+    "recipeFileName": "ctdlJudgedAll.recipe.jsonc",
+    "manifestRefId": "5b8f3863997eee006ace5ab73cf2f8a163b00e5b529a02eaa78172f4c1b52805",
+    "basedOnManifestRefIdBasis": "none named at build",
+    "name": "ctdlJudgedAll",
+    "description": "goldCtdlHub (CEDS and CTDL hubs, CEDS layers, Ed-Fi, SIF 260928, eight PESC releases, the CTDL family and its declared bridges) with the ten derived bridges paired with BOTH hubs: the CTDL hub judged from Ed-Fi, SIF 260928 and every PESC release, beside the unchanged CEDS bridges.",
+    "_id": "manifestRecipe:5b8f3863997eee006ace5ab73cf2f8a163b00e5b529a02eaa78172f4c1b52805",
+    "recipeHash": "bf06183e92f11385f3c71f806a04eb1d81a0bf971fb431b88ec9538c615de8a2",
+    "isRootOfThisGraph": true
+  },
+  "blocks": [
+    {
+      "stableId": "recipeBlock:cb94d975b2254f6ac37cdf257bf9161f66008bf19594fd5c4e8b57b121714ec4",
+      "purposeSource": "mechanical:forged",
+      "purpose": "standardBase schema block for ceds@14_0_0_0_base, forged by recipe 'ctdlJudgedAll'",
+      "subject": "ceds@14_0_0_0_base",
+      "kind": "standardBase",
+      "schemaBlockRefId": "cb94d975b2254f6ac37cdf257bf9161f66008bf19594fd5c4e8b57b121714ec4",
+      "producedByRecipeName": "ctdlJudgedAll",
+      "position": 0,
+      "_id": "recipeBlock:cb94d975b2254f6ac37cdf257bf9161f66008bf19594fd5c4e8b57b121714ec4",
+      "version": "14.0.0.0",
+      "purposeTemplateSite": "build.js forged-standardBase description write"
+    },
+    {
+      "stableId": "recipeBlock:296905b1227f53d27d1ac5d4643c17f5cdf225b3f8ab5f160007a5b3e9887c94",
+      "purposeSource": "mechanical:layered",
+      "requiresSchemaBlockRefIdList": [
+        "cb94d975b2254f6ac37cdf257bf9161f66008bf19594fd5c4e8b57b121714ec4"
+      ],
+      "purpose": "layer schema block for ceds@14_0_0_0_layer_guide@14 (layer 'guide' version 14 of ceds), forged by recipe 'ctdlJudgedAll'",
+      "subject": "ceds@14_0_0_0_layer_guide@14",
+      "kind": "layer",
+      "schemaBlockRefId": "296905b1227f53d27d1ac5d4643c17f5cdf225b3f8ab5f160007a5b3e9887c94",
+      "producedByRecipeName": "ctdlJudgedAll",
+      "position": 1,
+      "_id": "recipeBlock:296905b1227f53d27d1ac5d4643c17f5cdf225b3f8ab5f160007a5b3e9887c94",
+      "version": "14.0.0.0",
+      "purposeTemplateSite": "build.js forged-layer description write"
+    },
+    {
+      "stableId": "recipeBlock:1a3db84b3a54a118618cbcb6833f449397db32fe16e6cbdb695b34f707ce11e3",
+      "purposeSource": "mechanical:layered",
+      "requiresSchemaBlockRefIdList": [
+        "cb94d975b2254f6ac37cdf257bf9161f66008bf19594fd5c4e8b57b121714ec4"
+      ],
+      "purpose": "layer schema block for ceds@14_0_0_0_layer_textRepair@14_0_0_0 (layer 'textRepair' version 14.0.0.0 of ceds), forged by recipe 'ctdlJudgedAll'",
+      "subject": "ceds@14_0_0_0_layer_textRepair@14_0_0_0",
+      "kind": "layer",
+      "schemaBlockRefId": "1a3db84b3a54a118618cbcb6833f449397db32fe16e6cbdb695b34f707ce11e3",
+      "producedByRecipeName": "ctdlJudgedAll",
+      "position": 2,
+      "_id": "recipeBlock:1a3db84b3a54a118618cbcb6833f449397db32fe16e6cbdb695b34f707ce11e3",
+      "version": "14.0.0.0",
+      "purposeTemplateSite": "build.js forged-layer description write"
+    },
+    {
+      "stableId": "recipeBlock:29eb88112ff9f7f8a5a6cca9b5dfc9225c07210c29676b0253e018276967e96f",
+      "purposeSource": "mechanical:forged",
+      "purpose": "standardBase schema block for edfi@5_2_0_base, forged by recipe 'ctdlJudgedAll'",
+      "subject": "edfi@5_2_0_base",
+      "kind": "standardBase",
+      "schemaBlockRefId": "29eb88112ff9f7f8a5a6cca9b5dfc9225c07210c29676b0253e018276967e96f",
+      "producedByRecipeName": "ctdlJudgedAll",
+      "position": 3,
+      "_id": "recipeBlock:29eb88112ff9f7f8a5a6cca9b5dfc9225c07210c29676b0253e018276967e96f",
+      "version": "5.2.0",
+      "purposeTemplateSite": "build.js forged-standardBase description write"
+    },
+    {
+      "stableId": "recipeBlock:cfe704d7ff00b1ba3403a7a1b0e8f6b28494f6f91e6c114d7c59466e84ddc99b",
+      "purposeSource": "mechanical:forged",
+      "purpose": "standardBase schema block for sif260928@4_3_base, forged by recipe 'ctdlJudgedAll'",
+      "subject": "sif260928@4_3_base",
+      "kind": "standardBase",
+      "schemaBlockRefId": "cfe704d7ff00b1ba3403a7a1b0e8f6b28494f6f91e6c114d7c59466e84ddc99b",
+      "producedByRecipeName": "ctdlJudgedAll",
+      "position": 4,
+      "_id": "recipeBlock:cfe704d7ff00b1ba3403a7a1b0e8f6b28494f6f91e6c114d7c59466e84ddc99b",
+      "version": "4.3",
+      "purposeTemplateSite": "build.js forged-standardBase description write"
+    }
+  ],
+  "blockTotal": 41,
+  "blocksTruncated": true,
+  "lineage": {
+    "basedOnManifestRefId": null,
+    "basedOnManifestRefIdBasis": "none named at build",
+    "ancestorManifestRefIdList": []
+  },
+  "standards": [
+    {
+      "sourceKey": "CEDS",
+      "mappingSourceList": [],
+      "snapshotKey": "01",
+      "propertyCount": 2324,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [],
+      "standardUsageTips": "CEDS is the hub. A CEDS HubReference is a tuple: domain class + property + range [+ value], keyed by canonicalKey (the CEDS Global ID). It decomposes via HAS_CEDS_DOMAIN / HAS_CEDS_PROPERTY / HAS_CEDS_RANGE / HAS_CEDS_VALUE / HAS_CEDS_QUALIFIER; its range may be an option set, another CEDS class (a reference), or a datatype. Present a CEDS anchor as its full tuple — domain · property · range [· value], the cedsTuple field from dme_find_mappings — never as a bare Global ID: the Global ID is the tuple's durable key, not its meaning.",
+      "sourceUrl": "https://w3id.org/CEDStandards/terms/",
+      "publishedVersion": "14.0.0.0",
+      "classCount": 402,
+      "closeMappedProperties": 0,
+      "sourceFormat": "rdf-xml",
+      "standardName": "Common Education Data Standards",
+      "standardFamily": "CEDS",
+      "optionValueCount": 19546,
+      "mappingKindList": [],
+      "versionDisagreement": false,
+      "descriptionSource": "dc:description: the Dublin Core description literal of each term in the CEDS ontology RDF (every value carried)",
+      "releaseLabel": "CEDS",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0},\"CTDL\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0}}",
+      "version": "14.0.0.0",
+      "versionSource": "spec",
+      "exactMappedProperties": 0,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "ceds"
+    },
+    {
+      "sourceKey": "CTDL",
+      "mappingSourceList": [],
+      "snapshotKey": "02",
+      "propertyCount": 397,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [],
+      "standardUsageTips": null,
+      "sourceUrl": "https://credreg.net/ctdl/schema/encoding/json",
+      "publishedVersion": "Release 20260927",
+      "classCount": 137,
+      "closeMappedProperties": 0,
+      "sourceFormat": "json-ld",
+      "standardName": "Credential Transparency Description Language",
+      "standardFamily": "CTDL",
+      "optionValueCount": 457,
+      "mappingKindList": [],
+      "versionDisagreement": false,
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL JSON-LD schema",
+      "releaseLabel": "CTDL",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0},\"CTDL\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0}}",
+      "version": "Release 20260927",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 0,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "ctdl"
+    },
+    {
+      "sourceKey": "CTDLASN",
+      "mappingSourceList": [],
+      "snapshotKey": "02",
+      "propertyCount": 97,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [],
+      "standardUsageTips": null,
+      "sourceUrl": "https://credreg.net/ctdlasn/schema/encoding/json",
+      "publishedVersion": "20260626",
+      "classCount": 11,
+      "closeMappedProperties": 0,
+      "sourceFormat": "json-ld",
+      "standardName": "Credential Transparency Description Language — Achievement Standards Network (CTDL-ASN)",
+      "standardFamily": "CTDLASN",
+      "optionValueCount": 8,
+      "mappingKindList": [],
+      "versionDisagreement": false,
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-ASN JSON-LD schema",
+      "releaseLabel": "CTDLASN",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0},\"CTDL\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0}}",
+      "version": "20260626",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 0,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "ctdlasn"
+    },
+    {
+      "sourceKey": "CTDLQData",
+      "mappingSourceList": [],
+      "snapshotKey": "02",
+      "propertyCount": 82,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [],
+      "standardUsageTips": null,
+      "sourceUrl": "https://credreg.net/qdata/schema/encoding/json?includemetaproperties=false",
+      "publishedVersion": "20260626",
+      "classCount": 11,
+      "closeMappedProperties": 0,
+      "sourceFormat": "json-ld",
+      "standardName": "Credential Transparency Description Language — Quantitative Data (CTDL-QData)",
+      "standardFamily": "CTDLQData",
+      "optionValueCount": 113,
+      "mappingKindList": [],
+      "versionDisagreement": false,
+      "descriptionSource": "each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-QData JSON-LD schema",
+      "releaseLabel": "CTDLQData",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0},\"CTDL\":{\"exactMappedProperties\":0,\"closeMappedProperties\":0}}",
+      "version": "20260626",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 0,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "ctdlqdata"
+    },
+    {
+      "sourceKey": "EdFi",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "04",
+      "propertyCount": 1904,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "Ed-Fi keeps its mappings directly on its properties (no instance nodes). The same property name often appears in several Ed-Fi entities or common types (e.g. BirthDate in the BirthData inline common and in ApplicantProfile), each with its own mapping and confidence: name the owning entity when presenting, and do not merge their confidences.",
+      "sourceUrl": "https://github.com/Ed-Fi-Alliance-OSS/Ed-Fi-Data-Standard",
+      "publishedVersion": "5.2.0",
+      "classCount": 309,
+      "closeMappedProperties": 909,
+      "sourceFormat": "metaed+xml",
+      "standardName": "Ed-Fi Data Standard",
+      "standardFamily": "EdFi",
+      "optionValueCount": 3582,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "MetaEd 'documentation': the documentation text written on each Ed-Fi model construct and property",
+      "releaseLabel": "EdFi",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":179,\"closeMappedProperties\":644},\"CTDL\":{\"exactMappedProperties\":437,\"closeMappedProperties\":419}}",
+      "version": "5.2.0",
+      "versionSource": "spec",
+      "exactMappedProperties": 565,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "edfi"
+    },
+    {
+      "sourceKey": "PESC-AcademicEportfolio-1.0.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1933,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.0.0",
+      "classCount": 337,
+      "closeMappedProperties": 2953,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC Academic ePortfolio v1.0.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2749,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "AcademicEportfolio",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":826,\"closeMappedProperties\":1617},\"CTDL\":{\"exactMappedProperties\":1629,\"closeMappedProperties\":1753}}",
+      "version": "1.0.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 2236,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pescacademiceportfolio1v0v0"
+    },
+    {
+      "sourceKey": "PESC-CollegeTranscript-1.7.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1185,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.7.0",
+      "classCount": 223,
+      "closeMappedProperties": 464,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC College Transcript v1.7.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2721,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "CollegeTranscript",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":148,\"closeMappedProperties\":273},\"CTDL\":{\"exactMappedProperties\":275,\"closeMappedProperties\":269}}",
+      "version": "1.7.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 387,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pesccollegetranscript1v7v0"
+    },
+    {
+      "sourceKey": "PESC-CollegeTranscript-1.8.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1241,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.8.0",
+      "classCount": 235,
+      "closeMappedProperties": 565,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC College Transcript v1.8.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2741,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "CollegeTranscript",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":182,\"closeMappedProperties\":329},\"CTDL\":{\"exactMappedProperties\":340,\"closeMappedProperties\":328}}",
+      "version": "1.8.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 480,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pesccollegetranscript1v8v0"
+    },
+    {
+      "sourceKey": "PESC-DocumentRequest-1.0.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1282,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.0.0",
+      "classCount": 239,
+      "closeMappedProperties": 268,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC Document Request v1.0.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2741,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "DocumentRequest",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":85,\"closeMappedProperties\":127},\"CTDL\":{\"exactMappedProperties\":159,\"closeMappedProperties\":178}}",
+      "version": "1.0.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 222,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pescdocumentrequest1v0v0"
+    },
+    {
+      "sourceKey": "PESC-DocumentResponse-1.0.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1282,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.0.0",
+      "classCount": 239,
+      "closeMappedProperties": 219,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC Document Response v1.0.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2741,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "DocumentResponse",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":55,\"closeMappedProperties\":101},\"CTDL\":{\"exactMappedProperties\":110,\"closeMappedProperties\":142}}",
+      "version": "1.0.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 154,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pescdocumentresponse1v0v0"
+    },
+    {
+      "sourceKey": "PESC-HighSchoolTranscript-1.6.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1185,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.6.0",
+      "classCount": 223,
+      "closeMappedProperties": 543,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC High School Transcript v1.6.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2721,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "HighSchoolTranscript",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":111,\"closeMappedProperties\":338},\"CTDL\":{\"exactMappedProperties\":300,\"closeMappedProperties\":259}}",
+      "version": "1.6.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 381,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "peschighschooltranscript1v6v0"
+    },
+    {
+      "sourceKey": "PESC-LearningRecord-1.0.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1235,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.0.0",
+      "classCount": 234,
+      "closeMappedProperties": 568,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC Learning Record v1.0.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2739,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "LearningRecord",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":165,\"closeMappedProperties\":317},\"CTDL\":{\"exactMappedProperties\":244,\"closeMappedProperties\":320}}",
+      "version": "1.0.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 363,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pesclearningrecord1v0v0"
+    },
+    {
+      "sourceKey": "PESC-TestScoreReport-1.1.0",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 1181,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.",
+      "sourceUrl": null,
+      "publishedVersion": "1.1.0",
+      "classCount": 222,
+      "closeMappedProperties": 602,
+      "sourceFormat": "pesc-xsd-release-folder",
+      "standardName": "PESC Test Score Report v1.1.0",
+      "standardFamily": "PESC",
+      "optionValueCount": 2721,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)",
+      "releaseLabel": "TestScoreReport",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":173,\"closeMappedProperties\":354},\"CTDL\":{\"exactMappedProperties\":334,\"closeMappedProperties\":353}}",
+      "version": "1.1.0",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 475,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "pesctestscorereport1v1v0"
+    },
+    {
+      "sourceKey": "SIF260928",
+      "mappingSourceList": [
+        "bridge-debug",
+        "bridge-jev"
+      ],
+      "snapshotKey": "01",
+      "propertyCount": 5018,
+      "nativeIdentifierPropertyName": null,
+      "mappingEdgeTypes": [
+        "BROAD_MATCH",
+        "CLOSE_MATCH",
+        "EXACT_MATCH",
+        "NARROW_MATCH"
+      ],
+      "standardUsageTips": "SIF keeps its mappings on INSTANCE nodes. A SIF Question (DmeProperty, the node search finds) carries no match edge; it has one Field (DmeInstance) per object it appears in, reached by HAS_INSTANCE, and the Fields carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the owning object, (object)-[:HAS_FIELD]->(field), e.g. StudentPersonal, StaffPersonal: present each hub concept ONCE with the objects that hold it and the instance count, never one repeated line per instance. If different objects carry different hub concepts for the same Question, say so plainly — the meaning differs by context; it is not an error. Structure: HAS_FIELD reads 'object has field', HAS_CHILD 'element contains element' (Object -> Container -> Container|Field).",
+      "sourceUrl": null,
+      "publishedVersion": "4.3",
+      "classCount": 159,
+      "closeMappedProperties": 4895,
+      "sourceFormat": "tsv",
+      "standardName": "SIF Implementation Specification (sif260928 rebuild)",
+      "standardFamily": "SIF",
+      "optionValueCount": 4055,
+      "mappingKindList": [
+        "inferred"
+      ],
+      "versionDisagreement": false,
+      "descriptionSource": "the 'Description' column of the SIF 4.3 specification's element tables (one cell per field row)",
+      "releaseLabel": "sif260928",
+      "unkindedMappingEdgeCount": null,
+      "mappedPropertyCountByHub": "{\"CEDS\":{\"exactMappedProperties\":1211,\"closeMappedProperties\":1427},\"CTDL\":{\"exactMappedProperties\":3248,\"closeMappedProperties\":3759}}",
+      "version": "4.3",
+      "versionSource": "provenance-file",
+      "exactMappedProperties": 4180,
+      "standardKind": "dataStandard",
+      "versionNote": null,
+      "standardKey": "sif260928"
+    }
+  ],
+  "attestations": [
+    {
+      "missingVectorTotal": 0,
+      "stableId": "buildAttestation:embeddingCoverage",
+      "verdict": "pass",
+      "expected": true,
+      "writtenOnChannel": "channelA",
+      "verdictSupplied": true,
+      "gate": "embeddingCoverage",
+      "detail": "searchTextWithoutVector 0, cardWithoutVector 0, textWithoutVector 0, vectorWithoutSearchText 0 (model voyage-4-large x 1024)",
+      "_id": "buildAttestation:embeddingCoverage",
+      "writtenOnChannelNote": "A — written by the build-attestation finisher at finish, from the verdicts the build handed it; a gate it expected and was not handed reads notRun with verdictSupplied false",
+      "labelList": [
+        "ForgedNode",
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    },
+    {
+      "stableId": "buildAttestation:fidelity",
+      "expected": true,
+      "verdict": "pass",
+      "writtenOnChannel": "channelA",
+      "verdictSupplied": true,
+      "gate": "fidelity",
+      "detail": "PASSED -- zero lost, zero invented; source 239761, matched 239761, lost 0, invented 0",
+      "_id": "buildAttestation:fidelity",
+      "writtenOnChannelNote": "A — written by the build-attestation finisher at finish, from the verdicts the build handed it; a gate it expected and was not handed reads notRun with verdictSupplied false",
+      "inventedTotal": 0,
+      "labelList": [
+        "ForgedNode",
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    },
+    {
+      "stableId": "buildAttestation:forgeCensus",
+      "verdict": "pass",
+      "expected": true,
+      "writtenOnChannel": "channelA",
+      "verdictSupplied": true,
+      "gate": "forgeCensus",
+      "detail": "14 standard(s): every role and edge type the forge counted is in the graph at that count || instanceStructure pass: 9 standard(s) with instances (PESC-AcademicEportfolio-1.0.0, PESC-CollegeTranscript-1.7.0, PESC-CollegeTranscript-1.8.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0, PESC-HighSchoolTranscript-1.6.0, PESC-LearningRecord-1.0.0, PESC-TestScoreReport-1.1.0, SIF260928): every instance has one declaration and one owner; no declaration with instances carries its own match edge || codeListStructure pass: every option value has one owning option set of its standard; sets/values CEDS 965/19546, CTDL 36/457, CTDLASN 2/8, CTDLQData 8/113, EdFi 271/3582, PESC-AcademicEportfolio-1.0.0 228/2749, PESC-CollegeTranscript-1.7.0 217/2721, PESC-CollegeTranscript-1.8.0 219/2741, PESC-DocumentRequest-1.0.0 219/2741, PESC-DocumentResponse-1.0.0 219/2741, PESC-HighSchoolTranscript-1.6.0 217/2721, PESC-LearningRecord-1.0.0 219/2739, PESC-TestScoreReport-1.1.0 217/2721, SIF260928 131/4055; 0 standard(s) equal their frozen source census; not compared to a source census: CEDS, CTDL, CTDLASN, CTDLQData, EdFi, PESC-AcademicEportfolio-1.0.0, PESC-CollegeTranscript-1.7.0, PESC-CollegeTranscript-1.8.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0, PESC-HighSchoolTranscript-1.6.0, PESC-LearningRecord-1.0.0, PESC-TestScoreReport-1.1.0, SIF260928 || rootOwnership pass: every content node of 14 standard(s) is reached from its root (unreached/content: CEDS 0/26045, CTDL 0/1027, CTDLASN 0/118, CTDLQData 0/214, EdFi 0/6335, PESC-AcademicEportfolio-1.0.0 0/12599, PESC-CollegeTranscript-1.7.0 0/6053, PESC-CollegeTranscript-1.8.0 0/6418, PESC-DocumentRequest-1.0.0 0/5829, PESC-DocumentResponse-1.0.0 0/5642, PESC-HighSchoolTranscript-1.6.0 0/6055, PESC-LearningRecord-1.0.0 0/6290, PESC-TestScoreReport-1.1.0 0/6306, SIF260928 0/31569) || dmeTextField pass: every standard's text is in description, the field the DME reads (described/declaration nodes: CEDS 2725/2726, CTDL 534/534, CTDLASN 108/108, CTDLQData 93/93, EdFi 2199/2213, PESC-AcademicEportfolio-1.0.0 432/2270, PESC-CollegeTranscript-1.7.0 1381/1408, PESC-CollegeTranscript-1.8.0 1452/1476, PESC-DocumentRequest-1.0.0 1497/1521, PESC-DocumentResponse-1.0.0 1497/1521, PESC-HighSchoolTranscript-1.6.0 1381/1408, PESC-LearningRecord-1.0.0 1450/1469, PESC-TestScoreReport-1.1.0 1382/1403, SIF260928 4487/5177) || fulltextIndex pass: FULLTEXT index DEV_gb_materialize_32146_38_fulltext is the declared :ForgedNode(name, description) analyzer standard; GAP (reported, not failed): 101 of 157196 vector-searched node(s) carry none of name/description, so only the vector leg can find them — PESC-AcademicEportfolio-1.0.0 DmeClass 12/337, PESC-CollegeTranscript-1.7.0 DmeClass 13/223, PESC-CollegeTranscript-1.8.0 DmeClass 13/235, PESC-DocumentRequest-1.0.0 DmeClass 13/239, PESC-DocumentResponse-1.0.0 DmeClass 13/239, PESC-HighSchoolTranscript-1.6.0 DmeClass 13/223, PESC-LearningRecord-1.0.0 DmeClass 12/234, PESC-TestScoreReport-1.1.0 DmeClass 12/222",
+      "_id": "buildAttestation:forgeCensus",
+      "writtenOnChannelNote": "A — written by the build-attestation finisher at finish, from the verdicts the build handed it; a gate it expected and was not handed reads notRun with verdictSupplied false",
+      "labelList": [
+        "ForgedNode",
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    },
+    {
+      "stableId": "buildAttestation:goldEvalCheck",
+      "verdict": "notRun",
+      "expected": true,
+      "writtenOnChannel": "channelA",
+      "verdictSupplied": false,
+      "detail": "no producer supplied a verdict for this gate in this materialize: this row is the expected-list default (notRun), not a measurement",
+      "gate": "goldEvalCheck",
+      "_id": "buildAttestation:goldEvalCheck",
+      "writtenOnChannelNote": "A — written by the build-attestation finisher at finish, from the verdicts the build handed it; a gate it expected and was not handed reads notRun with verdictSupplied false",
+      "labelList": [
+        "ForgedNode",
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    },
+    {
+      "stableId": "buildAttestation:roundTrip",
+      "expected": true,
+      "writtenOnChannel": "channelA",
+      "explicitlyOmittedTotal": 218967,
+      "lostTotal": 0,
+      "roundTripClean": true,
+      "verdict": "pass",
+      "explicitOmissionDeclarationList": [
+        "ceds: nothing omitted (rule: forges/ceds/roundTripValidator.js EXPLICITLY_OMITTED_PREDICATES (empty by ruling, TQ 2026-08-02))",
+        "edfi: nothing omitted (rule: forges/edfi/lib/roundTripDiff.js LOST_BUCKET_PREFIX_REGISTRY (no explicitlyOmitted entry: empty by design))",
+        "sif260928: container 6,586 (rule: forges/sif260928/lib/sif260928RoundTripPair.js)",
+        "pesccollegetranscript1v8v0: whitespace 28,428, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pesccollegetranscript1v7v0: whitespace 27,843, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "peschighschooltranscript1v6v0: whitespace 27,832, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pesctestscorereport1v1v0: whitespace 27,811, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pesclearningrecord1v0v0: whitespace 28,328, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pescdocumentrequest1v0v0: whitespace 28,515, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pescdocumentresponse1v0v0: whitespace 28,518, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "pescacademiceportfolio1v0v0: whitespace 15,074, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted",
+        "ctdl: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.",
+        "ctdlasn: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.",
+        "ctdlqdata: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.",
+        "ceds:guide: nothing omitted (rule: the 'guide' layer roundTripValidator: nothing is omitted by declaration)",
+        "ceds:textRepair: nothing omitted (rule: the 'textRepair' layer roundTripValidator: nothing is omitted by declaration)"
+      ],
+      "verdictSupplied": true,
+      "detail": "14 standard(s) and 2 standard layer(s) ran: clean 16/16, lost 0, invented 0, explicitly omitted 218967, declared per standard: ceds: nothing omitted (rule: forges/ceds/roundTripValidator.js EXPLICITLY_OMITTED_PREDICATES (empty by ruling, TQ 2026-08-02)) | edfi: nothing omitted (rule: forges/edfi/lib/roundTripDiff.js LOST_BUCKET_PREFIX_REGISTRY (no explicitlyOmitted entry: empty by design)) | sif260928: container 6,586 (rule: forges/sif260928/lib/sif260928RoundTripPair.js) | pesccollegetranscript1v8v0: whitespace 28,428, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pesccollegetranscript1v7v0: whitespace 27,843, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | peschighschooltranscript1v6v0: whitespace 27,832, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pesctestscorereport1v1v0: whitespace 27,811, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pesclearningrecord1v0v0: whitespace 28,328, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pescdocumentrequest1v0v0: whitespace 28,515, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pescdocumentresponse1v0v0: whitespace 28,518, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | pescacademiceportfolio1v0v0: whitespace 15,074, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted | ctdl: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs. | ctdlasn: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs. | ctdlqdata: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs. | ceds:guide: nothing omitted (rule: the 'guide' layer roundTripValidator: nothing is omitted by declaration) | ceds:textRepair: nothing omitted (rule: the 'textRepair' layer roundTripValidator: nothing is omitted by declaration); summary roundTrip/roundTripStageSummary.json in the build's run directory",
+      "gate": "roundTrip",
+      "_id": "buildAttestation:roundTrip",
+      "writtenOnChannelNote": "A — written by the build-attestation finisher at finish, from the verdicts the build handed it; a gate it expected and was not handed reads notRun with verdictSupplied false",
+      "inventedTotal": 0,
+      "standardCount": 14,
+      "labelList": [
+        "ForgedNode",
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    },
+    {
+      "stableId": "buildAttestation:usagePatternVerification",
+      "expected": true,
+      "verifiedCount": 5,
+      "verdict": "pass",
+      "writtenOnChannel": "channelB",
+      "exemplarCount": 5,
+      "verdictSupplied": true,
+      "gate": "usagePatternVerification",
+      "detail": "usage patterns verified against the FINISHED graph: 5 executed, 5 returning rows",
+      "writtenOnChannelNote": "B — this verdict cannot exist until after the passport, so it is written by the passport writer rather than by the Channel-A attestation finisher, which runs earlier.",
+      "labelList": [
+        "BuildAttestation",
+        "GraphMeta"
+      ]
+    }
+  ],
+  "card": "Graph: DEV_gb_materialize_32146_38 · structural version V.09 · scratch not yet stamped · built 2026-10-23T04:45:49.430Z · manifest 5b8f3863\nEngines: replayManager finish/1 · replayEngine cb18a763a3e3 · serializer 2 · forgeFramework b99b0eb595ad · bridgeFramework a3da37392631\nEmbeddings: voyage-4-large × 1024 · vector indexes DEV_gb_materialize_32146_38_embedText_vector, DEV_gb_materialize_32146_38_vector\nJudges: debug:digest, jev:jev-1.13.0:data:cfg-03f64470322c, jev:jev-1.13.0:data:cfg-cf8d41f82791 · renderers bridgeEvidenceRenderer-derivedJudgeSlot-v1, bridgeEvidenceRenderer-derivedJudgeSlotOwningDefinition-v1\nContent: 269602 nodes · 904136 edges · 14 standards (CEDS, CTDL, CTDLASN, CTDLQData, EdFi, PESC-AcademicEportfolio-1.0.0, PESC-CollegeTranscript-1.7.0, PESC-CollegeTranscript-1.8.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0, PESC-HighSchoolTranscript-1.6.0, PESC-LearningRecord-1.0.0, PESC-TestScoreReport-1.1.0, SIF260928)\nMeaning: 44834 meaning-bearing edges · trustworthy ✗ (invalidDebugPresent) — 29955 of 44834 meaning-bearing edge(s) carry the mappingSource 'bridge-debug' (mappingConfidence 0): a debug judge that takes the first candidate unconditionally. NOTHING informed those choices. They are recorded honestly rather than dressed as inference, and their presence makes this graph unfit to be relied on for meaning — which is the true answer and the one this passport is required to give.\n  breakdown: BROAD_MATCH inferred bridge-debug 7534 · BROAD_MATCH inferred bridge-jev 2027 · CLOSE_MATCH inferred bridge-debug 7780 · CLOSE_MATCH inferred bridge-jev 5527 · DECLARED_CORRESPONDENCE authored declared-ctdlCedsDeclaredCorrespondence 53 · DECLARED_CORRESPONDENCE authored declared-ctdlasnCtdlDeclaredCorrespondence 4 · EXACT_MATCH inferred bridge-debug 7076 · EXACT_MATCH inferred bridge-jev 3135 · HAS_EVENT_DATE_CONCEPT spec-authoritative 418 · HAS_PRIMARY_CONCEPT spec-authoritative 400 · HAS_SECONDARY_CONCEPT spec-authoritative 191 · NARROW_MATCH inferred bridge-debug 7565 · NARROW_MATCH inferred bridge-jev 2290 · REPAIRS_TEXT_OF spec-authoritative 834\nRecipe identity: ctdlJudgedAll · hash bf06183e92f1\nPrevious build: unavailable: this generation has no graphs table, so no prior build is recorded anywhere for this writer to read. Recorded as an explicit basis rather than an absent property, because an absent property is indistinguishable from one never written.\nFramework: the decision blocks this build materialised disagree: 4a48db61475801f9a1201191607470c85bbe1d446571f7139c88c9b6b66f272e, a3da37392631678d130edb99e1bcf428c6b8a8eded57f3e259909a5d6832b104, f1f8d7a737b27451fe60cb867984ed72e309b6a909da21e6988c64aa826d24e1\nContract: graphContract 1e2d39d79376 (reader 1e2d39d79376)\nStandards (14):\n  CEDS                            (ceds) v14.0.0.0 (spec)               2324 properties · 402 classes · 19546 values · exact 0 · close 0 · mapping kinds: none · sources: none · edge types: none · family CEDS release CEDS\n    kind: dataStandard · usage tips: CEDS is the hub. A CEDS HubReference is a tuple: domain class + property + range [+ value], keyed by canonicalKey (the CEDS Global ID). It decomposes via HAS_CEDS_DOMAIN / HAS_CEDS_PROPERTY / HAS_CEDS_RANGE / HAS_CEDS_VALUE / HAS_CEDS_QUALIFIER; its range may be an option set, another CEDS class (a reference), or a datatype. Present a CEDS anchor as its full tuple — domain · property · range [· value], the cedsTuple field from dme_find_mappings — never as a bare Global ID: the Global ID is the tuple's durable key, not its meaning.\n    description text from: dc:description: the Dublin Core description literal of each term in the CEDS ontology RDF (every value carried)\n  CTDL                            (ctdl) vRelease 20260927 (provenance-file)    397 properties · 137 classes · 457 values · exact 0 · close 0 · mapping kinds: none · sources: none · edge types: none · family CTDL release CTDL\n    kind: dataStandard · usage tips: null\n    description text from: each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL JSON-LD schema\n  CTDLASN                         (ctdlasn) v20260626 (provenance-file)      97 properties · 11 classes · 8 values · exact 0 · close 0 · mapping kinds: none · sources: none · edge types: none · family CTDLASN release CTDLASN\n    kind: dataStandard · usage tips: null\n    description text from: each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-ASN JSON-LD schema\n  CTDLQData                       (ctdlqdata) v20260626 (provenance-file)      82 properties · 11 classes · 113 values · exact 0 · close 0 · mapping kinds: none · sources: none · edge types: none · family CTDLQData release CTDLQData\n    kind: dataStandard · usage tips: null\n    description text from: each term's dct:description, else rdfs:comment, else skos:definition (en-US) in the CTDL-QData JSON-LD schema\n  EdFi                            (edfi) v5.2.0 (spec)                  1904 properties · 309 classes · 3582 values · exact 565 · close 909 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family EdFi release EdFi\n    kind: dataStandard · usage tips: Ed-Fi keeps its mappings directly on its properties (no instance nodes). The same property name often appears in several Ed-Fi entities or common types (e.g. BirthDate in the BirthData inline common and in ApplicantProfile), each with its own mapping and confidence: name the owning entity when presenting, and do not merge their confidences.\n    description text from: MetaEd 'documentation': the documentation text written on each Ed-Fi model construct and property\n  PESC-AcademicEportfolio-1.0.0   (pescacademiceportfolio1v0v0) v1.0.0 (provenance-file)       1933 properties · 337 classes · 2749 values · exact 2236 · close 2953 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release AcademicEportfolio\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-CollegeTranscript-1.7.0    (pesccollegetranscript1v7v0) v1.7.0 (provenance-file)       1185 properties · 223 classes · 2721 values · exact 387 · close 464 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release CollegeTranscript\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-CollegeTranscript-1.8.0    (pesccollegetranscript1v8v0) v1.8.0 (provenance-file)       1241 properties · 235 classes · 2741 values · exact 480 · close 565 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release CollegeTranscript\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-DocumentRequest-1.0.0      (pescdocumentrequest1v0v0) v1.0.0 (provenance-file)       1282 properties · 239 classes · 2741 values · exact 222 · close 268 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release DocumentRequest\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-DocumentResponse-1.0.0     (pescdocumentresponse1v0v0) v1.0.0 (provenance-file)       1282 properties · 239 classes · 2741 values · exact 154 · close 219 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release DocumentResponse\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-HighSchoolTranscript-1.6.0 (peschighschooltranscript1v6v0) v1.6.0 (provenance-file)       1185 properties · 223 classes · 2721 values · exact 381 · close 543 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release HighSchoolTranscript\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-LearningRecord-1.0.0       (pesclearningrecord1v0v0) v1.0.0 (provenance-file)       1235 properties · 234 classes · 2739 values · exact 363 · close 568 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release LearningRecord\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  PESC-TestScoreReport-1.1.0      (pesctestscorereport1v1v0) v1.1.0 (provenance-file)       1181 properties · 222 classes · 2721 values · exact 475 · close 602 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family PESC release TestScoreReport\n    kind: dataStandard · usage tips: PESC keeps its mappings on INSTANCE nodes. A PESC element declaration (DmeProperty, the node search finds) carries no match edge; it has one occurrence (DmeInstance) per place it appears in the document, reached by HAS_INSTANCE, and the occurrences carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the occurrence's sectionPath, e.g. CollegeTranscript/Student/Person: present each hub concept ONCE with the document sections that hold it and the instance count, never one repeated line per instance. If different sections carry different hub concepts for the same element, say so plainly — the meaning differs by context; it is not an error. Each PESC release (College Transcript, High School Transcript, …) is its own standard with its own card.\n    description text from: xs:documentation: the schema component's own xs:annotation/xs:documentation text (the first non-blank one)\n  SIF260928                       (sif260928) v4.3 (provenance-file)         5018 properties · 159 classes · 4055 values · exact 4180 · close 4895 · mapping kinds: inferred · sources: bridge-debug, bridge-jev · edge types: BROAD_MATCH, CLOSE_MATCH, EXACT_MATCH, NARROW_MATCH · family SIF release sif260928\n    kind: dataStandard · usage tips: SIF keeps its mappings on INSTANCE nodes. A SIF Question (DmeProperty, the node search finds) carries no match edge; it has one Field (DmeInstance) per object it appears in, reached by HAS_INSTANCE, and the Fields carry the mappings. They arrive as dme_find_mappings rows with direction 'outgoingViaInstance' (or rows carrying instanceGroupList / instanceCount / viaInstanceGroupList), and in dme_graph_retriever as instanceView.mappingsViaInstances. Group them by the owning object, (object)-[:HAS_FIELD]->(field), e.g. StudentPersonal, StaffPersonal: present each hub concept ONCE with the objects that hold it and the instance count, never one repeated line per instance. If different objects carry different hub concepts for the same Question, say so plainly — the meaning differs by context; it is not an error. Structure: HAS_FIELD reads 'object has field', HAS_CHILD 'element contains element' (Object -> Container -> Container|Field).\n    description text from: the 'Description' column of the SIF 4.3 specification's element tables (one cell per field row)\nRecipe: ctdlJudgedAll (ctdlJudgedAll, ctdlJudgedAll.recipe.jsonc) · manifest 5b8f3863 · hash bf06183e92f1 · created 2026-10-23 04:41:02 · 41 block(s) (showing 5)\n    0 ceds@14_0_0_0_base                               standardBase  v14.0.0.0 cb94d975 — standardBase schema block for ceds@14_0_0_0_base, forged by recipe 'ctdlJudgedAll' [mechanical:forged]\n    1 ceds@14_0_0_0_layer_guide@14                     layer         v14.0.0.0 296905b1 — layer schema block for ceds@14_0_0_0_layer_guide@14 (layer 'guide' version 14 of ceds), forged by recipe 'ctdlJudgedAll' [mechanical:layered]\n    2 ceds@14_0_0_0_layer_textRepair@14_0_0_0          layer         v14.0.0.0 1a3db84b — layer schema block for ceds@14_0_0_0_layer_textRepair@14_0_0_0 (layer 'textRepair' version 14.0.0.0 of ceds), forged by recipe 'ctdlJudgedAll' [mechanical:layered]\n    3 edfi@5_2_0_base                                  standardBase  v5.2.0 29eb8811 — standardBase schema block for edfi@5_2_0_base, forged by recipe 'ctdlJudgedAll' [mechanical:forged]\n    4 sif260928@4_3_base                               standardBase  v4.3 cfe704d7 — standardBase schema block for sif260928@4_3_base, forged by recipe 'ctdlJudgedAll' [mechanical:forged]\nLineage: basedOnManifestRefId none recorded (none named at build) · chain none\nAttestations (6): embeddingCoverage pass (missingVectorTotal 0) · fidelity pass (inventedTotal 0) · forgeCensus pass · goldEvalCheck notRun (no verdict supplied by the producer) · roundTrip pass (inventedTotal 0, roundTripClean true, lostTotal 0, explicitlyOmittedTotal 218967, standardCount 14) · usagePatternVerification pass (exemplarCount 5, verifiedCount 5)\nVerdicts: pass 5 · fail 0 · notRun 1 · passWithAllowedLoss 0\nOmission declaration (round trip): omitted by declared rule, not lost\n  ceds: nothing omitted (rule: forges/ceds/roundTripValidator.js EXPLICITLY_OMITTED_PREDICATES (empty by ruling, TQ 2026-08-02))\n  edfi: nothing omitted (rule: forges/edfi/lib/roundTripDiff.js LOST_BUCKET_PREFIX_REGISTRY (no explicitlyOmitted entry: empty by design))\n  sif260928: container 6,586 (rule: forges/sif260928/lib/sif260928RoundTripPair.js)\n  pesccollegetranscript1v8v0: whitespace 28,428, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pesccollegetranscript1v7v0: whitespace 27,843, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  peschighschooltranscript1v6v0: whitespace 27,832, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pesctestscorereport1v1v0: whitespace 27,811, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pesclearningrecord1v0v0: whitespace 28,328, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pescdocumentrequest1v0v0: whitespace 28,515, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pescdocumentresponse1v0v0: whitespace 28,518, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  pescacademiceportfolio1v0v0: whitespace 15,074, processingInstruction 4 (rule: lib/pesc-release-forge/roundTripPair.js); formatting only: comments are carried and compared as content (PLAN G20), never omitted\n  ctdl: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.\n  ctdlasn: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.\n  ctdlqdata: nothing omitted (rule: lib/ctdl-family-forge/jsonLdRoundTripPair.js); Oracle-faithful port (ruling 2026-10-20): these kinds were never carried by the July forge and are retired one per commit in phase P2b. unresolvedNativePrefixReference items are references, under a prefix the profile claims, to a term the source does not define: some are source defects (CTDL's ceterms:credentialAlignment; CTDL-QData's qdata:integer), others name an EXTERNAL vocabulary that shares the prefix (asn:, skos:). Listed by name in the verdict; P2b carries them as crossRefs.\n  ceds:guide: nothing omitted (rule: the 'guide' layer roundTripValidator: nothing is omitted by declaration)\n  ceds:textRepair: nothing omitted (rule: the 'textRepair' layer roundTripValidator: nothing is omitted by declaration)"
+}

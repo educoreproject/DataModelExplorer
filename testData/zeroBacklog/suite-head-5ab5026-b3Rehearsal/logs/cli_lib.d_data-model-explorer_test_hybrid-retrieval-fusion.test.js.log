@@ -1,0 +1,30 @@
+
+=== hybrid retrieval fusion (lane BM25) ===
+
+  PASS: a_reciprocalRankFusion
+  PASS: b_everyRowCarriesItsProvenance
+  PASS: c_orderIsTotal
+  PASS: d_keywordQueryIsEveryWordEscaped
+  PASS: e_modesAreTheDeclaredOnes
+  PASS: f_rrfConstantRequired
+
+--- red twins (each must FAIL its conjunct) ---
+  PASS: every conjunct has a twin
+  PASS: a_reciprocalRankFusion observed RED under 'scoresFusedNotRanks'
+    RED-OBSERVED a_reciprocalRankFusion twin='scoresFusedNotRanks' → FAIL: [["k1",12.5],["both",9.91],["v2",0.88]]
+  PASS: b_everyRowCarriesItsProvenance observed RED under 'provenanceDropped'
+    RED-OBSERVED b_everyRowCarriesItsProvenance twin='provenanceDropped' → FAIL: [{"stableId":"both","name":"Birthdate","fusedScore":0.03252247488101534,"foundByLegList":["keyword","vector"],"keywordRank":null,"keywordScore":9,"vectorRank":n
+  PASS: c_orderIsTotal observed RED under 'tieBreakRemoved'
+    RED-OBSERVED c_orderIsTotal twin='tieBreakRemoved' → FAIL: ["zk","av","x","y"]
+  PASS: d_keywordQueryIsEveryWordEscaped observed RED under 'orNotAnd'
+    RED-OBSERVED d_keywordQueryIsEveryWordEscaped twin='orNotAnd' → FAIL: Date of Birth | Person\/BirthDate \(x\:y\) | cats and dogs not or
+  PASS: d_keywordQueryIsEveryWordEscaped observed RED under 'escapeSkipped'
+    RED-OBSERVED d_keywordQueryIsEveryWordEscaped twin='escapeSkipped' → FAIL: Date AND of AND Birth | Person/BirthDate AND (x:y) | cats AND and AND dogs AND not AND or
+  PASS: d_keywordQueryIsEveryWordEscaped observed RED under 'operatorWordPassedThrough'
+    RED-OBSERVED d_keywordQueryIsEveryWordEscaped twin='operatorWordPassedThrough' → FAIL: Date AND of AND Birth | Person\/BirthDate AND \(x\:y\) | cats AND AND AND dogs AND NOT AND OR
+  PASS: e_modesAreTheDeclaredOnes observed RED under 'modeTableBypassed'
+    RED-OBSERVED e_modesAreTheDeclaredOnes twin='modeTableBypassed' → FAIL: [["keyword","vector"],["keyword"],["vector"],null,null]
+  PASS: f_rrfConstantRequired observed RED under 'rrfConstantUnchecked'
+    RED-OBSERVED f_rrfConstantRequired twin='rrfConstantUnchecked' → FAIL:  | 
+
+15 passed, 0 failed

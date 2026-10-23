@@ -1,0 +1,8 @@
+
+=== E2-5 every hub has a family colour ===
+
+  PASS: every hub in the graph (CEDS, CTDL) has a family colour with color, fill, tint
+  PASS: RED TWIN: without the CTDL entry the check fails
+
+=== E2-5 every hub has a family colour — Results: 2 passed, 0 failed ===
+

@@ -1,0 +1,13 @@
+
+=== W-E-12: docker by argument array; container names refused by name ===
+
+  PASS: a name carrying "; touch <marker>" runs NOTHING (no marker file)
+  PASS:   and is refused BY NAME as not a container name
+  PASS: a name carrying "$(touch <marker>)" runs NOTHING
+  PASS:   and is refused BY NAME
+  PASS: a plain name that is not a container still answers its ordinary refusal (the guard is not refusing everything)
+  PASS: STRUCTURAL: container-connection-resolver.js invokes no shell string (execSync/exec with a template or a composed command)
+  PASS: STRUCTURAL: clone-manager.js invokes no shell string (execSync/exec with a template or a composed command)
+
+=== Results: 7 passed, 0 failed ===
+

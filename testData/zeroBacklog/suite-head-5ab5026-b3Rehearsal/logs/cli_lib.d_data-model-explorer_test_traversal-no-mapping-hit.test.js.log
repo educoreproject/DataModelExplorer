@@ -1,0 +1,19 @@
+
+=== W-D-3 traversal: a hit without mappings has no phantom entries ===
+
+  PASS: fixture has no match edge of its own (precondition)
+  PASS: the fixture is among the hits
+  PASS: mappingsOutgoing is [] (no phantom entry)
+  PASS: crossStandardEquivalents is [] (no phantom entry)
+  PASS: mappingsIncoming is [] (no phantom entry)
+  PASS: mappingsOutgoingTruncatedByRelation is []
+  PASS: crossStandardEquivalentsTruncatedByRelation is []
+  PASS: crossStandardEquivalentsTruncatedByRelationAndStandard is []
+  PASS: mappingsIncomingTruncatedByRelation is []
+  PASS: mappingsIncomingTruncatedByRelationAndStandard is []
+  PASS: no entry in any hit has toId or hubKey null
+  PASS: control: instanceView.instanceTotal === 6 (the test's count)
+  PASS: control: mappingsViaInstances has 5 entr(y/ies) (the test's distinct count)
+
+=== W-D-3 traversal: a hit without mappings has no phantom entries — Results: 13 passed, 0 failed ===
+

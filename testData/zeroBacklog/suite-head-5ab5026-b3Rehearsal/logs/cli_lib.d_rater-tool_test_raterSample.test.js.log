@@ -1,0 +1,30 @@
+node:child_process:964
+    throw err;
+    ^
+
+Error: Command failed: /usr/local/bin/node /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/cli/lib.d/rater-tool/raterTool.js -buildSample --outputDirPath=/var/folders/m_/12d8yqwd28943kwt0n4nhrk80000gn/T/raterSampleTest-QGwybN/run1
+ERROR: raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContainerConnection: container 'GOLD_EVAL_261013_jevQuestionPerBridge' is exited, not running — start it (docker start GOLD_EVAL_261013_jevQuestionPerBridge) and retry). The tool does not read any other graph.
+
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:925:11)
+    at execFileSync (node:child_process:961:15)
+    at runBuild (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/cli/lib.d/rater-tool/test/raterSample.test.js:36:37)
+    at Object.<anonymous> (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/cli/lib.d/rater-tool/test/raterSample.test.js:41:1)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Object..js (node:internal/modules/cjs/loader:1943:10)
+    at Module.load (node:internal/modules/cjs/loader:1533:32)
+    at Module._load (node:internal/modules/cjs/loader:1335:12) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    'WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini\n',
+    "ERROR: raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContainerConnection: container 'GOLD_EVAL_261013_jevQuestionPerBridge' is exited, not running — start it (docker start GOLD_EVAL_261013_jevQuestionPerBridge) and retry). The tool does not read any other graph.\n"
+  ],
+  pid: 80185,
+  stdout: 'WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini\n',
+  stderr: "ERROR: raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContainerConnection: container 'GOLD_EVAL_261013_jevQuestionPerBridge' is exited, not running — start it (docker start GOLD_EVAL_261013_jevQuestionPerBridge) and retry). The tool does not read any other graph.\n"
+}
+
+Node.js v24.14.1

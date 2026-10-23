@@ -1,0 +1,20 @@
+
+=== lanes DES and UNDES: CEDS layers are out of every standard population and reached through dme_structure and explore ===
+
+  PASS: the graph carries CEDS layer nodes (this gate needs a layered graph)
+  PASS: (a) stats bySource.CEDS === 126489 (CEDS without its layers)
+  PASS: (a) stats layerNodeCountList for CEDS sums to 844
+  PASS: (a) stats byRole lists no layer role
+  PASS: (a) listStandards CEDS nodeCount === 126489
+  PASS: (b) findMappings 'Santa Inés Yatzechi Zapotec' matches nothing (a text repair is not a standard element)
+  PASS: (b) explore 'Santa Inés Yatzechi Zapotec' matches nothing
+  PASS: (b) grep ^Santa Inés Yatzechi Zapotec$ finds 0 nodes
+  PASS: (b) the graph carries the repair, and the CEDS term keeps its faithful U+FFFD text
+  PASS: (b) explore of the faithful name shows the repair BESIDE it (REPAIRS_TEXT_OF, repairedText 'Santa Inés Yatzechi Zapotec')
+  PASS: (c) structure classConcepts C200013 names Event / Membership
+  PASS: (c) structure propertyConcepts P000042 lists ["Person","Membership","Event"] in the guide's order
+  PASS: (c) a removed structure mode (areaProperties) is refused by name
+  PASS: (c) an unknown structure mode is refused by name
+
+=== lanes DES and UNDES: CEDS layers are out of every standard population and reached through dme_structure and explore — Results: 14 passed, 0 failed ===
+

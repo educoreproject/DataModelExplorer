@@ -1,0 +1,12 @@
+
+=== Schema Provider: every live matchBasis value described (E2-3) ===
+
+  PASS: renders (no error)
+  PASS: 1. the live value `declared` has its sentence: a published statement, never a mapping
+  PASS:    and the live value `derived` has its sentence: a judgment
+  PASS: 2. a value this graph does not carry (`standard`, `declaredIdentity`) is not described
+  PASS:    the edge TYPE never carries authority (kept)
+  PASS: 3. a live value with no registered sentence is refused by name
+  PASS: 4. a graph with no matchBasis says so (no error)
+
+7 passed, 0 failed

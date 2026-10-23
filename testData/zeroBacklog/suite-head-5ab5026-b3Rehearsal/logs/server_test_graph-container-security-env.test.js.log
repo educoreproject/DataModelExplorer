@@ -1,0 +1,16 @@
+
+=== X5: user clones launch with the declared container security env ===
+
+  PASS: CLONE_CONTAINER_SECURITY_ENV_LIST is exported and frozen
+  PASS: it allows exactly apoc.merge.*
+  PASS: it blocks every IPv4 and IPv6 URL
+  PASS: it grants no unrestricted procedure
+  PASS: STRUCTURAL: the clone docker run spreads CLONE_CONTAINER_SECURITY_ENV_LIST
+  PASS: STRUCTURAL: no unrestricted procedure grant anywhere in clone-manager
+  PASS: STRUCTURAL: no apoc.* wildcard allowlist anywhere in clone-manager
+  PASS: STRUCTURAL: no import directory mounted into a clone
+  PASS: RED TWIN 'apocWildcardRestored' turns 'no apoc.* wildcard allowlist anywhere in clone-manager' red
+  PASS: RED TWIN 'importMountRestored' turns 'no import directory mounted into a clone' red
+
+=== Results: 10 passed, 0 failed ===
+

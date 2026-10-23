@@ -45,7 +45,11 @@ const shownCountByRelation = {};
 MATCH_EDGE_TYPE_LIST.forEach((edgeType) => { shownCountByRelation[edgeType] = 0; });
 result.mappingRowList.forEach((row) => { shownCountByRelation[rowRelationOf(row)] += 1; });
 
-assert(`at most ${ROW_CAP} rows`, result.mappingRowList.length <= ROW_CAP, `${result.mappingRowList.length}`);
+// ⟪lane zbE⟫ the cap is PER HUB since ctdlHub P7 (each hub allocated on its own); a single shared 30 held only while one hub
+// had match edges, and went red on the first graph with CTDL match edges (DEV_b3Rehearsal: 30 CEDS + 30 CTDL rows)
+const rowCountByHub = result.mappingRowList.reduce((countByHub, row) => ({ ...countByHub, [row.hubName]: (countByHub[row.hubName] || 0) + 1 }), {});
+assert(`at most ${ROW_CAP} rows per hub (${JSON.stringify(rowCountByHub)})`, Object.keys(rowCountByHub).length > 0 && Object.values(rowCountByHub).every((hubRowCount) => hubRowCount <= ROW_CAP));
+assert('every row names its hub, and each hub with rows is in totalRowCountByHub', result.mappingRowList.every((row) => typeof row.hubName === 'string' && row.hubName !== '') && Object.keys(rowCountByHub).every((hubName) => (result.totalRowCountByHub || {})[hubName] >= rowCountByHub[hubName]));
 assert("PESC 'Birthday' BROAD_MATCH row is shown",
 	result.mappingRowList.some((row) => row.fromName === 'Birthday' && /^PESC/.test(row.fromSource) && rowRelationOf(row) === 'BROAD_MATCH'));
 MATCH_EDGE_TYPE_LIST.forEach((edgeType) => {

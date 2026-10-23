@@ -1,0 +1,55 @@
+
+=== W-D-20 provider input_schema = flagArgs ∪ positionalArgs = VERB_INPUT_CONTRACT ===
+
+  PASS: VERB_INPUT_CONTRACT is declared
+  PASS: dme_search: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -search
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_grep: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -grep
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_structure: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -structure
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_graph_retriever: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -graphRetriever
+  PASS:   every flagArgs value is --<its name>
+  PASS:   limit is typed integer
+  PASS: dme_explore: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -explore
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_find_mappings: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -findMappings
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_compare_codesets: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -compareCodesets
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_unmapped_fields: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -unmappedFields
+  PASS:   every flagArgs value is --<its name>
+  PASS:   limit is typed integer
+  PASS: dme_stats: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -stats
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_list_standards: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -listStandards
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_describe_graph: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -describeGraph
+  PASS:   every flagArgs value is --<its name>
+  PASS:   limit is typed integer
+  PASS: dme_raw_cypher: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -rawCypher
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_history: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -history
+  PASS:   every flagArgs value is --<its name>
+  PASS: dme_calculate: input_schema properties = positionalArgs ∪ flagArgs
+  PASS:   = the registry's inputs for -calculate
+  PASS:   every flagArgs value is --<its name>
+  PASS: -history --standard=EdFi → refused by name (unknownFlag), not silently ignored
+  PASS: -findMappings BirthDate --standard=EdFi → refused by name (unknownFlag), not silently ignored
+  PASS: -stats --limit=3 → refused by name (unknownFlag), not silently ignored
+
+=== W-D-20 provider input_schema = flagArgs ∪ positionalArgs = VERB_INPUT_CONTRACT — Results: 49 passed, 0 failed ===
+

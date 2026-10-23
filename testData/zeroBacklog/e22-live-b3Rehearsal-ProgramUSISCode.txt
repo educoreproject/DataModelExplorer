@@ -1,0 +1,2 @@
+BASE {"mappingsOutgoing":{"CEDS":1,"CTDL":1},"crossStandardEquivalents":{"CEDS":13,"CTDL":7},"mappingsIncoming":{}}
+HEAD {"mappingsOutgoing":{"CEDS":1,"CTDL":1},"crossStandardEquivalents":{"CEDS":20,"CTDL":20},"mappingsIncoming":{}}

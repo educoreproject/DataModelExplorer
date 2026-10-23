@@ -1,0 +1,295 @@
+{
+  "entryList": [
+    {
+      "stableId": "financialAid:FederalGrant",
+      "node": {
+        "_labels": [
+          "ForgedNode",
+          "StandardBase",
+          "DmeOptionValue",
+          "CtdlConcept"
+        ],
+        "stableId": "financialAid:FederalGrant",
+        "_source": "CTDL",
+        "name": "Federal Grant",
+        "path": "Financial Assistance.Federal Grant",
+        "role": "DmeOptionValue",
+        "depth": 4,
+        "searchText": "CTDL | Financial Assistance | Financial Assistance | Federal Grant",
+        "parentId": "ceterms:FinancialAssistance",
+        "description": "Financial subsidy, which doesn’t require repayment, based on meeting requirements determined by the Federal Government.",
+        "_id": "financialAid:FederalGrant",
+        "changeHistoryUrl": "https://credreg.net/ctdl/termhistory/financialAid/FederalGrant/json",
+        "uri": "financialAid:FederalGrant",
+        "declaredCorrespondenceList": "[{\"predicate\":\"owl:equivalentClass\",\"target\":\"ceds:000113#OtherFederalGrants\"}]",
+        "crossRefs": "[]",
+        "embeddingModelVersion": "voyage-4-large",
+        "status": "stable"
+      },
+      "outgoingTotal": 2,
+      "outgoing": [
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsOptionValue",
+            "DmeOptionValue"
+          ],
+          "targetStableId": "https://w3id.org/CEDStandards/terms/NI000113116445",
+          "type": "DECLARED_CORRESPONDENCE",
+          "targetSource": "CEDS",
+          "target": "Other federal grants"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeOptionValue",
+            "CtdlConcept"
+          ],
+          "targetStableId": "financialAid:Grant",
+          "type": "BROADER_CONCEPT",
+          "targetSource": "CTDL",
+          "target": "Grant"
+        }
+      ],
+      "incomingTotal": 3,
+      "incoming": [
+        {
+          "repairedText": null,
+          "sourceStableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827",
+          "repairSource": null,
+          "sourceLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "HubReference"
+          ],
+          "source": "Federal Grant",
+          "type": "HAS_CTDL_TERM",
+          "repairedPropertyName": null,
+          "sourceStandard": "CTDL",
+          "faithfulText": null
+        },
+        {
+          "repairedText": null,
+          "sourceStableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+          "repairSource": null,
+          "sourceLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "HubReference"
+          ],
+          "source": "Federal Grant",
+          "type": "HAS_CTDL_VALUE",
+          "repairedPropertyName": null,
+          "sourceStandard": "CTDL",
+          "faithfulText": null
+        },
+        {
+          "repairedText": null,
+          "sourceStableId": "ceterms:FinancialAssistance",
+          "repairSource": null,
+          "sourceLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeOptionSet",
+            "CtdlConceptScheme"
+          ],
+          "source": "Financial Assistance",
+          "type": "HAS_VALUE",
+          "repairedPropertyName": null,
+          "sourceStandard": "CTDL",
+          "faithfulText": null
+        }
+      ],
+      "edgesTruncated": false
+    },
+    {
+      "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+      "node": {
+        "_labels": [
+          "ForgedNode",
+          "StandardBase",
+          "HubReference"
+        ],
+        "name": "Federal Grant",
+        "anchorUri": "financialAid:FederalGrant",
+        "valueUri": "financialAid:FederalGrant",
+        "role": "HubReference",
+        "uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+        "domainName": "Financial Assistance Profile",
+        "propertyDefinition": "Type of financial assistance; select from an existing enumeration of such types.",
+        "rangeOptionSetName": "Financial Assistance",
+        "domainId": "ceterms:FinancialAssistanceProfile",
+        "propertyName": "Financial Assistance Type",
+        "referenceTier": "value",
+        "hubName": "CTDL",
+        "valueName": "Federal Grant",
+        "addressSignature": "99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+        "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+        "valueKey": "financialAid:FederalGrant",
+        "_source": "CTDL",
+        "domainUri": "ceterms:FinancialAssistanceProfile",
+        "_id": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/99af611f9d19f173fd8c1dc3021d8d148147408500159320c7926b8b95f544d5",
+        "embedText": "Financial Assistance Profile · Financial Assistance Type · Financial Assistance · Federal Grant · Financial subsidy, which doesn’t require repayment, based on meeting requirements determined by the Federal Government. · Types of financial assistance typically available in the United States.",
+        "rangeUri": "ceterms:FinancialAssistance",
+        "valueDefinition": "Financial subsidy, which doesn’t require repayment, based on meeting requirements determined by the Federal Government.",
+        "canonicalKey": "financialAid:FederalGrant",
+        "rangeOptionSetDefinition": "Types of financial assistance typically available in the United States.",
+        "rangeOptionSetId": "ceterms:FinancialAssistance",
+        "propertyKey": "ceterms:financialAssistanceType",
+        "domainDefinition": "Entity that describes financial assistance that is offered or available.",
+        "propertyUri": "ceterms:financialAssistanceType",
+        "qualifierKeys": [],
+        "hubVersion": "Release 20260927",
+        "embeddingModelVersion": "voyage-4-large",
+        "embedSourceProperty": "embedText"
+      },
+      "outgoingTotal": 5,
+      "outgoing": [
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeOptionValue",
+            "CtdlConcept"
+          ],
+          "targetStableId": "financialAid:FederalGrant",
+          "type": "HAS_CTDL_VALUE",
+          "targetSource": "CTDL",
+          "target": "Federal Grant"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeOptionSet",
+            "CtdlConceptScheme"
+          ],
+          "targetStableId": "ceterms:FinancialAssistance",
+          "type": "HAS_CTDL_RANGE",
+          "targetSource": "CTDL",
+          "target": "Financial Assistance"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "CtdlProperty"
+          ],
+          "targetStableId": "ceterms:financialAssistanceType",
+          "type": "HAS_CTDL_PROPERTY",
+          "targetSource": "CTDL",
+          "target": "Financial Assistance Type"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeClass",
+            "CtdlClass"
+          ],
+          "targetStableId": "ceterms:FinancialAssistanceProfile",
+          "type": "HAS_CTDL_DOMAIN",
+          "targetSource": "CTDL",
+          "target": "Financial Assistance Profile"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "HubDefinition"
+          ],
+          "targetStableId": "https://w3id.org/EDUcore/CTDL/hub/hubDefinition/CTDL",
+          "type": "IN_HUB",
+          "targetSource": "CTDL",
+          "target": "Credential Transparency Description Language"
+        }
+      ],
+      "incomingTotal": 0,
+      "incoming": [],
+      "edgesTruncated": false
+    },
+    {
+      "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827",
+      "node": {
+        "_labels": [
+          "ForgedNode",
+          "StandardBase",
+          "HubReference"
+        ],
+        "stableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827",
+        "_source": "CTDL",
+        "name": "Federal Grant",
+        "anchorUri": "financialAid:FederalGrant",
+        "termName": "Federal Grant",
+        "embedText": "Federal Grant · Financial subsidy, which doesn’t require repayment, based on meeting requirements determined by the Federal Government.",
+        "uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827",
+        "hubVersion": "Release 20260927",
+        "referenceTier": "term",
+        "hubName": "CTDL",
+        "termDefinition": "Financial subsidy, which doesn’t require repayment, based on meeting requirements determined by the Federal Government.",
+        "termIri": "financialAid:FederalGrant",
+        "role": "HubReference",
+        "_id": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827",
+        "embeddingModelVersion": "voyage-4-large",
+        "embedSourceProperty": "embedText",
+        "termKind": "value",
+        "addressSignature": "f336e1400bfe4dc1d5d8c472c081de43162db0bc7adc766219eb76f7b1457827"
+      },
+      "outgoingTotal": 2,
+      "outgoing": [
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeOptionValue",
+            "CtdlConcept"
+          ],
+          "targetStableId": "financialAid:FederalGrant",
+          "type": "HAS_CTDL_TERM",
+          "targetSource": "CTDL",
+          "target": "Federal Grant"
+        },
+        {
+          "targetLabels": [
+            "ForgedNode",
+            "StandardBase",
+            "HubDefinition"
+          ],
+          "targetStableId": "https://w3id.org/EDUcore/CTDL/hub/hubDefinition/CTDL",
+          "type": "IN_HUB",
+          "targetSource": "CTDL",
+          "target": "Credential Transparency Description Language"
+        }
+      ],
+      "incomingTotal": 0,
+      "incoming": [],
+      "edgesTruncated": false
+    }
+  ],
+  "totalRowCount": 3,
+  "returnedRowCount": 3,
+  "truncatedRowCount": 0,
+  "rowUnit": "a node bearing the name: one entry per node (stableId)",
+  "matchedNodeCount": 3,
+  "nameMatchMode": "exact",
+  "caseVariantNodeCount": 0,
+  "caseVariantNameList": [],
+  "declaredCorrespondenceList": [
+    {
+      "sourcePredicate": "owl:equivalentClass",
+      "declaredBy": "CTDL",
+      "objectKind": "DmeOptionValue",
+      "objectStableId": "https://w3id.org/CEDStandards/terms/NI000113116445",
+      "subjectStableId": "financialAid:FederalGrant",
+      "targetStandard": "CEDS",
+      "objectName": "Other federal grants",
+      "subjectName": "Federal Grant",
+      "sourceStandard": "CTDL"
+    }
+  ],
+  "declaredCorrespondenceCount": 1,
+  "declaredCorrespondenceRowUnit": "a DECLARED CORRESPONDENCE: one standard's own published assertion relating its term to another standard's (sourcePredicate quoted verbatim). NOT a mapping: never report it as EXACT/CLOSE/BROAD/NARROW, never compose it with a match edge, never count it as mapped. Its edge's mappingKind 'authored' names who published the statement: it is a published statement, never a mapping and never an 'authored mapping'"
+}

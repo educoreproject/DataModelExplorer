@@ -1,0 +1,11 @@
+
+=== W-D-10 dme_search over-fetch, envelope, short page named; retriever hitList ===
+
+  PASS: filtered search answers the envelope (resultList, totalRowCount, returnedRowCount, truncatedRowCount)
+  PASS:   a full page of 20, or a shortPageNote naming the short page
+  PASS:   every row is from SIF260928
+  PASS:   overFetchWindow is reported
+  PASS: retriever: { retrievalMode: traversal, requestedHitCount 3, returnedHitCount === hitList.length }
+
+=== W-D-10 dme_search over-fetch, envelope, short page named; retriever hitList — Results: 5 passed, 0 failed ===
+

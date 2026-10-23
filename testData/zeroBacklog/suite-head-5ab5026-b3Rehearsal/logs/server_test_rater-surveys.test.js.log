@@ -1,0 +1,41 @@
+WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini
+S5.1 the summary on a fixture (pure)
+  PASS: one card per survey, in the sample's survey order
+  PASS: item counts and the split by standard, in order of first appearance
+  PASS: survey A: three raters, with who-text, progress on A only, and finished
+  PASS: the move rule reads every answer row (rater-11: 2, one kept from C); a rater with none may move
+  PASS: coverage: A (3) green, B (2) amber, C (0) red
+  PASS: the thresholds are the named constants (amber 2, green 3); 1 is red, 7 green
+  PASS: next survey to fill: C (fewest raters)
+  PASS: the tie rule: none anywhere → A; A 1 → B; A 1, B 1 → C; one each → A; B 2, A 1, C 1 → A
+  PASS: the next free sign-in name: one past the highest rater-NN (rater-12 here); rater-01 with none
+  PASS: a survey name the sample has no elements for is refused by name, not guessed
+  PASS: items: the survey's targets in its frozen order, numbered, with only the rater-visible fields
+  PASS: items: an unknown survey is refused by name
+  PASS: fixture: 53 saves accepted and sv-a1 finished
+S5.2 the surveys payload through the server
+  PASS: surveys answers 200 with one card per survey (A, B, C)
+  PASS: each card's split by standard matches the frozen sample and adds up to 50
+  PASS: A lists its three raters with who-text: sv-a1 50 of 50 finished, sv-a2 3 of 50, sv-a3 0 of 50
+  PASS: B lists sv-b1 and sv-b2; C lists nobody
+  PASS: coverage colours: A green (3), B amber (2), C red (0)
+  PASS: next survey to fill is C; the next free sign-in name is rater-01
+  PASS: the move picker carries the server's own refusal for raters with answers (sv-a1, sv-a2), none for the others
+S5.2 the View items payload
+  PASS: survey C: exactly its 50 targets, in the survey's frozen order, numbered 1–50
+  PASS: each item carries standard, owner, name and the element's own definition, as the sample has them
+  PASS: no candidates, gold pick, isMappedInGold or machine field in the items payload
+  PASS: an unknown survey and a missing survey are refused by name
+S5.2 Assign a person and move a rater
+  PASS: Assign creates rater-01 on the preset survey C and issues a password once
+  PASS: the new rater is on C's card at 0 of 50, with its who-text; C is still red (1); the next name is rater-02
+  PASS: moving sv-a3 (no answers) to C is accepted
+  PASS: moving sv-a2 (saved answers) is refused by name: surveyChangeWithAnswers
+  PASS: after the move: A 2, B 2, C 2, all amber, and the tie sends the next survey to A
+S5.3 access
+  PASS: surveys: a rater token is refused
+  PASS: surveys: an anonymous call is refused
+  PASS: surveyItems: a rater token is refused
+  PASS: surveyItems: an anonymous call is refused
+
+=== rater-surveys (revision 5) — Results: 33 passed, 0 failed ===

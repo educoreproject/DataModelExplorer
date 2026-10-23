@@ -1,0 +1,39 @@
+
+=== askMilo relay LIVE gate ===
+
+  PASS: checkAskMilo: getDefaults healthy — defaults keys: aiToolsSuppressed,availableTools,availablePrompts
+  PASS: second ask from same user bounces at per-user cap (no spawn) — 503ms after first
+  PASS: fixture ask completes — exit=0 34s
+  PASS: RUBRIC: answer cites a CEDS hub tuple for birth date — CEDS=true birth=true tuple=true
+
+  --- answer excerpt (transcript fixture) ---
+  | *re: What CEDS element corresponds to the SIF StudentPersonal birth date? Name the CEDS hub tuple (domain and property) it resolves to.*
+  | 
+  | The SIF `BirthDate` element in the *StudentPersonal* object resolves to CEDS hub tuple:
+  | 
+  | > *Person Birth · Birthdate · date* (P000033)
+  | 
+  | • *Domain:* Person Birth (C200376)
+  | • *Property:* Birthdate (P000033)
+  | • *Range:* date
+  | • *CEDS definition:* _"The year, month and day on which a person was born."_
+  | 
+  | *Mapping detail:*
+  | The mapping lives on the SIF instance (Field) at `/StudentPersonals/StudentPersonal/Demographics/BirthDate`. The edge is an *EXACT_MATCH* with confidence 0.9, inferred by `bridge-jev`. This is an inferred judgment, not an authored mapping.
+  | 
+  | *Cro
+  --- end excerpt ---
+
+  PASS: the answer carries no askMilo banner (no ==== line, no PROMPT: echo)
+  PASS: the relay reports why the model stopped — end_turn / false
+  PASS: Slack prompt took: re: line wrapped in single asterisks
+  PASS: Slack prompt took: zero ** bold artifacts
+  PASS: Slack prompt took: no # heading lines
+  PASS: tool suppression: DmeUserRead/DmeUserWrite absent from provider registry — SifSearch, DataModelExplorer
+  PASS: actual cost parsed from askMilo stderr — $0.3999
+  PASS: askModel=opus actually took (askMilo reports an opus model) — claude-opus-4-6
+  PASS: short-timeout run reports timedOut — pid=83024
+  PASS: timed-out subprocess is dead (no orphan pid)
+
+=== Results: 14 passed, 0 failed ===
+

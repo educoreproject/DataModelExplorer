@@ -1,0 +1,275 @@
+{
+  "statusCode": 200,
+  "body": [
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.ApplicantProfile.BirthDate",
+      "matches": [
+        {
+          "sourceId": "ceterms:approximateExpirationDate",
+          "semantic": 0.701836109161377,
+          "hub": "Approximate Expiration Date",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Approximate Expiration Date",
+          "rel": "HAS_CTDL_PROPERTY",
+          "description": "The value should be in ISO 8601 date format; specifically YYYY or YYY-MM.",
+          "hubName": "CTDL",
+          "selfRel": "CLOSE_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "CtdlProperty"
+          ]
+        },
+        {
+          "sourceId": "ceterms:BachelorDegree",
+          "semantic": 0.6249837279319763,
+          "hub": "Approximate Expiration Date",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Bachelor's Degree",
+          "rel": "HAS_CTDL_DOMAIN",
+          "description": "Equivalent to an award at UNESCO ISCED 2011, Level 6, and United States IPEDS Award Level 5.",
+          "hubName": "CTDL",
+          "selfRel": "CLOSE_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeClass",
+            "CtdlClass"
+          ]
+        },
+        {
+          "sourceId": "C200376",
+          "semantic": 0.7864805459976196,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.864812970161438,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/domainEntity.Staff.BirthDate",
+      "matches": [
+        {
+          "sourceId": "C200376",
+          "semantic": 0.7835485935211182,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.8454821705818176,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        },
+        {
+          "sourceId": "ceterms:approximateDateEffective",
+          "semantic": 0.6776787042617798,
+          "hub": "Approximate Date Effective",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Approximate Date Effective",
+          "rel": "HAS_CTDL_PROPERTY",
+          "description": "The value should be in ISO 8601 date format; specifically YYYY or YYY-MM.",
+          "hubName": "CTDL",
+          "selfRel": "NARROW_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "CtdlProperty"
+          ]
+        },
+        {
+          "sourceId": "ceterms:AssociateDegree",
+          "semantic": 0.5974196195602417,
+          "hub": "Approximate Date Effective",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Associate Degree",
+          "rel": "HAS_CTDL_DOMAIN",
+          "description": "Equivalent to an award at UNESCO ISCED 2011, Level 5, and United States IPEDS Award Level 3.",
+          "hubName": "CTDL",
+          "selfRel": "NARROW_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeClass",
+            "CtdlClass"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BirthDate",
+      "source": "EdFi",
+      "labels": [
+        "ForgedNode",
+        "StandardBase",
+        "DmeProperty",
+        "EdfiProperty"
+      ],
+      "description": "The month, day, and year on which an individual was born.",
+      "sourceId": "edfi:property/inlineCommon.BirthData.BirthDate",
+      "matches": [
+        {
+          "sourceId": "ceterms:approximateDateEffective",
+          "semantic": 0.6816666126251221,
+          "hub": "Approximate Date Effective",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Approximate Date Effective",
+          "rel": "HAS_CTDL_PROPERTY",
+          "description": "The value should be in ISO 8601 date format; specifically YYYY or YYY-MM.",
+          "hubName": "CTDL",
+          "selfRel": "EXACT_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeProperty",
+            "CtdlProperty"
+          ]
+        },
+        {
+          "sourceId": "ceterms:BachelorOfArtsDegree",
+          "semantic": 0.6166850328445435,
+          "hub": "Approximate Date Effective",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Bachelor of Arts Degree",
+          "rel": "HAS_CTDL_DOMAIN",
+          "description": "Equivalent to an award at UNESCO ISCED 2011, Level 6, and United States IPEDS Award Level 5.",
+          "hubName": "CTDL",
+          "selfRel": "EXACT_MATCH",
+          "source": "CTDL",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "DmeClass",
+            "CtdlClass"
+          ]
+        },
+        {
+          "sourceId": "C200376",
+          "semantic": 0.8402099013328552,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Person Birth",
+          "rel": "HAS_CEDS_DOMAIN",
+          "description": "Information related to the birth of a person",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsClass",
+            "DmeClass"
+          ]
+        },
+        {
+          "sourceId": "P000033",
+          "semantic": 0.8819811344146729,
+          "hub": "Birthdate",
+          "selfConfidence": null,
+          "confidence": null,
+          "name": "Birthdate",
+          "rel": "HAS_CEDS_PROPERTY",
+          "description": "The year, month and day on which a person was born.",
+          "hubName": "CEDS",
+          "selfRel": "EXACT_MATCH",
+          "source": "CEDS",
+          "labels": [
+            "ForgedNode",
+            "StandardBase",
+            "CedsProperty",
+            "DmeProperty"
+          ]
+        }
+      ]
+    }
+  ]
+}

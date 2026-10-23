@@ -1,0 +1,44 @@
+WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini
+fixture
+  PASS the main-site admin and super log in through /api/login and get tokens
+  PASS the kept rater is made and logs in
+M6.1 a main-site admin token is accepted on every action
+  PASS list: accepted for the main-site admin
+  PASS surveys: accepted for the main-site admin
+  PASS surveyItems: accepted for the main-site admin
+  PASS results: accepted for the main-site admin
+  PASS add: accepted for the main-site admin
+  PASS passwordReset: accepted for the main-site admin
+  PASS surveyChange: accepted for the main-site admin
+  PASS download: accepted for the main-site admin
+  PASS remove: accepted for the main-site admin
+  PASS add issued ml-new a password; remove removed it
+  PASS surveyChange moved ml-new to B
+  PASS list: accepted for super
+  PASS surveys: accepted for super
+  PASS surveyItems: accepted for super
+  PASS results: accepted for super
+  PASS download: accepted for super
+M6.2–M6.3 a rater token and an anonymous call are refused on every action
+  PASS list: a rater token is refused
+  PASS list: an anonymous call is refused
+  PASS surveys: a rater token is refused
+  PASS surveys: an anonymous call is refused
+  PASS surveyItems: a rater token is refused
+  PASS surveyItems: an anonymous call is refused
+  PASS results: a rater token is refused
+  PASS results: an anonymous call is refused
+  PASS add: a rater token is refused
+  PASS add: an anonymous call is refused
+  PASS passwordReset: a rater token is refused
+  PASS passwordReset: an anonymous call is refused
+  PASS surveyChange: a rater token is refused
+  PASS surveyChange: an anonymous call is refused
+  PASS download: a rater token is refused
+  PASS download: an anonymous call is refused
+  PASS remove: a rater token is refused
+  PASS remove: an anonymous call is refused
+  PASS the refused calls changed nothing: the kept rater is still on A, and no ml-intruder exists
+  PASS the refused passwordReset changed nothing: the kept rater still logs in with its password
+
+=== rater-admin-main-login (revision 6) — Results: 38 passed, 0 failed ===

@@ -1,0 +1,153 @@
+{
+  "unmappedRowList": [
+    {
+      "standard": "EdFi",
+      "path": "Credential.AcademicSubject",
+      "fieldName": "AcademicSubject",
+      "description": "The academic subjects to which the credential pertains.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "InternationalAddress.AddressLine1",
+      "fieldName": "AddressLine1",
+      "description": "The first line of the address.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "ApplicantProfile.ApplicantProfileIdentifier",
+      "fieldName": "ApplicantProfileIdentifier",
+      "description": "Identifier assigned to a person making formal application for entrance into a program or an open staff position.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Intervention.AppropriateSex",
+      "fieldName": "AppropriateSex",
+      "description": "Sexes for the intervention. If omitted, considered generally applicable.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "AssessmentItem.AssessmentItemURI",
+      "fieldName": "AssessmentItemURI",
+      "description": "The URI (typical a URL) pointing to the entry in an assessment item bank, which describes this content item.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "StudentSectionAttendanceEvent.AttendanceEvent",
+      "fieldName": "AttendanceEvent",
+      "description": "Details of the attendance event.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "StaffEducationOrganizationEmploymentAssociation.BackgroundCheck",
+      "fieldName": "BackgroundCheck",
+      "description": "Staff background check history and disposition.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "StudentEducationOrganizationResponsibilityAssociation.BeginDate",
+      "fieldName": "BeginDate",
+      "description": "Month, day, and year of the start date of an education organization's responsibility for a student.  Note: Date interpretation may vary. Ed-Fi recommends inclusive dates, but states may define dates as inclusive or exclusive. For calculations, align with local guidelines.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Behavior.BehaviorDetailedDescription",
+      "fieldName": "BehaviorDetailedDescription",
+      "description": "Specifies a more granular level of detail of a behavior involved in the incident.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "StudentBusDetails.BusRoute",
+      "fieldName": "BusRoute",
+      "description": "Identifies the specific route taken by a bus for student transportation.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "RecruitmentEventAttendeeQualifications.CapacityToServe",
+      "fieldName": "CapacityToServe",
+      "description": "An indication of whether or not a prospect mentor teacher has capacity to serve.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Credential.Certification",
+      "fieldName": "Certification",
+      "description": "Reference to the Certification associated with this person's Credential.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "Credential.CertificationRoute",
+      "fieldName": "CertificationRoute",
+      "description": "The process, program, or pathway used to obtain certification.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "OperationalUnitDimension.Code",
+      "fieldName": "Code",
+      "description": "The code representation of the account operational unit dimension.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "SourceDimension.Code",
+      "fieldName": "Code",
+      "description": "The code representation of the account source dimension.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "EvaluationRating.Comments",
+      "fieldName": "Comments",
+      "description": "Any comments about the evaluation to be captured.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "LearningStandardIdentificationCode.ContentStandardName",
+      "fieldName": "ContentStandardName",
+      "description": "The name of the content standard, for example Common Core.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "CreditsByCreditCategory.CreditCategory",
+      "fieldName": "CreditCategory",
+      "description": "A categorization for the course transcript credits awarded in the course transcript.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "CourseTranscript.CreditCategory",
+      "fieldName": "CreditCategory",
+      "description": "A categorization for the course transcript credits awarded in the course transcript.",
+      "isHubStandard": false
+    },
+    {
+      "standard": "EdFi",
+      "path": "GraduationPlan.CreditsBySubject",
+      "fieldName": "CreditsBySubject",
+      "description": "The total credits required in subject to graduate. Only those courses identified as a high school course requirement are eligible to meet subject credit requirements.",
+      "isHubStandard": false
+    }
+  ],
+  "totalRowCount": 97,
+  "returnedRowCount": 20,
+  "truncatedRowCount": 77,
+  "rowUnit": "a DmeProperty with no match edge on itself or on any of its instances: one row per property",
+  "hubPolicy": "excludeHub",
+  "hubStandardList": [
+    "CEDS",
+    "CTDL"
+  ]
+}
