@@ -1,0 +1,14 @@
+
+=== W-D-7 findMappings rows are distinct mappings ===
+
+  PASS: BirthDate: no two of 60 rows are the same mapping
+  PASS:   truncated: Σ totalRowCountByRelation (417) === shown 60 + truncated 357
+  PASS: Birthdate: no two of 60 rows are the same mapping
+  PASS:   truncated: Σ totalRowCountByRelation (417) === shown 60 + truncated 357
+  PASS: Sex: no two of 60 rows are the same mapping
+  PASS:   truncated: Σ totalRowCountByRelation (268) === shown 60 + truncated 208
+  PASS: BirthCity: no two of 50 rows are the same mapping
+  PASS:   truncated: Σ totalRowCountByRelation (164) === shown 50 + truncated 114
+
+=== W-D-7 findMappings rows are distinct mappings — Results: 8 passed, 0 failed ===
+

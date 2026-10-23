@@ -1,0 +1,49 @@
+
+=== dme-slack mapper gate ===
+
+Parameterization (static):
+  PASS: hostile term stays in $params: "birth' OR 1=1 --"
+  PASS: hostile term stays in $params: "x}) MATCH (m) DETACH DEL"
+  PASS: hostile term stays in $params: "CALL apoc.load.json(\"x\")"
+  PASS: hostile term stays in $params: "$term"
+  PASS: hostile term stays in $params: "\"; DROP TABLE nodes; --"
+  PASS: elementCardOwn hostile stableId stays in $params
+  PASS: elementCardViaInstance hostile stableId stays in $params
+
+Spend-ledger SQL escaping:
+  PASS: hostile slackUserId quote is doubled (payload trapped in the literal) — SELECT COALESCE(SUM(costUsd), 0) AS totalUsd FROM dmeSlackSpend WHERE slackUserId = 'U123''; DROP TABLE dmeSlackSpend; -
+  PASS: escaped value is a single quoted literal to the statement end
+
+Block Kit shaping:
+  PASS: over-long answer capped with trim affordance — sections=4 chars=11600
+  PASS: every section respects the per-section cap
+  PASS: deep link is the ?prompt= explorer affordance, URL-encoded
+
+Match relations on the element card (lane Q, 2026-10-04):
+  PASS: a BROAD_MATCH tuple is labelled broad, not close — • Person Birth › Birthdate › date — `P000033` (broad 90%, bridge-jev)
+  PASS: a NARROW_MATCH tuple is labelled narrow
+  PASS: the card names who decided (mappingSource)
+  PASS: a debug-judge tuple (mappingSource 'bridge-debug') is flagged as a placeholder
+
+Instance-carried tuples and overflow (W-E-1 / W-E-2):
+  PASS: a card with 6 tuples shows 4 and says '+2 more tuples' —   +2 more tuples | 
+  PASS: mergeElementCard joins the own and instance arms
+  PASS: an instance-carried tuple reads 'via 6 instances: StudentPersonal, StaffPersonal' — • Birthdate — `P000033` (exact 90%, bridge-jev) via 6 instances: StudentPersonal, StaffPersonal
+  PASS: an undeclared carriedBy ('cousin') is refused by name — mergeElementCard: carriedBy 'cousin' is not one of own, instance
+
+Live golden (fixture + adversarial):
+  PASS: fixture '/dme birth date' finds elements (space-insensitive) — CEDS:Birthdate, CEDS:Birthdate, EdFi:BirthDate
+  PASS: elementSearch rows carry exactly SLACK_LOOKUP_SEARCH_ROW_FIELD_LIST, one per node (distinct stableId), declarations only — {"stableId":"https://w3id.org/CEDStandards/terms/NI001945162285","name":"Birthdate","source":"CEDS","role":"DmeOptionValue","description":"Birthdate is the type of personal information verified through the Personal Infor
+  PASS: elementSearchCount (39) >= the page and > the page size 8 (the "of N" is the whole count)
+  PASS: SIF Question BirthDate (0 own edges, 6 instance edges): ONE real CEDS tuple, P000033, carriedBy instance, instanceCount 6, groups include StudentPersonal — [{"confidence":0.9,"hubDomain":"Person Birth","carriedBy":"instance","instanceGroupList":["EmployeePersonal","StudentContact","EmployeeCredential","StaffPersonal","StudentPersonal","EmployeeRecertification"],"instanceCou
+  PASS:   any other hub's tuples (4) are carried by the same instances (carriedBy instance, instanceCount >= 1) — [{"confidence":0,"hubDomain":"Secondary Education Certificate","carriedBy":"instance","instanceGroupList":["EmployeePersonal","StaffPersonal"],"instanceCount":2,"mappingType":"NARROW_MATCH","hubRange":null,"mappingKind":
+  PASS:   every tuple field is declared (SLACK_ELEMENT_CARD_TUPLE_FIELD_LIST)
+  PASS:   the card text says 'via 6 instances' — • Person Birth › Birthdate › date — `P000033` (exact 90%, bridge-jev) via 6 instances: EmployeePersonal, StudentContact, EmployeeCredential, StaffPersonal +2 more
+  PASS: PESC CollegeTranscript BirthDate: an instance tuple grouped by section CollegeTranscript/Student/Person — [{"confidence":null,"hubDomain":null,"carriedBy":"own","instanceGroupList":[],"instanceCount":0,"mappingType":null,"hubRange":null,"mappingKind":null,"hubName":null,"mappingSource":null,"hubKey":null,
+  PASS: control: an Ed-Fi property with its own edge shows carriedBy own — [{"confidence":0,"hubDomain":"Bachelor's Degree","carriedBy":"own","instanceGroupList":[],"instanceCount":0,"mappingType":"CLOSE_MATCH","hubRange":null,"mappingKind":"inferred","hubName":"Approximate 
+  FAIL: graphIdentity reads the passport: graphName DEV_b3Rehearsal, contentNodeCount = the live non-GraphMeta count — {"graphName":"DEV_gb_materialize_32146_38","manifestRefId":"5b8f3863997eee006ace5ab73cf2f8a163b00e5b529a02eaa78172f4c1b52805","contentNodeCount":269602,"standardsIncluded":["CEDS","CTDL","CTDLASN","CT
+  PASS: hostile terms execute as inert data on live golden
+  PASS: golden node count unchanged shape (sanity) — count=270024
+
+=== Results: 31 passed, 1 failed ===
+

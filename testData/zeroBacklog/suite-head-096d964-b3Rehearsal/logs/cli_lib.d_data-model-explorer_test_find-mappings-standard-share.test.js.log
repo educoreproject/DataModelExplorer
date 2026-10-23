@@ -1,0 +1,90 @@
+
+=== findMappings standard share within each relation (BirthDate) ===
+
+  PASS: the direct count finds Ed-Fi among the standards mapped to Birthdate
+  PASS: a row from EdFi is shown
+  PASS: a row from PESC-AcademicEportfolio-1.0.0 is shown
+  PASS: a row from PESC-CollegeTranscript-1.7.0 is shown
+  PASS: a row from PESC-CollegeTranscript-1.8.0 is shown
+  PASS: a row from PESC-DocumentRequest-1.0.0 is shown
+  PASS: a row from PESC-DocumentResponse-1.0.0 is shown
+  PASS: a row from PESC-HighSchoolTranscript-1.6.0 is shown
+  PASS: a row from PESC-LearningRecord-1.0.0 is shown
+  PASS: a row from PESC-TestScoreReport-1.1.0 is shown
+  PASS: a row from SIF260928 is shown
+  PASS: result carries totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard
+  PASS: result carries totalRowCountByHubRelationAndStandard and truncatedRowCountByHubRelationAndStandard
+  PASS: CEDS EXACT_MATCH: 17 rows over 10 standards show 10 = min(rows, standards)
+  PASS: CEDS EXACT_MATCH SIF260928: shown 1 + truncated 26 = total 27
+  PASS: CEDS EXACT_MATCH PESC-AcademicEportfolio-1.0.0: shown 2 + truncated 4 = total 6
+  PASS: CEDS EXACT_MATCH PESC-DocumentResponse-1.0.0: shown 2 + truncated 1 = total 3
+  PASS: CEDS EXACT_MATCH PESC-DocumentRequest-1.0.0: shown 2 + truncated 1 = total 3
+  PASS: CEDS EXACT_MATCH PESC-LearningRecord-1.0.0: shown 1 + truncated 2 = total 3
+  PASS: CEDS EXACT_MATCH PESC-HighSchoolTranscript-1.6.0: shown 2 + truncated 1 = total 3
+  PASS: CEDS EXACT_MATCH PESC-TestScoreReport-1.1.0: shown 1 + truncated 2 = total 3
+  PASS: CEDS EXACT_MATCH PESC-CollegeTranscript-1.7.0: shown 2 + truncated 1 = total 3
+  PASS: CEDS EXACT_MATCH PESC-CollegeTranscript-1.8.0: shown 2 + truncated 1 = total 3
+  PASS: CEDS EXACT_MATCH EdFi: shown 2 + truncated 7 = total 9
+  PASS: CEDS CLOSE_MATCH: 4 rows over 1 standards show 1 = min(rows, standards)
+  PASS: CEDS CLOSE_MATCH SIF260928: shown 4 + truncated 0 = total 4
+  PASS: CEDS BROAD_MATCH: 7 rows over 8 standards show 7 = min(rows, standards)
+  PASS: CEDS BROAD_MATCH PESC-CollegeTranscript-1.8.0: shown 1 + truncated 3 = total 4
+  PASS: CEDS BROAD_MATCH PESC-CollegeTranscript-1.7.0: shown 1 + truncated 3 = total 4
+  PASS: CEDS BROAD_MATCH PESC-HighSchoolTranscript-1.6.0: shown 1 + truncated 1 = total 2
+  PASS: CEDS BROAD_MATCH PESC-TestScoreReport-1.1.0: shown 0 + truncated 4 = total 4
+  PASS: CEDS BROAD_MATCH PESC-LearningRecord-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: CEDS BROAD_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: CEDS BROAD_MATCH PESC-DocumentResponse-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: CEDS BROAD_MATCH PESC-AcademicEportfolio-1.0.0: shown 1 + truncated 5 = total 6
+  PASS: CEDS NARROW_MATCH: 2 rows over 1 standards show 1 = min(rows, standards)
+  PASS: CEDS NARROW_MATCH PESC-AcademicEportfolio-1.0.0: shown 2 + truncated 0 = total 2
+  PASS: CTDL EXACT_MATCH: 9 rows over 5 standards show 5 = min(rows, standards)
+  PASS: CTDL EXACT_MATCH EdFi: shown 2 + truncated 0 = total 2
+  PASS: CTDL EXACT_MATCH PESC-AcademicEportfolio-1.0.0: shown 2 + truncated 0 = total 2
+  PASS: CTDL EXACT_MATCH SIF260928: shown 2 + truncated 7 = total 9
+  PASS: CTDL EXACT_MATCH PESC-TestScoreReport-1.1.0: shown 2 + truncated 0 = total 2
+  PASS: CTDL EXACT_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 0 = total 1
+  PASS: CTDL CLOSE_MATCH: 7 rows over 10 standards show 7 = min(rows, standards)
+  PASS: CTDL CLOSE_MATCH EdFi: shown 1 + truncated 4 = total 5
+  PASS: CTDL CLOSE_MATCH PESC-AcademicEportfolio-1.0.0: shown 1 + truncated 12 = total 13
+  PASS: CTDL CLOSE_MATCH SIF260928: shown 0 + truncated 27 = total 27
+  PASS: CTDL CLOSE_MATCH PESC-LearningRecord-1.0.0: shown 0 + truncated 5 = total 5
+  PASS: CTDL CLOSE_MATCH PESC-TestScoreReport-1.1.0: shown 0 + truncated 3 = total 3
+  PASS: CTDL CLOSE_MATCH PESC-CollegeTranscript-1.7.0: shown 1 + truncated 2 = total 3
+  PASS: CTDL CLOSE_MATCH PESC-CollegeTranscript-1.8.0: shown 1 + truncated 2 = total 3
+  PASS: CTDL CLOSE_MATCH PESC-HighSchoolTranscript-1.6.0: shown 1 + truncated 0 = total 1
+  PASS: CTDL CLOSE_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 0 = total 1
+  PASS: CTDL CLOSE_MATCH PESC-DocumentResponse-1.0.0: shown 1 + truncated 0 = total 1
+  PASS: CTDL BROAD_MATCH: 7 rows over 10 standards show 7 = min(rows, standards)
+  PASS: CTDL BROAD_MATCH PESC-CollegeTranscript-1.7.0: shown 1 + truncated 4 = total 5
+  PASS: CTDL BROAD_MATCH PESC-CollegeTranscript-1.8.0: shown 1 + truncated 4 = total 5
+  PASS: CTDL BROAD_MATCH EdFi: shown 1 + truncated 10 = total 11
+  PASS: CTDL BROAD_MATCH PESC-AcademicEportfolio-1.0.0: shown 1 + truncated 19 = total 20
+  PASS: CTDL BROAD_MATCH PESC-HighSchoolTranscript-1.6.0: shown 1 + truncated 5 = total 6
+  PASS: CTDL BROAD_MATCH SIF260928: shown 0 + truncated 39 = total 39
+  PASS: CTDL BROAD_MATCH PESC-LearningRecord-1.0.0: shown 0 + truncated 5 = total 5
+  PASS: CTDL BROAD_MATCH PESC-DocumentResponse-1.0.0: shown 1 + truncated 5 = total 6
+  PASS: CTDL BROAD_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 1 = total 2
+  PASS: CTDL BROAD_MATCH PESC-TestScoreReport-1.1.0: shown 0 + truncated 1 = total 1
+  PASS: CTDL NARROW_MATCH: 7 rows over 10 standards show 7 = min(rows, standards)
+  PASS: CTDL NARROW_MATCH PESC-AcademicEportfolio-1.0.0: shown 1 + truncated 27 = total 28
+  PASS: CTDL NARROW_MATCH SIF260928: shown 0 + truncated 65 = total 65
+  PASS: CTDL NARROW_MATCH EdFi: shown 1 + truncated 18 = total 19
+  PASS: CTDL NARROW_MATCH PESC-DocumentRequest-1.0.0: shown 1 + truncated 3 = total 4
+  PASS: CTDL NARROW_MATCH PESC-LearningRecord-1.0.0: shown 0 + truncated 5 = total 5
+  PASS: CTDL NARROW_MATCH PESC-TestScoreReport-1.1.0: shown 0 + truncated 5 = total 5
+  PASS: CTDL NARROW_MATCH PESC-CollegeTranscript-1.8.0: shown 1 + truncated 2 = total 3
+  PASS: CTDL NARROW_MATCH PESC-CollegeTranscript-1.7.0: shown 1 + truncated 2 = total 3
+  PASS: CTDL NARROW_MATCH PESC-HighSchoolTranscript-1.6.0: shown 1 + truncated 4 = total 5
+  PASS: CTDL NARROW_MATCH PESC-DocumentResponse-1.0.0: shown 1 + truncated 0 = total 1
+  PASS: EXACT_MATCH: per-standard totals sum to the relation total (79)
+  PASS: EXACT_MATCH: the per-hub split sums to the relation total (79)
+  PASS: CLOSE_MATCH: per-standard totals sum to the relation total (66)
+  PASS: CLOSE_MATCH: the per-hub split sums to the relation total (66)
+  PASS: BROAD_MATCH: per-standard totals sum to the relation total (132)
+  PASS: BROAD_MATCH: the per-hub split sums to the relation total (132)
+  PASS: NARROW_MATCH: per-standard totals sum to the relation total (140)
+  PASS: NARROW_MATCH: the per-hub split sums to the relation total (140)
+
+=== Results: 84 passed, 0 failed ===
+

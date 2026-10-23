@@ -1,0 +1,11 @@
+
+=== W-D-8 compareCodesets: verdict, totals, refusal ===
+
+  PASS: Sex: verdict 'valuesNotJudgedInThisBuild' (the test's own value-tier count is 0)
+  PASS:   totalRowCount === 6 and matchedOptionSetCount === 2
+  PASS:   envelope: returnedRowCount === rows, truncatedRowCount === total − returned
+  PASS:   verdictText says null means NOT JUDGED
+  PASS: zzznosuchcodeset: refusedByName compareCodesets, refusalName noOptionSetMatched
+
+=== W-D-8 compareCodesets: verdict, totals, refusal — Results: 5 passed, 0 failed ===
+

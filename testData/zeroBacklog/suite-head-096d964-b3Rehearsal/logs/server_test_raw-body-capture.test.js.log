@@ -1,0 +1,7 @@
+  PASS: form-encoded POST parses — command=/dme
+  PASS: rawBody holds exact form bytes
+  PASS: JSON POST parses unchanged
+  PASS: rawBody holds exact JSON bytes
+
+=== Results: 4 passed, 0 failed ===
+

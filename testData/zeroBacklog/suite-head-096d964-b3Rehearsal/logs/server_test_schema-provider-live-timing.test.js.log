@@ -1,0 +1,8 @@
+
+=== schema-provider: getSchema answers within the golden handle's own timeout ===
+
+  PASS: 1. getSchema renders on DEV_b3Rehearsal within the configured 30000 ms handle (11640 ms)
+  PASS: 2. the keys() scan gives nodeTypeProperties' label -> property sets on all 195 labels
+  PASS: 3. RED TWIN: the nodeTypeProperties provider fails on the configured 30000 ms handle
+
+=== schema-provider live timing — Results: 3 passed, 0 failed ===

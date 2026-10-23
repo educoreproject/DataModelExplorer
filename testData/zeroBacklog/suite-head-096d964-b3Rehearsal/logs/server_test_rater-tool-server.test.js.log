@@ -1,0 +1,55 @@
+WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini
+  PASS: a scratch admin account is made
+  PASS: admin adds rater-x on survey A
+  PASS: admin adds rater-y on survey A
+  PASS: admin adds rater-z on survey A
+T3.5 shuffle
+  PASS: rater-x reads all 50 items
+  PASS: two raters on survey A see the same 50 elements
+  PASS: two raters on survey A get different item orders
+  PASS: the same element shows the same cards to both
+  PASS: two raters get different card orders for that element
+  PASS: on reload rater-x gets the same item 1 and the same card order
+T3.6 never shown (items)
+  PASS: no item payload carries foundByMethod, a score, a rank, the split, the kind, a seed or a rater name
+  PASS: no suggested card in an item payload carries foundBy
+  PASS: survey A's 7 gold-injected items: each injected card is in the payload with exactly the keys of every other card
+  PASS: no item payload text says gold or injected
+T3.1 the save matrix
+  PASS: valid Best → saved
+  PASS: Best + 2 Same → saved
+  PASS: No match → saved
+  PASS: Unsure + note (with an apostrophe: it's) → saved
+  PASS: nothing → answerKindInvalid
+  PASS: Unsure without note → unsureWithoutNote
+  PASS: Same without Best → sameWithoutBest
+  PASS: Same on the Best card → sameOnBest
+  PASS: two Bests → bestNotOne
+  PASS: secondsOnItem not a non-negative number → secondsOnItemInvalid
+  PASS: searchesTyped not a list of text → searchesTypedInvalid
+  PASS: a card not in the list → bestNotInList
+  PASS: the Unsure note comes back exactly, apostrophes single (the sqlite-instance doubling trap)
+T3.7 search
+  FAIL: CEDS ID P001572 → Person Identification › Person Identifier cards — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContainerConnection: container 'GOLD_EVAL_26101
+  FAIL: …with their qualifiers (Student Identifier, Staff Member Identifier among them) — []
+  FAIL: a words search ("birth date") returns cards — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContain
+  FAIL: a meaning search returns cards — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContain
+  FAIL: a malformed CEDS ID is refused by name (cedsIdInvalid) — raterGoldenContainerUnresolvable: CEDS Rater: the configured gold 'GOLD_EVAL_261013_jevQuestionPerBridge' cannot be reached (containerNotRunning: resolveContainerConnection: container 'GOLD_EVAL_261013_jevQuestionPerBridge' is exited, not running — start it (docker start GOLD_EVAL_261013_jevQuestionPerBridge) and retry). The tool does not read any other graph. (Gm5AmVM3QXMh)
+T3.6 never shown (search)
+  PASS: no search payload carries foundBy(Method), a score or a rank
+/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:244
+		post(state, '/api/raterAnswerSave', { elementStableId: state.searchElementStableId, answerKind: 'cards', bestCedsTupleId: addedCard.cedsTupleId, addedCardList: [{ cedsTupleId: addedCard.cedsTupleId, foundBy: 'search' }], searchesTyped: ['P001572'], secondsOnItem: 42 }, state.xToken, (response) => {
+		                                                                                                                                    ^
+
+TypeError: Cannot read properties of undefined (reading 'cedsTupleId')
+    at Array.<anonymous> (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:244:135)
+    at runAt (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:56:25)
+    at /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:56:48
+    at /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:236:7
+    at /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/rater-tool-server.test.js:68:3
+    at IncomingMessage.<anonymous> (/private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/code/server/test/lib/raterServerHarness.js:118:4)
+    at IncomingMessage.emit (node:events:520:35)
+    at endReadableNT (node:internal/streams/readable:1729:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+
+Node.js v24.14.1

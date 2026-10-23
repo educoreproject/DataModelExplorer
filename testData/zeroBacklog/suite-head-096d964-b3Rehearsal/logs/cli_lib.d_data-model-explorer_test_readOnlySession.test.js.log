@@ -1,0 +1,12 @@
+
+=== W-E-10: every DME verb opens a READ session ===
+
+  PASS: the module declares its verbs
+  PASS: WRITE_CAPABLE_QUERY_TYPE_LIST is declared and EMPTY (the DME CLI has no write verb)
+  PASS: every verb not declared write-capable gets a READ session
+  PASS: the only raw Cypher tool any DME provider offers is dme_raw_cypher
+
+REFUSED: the live half needs DME_SCRATCH_BOLT_URI and DME_SCRATCH_NEO4J_PASSWORD naming a SCRATCH Neo4j; there is no default, and never the golden graph.
+
+=== Results: 4 passed, 1 failed ===
+

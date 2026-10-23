@@ -1,0 +1,11 @@
+
+=== W-B-2 step A: the DME reads mappingConfidence, never the retiring confidence ===
+
+  PASS: dataModelExplorerSearch.js reads no match edge's .confidence
+  PASS: traversal.cypher reads no match edge's .confidence
+  PASS: dme-slack.js reads no match edge's .confidence
+  PASS: live control: every match edge carries mappingConfidence (42934 of 42934)
+  PASS: live control: no edge where confidence differs from mappingConfidence (the move changes no answer today)
+
+=== W-B-2 step A: the DME reads mappingConfidence, never the retiring confidence — Results: 5 passed, 0 failed ===
+

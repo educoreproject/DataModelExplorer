@@ -1,0 +1,11 @@
+
+=== lane GREP apoc.text allow-list (validator list = the graph's loaded functions) ===
+
+  PASS: (a) the apoc functions the live graph loads are exactly the validator's allow-list
+  PASS: (b) -rawCypher runs every allowed function, and one spelled with a backtick-quoted namespace segment
+  PASS: (c) -rawCypher refuses a blocked function hidden by an allowed call carrying a blocked one (notReadOnly, exit 0)
+  PASS: (c) -rawCypher refuses a blocked function hidden by a backtick-quoted namespace segment (notReadOnly, exit 0)
+  PASS: (c) -rawCypher refuses a blocked function hidden by spaces around the dots (notReadOnly, exit 0)
+
+=== lane GREP apoc.text allow-list (validator list = the graph's loaded functions) — Results: 5 passed, 0 failed ===
+

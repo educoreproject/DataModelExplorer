@@ -1,0 +1,16 @@
+PASS - no internal-secret header -> internal:false
+PASS - no secret configured -> internal:false
+PASS - wrong secret -> internal:false
+PASS - correct secret + 127.0.0.1 -> internal:true
+PASS - correct secret + ::1 -> internal:true
+PASS - correct secret + ::ffff:127.0.0.1 -> internal:true
+PASS - correct secret + non-loopback peer -> internal:false
+PASS - correct secret + x-forwarded-for -> internal:false
+PASS - correct secret + x-real-ip -> internal:false
+PASS - isLoopbackAddress 127.0.0.1
+PASS - isLoopbackAddress 10.0.0.5 false
+PASS - isLoopbackAddress empty false
+PASS - a secret differing only in its LAST byte -> internal:false
+PASS - a secret of a DIFFERENT length is refused without throwing (timingSafeEqual throws on unequal lengths)
+PASS - STRUCTURAL: the comparison is crypto.timingSafeEqual, and no !== compares the presented secret
+ALL_PASS

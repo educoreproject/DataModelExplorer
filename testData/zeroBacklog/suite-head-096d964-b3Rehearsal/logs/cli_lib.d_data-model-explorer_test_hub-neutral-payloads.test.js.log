@@ -1,0 +1,22 @@
+
+=== lane R6 (hub-neutral DME): DME payloads name no one hub ===
+
+- 1. findMappings on a one-hub graph
+  PASS: findMappings: no ceds* row field on a ONE-hub graph; hubTuple and hubDomain carry the card
+- 2. compareCodesets on a one-hub graph
+  PASS: compareCodesets: no cedsValue / cedsValueKey on a ONE-hub graph; hubValue and hubValueKey carry it
+- 3. the tool payload contract's model-read text
+  PASS: row-unit and count-unit text read by the model names no hub ('hub tuple', never 'CEDS tuple')
+  PASS: the per-hub identifier example table is gone from code (the examples are read from the graph)
+  PASS: a declared correspondence is a published statement, never an 'authored mapping' (row unit and getSchema text)
+- 4. findMappings nothingMatched
+  PASS: nothingMatched: the example is the hub's own lowest canonicalKey per tier
+  PASS: nothingMatched: a hub with a canonicalKeyName but no keyed card is said to have no example, by name
+  PASS: nothingMatched: a hub with no canonicalKeyName is said so, never given a stand-in name
+  PASS: nothingMatched: the example query is asked for exactly the graph's hubs
+- 5. red twins (each must turn an assertion red)
+  PASS: red twin (a ceds* field restored on one hub): the legacy-field assertion would fail
+  PASS: red twin (an example fixed in code): the read-from-the-graph assertion would fail
+
+=== lane R6 (hub-neutral DME) payloads — Results: 11 passed, 0 failed ===
+

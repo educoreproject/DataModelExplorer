@@ -1,0 +1,9 @@
+
+=== dme-slack spend ledger gate ===
+
+xLog.error: HACKED: SQL statement in [sqlite-instance]
+  PASS: user total sums own rows for the day only — $0.3816
+  PASS: global total sums all users for the day, other days excluded — $0.8815999999999999
+
+=== Results: 2 passed, 0 failed ===
+

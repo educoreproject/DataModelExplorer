@@ -1,0 +1,11 @@
+
+=== W-D-6 findMappings by CEDS Global ID; nothingMatched by name ===
+
+  PASS: P000033: matchedNodeCount >= 1 (the CEDS leaf carrying cedsId P000033)
+  PASS:   at least one incoming row whose toId is P000033
+  PASS:   totalRowCount === Σ totalRowCountByRelation, returnedRowCount === rows, truncatedRowCount === Σ truncatedRowCountByRelation
+  PASS: P000033x: refusedByName findMappings, refusalName nothingMatched, exit 0
+  PASS: control: a name that matches answers rows and matchedNodeCount > 0
+
+=== W-D-6 findMappings by CEDS Global ID; nothingMatched by name — Results: 5 passed, 0 failed ===
+

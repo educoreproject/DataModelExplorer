@@ -1,0 +1,17 @@
+
+=== WEL dme-list-standards: the welcome screen's standards list is the graph's ===
+
+  PASS: endpoint: logged-in roles only (getValidator names user/client/admin, never public)
+  PASS: endpoint: an access-point refusal after permission is answered 503 with its text
+  PASS: red twin: an unreachable graph is refused by name (graphUnreachable), no list
+  PASS: red twin: a refusedByName answer is refused (listStandardsRefused), not shown as a list
+  PASS: live: the access point answers an inventory
+  PASS: live: totals equal this test's Cypher (14 standards, 7 families, hubs CEDS,CTDL, Σ nodeCount 268758, Σ hubMatchEdgeCount 42934)
+  PASS: red twin: an inventory missing one standard turns the Cypher conjunct red
+  PASS: red twin: one wrong hubMatchEdgeCount turns the Cypher conjunct red
+  PASS: red twin: a hub missing from totals.hubList turns the hub conjunct red
+  PASS: red twin: one node too many (a layer node counted) turns the Σ nodeCount conjunct red
+  PASS: live: the access point's standards are exactly askMilo's dme_list_standards (CLI -listStandards)
+
+=== Results: 11 passed, 0 failed ===
+

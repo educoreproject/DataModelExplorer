@@ -1,0 +1,35 @@
+WARNING: finished with: /private/tmp/claude-501/-Users-tqwhite-Documents-webdev/66408d3c-cf3f-4f7b-b2fc-8f1a8e8254ca/scratchpad/runTree-DEV_b3Rehearsal/system/configs/instanceSpecific/qbook/raterTool.ini
+G12.1 the pure rule
+  PASS a group sits at its first member's place, members in shuffled order (a1 a2 a3 b1 b2 c1)
+  PASS the input list is not changed
+  PASS a list of singletons keeps its order
+  PASS an empty list stays empty
+  PASS the class is ignored
+  PASS qualifiers count: the same property with another qualifier is another identity
+  PASS qualifier order does not matter
+  PASS a card with no cedsId is refused by name
+  PASS a card with no qualifierNameList is refused by name
+  PASS the frozen lists have properties in several classes to group (118 of 150 lists)
+  PASS a scratch admin account is made
+  PASS the admin adds two raters on survey B
+G12.2 every item of two raters: grouped, the suggested cards, group order differs
+  PASS both raters read all 50 items
+  PASS in every item, each property's cards are adjacent
+  PASS every item shows exactly its suggested cards, gold included
+  PASS survey B has items with a property in several classes (41)
+  PASS the group order differs between the two raters (41 of 41 grouped items)
+G12.3 the preview: gather(the preview shuffle), stable, grouped
+  PASS the admin reads all 50 preview items
+  PASS every preview item is in the preview shuffle, gathered: each group at its first member, members in shuffled order
+  PASS the preview order is the same on a second read
+  PASS every preview item is grouped
+  PASS the 7 Number of Credits Earned cards sit together (0,1,2,3,4,5,6)
+G12.4 no card gains a field
+  PASS every card has exactly the rater card fields (2976 cards)
+  PASS no rater or preview payload carries a forbidden field
+G12.5 Best and Same inside a group
+  PASS Best on the second member of a group, Same on the first: saved
+  PASS the item reads back with that Best and Same
+  PASS and its card order is unchanged by saving
+
+=== rater-card-grouping (revision 12) — Results: 27 passed, 0 failed ===

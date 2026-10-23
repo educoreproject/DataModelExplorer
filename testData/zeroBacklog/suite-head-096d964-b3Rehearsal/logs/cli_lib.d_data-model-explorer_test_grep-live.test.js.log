@@ -1,0 +1,25 @@
+
+=== lane GREP dme_grep (regex and fuzzy name search) ===
+
+  PASS: (a) regex RefId$ on SIF260928: totalRowCount equals the test's own count over the same population
+  PASS: (a) every row's name ends in RefId (any case), and matchedNodeCountByStandard sums to the total
+  PASS: (a) SIF Fields (DmeInstance) are among the matches: the population is every content node, not the vector index's
+  PASS: (b) caseSensitive true: refid$ matches no SIF name (they spell RefId), answered as totalRowCount 0 with shortPageNote
+  PASS: (c) field description: totalRowCount equals the test's own count of descriptions holding "transcript"
+  PASS: (d) fuzzy BrithDate: BirthDate first, every row at or above minimumSimilarity, best first
+  PASS: (d) fuzzy DateOfBirth does not find BirthDate: it matches spelling, not meaning
+  PASS: (e) -grep --pattern= -> refusal emptyPattern on stdout, exit 0
+  PASS: (e) -grep --pattern=(abc -> refusal invalidRegex on stdout, exit 0
+  PASS: (e) -grep --pattern=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -> refusal patternTooLong on stdout, exit 0
+  PASS: (e) -grep --pattern=RefId --mode=sql -> refusal invalidGrepMode on stdout, exit 0
+  PASS: (e) -grep --pattern=RefId --field=title -> refusal invalidGrepField on stdout, exit 0
+  PASS: (e) -grep --pattern=RefId --caseSensitive=yes -> refusal invalidCaseSensitive on stdout, exit 0
+  PASS: (e) -grep --pattern=BrithDate --mode=fuzzy --field=description -> refusal flagNotForGrepMode on stdout, exit 0
+  PASS: (e) -grep --pattern=RefId --standard=SIF9 -> refusal unknownStandard on stdout, exit 0
+  PASS: (e) -grep RefId -> refusal unknownFlag on stdout, exit 0
+  PASS: (f) a pattern that backtracks without end on these names ends in grepTimeout, stating the limit
+  PASS: (f) and the graph answers at once afterwards (nothing left running in it)
+  PASS: (g) fuzzy on a graph lacking a function it needs: apocTextUnavailable by name (regex named as the way that still works)
+
+=== lane GREP dme_grep (regex and fuzzy name search) — Results: 19 passed, 0 failed ===
+

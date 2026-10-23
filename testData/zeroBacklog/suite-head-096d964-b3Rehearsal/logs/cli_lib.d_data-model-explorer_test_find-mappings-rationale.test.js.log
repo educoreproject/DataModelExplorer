@@ -1,0 +1,12 @@
+
+=== W-B-4: findMappings carries the judge's mappingRationale on every row ===
+
+  PASS: the outgoing row to P600299 carries the edge's mappingRationale verbatim
+  PASS: every row carries the mappingRationale and viaMappingRationale keys (null when no rationale is recorded, never absent)
+  PASS: instance verdict BROAD_MATCH -> P001943 is ONE row (4 distinct rationales do not split it)
+  PASS:   its instanceCount is every instance carrying it (6)
+  PASS:   its mappingRationale is one of the instances' recorded texts, quoted verbatim
+  PASS: live census: every judged edge carries a rationale (42934 of 42934)
+
+=== W-B-4: findMappings carries the judge's mappingRationale on every row — Results: 6 passed, 0 failed ===
+

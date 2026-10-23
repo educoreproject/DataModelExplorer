@@ -1,0 +1,16 @@
+
+=== W-D-21 / W-E-3: askMilo says why it stopped; a cut-off answer is marked ===
+
+  PASS: lib/stopReason.js exists
+  PASS: max_tokens → answerCutOff true, stopReason carried, the declared marker appended
+  PASS: end_turn → answerCutOff false, text unchanged
+  PASS: an answer with no stopReason is refused by name
+  PASS: stages/single-call-tools-direct.mjs: every single-call answer returns through finalAnswerFor (no bare { responseText, cost })
+  PASS: stages/single-call-direct.mjs: every single-call answer returns through finalAnswerFor (no bare { responseText, cost })
+  PASS: stages/single-call.mjs: every single-call answer returns through finalAnswerFor (no bare { responseText, cost })
+  PASS: lib/mockApi.js: every single-call answer returns through finalAnswerFor (no bare { responseText, cost })
+  PASS: the tools driver passes the API stop_reason through finalAnswerFor
+  PASS: a mock JSON report carries stopReason and answerCutOff
+
+=== Results: 10 passed, 0 failed ===
+
