@@ -30,6 +30,7 @@ const { readPassport } = require('./lib/passportReader');
 // ⟪lane DES, 2026-10-12⟫ a LAYER node (StandardLayer) is not part of its standard's population: excluded from every count,
 // name lookup and scan below, and reached through dme_structure (amendment B; DEVLOG-DES population audit)
 const { LAYER_LABEL, notLayerNodeText } = require('./lib/layerScope');
+const { NATIVE_IDENTIFIER_DECLARATION_CYPHER, nativeIdentifierDeclarationVerdictFor, nativeIdentifierPropertyNameListOf } = require('./lib/nativeIdentifier');
 // ⟪lane BM25⟫ the search's legs (keyword BM25, vector), their graph checks and their fusion: one module for both search verbs
 const { searchLegListFor, resolveSearchIndexes, searchAndFuse } = require('./lib/hybridRetrieval');
 // W-D-1 (campaign P0, 2026-10-06): a refusal about the INPUT answers callback('', refusalFor(...)) and reaches stdout as
@@ -46,7 +47,7 @@ const {
 	DECLARED_CORRESPONDENCE_LIST_CAP,
 	DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
 	declaredCorrespondenceCypherFor,
-	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
+	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
@@ -477,11 +478,13 @@ const INSTANCE_GROUP_LIST_NAME_LIST = ['instanceGroupList', 'viaInstanceGroupLis
 const INSTANCE_GROUP_LIST_CAP = 25;
 
 // W-D-6 (campaign P1): a node matches findMappings by name (contains, any case) or EXACTLY by any identifier in
-// FIND_MAPPINGS_IDENTIFIER_FIELD_LIST — a standard's native identifier among them (STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST),
-// so a hub standard's own identifier finds its hub leaf, and the incoming arm then reaches every source element mapped to it
-const findMappingsNameOrIdentifierPredicateFor = (nodeVariable) => [
+// identifierFieldList — the fixed ones plus every native identifier property the graph's standards declare (⟪lane zbE,
+// E1-1⟫ read per call by findMappingsIdentifierFieldListFor), so a hub standard's own identifier finds its hub leaf, and
+// the incoming arm then reaches every source element mapped to it
+const findMappingsIdentifierFieldListFor = (nativeIdentifierDeclarationList) => [...FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST, ...nativeIdentifierPropertyNameListOf(nativeIdentifierDeclarationList)];
+const findMappingsNameOrIdentifierPredicateFor = (nodeVariable, identifierFieldList) => [
 	`toLower(${nodeVariable}.name) CONTAINS toLower($name)`,
-	...FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.map((identifierFieldName) => `${nodeVariable}.${identifierFieldName} = $name`),
+	...identifierFieldList.map((identifierFieldName) => `${nodeVariable}.${identifierFieldName} = $name`),
 ].join(' OR ');
 // ⟪campaign P4a, Q9⟫ an instance also matches by a segment of its context path above its own name (the first
 // INSTANCE_CONTEXT_PATH_RULE_LIST rule whose field it carries), so SIF …/RaceList/Race/Code is found by 'race'
@@ -489,7 +492,7 @@ const instanceContextSegmentListOf = (nodeVariable) => `CASE ${INSTANCE_CONTEXT_
 	`WHEN ${nodeVariable}.${pathFieldName} IS NOT NULL THEN split(${nodeVariable}.${pathFieldName}, '/')[${leadingSegmentDropCount}..-1]`).join(' ')} ELSE [] END`;
 const instanceContextPathPredicateFor = (nodeVariable) =>
 	`(${nodeVariable}.role = 'DmeInstance' AND any(contextSegment IN ${instanceContextSegmentListOf(nodeVariable)} WHERE toLower(contextSegment) CONTAINS toLower($name)))`;
-const findMappingsMatchPredicateFor = (nodeVariable) => `(${notLayerNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
+const findMappingsMatchPredicateFor = (nodeVariable, identifierFieldList) => `(${notLayerNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable, identifierFieldList)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
 
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
@@ -499,8 +502,22 @@ const findMappings = (session, nameOrId, callback) => {
 	}
 	const taskList = new taskListPlus();
 	taskList.push((args, next) => resolveHubList(session, mergeArgs(args, next, 'hubInventory')));
-	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')}
-		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n')} THEN null ELSE 1 END) AS instancePathMatchedNodeCount`,
+	// ⟪lane zbE, E1-1⟫ which property carries each standard's own identifier, from the graph; a graph whose standards
+	// declare none (built before educoreForge lane A2) is refused by name, never searched as if CEDS's were everyone's
+	taskList.push((args, next) => runCypherQuery(session, NATIVE_IDENTIFIER_DECLARATION_CYPHER, {}, (err, declarationResult) => {
+		if (err) {
+			next(err, args);
+			return;
+		}
+		const verdict = nativeIdentifierDeclarationVerdictFor(declarationResult.records.map((oneRecord) => ({ sourceKey: oneRecord.get('sourceKey'), nativeIdentifierPropertyName: oneRecord.get('nativeIdentifierPropertyName') })));
+		if (verdict.refusalName) {
+			next('skipRestOfPipe', { ...args, nativeIdentifierRefusal: refusalFor('findMappings', verdict.refusalName, verdict.reason) });
+			return;
+		}
+		next('', { ...args, identifierFieldList: findMappingsIdentifierFieldListFor(verdict.declarationList) });
+	}));
+	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', args.identifierFieldList)}
+		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n', args.identifierFieldList)} THEN null ELSE 1 END) AS instancePathMatchedNodeCount`,
 		{ name: nameOrId }, (err, countResult) => {
 			if (err) {
 				next(err, args);
@@ -517,7 +534,7 @@ const findMappings = (session, nameOrId, callback) => {
 			next('', args);
 			return;
 		}
-		runFindMappingsQuery(session, nameOrId, args.hubInventory.hubList, mergeArgs(args, next, 'mappingResult'));
+		runFindMappingsQuery(session, nameOrId, args.hubInventory.hubList, args.identifierFieldList, mergeArgs(args, next, 'mappingResult'));
 	});
 	// ⟪campaign P4a, Q9⟫ where the matched instances sit: per standard, the groups (SIF objects, PESC sections) holding an
 	// instance the input matched directly or through its declaration, whether or not it carries a mapping
@@ -527,7 +544,7 @@ const findMappings = (session, nameOrId, callback) => {
 			return;
 		}
 		runCypherQuery(session, `
-			MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n')}
+			MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', args.identifierFieldList)}
 			OPTIONAL MATCH (n)-[:HAS_INSTANCE]->(declaredInstance:ForgedNode)
 			WITH n, collect(declaredInstance) AS declaredInstanceList
 			WITH CASE WHEN n.role = 'DmeInstance' THEN [n] ELSE declaredInstanceList END AS instanceList
@@ -554,7 +571,7 @@ const findMappings = (session, nameOrId, callback) => {
 			next('', args);
 			return;
 		}
-		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus')), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
+		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus', args.identifierFieldList)), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
 	});
 	// ⟪lane R6⟫ nothing matched: what each hub's card identifier looks like, read from its own cards
 	taskList.push((args, next) => {
@@ -565,13 +582,17 @@ const findMappings = (session, nameOrId, callback) => {
 		runCypherQuery(session, HUB_IDENTIFIER_EXAMPLE_CYPHER, { hubNameList: args.hubInventory.hubList.map(({ hubName }) => hubName) }, mergeArgs(args, next, 'hubIdentifierExampleResult'));
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
+		if (err === 'skipRestOfPipe') {
+			callback('', args.nativeIdentifierRefusal);
+			return;
+		}
 		if (err) {
 			callback(err);
 			return;
 		}
 		if (args.matchedNodeCount === 0) {
 			callback('', refusalFor('findMappings', 'nothingMatched',
-				`'${nameOrId}' matches no node by name, ${FIND_MAPPINGS_IDENTIFIER_FIELD_LIST.join(', ')}; ${hubIdentifierExampleText(args.hubInventory.hubList, args.hubIdentifierExampleResult)} — read one from dme_search or dme_explore.`));
+				`'${nameOrId}' matches no node by name, ${args.identifierFieldList.join(', ')}; ${hubIdentifierExampleText(args.hubInventory.hubList, args.hubIdentifierExampleResult)} — read one from dme_search or dme_explore.`));
 			return;
 		}
 		callback('', {
@@ -636,19 +657,19 @@ const HUB_CARD_IDENTIFIER_TEXT = 'coalesce(hub.canonicalKey, hub.termIri)';
 const hubDecompositionMatchTextFor = (hubNameList) => [['DOMAIN', 'cd'], ['PROPERTY', 'cp'], ['RANGE', 'cr'], ['VALUE', 'cv'], ['QUALIFIER', 'cq']]
 	.map(([slotName, leafVariableName]) => `OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(hubNameList, slotName).join('|')}]->(${leafVariableName}:ForgedNode)`)
 	.join('\n\t\t\t');
-const runFindMappingsQuery = (session, nameOrId, hubList, callback) => {
+const runFindMappingsQuery = (session, nameOrId, hubList, identifierFieldList, callback) => {
 	const hubNameList = hubList.map((hubRow) => hubRow.hubName);
 	const incomingHubEdgePattern = allHubDecompositionEdgeTypeList(hubNameList).join('|');
 	const hubDecompositionMatchText = hubDecompositionMatchTextFor(hubNameList);
 	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
-		WHERE ${findMappingsMatchPredicateFor('n')}
+		WHERE ${findMappingsMatchPredicateFor('n', identifierFieldList)}
 		// An instance whose declaration ALSO matched is reported through that declaration (the
 		// outgoingViaInstance arm, grouped), not again as one loose same-named row per instance.
 		WITH n
 		WHERE NOT EXISTS {
 			MATCH (matchedDeclaration:ForgedNode)-[:HAS_INSTANCE]->(n)
-			WHERE ${findMappingsMatchPredicateFor('matchedDeclaration')}
+			WHERE ${findMappingsMatchPredicateFor('matchedDeclaration', identifierFieldList)}
 		}
 		CALL {
 			WITH n

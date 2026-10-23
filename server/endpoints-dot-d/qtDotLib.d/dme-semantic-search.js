@@ -24,7 +24,8 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 const makeRefId = require('../../lib/make-ref-id');
-const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
+const { readNativeIdentifierDeclarations } = require('../../lib/native-identifier-declarations');
 
 //START OF moduleFunction() ============================================================
 
@@ -44,7 +45,8 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	//
 	// The candidate scan is a brute-force cosine over the target standard's
 	// embedded nodes. SIF, the largest, is ~17k nodes — well within a request.
-	const SEARCH_QUERY = `
+	// ⟪lane zbE, E1-1⟫ sourceId by each node's OWN standard's declared identifier (read per request), stableId beside it
+	const searchQueryFor = (nativeIdentifierDeclarationList) => `
 		MATCH (src:ForgedNode {_source: $source})
 		WHERE NOT src:HubReference
 		  AND src.embedding IS NOT NULL
@@ -68,7 +70,8 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		       n._source AS source,
 		       coalesce(n.path, '') AS path,
 		       coalesce(n.description, n.definition, '') AS description,
-		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n', nativeIdentifierDeclarationList)} AS sourceId,
+		       n.stableId AS stableId,
 		       CASE n.role WHEN 'DmeClass' THEN 'class' WHEN 'DmeOptionValue' THEN 'value' ELSE 'property' END AS kind,
 		       score,
 		       src.name AS anchorName,
@@ -87,8 +90,16 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			args.permissionValidator(xReq.appValueGetter('authclaims'), forwardArgs({ next, args })),
 		);
 
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ accessPointsDotD: args.accessPointsDotD }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
 		taskList.push((args, next) => {
-			const { accessPointsDotD } = args;
+			const { accessPointsDotD, nativeIdentifierDeclarationList } = args;
 
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const source = String(xQuery.source || '').slice(0, 60).trim();
@@ -111,7 +122,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 			const queryData = {
 				action: 'query',
-				query: SEARCH_QUERY,
+				query: searchQueryFor(nativeIdentifierDeclarationList),
 				params: { source, path, name, target, q, roles, limit },
 			};
 

@@ -10,3 +10,4 @@
 :(exclude,glob)cli/lib.d/index-ontology14-for-milo/**
 :(exclude,glob)cli/lib.d/index-data-model-explorer-for-milo/**
 :(exclude,glob)**/*.md
+:(exclude,glob)testData/zeroBacklog/**

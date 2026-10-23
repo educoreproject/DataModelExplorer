@@ -27,10 +27,13 @@ const assert = (testName, condition, detailText) => {
 };
 
 const stubRecordOf = (fieldByName) => ({ keys: Object.keys(fieldByName), get: (fieldName) => fieldByName[fieldName] });
+// ⟪lane zbE, E1-1⟫ findMappings first reads which property carries each standard's own identifier (the graph's
+// StandardDefinitions); every stub graph answers it, after the test's own responders
+const NATIVE_IDENTIFIER_RESPONDER = { pattern: /MATCH \(d:StandardDefinition\) RETURN d\.sourceKey AS sourceKey, d\.nativeIdentifierPropertyName/, rowList: [{ sourceKey: 'HUBX', nativeIdentifierPropertyName: 'hubxId' }, { sourceKey: 'EdFi', nativeIdentifierPropertyName: 'metaEdId' }] };
 const stubSessionOf = (responderList, queryLog) => ({
 	run: (cypherText, cypherParameters) => {
 		queryLog.push({ cypherText, cypherParameters });
-		const responder = responderList.find((oneResponder) => oneResponder.pattern.test(cypherText));
+		const responder = responderList.concat([NATIVE_IDENTIFIER_RESPONDER]).find((oneResponder) => oneResponder.pattern.test(cypherText));
 		if (!responder) {
 			return Promise.reject(new Error(`stub graph: no responder for query ${cypherText.replace(/\s+/g, ' ').slice(0, 140)}`));
 		}

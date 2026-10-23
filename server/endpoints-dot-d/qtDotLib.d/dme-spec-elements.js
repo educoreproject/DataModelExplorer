@@ -7,7 +7,8 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
-const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
+const { readNativeIdentifierDeclarations } = require('../../lib/native-identifier-declarations');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -44,7 +45,8 @@ const moduleFunction = function ({
 	// substring; the row cap keeps a 10k-element standard like CEDS from being
 	// shipped to a browser in one response.
 
-	const ELEMENTS_QUERY = `
+	// ⟪lane zbE, E1-1⟫ sourceId by each node's OWN standard's declared identifier (read per request), stableId beside it
+	const elementsQueryFor = (nativeIdentifierDeclarationList) => `
 		MATCH (n)
 		WHERE (n:DmeProperty OR n:DmeClass OR (n:DmeOptionValue AND n._source = 'CTDL'))
 		  AND n._source = $source
@@ -54,7 +56,8 @@ const moduleFunction = function ({
 		       n.name AS name,
 		       n._source AS source,
 		       coalesce(n.description, n.definition, '') AS description,
-		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n', nativeIdentifierDeclarationList)} AS sourceId,
+		       n.stableId AS stableId,
 		       coalesce(n.path, '') AS path,
 		       CASE WHEN n:DmeClass THEN 'class' ELSE 'property' END AS kind
 		ORDER BY kindOrder, toLower(coalesce(n.name, ''))
@@ -78,10 +81,21 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: VALIDATE PARAMETERS AND CALL ACCESS POINT
+		// STEP 2: NATIVE IDENTIFIERS (lane zbE, E1-1), from the graph
+
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ accessPointsDotD: args.accessPointsDotD }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
+		// --------------------------------------------------------------------------------
+		// STEP 3: VALIDATE PARAMETERS AND CALL ACCESS POINT
 
 		taskList.push((args, next) => {
-			const { accessPointsDotD } = args;
+			const { accessPointsDotD, nativeIdentifierDeclarationList } = args;
 
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const source = String(xQuery.source || '').slice(0, 60).trim();
@@ -99,7 +113,7 @@ const moduleFunction = function ({
 
 			const queryData = {
 				action: 'query',
-				query: ELEMENTS_QUERY,
+				query: elementsQueryFor(nativeIdentifierDeclarationList),
 				params: { source, search, limit },
 			};
 

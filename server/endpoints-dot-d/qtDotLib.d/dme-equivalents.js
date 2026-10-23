@@ -8,7 +8,9 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 // ⟪ctdlHub P7⟫ a card's own hub names its slot edges, and a standard is a hub when a :HubDefinition names it
-const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT, sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
+const { readNativeIdentifierDeclarations } = require('../../lib/native-identifier-declarations');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -89,7 +91,8 @@ const moduleFunction = function ({
 	// query over public reference data carries none of that risk, so this route is
 	// public like the reference-library pages that use it.
 
-	const EQUIVALENTS_QUERY = `
+	// ⟪lane zbE, E1-1⟫ sourceId by each node's OWN standard's declared identifier (read per request), stableId beside it
+	const equivalentsQueryFor = (nativeIdentifierDeclarationList) => `
 		WITH $words AS words, $allWords AS allWords, $minHits AS minHits
 		MATCH (n)
 		WHERE (n:DmeProperty OR n:DmeClass OR (n:DmeOptionValue AND n._source = 'CTDL'))
@@ -115,7 +118,8 @@ const moduleFunction = function ({
 		       n.name AS name,
 		       n._source AS source,
 		       coalesce(n.description, n.definition, '') AS description,
-		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n', nativeIdentifierDeclarationList)} AS sourceId,
+		       n.stableId AS stableId,
 		       score,
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),
@@ -144,10 +148,21 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: TOKENIZE TERM AND CALL ACCESS POINT
+		// STEP 2: NATIVE IDENTIFIERS (lane zbE, E1-1), from the graph
+
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ accessPointsDotD: args.accessPointsDotD }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
+		// --------------------------------------------------------------------------------
+		// STEP 3: TOKENIZE TERM AND CALL ACCESS POINT
 
 		taskList.push((args, next) => {
-			const { accessPointsDotD } = args;
+			const { accessPointsDotD, nativeIdentifierDeclarationList } = args;
 
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const term = String(xQuery.term || '').slice(0, 200);
@@ -163,7 +178,7 @@ const moduleFunction = function ({
 
 			const queryData = {
 				action: 'query',
-				query: EQUIVALENTS_QUERY,
+				query: equivalentsQueryFor(nativeIdentifierDeclarationList),
 				params: { words, allWords: allWords.length ? allWords : words, minHits },
 			};
 

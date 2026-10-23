@@ -7,7 +7,6 @@
 // Pure functions — no database access — so they are unit-testable and the
 // export access point stays a thin wrapper.
 
-const { STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
 
 const EXPORT_COLUMNS = [
 	'refId',
@@ -75,7 +74,7 @@ const toJson = (rows, meta = {}) =>
 const lit = (v) => JSON.stringify(v === undefined || v === null ? '' : String(v));
 
 // One MERGE per row. Element resolution prefers the exact `path` (unique within
-// a standard), then the stable/CEDS id, then the bare name — in that order —
+// a standard), then the stable or native id, then the bare name — in that order —
 // so a LIF `identifier` lands on the right entity rather than all nine.
 //
 // The edge type is PROPOSED_MATCH (not EXACT/CLOSE_MATCH) so ingested rows are
@@ -95,16 +94,21 @@ function rowToCypher(row) {
 	// a hub's HubReference nodes share the hub standard's _source and a leaf's name, so they
 	// are excluded explicitly: a proposal is between two standard elements, and
 	// the hub is the forge's business.
+	// ⟪lane zbE, E1-1⟫ the id a proposal stored is its element's sourceId: its OWN standard's native identifier where one is
+	// declared (StandardDefinition.nativeIdentifierPropertyName), else its stableId. The script runs later, on whichever
+	// graph it is given, so the declared property is read THERE, inside the statement (a dynamic property read), not
+	// assumed here; a standard declaring none compares stableId twice, which is harmless.
+	const nativeIdentifierMatchTextFor = (alias, source, id) => `${alias}[coalesce(COLLECT { MATCH (nativeIdentifierDefinition:StandardDefinition {sourceKey: ${lit(source)}}) RETURN nativeIdentifierDefinition.nativeIdentifierPropertyName }[0], 'stableId')] = ${lit(id)}`;
 	const match = (alias, source, name, id, path) => {
 		const clauses = [];
 		if (path) clauses.push(`${alias}.path = ${lit(path)}`);
-		if (id) clauses.push(`${alias}.stableId = ${lit(id)}`, ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `${alias}.${propertyName} = ${lit(id)}`), `${alias}._id = ${lit(id)}`);
+		if (id) clauses.push(`${alias}.stableId = ${lit(id)}`, nativeIdentifierMatchTextFor(alias, source, id), `${alias}._id = ${lit(id)}`);
 		clauses.push(`${alias}.name = ${lit(name)}`);
 		const carry = alias === 's' ? 's' : 's, t';
 		return [
 			`MATCH (${alias}:ForgedNode {_source: ${lit(source)}})`,
 			`WHERE NOT ${alias}:HubReference AND (${clauses.join(' OR ')})`,
-			`WITH ${carry} ORDER BY CASE WHEN ${path ? `${alias}.path = ${lit(path)}` : 'false'} THEN 0 WHEN ${id ? [`${alias}.stableId = ${lit(id)}`, ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `${alias}.${propertyName} = ${lit(id)}`)].join(' OR ') : 'false'} THEN 1 ELSE 2 END LIMIT 1`,
+			`WITH ${carry} ORDER BY CASE WHEN ${path ? `${alias}.path = ${lit(path)}` : 'false'} THEN 0 WHEN ${id ? [`${alias}.stableId = ${lit(id)}`, nativeIdentifierMatchTextFor(alias, source, id)].join(' OR ') : 'false'} THEN 1 ELSE 2 END LIMIT 1`,
 		].join('\n');
 	};
 

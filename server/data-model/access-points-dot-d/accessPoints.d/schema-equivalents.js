@@ -12,6 +12,7 @@
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
+const { readNativeIdentifierDeclarations } = require('../../../lib/native-identifier-declarations');
 const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
 
 //START OF moduleFunction() ============================================================
@@ -47,9 +48,18 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// STAGE 2: the graph must carry every label the query reads
 		taskList.push((args, next) => probeRequiredLabels((probeError) => next(probeError, args)));
 
-		// STAGE 3: query and map
+		// STAGE 3 (lane zbE, E1-1): which property carries each standard's own identifier, from the graph
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ neo4jDb }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(`${moduleName}: ${err}`, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
+		// STAGE 4: query and map
 		taskList.push((args, next) => {
-			const queryBundle = mapper.getCypher('equivalentsByWordList', { wordList: args.usableWordList, minimumHitCount: args.minimumHitCount });
+			const queryBundle = mapper.getCypher('equivalentsByWordList', { wordList: args.usableWordList, minimumHitCount: args.minimumHitCount, nativeIdentifierDeclarationList: args.nativeIdentifierDeclarationList });
 			neo4jDb.runQuery(queryBundle.cypher, queryBundle.params, (queryError, recordList) => {
 				if (queryError) {
 					next(`${moduleName}: query failed: ${queryError}`, args);

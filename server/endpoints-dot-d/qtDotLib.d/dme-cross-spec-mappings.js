@@ -8,7 +8,9 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 // ⟪ctdlHub P7⟫ a card's own hub names its slot edges
-const { cardHubSlotEdgeTypeTextFor, sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
+const { readNativeIdentifierDeclarations } = require('../../lib/native-identifier-declarations');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -82,7 +84,8 @@ const moduleFunction = function ({
 		           THEN vector.similarity.cosine(n.embedding, m.embedding)
 		           ELSE null END,`;
 
-	const buildMappingsQuery = (semanticTerm) => `
+	// ⟪lane zbE, E1-1⟫ sourceId by each node's OWN standard's declared identifier (read per request), stableId beside it
+	const buildMappingsQuery = (semanticTerm, nativeIdentifierDeclarationList) => `
 		MATCH (n)
 		WHERE (n:DmeProperty OR n:DmeClass OR (n:DmeOptionValue AND n._source = 'CTDL'))
 		  AND n._source = $source
@@ -101,7 +104,8 @@ const moduleFunction = function ({
 		       n._source AS source,
 		       labels(n) AS labels,
 		       coalesce(n.description, n.definition, '') AS description,
-		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n', nativeIdentifierDeclarationList)} AS sourceId,
+		       n.stableId AS stableId,
 		       [x IN collect(DISTINCT {
 		         rel: type(r2),
 		         selfRel: type(r1),
@@ -111,7 +115,8 @@ const moduleFunction = function ({
 		         source: m._source,
 		         labels: labels(m),
 		         description: coalesce(m.description, m.definition, ''),
-		         sourceId: ${sourceIdentifierCypherTextFor('m')},
+		         sourceId: ${sourceIdentifierCypherTextFor('m', nativeIdentifierDeclarationList)},
+		         stableId: m.stableId,
 		         hub: hub.name,
 		         hubName: hub.hubName
 		       }) WHERE x.name IS NOT NULL][0..120] AS matches
@@ -134,10 +139,21 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
-		// STEP 2: VALIDATE PARAMETERS AND CALL ACCESS POINT
+		// STEP 2: NATIVE IDENTIFIERS (lane zbE, E1-1), from the graph
+
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ accessPointsDotD: args.accessPointsDotD }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
+		// --------------------------------------------------------------------------------
+		// STEP 3: VALIDATE PARAMETERS AND CALL ACCESS POINT
 
 		taskList.push((args, next) => {
-			const { accessPointsDotD } = args;
+			const { accessPointsDotD, nativeIdentifierDeclarationList } = args;
 
 			const xQuery = xReq.qtGetSurePath('query', {});
 			const source = String(xQuery.source || '').slice(0, 60).trim();
@@ -152,7 +168,7 @@ const moduleFunction = function ({
 				accessPointsDotD['dme-cypher-query'](
 					{
 						action: 'query',
-						query: buildMappingsQuery(semanticTerm),
+						query: buildMappingsQuery(semanticTerm, nativeIdentifierDeclarationList),
 						params: { source, name },
 					},
 					callback,

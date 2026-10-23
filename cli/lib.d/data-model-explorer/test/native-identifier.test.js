@@ -9,6 +9,7 @@
 //   (c) a declaration outside the identifier grammar -> refused by name, nativeIdentifierDeclarationInvalid
 //   (d) the sourceId Cypher: the node's OWN standard's property, then stableId, persistentId, ''; exact text
 //   (e) the lookup names: the distinct declared names, sorted
+//   (f) findMappings (real handler, stub graph): refuses an unstamped graph before searching; looks up every declared name
 // RED TWINS (test/lib/moduleTwin.js): unstampedCheckRemoved -> (b); grammarCheckRemoved -> (c); perStandardCaseRemoved -> (d)
 //
 //   node cli/lib.d/data-model-explorer/test/native-identifier.test.js
@@ -69,12 +70,38 @@ const TWIN_LIST = [
 	{ conjunctName: 'd_sourceIdentifierCypher', twinName: 'perStandardCaseRemoved', mutationList: [{ find: "`WHEN '${oneDeclaration.sourceKey}' THEN ${nodeVariableName}.${oneDeclaration.nativeIdentifierPropertyName}`", replace: "`WHEN '${oneDeclaration.sourceKey}' THEN ${nodeVariableName}.cedsId`" }] },
 ];
 
+// (f) findMappings, through the real handler table on a stub graph: an unstamped graph is refused by name before any
+// search; on a stamped one the lookup predicate names every declared property (here metaEdId and uri beside cedsId)
+const stubRecordOf = (fieldValueByName) => ({ get: (fieldName) => fieldValueByName[fieldName], keys: Object.keys(fieldValueByName) });
+const findMappingsOn = (declarationRowList, callback) => {
+	const queryLog = [];
+	const stubSession = { run: (cypherText) => {
+		queryLog.push(cypherText);
+		if (/MATCH \(h:HubDefinition\) RETURN h\.hubName AS hubName/.test(cypherText)) return Promise.resolve({ records: [stubRecordOf({ hubName: 'CEDS', hubSource: 'CEDS', hubVersion: '14', canonicalKeyName: 'CEDS Global ID' })] });
+		if (/MATCH \(d:StandardDefinition\) RETURN d\.sourceKey/.test(cypherText)) return Promise.resolve({ records: declarationRowList.map(stubRecordOf) });
+		if (/AS matchedNodeCount/.test(cypherText)) return Promise.resolve({ records: [stubRecordOf({ matchedNodeCount: 0, instancePathMatchedNodeCount: 0 })] });
+		return Promise.resolve({ records: [] });
+	} };
+	const { QUERY_HANDLER_BY_QUERY_TYPE } = require('../dataModelExplorerSearch');
+	QUERY_HANDLER_BY_QUERY_TYPE.findMappings(stubSession, { name: '1381' }, {}, (err, result) => callback(err, result, queryLog));
+};
+
 console.log('native-identifier — BASELINE');
 const realModule = require(MODULE_PATH);
 Object.keys(conjunctByName).forEach((conjunctName) => {
 	const verdict = conjunctByName[conjunctName](realModule);
 	assert(conjunctName, verdict.pass, verdict.detail);
 });
+console.log('native-identifier — findMappings on stub graphs');
+findMappingsOn(PRE_A2_ROW_LIST, (unstampedErr, unstampedResult, unstampedQueryLog) => {
+	assert('f_findMappingsRefusesUnstamped: refused by name, and no search ran', !unstampedErr && unstampedResult && unstampedResult.refusalName === 'nativeIdentifierUnstamped' && !unstampedQueryLog.some((cypherText) => /AS matchedNodeCount/.test(cypherText)), JSON.stringify(unstampedResult).slice(0, 160));
+	findMappingsOn(A2_ROW_LIST, (stampedErr, stampedResult, stampedQueryLog) => {
+		const countQuery = stampedQueryLog.find((cypherText) => /AS matchedNodeCount/.test(cypherText)) || '';
+		assert('f_findMappingsLooksUpDeclaredNames: n.cedsId, n.metaEdId and n.uri are lookup fields; nothingMatched lists them', ['n.cedsId = $name', 'n.metaEdId = $name', 'n.uri = $name'].every((predicateText) => countQuery.includes(predicateText)) && /_id, path, stableId, cedsId, metaEdId, uri/.test((stampedResult || {}).reason || ''), `${countQuery.slice(0, 200)} | ${(stampedResult || {}).reason}`);
+		runTwinSweep();
+	});
+});
+const runTwinSweep = () => {
 console.log('native-identifier — TWIN SWEEP (each observed RED)');
 TWIN_LIST.forEach((oneTwin) => {
 	const verdict = conjunctByName[oneTwin.conjunctName](loadWithMutations({ modulePath: MODULE_PATH, mutationList: oneTwin.mutationList }));
@@ -82,3 +109,4 @@ TWIN_LIST.forEach((oneTwin) => {
 });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
+};

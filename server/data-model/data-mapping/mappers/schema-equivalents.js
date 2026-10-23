@@ -31,7 +31,8 @@ const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 // ⟪ctdlHub P7⟫ every hub of the graph: a card names its property through its OWN hub's PROPERTY slot (it was
 // HAS_CEDS_PROPERTY), a hub standard's element ranks as the headline (it was the literal CEDS), and each judgment names
 // its card's hub (hubName)
-const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT, STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, HUB_SOURCE_LIST_CYPHER_TEXT } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
 const CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT = cardHubSlotEdgeTypeTextFor('hubCard', 'PROPERTY');
 
 //START OF moduleFunction() ============================================================
@@ -45,7 +46,9 @@ const moduleFunction =
 		const queryBuilderByQueryName = {
 			// candidates whose name holds at least minimumHitCount of the words, ranked: word coverage first, then
 			// tightness (fewer extra words), then property over class, then a hub standard's element (the headline equivalence)
-			equivalentsByWordList: ({ wordList, minimumHitCount }) => ({
+			// ⟪lane zbE, E1-1⟫ sourceId by the candidate's OWN standard's declared identifier (nativeIdentifierDeclarationList, read
+			// from the graph by the access point), else stableId; stableId rides beside it
+			equivalentsByWordList: ({ wordList, minimumHitCount, nativeIdentifierDeclarationList }) => ({
 				cypher: `
 					WITH $wordList AS wordList, $minimumHitCount AS minimumHitCount
 					MATCH (candidate:ForgedNode)
@@ -67,7 +70,8 @@ const moduleFunction =
 					       standardDefinition.standardFamily AS standardFamily,
 					       candidate.role AS role,
 					       coalesce(candidate.definition, candidate.description, '') AS description,
-					       coalesce(${STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `candidate.${propertyName}`).join(', ')}, '') AS sourceId,
+					       ${sourceIdentifierCypherTextFor('candidate', nativeIdentifierDeclarationList)} AS sourceId,
+					       candidate.stableId AS stableId,
 					       relevanceScore,
 					       candidate._source IN ${HUB_SOURCE_LIST_CYPHER_TEXT} AS isHubStandard,
 					       [(candidate)-[:HAS_INSTANCE*0..1]->(subjectNode)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(hubCard:HubReference)-[propertySlotEdge]->(hubProperty) WHERE type(propertySlotEdge) = ${CARD_PROPERTY_SLOT_EDGE_TYPE_TEXT} |
@@ -115,6 +119,7 @@ const moduleFunction =
 				role: oneRecord.role,
 				description: oneRecord.description,
 				sourceId: oneRecord.sourceId,
+				stableId: oneRecord.stableId,
 				relevanceScore: oneRecord.relevanceScore,
 				related: summarizeJudgmentList((oneRecord.towardHubList || []).concat(oneRecord.fromStandardList || [])),
 				isHubStandard: oneRecord.isHubStandard,

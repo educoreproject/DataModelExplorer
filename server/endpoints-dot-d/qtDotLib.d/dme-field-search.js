@@ -23,7 +23,8 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 const makeRefId = require('../../lib/make-ref-id');
-const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { sourceIdentifierCypherTextFor } = require('../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
+const { readNativeIdentifierDeclarations } = require('../../lib/native-identifier-declarations');
 const { resolveVoyageApiKey, embedQueryText } = require('../../data-model/lib/voyage-query-embed');
 
 //START OF moduleFunction() ============================================================
@@ -47,30 +48,33 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		  AND n.role IN $roles
 	`;
 
-	const RETURN = `
+	// ⟪lane zbE, E1-1⟫ the RETURN names each node's sourceId by its OWN standard's declared identifier, read from the graph per
+	// request (readNativeIdentifierDeclarations), and carries stableId beside it
+	const returnTextFor = (nativeIdentifierDeclarationList) => `
 		RETURN labels(n) AS labels,
 		       n.name AS name,
 		       n._source AS source,
 		       coalesce(n.path, '') AS path,
 		       coalesce(n.description, n.definition, '') AS description,
-		       ${sourceIdentifierCypherTextFor('n')} AS sourceId,
+		       ${sourceIdentifierCypherTextFor('n', nativeIdentifierDeclarationList)} AS sourceId,
+		       n.stableId AS stableId,
 		       CASE n.role WHEN 'DmeClass' THEN 'class' WHEN 'DmeOptionValue' THEN 'value' ELSE 'property' END AS kind,
 		       score,
 		       $basis AS basis
 	`;
 
 	// Semantic: cosine between the query vector and every candidate.
-	const SEMANTIC_QUERY = `
+	const semanticQueryFor = (nativeIdentifierDeclarationList) => `
 		${CANDIDATES}
 		WITH n, vector.similarity.cosine($qvec, n.embedding) AS score
 		ORDER BY score DESC
 		LIMIT $limit
-		${RETURN}
+		${returnTextFor(nativeIdentifierDeclarationList)}
 	`;
 
 	// Lexical: name hits outrank description hits; an exact name is best.
 	// Scores are squashed into 0..1 so the browser's chip reads the same way.
-	const LEXICAL_QUERY = `
+	const lexicalQueryFor = (nativeIdentifierDeclarationList) => `
 		${CANDIDATES}
 		  AND (toLower(coalesce(n.name, '')) CONTAINS $q
 		       OR toLower(coalesce(n.description, '')) CONTAINS $q
@@ -85,7 +89,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		     END AS score
 		ORDER BY score DESC, size(n.name) ASC
 		LIMIT $limit
-		${RETURN}
+		${returnTextFor(nativeIdentifierDeclarationList)}
 	`;
 
 	const KIND_TO_ROLE = { property: 'DmeProperty', class: 'DmeClass', value: 'DmeOptionValue' };
@@ -140,14 +144,25 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		});
 
 		// --------------------------------------------------------------------------------
+		// NATIVE IDENTIFIERS (lane zbE, E1-1): which property carries each standard's own identifier, from the graph
+
+		taskList.push((args, next) => readNativeIdentifierDeclarations({ accessPointsDotD: args.accessPointsDotD }, (err, nativeIdentifierDeclarationList) => {
+			if (err) {
+				next(err, args);
+				return;
+			}
+			next('', { ...args, nativeIdentifierDeclarationList });
+		}));
+
+		// --------------------------------------------------------------------------------
 		// RANK
 
 		taskList.push((args, next) => {
-			const { accessPointsDotD, q, target, exclude, limit, roles, qvec } = args;
+			const { accessPointsDotD, q, target, exclude, limit, roles, qvec, nativeIdentifierDeclarationList } = args;
 			const semantic = Array.isArray(qvec);
 			const queryData = {
 				action: 'query',
-				query: semantic ? SEMANTIC_QUERY : LEXICAL_QUERY,
+				query: semantic ? semanticQueryFor(nativeIdentifierDeclarationList) : lexicalQueryFor(nativeIdentifierDeclarationList),
 				params: {
 					q: q.toLowerCase(),
 					target,

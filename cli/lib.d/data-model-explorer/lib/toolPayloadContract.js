@@ -45,7 +45,7 @@ const VERB_PAYLOAD_CONTRACT = Object.freeze({
 	// ⟪lane BM25⟫ and, for a mode with a keyword leg, fulltextIndexAbsent (hybridRetrieval.checkFulltextIndex)
 	search: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode): one row per node, best fused rank first', rowListFieldName: 'resultList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidSearchMode', 'unknownStandard', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
 	graphRetriever: Object.freeze({ rowUnitText: 'a node a search leg found (keyword BM25 and/or vector, per searchMode), with its traversal context: one row per hit node, best fused rank first', rowListFieldName: 'hitList', refusalNameList: Object.freeze(['unknownFlag', 'emptyQuery', 'invalidLimit', 'invalidSearchMode', 'traversalModeRemoved', 'passportAbsent', 'passportShapeNotRecognised', 'graphContractMismatch', 'graphHasNoVectors', 'embedderMismatch', 'vectorIndexNotInPassport', 'fulltextIndexAbsent']) }),
-	findMappings: Object.freeze({ rowUnitText: "a mapping VIEW: one row per (direction, element, hub tuple, relation, via-relation). Rows are not edges: one graph edge can be more than one row (as 'incoming' through the hub leaf AND as 'equivalent' through another matched element), and an instanced element (SIF Question, PESC element) is ONE row for all of its instances. hubTupleSummaryList counts the edges and the elements", rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched']) }),
+	findMappings: Object.freeze({ rowUnitText: "a mapping VIEW: one row per (direction, element, hub tuple, relation, via-relation). Rows are not edges: one graph edge can be more than one row (as 'incoming' through the hub leaf AND as 'equivalent' through another matched element), and an instanced element (SIF Question, PESC element) is ONE row for all of its instances. hubTupleSummaryList counts the edges and the elements", rowListFieldName: 'mappingRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'nothingMatched', 'nativeIdentifierUnstamped', 'nativeIdentifierDeclarationInvalid']) }),
 	compareCodesets: Object.freeze({ rowUnitText: 'an option value of a matched option set: one row per value', rowListFieldName: 'valueRowList', refusalNameList: Object.freeze(['unknownFlag', 'emptyName', 'noOptionSetMatched']) }),
 	unmappedFields: Object.freeze({ rowUnitText: 'a DmeProperty with no match edge on itself or on any of its instances: one row per property', rowListFieldName: 'unmappedRowList', refusalNameList: Object.freeze(['unknownFlag', 'unknownStandard', 'invalidLimit']) }),
 	stats: Object.freeze({ rowListFieldName: null, refusalNameList: Object.freeze(['unknownFlag']) }),
@@ -183,15 +183,9 @@ const INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST = Object.freeze(['REFERENCES', 'RE
 // W-D-6 / W-D-7: findMappings matches a node by any of these; two rows are the same mapping when these agree. The
 // element is identified by its stableId (fromStableId), not by source + name: Ed-Fi alone holds three distinct BirthDate
 // properties, which a name identity would fold into one (the plan's list did; corrected in P1, DEVLOG-P1 W-D-7).
-// ⟪lane R6⟫ the property a standard's OWN node carries its native identifier in, where a standard's forge stamps one
-// apart from stableId (the CEDS forge's 'cedsId': C200013, OS000002, P000033). It is a standard's property, not a hub's;
-// the graph declares no per-standard identifier property name, so this is the one place the DME names it
-// (DEFERRED-rekey-102126, row R6-1: a StandardDefinition field the forges stamp would let this list go).
-const STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST = Object.freeze(['cedsId']);
-// a node's source identifier, as the endpoints and mappers return it (sourceId): its native identifier, else stableId,
-// else persistentId, else ''
-const sourceIdentifierCypherTextFor = (nodeVariableName) => `coalesce(${[...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST, 'stableId', 'persistentId'].map((propertyName) => `${nodeVariableName}.${propertyName}`).join(', ')}, '')`;
-const FIND_MAPPINGS_IDENTIFIER_FIELD_LIST = Object.freeze(['_id', 'path', 'stableId', ...STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST]);
+// ⟪lane zbE, E1-1⟫ the identifiers EVERY node may be found by; each standard's OWN native identifier property is read from
+// the graph (lib/nativeIdentifier.js) and added per call, never named here (it was ['cedsId'] for every standard: R6-1)
+const FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST = Object.freeze(['_id', 'path', 'stableId']);
 // ⟪campaign P4a, Q9 (acceptance iteration 2)⟫ an INSTANCE (DmeInstance) whose meaning is in its path — SIF
 // …/RaceList/Race/Code, a Field named Code — is invisible to a name lookup. findMappings also matches an instance by a
 // segment of its CONTEXT PATH: the path inside its group, above its own name (the leaf is its name, already matched).
@@ -408,9 +402,7 @@ module.exports = Object.freeze({
 	TRAVERSAL_MAPPING_LIST_NAME_LIST,
 	OPTION_SET_EDGE_TYPE_LIST,
 	INTRA_STANDARD_REFERENCE_EDGE_TYPE_LIST,
-	STANDARD_NATIVE_IDENTIFIER_PROPERTY_NAME_LIST,
-	sourceIdentifierCypherTextFor,
-	FIND_MAPPINGS_IDENTIFIER_FIELD_LIST,
+	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
