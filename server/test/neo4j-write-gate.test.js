@@ -9,6 +9,13 @@
 // golden graph). The structural half reads the two access-point sources.
 //
 //   DME_SCRATCH_BOLT_URI=bolt://localhost:7891 DME_SCRATCH_NEO4J_PASSWORD=... node server/test/neo4j-write-gate.test.js
+//
+// ⟪lane zbE, E2-4 (census 33)⟫ WHY THIS FILE IS RED IN runServerSuite.sh, BY DESIGN (ruled by BRONZE_CROWN, 2026-10-22): the
+// suite sets no DME_SCRATCH_* variables, so the live half REFUSES and the file exits 1. That refusal is the safety: the
+// write probe must never meet the golden graph, and no scratch Neo4j is provisioned without a Docker slot. It turns green
+// only when run with a scratch Neo4j (educoreForge acceptanceIteration-100626/evidence/P0/scratchNeo4j.sh start <name>
+// <boltPort>, under a Docker slot) and its two variables set. It is not a regression and not unknown: the suite's failure
+// set carries it by name.
 
 const fs = require('fs');
 const path = require('path');
