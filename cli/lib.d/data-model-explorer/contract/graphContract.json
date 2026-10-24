@@ -255,6 +255,7 @@
 		"maxLength",
 		"meaningBearingEdgeCount",
 		"minCount",
+		"minItems",
 		"minLength",
 		"missingVectorTotal",
 		"optionValueCount",
@@ -685,7 +686,7 @@
 		}
 	],
 	"producerLocalLabelPatternSourceList": [
-		"^(Ceds|Edfi|Sif|Sif260928|Pesc[A-Za-z0-9]+|Ctdl|Ctdlasn|Ctdlqdata)[A-Z]",
+		"^(Ceds|Edfi|Sif|Sif260928|Pesc[A-Za-z0-9]+|Ctdl|Ctdlasn|Ctdlqdata|OpenBadges|Jedx|Lif)[A-Z]",
 		"^StandardBase$",
 		"^StandardLayer$",
 		"^BridgedRelation_"
@@ -942,7 +943,7 @@
 			"type": "string"
 		},
 		{
-			"meaning": "the family the standard belongs to (STANDARD_FAMILY: CEDS, EdFi, SIF, PESC, CTDL, CTDLASN, CTDLQData, PESCLD), declared by its forge; a family name in a DME standard filter expands to these (ruling A5)",
+			"meaning": "the family the standard belongs to (STANDARD_FAMILY: CEDS, EdFi, SIF, PESC, CTDL, CTDLASN, CTDLQData, PESCLD, OpenBadges, JEDx, LIF), declared by its forge; a family name in a DME standard filter expands to these (ruling A5)",
 			"name": "standardFamily",
 			"required": true,
 			"type": "string"
