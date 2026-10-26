@@ -61,6 +61,45 @@ const moduleFunction =
 
 		const mapEntry = (oneEntry) => ENTRY_FIELD_NAME_LIST.reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: oneEntry[fieldName] }), {});
 
+		// ⟪ML3.1c, educoreForge mappingLayers⟫ THE PUBLICATION LISTING beside downloads.json: the gold's published mapping sets
+		// (SSSOM sets, their registries and JSON-LD contexts) and the card download per hub release, written by educoreForge
+		// layerPublicationCli -indexPublication as <graphName>/publicationDownloads.json
+		const PUBLICATION_FILE_NAME = 'publicationDownloads.json';
+		const PUBLICATION_FORMAT = 'educorePublicationDownloads/1';
+		// what a publication entry carries out to the browser (a whitelist, never renamed); null where the kind has none
+		const PUBLICATION_ENTRY_FIELD_NAME_LIST = Object.freeze(['downloadId', 'kind', 'format', 'relativePath', 'byteSize', 'sha256', 'layerKey', 'versionTag', 'standardKey', 'hubSegment', 'hubReleaseSegment', 'layerTitle', 'registrationStatus', 'hubName', 'hubVersion', 'cardCount']);
+		// the kinds and the content type each is served with (DATA; an unlisted kind is refused, never served as octets)
+		const CONTENT_TYPE_BY_PUBLICATION_KIND = Object.freeze({
+			mappingSet: 'text/tab-separated-values; charset=utf-8',
+			mappingContext: 'application/ld+json; charset=utf-8',
+			layerRegistry: 'application/yaml; charset=utf-8',
+			siteRegistry: 'application/yaml; charset=utf-8',
+			hubCardsCsv: 'text/csv; charset=utf-8',
+			hubCardsJsonLd: 'application/ld+json; charset=utf-8',
+		});
+		// a relativePath stays inside the gold's two publication folders: relative segments of safe characters, no '..'
+		const PUBLICATION_RELATIVE_PATH_PATTERN = /^(mappingLayers|hubCards)(\/[A-Za-z0-9][A-Za-z0-9._@%:-]*)+$/;
+
+		// publicationShapeFaultOf — '' or why a parsed publicationDownloads.json is not a listing this server can serve
+		const publicationShapeFaultOf = (publication) => {
+			if (!publication || typeof publication !== 'object') {
+				return 'it is not a JSON object';
+			}
+			if (publication.manifestFormat !== PUBLICATION_FORMAT) {
+				return `its manifestFormat is '${publication.manifestFormat}', not '${PUBLICATION_FORMAT}'`;
+			}
+			const absentList = ['graphName', 'publicLabel', 'manifestRefId', 'generatedAt'].filter((fieldName) => typeof publication[fieldName] !== 'string' || publication[fieldName] === '');
+			if (absentList.length || !Array.isArray(publication.entryList)) {
+				return `it lacks ${absentList.concat(Array.isArray(publication.entryList) ? [] : ['entryList']).join(', ')}`;
+			}
+			const badEntryList = publication.entryList.filter((oneEntry) => PUBLICATION_ENTRY_FIELD_NAME_LIST.some((fieldName) => oneEntry[fieldName] === undefined && ['downloadId', 'kind', 'format', 'relativePath', 'byteSize', 'sha256'].includes(fieldName)) || !CONTENT_TYPE_BY_PUBLICATION_KIND[oneEntry.kind] || !PUBLICATION_RELATIVE_PATH_PATTERN.test(`${oneEntry.relativePath}`) || `${oneEntry.relativePath}`.split('/').includes('..')).map((oneEntry) => `${oneEntry.downloadId}`);
+			return badEntryList.length ? `entries ${badEntryList.join(', ')} lack a field, name an unknown kind, or name a path outside mappingLayers/ and hubCards/` : '';
+		};
+
+		const mapPublicationEntry = (oneEntry) => PUBLICATION_ENTRY_FIELD_NAME_LIST.reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: oneEntry[fieldName] === undefined ? null : oneEntry[fieldName] }), {});
+		// the name the browser saves a file under: its path, flattened, so two sets named set.sssom.tsv never collide
+		const saveFileNameOf = (relativePath) => relativePath.split('/').join('_');
+
 		return {
 			MANIFEST_FILE_NAME,
 			FILTER_FIELD_NAME_LIST,
@@ -68,6 +107,12 @@ const moduleFunction =
 			getCypher,
 			manifestShapeFaultOf,
 			mapEntry,
+			PUBLICATION_FILE_NAME,
+			CONTENT_TYPE_BY_PUBLICATION_KIND,
+			PUBLICATION_RELATIVE_PATH_PATTERN,
+			publicationShapeFaultOf,
+			mapPublicationEntry,
+			saveFileNameOf,
 		};
 	};
 

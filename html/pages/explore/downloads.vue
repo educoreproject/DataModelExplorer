@@ -8,6 +8,7 @@
 // filtered view is a link to share, and a later restriction (one family, one group) is a link, not a code change.
 // An entry that cannot be downloaded shows why. Beside each source, where it came from (WORKORDER-sourceUrls-101526):
 // SourceUrlNote, worded by the relation the manifest names. This page is the only thing that reads or writes its query.
+// ⟪educoreForge ML3.1c⟫ Below the standards: the gold's published mapping sets and hub cards (PublicationsSection).
 
 import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -150,6 +151,8 @@ const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullP
 				</table>
 			</section>
 		</template>
+
+		<StandardsExplorerPublicationsSection />
 	</div>
 </template>
 

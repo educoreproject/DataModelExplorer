@@ -9,6 +9,9 @@
 // and fetches one zip at a time from POST /api/standard-downloads-file. A fetched zip is checked against the manifest's
 // sha256 in the browser before it is handed to the person, and a mismatch is reported, never saved. Neither the page
 // nor the explorer touches axios.
+// ⟪educoreForge ML3.1c⟫ It also holds the PUBLICATION listing (POST /api/standard-downloads-publications): the gold's published
+// mapping sets, their registries and contexts, and the card download per hub release; a listed file is fetched from POST
+// /api/standard-downloads-publication-file and checked against the listing's sha256 the same way.
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -20,10 +23,15 @@ const standardDownloadsStoreInitObject = {
 	downloadingDownloadId: '',
 	downloadStatusMsg: '',
 	lastSavedDownloadId: '',
+	publication: null,
+	publicationLoading: false,
+	publicationStatusMsg: '',
 };
 
 const MANIFEST_URL = '/api/standard-downloads-manifest';
 const FILE_URL = '/api/standard-downloads-file';
+const PUBLICATION_URL = '/api/standard-downloads-publications';
+const PUBLICATION_FILE_URL = '/api/standard-downloads-publication-file';
 
 // a refusal arrives as text (or, for a file request made as a blob, as a Blob of text)
 const refusalTextOf = async (error, operationName) => {
@@ -47,6 +55,7 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 		entryListOfStandardKey() {
 			return (standardKey) => this.entryList.filter((oneEntry) => oneEntry.standardKey === standardKey).sort((left, right) => (left.facet === 'source' ? -1 : 1) - (right.facet === 'source' ? -1 : 1));
 		},
+		publicationEntryList: (state) => (state.publication ? state.publication.entryList : []),
 		standardKeyListOfFamily() {
 			return (standardFamily) => [...new Set(this.entryList.filter((oneEntry) => oneEntry.family === standardFamily).map((oneEntry) => oneEntry.standardKey))];
 		},
@@ -75,6 +84,64 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 				return false;
 			} finally {
 				this.manifestLoading = false;
+			}
+		},
+
+		// loads the publication listing once; a gold with nothing published answers its refusal, shown beside the standards
+		async loadPublication({ reload = false } = {}) {
+			if (this.publication && !reload) return true;
+			const loginStore = useLoginStore();
+			this.publicationLoading = true;
+			this.publicationStatusMsg = '';
+			try {
+				const response = await axios.post(PUBLICATION_URL, {}, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' } });
+				const publication = Array.isArray(response.data) ? response.data[0] : null;
+				if (!publication || !Array.isArray(publication.entryList)) {
+					this.publicationStatusMsg = 'the server answered without a publication listing';
+					this.publication = null;
+					return false;
+				}
+				this.publication = publication;
+				return true;
+			} catch (error) {
+				this.publication = null;
+				this.publicationStatusMsg = await refusalTextOf(error, 'publication listing');
+				return false;
+			} finally {
+				this.publicationLoading = false;
+			}
+		},
+
+		// fetches one published file, checks it against the listing's sha256, and hands it to the browser to save under its
+		// flattened path (two versions' set.sssom.tsv never collide)
+		async downloadPublicationEntry(entry) {
+			const loginStore = useLoginStore();
+			this.downloadingDownloadId = entry.downloadId;
+			this.downloadStatusMsg = '';
+			try {
+				const response = await axios.post(PUBLICATION_FILE_URL, { downloadId: entry.downloadId }, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' }, responseType: 'blob' });
+				const fileArrayBuffer = await response.data.arrayBuffer();
+				const receivedSha256 = await sha256HexOf(fileArrayBuffer);
+				const saveFileName = entry.relativePath.split('/').join('_');
+				if (receivedSha256 !== entry.sha256) {
+					this.downloadStatusMsg = `${saveFileName} arrived damaged (sha256 ${receivedSha256}, the listing says ${entry.sha256}); it was not saved`;
+					return false;
+				}
+				const objectUrl = URL.createObjectURL(new Blob([fileArrayBuffer], { type: response.data.type || 'application/octet-stream' }));
+				const saveLink = document.createElement('a');
+				saveLink.href = objectUrl;
+				saveLink.download = saveFileName;
+				document.body.appendChild(saveLink);
+				saveLink.click();
+				saveLink.remove();
+				setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+				this.lastSavedDownloadId = entry.downloadId;
+				return true;
+			} catch (error) {
+				this.downloadStatusMsg = await refusalTextOf(error, 'download');
+				return false;
+			} finally {
+				this.downloadingDownloadId = '';
 			}
 		},
 
