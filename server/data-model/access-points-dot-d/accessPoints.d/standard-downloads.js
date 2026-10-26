@@ -8,6 +8,10 @@
 //   manifest  { family?, group?, standardKey?, facet? }  → { graphName, graphContractSha256, generatedAt, entryList }
 //             each filter given matches its entry field exactly; an absent filter does not filter
 //   file      { downloadId }                             → { downloadId, fileName, byteSize, sha256, contentBuffer }
+//   ⟪ML3.1c⟫ publications     {}                         → { graphName, publicLabel, manifestRefId, generatedAt, entryList }
+//             the gold's published mapping sets, their registries and contexts, and the card download per hub release, as
+//             educoreForge -indexPublication listed them in <graphName>/publicationDownloads.json
+//   ⟪ML3.1c⟫ publicationFile  { downloadId }             → { downloadId, fileName, contentType, byteSize, sha256, contentBuffer }
 //
 // Every request first proves the downloads belong to the golden: the manifest at
 // [standardDownloads] downloadArtifactsRootDirPath / <[dataModelExplorerSearch] goldenContainerName> / downloads.json must
@@ -20,7 +24,10 @@
 //
 // Refuses by name (every refusal text begins with its name): downloadsNotConfigured, downloadsAbsentForGolden,
 // downloadsManifestUnreadable, downloadsManifestMismatch, downloadFilterUnknown, downloadUnknownId, downloadUnavailable,
-// downloadFileAbsent, downloadChecksumMismatch, and an unknown action.
+// downloadFileAbsent, downloadChecksumMismatch, and an unknown action. ⟪ML3.1c⟫ The publication listing is read only after the
+// downloads manifest has been proved the golden's own (the same readVerifiedManifest), and must name the same graph; its own
+// refusals: publicationsAbsentForGolden, publicationsManifestUnreadable, publicationsManifestMismatch, publicationUnknownId,
+// publicationFileAbsent, publicationChecksumMismatch.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const fs = require('fs');
@@ -175,7 +182,103 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
-	const handlerByActionName = { manifest: readManifest, file: readFile };
+	// ================================================================================
+	// ⟪ML3.1c⟫ THE PUBLICATION LISTING — read only after the golden's downloads are proved its own, and naming the same graph
+
+	const readVerifiedPublication = (callback) => {
+		readVerifiedManifest((manifestError, verified) => {
+			if (manifestError) {
+				callback(manifestError);
+				return;
+			}
+			const publicationFilePath = path.join(verified.downloadsDirPath, mapper.PUBLICATION_FILE_NAME);
+			if (!fs.existsSync(publicationFilePath)) {
+				callback(refusalOf('publicationsAbsentForGolden', `no mapping sets or card downloads have been published for '${verified.manifest.graphName}' (no ${mapper.PUBLICATION_FILE_NAME} in ${verified.downloadsDirPath})`));
+				return;
+			}
+			let publication;
+			// the listing is a file from outside this process: a parse fault is turned into a named refusal here
+			try {
+				publication = JSON.parse(fs.readFileSync(publicationFilePath, 'utf8'));
+			} catch (parseError) {
+				callback(refusalOf('publicationsManifestUnreadable', `${publicationFilePath}: ${parseError.message}`));
+				return;
+			}
+			const shapeFault = mapper.publicationShapeFaultOf(publication);
+			if (shapeFault) {
+				callback(refusalOf('publicationsManifestUnreadable', `${publicationFilePath}: ${shapeFault}`));
+				return;
+			}
+			if (publication.graphName !== verified.manifest.graphName) {
+				callback(refusalOf('publicationsManifestMismatch', `the publication listing is for graph '${publication.graphName}', the downloads are '${verified.manifest.graphName}'. Re-index the publication for this golden.`));
+				return;
+			}
+			callback('', { publication, downloadsDirPath: verified.downloadsDirPath });
+		});
+	};
+
+	const readPublications = (xQuery, callback) => {
+		const unknownFieldList = Object.keys(xQuery).filter((fieldName) => fieldName !== 'action');
+		if (unknownFieldList.length) {
+			callback(refusalOf('downloadFilterUnknown', `${unknownFieldList.join(', ')}: the publication listing takes no filter`));
+			return;
+		}
+		readVerifiedPublication((publicationError, verified) => {
+			if (publicationError) {
+				callback(publicationError);
+				return;
+			}
+			const { publication } = verified;
+			callback('', { graphName: publication.graphName, publicLabel: publication.publicLabel, manifestRefId: publication.manifestRefId, generatedAt: publication.generatedAt, entryList: publication.entryList.map(mapper.mapPublicationEntry) });
+		});
+	};
+
+	const readPublicationFile = (xQuery, callback) => {
+		const taskList = new taskListPlus();
+
+		taskList.push((args, next) => readVerifiedPublication((publicationError, verified) => next(publicationError, { ...args, ...verified })));
+
+		// only an id the listing names, by the listing's own relative path, which must stay inside the golden's folder
+		taskList.push((args, next) => {
+			const entry = args.publication.entryList.find((oneEntry) => oneEntry.downloadId === args.downloadId);
+			if (!entry) {
+				next(refusalOf('publicationUnknownId', `'${args.downloadId}' is not a downloadId in the publication listing for '${args.publication.graphName}'`), args);
+				return;
+			}
+			const filePath = path.join(args.downloadsDirPath, ...entry.relativePath.split('/'));
+			if (!mapper.PUBLICATION_RELATIVE_PATH_PATTERN.test(entry.relativePath) || path.relative(args.downloadsDirPath, filePath).split(path.sep).includes('..') || !fs.existsSync(filePath)) {
+				next(refusalOf('publicationFileAbsent', `${entry.downloadId}: ${entry.relativePath} is not in ${args.downloadsDirPath}`), args);
+				return;
+			}
+			next('', { ...args, entry, filePath });
+		});
+
+		// the listed file, read and checked against the listing's sha256 before a byte is answered
+		taskList.push((args, next) => {
+			fs.readFile(args.filePath, (readError, contentBuffer) => {
+				if (readError) {
+					next(`${moduleName}: reading ${args.filePath} failed: ${readError.message}`, args);
+					return;
+				}
+				const actualSha256 = crypto.createHash('sha256').update(contentBuffer).digest('hex');
+				if (actualSha256 !== args.entry.sha256) {
+					next(refusalOf('publicationChecksumMismatch', `${args.entry.downloadId}: the file's sha256 is ${actualSha256}, the listing says ${args.entry.sha256}`), args);
+					return;
+				}
+				next('', { ...args, contentBuffer });
+			});
+		});
+
+		pipeRunner(taskList.getList(), { downloadId: xQuery.downloadId }, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
+				return;
+			}
+			callback('', { downloadId: args.entry.downloadId, fileName: mapper.saveFileNameOf(args.entry.relativePath), contentType: mapper.CONTENT_TYPE_BY_PUBLICATION_KIND[args.entry.kind], byteSize: args.contentBuffer.length, sha256: args.entry.sha256, contentBuffer: args.contentBuffer });
+		});
+	};
+
+	const handlerByActionName = { manifest: readManifest, file: readFile, publications: readPublications, publicationFile: readPublicationFile };
 
 	// ================================================================================
 	// SERVICE FUNCTION
