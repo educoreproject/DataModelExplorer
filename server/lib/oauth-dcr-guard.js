@@ -28,8 +28,20 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const DEFAULT_ALLOW_EXACT = ['https://claude.ai/api/mcp/auth_callback'];
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
-// A redirect_uri is allowed if it is an exact allowlisted URI, or a loopback
-// URI (http/https, host localhost/127.0.0.1/::1, ANY port, any path).
+// Gemini custom MCP connectors register per-user callbacks on Google's OAuth
+// redirect hosts, e.g. https://oauth-redirect.googleusercontent.com/r/
+// user_bound_custom-mcp-<googleUserId>-ed-core_org, so no exact list can hold
+// them. Google controls these hosts; an attacker cannot receive a code there.
+const GOOGLE_REDIRECT_HOSTS = new Set([
+	'oauth-redirect.googleusercontent.com',
+	'oauth-redirect-test.googleusercontent.com',
+	'oauth-redirect-sandbox.googleusercontent.com',
+]);
+const GOOGLE_REDIRECT_PATH = /^\/[ra]\/user_bound_custom-mcp-[A-Za-z0-9_-]+$/;
+
+// A redirect_uri is allowed if it is an exact allowlisted URI, a loopback
+// URI (http/https, host localhost/127.0.0.1/::1, ANY port, any path), or a
+// Gemini connector callback (https, default port, Google host, exact path shape).
 const makeRedirectValidator = (exactList) => (uri) => {
 	if (exactList.includes(uri)) {
 		return true;
@@ -42,6 +54,17 @@ const makeRedirectValidator = (exactList) => (uri) => {
 	}
 	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 		return false;
+	}
+	if (GOOGLE_REDIRECT_HOSTS.has(parsed.hostname)) {
+		return (
+			parsed.protocol === 'https:' &&
+			parsed.port === '' &&
+			parsed.username === '' &&
+			parsed.password === '' &&
+			parsed.search === '' &&
+			parsed.hash === '' &&
+			GOOGLE_REDIRECT_PATH.test(parsed.pathname)
+		);
 	}
 	return LOOPBACK_HOSTS.has(parsed.hostname);
 };

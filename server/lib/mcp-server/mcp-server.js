@@ -253,6 +253,19 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 			await server.connect(transport);
 			await transport.handleRequest(req, res, req.body);
 			return;
+		} else if (sessionId) {
+			// Unknown session (sessions live in memory, so every restart drops
+			// them). The MCP spec requires 404 here; a client that gets 404
+			// starts a new session itself, where a 400 just surfaces as an error.
+			res.status(404).json({
+				jsonrpc: '2.0',
+				error: {
+					code: -32001,
+					message: 'Session not found',
+				},
+				id: null,
+			});
+			return;
 		} else {
 			res.status(400).json({
 				jsonrpc: '2.0',
@@ -271,8 +284,12 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	// --- GET handler (SSE streams) ---
 	const mcpGetHandler = async (req, res) => {
 		const sessionId = req.headers['mcp-session-id'];
-		if (!sessionId || !transports[sessionId]) {
-			res.status(400).send('Invalid or missing session ID');
+		if (!sessionId) {
+			res.status(400).send('Missing session ID');
+			return;
+		}
+		if (!transports[sessionId]) {
+			res.status(404).send('Session not found');
 			return;
 		}
 		refreshSessionAuth(sessionId, req.mcpAuth);
@@ -282,8 +299,12 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	// --- DELETE handler (session termination) ---
 	const mcpDeleteHandler = async (req, res) => {
 		const sessionId = req.headers['mcp-session-id'];
-		if (!sessionId || !transports[sessionId]) {
-			res.status(400).send('Invalid or missing session ID');
+		if (!sessionId) {
+			res.status(400).send('Missing session ID');
+			return;
+		}
+		if (!transports[sessionId]) {
+			res.status(404).send('Session not found');
 			return;
 		}
 		refreshSessionAuth(sessionId, req.mcpAuth);
