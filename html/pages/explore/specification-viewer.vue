@@ -286,26 +286,23 @@ function showMore() {
 }
 
 // ── Partitioned list ───────────────────────────────────────────────
-// Within a tab, elements are split into sections by the class that contains
-// them (the path minus its last segment): "Person", then "Person › Contact",
-// then "Person › Contact › Address" … — the crosswalk's numbered sections,
-// derived from the model. Elements without a path all land in one unnamed
-// section, which renders as the plain list.
-const parentOf = (el) => {
-	if (!el.path) return '';
-	const i = el.path.lastIndexOf('.');
-	return i < 0 ? '' : el.path.slice(0, i);
-};
-const depthOf = (el) => (el.path ? el.path.split('.').length - 1 : 0);
-const crumbs = (parentPath) => parentPath.split('.').filter(Boolean);
+// Within an entity, elements are split into sections by their TRAIL — the
+// structure above them as the graph has it: "Person", then "Person › Contact",
+// then "Person › Contact › Address" (LIF's nested classes); "AcademicRecord ›
+// AcademicAwardType" (a PESC message and class); "AccountingPeriod ›
+// SIF_Metadata › LifeCycle" (SIF's element tree). Elements with no trail all
+// land in one unnamed section, which renders as the plain list.
+const trailOf = (el) => (Array.isArray(el.trail) ? el.trail : String(el.path || '').split('.').slice(0, -1));
+const parentKeyOf = (el) => trailOf(el).join('\u0001');
+const depthOf = (el) => trailOf(el).length;
 
 const elementSections = computed(() => {
 	const sections = [];
 	let current = null;
 	for (const el of visibleElements.value) {
-		const parent = parentOf(el);
+		const parent = parentKeyOf(el);
 		if (!current || current.parent !== parent) {
-			current = { parent, crumbs: crumbs(parent), items: [] };
+			current = { parent, crumbs: trailOf(el), items: [] };
 			sections.push(current);
 		}
 		current.items.push(el);
@@ -340,8 +337,24 @@ watch(elementSearch, (q) => {
 function selectGraphElement(el) {
 	selectedGraphElement.value = el;
 }
-const isSelected = (el) =>
-	selectedGraphElement.value?.name === el.name && selectedGraphElement.value?.path === el.path;
+// A row is one placement of a node: a CTDL property under twenty classes is
+// twenty rows of one stableId, so selection compares the whole path.
+// (two distinct nodes can share a name under one parent — CEDS P600161 and
+// P600553 — so the stableId is part of it)
+const rowKey = (el) => `${el.source}|${el.stableId || ''}|${el.path || el.name}`;
+const isSelected = (el) => !!selectedGraphElement.value && rowKey(selectedGraphElement.value) === rowKey(el);
+
+// "→ Type": a property typed by a class jumps to that class — in the current
+// entity's list if it is there, else wherever the model has it (switching
+// entity so the list shows it).
+async function openType(el) {
+	const target = await store.findElementByStableId(el.source, el.typeStableId);
+	if (!target) return;
+	if (hasGroups.value && activeGroup.value !== ALL_GROUPS && target.group !== activeGroup.value) {
+		activeGroup.value = target.group;
+	}
+	selectGraphElement(target);
+}
 
 const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
 const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
@@ -932,7 +945,7 @@ function loadSample() {
 
 									<v-list-item
 										v-for="el in section.items"
-										:key="`${el.source}|${el.path || el.name}`"
+										:key="rowKey(el)"
 										:active="isSelected(el)"
 										color="primary"
 										class="element-row"
@@ -950,7 +963,26 @@ function loadSample() {
 												{{ el.kind }}
 											</v-chip>
 										</template>
-										<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
+										<v-list-item-title class="text-body-2 d-flex align-center flex-wrap ga-1">
+											<span>{{ el.name }}</span>
+											<!-- structure facts the graph records for this element -->
+											<v-chip
+												v-if="el.typeName"
+												size="x-small"
+												variant="text"
+												color="primary"
+												class="px-1"
+												append-icon="mdi-arrow-right"
+												:title="`Typed by the class ${el.typeName} — click to open it`"
+												@click.stop="openType(el)"
+											>
+												{{ el.typeName }}
+											</v-chip>
+											<v-chip v-if="el.codeCount" size="x-small" variant="tonal" color="brown" :title="`A code list of ${el.codeCount} codes`">
+												{{ el.codeCount }} codes
+											</v-chip>
+											<span v-if="el.extends" class="text-caption text-disabled" :title="`Subclass of ${el.extends}`">extends {{ el.extends }}</span>
+										</v-list-item-title>
 										<v-list-item-subtitle
 											v-if="el.description"
 											class="element-desc"
@@ -993,16 +1025,16 @@ function loadSample() {
 						<v-fade-transition mode="out-in">
 							<v-card
 								v-if="selectedGraphElement"
-								:key="`${selectedGraphElement.source}|${selectedGraphElement.path || selectedGraphElement.name}`"
+								:key="rowKey(selectedGraphElement)"
 								variant="outlined"
 								class="pane detail-pane"
 							>
 								<v-card-item>
 									<div
-										v-if="selectedGraphElement.path && selectedGraphElement.path !== selectedGraphElement.name"
+										v-if="trailOf(selectedGraphElement).length"
 										class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
 									>
-										<template v-for="(c, i) in crumbs(parentOf(selectedGraphElement))" :key="i">
+										<template v-for="(c, i) in trailOf(selectedGraphElement)" :key="i">
 											<v-icon v-if="i" size="12" class="mx-1">mdi-chevron-right</v-icon>
 											<span>{{ c }}</span>
 										</template>
@@ -1029,6 +1061,13 @@ function loadSample() {
 									<p v-if="selectedGraphElement.description" class="text-body-2 mb-4">
 										{{ selectedGraphElement.description }}
 									</p>
+									<!-- what the structure says about it: type, superclass, code list -->
+									<SpecElementDetail
+										:element="selectedGraphElement"
+										class="mb-5"
+										@open-type="openType"
+										@select-code="selectGraphElement"
+									/>
 									<SpecCrossMappings :element="selectedGraphElement" />
 								</v-card-text>
 							</v-card>
@@ -1036,7 +1075,7 @@ function loadSample() {
 							<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
 								<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
 								<p class="text-body-2 text-medium-emphasis mb-0">
-									Select an element to see its authoritative and implied mappings in every other specification.
+									Select an element to see its structure, its CEDS concepts, and what other standards map to them.
 								</p>
 							</v-card>
 						</v-fade-transition>

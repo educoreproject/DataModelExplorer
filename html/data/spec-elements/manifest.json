@@ -1,113 +1,150 @@
 {
- "generated": "2026-10-01",
+ "generated": "2026-10-27",
+ "version": 3,
  "specs": {
   "CASE": {
+   "profile": "model",
    "elementCount": 230,
    "classCount": 36,
    "propertyCount": 194,
-   "entityCount": 36
+   "entityCount": 36,
+   "codeListCount": 5
   },
   "CEDS": {
-   "elementCount": 2725,
+   "profile": "model",
+   "elementCount": 2726,
    "classCount": 402,
-   "propertyCount": 2323,
-   "entityCount": 402
+   "propertyCount": 2324,
+   "entityCount": 402,
+   "codeListCount": 963
   },
   "CIP": {
+   "profile": "taxonomy",
    "elementCount": 2538,
    "classCount": 2538,
    "propertyCount": 0,
-   "entityCount": 50
+   "entityCount": 50,
+   "codeListCount": 0
   },
   "CLR": {
+   "profile": "model",
    "elementCount": 209,
    "classCount": 25,
    "propertyCount": 184,
-   "entityCount": 25
+   "entityCount": 25,
+   "codeListCount": 6
   },
   "CTDL": {
-   "elementCount": 513,
+   "profile": "model",
+   "elementCount": 514,
    "classCount": 136,
-   "propertyCount": 377,
-   "entityCount": 137
+   "propertyCount": 378,
+   "entityCount": 138,
+   "codeListCount": 34
   },
   "CTDLASN": {
+   "profile": "model",
    "elementCount": 108,
    "classCount": 11,
    "propertyCount": 97,
-   "entityCount": 11
+   "entityCount": 12,
+   "codeListCount": 2
   },
   "CTDLQData": {
+   "profile": "model",
    "elementCount": 93,
    "classCount": 11,
    "propertyCount": 82,
-   "entityCount": 12
+   "entityCount": 13,
+   "codeListCount": 0
   },
   "DCTAP": {
+   "profile": "model",
    "elementCount": 17,
    "classCount": 5,
    "propertyCount": 12,
-   "entityCount": 5
+   "entityCount": 5,
+   "codeListCount": 3
   },
   "EdFi": {
+   "profile": "model",
    "elementCount": 1651,
    "classCount": 201,
    "propertyCount": 1450,
-   "entityCount": 201
+   "entityCount": 201,
+   "codeListCount": 166
   },
   "EduAPI": {
+   "profile": "model",
    "elementCount": 353,
    "classCount": 34,
    "propertyCount": 319,
-   "entityCount": 34
+   "entityCount": 34,
+   "codeListCount": 57
   },
   "JEDx": {
-   "elementCount": 121,
+   "profile": "model",
+   "elementCount": 144,
    "classCount": 5,
-   "propertyCount": 116,
-   "entityCount": 5
+   "propertyCount": 139,
+   "entityCount": 5,
+   "codeListCount": 0
   },
   "LIF": {
+   "profile": "model",
    "elementCount": 1085,
    "classCount": 62,
    "propertyCount": 1023,
-   "entityCount": 9
+   "entityCount": 9,
+   "codeListCount": 23
   },
   "MedBiquitous": {
-   "elementCount": 1505,
-   "classCount": 412,
-   "propertyCount": 1093,
-   "entityCount": 415
+   "profile": "messages",
+   "elementCount": 1751,
+   "classCount": 490,
+   "propertyCount": 1261,
+   "entityCount": 21,
+   "codeListCount": 64
   },
   "OpenBadges": {
+   "profile": "model",
    "elementCount": 193,
    "classCount": 23,
    "propertyCount": 170,
-   "entityCount": 23
+   "entityCount": 23,
+   "codeListCount": 6
   },
   "PESC": {
-   "elementCount": 1877,
-   "classCount": 273,
-   "propertyCount": 1604,
-   "entityCount": 279
+   "profile": "messages",
+   "elementCount": 2106,
+   "classCount": 314,
+   "propertyCount": 1792,
+   "entityCount": 10,
+   "codeListCount": 161
   },
   "SEDM": {
+   "profile": "elements",
    "elementCount": 361,
    "classCount": 40,
    "propertyCount": 321,
-   "entityCount": 188
+   "entityCount": 29,
+   "codeListCount": 116
   },
   "SIF": {
-   "elementCount": 8951,
-   "classCount": 1049,
-   "propertyCount": 7902,
-   "entityCount": 1049
+   "profile": "xpath",
+   "elementCount": 16676,
+   "classCount": 1056,
+   "propertyCount": 15620,
+   "entityCount": 160,
+   "codeListCount": 140
   },
   "SOC": {
+   "profile": "taxonomy",
    "elementCount": 2005,
    "classCount": 2004,
    "propertyCount": 1,
-   "entityCount": 2005
+   "entityCount": 24,
+   "codeListCount": 1
   }
  }
 }

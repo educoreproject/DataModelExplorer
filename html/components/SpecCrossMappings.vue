@@ -40,7 +40,8 @@ const sourceInfo = computed(() =>
 		? {
 				standard: props.element.standard || props.element.source,
 				name: props.element.name,
-				sourceId: props.element.sourceId || '',
+				// the node's graph identity, so the export resolves exactly this node
+				sourceId: props.element.stableId || props.element.sourceId || '',
 				// dotted graph path — lets the graph-ingestion export resolve the
 				// exact node (LIF has an `identifier` on every entity)
 				path: props.element.path || '',

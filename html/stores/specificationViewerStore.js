@@ -31,7 +31,7 @@ import axios from 'axios';
 import { parse as parseYaml } from 'yaml';
 import { useLoginStore } from '@/stores/loginStore';
 import { hrOpenCrosswalk, hrOpenCrosswalkMeta } from '@/data/hr-open-crosswalk';
-import { specElementLoaders, specElementManifest } from '@/data/specElementFiles';
+import { specElementLoaders, specElementManifest, specCodeLoaders } from '@/data/specElementFiles';
 
 // -------------------------------------------------------------------------
 // Text helpers — normalise property names so camelCase / snake_case /
@@ -314,19 +314,14 @@ const ORG_BY_SOURCE = {
 
 const UNATTRIBUTED_ORG = 'Other publishers';
 
-// The entity an element belongs to, derived from the graph's dotted `path`
-// ("Assessment.AssessmentPerformanceLevel.label" → "Assessment"). This is what
-// the specification browser tabs on — the same categories-first shape the HR
-// Open crosswalk has, but derived from the standard's own structure rather
-// than hand-authored. A top-level class is its own group; an element with no
-// path (snapshot rows) gets '' and the browser falls back to one flat list.
-function elementGroup(path, name, kind) {
-	const p = String(path || '').trim();
-	if (!p) return '';
-	const head = p.split('.')[0].trim();
-	if (!head) return '';
-	if (kind === 'class' && p === name) return name;
-	return head;
+// The entity an element belongs to — what the viewer's entity rail lists: the
+// first section of the element's TRAIL (a top-level class, a PESC message, a SOC
+// major group …), or the element itself when it is the top of its trail. A
+// legacy dotted path is still accepted (live-endpoint rows).
+function elementGroup(trail, name) {
+	const sections = Array.isArray(trail) ? trail : String(trail || '').split('.').slice(0, -1);
+	if (sections.length) return sections[0];
+	return name || '';
 }
 
 // The snapshot is imported lazily and at most once — it is a large JSON blob
@@ -363,7 +358,9 @@ function expandSnapshot(raw) {
 			key,
 			hub,
 			ceds: ids.map(anchor).filter(Boolean),
-			matches: members.map(([source, name, path, k, rel, c]) => ({ source, name, path, k, rel, c })),
+			// path: the element's structural path (' › '-joined) where the builder
+			// could resolve it, else the graph's dotted path; sid: its stableId
+			matches: members.map(([source, name, path, k, rel, c, sid]) => ({ source, name, path, k, rel, c, sid: sid || '' })),
 		})),
 	};
 }
@@ -384,6 +381,7 @@ function snapshotIndex(snapshot) {
 	const bySource = new Map(); // source -> Map(nameLower -> element)
 	const hubsByMember = new Map(); // 'source|nameLower' -> [members[], ...]
 	const hubsByPath = new Map(); // 'source|pathLower' -> [hub, ...]
+	const hubsById = new Map(); // 'source|stableId' -> [hub, ...]
 
 	const kindOf = (k) => (k === 'C' ? 'class' : k === 'P' ? 'property' : 'value');
 
@@ -395,7 +393,10 @@ function snapshotIndex(snapshot) {
 		description: member.desc || '',
 		sourceId: member.id || '',
 		path: member.path || '',
-		group: elementGroup(member.path, member.name, kindOf(member.k)),
+		group: elementGroup(
+			String(member.path || '').includes(' › ') ? member.path.split(' › ').slice(0, -1) : member.path,
+			member.name,
+		),
 	});
 
 	// Structural elements the snapshot carries outright (a standard's classes and
@@ -437,10 +438,17 @@ function snapshotIndex(snapshot) {
 				if (!hubsByPath.has(pathKey)) hubsByPath.set(pathKey, []);
 				hubsByPath.get(pathKey).push(hub);
 			}
+			// Identity index: a node's stableId is unique where its name and path
+			// are not (SIF has five different fields at AccountingPeriod.Name).
+			if (member.sid) {
+				const idKey = `${member.source}|${member.sid}`;
+				if (!hubsById.has(idKey)) hubsById.set(idKey, []);
+				hubsById.get(idKey).push(hub);
+			}
 		}
 	}
 
-	snapshotIndexCache = { bySource, hubsByMember, hubsByPath };
+	snapshotIndexCache = { bySource, hubsByMember, hubsByPath, hubsById };
 	return snapshotIndexCache;
 }
 
@@ -454,31 +462,77 @@ function conceptAnchor(hub) {
 const REL_RANK = { EXACT_MATCH: 0, CLOSE_MATCH: 1, NARROW_MATCH: 2, RELATED_MATCH: 3 };
 
 // -------------------------------------------------------------------------
-// Bundled specification models. Every spec's classes and properties with their
-// dotted paths ship as one lazily-loaded file per spec (data/spec-elements/),
-// so any spec can be shown by its own sections — the way LIF and the HR Open
-// crosswalk are — whether or not the live graph endpoints are reachable.
+// Bundled specification models — each standard as the graph's STRUCTURE has it
+// (html/scripts/specificationViewer/build-spec-models.cjs), one lazily-loaded
+// file per spec:
 //
-// A spec's code-list VALUES are not in its file; the ones the graph has mapped
-// to CEDS (and that carry a path, as LIF's do) are folded in from the hub
-// snapshot so they sit in their property's section.
+//   model      entity (top-level class) › nested classes › property
+//              (a property owned by several classes, as in CTDL, under each)
+//   taxonomy   CIP family › series › program; SOC major › minor › broad › occupation
+//   messages   PESC / MedBiquitous message › class › property
+//   xpath      SIF object › element path › field; complex types under "Types"
+//   elements   SEDM element group › section › element
+//
+// Every element carries its `trail` (the sections above it) and its graph
+// `stableId`, which is its identity: names and dotted paths repeat (SIF has
+// five different fields all at path `AccountingPeriod.Name`).
 
 const specModelCache = new Map(); // source -> Promise<element[]>
+const specCodeCache = new Map(); // source -> Promise<{ sets }>
 
 const KIND_BY_CODE = { C: 'class', P: 'property', V: 'value' };
+const TRAIL_SEPARATOR = ' › ';
 
-function specModelElement(source, kindCode, path, name, id = '', desc = '') {
-	const kind = KIND_BY_CODE[kindCode] || 'property';
+function specModelElement(source, fields) {
+	const kind = KIND_BY_CODE[fields.k] || 'property';
+	const trail = fields.trail || [];
 	return {
-		name,
+		name: fields.name,
 		source,
 		standard: standardOf(source),
 		kind,
-		description: desc,
-		sourceId: id,
-		path,
-		group: elementGroup(path, name, kind),
+		description: fields.description || '',
+		sourceId: fields.code || '',
+		stableId: fields.stableId || '',
+		trail,
+		path: [...trail, fields.name].join(TRAIL_SEPARATOR),
+		graphPath: fields.graphPath || '',
+		group: elementGroup(trail, fields.name),
+		extends: fields.extends || '',
+		typeName: fields.typeName || '',
+		typeStableId: fields.typeStableId || '',
+		codeListId: fields.codeListId || '',
+		codeCount: fields.codeCount || 0,
 	};
+}
+
+// v3 (structural, string-table encoded) → element objects.
+function decodeSpecFile(source, file) {
+	if (file.version !== 3) {
+		// v1/v2 files: [k, path, name, id, desc] with a dotted path
+		return file.elements.map(([k, path, name, id, desc]) =>
+			specModelElement(source, { k, name, trail: String(path).split('.').slice(0, -1), code: id, description: desc, graphPath: path }),
+		);
+	}
+	const S = file.strings;
+	const idOf = (raw) => (Array.isArray(raw) ? S[raw[0]] + raw[1] : raw);
+	const ids = file.elements.map((row) => idOf(row[1]));
+	return file.elements.map(([k, rawId, nameIx, trail, e = {}], i) =>
+		specModelElement(source, {
+			k,
+			stableId: ids[i],
+			name: S[nameIx],
+			trail: trail.map((t) => S[t]),
+			description: e.d !== undefined ? S[e.d] : '',
+			code: e.c || '',
+			extends: e.x !== undefined ? S[e.x] : '',
+			typeName: e.t !== undefined ? S[e.t] : '',
+			typeStableId: e.ti !== undefined ? ids[e.ti] : '',
+			codeListId: e.s || '',
+			codeCount: e.n || 0,
+			graphPath: e.g !== undefined ? S[e.g] : '',
+		}),
+	);
 }
 
 function hasSpecModel(source) {
@@ -489,30 +543,7 @@ function loadSpecModel(source) {
 	if (!hasSpecModel(source)) return Promise.resolve(null);
 	if (!specModelCache.has(source)) {
 		const promise = specElementLoaders[source]()
-			.then((mod) => mod.default || mod)
-			.then(async (file) => {
-				const elements = file.elements.map(([k, path, name, id, desc]) =>
-					specModelElement(source, k, path, name, id || '', desc || ''),
-				);
-				// Mapped code-list values with paths, from the hub snapshot.
-				try {
-					const snapshot = await loadSnapshot();
-					const known = new Set(elements.map((e) => e.path.toLowerCase()));
-					for (const hub of snapshot.hubs) {
-						for (const m of hub.matches || []) {
-							if (m.source !== source || m.k !== 'V' || !m.path) continue;
-							const key = m.path.toLowerCase();
-							if (known.has(key)) continue;
-							known.add(key);
-							elements.push(specModelElement(source, 'V', m.path, m.name));
-						}
-					}
-				} catch (_e) {
-					/* values are a bonus; the structure stands on its own */
-				}
-				elements.sort((a, b) => a.path.localeCompare(b.path) || (a.kind === 'class' ? -1 : 1));
-				return elements;
-			})
+			.then((mod) => decodeSpecFile(source, mod.default || mod))
 			.catch((err) => {
 				specModelCache.delete(source);
 				throw err;
@@ -522,9 +553,24 @@ function loadSpecModel(source) {
 	return specModelCache.get(source);
 }
 
-// Grouping by entity only helps when entities actually hold several elements.
-// SOC is a flat list of 2,005 occupations, each its own "entity" — tabbing
-// that would be one tab per row, so such specs stay a single list.
+// A spec's code lists: { <setStableId>: [name, [[value, description?], …]] }.
+// Loaded only when a property that has one is opened.
+function loadSpecCodes(source) {
+	if (!specCodeLoaders[source]) return Promise.resolve({});
+	if (!specCodeCache.has(source)) {
+		const promise = specCodeLoaders[source]()
+			.then((mod) => (mod.default || mod).sets || {})
+			.catch((err) => {
+				specCodeCache.delete(source);
+				throw err;
+			});
+		specCodeCache.set(source, promise);
+	}
+	return specCodeCache.get(source);
+}
+
+// Grouping by entity only helps when entities actually hold several elements;
+// a spec whose every row is its own entity stays one list.
 function isGroupable(elements) {
 	const groups = new Set();
 	let withGroup = 0;
@@ -683,10 +729,49 @@ function migrateCurationKeys(map) {
 	return out;
 }
 
-// The curation key for a graph element: spec code + path (unique within a
-// spec), falling back to the name for elements with no path.
+// The curation key for a graph element: spec code + the node's stableId — its
+// identity in the graph (a CTDL property listed under twenty classes is one
+// node; SIF's five `AccountingPeriod.Name` fields are five). Elements without a
+// stableId (live-endpoint rows, OpenAPI terms) fall back to path, then name.
 export function elementCurationKey(element) {
-	return element ? `${element.source}::${element.path || element.name}` : '';
+	return element ? `${element.source}::${element.stableId || element.path || element.name}` : '';
+}
+
+// Mappings saved before elements carried a stableId were keyed by the graph's
+// dotted path ("EdFi::School.City") or, earlier still, the name. When a spec's
+// model loads, move those onto the stableId key of the element they meant.
+// A path that several elements share (SIF) goes to the first of them — those
+// keys were ambiguous when written.
+function migrateKeysToStableIds(map, source, model) {
+	const prefix = `${source}::`;
+	const legacyKeys = Object.keys(map).filter((k) => k.startsWith(prefix));
+	if (!legacyKeys.length) return null;
+	const byGraphPath = new Map();
+	const byName = new Map();
+	const stableIds = new Set();
+	for (const el of model) {
+		if (!el.stableId) continue;
+		stableIds.add(el.stableId);
+		if (el.graphPath && !byGraphPath.has(el.graphPath)) byGraphPath.set(el.graphPath, el.stableId);
+		if (!byName.has(el.name)) byName.set(el.name, el.stableId);
+	}
+	let changed = false;
+	const out = { ...map };
+	for (const key of legacyKeys) {
+		const tail = key.slice(prefix.length);
+		if (stableIds.has(tail)) continue; // already a stableId key
+		const target = byGraphPath.get(tail) || byName.get(tail);
+		if (!target) continue;
+		const newKey = `${prefix}${target}`;
+		const bucket = [...(out[newKey] || [])];
+		for (const item of out[key]) {
+			if (!bucket.some((e) => e.standard === item.standard && e.name === item.name)) bucket.push(item);
+		}
+		out[newKey] = bucket;
+		delete out[key];
+		changed = true;
+	}
+	return changed ? out : null;
 }
 
 function persistUserEquivalents(value) {
@@ -1155,6 +1240,12 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 					const model = await loadSpecModel(source);
 					// A newer request (another spec picked) may have landed first.
 					if (this.selectedSpec && this.selectedSpec.source !== source) return this.elements;
+					// Carry mappings saved under old path keys onto stableId keys.
+					const migrated = migrateKeysToStableIds(this.userEquivalents, source, model);
+					if (migrated) {
+						this.userEquivalents = migrated;
+						persistUserEquivalents(this.userEquivalents);
+					}
 					const q = search.trim().toLowerCase();
 					const rows = q
 						? model.filter(
@@ -1191,7 +1282,9 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 						description: row.description || '',
 						sourceId: row.sourceId || '',
 						path: row.path || '',
-						group: elementGroup(row.path, row.name, row.kind),
+						group: elementGroup(row.path, row.name),
+						trail: String(row.path || '').split('.').slice(0, -1),
+						stableId: row.stableId || '',
 					}));
 
 				// When the graph supplies paths, order follows the model (an entity,
@@ -1371,6 +1464,49 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 		},
 
 		// ------------------------------------------------------------
+		// A property's code list from the spec's bundled codes file:
+		// { name, values: [{ name, description }] }, or null when it has none.
+		async loadCodeList(element) {
+			if (!element?.codeListId) return null;
+			const sets = await loadSpecCodes(element.source);
+			const set = sets[element.codeListId];
+			if (!set) return null;
+			const [name, values] = set;
+			return {
+				name,
+				values: (values || []).map(([value, description]) => ({ name: value, description: description || '' })),
+			};
+		},
+
+		// A code of a property, as an element the concept view can look up: the
+		// snapshot knows a code by its property's graph path + its own name.
+		codeValueElement(property, value) {
+			const graphPath = property.graphPath ? `${property.graphPath}.${value.name}` : '';
+			return {
+				name: value.name,
+				source: property.source,
+				standard: property.standard,
+				kind: 'value',
+				description: value.description || '',
+				sourceId: '',
+				stableId: '',
+				trail: [...(property.trail || []), property.name],
+				path: [...(property.trail || []), property.name, value.name].join(' › '),
+				graphPath,
+				group: property.group,
+			};
+		},
+
+		// The element with this stableId in a spec's model (first listing, for a
+		// property that sits under several classes) — how "→ Type" jumps to the
+		// class a property is typed by.
+		async findElementByStableId(source, stableId) {
+			if (!source || !stableId) return null;
+			const model = await loadSpecModel(source);
+			return (model || []).find((el) => el.stableId === stableId) || null;
+		},
+
+		// ------------------------------------------------------------
 		// The element seen as the graph sees it: a spoke on one or more CEDS
 		// concepts (hubs). Returns
 		//
@@ -1391,27 +1527,35 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 		async lookupCedsConcepts(element) {
 			if (!element?.name || !element?.source) return [];
 			const snapshot = await loadSnapshot();
-			const { hubsByMember, hubsByPath } = snapshotIndex(snapshot);
+			const { hubsByMember, hubsByPath, hubsById } = snapshotIndex(snapshot);
 			this.snapshotDate = snapshot.generated || this.snapshotDate;
 
 			const nameLower = element.name.toLowerCase();
-			const pathLower = (element.path || '').toLowerCase();
-			let hubs;
+			// The paths the snapshot may know this element by: its structural
+			// path, and the graph's dotted path (code values keep the latter).
+			const pathKeys = [element.path, element.graphPath].filter(Boolean).map((p) => p.toLowerCase());
+			const pathLower = pathKeys[0] || '';
+			const cedsCode = String(element.sourceId || element.stableId || '').replace(/^https?:\/\/w3id\.org\/CEDStandards\/terms\//, '');
+			let hubs = [];
 			if (element.source === 'CEDS') {
 				// A CEDS element: the concepts it anchors as the MOST specific
-				// anchor (so a property shows its own concept, not every option
-				// value tuple beneath it).
-				const candidates = pathLower
-					? hubsByPath.get(`CEDS|${pathLower}`) || []
-					: (hubsByMember.get(`CEDS|${nameLower}`) || []).map((h) => snapshot.hubs.find((x) => x.hub === h.hub));
-				hubs = candidates.filter((h) => {
-					const a = h && conceptAnchor(h);
-					return a && a.name.toLowerCase() === nameLower && (!pathLower || (a.path || '').toLowerCase() === pathLower || a.k !== 'P');
+				// anchor — matched by CEDS id, so a property shows its own concept,
+				// not every option-value tuple beneath it.
+				hubs = snapshot.hubs.filter((h) => {
+					const a = conceptAnchor(h);
+					if (!a) return false;
+					if (cedsCode && a.id) return a.id === cedsCode;
+					return a.name.toLowerCase() === nameLower && (!pathLower || (a.path || '').toLowerCase() === pathLower || a.k !== 'P');
 				});
 			} else {
-				hubs = pathLower ? hubsByPath.get(`${element.source}|${pathLower}`) || [] : [];
-				if (!hubs.length) {
-					// No path (or none indexed): fall back to name, which can be ambiguous.
+				// Identity first; then path (structural or graph); then name, which
+				// can be ambiguous and is the last resort.
+				if (element.stableId) hubs = hubsById.get(`${element.source}|${element.stableId}`) || [];
+				for (const key of pathKeys) {
+					if (hubs.length) break;
+					hubs = hubsByPath.get(`${element.source}|${key}`) || [];
+				}
+				if (!hubs.length && !element.stableId) {
 					const byName = new Set((hubsByMember.get(`${element.source}|${nameLower}`) || []).map((h) => h.hub));
 					hubs = snapshot.hubs.filter((h) => byName.has(h.hub));
 				}
@@ -1425,20 +1569,22 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 				const anchor = conceptAnchor(hub);
 				if (!anchor) continue;
 				const isSelf = element.source === 'CEDS';
-				const self = isSelf
-					? null
-					: (hub.matches || []).find(
-							(m) =>
-								m.source === element.source &&
-								(pathLower ? (m.path || '').toLowerCase() === pathLower : m.name.toLowerCase() === nameLower),
-						) || (hub.matches || []).find((m) => m.source === element.source && m.name.toLowerCase() === nameLower);
-				// One row per element: SIF is forged more than once, so the same
-				// path can carry several identical edges.
+				// The selected element's own edge: by stableId, then path, then name.
+				const isThisElement = (m) =>
+					m.source === element.source &&
+					(element.stableId && m.sid
+						? m.sid === element.stableId
+						: pathKeys.length
+							? pathKeys.includes((m.path || '').toLowerCase())
+							: m.name.toLowerCase() === nameLower);
+				const self = isSelf ? null : (hub.matches || []).find(isThisElement);
+				// One row per element: some standards are forged more than once,
+				// so one node can carry several identical edges.
 				const spokeSeen = new Set();
 				const spokes = (hub.matches || [])
-					.filter((m) => m !== self && m.name && !(m.source === element.source && (m.path || m.name) === (element.path || element.name)))
+					.filter((m) => m.name && !isThisElement(m))
 					.filter((m) => {
-						const k = `${m.source}|${m.path || m.name}`;
+						const k = `${m.source}|${m.sid || m.path || m.name}`;
 						if (spokeSeen.has(k)) return false;
 						spokeSeen.add(k);
 						return true;
@@ -1448,6 +1594,7 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 						standard: standardOf(m.source),
 						name: m.name,
 						path: m.path || '',
+						stableId: m.sid || '',
 						kind: KIND_BY_CODE[m.k] || 'property',
 						rel: m.rel,
 						confidence: m.c || 0,

@@ -84,7 +84,7 @@ const toggleConcept = (concept) => props.toggle(cedsItem(concept));
 
 // Spoke → CEDS concept. Keyed by the spoke's own element.
 const spokeKey = (spoke) => elementCurationKey(spoke);
-const spokeSource = (spoke) => ({ standard: spoke.standard, name: spoke.name, sourceId: spoke.sourceId || '', path: spoke.path || '' });
+const spokeSource = (spoke) => ({ standard: spoke.standard, name: spoke.name, sourceId: spoke.stableId || spoke.sourceId || '', path: spoke.path || '' });
 const spokeApproved = (concept, spoke) => store.hasUserEquivalent(spokeKey(spoke), cedsItem(concept));
 function toggleSpoke(concept, spoke) {
 	const key = spokeKey(spoke);
