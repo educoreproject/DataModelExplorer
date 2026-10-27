@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SemanticSearch]]
 //
 // GET /api/dme-field-search

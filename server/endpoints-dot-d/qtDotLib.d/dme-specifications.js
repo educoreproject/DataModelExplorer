@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // @concept: [[DataModelExplorer]]
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SecurityFirstPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
@@ -32,7 +32,7 @@ const moduleFunction = function ({
 	// ================================================================================
 	// SPECIFICATION INVENTORY
 	//
-	// The Schema Verifier's entry point: which specifications can actually be
+	// The Specification Viewer's entry point: which specifications can actually be
 	// explored element by element. A spec qualifies when the graph holds golden
 	// nodes stamped with its `_source` — the same eligibility rule dme-equivalents
 	// uses, so every spec offered here returns something when opened.

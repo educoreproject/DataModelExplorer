@@ -62,9 +62,9 @@ const isAdmin = computed(() =>
 				title="Standards"
 			/>
 			<v-list-item
-				to="/explore/schema-verifier"
+				to="/explore/specification-viewer"
 				prepend-icon="mdi-table-search"
-				title="Schema Verifier"
+				title="Specification Viewer"
 			/>
 			<v-list-item
 				to="/explore/graphicModelExplorer"

@@ -168,7 +168,7 @@ async function main(sqlDb) {
 
 	// --- pure export renderer, no DB ---------------------------------------------
 	const rendered = renderExport([], { format: 'cypher', statusFilter: 'accepted' });
-	ok(rendered.content.startsWith('// EDUcore Schema Verifier') && rendered.content.includes('0 row(s)'), 'renderer handles an empty set');
+	ok(rendered.content.startsWith('// EDUcore Specification Viewer') && rendered.content.includes('0 row(s)'), 'renderer handles an empty set');
 
 	console.log(failures ? `\n${failures} FAILURE(S)` : '\nALL PASSED');
 	if (!KEEP) {

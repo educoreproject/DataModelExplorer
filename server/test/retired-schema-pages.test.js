@@ -1,11 +1,11 @@
 'use strict';
-// retired-schema-pages.test.js — A11 / W-E-8 (campaign P4b, ruling: PORT the use-case editor and the schema verifier;
+// retired-schema-pages.test.js — A11 / W-E-8 (campaign P4b, ruling: PORT the use-case editor and the specification viewer;
 // RETIRE dme-lookup, get-nodes and edmatrix, whose function the Data Model Explorer covers).
 // Every page built on the retired schema now either answers from the current graph or is gone; none returns an empty
 // list from labels that do not exist.
 //   1. RETIRED: each retired page's mapper, access point, endpoint and browser files are absent, and no menu or tab
 //      links to its route (a caller gets the server's 404, not []);
-//   2. PORTED schema verifier: the browser store posts no Cypher and names no retired label or edge; the
+//   2. PORTED specification viewer: the browser store posts no Cypher and names no retired label or edge; the
 //      schema-equivalents mapper declares requiredLabelList and every label in it is LIVE on the golden graph; the
 //      access point, run against the golden (read-only), returns the CEDS Birthdate row with judged equivalents
 //      carrying relation, mappingConfidence, mappingKind and mappingSource; an empty word list is refused by name;
@@ -72,7 +72,7 @@ const NAV_FILE_LIST = Object.freeze(listBrowserSourceFiles('html'));
 // literal anywhere under server/test, and this test must not be the file that trips it
 const RETIRED_EDGE_NAME_LIST = Object.freeze([['MAPS', 'TO'].join('_'), ['IMPLIED', 'MAPPING'].join('_')]);
 const RETIRED_SCHEMA_TEXT_PATTERN = new RegExp(`\\b(${['SifField', 'CtdlProperty', 'EdfiField', 'LifProperty', 'JedxField', 'EduApiProperty'].concat(RETIRED_EDGE_NAME_LIST).join('|')})\\b`);
-const SCHEMA_VERIFIER_STORE_PATH = 'html/stores/schemaVerifierStore.js';
+const SPECIFICATION_VIEWER_STORE_PATH = 'html/stores/specificationViewerStore.js';
 
 const fileExistsAt = (relativePath) => fs.existsSync(path.join(CODE_ROOT_PATH, relativePath));
 const readTextAt = (relativePath) => (fileExistsAt(relativePath) ? fs.readFileSync(path.join(CODE_ROOT_PATH, relativePath), 'utf8') : '');
@@ -82,7 +82,7 @@ const judgeRetiredPage = (oneRetiredPage, { fileExists, readText }) => {
 	const linkingNavList = NAV_FILE_LIST.filter((oneNavPath) => oneRetiredPage.routeTextList.some((oneRouteText) => readText(oneNavPath).indexOf(oneRouteText) !== -1));
 	return { pass: survivingFileList.length === 0 && linkingNavList.length === 0, detail: `surviving files: ${survivingFileList.join(', ') || 'none'}; nav linking it: ${linkingNavList.join(', ') || 'none'}` };
 };
-const judgeSchemaVerifierStore = (storeText) => {
+const judgeSpecificationViewerStore = (storeText) => {
 	const retiredMatch = storeText.match(RETIRED_SCHEMA_TEXT_PATTERN);
 	const postsCypher = storeText.indexOf('/api/dme-cypher-query') !== -1;
 	const usesPortedEndpoint = storeText.indexOf('/api/schemaEquivalents') !== -1;
@@ -104,10 +104,10 @@ RETIRED_PAGE_LIST.forEach((oneRetiredPage) => {
 const restoredFileTwin = judgeRetiredPage(RETIRED_PAGE_LIST[1], { fileExists: (relativePath) => relativePath === RETIRED_PAGE_LIST[1].fileList[0] || fileExistsAt(relativePath), readText: readTextAt });
 ok('RED TWIN retiredFileRestored turns the retirement conjunct red', restoredFileTwin.pass === false, restoredFileTwin.detail);
 
-// ---- 2a. schema verifier store
-const storeVerdict = judgeSchemaVerifierStore(readTextAt(SCHEMA_VERIFIER_STORE_PATH));
-ok('PORTED schema verifier store: no Cypher POST, no retired label or edge, uses /api/schemaEquivalents', storeVerdict.pass, storeVerdict.detail);
-const storeTwin = judgeSchemaVerifierStore(`${readTextAt(SCHEMA_VERIFIER_STORE_PATH)}\n// axios.post('/api/dme-cypher-query', { query: 'MATCH (n:SifField) RETURN n' })\n`);
+// ---- 2a. specification viewer store
+const storeVerdict = judgeSpecificationViewerStore(readTextAt(SPECIFICATION_VIEWER_STORE_PATH));
+ok('PORTED specification viewer store: no Cypher POST, no retired label or edge, uses /api/schemaEquivalents', storeVerdict.pass, storeVerdict.detail);
+const storeTwin = judgeSpecificationViewerStore(`${readTextAt(SPECIFICATION_VIEWER_STORE_PATH)}\n// axios.post('/api/dme-cypher-query', { query: 'MATCH (n:SifField) RETURN n' })\n`);
 ok('RED TWIN cypherPostRestored turns the store conjunct red', storeTwin.pass === false, storeTwin.detail);
 
 // ---- live halves

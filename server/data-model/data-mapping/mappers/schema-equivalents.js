@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 'use strict';
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[MapperPattern]]
 // @concept: [[Neo4jAbstraction]]
 
-// schema-equivalents — the Schema Verifier's live graph lookup, PORTED to the current graph (campaign P4b, A11 /
+// schema-equivalents — the Specification Viewer's live graph lookup, PORTED to the current graph (campaign P4b, A11 /
 // W-E-8, 2026-10-07). It replaced a browser-built Cypher string POSTed to the internal-only /api/dme-cypher-query
 // (401 for a browser since SEC-2) that read retired labels (SifField, CtdlProperty, EdfiField, LifProperty) and
 // retired edges (MAPS_TO, IMPLIED_MAPPING), so it could only ever return nothing.

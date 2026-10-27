@@ -1,8 +1,8 @@
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 //
 // Bundled structure of every specification in the EDUcore graph: one JSON file
 // per spec under ./spec-elements/, each listing every class and property with
-// its dotted path (Person.Contact.Address.street), so the Schema Verifier can
+// its dotted path (Person.Contact.Address.street), so the Specification Viewer can
 // show any spec by its own sections without a live graph round-trip.
 //
 // The files are code-split — `import.meta.glob` gives one lazy loader per file

@@ -1,5 +1,5 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[CedsHub]]
 //
 // The selected element seen the way the graph is built: no standard maps to
@@ -18,9 +18,9 @@
 // CEDS element), approved the same way.
 
 import { ref, computed, watch } from 'vue';
-import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore, elementCurationKey } from '@/stores/specificationViewerStore';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	// { source, name, path, standard, description, sourceId, kind }

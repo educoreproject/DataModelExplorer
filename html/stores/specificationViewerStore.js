@@ -1,9 +1,9 @@
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[PiniaStorePattern]]
 //
-// SCHEMA VERIFIER STORE
+// SPECIFICATION VIEWER STORE
 //
-// Powers the Reference Library "Schema Verifier" tool. Two complementary data
+// Powers the Reference Library "Specification Viewer" tool. Two complementary data
 // sources are joined here:
 //
 //   1. HR Open equivalence — the bundled JEDx ↔ HR Open crosswalk
@@ -283,7 +283,7 @@ function searchSnapshot(snapshot, sigTokens, allTokens, minHits) {
 // -------------------------------------------------------------------------
 // Specification inventory + per-spec browsing.
 //
-// The Schema Verifier's entry point is a live list of the specifications the
+// The Specification Viewer's entry point is a live list of the specifications the
 // graph can actually explain element by element. That list is NOT hand-kept:
 // every golden node carries a `_source` stamp, so the distinct sources ARE the
 // inventory, and a spec appears the moment it is forged into the graph.
@@ -646,11 +646,16 @@ function sortSpecs(specs) {
 // session), and the server's dme_user_mappings SQLite table whenever the user
 // is logged in. On load the server copy wins; local-only entries are pushed up.
 
-const USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
+const USER_EQUIV_STORAGE_KEY = 'specificationViewer.userEquivalents';
+// The page was called the Schema Verifier until 2026-10; browsers that saved
+// mappings then hold them under the old key. Read once, carried forward.
+const LEGACY_USER_EQUIV_STORAGE_KEY = 'schemaVerifier.userEquivalents';
 
 function loadUserEquivalents() {
 	try {
-		return migrateCurationKeys(JSON.parse(localStorage.getItem(USER_EQUIV_STORAGE_KEY)) || {});
+		const current = localStorage.getItem(USER_EQUIV_STORAGE_KEY);
+		const raw = current ?? localStorage.getItem(LEGACY_USER_EQUIV_STORAGE_KEY);
+		return migrateCurationKeys(JSON.parse(raw) || {});
 	} catch (_err) {
 		return {};
 	}
@@ -880,7 +885,7 @@ function authHeaders() {
 
 // =========================================================================
 
-export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
+export const useSpecificationViewerStore = defineStore('specificationViewerStore', {
 	state: () => ({
 		// crosswalk (static)
 		crosswalk: hrOpenCrosswalk,
@@ -1882,7 +1887,7 @@ export const useSchemaVerifierStore = defineStore('schemaVerifierStore', {
 				content: JSON.stringify(
 					{
 						exportedAt: new Date().toISOString(),
-						source: 'EDUcore Schema Verifier — curated crosswalk',
+						source: 'EDUcore Specification Viewer — curated crosswalk',
 						persistence: this.mappingsPersistence || 'local',
 						mappingCount: rows.length,
 						mappings: rows,

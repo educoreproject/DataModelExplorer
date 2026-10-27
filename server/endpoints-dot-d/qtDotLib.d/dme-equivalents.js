@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // @concept: [[DataModelExplorer]]
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SecurityFirstPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
@@ -36,7 +36,7 @@ const moduleFunction = function ({
 	// ================================================================================
 	// TERM TOKENIZATION
 	//
-	// Mirrors the Schema Verifier client (html/stores/schemaVerifierStore.js) so a
+	// Mirrors the Specification Viewer client (html/stores/specificationViewerStore.js) so a
 	// term produces the same significant tokens whichever side computes them.
 
 	const STOP_WORDS = new Set([
@@ -69,7 +69,7 @@ const moduleFunction = function ({
 	// ================================================================================
 	// EQUIVALENTS QUERY
 	//
-	// The Schema Verifier's one fixed lookup: rank golden standard nodes by how many
+	// The Specification Viewer's one fixed lookup: rank golden standard nodes by how many
 	// significant tokens of the term appear in their name, then walk each match's
 	// HubReference to collect its cross-standard equivalents (EXACT_MATCH is the
 	// hub-verified equivalence; CLOSE/BROAD/NARROW_MATCH are weaker suggestions).
