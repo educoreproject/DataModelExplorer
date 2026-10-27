@@ -2,14 +2,12 @@
 // @concept: [[SpecificationViewer]]
 // Reference Library → Specification Viewer.
 //
-// Three ways in:
+// Two ways in:
 //   1. Specifications — pick any spec the EDUcore graph carries (listed live,
 //      grouped by publishing organization) and walk its elements, seeing each
 //      one's cross-spec mappings in both tiers: authoritative (both hub legs
 //      verified) and implied. This is the default entry point.
-//   2. Crosswalk — the better-than-spreadsheet view of the JEDx ↔ HR Open data
-//      dictionary, which is authoritative but HR-Open-specific.
-//   3. OpenAPI — break any uploaded schema into its component parts and resolve
+//   2. Your own schema — break any uploaded OpenAPI schema into its component parts and resolve
 //      every property against CEDS (live graph) and HR Open (bundled crosswalk).
 
 import { ref, computed, watch, onMounted } from 'vue';
@@ -20,7 +18,7 @@ import { useLoginStore } from '@/stores/loginStore';
 const store = useSpecificationViewerStore();
 const loginStore = useLoginStore();
 
-const mode = ref('specs'); // 'specs' | 'crosswalk' | 'openapi'
+const mode = ref('specs'); // 'specs' | 'openapi'
 
 // ── Saved mappings: sync, export, review ───────────────────────────
 // The curated crosswalk lives in the browser and, when the user is logged in,
@@ -359,73 +357,6 @@ async function openType(el) {
 const KIND_COLORS = { class: 'indigo', property: 'blue-grey', value: 'brown' };
 const kindColor = (kind) => KIND_COLORS[kind] || 'grey';
 
-// ── Crosswalk mode state ───────────────────────────────────────────
-const activeSectionId = ref(store.crosswalk[0]?.id || 'I');
-const activeSection = computed(() =>
-	store.crosswalk.find((s) => s.id === activeSectionId.value) || store.crosswalk[0],
-);
-const crosswalkSearch = ref('');
-const selectedElement = ref(null);
-
-// Sections grouped by information type. Organization-level facts (legal entity,
-// establishments, jobs, positions) are relatively stable; worker-level facts
-// (assignments, work relationship, hours, compensation) change far more often.
-// Surfacing the split helps users reason about how each is managed and shared.
-const GROUP_ORDER = ['Organization', 'Worker'];
-const groupedSections = computed(() => {
-	const groups = store.sectionGroups;
-	return GROUP_ORDER
-		.filter((name) => groups[name]?.length)
-		.map((name) => ({ name, sections: groups[name] }));
-});
-
-const filteredElements = computed(() => {
-	const els = activeSection.value?.elements || [];
-	const q = crosswalkSearch.value.trim().toLowerCase();
-	if (!q) return els;
-	return els.filter(
-		(e) =>
-			e.name.toLowerCase().includes(q) ||
-			e.id.toLowerCase().includes(q) ||
-			e.hrOpenProperty.toLowerCase().includes(q),
-	);
-});
-
-function selectElement(el) {
-	selectedElement.value = el;
-}
-
-// The section that actually owns the selected element (ids are globally unique,
-// so this is correct even if the active tab is switched without re-selecting).
-const selectedSection = computed(() => {
-	const el = selectedElement.value;
-	if (!el) return null;
-	return (
-		store.crosswalk.find((s) => s.elements.some((e) => e.id === el.id)) ||
-		activeSection.value
-	);
-});
-
-// Ancestry of the selected element, derived from its dotted id (e.g. "I.G.1" →
-// section "Organization" › element "I.G"). Lets sub-elements show their place in
-// the hierarchy without scrolling the list back up. Returns [] for top-level
-// elements (nothing to disambiguate beyond the section itself).
-const breadcrumb = computed(() => {
-	const el = selectedElement.value;
-	const sec = selectedSection.value;
-	if (!el || !sec) return [];
-	const parts = el.id.split('.');
-	const crumbs = [{ id: sec.id, name: sec.title || sec.label }];
-	let prefix = parts[0];
-	for (let i = 1; i < parts.length; i++) {
-		prefix += `.${parts[i]}`;
-		if (prefix === el.id) break; // the leaf is shown in the header itself
-		const anc = sec.elements.find((e) => e.id === prefix);
-		crumbs.push({ id: prefix, name: anc ? anc.name : prefix });
-	}
-	return crumbs.length > 1 ? crumbs : [];
-});
-
 // ── OpenAPI mode state ─────────────────────────────────────────────
 const pasteText = ref('');
 const urlText = ref('');
@@ -547,9 +478,8 @@ function loadSample() {
 		<p class="text-body-1 text-medium-emphasis mb-5">
 			Break a schema into its component parts and see, element by element, what else in the
 			standards landscape means the same thing. Start from any specification in the
-			<strong>EDUcore graph</strong> to see its authoritative and implied cross-specification mappings, or work from
-			the authoritative JEDx ↔ HR Open crosswalk ({{ store.crosswalkMeta.elementCount }} mapped
-			elements).
+			<strong>EDUcore graph</strong> to see its authoritative and implied cross-specification mappings, or load
+			your own OpenAPI schema and map its fields.
 		</p>
 
 		<!-- Saved mappings toolbar: what you've curated, where it lives, export it -->
@@ -761,8 +691,7 @@ function loadSample() {
 		<!-- Mode toggle -->
 		<v-btn-toggle v-model="mode" mandatory color="primary" variant="outlined" density="comfortable" class="mb-6">
 			<v-btn value="specs" prepend-icon="mdi-book-open-variant">Specifications</v-btn>
-			<v-btn value="crosswalk" prepend-icon="mdi-table-large">JEDx ↔ HR Open Crosswalk</v-btn>
-			<v-btn value="openapi" prepend-icon="mdi-code-json">Load OpenAPI Schema</v-btn>
+			<v-btn value="openapi" prepend-icon="mdi-code-json">Load Your Own Schema</v-btn>
 		</v-btn-toggle>
 
 		<!-- ════════════════════ SPECIFICATION MODE ════════════════════ -->
@@ -1092,140 +1021,8 @@ function loadSample() {
 			</v-card>
 		</template>
 
-		<!-- ════════════════════ CROSSWALK MODE ════════════════════ -->
-		<template v-if="mode === 'crosswalk'">
-			<!-- Categories header -->
-			<div class="d-flex align-center flex-wrap ga-2 mb-2">
-				<v-icon size="18" color="primary">mdi-format-list-bulleted</v-icon>
-				<span class="text-subtitle-2 font-weight-bold">Categories</span>
-				<span class="text-caption text-medium-emphasis">— grouped by information type</span>
-			</div>
-
-			<!-- Section tabs, split by information group (Organization vs Worker) -->
-			<div v-for="grp in groupedSections" :key="grp.name" class="mb-3">
-				<div class="text-overline text-medium-emphasis mb-0">
-					{{ grp.name }} information
-				</div>
-				<v-tabs
-					v-model="activeSectionId"
-					color="primary"
-					show-arrows
-					density="comfortable"
-					class="section-tabs"
-				>
-					<v-tab v-for="s in grp.sections" :key="s.id" :value="s.id">
-						<span class="font-weight-bold mr-1">{{ s.id }}.</span> {{ s.label }}
-						<v-chip size="x-small" variant="tonal" class="ml-2">{{ s.count }}</v-chip>
-					</v-tab>
-				</v-tabs>
-			</div>
-
-			<v-row>
-				<!-- Element list -->
-				<v-col cols="12" md="6" lg="5">
-					<v-text-field
-						v-model="crosswalkSearch"
-						prepend-inner-icon="mdi-magnify"
-						placeholder="Filter elements in this section…"
-						variant="outlined"
-						density="compact"
-						hide-details
-						clearable
-						class="mb-3"
-					/>
-					<v-card variant="outlined" class="element-list">
-						<v-list density="compact" nav>
-							<v-list-item
-								v-for="el in filteredElements"
-								:key="el.id"
-								:active="selectedElement?.id === el.id"
-								color="primary"
-								@click="selectElement(el)"
-							>
-								<template #prepend>
-									<span
-										class="text-caption text-medium-emphasis mono mr-2"
-										:style="{ paddingLeft: `${el.depth * 12}px`, minWidth: '64px' }"
-									>{{ el.id }}</span>
-								</template>
-								<v-list-item-title class="text-body-2">{{ el.name }}</v-list-item-title>
-								<v-list-item-subtitle class="mono" style="font-size: 0.72rem;">
-									{{ el.hrOpenProperty }}
-								</v-list-item-subtitle>
-								<template #append>
-									<v-chip
-										v-if="store.userEquivalentsFor(el.id).length"
-										size="x-small"
-										color="deep-purple"
-										variant="tonal"
-										title="Accepted equivalents in your crosswalk"
-									>
-										{{ store.userEquivalentsFor(el.id).length }}
-									</v-chip>
-								</template>
-							</v-list-item>
-							<v-list-item v-if="!filteredElements.length">
-								<v-list-item-title class="text-caption text-medium-emphasis">
-									No elements match.
-								</v-list-item-title>
-							</v-list-item>
-						</v-list>
-					</v-card>
-				</v-col>
-
-				<!-- Detail -->
-				<v-col cols="12" md="6" lg="7">
-					<v-card v-if="selectedElement" variant="outlined">
-						<v-card-item>
-							<div
-								v-if="breadcrumb.length"
-								class="d-flex align-center flex-wrap text-caption text-medium-emphasis mb-1"
-							>
-								<template v-for="(c, i) in breadcrumb" :key="c.id">
-									<v-icon v-if="i" size="14" class="mx-1">mdi-chevron-right</v-icon>
-									<span>{{ c.name }}</span>
-								</template>
-							</div>
-							<div class="d-flex align-center flex-wrap ga-2">
-								<v-chip size="small" color="primary" variant="tonal">{{ selectedElement.id }}</v-chip>
-								<span class="text-h6 font-weight-bold">{{ selectedElement.name }}</span>
-							</div>
-						</v-card-item>
-						<v-card-text>
-							<p v-if="selectedElement.definition" class="text-body-2 mb-4">
-								{{ selectedElement.definition }}
-							</p>
-							<v-alert
-								v-if="selectedElement.revisionNotes"
-								type="info"
-								variant="tonal"
-								density="compact"
-								icon="mdi-comment-question-outline"
-								class="mb-4 text-body-2"
-							>
-								{{ selectedElement.revisionNotes }}
-							</v-alert>
-
-							<SchemaEquivalents
-								:term="selectedElement.name"
-								:hr-open-seed="selectedElement"
-								:context="selectedSection"
-							/>
-						</v-card-text>
-					</v-card>
-
-					<v-card v-else variant="flat" color="grey-lighten-4" class="pa-10 text-center" rounded="lg">
-						<v-icon size="42" color="grey" class="mb-3">mdi-gesture-tap</v-icon>
-						<p class="text-body-2 text-medium-emphasis mb-0">
-							Select an element to see its HR Open mapping and live CEDS equivalents.
-						</p>
-					</v-card>
-				</v-col>
-			</v-row>
-		</template>
-
 		<!-- ════════════════════ OPENAPI MODE ════════════════════ -->
-		<template v-else-if="mode === 'openapi'">
+		<template v-if="mode === 'openapi'">
 			<!-- Loader -->
 			<v-card v-if="!store.hasApi" variant="outlined" class="mb-4">
 				<v-card-text>
