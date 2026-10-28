@@ -1,0 +1,36 @@
+{
+	"_comment": "Seed for the educore-papers companion page (SPEC-companionPages-102826, 'Site documents'), read by seed-companion-page.js. It holds the two EDUcore papers the DME welcome panel offers as downloads (CompanionSiteDocumentButtons.vue); it has no standardKey and isActive false, so the Standards Explorer never lists it. targetKind externalUrl points at the DME page where the papers are offered. Each originNote begins 'Version <label>;', which the button shows. The two papers carry mutual version references and are revised together (TQ, 2026-10-28): a revision of either is an upload that becomes current, naming the companion version it was checked against.",
+	"sourceDirProjectRelativePath": "management/zNotesPlansDocs",
+	"uploadedBy": "tqwhite (seeded by SHADOW_MEADOW)",
+	"pageRecord": {
+		"pageSlug": "educore-papers",
+		"title": "EDUcore papers",
+		"summary": "The two papers describing the EDUcore standards graph: its structure, and how it is produced.",
+		"audienceText": "readers of the Data Model Explorer",
+		"standardKey": null,
+		"subjectStableId": null,
+		"targetKind": "externalUrl",
+		"externalUrl": "https://ed-core.org/dm/explorer",
+		"compilerName": null,
+		"sortOrder": 10,
+		"isActive": false
+	},
+	"sourceList": [
+		{
+			"sourceRole": "graphStructurePaper",
+			"sourcePart": "",
+			"relativeFilePath": "graphStructurePdf/educoreGraphStructure-V09-102826.pdf",
+			"originUrl": null,
+			"originNote": "Version V.09; The Structure of the EDUcore Standards Graph, rendered from management/zNotesPlansDocs/DRAFT-educoreGraphStructure-V09-102826.md by graphStructurePdf/buildGraphStructurePdf.py; written by ONYX_CROWN for TQ; counts measured on GOLD_EVAL_261026_respelled; companion: The Production of the EDUcore Standards Graph V.02",
+			"documentDate": "2026-10-28"
+		},
+		{
+			"sourceRole": "forgingSystemPaper",
+			"sourcePart": "",
+			"relativeFilePath": "forgingSystemPdf/educoreForgingSystem-V02-102826.pdf",
+			"originUrl": null,
+			"originNote": "Version V.02; The Production of the EDUcore Standards Graph: Forges, Bridges and Reproducible Assembly, rendered from management/zNotesPlansDocs/DRAFT-educoreForgingSystem-V02-102826.md by graphStructurePdf/buildGraphStructurePdf.py; written by OBSIDIAN_NEXUS, synced by ONYX_CROWN; grounded in educoreForge main 920eacba; companion: The Structure of the EDUcore Standards Graph V.09",
+			"documentDate": "2026-10-28"
+		}
+	]
+}

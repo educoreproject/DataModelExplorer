@@ -162,6 +162,7 @@ const fallbackPromptOptions = [
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
+					<CompanionPagesCompanionSiteDocumentButtons />
 					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. The standards in this graph, read from the graph itself when this page opened:</p>
 					<p v-if="standardListStore.standardListLoading" style="font-style: italic;">Reading the standards list from the graph&hellip;</p>
 					<p v-else-if="standardListStore.standardListUnavailableReason" style="color: #B71C1C; font-weight: 600;">standards list unavailable: {{ standardListStore.standardListUnavailableReason }}</p>
