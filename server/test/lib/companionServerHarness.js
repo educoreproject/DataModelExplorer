@@ -24,8 +24,8 @@ const SERVER_PATH = path.join(__dirname, '..', '..');
 const ACCESS_POINT_DIR_PATH = path.join(SERVER_PATH, 'data-model', 'access-points-dot-d', 'accessPoints.d');
 const ENDPOINT_DIR_PATH = path.join(SERVER_PATH, 'endpoints-dot-d', 'qtDotLib.d');
 const USER_ACCESS_POINT_NAME_LIST = ['host-params', 'user-by-username', 'user-login'];
-const COMPANION_ACCESS_POINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-file', 'companion-compile-current'];
-const COMPANION_ENDPOINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-history', 'companion-source-file', 'companion-compile-current'];
+const COMPANION_ACCESS_POINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-file', 'companion-compile-current', 'companion-page-get', 'companion-compile-history'];
+const COMPANION_ENDPOINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-history', 'companion-source-file', 'companion-compile-current', 'companion-page-get', 'companion-compile-history'];
 const HARNESS_PASSWORD = 'CompanionHarness9!';
 const SEEDED_ROLE_LIST = ['admin', 'super', 'user', 'client', 'subadministrator'];
 

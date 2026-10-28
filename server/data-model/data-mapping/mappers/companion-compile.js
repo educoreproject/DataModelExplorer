@@ -90,6 +90,8 @@ const moduleFunction =
 						  UPDATE <!tableName!> SET [updatedAt] = CURRENT_TIMESTAMP WHERE [refId] = NEW.[refId];
 						END;`,
 				newestForPage: `SELECT * FROM <!tableName!> WHERE pageSlug = <!pageSlug!> ORDER BY compiledAt DESC, rowid DESC LIMIT 1`,
+				// every compile of a page, newest first, WITHOUT its payload (the compile history an admin reads)
+				historyForPage: `SELECT [refId], [pageSlug], [graphName], [graphContractSha256], [sourceSetSha256], [compiledAt], [compilerVersion], [statusText] FROM <!tableName!> WHERE pageSlug = <!pageSlug!> ORDER BY compiledAt DESC, rowid DESC`,
 				insert: `INSERT INTO <!tableName!> ([refId], ${columnListText}) VALUES (<!refId!>, ${valueListText})`,
 			};
 

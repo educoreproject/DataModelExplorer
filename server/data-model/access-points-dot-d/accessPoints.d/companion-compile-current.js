@@ -8,7 +8,7 @@
 //   graphName            [dataModelExplorerSearch] goldenContainerName, which the golden's passport must also name
 //   graphContractSha256  the golden passport's
 //   sourceSetSha256      sha256 over the page's current sources, one line 'sourceRole TAB sourcePart TAB sha256' each,
-//                        sorted (read through the companion-source-list access point)
+//                        sorted (lib/companion-pages/companion-source-set.js; read through companion-source-list)
 //   compilerVersion      the page's compiler's (compilers/compiler-registry.js)
 // When the newest stored compile is not current, the page is recompiled before answering and the compile stored. The
 // sources' bytes are read only through the companion-source-file access point (which checks them against their row),
@@ -23,18 +23,16 @@
 //                          compiledAt, compilerVersion }, payload })
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
-const crypto = require('crypto');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
 
 const newRefId = require('../../lib/new-refid')({ digits: 20 });
 const { getCompanionTables } = require('../../lib/companion-pages/companion-tables');
+const { sourceSetSha256Of } = require('../../lib/companion-pages/companion-source-set');
 const { compilerByName } = require('../../lib/companion-pages/compilers/compiler-registry');
 const { namePatternByField } = require('../../lib/companion-pages/companion-source-rules.json');
 
 const QUIET = { suppressStatementLog: true };
-
-const sha256Of = (contentText) => crypto.createHash('sha256').update(contentText).digest('hex');
 
 //START OF moduleFunction() ============================================================
 
@@ -101,12 +99,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(err, {});
 				return;
 			}
-			const sourceSetText = args.sourceRecordList
-				.map(({ sourceRole, sourcePart, sha256 }) => `${sourceRole}\t${sourcePart}\t${sha256}`)
-				.sort()
-				.join('\n');
 			callback('', {
-				liveStampByName: { graphName: args.goldenContainerName, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sha256Of(sourceSetText), compilerVersion: compilerEntry.compilerVersion },
+				liveStampByName: { graphName: args.goldenContainerName, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sourceSetSha256Of(args.sourceRecordList), compilerVersion: compilerEntry.compilerVersion },
 				sourceRecordList: args.sourceRecordList,
 			});
 		});
