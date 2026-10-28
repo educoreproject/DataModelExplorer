@@ -8,6 +8,7 @@
 //   U4 the dictionary search narrows the table
 //   U5 the Arkansas panel shows the sheet's own group label and column headers
 //   U6 no administration panel for a user
+//   U7 each Ask DME link is /dm/explorer?prefillPrompt=… (fills, never sends)
 //   S1 with the compile answer made not current (the response altered in the browser, the server untouched), the
 //      out-of-date notice names the stale stamp and the reason; with the real answer there is no notice
 //   A1 as an admin-role user (--adminUserName, role admin or super): the administration panel, with the upload form,
@@ -101,6 +102,9 @@ try {
 	const arkansasText = await page.locator('[data-testid="companion-panel-arkansas"]').innerText();
 	check(`U5 the sheet's group label '${groupedColumn.groupLabel}' and its headers are shown`, arkansasText.includes(groupedColumn.groupLabel) && arkansasText.includes(compileAnswer.payload.arkansasPilot.programColumnList[0].programName.split('\n')[0].trim()));
 	check('U6 no administration panel for a user', (await page.locator('[data-testid="companion-admin"]').count()) === 0);
+	const askDmeHrefList = await page.locator('[data-testid^="ask-dme-"] a').evaluateAll((linkList) => linkList.map((linkElement) => linkElement.getAttribute('href')));
+	check('U7 each Ask DME link opens the DME with its prompt to fill in (?prefillPrompt=), never ?prompt=', askDmeHrefList.length >= 1 && askDmeHrefList.every((hrefText) => hrefText.startsWith('/dm/explorer?prefillPrompt=') && !/[?&]prompt=/.test(hrefText)), askDmeHrefList.join(' '));
+	await page.locator('[data-testid="companion-panel-askDme"]').screenshot({ path: shotPath('companionPages-G4.1-user-askDme') });
 	await page.evaluate(() => document.querySelector('[data-testid="companion-page"]').scrollIntoView());
 	await page.screenshot({ path: shotPath('companionPages-G4.1-user') });
 	await page.locator('[data-testid="companion-panel-linkage"]').screenshot({ path: shotPath('companionPages-G4.1-user-linkage') });

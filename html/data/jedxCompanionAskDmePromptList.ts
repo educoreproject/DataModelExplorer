@@ -14,4 +14,20 @@ export interface JedxAskDmePrompt {
 	consistencyRecord: { goldenName: string; runCount: number; agreedRunCount: number; testedOn: string };
 }
 
-export const jedxCompanionAskDmePromptList: JedxAskDmePrompt[] = [];
+export const jedxCompanionAskDmePromptList: JedxAskDmePrompt[] = [
+	{
+		jedxObjectName: 'WorkerType',
+		promptText: 'Show the JEDx WorkerType object, its fields, and their CEDS and CTDL equivalents with match relation and confidence.',
+		consistencyRecord: { goldenName: 'GOLD_EVAL_261026_respelled', runCount: 5, agreedRunCount: 5, testedOn: '2026-10-28' },
+	},
+	{
+		jedxObjectName: 'PositionType',
+		promptText: 'Show the JEDx PositionType object, its fields, and their CEDS and CTDL equivalents with match relation and confidence.',
+		consistencyRecord: { goldenName: 'GOLD_EVAL_261026_respelled', runCount: 5, agreedRunCount: 5, testedOn: '2026-10-28' },
+	},
+	{
+		jedxObjectName: 'JobType',
+		promptText: 'Show the JEDx JobType object, its fields, and their CEDS and CTDL equivalents with match relation and confidence.',
+		consistencyRecord: { goldenName: 'GOLD_EVAL_261026_respelled', runCount: 5, agreedRunCount: 5, testedOn: '2026-10-28' },
+	},
+];
