@@ -151,11 +151,18 @@ const moduleFunction =
 					options = {};
 				}
 
-				const userRole = authclaims.user?.role;
+				// EXACT role names. This was userRole.includes(item), a substring test on the role text, so
+				// 'subadministrator' passed ['admin']. A role is one name, a list in one text (commas or spaces),
+				// or an array; a permitted name must equal one of them. A token with no role matches nothing
+				// (it used to throw). The 'super' bypass is unchanged.
+				const userRole = authclaims?.user?.role;
+				const userRoleNameList = (Array.isArray(userRole) ? userRole : String(userRole ?? '').split(/[\s,]+/))
+					.map((roleName) => String(roleName).trim())
+					.filter(Boolean);
 				const isValid =
 					permissionList.includes('public') ||
 					userRole === 'super' ||
-					permissionList.some((item) => userRole.includes(item));
+					permissionList.some((permittedRoleName) => userRoleNameList.includes(permittedRoleName));
 
 				const err = isValid ? false : 'Unauthorized access';
 
