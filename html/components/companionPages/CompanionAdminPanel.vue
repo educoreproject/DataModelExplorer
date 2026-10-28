@@ -133,7 +133,8 @@ const submitPageForm = async () => {
 	const pageRecord = Object.fromEntries(
 		PAGE_FIELD_NAME_LIST.map((fieldName) => {
 			const fieldValue = pageFormRecord.value[fieldName];
-			if (fieldName === 'sortOrder') return [fieldName, Number(fieldValue)];
+			// an empty sort order goes as null, which the server refuses by name, rather than as Number('') = 0
+			if (fieldName === 'sortOrder') return [fieldName, String(fieldValue).trim() === '' ? null : Number(fieldValue)];
 			if (NULLABLE_TEXT_FIELD_NAME_LIST.includes(fieldName)) return [fieldName, String(fieldValue).trim() === '' ? null : String(fieldValue).trim()];
 			return [fieldName, typeof fieldValue === 'string' ? fieldValue.trim() : fieldValue];
 		}),
@@ -233,7 +234,7 @@ const submitPageForm = async () => {
 			<v-select v-model="pageFormRecord.targetKind" :items="TARGET_KIND_OPTION_LIST" label="Target" density="compact" variant="outlined" hide-details />
 			<v-text-field v-if="pageFormRecord.targetKind === 'externalUrl'" v-model="pageFormRecord.externalUrl" label="Outside URL" density="compact" variant="outlined" hide-details />
 			<v-text-field v-if="pageFormRecord.targetKind === 'compiled'" v-model="pageFormRecord.compilerName" label="Compiler (e.g. jedxDictionary)" density="compact" variant="outlined" hide-details />
-			<v-text-field v-model="pageFormRecord.sortOrder" label="Sort order" type="number" density="compact" variant="outlined" hide-details />
+			<v-text-field v-model="pageFormRecord.sortOrder" label="Sort order" type="number" density="compact" variant="outlined" hide-details data-testid="admin-page-sort-order" />
 			<v-switch v-model="pageFormRecord.isActive" label="Active (listed in the explorer)" color="primary" density="compact" hide-details />
 			<div class="admin-page-actions">
 				<v-btn color="primary" :loading="adminStore.saving" data-testid="admin-page-save" @click="submitPageForm">{{ isNewPageForm ? 'Add page' : 'Save page' }}</v-btn>

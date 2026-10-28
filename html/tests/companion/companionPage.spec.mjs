@@ -12,6 +12,8 @@
 //      out-of-date notice names the stale stamp and the reason; with the real answer there is no notice
 //   A1 as an admin-role user (--adminUserName, role admin or super): the administration panel, with the upload form,
 //      a source history group per role and part, and the compile history
+//   A2 an edit with the sort order emptied is refused by the server by name; nothing is saved (an empty field is sent as
+//      null, never as Number('') = 0)
 // Screenshots go to --evidenceDir. Each role logs in fresh (the login lives in memory).
 //
 //   node html/tests/companion/companionPage.spec.mjs --baseUrl=… --userName=… --passwordFile=… --adminUserName=…
@@ -130,6 +132,13 @@ try {
 	const currentPartCount = new Set(asAdmin.compileAnswerList[0].payload.sourceList.map((sourceRecord) => `${sourceRecord.sourceRole}\t${sourceRecord.sourcePart}`)).size;
 	check(`A1 a source history group for each of the ${currentPartCount} roles and parts`, historyGroupCount === currentPartCount, String(historyGroupCount));
 	check('A1 the compile history lists compiles', (await asAdmin.page.locator('[data-testid="admin-compile-history"] tbody tr').count()) >= 1);
+	await asAdmin.page.locator('[data-testid="admin-edit-page"]').click();
+	await asAdmin.page.locator('[data-testid="admin-page-sort-order"] input').fill('');
+	await asAdmin.page.locator('[data-testid="admin-page-save"]').click();
+	await asAdmin.page.waitForSelector('[data-testid="admin-page-error"], [data-testid="admin-page-saved"]', { timeout: 15000 });
+	const sortOrderErrorText = (await asAdmin.page.locator('[data-testid="admin-page-error"]').count()) ? await asAdmin.page.locator('[data-testid="admin-page-error"]').innerText() : '';
+	check('A2 an edit with an empty sort order is refused by name, not saved as 0', /sortOrder must be an integer \(got null\)/.test(sortOrderErrorText) && (await asAdmin.page.locator('[data-testid="admin-page-saved"]').count()) === 0, sortOrderErrorText);
+	await asAdmin.page.getByRole('button', { name: 'Cancel' }).click();
 	await asAdmin.page.locator('[data-testid="companion-admin"]').scrollIntoViewIfNeeded();
 	await asAdmin.page.screenshot({ path: shotPath('companionPages-G4.1-admin') });
 	await asAdmin.page.locator('[data-testid="companion-admin"]').screenshot({ path: shotPath('companionPages-G4.1-admin-panel') });
