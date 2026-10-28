@@ -96,6 +96,18 @@ watch(() => graphStore.connected, (connected) => {
 	}
 });
 
+// Prefill from ?prefillPrompt= (Companion Pages Ask DME links): the prompt is put in the input and NOT sent; the visitor
+// reads it and presses Submit. The query is then removed, so a later visit to this URL does not refill the input. When
+// ?prompt= is also present, that link asked to send, and the auto-send above handles it instead.
+const edunatorPanel = ref(null);
+onMounted(() => {
+	const prefillPromptText = typeof route.query.prefillPrompt === 'string' ? route.query.prefillPrompt : '';
+	if (!prefillPromptText || route.query.prompt) return;
+	edunatorPanel.value.promptText = prefillPromptText;
+	const { prefillPrompt, ...remainingQuery } = route.query;
+	router.replace({ path: route.path, query: remainingQuery });
+});
+
 // AI-powered filename generation for download button
 const generateAiFilename = async (snippet) => {
 	const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
@@ -135,6 +147,7 @@ const fallbackPromptOptions = [
 				</v-alert>
 
 				<EdunatorPanel
+				ref="edunatorPanel"
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
