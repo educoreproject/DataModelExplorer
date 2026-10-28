@@ -64,7 +64,10 @@ const moduleFunction =
 				outObj.isCurrent = Number(outObj.isCurrent) === 1;
 			}
 			if (direction === 'reverse' && outObj.isCurrent !== undefined) {
-				outObj.isCurrent = outObj.isCurrent === true ? 1 : 0;
+				if (typeof outObj.isCurrent !== 'boolean') {
+					throw new Error(`${moduleName}: isCurrent must be true or false (got ${JSON.stringify(outObj.isCurrent)})`);
+				}
+				outObj.isCurrent = outObj.isCurrent ? 1 : 0;
 			}
 			return outObj;
 		};
@@ -153,4 +156,4 @@ const moduleFunction =
 
 //END OF moduleFunction() ============================================================
 
-module.exports = moduleFunction(moduleName);
+module.exports = moduleFunction({ moduleName });

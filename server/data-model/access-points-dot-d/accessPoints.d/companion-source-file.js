@@ -20,9 +20,10 @@ const { readSourceFile } = require('../../lib/companion-pages/companion-source-f
 const { namePatternByField } = require('../../lib/companion-pages/companion-source-rules.json');
 
 const QUIET = { suppressStatementLog: true };
+// each shape names the mapper query that finds its row and how the request fills that query
 const REQUEST_SHAPE_LIST = [
-	{ shapeName: 'byRefId', propertyList: ['sourceRefId'] },
-	{ shapeName: 'currentByPart', propertyList: ['pageSlug', 'sourceRole', 'sourcePart'] },
+	{ shapeName: 'byRefId', propertyList: ['sourceRefId'], queryName: 'byRefId', replaceObjectOf: (fileRequest) => ({ refId: fileRequest.sourceRefId }) },
+	{ shapeName: 'currentByPart', propertyList: ['pageSlug', 'sourceRole', 'sourcePart'], queryName: 'currentByPart', replaceObjectOf: (fileRequest) => fileRequest },
 ];
 
 const shapeOf = (fileRequest) => {
@@ -63,10 +64,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 		taskList.push((args, next) => {
 			const { fileRequest, requestShape, companionTables } = args;
-			const queryText =
-				requestShape.shapeName === 'byRefId'
-					? sourceMapper.getSql('byRefId', { refId: fileRequest.sourceRefId })
-					: sourceMapper.getSql('currentByPart', fileRequest);
+			const queryText = sourceMapper.getSql(requestShape.queryName, requestShape.replaceObjectOf(fileRequest));
 			companionTables.sourceTable.getData(queryText, QUIET, (err, rowList = []) => {
 				if (err) {
 					next(err, args);

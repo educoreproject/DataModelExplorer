@@ -60,7 +60,10 @@ const moduleFunction =
 				outObj.isActive = Number(outObj.isActive) === 1;
 			}
 			if (direction === 'reverse' && outObj.isActive !== undefined) {
-				outObj.isActive = outObj.isActive === true ? 1 : 0;
+				if (typeof outObj.isActive !== 'boolean') {
+					throw new Error(`${moduleName}: isActive must be true or false (got ${JSON.stringify(outObj.isActive)})`);
+				}
+				outObj.isActive = outObj.isActive ? 1 : 0;
 			}
 			return outObj;
 		};
@@ -136,4 +139,4 @@ const moduleFunction =
 
 //END OF moduleFunction() ============================================================
 
-module.exports = moduleFunction(moduleName);
+module.exports = moduleFunction({ moduleName });
