@@ -1,17 +1,15 @@
 <script setup>
 // The explorer's Downloads section (WORKORDER-standardDownloads-101526 §3c): the downloads of the standard being
-// visited, read from the focus (never the selected row). How the focus names its standard:
-//   the families catalog   no standard: one "All downloads" link
-//   a family               its standard when the family holds exactly one, else none
-//   a release              the standards listed on this level (one per version)
-//   anything else          the focus's own standardKey (a standard root, a class, a field, a hub element, a group)
-// and always, below a family, the link to the Downloads page filtered to that family. Under each standard's title, where
+// visited, read from the focus (never the selected row). Which standards the focus names is the shared focus rule,
+// focusStandardKeyList.js; at the families catalog there is none, and the section shows one "All downloads" link.
+// Always, below a family, the link to the Downloads page filtered to that family. Under each standard's title, where
 // its source came from (SourceUrlNote; WORKORDER-sourceUrls-101526).
 
 import { computed, onMounted } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
 import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { standardKeyListOfFocus } from '@/components/standardsExplorer/focusStandardKeyList';
 
 const neighbourhoodStore = useStandardsNeighbourhoodStore();
 const downloadsStore = useStandardDownloadsStore();
@@ -22,20 +20,9 @@ const focusNode = computed(() => neighbourhoodStore.focusNode);
 const isCatalog = computed(() => focusNode.value?.kind === 'familyCatalog');
 const standardFamily = computed(() => focusNode.value?.standardFamily || '');
 
-const standardKeyListByKind = {
-	family: () => {
-		const familyStandardKeyList = downloadsStore.standardKeyListOfFamily(standardFamily.value);
-		return familyStandardKeyList.length === 1 ? familyStandardKeyList : [];
-	},
-	release: () => [...new Set(neighbourhoodStore.levelRowList.filter((oneRow) => oneRow.kind === 'standard' && oneRow.standardKey).map((oneRow) => oneRow.standardKey))],
-};
-
-const standardKeyList = computed(() => {
-	if (!focusNode.value || isCatalog.value) return [];
-	const listOfKind = standardKeyListByKind[focusNode.value.kind];
-	if (listOfKind) return listOfKind();
-	return focusNode.value.standardKey ? [focusNode.value.standardKey] : [];
-});
+const standardKeyList = computed(() =>
+	standardKeyListOfFocus({ focusNode: focusNode.value, levelRowList: neighbourhoodStore.levelRowList, standardKeyListOfFamily: downloadsStore.standardKeyListOfFamily }),
+);
 
 const standardDownloadList = computed(() =>
 	standardKeyList.value.map((standardKey) => {
