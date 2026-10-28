@@ -9,6 +9,8 @@
 //   U5 the Arkansas panel shows the sheet's own group label and column headers
 //   U6 no administration panel for a user
 //   U7 each Ask DME link is /dm/explorer?prefillPrompt=… (fills, never sends)
+//   T1 one tab per panel, in order, the first open by default; choosing a tab puts it in ?tab= and opens it
+//   T2 a page opened with ?tab=linkage opens the Linkage tab; ?tab=noSuchTab names the missing tab and opens none
 //   S1 with the compile answer made not current (the response altered in the browser, the server untouched), the
 //      out-of-date notice names the stale stamp and the reason; with the real answer there is no notice
 //   A1 as an admin-role user (--adminUserName, role admin or super): the administration panel, with the upload form,
@@ -39,6 +41,13 @@ const shotPath = (shotName) => path.join(argumentByName.evidenceDir, `${shotName
 const PAGE_PATH = '/explore/companion/jedx-dictionary';
 const COMPILE_ROUTE_PATTERN = '**/api/companion-compile-current';
 const PANEL_TEST_ID_LIST = ['dictionary', 'linkage', 'arkansas', 'guide', 'objectModel', 'notLinked', 'askDme'].map((panelName) => `companion-panel-${panelName}`);
+// opens one tab of the page and waits for its panel to be shown
+const openTabOf = async (page, tabName) => {
+	await page.locator(`[data-testid="companion-tab-${tabName}"]`).click();
+	await page.locator(`[data-testid="companion-${tabName === 'admin' ? 'admin' : `panel-${tabName}`}"]`).waitFor({ state: 'visible', timeout: 15000 });
+	await page.waitForTimeout(800); // the window's slide transition, after which the other tabs' panels are hidden
+};
+const visibleOf = async (page, testId) => page.locator(`[data-testid="${testId}"]`).isVisible();
 const STALE_REASON_TEXT = 'browser test: the recompile is made to fail';
 
 let passed = 0;
@@ -50,7 +59,7 @@ const check = (checkName, condition, detailText) => {
 };
 
 // logs in fresh and lands on the page; routeHandler, when given, sees the compile request
-const openPageAs = async (browser, { userName, passwordFile, routeHandler }) => {
+const openPageAs = async (browser, { userName, passwordFile, routeHandler, pageQueryText = '' }) => {
 	const browserContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
 	const page = await browserContext.newPage();
 	const compileAnswerList = [];
@@ -58,7 +67,7 @@ const openPageAs = async (browser, { userName, passwordFile, routeHandler }) => 
 		if (response.url().endsWith('/api/companion-compile-current') && response.status() === 200) compileAnswerList.push((await response.json())[0]);
 	});
 	if (routeHandler) await page.route(COMPILE_ROUTE_PATTERN, routeHandler);
-	await page.goto(`${baseUrl}/login?redirect=${encodeURIComponent(PAGE_PATH)}`);
+	await page.goto(`${baseUrl}/login?redirect=${encodeURIComponent(`${PAGE_PATH}${pageQueryText}`)}`);
 	await page.getByLabel('User Name').fill(userName);
 	await page.getByLabel('Password', { exact: true }).fill(fs.readFileSync(passwordFile, 'utf8').trim());
 	await page.getByRole('button', { name: 'Login' }).click();
@@ -83,6 +92,12 @@ try {
 	const shownPanelTestIdList = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="companion-panel-"]')].map((panelElement) => panelElement.dataset.testid));
 	check('U2 the seven panels, in order', JSON.stringify(shownPanelTestIdList) === JSON.stringify(PANEL_TEST_ID_LIST), shownPanelTestIdList.join(' '));
 
+	const tabTestIdList = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="companion-tab-"]')].map((tabElement) => tabElement.dataset.testid));
+	check('T1 one tab per panel, in order', JSON.stringify(tabTestIdList) === JSON.stringify(PANEL_TEST_ID_LIST.map((testId) => testId.replace('companion-panel-', 'companion-tab-'))), tabTestIdList.join(' '));
+	check('T1 the first tab is open by default and the others are not', (await visibleOf(page, 'companion-panel-dictionary')) && !(await visibleOf(page, 'companion-panel-linkage')));
+	await openTabOf(page, 'linkage');
+	check('T1 choosing a tab puts it in ?tab= and opens only it', new URL(page.url()).searchParams.get('tab') === 'linkage' && (await visibleOf(page, 'companion-panel-linkage')) && !(await visibleOf(page, 'companion-panel-dictionary')), page.url());
+
 	const countSummary = compileAnswer.payload.countSummary;
 	const linkageCountText = await page.locator('[data-testid="linkage-count"]').innerText();
 	const countFigureList = [countSummary.elementCount, countSummary.resolvedCount, countSummary.distinctPropertyCount, countSummary.matchedElementCount, ...Object.values(countSummary.matchedElementCountByHub), ...Object.values(countSummary.matchCountByKind)];
@@ -92,6 +107,7 @@ try {
 	check('U3 no featured match is missing from the compile', (await page.locator('[data-testid="linkage-featured-missing"]').count()) === 0);
 	check('U3 shared HR Open properties show the sharing elements', (await page.locator('[data-testid="linkage-shared"]').count()) >= 1);
 
+	await openTabOf(page, 'dictionary');
 	await page.locator('[data-testid="dictionary-search"] input').fill('Date of Hire');
 	await page.waitForTimeout(500);
 	const searchedCountText = await page.locator('[data-testid="dictionary-count"]').innerText();
@@ -99,16 +115,28 @@ try {
 	await page.locator('[data-testid="dictionary-search"] input').fill('');
 
 	const groupedColumn = compileAnswer.payload.arkansasPilot.programColumnList.find((programColumn) => programColumn.groupLabel);
+	await openTabOf(page, 'arkansas');
 	const arkansasText = await page.locator('[data-testid="companion-panel-arkansas"]').innerText();
 	check(`U5 the sheet's group label '${groupedColumn.groupLabel}' and its headers are shown`, arkansasText.includes(groupedColumn.groupLabel) && arkansasText.includes(compileAnswer.payload.arkansasPilot.programColumnList[0].programName.split('\n')[0].trim()));
-	check('U6 no administration panel for a user', (await page.locator('[data-testid="companion-admin"]').count()) === 0);
+	check('U6 no administration panel or tab for a user', (await page.locator('[data-testid="companion-admin"]').count()) === 0 && (await page.locator('[data-testid="companion-tab-admin"]').count()) === 0);
+	await openTabOf(page, 'askDme');
 	const askDmeHrefList = await page.locator('[data-testid^="ask-dme-"] a').evaluateAll((linkList) => linkList.map((linkElement) => linkElement.getAttribute('href')));
 	check('U7 each Ask DME link opens the DME with its prompt to fill in (?prefillPrompt=), never ?prompt=', askDmeHrefList.length >= 1 && askDmeHrefList.every((hrefText) => hrefText.startsWith('/dm/explorer?prefillPrompt=') && !/[?&]prompt=/.test(hrefText)), askDmeHrefList.join(' '));
 	await page.locator('[data-testid="companion-panel-askDme"]').screenshot({ path: shotPath('companionPages-G4.1-user-askDme') });
 	await page.evaluate(() => document.querySelector('[data-testid="companion-page"]').scrollIntoView());
 	await page.screenshot({ path: shotPath('companionPages-G4.1-user') });
+	await openTabOf(page, 'linkage');
 	await page.locator('[data-testid="companion-panel-linkage"]').screenshot({ path: shotPath('companionPages-G4.1-user-linkage') });
 	await asUser.browserContext.close();
+
+	console.log('DEEP LINKS (?tab=)');
+	const asUserLinked = await openPageAs(browser, { userName: argumentByName.userName, passwordFile: argumentByName.passwordFile, pageQueryText: '?tab=linkage' });
+	check('T2 ?tab=linkage opens the Linkage tab', (await visibleOf(asUserLinked.page, 'companion-panel-linkage')) && !(await visibleOf(asUserLinked.page, 'companion-panel-dictionary')));
+	await asUserLinked.browserContext.close();
+	const asUserMislinked = await openPageAs(browser, { userName: argumentByName.userName, passwordFile: argumentByName.passwordFile, pageQueryText: '?tab=noSuchTab' });
+	const unknownTabText = (await asUserMislinked.page.locator('[data-testid="companion-unknown-tab"]').count()) ? await asUserMislinked.page.locator('[data-testid="companion-unknown-tab"]').innerText() : '';
+	check('T2 ?tab=noSuchTab names the missing tab and opens no panel', unknownTabText.includes('noSuchTab') && !(await visibleOf(asUserMislinked.page, 'companion-panel-dictionary')), unknownTabText);
+	await asUserMislinked.browserContext.close();
 
 	console.log('STALE (the compile answer altered in the browser)');
 	const asUserStale = await openPageAs(browser, {
@@ -128,9 +156,10 @@ try {
 
 	console.log('ADMIN');
 	const asAdmin = await openPageAs(browser, { userName: argumentByName.adminUserName, passwordFile: argumentByName.adminPasswordFile });
-	await asAdmin.page.waitForSelector('[data-testid="companion-admin"]', { timeout: 15000 }).catch(() => {});
+	await asAdmin.page.waitForSelector('[data-testid="companion-tab-admin"]', { timeout: 15000 }).catch(() => {});
+	if (await asAdmin.page.locator('[data-testid="companion-tab-admin"]').count()) await openTabOf(asAdmin.page, 'admin');
 	await asAdmin.page.waitForTimeout(1500);
-	check('A1 the administration panel is shown', (await asAdmin.page.locator('[data-testid="companion-admin"]').count()) === 1);
+	check('A1 the Administration tab opens the administration panel', (await asAdmin.page.locator('[data-testid="companion-admin"]').count()) === 1);
 	check('A1 with the upload form', (await asAdmin.page.locator('[data-testid="admin-upload-form"]').count()) === 1);
 	const historyGroupCount = await asAdmin.page.locator('[data-testid^="admin-history-"][data-testid$="-whole"], [data-testid^="admin-history-dictionary-"]').count();
 	const currentPartCount = new Set(asAdmin.compileAnswerList[0].payload.sourceList.map((sourceRecord) => `${sourceRecord.sourceRole}\t${sourceRecord.sourcePart}`)).size;

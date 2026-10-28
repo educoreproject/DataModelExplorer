@@ -5,12 +5,15 @@
 //
 // The page reads its registry record and its current compile (companionPageStore), always shows what the compile was
 // built from (CompanionStampBar, with the out-of-date notice when the compile is not current), and then the panels its
-// compiler's registry entry names (companionPanelRegistry.js), in that order. Admin and super users also see the
-// administration panel (upload, source and compile history, add or edit page); after an upload or restore the page
+// compiler's registry entry names (companionPanelRegistry.js), one tab each, in that order. Admin and super users also
+// get an Administration tab (upload, source and compile history, add or edit page); after an upload or restore the page
 // re-reads its compile, which recompiles from the new sources.
+//
+// The open tab is the ?tab= query, so a tab can be linked to. No ?tab= opens the first tab; a ?tab= that names no tab on
+// this page is shown as such, with no tab opened, rather than quietly opening another one.
 
 import { computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useLoginStore } from '@/stores/loginStore';
 import { useCompanionPageStore } from '@/stores/companionPageStore';
 import { companionPanelListByCompilerName } from '@/components/companionPages/companionPanelRegistry';
@@ -18,6 +21,7 @@ import { companionPanelListByCompilerName } from '@/components/companionPages/co
 definePageMeta({ middleware: 'auth' });
 
 const route = useRoute();
+const router = useRouter();
 const loginStore = useLoginStore();
 const companionPageStore = useCompanionPageStore();
 
@@ -33,6 +37,18 @@ const compileAnswer = computed(() => companionPageStore.compileAnswer);
 const panelList = computed(() => (pageRecord.value && companionPanelListByCompilerName[pageRecord.value.compilerName]) || null);
 
 const reloadPage = () => companionPageStore.loadPage(pageSlug.value);
+
+const ADMIN_TAB_NAME = 'admin';
+// the panels show only with a compile to show; the Administration tab shows whenever the viewer is an admin
+const shownPanelList = computed(() => (compileAnswer.value && panelList.value) || []);
+const tabNameList = computed(() => [...shownPanelList.value.map((panelEntry) => panelEntry.panelName), ...(isAdminViewer.value ? [ADMIN_TAB_NAME] : [])]);
+const requestedTabName = computed(() => (route.query.tab === undefined ? '' : String(route.query.tab)));
+const isUnknownTabRequested = computed(() => requestedTabName.value !== '' && tabNameList.value.length > 0 && !tabNameList.value.includes(requestedTabName.value));
+const openTabName = computed(() => {
+	if (requestedTabName.value === '') return tabNameList.value[0] || null;
+	return isUnknownTabRequested.value ? null : requestedTabName.value;
+});
+const openTab = (chosenTabName) => router.replace({ query: { ...route.query, tab: chosenTabName } });
 </script>
 
 <template>
@@ -58,17 +74,29 @@ const reloadPage = () => companionPageStore.loadPage(pageSlug.value);
 			<template v-else-if="compileAnswer">
 				<CompanionPagesCompanionStampBar :compile-answer="compileAnswer" />
 				<v-alert v-if="!panelList" type="warning" variant="tonal" class="mt-3" data-testid="companion-no-panels">This site has no panels for pages built by '{{ pageRecord.compilerName }}'.</v-alert>
-				<template v-else>
-					<nav class="companion-lens-index" aria-label="Panels on this page">
-						<a v-for="panelEntry in panelList" :key="panelEntry.panelName" :href="`#companion-panel-${panelEntry.panelName}`" class="companion-lens-link">{{ panelEntry.panelTitle }}<span class="companion-lens-audience">{{ panelEntry.audienceText }}</span></a>
-					</nav>
-					<CompanionPagesCompanionPanelFrame v-for="panelEntry in panelList" :id="`companion-panel-${panelEntry.panelName}`" :key="panelEntry.panelName" :panel-title="panelEntry.panelTitle" :audience-text="panelEntry.audienceText" :best-used-for-text="panelEntry.bestUsedForText" :panel-test-id="`companion-panel-${panelEntry.panelName}`">
-						<component :is="panelEntry.panelComponent" v-bind="panelEntry.propsOf(compileAnswer)" />
-					</CompanionPagesCompanionPanelFrame>
-				</template>
 			</template>
 
-			<CompanionPagesCompanionAdminPanel v-if="isAdminViewer" :page-record="pageRecord" @sources-changed="reloadPage" @page-saved="(savedPage) => savedPage.pageSlug === pageSlug && reloadPage()" />
+			<template v-if="tabNameList.length > 0">
+				<v-tabs :model-value="openTabName" :mandatory="false" color="primary" show-arrows class="companion-tabs" data-testid="companion-tabs" @update:model-value="openTab">
+					<v-tab v-for="panelEntry in shownPanelList" :key="panelEntry.panelName" :value="panelEntry.panelName" class="companion-tab" :data-testid="`companion-tab-${panelEntry.panelName}`">
+						<span class="companion-tab-label">{{ panelEntry.panelTitle }}<span class="companion-tab-audience">{{ panelEntry.audienceText }}</span></span>
+					</v-tab>
+					<v-tab v-if="isAdminViewer" :value="ADMIN_TAB_NAME" class="companion-tab" data-testid="companion-tab-admin">
+						<span class="companion-tab-label">Administration<span class="companion-tab-audience">admin and super</span></span>
+					</v-tab>
+				</v-tabs>
+				<v-alert v-if="isUnknownTabRequested" type="warning" variant="tonal" class="mt-3" data-testid="companion-unknown-tab">This page has no tab named '{{ requestedTabName }}'. Choose one above.</v-alert>
+				<v-window v-if="openTabName" :model-value="openTabName" class="companion-window">
+					<v-window-item v-for="panelEntry in shownPanelList" :key="panelEntry.panelName" :value="panelEntry.panelName" eager>
+						<CompanionPagesCompanionPanelFrame :id="`companion-panel-${panelEntry.panelName}`" :panel-title="panelEntry.panelTitle" :audience-text="panelEntry.audienceText" :best-used-for-text="panelEntry.bestUsedForText" :panel-test-id="`companion-panel-${panelEntry.panelName}`">
+							<component :is="panelEntry.panelComponent" v-bind="panelEntry.propsOf(compileAnswer)" />
+						</CompanionPagesCompanionPanelFrame>
+					</v-window-item>
+					<v-window-item v-if="isAdminViewer" :value="ADMIN_TAB_NAME" eager>
+						<CompanionPagesCompanionAdminPanel :page-record="pageRecord" @sources-changed="reloadPage" @page-saved="(savedPage) => savedPage.pageSlug === pageSlug && reloadPage()" />
+					</v-window-item>
+				</v-window>
+			</template>
 		</template>
 	</div>
 </template>
@@ -114,31 +142,31 @@ const reloadPage = () => companionPageStore.loadPage(pageSlug.value);
 .companion-external {
 	margin-top: 16px;
 }
-.companion-lens-index {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
+.companion-tabs {
 	margin-top: 16px;
+	border-bottom: 1px solid #e3e7ef;
 }
-.companion-lens-link {
+.companion-tab {
+	text-transform: none;
+	letter-spacing: normal;
+	height: auto !important;
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+.companion-tab-label {
 	display: flex;
 	flex-direction: column;
-	border: 1px solid #e3e7ef;
-	border-radius: 10px;
-	padding: 8px 12px;
-	background: #fbfcfe;
-	text-decoration: none;
+	align-items: flex-start;
 	font-weight: 700;
 	font-size: 14px;
-	color: #072a6c;
 }
-.companion-lens-link:hover {
-	border-color: #072a6c;
-}
-.companion-lens-audience {
+.companion-tab-audience {
 	font-weight: 400;
 	font-size: 12px;
 	color: #6b7280;
+}
+.companion-window {
+	margin-top: 8px;
 }
 </style>
 
