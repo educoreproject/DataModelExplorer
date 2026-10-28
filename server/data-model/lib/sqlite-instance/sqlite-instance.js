@@ -2,6 +2,10 @@
 'use strict';
 // @concept: [[SqliteAbstraction]]
 
+// VERSION: a pre-10.0 copy carrying ONLY the 10.1 repair (2026-10-28, Companion Pages Phase 0): saveObject reports a
+// refused write, with the refId. The 10.0 changes (deleteObject, single apostrophe escaping, getFieldNames) are NOT
+// adopted. Canonical module and its version history: the project scaffold, server/data-model/lib/sqlite-instance/.
+
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, ''); // this just seems to come in handy a lot
 // const projectRoot=fs.realpathSync(path.join(__dirname, '..', '..')); // adjust the number of '..' to fit reality
 
@@ -337,10 +341,12 @@ const moduleFunction = function ({ unused }) {
 				cleanObj.refId = cleanObj.refId ? cleanObj.refId : newRefId();
 
 				const localCallback = (err) => {
-					if (err) {
-						errorList.push(err);
-					}
+					// 10.1: a refused write is REPORTED, with the refId.
 					const refId = cleanObj.refId;
+					if (err) {
+						next(err, { ...args, refId });
+						return;
+					}
 					next('', { ...args, refId });
 				};
 
@@ -380,14 +386,12 @@ const moduleFunction = function ({ unused }) {
 					xLog.status(`Wrote ${counter} records into ${tableName}`);
 				}
 			});
-			const errorList = [];
 			const initialData = {
 				runStatement,
 				tableName,
 				cleanObj,
 				jsonToTsv,
 				sqlString,
-				errorList,
 			};
 			pipeRunner(taskList.getList(), initialData, (err, args) => {
 				const { refId } = args;
