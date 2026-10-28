@@ -8,9 +8,11 @@
 // to a scratch directory. Seeded users, one per role the gates need (password HARNESS_PASSWORD for all):
 // admin, super, user, client, subadministrator.
 //
-//   bootCompanionServer({ scratchDirPath, accessPointModulePathByName, dataMappingModule, isLargeBodySkipOff }, callback(errText, { baseUrl, accessPointByName, companionSourcesDirPath, sqlDb, dataMapping, close }))
+//   bootCompanionServer({ scratchDirPath, accessPointModulePathByName, dataMappingModule, isLargeBodySkipOff, neo4jDb, configBySectionName }, callback(errText, { baseUrl, accessPointByName, companionSourcesDirPath, sqlDb, dataMapping, close }))
 //     red twins: accessPointModulePathByName replaces a companion access point (a path or a loaded module function);
 //     dataMappingModule replaces data-mapping.js; isLargeBodySkipOff mounts the global JSON parser on every route
+//     Phase 3: neo4jDb is the golden handle the compile reads (null when absent); configBySectionName adds or replaces
+//     configuration sections (e.g. dataModelExplorerSearch's goldenContainerName)
 //   httpPost({ baseUrl, routePath, requestBody | rawBodyText, authtoken }, callback(errText, { statusCode, bodyText, bodyJson, bodyBuffer, headerByName }))
 //   HARNESS_PASSWORD, SEEDED_ROLE_LIST
 
@@ -22,8 +24,8 @@ const SERVER_PATH = path.join(__dirname, '..', '..');
 const ACCESS_POINT_DIR_PATH = path.join(SERVER_PATH, 'data-model', 'access-points-dot-d', 'accessPoints.d');
 const ENDPOINT_DIR_PATH = path.join(SERVER_PATH, 'endpoints-dot-d', 'qtDotLib.d');
 const USER_ACCESS_POINT_NAME_LIST = ['host-params', 'user-by-username', 'user-login'];
-const COMPANION_ACCESS_POINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-file'];
-const COMPANION_ENDPOINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-history', 'companion-source-file'];
+const COMPANION_ACCESS_POINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-file', 'companion-compile-current'];
+const COMPANION_ENDPOINT_NAME_LIST = ['companion-page-list', 'companion-page-save', 'companion-source-upload', 'companion-source-list', 'companion-source-history', 'companion-source-file', 'companion-compile-current'];
 const HARNESS_PASSWORD = 'CompanionHarness9!';
 const SEEDED_ROLE_LIST = ['admin', 'super', 'user', 'client', 'subadministrator'];
 
@@ -50,8 +52,9 @@ const installProcessGlobal = () => {
 	};
 };
 
-const bootCompanionServer = ({ scratchDirPath, accessPointModulePathByName = {}, dataMappingModule, isLargeBodySkipOff = false }, callback) => {
+const bootCompanionServer = ({ scratchDirPath, accessPointModulePathByName = {}, dataMappingModule, isLargeBodySkipOff = false, neo4jDb = null, configBySectionName = {} }, callback) => {
 	installProcessGlobal();
+	Object.assign(configBySection, configBySectionName);
 	const express = require(require.resolve('express', { paths: [SERVER_PATH] }));
 	const bodyParser = require(require.resolve('body-parser', { paths: [SERVER_PATH] }));
 	const passwordTools = require(path.join(SERVER_PATH, 'data-model', 'lib', 'password-hash'))();
@@ -73,7 +76,7 @@ const bootCompanionServer = ({ scratchDirPath, accessPointModulePathByName = {},
 				return;
 			}
 			const accessPointByName = {};
-			const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb: null, slackAccess: null, companionSourcesDirPath, accessPointsDotD: accessPointByName };
+			const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb, slackAccess: null, companionSourcesDirPath, accessPointsDotD: accessPointByName };
 			const dotD = { logList: [], library: { add: (addedName, serviceFunction) => { accessPointByName[addedName] = serviceFunction; } } };
 			USER_ACCESS_POINT_NAME_LIST.forEach((accessPointName) => require(path.join(ACCESS_POINT_DIR_PATH, accessPointName))({ dotD, passThroughParameters }));
 			COMPANION_ACCESS_POINT_NAME_LIST.forEach((accessPointName) => {
