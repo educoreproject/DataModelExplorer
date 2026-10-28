@@ -1,0 +1,6 @@
+{
+	"_comment": "Routes whose JSON body may exceed the global parser's 100 kb default, keyed by the EXACT mounted route path. startApiServer.js skips the global JSON parser for these paths; the route's own endpoint parses the body with this limit itself, AFTER its permission check, so no caller who fails that check ever has a large body parsed. lib/large-body-json.js reads this file for both sides.",
+	"jsonBodyLimitByRoutePath": {
+		"/api/companion-source-upload": "36mb"
+	}
+}

@@ -331,7 +331,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess', 'companionSourcesDirPath']),
 				localCallback,
 			);
 		});
@@ -349,6 +349,8 @@ const moduleFunction =
 			databaseFileName,
 			databaseContainerDirPath,
 			databaseTypeName,
+			// companion page source files (SPEC-companionPages-102826) live beside the database
+			companionSourcesDirPath: require('./lib/companion-pages/companion-source-files').companionSourcesDirPathOf(databaseContainerDirPath),
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {

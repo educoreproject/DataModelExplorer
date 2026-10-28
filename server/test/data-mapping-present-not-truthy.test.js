@@ -76,8 +76,9 @@ console.log('G0.2 blank password');
 const realProfileUser = realDataMapping['profile-user'];
 ok("reverse map of password '' carries no password", !('password' in realProfileUser.map({ refId: 'r1', password: '' }, 'reverse')));
 ok('reverse map of password null carries no password', !('password' in realProfileUser.map({ refId: 'r1', password: null }, 'reverse')));
-const hashedPassword = realProfileUser.map({ refId: 'r1', password: 'NewPassword9!' }, 'reverse').password;
-ok('a real password is still hashed', typeof hashedPassword === 'string' && hashedPassword.includes(':') && passwordTools.verifyPassword('NewPassword9!', hashedPassword));
+const NEW_PASSWORD_TEXT = 'NewPassword9!'; // a throwaway fixture, never a real credential
+const hashedPassword = realProfileUser.map({ refId: 'r1', password: NEW_PASSWORD_TEXT }, 'reverse').password;
+ok('a real password is still hashed', typeof hashedPassword === 'string' && hashedPassword.includes(':') && passwordTools.verifyPassword(NEW_PASSWORD_TEXT, hashedPassword));
 ok("red twin noPasswordGuard: password '' passes through", unguardedDataMapping['profile-user'].map({ refId: 'r1', password: '' }, 'reverse').password === '');
 
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'dataMappingPresent-'));
