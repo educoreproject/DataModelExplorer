@@ -30,4 +30,9 @@ export const jedxCompanionAskDmePromptList: JedxAskDmePrompt[] = [
 		promptText: 'Show the JEDx JobType object, its fields, and their CEDS and CTDL equivalents with match relation and confidence.',
 		consistencyRecord: { goldenName: 'GOLD_EVAL_261026_respelled', runCount: 5, agreedRunCount: 5, testedOn: '2026-10-28' },
 	},
+	{
+		jedxObjectName: 'AddressType',
+		promptText: 'Show the JEDx AddressType object, its fields, and their CEDS and CTDL equivalents with match relation and confidence.',
+		consistencyRecord: { goldenName: 'GOLD_EVAL_261026_respelled', runCount: 5, agreedRunCount: 5, testedOn: '2026-10-28' },
+	},
 ];
