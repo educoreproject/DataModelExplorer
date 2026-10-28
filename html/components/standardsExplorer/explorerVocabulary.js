@@ -26,12 +26,14 @@ export const familyStyleOf = (standardFamily) =>
 // ================================================================================
 // MATCH KINDS — colour AND line style, never colour alone
 
-// a description is the same for every hub, or is said OF the hub (hubComparisonText: '<hub> is narrower')
+// a description is the same for every hub, or is said OF the hub (hubComparisonText: '<hub> is narrower than the element').
+// The direction is the forge judge's (educoreForge jevJudge.ini): broad = the hub concept covers everything the element
+// covers, and more; narrow = it covers only part. Pinned by html/tests/standardsExplorer/matchDirectionWording.test.mjs
 export const matchStyleByKind = Object.freeze({
 	exact: { color: '#0B6B4E', lineStyle: 'solid', description: 'same meaning' },
 	close: { color: '#1F5FBF', lineStyle: 'dashed', description: 'nearly the same' },
-	broad: { color: '#B4530F', lineStyle: 'dotted', hubComparisonText: 'is narrower' },
-	narrow: { color: '#7A3E9D', lineStyle: 'double', hubComparisonText: 'is broader' },
+	broad: { color: '#B4530F', lineStyle: 'dotted', hubComparisonText: 'is broader than the element' },
+	narrow: { color: '#7A3E9D', lineStyle: 'double', hubComparisonText: 'is narrower than the element' },
 });
 
 // ================================================================================
