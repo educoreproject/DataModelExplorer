@@ -8,63 +8,136 @@
   "actors": [
     { "id": "actor:student", "name": "Student", "kind": "person" },
     { "id": "actor:registrar", "name": "Registrar", "kind": "person" },
+    { "id": "actor:sending-sis", "name": "Sending student information system", "kind": "system" },
     { "id": "actor:receiving-sis", "name": "Receiving student information system", "kind": "system" }
   ],
-  "useCase": {
-    "id": "uc:transcript-exchange",
-    "version": 1,
-    "title": "Send a transcript to another institution",
-    "description": "A student asks their institution to send an official transcript to the institution they are transferring to.",
-    "level": "L0",
-    "vetted": false,
-    "precondition": "The student has completed at least one term.",
-    "trigger": "The student requests a transcript be sent.",
-    "guarantees": "The receiving institution has a complete, verifiable record of the student's courses, credits and GPA.",
-    "topics": ["topic:transcripts"],
-    "valueDrivers": ["vd:student-mobility"],
-    "userStories": [
-      {
-        "id": "us:request-transcript",
-        "order": 1,
-        "actor": "actor:student",
-        "title": "Request a transcript",
-        "statement": "As a student I want to request my transcript be sent so that I can transfer.",
-        "acceptanceCriteria": ["The request identifies the student and the receiving institution."],
-        "data": [
-          { "ceds": "P001572", "access": "write", "required": true, "note": "Person Identifier of the requesting student" },
-          { "ceds": "P000115", "access": "write", "required": true },
-          { "ceds": "P000172", "access": "write", "required": true }
-        ]
-      },
-      {
-        "id": "us:assemble-transcript",
-        "order": 2,
-        "actor": "actor:registrar",
-        "title": "Assemble the transcript",
-        "statement": "As a registrar I want to assemble the student's courses and totals so that the record is complete.",
-        "acceptanceCriteria": ["Every completed course is listed.", "Cumulative credits and GPA are included."],
-        "data": [
-          { "ceds": "P001572", "access": "read", "required": true },
-          { "ceds": "P000067", "access": "read", "required": true },
-          { "ceds": "P000074", "access": "read", "required": true },
-          { "ceds": "P000128", "access": "read", "required": true }
-        ]
-      },
-      {
-        "id": "us:receive-transcript",
-        "order": 3,
-        "actor": "actor:receiving-sis",
-        "title": "Receive the transcript",
-        "statement": "As the receiving system I want to load the transcript so that transfer credit can be evaluated.",
-        "acceptanceCriteria": ["The student is matched or created from the identifier and name."],
-        "data": [
-          { "ceds": "P001572", "access": "read", "required": true },
-          { "ceds": "P000074", "access": "write", "required": true },
-          { "ceds": "P000128", "access": "write", "required": false }
-        ]
-      }
-    ]
-  },
+  "useCases": [
+    {
+      "id": "uc:verify-student-identity",
+      "version": 1,
+      "title": "Verify the student's identity",
+      "description": "Confirm that the person making a request is the student whose record it concerns.",
+      "scope": "Sending institution student information system",
+      "goalLevel": "subfunction",
+      "maturity": "L0",
+      "vetted": false,
+      "primaryActor": "actor:student",
+      "priority": "high",
+      "frequency": "Every records request"
+    },
+    {
+      "id": "uc:transcript-exchange",
+      "version": 1,
+      "title": "Send a transcript to another institution",
+      "description": "A student asks their institution to send an official transcript to the institution they are transferring to.",
+      "scope": "Sending institution student information system",
+      "goalLevel": "userGoal",
+      "maturity": "L3",
+      "vetted": false,
+      "primaryActor": "actor:student",
+      "priority": "high",
+      "frequency": "About 300 per week, peaking at term end",
+      "topics": ["topic:transcripts"],
+      "valueDrivers": ["vd:student-mobility"],
+      "precondition": "The student has completed at least one term.",
+      "trigger": "The student requests a transcript be sent.",
+      "successGuarantees": "The receiving institution has a complete, verifiable record of the student's courses, credits and GPA.",
+      "failureGuarantees": "No record has left the institution, and the student knows why.",
+      "steps": [
+        {
+          "id": "us:request-transcript",
+          "order": 1,
+          "actor": "actor:student",
+          "title": "Student requests a transcript be sent",
+          "statement": "As a student I want to request my transcript be sent so that I can transfer.",
+          "acceptanceCriteria": ["The request identifies the student and the receiving institution."],
+          "variations": ["online portal", "paper form", "third-party clearinghouse"],
+          "invokes": "uc:verify-student-identity",
+          "data": [
+            { "ceds": "P001572", "access": "write", "required": true, "note": "Person Identifier of the requesting student" },
+            { "ceds": "P000115", "access": "write", "required": true },
+            { "ceds": "P000172", "access": "write", "required": true }
+          ]
+        },
+        {
+          "id": "us:assemble-transcript",
+          "order": 2,
+          "actor": "actor:registrar",
+          "title": "Registrar assembles the transcript",
+          "statement": "As a registrar I want to assemble the student's courses and totals so that the record is complete.",
+          "acceptanceCriteria": ["Every completed course is listed.", "Cumulative credits and GPA are included."],
+          "data": [
+            { "ceds": "P001572", "access": "read", "required": true },
+            { "ceds": "P000067", "access": "read", "required": true },
+            { "ceds": "P000074", "access": "read", "required": true },
+            { "ceds": "P000128", "access": "read", "required": true }
+          ]
+        },
+        {
+          "id": "us:send-transcript",
+          "order": 3,
+          "actor": "actor:sending-sis",
+          "title": "Sending system delivers the transcript",
+          "statement": "As the sending system I want to deliver the transcript so that the receiving institution gets an official copy.",
+          "variations": ["PESC XML", "PDF with digital signature"],
+          "data": [
+            { "ceds": "P001572", "access": "read", "required": true },
+            { "ceds": "P000067", "access": "read", "required": true },
+            { "ceds": "P000074", "access": "read", "required": true },
+            { "ceds": "P000128", "access": "read", "required": false }
+          ]
+        },
+        {
+          "id": "us:receive-transcript",
+          "order": 4,
+          "actor": "actor:receiving-sis",
+          "title": "Receiving system loads the transcript",
+          "statement": "As the receiving system I want to load the transcript so that transfer credit can be evaluated.",
+          "acceptanceCriteria": ["The student is matched or created from the identifier and name."],
+          "data": [
+            { "ceds": "P001572", "access": "read", "required": true },
+            { "ceds": "P000074", "access": "write", "required": true },
+            { "ceds": "P000128", "access": "write", "required": false }
+          ]
+        }
+      ],
+      "extensions": [
+        {
+          "id": "ext:transcript-exchange-2a",
+          "label": "2a",
+          "atStep": 2,
+          "condition": "The student has an unpaid hold.",
+          "outcome": "failure",
+          "steps": [
+            { "id": "us:notify-hold", "order": 1, "actor": "actor:registrar", "title": "Registrar tells the student about the hold" }
+          ]
+        },
+        {
+          "id": "ext:transcript-exchange-4a",
+          "label": "4a",
+          "atStep": 4,
+          "condition": "The receiving system cannot match the student.",
+          "outcome": "rejoin",
+          "rejoinAtStep": 4,
+          "steps": [
+            {
+              "id": "us:resolve-student-match",
+              "order": 1,
+              "actor": "actor:registrar",
+              "title": "Receiving registrar matches the student by hand",
+              "data": [
+                { "ceds": "P000115", "access": "read", "required": true },
+                { "ceds": "P000172", "access": "read", "required": true }
+              ]
+            }
+          ]
+        }
+      ],
+      "otherInformation": "Delivered within 2 business days of the request.",
+      "openIssues": ["What if the receiving institution only accepts paper?", "How long is a sent transcript kept?"],
+      "schedule": "Release 1.0"
+    }
+  ],
   "transitions": [
     {
       "id": "tr:transcript-exchange-1",
@@ -72,10 +145,10 @@
       "version": 1,
       "account": "acct:reviewer-1",
       "decision": "advance",
-      "fromLevel": "L0",
-      "toLevel": "L1",
-      "rationale": "Stories cover the full exchange and every data point is tied to CEDS.",
-      "changeNote": "Added the receiving system's story.",
+      "fromMaturity": "L2",
+      "toMaturity": "L3",
+      "rationale": "Extensions cover holds and unmatched students; every step's data is tied to CEDS.",
+      "changeNote": "Added open issues, timing and the release.",
       "at": "2026-10-29T15:00:00Z"
     }
   ]
