@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="940" viewBox="0 0 1100 940" font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img">
+<title>Use case: Send a transcript to another institution</title>
+<desc>The full transcript-exchange use case: its topic, value driver, primary actor and review history; the actors who carry out each step; the main success scenario with extensions 2a and 4a; the invoked subfunction use case; and the CEDS elements (plus one PESC element flagged as a CEDS gap) that each step reads or writes.</desc>
+<defs>
+  <marker id="m-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="m-read" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="m-write" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="m-review" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="0" y="0" width="1100" height="940" fill="#FFFFFF"/>
+
+<!-- context: topic and value driver -->
+<g>
+  <rect x="20" y="30" width="220" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.75"/>
+  <text x="130" y="52" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Transcripts</text>
+  <text x="130" y="72" text-anchor="middle" font-size="12" fill="#5F5E5A">topic (HAS_TOPIC)</text>
+  <rect x="20" y="130" width="220" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.75"/>
+  <text x="130" y="152" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">Student mobility</text>
+  <text x="130" y="172" text-anchor="middle" font-size="12" fill="#5F5E5A">value driver (ALIGNS_WITH)</text>
+  <line x1="300" y1="58" x2="244" y2="58" stroke="#5F5E5A" stroke-width="1" marker-end="url(#m-dark)"/>
+  <line x1="300" y1="158" x2="244" y2="158" stroke="#5F5E5A" stroke-width="1" marker-end="url(#m-dark)"/>
+</g>
+
+<!-- the use case -->
+<g>
+  <rect x="300" y="20" width="480" height="200" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.75"/>
+  <text x="540" y="44" text-anchor="middle" font-size="15" font-weight="600" fill="#26215C">Send a transcript to another institution</text>
+  <text x="540" y="62" text-anchor="middle" font-size="12" fill="#534AB7">use case uc:transcript-exchange · version 1</text>
+  <g font-size="12" fill="#3C3489">
+    <text x="318" y="88"><tspan font-weight="600">Scope:</tspan> sending institution student information system</text>
+    <text x="318" y="106"><tspan font-weight="600">Goal level:</tspan> user goal · <tspan font-weight="600">Maturity:</tspan> L3 · <tspan font-weight="600">Vetted:</tspan> yes · <tspan font-weight="600">Priority:</tspan> high</text>
+    <text x="318" y="124"><tspan font-weight="600">Frequency:</tspan> about 300 per week, peaking at term end</text>
+    <text x="318" y="142"><tspan font-weight="600">Precondition:</tspan> the student has completed at least one term</text>
+    <text x="318" y="160"><tspan font-weight="600">Trigger:</tspan> the student requests a transcript be sent</text>
+    <text x="318" y="178"><tspan font-weight="600">Success:</tspan> receiving institution has a complete, verifiable record</text>
+    <text x="318" y="196"><tspan font-weight="600">Failure:</tspan> no record has left the institution; the student knows why</text>
+  </g>
+</g>
+
+<!-- review: account and transitions -->
+<g>
+  <rect x="860" y="20" width="200" height="48" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.75"/>
+  <text x="960" y="40" text-anchor="middle" font-size="14" font-weight="600" fill="#0C447C">Reviewer 1</text>
+  <text x="960" y="58" text-anchor="middle" font-size="12" fill="#185FA5">account · reviewer</text>
+  <rect x="820" y="92" width="240" height="48" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.75"/>
+  <text x="940" y="112" text-anchor="middle" font-size="14" font-weight="600" fill="#0C447C">Advance L2 → L3</text>
+  <text x="940" y="130" text-anchor="middle" font-size="12" fill="#185FA5">transition · 29 Oct 2026</text>
+  <rect x="820" y="156" width="240" height="48" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.75"/>
+  <text x="940" y="176" text-anchor="middle" font-size="14" font-weight="600" fill="#0C447C">Vet</text>
+  <text x="940" y="194" text-anchor="middle" font-size="12" fill="#185FA5">transition · every link checked</text>
+  <line x1="940" y1="68" x2="940" y2="89" stroke="#185FA5" stroke-width="1" marker-end="url(#m-review)"/>
+  <path d="M1060 44 L1078 44 L1078 180 L1063 180" fill="none" stroke="#185FA5" stroke-width="1" marker-end="url(#m-review)"/>
+  <line x1="820" y1="116" x2="784" y2="116" stroke="#185FA5" stroke-width="1" marker-end="url(#m-review)"/>
+  <line x1="820" y1="180" x2="784" y2="180" stroke="#185FA5" stroke-width="1" marker-end="url(#m-review)"/>
+  <text x="1070" y="226" text-anchor="end" font-size="11" fill="#185FA5">PERFORMS → transition → ADVANCES</text>
+</g>
+
+<!-- primary actor link -->
+<path d="M320 220 L320 250 L110 250 L110 300" fill="none" stroke="#5F5E5A" stroke-width="1" marker-end="url(#m-dark)"/>
+<text x="130" y="244" font-size="11" fill="#5F5E5A">PRIMARY_ACTOR</text>
+
+<!-- section labels -->
+<text x="20" y="288" font-size="12" font-weight="600" fill="#5F5E5A">Actors (DID)</text>
+<text x="260" y="288" font-size="12" font-weight="600" fill="#5F5E5A">Main success scenario and extensions</text>
+<text x="820" y="288" font-size="12" font-weight="600" fill="#5F5E5A">Data used (USES_DATA)</text>
+
+<!-- invoked subfunction use case -->
+<g>
+  <rect x="560" y="226" width="200" height="48" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.75" stroke-dasharray="4 3"/>
+  <text x="660" y="246" text-anchor="middle" font-size="14" font-weight="600" fill="#26215C">Verify student identity</text>
+  <text x="660" y="264" text-anchor="middle" font-size="12" fill="#534AB7">subfunction use case · L0</text>
+  <path d="M480 300 L480 250 L557 250" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#m-dark)"/>
+  <text x="486" y="244" font-size="11" fill="#534AB7">INVOKES</text>
+</g>
+
+<!-- data links: writes (coral, step → data), reads (gray, data → step), dashed = optional -->
+<g stroke-width="1" fill="none">
+  <line x1="522" y1="328" x2="816" y2="324" stroke="#D85A30" marker-end="url(#m-write)"/>
+  <line x1="522" y1="328" x2="816" y2="388" stroke="#D85A30" marker-end="url(#m-write)"/>
+  <line x1="522" y1="328" x2="816" y2="452" stroke="#D85A30" marker-end="url(#m-write)"/>
+  <line x1="522" y1="328" x2="816" y2="708" stroke="#D85A30" stroke-dasharray="4 3" marker-end="url(#m-write)"/>
+
+  <line x1="818" y1="324" x2="524" y2="408" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="516" x2="524" y2="408" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="580" x2="524" y2="408" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="644" x2="524" y2="408" stroke="#888780" marker-end="url(#m-read)"/>
+
+  <line x1="818" y1="324" x2="524" y2="568" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="516" x2="524" y2="568" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="580" x2="524" y2="568" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="644" x2="524" y2="568" stroke="#888780" stroke-dasharray="4 3" marker-end="url(#m-read)"/>
+  <line x1="818" y1="708" x2="524" y2="568" stroke="#888780" marker-end="url(#m-read)"/>
+
+  <line x1="818" y1="324" x2="524" y2="648" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="522" y1="648" x2="816" y2="580" stroke="#D85A30" marker-end="url(#m-write)"/>
+  <line x1="522" y1="648" x2="816" y2="644" stroke="#D85A30" stroke-dasharray="4 3" marker-end="url(#m-write)"/>
+
+  <line x1="818" y1="388" x2="524" y2="728" stroke="#888780" marker-end="url(#m-read)"/>
+  <line x1="818" y1="452" x2="524" y2="728" stroke="#888780" marker-end="url(#m-read)"/>
+</g>
+
+<!-- actors and DID links -->
+<g>
+  <rect x="20" y="304" width="180" height="48" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/>
+  <text x="110" y="324" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">Student</text>
+  <text x="110" y="342" text-anchor="middle" font-size="12" fill="#993C1D">person · primary actor</text>
+  <rect x="20" y="384" width="180" height="48" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/>
+  <text x="110" y="404" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">Registrar</text>
+  <text x="110" y="422" text-anchor="middle" font-size="12" fill="#993C1D">person</text>
+  <rect x="20" y="544" width="180" height="48" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/>
+  <text x="110" y="564" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">Sending SIS</text>
+  <text x="110" y="582" text-anchor="middle" font-size="12" fill="#993C1D">system</text>
+  <rect x="20" y="624" width="180" height="48" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/>
+  <text x="110" y="644" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">Receiving SIS</text>
+  <text x="110" y="662" text-anchor="middle" font-size="12" fill="#993C1D">system</text>
+  <g stroke="#993C1D" stroke-width="1" fill="none">
+    <line x1="200" y1="328" x2="257" y2="328" marker-end="url(#m-dark)"/>
+    <line x1="200" y1="408" x2="257" y2="408" marker-end="url(#m-dark)"/>
+    <line x1="200" y1="568" x2="257" y2="568" marker-end="url(#m-dark)"/>
+    <line x1="200" y1="648" x2="257" y2="648" marker-end="url(#m-dark)"/>
+    <path d="M200 420 L222 420 L222 488 L287 488" stroke-dasharray="4 3" marker-end="url(#m-dark)"/>
+    <path d="M222 488 L222 728 L287 728" stroke-dasharray="4 3" marker-end="url(#m-dark)"/>
+  </g>
+</g>
+
+<!-- scenario flow -->
+<g stroke="#5F5E5A" stroke-width="1" fill="none">
+  <line x1="276" y1="356" x2="276" y2="377" marker-end="url(#m-dark)"/>
+  <line x1="276" y1="436" x2="276" y2="537" marker-end="url(#m-dark)"/>
+  <line x1="276" y1="596" x2="276" y2="617" marker-end="url(#m-dark)"/>
+  <line x1="400" y1="436" x2="400" y2="457" stroke-dasharray="3 3" marker-end="url(#m-dark)"/>
+  <line x1="400" y1="676" x2="400" y2="697" stroke-dasharray="3 3" marker-end="url(#m-dark)"/>
+</g>
+
+<!-- steps -->
+<g>
+  <rect x="260" y="300" width="260" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75"/>
+  <text x="390" y="322" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">1 · Student requests</text>
+  <text x="390" y="342" text-anchor="middle" font-size="12" fill="#5F5E5A">portal, paper or clearinghouse</text>
+  <rect x="260" y="380" width="260" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75"/>
+  <text x="390" y="402" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">2 · Registrar assembles</text>
+  <text x="390" y="422" text-anchor="middle" font-size="12" fill="#5F5E5A">courses, credits, GPA</text>
+  <rect x="290" y="460" width="230" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75" stroke-dasharray="4 3"/>
+  <text x="405" y="482" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">2a · Unpaid hold</text>
+  <text x="405" y="502" text-anchor="middle" font-size="12" fill="#5F5E5A">registrar notifies · ends in failure</text>
+  <rect x="260" y="540" width="260" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75"/>
+  <text x="390" y="562" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">3 · Sending SIS delivers</text>
+  <text x="390" y="582" text-anchor="middle" font-size="12" fill="#5F5E5A">PESC XML or signed PDF</text>
+  <rect x="260" y="620" width="260" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75"/>
+  <text x="390" y="642" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">4 · Receiving SIS loads</text>
+  <text x="390" y="662" text-anchor="middle" font-size="12" fill="#5F5E5A">match student, post credit</text>
+  <rect x="290" y="700" width="230" height="56" rx="8" fill="#FFFFFF" stroke="#888780" stroke-width="0.75" stroke-dasharray="4 3"/>
+  <text x="405" y="722" text-anchor="middle" font-size="14" font-weight="600" fill="#2C2C2A">4a · No student match</text>
+  <text x="405" y="742" text-anchor="middle" font-size="12" fill="#5F5E5A">manual match · rejoins step 4</text>
+</g>
+
+<!-- data elements -->
+<g font-size="12">
+  <rect x="820" y="300" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="320" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Person Identifier</text>
+  <text x="950" y="338" text-anchor="middle" fill="#0F6E56">CEDS P001572</text>
+  <rect x="820" y="364" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="384" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">First Name</text>
+  <text x="950" y="402" text-anchor="middle" fill="#0F6E56">CEDS P000115</text>
+  <rect x="820" y="428" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="448" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Last or Surname</text>
+  <text x="950" y="466" text-anchor="middle" fill="#0F6E56">CEDS P000172</text>
+  <rect x="820" y="492" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="512" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Course Title</text>
+  <text x="950" y="530" text-anchor="middle" fill="#0F6E56">CEDS P000067</text>
+  <rect x="820" y="556" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="576" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Credits Earned Cumulative</text>
+  <text x="950" y="594" text-anchor="middle" fill="#0F6E56">CEDS P000074</text>
+  <rect x="820" y="620" width="260" height="48" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/>
+  <text x="950" y="640" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">Grade Point Average Cumulative</text>
+  <text x="950" y="658" text-anchor="middle" fill="#0F6E56">CEDS P000128</text>
+  <rect x="820" y="684" width="260" height="48" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.75" stroke-dasharray="4 3"/>
+  <text x="950" y="704" text-anchor="middle" font-size="14" font-weight="600" fill="#633806">Delivery Method</text>
+  <text x="950" y="722" text-anchor="middle" fill="#854F0B">PESC · CEDS gap</text>
+</g>
+
+<!-- planning notes -->
+<g>
+  <rect x="20" y="784" width="1060" height="80" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.75"/>
+  <g font-size="12" fill="#2C2C2A">
+    <text x="38" y="808"><tspan font-weight="600">Other information:</tspan> delivered within 2 business days of the request</text>
+    <text x="38" y="828"><tspan font-weight="600">Open issues:</tspan> What if the receiving institution only accepts paper? · How long is a sent transcript kept?</text>
+    <text x="38" y="848"><tspan font-weight="600">Schedule:</tspan> release 1.0</text>
+  </g>
+</g>
+
+<!-- legend -->
+<g font-size="12" fill="#5F5E5A">
+  <rect x="20" y="890" width="22" height="14" rx="3" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.75"/><text x="48" y="901">use case</text>
+  <rect x="120" y="890" width="22" height="14" rx="3" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/><text x="148" y="901">actor</text>
+  <rect x="196" y="890" width="22" height="14" rx="3" fill="#FFFFFF" stroke="#888780" stroke-width="0.75"/><text x="224" y="901">step (user story)</text>
+  <rect x="330" y="890" width="22" height="14" rx="3" fill="#FFFFFF" stroke="#888780" stroke-width="0.75" stroke-dasharray="4 3"/><text x="358" y="901">extension</text>
+  <rect x="436" y="890" width="22" height="14" rx="3" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.75"/><text x="464" y="901">CEDS element</text>
+  <rect x="566" y="890" width="22" height="14" rx="3" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.75" stroke-dasharray="4 3"/><text x="594" y="901">CEDS gap</text>
+  <rect x="672" y="890" width="22" height="14" rx="3" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.75"/><text x="700" y="901">review</text>
+  <line x1="764" y1="897" x2="794" y2="897" stroke="#D85A30" stroke-width="1" marker-end="url(#m-write)"/><text x="802" y="901">writes</text>
+  <line x1="856" y1="897" x2="886" y2="897" stroke="#888780" stroke-width="1" marker-end="url(#m-read)"/><text x="894" y="901">reads</text>
+  <line x1="944" y1="897" x2="974" y2="897" stroke="#888780" stroke-width="1" stroke-dasharray="4 3"/><text x="982" y="901">optional</text>
+</g>
+</svg>

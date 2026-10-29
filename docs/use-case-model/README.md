@@ -207,6 +207,10 @@ Already in the graph; steps point at it and nothing new is created.
 
 ## Entering / importing
 
+The worked example, drawn in full (context, actors, steps, extensions and the CEDS data of each step):
+
+![Send a transcript to another institution](transcript-exchange.svg)
+
 A use case is written as one JSON document. The full example,
 [example.json](example.json), also declares the topics, value drivers, actors,
 an invoked subfunction use case and a review transition. Topics, value drivers,
