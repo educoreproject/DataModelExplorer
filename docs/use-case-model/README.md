@@ -8,6 +8,45 @@ the EDUcore graph. Where CEDS has no element for the data, a step may use anothe
 standard's element instead; that link is flagged as a **CEDS gap** so the element
 can be proposed to CEDS later.
 
+**For discussion**
+
+1. [Two worked examples](#two-worked-examples), drawn in full
+2. [The model](#the-model): how it maps to Cockburn's template and to the shared-context workbook
+3. [Decisions so far](#decisions-so-far) and [open questions](#open-questions)
+4. [Changes from the first diagram](#changes-from-the-first-diagram)
+5. Reference: [maturity](#maturity-cockburns-passes), [entities](#entities),
+   [relationships](#relationships), [entering and importing](#entering-and-importing)
+
+## Two worked examples
+
+### Send a transcript to another institution
+
+A complete use case at maturity L3: context (topic, value driver, stakeholders,
+review history), the actors, four steps with variations, two extensions, an
+invoked subfunction use case, and the CEDS data each step reads or writes,
+including one CEDS gap. Data: [example.json](example.json).
+
+![Send a transcript to another institution](transcript-exchange.svg)
+
+### SEDM Federal Reporting
+
+Built from the *EDUcore Shared Context with Use Cases Workbook* (Topic, Value
+Drivers, Use Cases and User Stories tabs): topic SEDM, value driver State IDEA
+Reporting, use case SEDM UC-1 Federal Reporting, and its 83 user stories, one per
+EDFacts file, all by the SEA Fed Reporting Data Steward. The workbook has not yet
+filled in the use case's Cockburn fields, so it is at maturity `L0`, and the gaps
+are listed in its open issues. Data:
+[sedm-federal-reporting.json](sedm-federal-reporting.json).
+
+Workbook columns with no field in this model are carried on each step as
+`edfactsFile`, `resources` (the file specification and ETL template), `notes`
+(in Generate or not) and `dataNote`. Only FS002 gives its data (19 elements); the
+ten CEDS links on it are proposed for review, not taken from the workbook.
+
+![SEDM Federal Reporting](sedm-federal-reporting.svg)
+
+## The model
+
 ```mermaid
 flowchart LR
   UseCase -- PRIMARY_ACTOR --> Actor
@@ -27,7 +66,7 @@ flowchart LR
   Transition -- ADVANCES --> UseCase
 ```
 
-## How it maps to Cockburn's template
+### How it maps to Cockburn's template
 
 | Cockburn | this model |
 | --- | --- |
@@ -36,7 +75,7 @@ flowchart LR
 | Scope | `UseCase.scope` |
 | Level | `UseCase.goalLevel` |
 | Primary actor | `PRIMARY_ACTOR` → Actor |
-| Stakeholders and interests (interested parties) | `HAS_STAKEHOLDER {interest}` → Actor |
+| Stakeholders and interests | `HAS_STAKEHOLDER {interest}` → Actor |
 | Priority, Frequency | `UseCase.priority`, `UseCase.frequency` |
 | Preconditions | `UseCase.precondition` |
 | Success end condition | `UseCase.successGuarantees` |
@@ -59,6 +98,101 @@ Stakeholders are actors too: an interested party is an Actor linked to the use
 case by `HAS_STAKEHOLDER`, with its interest on the link. The same Actor can be
 the primary actor, carry out steps, or only have an interest in the outcome (an
 auditor, a privacy office, a federal agency receiving a report).
+
+### How it maps to the shared-context workbook
+
+**Use Cases tab**
+
+| workbook column | this model |
+| --- | --- |
+| Topic, Value Driver | `HAS_TOPIC` → Topic, `ALIGNS_WITH` → ValueDriver |
+| Use Case ID, Use Case | `UseCase.id`, `UseCase.title` |
+| Use Case Description | `UseCase.description` |
+| Scope | `UseCase.scope` |
+| Primary Actor | `PRIMARY_ACTOR` → Actor |
+| Interested Parties, Stakeholders | `HAS_STAKEHOLDER {interest}` → Actor |
+| Main Success Scenario | the use case's user stories, in order (`GROUPS`) |
+| Extensions | Extension |
+| Variations | `GROUPS.variations` |
+| Preconditions, Trigger | `UseCase.precondition`, `UseCase.trigger` |
+| Success Guarantee, Minimum Guarantee | `UseCase.successGuarantees`, `UseCase.failureGuarantees` |
+| Related Use Cases | `INVOKES` (and its reverse, "used by") |
+| Frequency, Other Information | `UseCase.frequency`, `UseCase.otherInformation` |
+| Data Objects | the data of its steps (`USES_DATA`) |
+| Process Invariants | *no field yet* (see open questions) |
+| Resource(s) | *no field yet* (see open questions) |
+
+**User Stories tab**
+
+| workbook column | this model |
+| --- | --- |
+| User Story ID, User Story Title | `UserStory.id`, `UserStory.title` |
+| Use Case | the use case that `GROUPS` it |
+| Actor ("As a …") | `DID` from the Actor |
+| Intention ("I want to …") | `UserStory.statement` |
+| Description of Data Elements Needed | `USES_DATA` → CEDS elements |
+| Resource 1, Resource 2, Notes | *no field yet*; carried as `resources` and `notes` in the SEDM example |
+
+**Actors, Topic and Value Drivers tabs** map to Actor, Topic and ValueDriver.
+
+## Decisions so far
+
+| question | decision |
+| --- | --- |
+| Data with no CEDS element | Allowed: the step links another standard's element, and the link is flagged `cedsGap` so it can be proposed to CEDS later. |
+| Reusable steps vs versioned use cases | Versioned use cases win. Steps belong to one use case version; shared steps become subfunction use cases reached by `INVOKES`. |
+| Rejection | Drops the maturity by one level. |
+| What `vetted` means | A person has reviewed the use case and its connections after it was uploaded. |
+| Who can advance | Any account, including Contributors. |
+| Stakeholders and interests | Kept, as a kind of actor: `HAS_STAKEHOLDER {interest}` from the use case to an Actor. |
+
+## Open questions
+
+**On the model**
+
+1. **Process invariants.** The workbook has a Process Invariants column (what
+   must stay true throughout, e.g. "no record is disclosed without consent").
+   Add it as a `UseCase.invariants` field?
+2. **Resources.** Both the Use Cases and User Stories tabs list resources (file
+   specifications, ETL templates, slides). Add `resources` (links) to UseCase and
+   UserStory, or keep them outside the model?
+3. **Data at the use case level.** The workbook's Data Objects column describes
+   a use case's data; this model records data only on steps. Is the union of the
+   steps' data enough, or should a use case name its data objects directly?
+
+**On the SEDM example**
+
+4. **Use case level.** Federal Reporting's 83 stories are separate file
+   submissions, not a sequence. Should Federal Reporting be a summary use case
+   that invokes one user-goal use case per EDFacts file?
+5. **Value driver fit.** Many of the files are not IDEA files (Title I,
+   Title III, assessment, directory, charter). Should they sit under a broader
+   EDFacts reporting value driver?
+6. **Actor names.** The Actors tab lists "IDEA Administrator" for SEDM; every
+   Federal Reporting story uses "SEA Fed Reporting Data Steward". Are these the
+   same role?
+7. **Stakeholders.** The workbook leaves them blank. Likely candidates: the U.S.
+   Department of Education (OSEP), LEAs, families.
+8. **FS002 data.** Do the ten proposed CEDS elements match the 19 elements of
+   FS002, and who will list the data of the other 82 files?
+
+## Changes from the first diagram
+
+- **Data artifact → data at the step.** The diagram's data artifact (any forged
+  element or hub reference) is now `USES_DATA` from each user story, to a CEDS
+  element first, or to another standard's element flagged as a CEDS gap.
+- **`level` → `maturity`**, gated by Cockburn's passes; Cockburn's own level
+  is the new `goalLevel`.
+- **Cockburn fields added**: scope, goal level, primary actor, priority,
+  frequency, failure guarantees, other information, open issues, schedule.
+- **Stakeholders** are actors with an interest (`HAS_STAKEHOLDER {interest}`);
+  an actor can now be an organization as well as a person or system.
+- **Extensions, variations and `INVOKES`** added, so a scenario can branch and
+  a step can be a lower-level use case.
+- **User stories are the steps**, and belong to one use case version.
+- **Transition** gains a `vet` decision.
+- **Direction** of two relationships: `UseCase -HAS_TOPIC-> Topic` and
+  `Actor -DID-> UserStory`.
 
 ## Maturity: Cockburn's passes
 
@@ -208,18 +342,12 @@ Already in the graph; steps point at it and nothing new is created.
 | `PERFORMS` | Account → Transition | | who made the decision |
 | `ADVANCES` | Transition → UseCase | | the use case (version) the decision applies to |
 
-## Entering / importing
+## Entering and importing
 
-The worked example, drawn in full (context, actors, steps, extensions and the CEDS data of each step):
-
-![Send a transcript to another institution](transcript-exchange.svg)
-
-A use case is written as one JSON document. The full example,
-[example.json](example.json), also declares the topics, value drivers, actors,
-an invoked subfunction use case and a review transition. Topics, value drivers,
-actors, use cases and CEDS elements are referenced by `id`, so existing ones are
-linked rather than duplicated. Steps are written inline and can be reused
-elsewhere by `id`.
+A use case is written as one JSON document, like the two examples above. Topics,
+value drivers, actors, use cases and CEDS elements are referenced by `id`, so
+existing ones are linked rather than duplicated. Steps and extensions are written
+inline inside their use case.
 
 A step in the JSON (main scenario or extension):
 
@@ -243,6 +371,12 @@ A step in the JSON (main scenario or extension):
 A data item is either `"ceds"` (a CEDS id) or `"element"` (another standard's
 stableId, imported as a CEDS gap).
 
+A stakeholder, listed on the use case:
+
+```json
+{ "actor": "actor:receiving-institution", "interest": "A complete record it can verify came from the sending institution." }
+```
+
 An extension:
 
 ```json
@@ -258,8 +392,8 @@ An extension:
 }
 ```
 
-The same import as Cypher, which is what an importer would run (one step and
-one extension shown):
+The same import as Cypher, which is what an importer would run (one stakeholder,
+one step and one extension shown):
 
 ```cypher
 MERGE (uc:UseCase {id: 'uc:transcript-exchange', version: 1})
@@ -317,47 +451,3 @@ The CEDS gaps to propose, with the use cases that need them:
 MATCH (uc:UseCase)-[:GROUPS|HAS_EXTENSION*1..2]->(s:UserStory)-[d:USES_DATA {cedsGap: true}]->(e)
 RETURN e.stableId, e.name, collect(DISTINCT uc.title) AS neededBy
 ```
-
-## Decisions
-
-| question | decision |
-| --- | --- |
-| Data with no CEDS element | Allowed: the step links another standard's element, and the link is flagged `cedsGap` so it can be proposed to CEDS later. |
-| Reusable steps vs versioned use cases | Versioned use cases win. Steps belong to one use case version; shared steps become subfunction use cases reached by `INVOKES`. |
-| Rejection | Drops the maturity by one level. |
-| What `vetted` means | A person has reviewed the use case and its connections after it was uploaded. |
-| Who can advance | Any account, including Contributors. |
-| Stakeholders and interests | Kept, as a kind of actor: `HAS_STAKEHOLDER {interest}` from the use case to an Actor. |
-
-## Changes from the first diagram
-
-- **Data artifact → data at the step.** The diagram's data artifact (any forged
-  element or hub reference) is now `USES_DATA` from each user story, to a CEDS
-  element first, or to another standard's element flagged as a CEDS gap.
-- **`level` → `maturity`**, gated by Cockburn's passes; Cockburn's own level
-  is the new `goalLevel`.
-- **Cockburn fields added**: scope, goal level, primary actor, priority,
-  frequency, failure guarantees, other information, open issues, schedule.
-- **Extensions, variations and `INVOKES`** added, so a scenario can branch and
-  a step can be a lower-level use case.
-- **User stories are the steps**, and belong to one use case version.
-- **Transition** gains a `vet` decision.
-- **Direction** of two relationships: `UseCase -HAS_TOPIC-> Topic` and
-  `Actor -DID-> UserStory`.
-
-## Second example: SEDM Federal Reporting
-
-[sedm-federal-reporting.json](sedm-federal-reporting.json) is built from the
-*EDUcore Shared Context with Use Cases Workbook* (Topic, Value Drivers, Use Cases
-and User Stories tabs): topic SEDM, value driver State IDEA Reporting, use case
-SEDM UC-1 Federal Reporting, and its 83 user stories, one per EDFacts file, all
-by the SEA Fed Reporting Data Steward. The workbook has not yet filled in the
-use case's Cockburn fields, so it is at maturity `L0`, and the gaps are listed
-in its open issues. Workbook columns with no field in this model are carried on
-the step as `edfactsFile`, `resources` (the file specification and ETL
-template), `notes` (in Generate or not) and `dataNote`.
-
-Only FS002 gives its data (19 elements); the ten CEDS links on it are proposed
-for review, not taken from the workbook.
-
-![SEDM Federal Reporting](sedm-federal-reporting.svg)
