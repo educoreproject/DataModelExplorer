@@ -339,3 +339,20 @@ RETURN e.stableId, e.name, collect(DISTINCT uc.title) AS neededBy
 - **Transition** gains a `vet` decision.
 - **Direction** of two relationships: `UseCase -HAS_TOPIC-> Topic` and
   `Actor -DID-> UserStory`.
+
+## Second example: SEDM Federal Reporting
+
+[sedm-federal-reporting.json](sedm-federal-reporting.json) is built from the
+*EDUcore Shared Context with Use Cases Workbook* (Topic, Value Drivers, Use Cases
+and User Stories tabs): topic SEDM, value driver State IDEA Reporting, use case
+SEDM UC-1 Federal Reporting, and its 83 user stories, one per EDFacts file, all
+by the SEA Fed Reporting Data Steward. The workbook has not yet filled in the
+use case's Cockburn fields, so it is at maturity `L0`, and the gaps are listed
+in its open issues. Workbook columns with no field in this model are carried on
+the step as `edfactsFile`, `resources` (the file specification and ETL
+template), `notes` (in Generate or not) and `dataNote`.
+
+Only FS002 gives its data (19 elements); the ten CEDS links on it are proposed
+for review, not taken from the workbook.
+
+![SEDM Federal Reporting](sedm-federal-reporting.svg)

@@ -1,0 +1,1169 @@
+{
+  "source": "EDUcore Shared Context with Use Cases Workbook (Topic, Value Drivers, Use Cases, User Stories tabs)",
+  "topics": [
+    {
+      "id": "topic:sedm",
+      "name": "The Special Education Data Model",
+      "shortName": "SEDM",
+      "description": "Special education means instruction, services, or programs specially designed to meet the unique needs of students with eligible disabilities as authorized in the Individuals with Disabilities Act (IDEA).",
+      "approved": true
+    }
+  ],
+  "valueDrivers": [
+    {
+      "id": "vd:state-idea-reporting",
+      "name": "State IDEA Reporting",
+      "description": "Part B and C of Section 618 of the IDEA requires each state to submit data about children with disabilities who receive special education and related services under IDEA.   Data is submitted through Generate to EDFacts files.  PCG is working  with partners EA, AEM, and CCSSO to develop a JSON schema that supports all 86 EdFacts submissions that could serve as the central project of the 23 states funded for collaborative open source work (ScDU)."
+    }
+  ],
+  "actors": [
+    {
+      "id": "actor:sea-fed-reporting-data-steward",
+      "name": "SEA Fed Reporting Data Steward",
+      "kind": "person"
+    }
+  ],
+  "useCases": [
+    {
+      "id": "sedm:UC-1",
+      "version": 1,
+      "title": "Federal Reporting",
+      "description": "An SEA gathers and submits its EDFacts files to the U.S. Department of Education.",
+      "goalLevel": "summary",
+      "maturity": "L0",
+      "vetted": false,
+      "primaryActor": "actor:sea-fed-reporting-data-steward",
+      "topics": [
+        "topic:sedm"
+      ],
+      "valueDrivers": [
+        "vd:state-idea-reporting"
+      ],
+      "steps": [
+        {
+          "id": "sedm:US-1",
+          "order": 1,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) School-Age (FS002)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) School-Age (FS002).",
+          "edfactsFile": "FS002",
+          "resources": [
+            "FS002 (DG74) — Children with Disabilities (IDEA) School Age v20.1  Word",
+            "CIID ETL Documentation Template"
+          ],
+          "notes": "In Generate",
+          "dataNote": "19 Elements",
+          "data": [
+            {
+              "ceds": "P001490",
+              "access": "read",
+              "required": true,
+              "note": "State Agency Identifier; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P001068",
+              "access": "read",
+              "required": true,
+              "note": "Local Education Agency Identifier; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P001069",
+              "access": "read",
+              "required": true,
+              "note": "School Identifier; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P000033",
+              "access": "read",
+              "required": true,
+              "note": "Birthdate (age category); proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P001733",
+              "access": "read",
+              "required": true,
+              "note": "IDEA Disability Type (disability category); proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P000535",
+              "access": "read",
+              "required": true,
+              "note": "IDEA Educational Environment for School Age; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P001943",
+              "access": "read",
+              "required": true,
+              "note": "Race and Ethnicity; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P000255",
+              "access": "read",
+              "required": true,
+              "note": "Sex; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P000180",
+              "access": "read",
+              "required": true,
+              "note": "English Learner Status; proposed for review against the 19 elements of FS002"
+            },
+            {
+              "ceds": "P000151",
+              "access": "read",
+              "required": true,
+              "note": "IDEA Indicator; proposed for review against the 19 elements of FS002"
+            }
+          ]
+        },
+        {
+          "id": "sedm:US-2",
+          "order": 2,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Removal to Interim Alternative Educational Setting (FS005)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Removal to Interim Alternative Educational Setting (FS005).",
+          "edfactsFile": "FS005",
+          "resources": [
+            "FS005 (DG512) — Children with Disabilities (IDEA) Removal to Interim Alternative Educational Setting v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-3",
+          "order": 3,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Suspensions/Expulsions (FS006)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Suspensions/Expulsions (FS006).",
+          "edfactsFile": "FS006",
+          "resources": [
+            "FS006 (DG475) — Children with Disabilities (IDEA) Suspensions/Expulsions v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-4",
+          "order": 4,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Reasons for Unilateral Removal (FS007)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Reasons for Unilateral Removal (FS007).",
+          "edfactsFile": "FS007",
+          "resources": [
+            "FS007 (DG476) — Children with Disabilities (IDEA) Reasons for Unilateral Removal v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-5",
+          "order": 5,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Exiting Special Education (FS009)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Exiting Special Education (FS009).",
+          "edfactsFile": "FS009",
+          "resources": [
+            "FS009 (DG85) — Children with Disabilities (IDEA) Exiting Special Education v20.2  Word",
+            "Exiting ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-6",
+          "order": 6,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Directory (FS029)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Directory (FS029).",
+          "edfactsFile": "FS029",
+          "resources": [
+            "FS029 (Multiple DGs) — Directory v20.4  Word",
+            "Directory ETL Documentation Template",
+            "Directory Lite ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-7",
+          "order": 7,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Dropouts (FS032)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Dropouts (FS032).",
+          "edfactsFile": "FS032",
+          "resources": [
+            "FS032 (DG326) — Dropouts v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-8",
+          "order": 8,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Free and Reduced Price Lunch (FS033)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Free and Reduced Price Lunch (FS033).",
+          "edfactsFile": "FS033",
+          "resources": [
+            "FS033 (DG565, DG813) — Free and Reduced Price Lunch v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-9",
+          "order": 9,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Federal Programs (FS035)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Federal Programs (FS035).",
+          "edfactsFile": "FS035",
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-10",
+          "order": 10,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title I Part A SWP/TAS Participation (FS037)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title I Part A SWP/TAS Participation (FS037).",
+          "edfactsFile": "FS037",
+          "resources": [
+            "FS037 (DG548) — Title I Part A SWP/TAS Participation v20.0  Word",
+            "Title I ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-11",
+          "order": 11,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Grades Offered (FS039)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Grades Offered (FS039).",
+          "edfactsFile": "FS039",
+          "resources": [
+            "FS039 (DG18) — Grades Offered v20.1  Word",
+            "Directory ETL Documentation Template",
+            "Directory Lite ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-12",
+          "order": 12,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Graduates/Completers (FS040)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Graduates/Completers (FS040).",
+          "edfactsFile": "FS040",
+          "resources": [
+            "FS040 (DG306) — Graduates/Completers v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-13",
+          "order": 13,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Immigrant (FS045)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Immigrant (FS045).",
+          "edfactsFile": "FS045",
+          "resources": [
+            "FS045 (DG519) — Immigrant v20.2  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-14",
+          "order": 14,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III English Language Proficiency Results (FS050)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III English Language Proficiency Results (FS050).",
+          "edfactsFile": "FS050",
+          "resources": [
+            "FS050 (DG151) — Title III English Language Proficiency Results v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-15",
+          "order": 15,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Membership (FS052)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Membership (FS052).",
+          "edfactsFile": "FS052",
+          "resources": [
+            "FS052 (DG39) — Membership v20.2  Word",
+            "Membership ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-16",
+          "order": 16,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "MEP Students Served - 12 Months (FS054)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit MEP Students Served - 12 Months (FS054).",
+          "edfactsFile": "FS054",
+          "resources": [
+            "FS054 (DG102) — MEP Children Served - 12 Months v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-17",
+          "order": 17,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Staff FTE (FS059)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Staff FTE (FS059).",
+          "edfactsFile": "FS059",
+          "resources": [
+            "FS059 (DG528, DG644) — Staff FTE v20.3  Word",
+            "Personnel ETL Documentation Template1"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-18",
+          "order": 18,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III Teachers (FS067)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III Teachers (FS067).",
+          "edfactsFile": "FS067",
+          "resources": [
+            "FS067 (DG422) — Title III Teachers v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-19",
+          "order": 19,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Special Education Teachers (FS070)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Special Education Teachers (FS070).",
+          "edfactsFile": "FS070",
+          "resources": [
+            "FS070 (DG486) — Special Education Teachers (FTE) v20.0  Word",
+            "Personnel ETL Documentation Template1"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-20",
+          "order": 20,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Students Involved with Firearms (FS086)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Students Involved with Firearms (FS086).",
+          "edfactsFile": "FS086",
+          "resources": [
+            "FS086 (DG596) — Students Involved with Firearms v20.1  Word",
+            "OESE ETL Checklist",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-21",
+          "order": 21,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Disciplinary Removals (FS088)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Disciplinary Removals (FS088).",
+          "edfactsFile": "FS088",
+          "resources": [
+            "FS088 (DG598) — Children with Disabilities (IDEA) Disciplinary Removals v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-22",
+          "order": 22,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Early Childhood (FS089)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Early Childhood (FS089).",
+          "edfactsFile": "FS089",
+          "resources": [
+            "FS089 (DG613) — Children with Disabilities (IDEA) Early Childhood v20.1  Word",
+            "CIID ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-23",
+          "order": 23,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Special Education Related Services Personnel (FS099)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Special Education Related Services Personnel (FS099).",
+          "edfactsFile": "FS099",
+          "resources": [
+            "FS099 (DG609) — Special Education Related Services Personnel v20.1  Word",
+            "Personnel ETL Documentation Template1"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-24",
+          "order": 24,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Special Education Paraprofessionals (FS112)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Special Education Paraprofessionals (FS112).",
+          "edfactsFile": "FS112",
+          "resources": [
+            "FS112 (DG647) — Special Education Paraprofessionals v20.0  Word",
+            "Personnel ETL Documentation Template1"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-25",
+          "order": 25,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Academic Achievement - State Agency (FS113)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Academic Achievement - State Agency (FS113).",
+          "edfactsFile": "FS113",
+          "resources": [
+            "FS113 (DG628) — N or D Academic Achievement - State Agency v20.0  Word",
+            "NorD Participation ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-26",
+          "order": 26,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III Students Served (FS116)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III Students Served (FS116).",
+          "edfactsFile": "FS116",
+          "resources": [
+            "FS116 (DG648, DG849) —Title III Students Served v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-27",
+          "order": 27,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Homeless Students Enrolled (FS118)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Homeless Students Enrolled (FS118).",
+          "edfactsFile": "FS118",
+          "resources": [
+            "FS118 (DG655) — Homeless Students Enrolled v20.1  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-28",
+          "order": 28,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Participation - State Agency (FS119)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Participation - State Agency (FS119).",
+          "edfactsFile": "FS119",
+          "resources": [
+            "FS119 (DG869, DG870) — N or D Participation - State Agency v20.3  Word",
+            "NorD Participation ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-29",
+          "order": 29,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Migrant Students Eligible - 12 Months (FS121)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Migrant Students Eligible - 12 Months (FS121).",
+          "edfactsFile": "FS121",
+          "resources": [
+            "FS121 (DG634) — Migratory Children Eligible - 12 Months v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-30",
+          "order": 30,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Academic Achievement - LEA (FS125)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Academic Achievement - LEA (FS125).",
+          "edfactsFile": "FS125",
+          "resources": [
+            "FS125 (DG629) — N or D Academic Achievement - LEA v20.0  Word",
+            "NorD Participation ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-31",
+          "order": 31,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III Former EL Students (FS126)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III Former EL Students (FS126).",
+          "edfactsFile": "FS126",
+          "resources": [
+            "FS126 (DG668) — Title III Former EL Students v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-32",
+          "order": 32,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Participation - LEA (FS127)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Participation - LEA (FS127).",
+          "edfactsFile": "FS127",
+          "resources": [
+            "FS127 (DG872, DG873) — N or D Participation – LEA v20.3  Word",
+            "NorD Participation ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-33",
+          "order": 33,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "CCD School (FS129)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit CCD School (FS129).",
+          "edfactsFile": "FS129",
+          "resources": [
+            "FS129 (DG573, DG791, DG803) — CCD School v20.0  Word",
+            "Directory ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-34",
+          "order": 34,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "ESEA Status (FS130)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit ESEA Status (FS130).",
+          "edfactsFile": "FS130",
+          "resources": [
+            "FS130 (DG36) — ESEA Status v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-35",
+          "order": 35,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "LEA End of SY Status (FS131)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit LEA End of SY Status (FS131).",
+          "edfactsFile": "FS131",
+          "resources": [
+            "FS131 (DG614) — LEA End of School Year Status v20.0  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-36",
+          "order": 36,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Section 1003 Funds (FS132)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Section 1003 Funds (FS132).",
+          "edfactsFile": "FS132",
+          "resources": [
+            "FS132 (DG794) — Section 1003 Funds v20.0  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-37",
+          "order": 37,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title I Part A Participation (FS134)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title I Part A Participation (FS134).",
+          "edfactsFile": "FS134",
+          "resources": [
+            "FS134 (DG670) — Title I Part A Participation v20.0  Word",
+            "Title I ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-38",
+          "order": 38,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "English Language Proficiency Test (FS137)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit English Language Proficiency Test (FS137).",
+          "edfactsFile": "FS137",
+          "resources": [
+            "FS137 (DG674) — English Language Proficiency Test v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-39",
+          "order": 39,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III English Language Proficiency Test (FS138)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III English Language Proficiency Test (FS138).",
+          "edfactsFile": "FS138",
+          "resources": [
+            "FS138 (DG675) — Title III English Language Proficiency Test v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-40",
+          "order": 40,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "English Language Proficiency Results (FS139)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit English Language Proficiency Results (FS139).",
+          "edfactsFile": "FS139",
+          "resources": [
+            "FS139 (DG676) — English Language Proficiency Results v20.1  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-41",
+          "order": 41,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "EL Enrolled (FS141)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit EL Enrolled (FS141).",
+          "edfactsFile": "FS141",
+          "resources": [
+            "FS141 (DG678) — EL Enrolled v20.2  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-42",
+          "order": 42,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Children with Disabilities (IDEA) Total Disciplinary Removals (FS143)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Children with Disabilities (IDEA) Total Disciplinary Removals (FS143).",
+          "edfactsFile": "FS143",
+          "resources": [
+            "FS143 (DG682) — Children with Disabilities (IDEA) Total Disciplinary Removals v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-43",
+          "order": 43,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Educational Services During Expulsion (FS144)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Educational Services During Expulsion (FS144).",
+          "edfactsFile": "FS144",
+          "resources": [
+            "FS144 (DG683) — Educational Services During Expulsion v20.1  Word",
+            "Discipline ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-44",
+          "order": 44,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "MEP Services (FS145)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit MEP Services (FS145).",
+          "edfactsFile": "FS145",
+          "resources": [
+            "FS145 (DG684) — MEP Services v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-45",
+          "order": 45,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Regulatory Adjusted-Cohort Graduation Rate (FS150)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Regulatory Adjusted-Cohort Graduation Rate (FS150).",
+          "edfactsFile": "FS150",
+          "resources": [
+            "FS150 (DG695, DG697, DG755, DG850, DG852, DG854, DG856) — Adjusted Cohort Graduation Rate v20.2  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-46",
+          "order": 46,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Cohorts for Regulatory Adjusted-Cohort Graduation Rate (FS151)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Cohorts for Regulatory Adjusted-Cohort Graduation Rate (FS151).",
+          "edfactsFile": "FS151",
+          "resources": [
+            "FS151 (DG696, DG698, DG756, DG851, DG853, DG855, DG857) — Cohorts for Adjusted Cohort Graduation Rate v20.1  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-47",
+          "order": 47,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "High School Graduates Postsecondary Enrollment (FS160)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit High School Graduates Postsecondary Enrollment (FS160).",
+          "edfactsFile": "FS160",
+          "resources": [
+            "FS160 (DG739) — High School Graduates Postsecondary Enrollment v20.1  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-48",
+          "order": 48,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Discipline Data (FS163)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Discipline Data (FS163).",
+          "edfactsFile": "FS163",
+          "resources": [
+            "FS163 (DG603) — Discipline Data v20.1  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-49",
+          "order": 49,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Migrant Data (FS165)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Migrant Data (FS165).",
+          "edfactsFile": "FS165",
+          "resources": [
+            "FS165 (DG110, DG514) — Migratory Data v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-50",
+          "order": 50,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "LEA Subgrant Status (FS170)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit LEA Subgrant Status (FS170).",
+          "edfactsFile": "FS170",
+          "resources": [
+            "FS170 (DG754) — LEA Subgrant Status v20.0  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-51",
+          "order": 51,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Academic Achievement in Mathematics (FS175)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Academic Achievement in Mathematics (FS175).",
+          "edfactsFile": "FS175",
+          "resources": [
+            "FS175 (DG874, DG875) — Academic Achievement in Mathematics v20.2  Word",
+            "Assessment ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-52",
+          "order": 52,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Academic Achievement in Reading/Language Arts (FS178)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Academic Achievement in Reading/Language Arts (FS178).",
+          "edfactsFile": "FS178",
+          "resources": [
+            "FS178 (DG876, DG877) — Academic Achievement in Reading/Language Arts v20.2  Word",
+            "Assessment ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-53",
+          "order": 53,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Academic Achievement in Science (FS179)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Academic Achievement in Science (FS179).",
+          "edfactsFile": "FS179",
+          "resources": [
+            "FS179 (DG878, DG879) — Academic Achievement in Science v20.1  Word",
+            "Assessment ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-54",
+          "order": 54,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Assessment Participation in Mathematics (FS185)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Assessment Participation in Mathematics (FS185).",
+          "edfactsFile": "FS185",
+          "resources": [
+            "FS185 (DG880, DG881) — Assessment Participation in Mathematics v20.2  Word",
+            "Assessment ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-55",
+          "order": 55,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Assessment Participation in Reading/Language Arts (FS188)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Assessment Participation in Reading/Language Arts (FS188).",
+          "edfactsFile": "FS188",
+          "resources": [
+            "FS188 (DG882, DG883) — Assessment Participation in Reading/Language Arts v20.2  Word",
+            "Assessment ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-56",
+          "order": 56,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Assessment Participation in Science (FS189)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Assessment Participation in Science (FS189).",
+          "edfactsFile": "FS189",
+          "resources": [
+            "FS189 (DG884, DG885) — Assessment Participation in Science v20.2  Word",
+            "Assessment ETL Documentation Template",
+            "NorD Participation ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-57",
+          "order": 57,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Charter School Authorizer Directory (FS190)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Charter School Authorizer Directory (FS190).",
+          "edfactsFile": "FS190",
+          "resources": [
+            "FS190 (DG798, DG805, DG806, DG807, DG808) — Charter Authorizer Directory v20.0  Word",
+            "Charter ETL Checklist",
+            "Directory ETL Documentation Template"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-58",
+          "order": 58,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title I Allocations (FS193)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title I Allocations (FS193).",
+          "edfactsFile": "FS193",
+          "resources": [
+            "FS193 (DG788, DG797, DG886) — Title I Allocations v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-59",
+          "order": 59,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Young Homeless Children Served (McKinney-Vento) (FS194)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Young Homeless Children Served (McKinney-Vento) (FS194).",
+          "edfactsFile": "FS194",
+          "resources": [
+            "FS194 (DG818) — Young Homeless Children Served (McKinney-Vento) v20.0  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-60",
+          "order": 60,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Chronic Absenteeism (FS195)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Chronic Absenteeism (FS195).",
+          "edfactsFile": "FS195",
+          "resources": [
+            "FS195 (DG814, DG887) — Chronic Absenteeism v20.1  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-61",
+          "order": 61,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Management Organizations Directory (FS196)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Management Organizations Directory (FS196).",
+          "edfactsFile": "FS196",
+          "resources": [
+            "FS196 (DG825, DG826, DG827, DG828, DG829) — Management Organization for Charter Schools Roster v20.1  Word",
+            "Charter ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-62",
+          "order": 62,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Crosswalk of Charter Schools to Management Organizations (FS197)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Crosswalk of Charter Schools to Management Organizations (FS197).",
+          "edfactsFile": "FS197",
+          "resources": [
+            "FS197 (DG833) — Crosswalk of Charter Schools to Management Organizations v20.2  Word",
+            "Charter ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-63",
+          "order": 63,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Charter Contracts (FS198)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Charter Contracts (FS198).",
+          "edfactsFile": "FS198",
+          "resources": [
+            "FS198 (DG830, DG831, DG832) — Charter Contracts v20.1  Word",
+            "Charter ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-64",
+          "order": 64,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Graduation Rate Indicator Status (FS199)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Graduation Rate Indicator Status (FS199).",
+          "edfactsFile": "FS199",
+          "resources": [
+            "FS199 (DG834) — Graduation Rate Indicator Status v20.2  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-65",
+          "order": 65,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Academic Achievement Indicator Status (FS200)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Academic Achievement Indicator Status (FS200).",
+          "edfactsFile": "FS200",
+          "resources": [
+            "FS200 (DG835) — Academic Achievement Indicator Status v20.2  Word",
+            "OESE ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-66",
+          "order": 66,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Other Academic Indicator Status (FS201)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Other Academic Indicator Status (FS201).",
+          "edfactsFile": "FS201",
+          "resources": [
+            "FS201 (DG836) — Other Academic Indicator Status v20.2  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-67",
+          "order": 67,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "School Quality or Student Success Indicator Status (FS202)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit School Quality or Student Success Indicator Status (FS202).",
+          "edfactsFile": "FS202",
+          "resources": [
+            "FS202 (DG838) — School Quality or Student Success Indicator Status v20.2  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-68",
+          "order": 68,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Teachers (FS203)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Teachers (FS203).",
+          "edfactsFile": "FS203",
+          "resources": [
+            "FS203 (DG839) — Teachers v20.0  Word",
+            "Personnel ETL Documentation Template1"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-69",
+          "order": 69,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Progress Achieving English Language Proficiency Indicator Status (FS205)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Progress Achieving English Language Proficiency Indicator Status (FS205).",
+          "edfactsFile": "FS205",
+          "resources": [
+            "FS205 (DG837) — Progress Achieving English Language Proficiency Indicator Status v20.2  Word",
+            "Title III ETL Checklist"
+          ],
+          "notes": "In Generate"
+        },
+        {
+          "id": "sedm:US-70",
+          "order": 70,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "School Support and Improvement (FS206)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit School Support and Improvement (FS206).",
+          "edfactsFile": "FS206",
+          "resources": [
+            "FS206 (DG842) — School Support and Improvement v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-71",
+          "order": 71,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "State Appropriations for Charter Schools (FS207)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit State Appropriations for Charter Schools (FS207).",
+          "edfactsFile": "FS207",
+          "resources": [
+            "FS207 (DG845) — State Appropriations for Charter Schools v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-72",
+          "order": 72,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III English Learner Five Years (FS210)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III English Learner Five Years (FS210).",
+          "edfactsFile": "FS210",
+          "resources": [
+            "FS210 (DG864) — Title III English Learner Five Years v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-73",
+          "order": 73,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title III English Learner Exited (FS211)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title III English Learner Exited (FS211).",
+          "edfactsFile": "FS211",
+          "resources": [
+            "FS211 (DG865) — Title III English Learner Exited v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-74",
+          "order": 74,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Comprehensive Support and Target Support Identification (FS212)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Comprehensive Support and Target Support Identification (FS212).",
+          "edfactsFile": "FS212",
+          "resources": [
+            "FS212 (DG866, DG867, DG888) — Identification School Support and Improvement v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-75",
+          "order": 75,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D in Program Outcomes - State Agency (FS218)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D in Program Outcomes - State Agency (FS218).",
+          "edfactsFile": "FS218",
+          "resources": [
+            "FS218 (DG889) — N or D in Program Outcomes – State Agency v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-76",
+          "order": 76,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D in Program Outcomes - LEA (FS219)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D in Program Outcomes - LEA (FS219).",
+          "edfactsFile": "FS219",
+          "resources": [
+            "FS219 (DG890) — N or D in Program Outcomes – LEA v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-77",
+          "order": 77,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Exit Program Outcomes - State Agency (FS220)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Exit Program Outcomes - State Agency (FS220).",
+          "edfactsFile": "FS220",
+          "resources": [
+            "FS220 (DG891) — N or D Exit Outcomes – State Agency v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-78",
+          "order": 78,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Exit Program Outcomes - LEA (FS221)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Exit Program Outcomes - LEA (FS221).",
+          "edfactsFile": "FS221",
+          "resources": [
+            "FS221 (DG892) — N or D Exit Outcomes – LEA v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-79",
+          "order": 79,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Foster Care Enrolled (FS222)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Foster Care Enrolled (FS222).",
+          "edfactsFile": "FS222",
+          "resources": [
+            "FS222 (DG893) — Foster Care Enrolled v20.2  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-80",
+          "order": 80,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Title I School Status (FS223)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Title I School Status (FS223).",
+          "edfactsFile": "FS223",
+          "resources": [
+            "FS223 (DG22) — Title I School Status v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-81",
+          "order": 81,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Assessment Proficiency - State Agency (FS224)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Assessment Proficiency - State Agency (FS224).",
+          "edfactsFile": "FS224",
+          "resources": [
+            "FS224 (DG868) — N or D Assessment Proficiency – State Agency v20.0  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-82",
+          "order": 82,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "N or D Assessment Proficiency - LEA (FS225)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit N or D Assessment Proficiency - LEA (FS225).",
+          "edfactsFile": "FS225",
+          "resources": [
+            "FS225 (DG871) — N or D Assessment Proficiency – LEA v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        },
+        {
+          "id": "sedm:US-83",
+          "order": 83,
+          "actor": "actor:sea-fed-reporting-data-steward",
+          "title": "Economically Disadvantaged Students (FS226)",
+          "statement": "As an SEA Fed Reporting Data Steward I want to gather and submit Economically Disadvantaged Students (FS226).",
+          "edfactsFile": "FS226",
+          "resources": [
+            "FS226 (DG56) — Economically Disadvantaged Students v20.1  Word"
+          ],
+          "notes": "Not In Generate"
+        }
+      ],
+      "openIssues": [
+        "Scope, priority, frequency, precondition, trigger and the success and failure guarantees are not yet written in the workbook.",
+        "Each EDFacts file is its own user goal; should each become a user-goal use case invoked from this summary use case?",
+        "Only FS002 lists its data (19 elements); the CEDS links on FS002 are proposed and need review, and the other 82 files have none yet.",
+        "Several files (Title I, Title III, assessment, directory) are not IDEA files; should they sit under a broader EDFacts reporting value driver?"
+      ]
+    }
+  ]
+}
