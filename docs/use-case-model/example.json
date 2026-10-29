@@ -1,0 +1,82 @@
+{
+  "topics": [
+    { "id": "topic:transcripts", "name": "Transcripts", "description": "Academic records issued and exchanged between institutions.", "approved": true }
+  ],
+  "valueDrivers": [
+    { "id": "vd:student-mobility", "name": "Student mobility", "description": "Students move between institutions without losing credit for what they have learned." }
+  ],
+  "actors": [
+    { "id": "actor:student", "name": "Student", "kind": "person" },
+    { "id": "actor:registrar", "name": "Registrar", "kind": "person" },
+    { "id": "actor:receiving-sis", "name": "Receiving student information system", "kind": "system" }
+  ],
+  "useCase": {
+    "id": "uc:transcript-exchange",
+    "version": 1,
+    "title": "Send a transcript to another institution",
+    "description": "A student asks their institution to send an official transcript to the institution they are transferring to.",
+    "level": "L0",
+    "vetted": false,
+    "precondition": "The student has completed at least one term.",
+    "trigger": "The student requests a transcript be sent.",
+    "guarantees": "The receiving institution has a complete, verifiable record of the student's courses, credits and GPA.",
+    "topics": ["topic:transcripts"],
+    "valueDrivers": ["vd:student-mobility"],
+    "userStories": [
+      {
+        "id": "us:request-transcript",
+        "order": 1,
+        "actor": "actor:student",
+        "title": "Request a transcript",
+        "statement": "As a student I want to request my transcript be sent so that I can transfer.",
+        "acceptanceCriteria": ["The request identifies the student and the receiving institution."],
+        "data": [
+          { "ceds": "P001572", "access": "write", "required": true, "note": "Person Identifier of the requesting student" },
+          { "ceds": "P000115", "access": "write", "required": true },
+          { "ceds": "P000172", "access": "write", "required": true }
+        ]
+      },
+      {
+        "id": "us:assemble-transcript",
+        "order": 2,
+        "actor": "actor:registrar",
+        "title": "Assemble the transcript",
+        "statement": "As a registrar I want to assemble the student's courses and totals so that the record is complete.",
+        "acceptanceCriteria": ["Every completed course is listed.", "Cumulative credits and GPA are included."],
+        "data": [
+          { "ceds": "P001572", "access": "read", "required": true },
+          { "ceds": "P000067", "access": "read", "required": true },
+          { "ceds": "P000074", "access": "read", "required": true },
+          { "ceds": "P000128", "access": "read", "required": true }
+        ]
+      },
+      {
+        "id": "us:receive-transcript",
+        "order": 3,
+        "actor": "actor:receiving-sis",
+        "title": "Receive the transcript",
+        "statement": "As the receiving system I want to load the transcript so that transfer credit can be evaluated.",
+        "acceptanceCriteria": ["The student is matched or created from the identifier and name."],
+        "data": [
+          { "ceds": "P001572", "access": "read", "required": true },
+          { "ceds": "P000074", "access": "write", "required": true },
+          { "ceds": "P000128", "access": "write", "required": false }
+        ]
+      }
+    ]
+  },
+  "transitions": [
+    {
+      "id": "tr:transcript-exchange-1",
+      "useCase": "uc:transcript-exchange",
+      "version": 1,
+      "account": "acct:reviewer-1",
+      "decision": "advance",
+      "fromLevel": "L0",
+      "toLevel": "L1",
+      "rationale": "Stories cover the full exchange and every data point is tied to CEDS.",
+      "changeNote": "Added the receiving system's story.",
+      "at": "2026-10-29T15:00:00Z"
+    }
+  ]
+}
