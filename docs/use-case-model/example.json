@@ -1,15 +1,40 @@
 {
   "topics": [
-    { "id": "topic:transcripts", "name": "Transcripts", "description": "Academic records issued and exchanged between institutions.", "approved": true }
+    {
+      "id": "topic:transcripts",
+      "name": "Transcripts",
+      "description": "Academic records issued and exchanged between institutions.",
+      "approved": true
+    }
   ],
   "valueDrivers": [
-    { "id": "vd:student-mobility", "name": "Student mobility", "description": "Students move between institutions without losing credit for what they have learned." }
+    {
+      "id": "vd:student-mobility",
+      "name": "Student mobility",
+      "description": "Students move between institutions without losing credit for what they have learned."
+    }
   ],
   "actors": [
-    { "id": "actor:student", "name": "Student", "kind": "person" },
-    { "id": "actor:registrar", "name": "Registrar", "kind": "person" },
-    { "id": "actor:sending-sis", "name": "Sending student information system", "kind": "system" },
-    { "id": "actor:receiving-sis", "name": "Receiving student information system", "kind": "system" }
+    {
+      "id": "actor:student",
+      "name": "Student",
+      "kind": "person"
+    },
+    {
+      "id": "actor:registrar",
+      "name": "Registrar",
+      "kind": "person"
+    },
+    {
+      "id": "actor:sending-sis",
+      "name": "Sending student information system",
+      "kind": "system"
+    },
+    {
+      "id": "actor:receiving-sis",
+      "name": "Receiving student information system",
+      "kind": "system"
+    }
   ],
   "useCases": [
     {
@@ -37,8 +62,12 @@
       "primaryActor": "actor:student",
       "priority": "high",
       "frequency": "About 300 per week, peaking at term end",
-      "topics": ["topic:transcripts"],
-      "valueDrivers": ["vd:student-mobility"],
+      "topics": [
+        "topic:transcripts"
+      ],
+      "valueDrivers": [
+        "vd:student-mobility"
+      ],
       "precondition": "The student has completed at least one term.",
       "trigger": "The student requests a transcript be sent.",
       "successGuarantees": "The receiving institution has a complete, verifiable record of the student's courses, credits and GPA.",
@@ -50,13 +79,38 @@
           "actor": "actor:student",
           "title": "Student requests a transcript be sent",
           "statement": "As a student I want to request my transcript be sent so that I can transfer.",
-          "acceptanceCriteria": ["The request identifies the student and the receiving institution."],
-          "variations": ["online portal", "paper form", "third-party clearinghouse"],
+          "acceptanceCriteria": [
+            "The request identifies the student and the receiving institution."
+          ],
+          "variations": [
+            "online portal",
+            "paper form",
+            "third-party clearinghouse"
+          ],
           "invokes": "uc:verify-student-identity",
           "data": [
-            { "ceds": "P001572", "access": "write", "required": true, "note": "Person Identifier of the requesting student" },
-            { "ceds": "P000115", "access": "write", "required": true },
-            { "ceds": "P000172", "access": "write", "required": true }
+            {
+              "ceds": "P001572",
+              "access": "write",
+              "required": true,
+              "note": "Person Identifier of the requesting student"
+            },
+            {
+              "ceds": "P000115",
+              "access": "write",
+              "required": true
+            },
+            {
+              "ceds": "P000172",
+              "access": "write",
+              "required": true
+            },
+            {
+              "element": "pesc:field/AcademicRecord/RecipientType.element.DeliveryMethod",
+              "access": "write",
+              "required": false,
+              "note": "How the student wants it delivered; CEDS has no element for it"
+            }
           ]
         },
         {
@@ -65,12 +119,31 @@
           "actor": "actor:registrar",
           "title": "Registrar assembles the transcript",
           "statement": "As a registrar I want to assemble the student's courses and totals so that the record is complete.",
-          "acceptanceCriteria": ["Every completed course is listed.", "Cumulative credits and GPA are included."],
+          "acceptanceCriteria": [
+            "Every completed course is listed.",
+            "Cumulative credits and GPA are included."
+          ],
           "data": [
-            { "ceds": "P001572", "access": "read", "required": true },
-            { "ceds": "P000067", "access": "read", "required": true },
-            { "ceds": "P000074", "access": "read", "required": true },
-            { "ceds": "P000128", "access": "read", "required": true }
+            {
+              "ceds": "P001572",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000067",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000074",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000128",
+              "access": "read",
+              "required": true
+            }
           ]
         },
         {
@@ -79,12 +152,37 @@
           "actor": "actor:sending-sis",
           "title": "Sending system delivers the transcript",
           "statement": "As the sending system I want to deliver the transcript so that the receiving institution gets an official copy.",
-          "variations": ["PESC XML", "PDF with digital signature"],
+          "variations": [
+            "PESC XML",
+            "PDF with digital signature"
+          ],
           "data": [
-            { "ceds": "P001572", "access": "read", "required": true },
-            { "ceds": "P000067", "access": "read", "required": true },
-            { "ceds": "P000074", "access": "read", "required": true },
-            { "ceds": "P000128", "access": "read", "required": false }
+            {
+              "ceds": "P001572",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000067",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000074",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000128",
+              "access": "read",
+              "required": false
+            },
+            {
+              "element": "pesc:field/AcademicRecord/RecipientType.element.DeliveryMethod",
+              "access": "read",
+              "required": true,
+              "note": "How the transcript is delivered; CEDS has no element for it"
+            }
           ]
         },
         {
@@ -93,11 +191,25 @@
           "actor": "actor:receiving-sis",
           "title": "Receiving system loads the transcript",
           "statement": "As the receiving system I want to load the transcript so that transfer credit can be evaluated.",
-          "acceptanceCriteria": ["The student is matched or created from the identifier and name."],
+          "acceptanceCriteria": [
+            "The student is matched or created from the identifier and name."
+          ],
           "data": [
-            { "ceds": "P001572", "access": "read", "required": true },
-            { "ceds": "P000074", "access": "write", "required": true },
-            { "ceds": "P000128", "access": "write", "required": false }
+            {
+              "ceds": "P001572",
+              "access": "read",
+              "required": true
+            },
+            {
+              "ceds": "P000074",
+              "access": "write",
+              "required": true
+            },
+            {
+              "ceds": "P000128",
+              "access": "write",
+              "required": false
+            }
           ]
         }
       ],
@@ -109,7 +221,12 @@
           "condition": "The student has an unpaid hold.",
           "outcome": "failure",
           "steps": [
-            { "id": "us:notify-hold", "order": 1, "actor": "actor:registrar", "title": "Registrar tells the student about the hold" }
+            {
+              "id": "us:notify-hold",
+              "order": 1,
+              "actor": "actor:registrar",
+              "title": "Registrar tells the student about the hold"
+            }
           ]
         },
         {
@@ -126,15 +243,26 @@
               "actor": "actor:registrar",
               "title": "Receiving registrar matches the student by hand",
               "data": [
-                { "ceds": "P000115", "access": "read", "required": true },
-                { "ceds": "P000172", "access": "read", "required": true }
+                {
+                  "ceds": "P000115",
+                  "access": "read",
+                  "required": true
+                },
+                {
+                  "ceds": "P000172",
+                  "access": "read",
+                  "required": true
+                }
               ]
             }
           ]
         }
       ],
       "otherInformation": "Delivered within 2 business days of the request.",
-      "openIssues": ["What if the receiving institution only accepts paper?", "How long is a sent transcript kept?"],
+      "openIssues": [
+        "What if the receiving institution only accepts paper?",
+        "How long is a sent transcript kept?"
+      ],
       "schedule": "Release 1.0"
     }
   ],
@@ -150,6 +278,18 @@
       "rationale": "Extensions cover holds and unmatched students; every step's data is tied to CEDS.",
       "changeNote": "Added open issues, timing and the release.",
       "at": "2026-10-29T15:00:00Z"
+    },
+    {
+      "id": "tr:transcript-exchange-2",
+      "useCase": "uc:transcript-exchange",
+      "version": 1,
+      "account": "acct:reviewer-1",
+      "decision": "vet",
+      "fromMaturity": "L3",
+      "toMaturity": "L3",
+      "rationale": "Checked the actors, the invoked use case and every data link after upload.",
+      "changeNote": "No changes.",
+      "at": "2026-10-29T16:00:00Z"
     }
   ]
 }

@@ -4,7 +4,9 @@ A Cockburn-style use case: a goal reached by a numbered main success scenario,
 with extensions that branch off its steps. Each step is a user story, one actor
 taking one step, and the data each step uses is tied to **CEDS elements**. Other
 standards reach the same data through the CEDS concepts they already map to in
-the EDUcore graph.
+the EDUcore graph. Where CEDS has no element for the data, a step may use another
+standard's element instead; that link is flagged as a **CEDS gap** so the element
+can be proposed to CEDS later.
 
 ```mermaid
 flowchart LR
@@ -18,6 +20,7 @@ flowchart LR
   UserStory -- INVOKES --> UseCase
   Actor -- DID --> UserStory
   UserStory -- USES_DATA --> CEDS["CEDS element"]
+  UserStory -. "USES_DATA (cedsGap)" .-> Other["other standard's element"]
   Account -- QUALIFIED_FOR --> Topic
   Account -- PERFORMS --> Transition
   Transition -- ADVANCES --> UseCase
@@ -50,6 +53,12 @@ Added beyond Cockburn: the data each step uses (`USES_DATA` → CEDS), and the
 review and versioning around a use case (Topic, ValueDriver, Account, Transition,
 `SUPERSEDES`).
 
+Left out: Cockburn's *stakeholders and interests*. The actors cover the parties
+who take part, and the guarantees and value drivers carry what they need from
+the outcome. A party with an interest that never acts (an auditor, a privacy
+office) has no place of its own; it can be named in `description` or
+`otherInformation`.
+
 ## Maturity: Cockburn's passes
 
 Cockburn fills the template in passes. A use case's `maturity` says how far it
@@ -60,14 +69,16 @@ fields are filled in.
 | --- | --- | --- |
 | `L0` | the goal | `title`, `description`, `scope`, `goalLevel`, primary actor, `priority`, `frequency` |
 | `L1` | the main path | `trigger`, `precondition`, `successGuarantees`, main success scenario (at least one step) |
-| `L2` | everything that can happen | extensions, variations, `failureGuarantees`, invoked use cases; the CEDS data of every step |
+| `L2` | everything that can happen | extensions, variations, `failureGuarantees`, invoked use cases; the data of every step (CEDS, or another standard's element flagged as a CEDS gap) |
 | `L3` | ready to plan | `otherInformation`, `openIssues`, `schedule` |
 
 ## Entities
 
 ### UseCase
 A goal that a primary actor reaches through a system. A recorded version is not
-changed; a change creates a new version that `SUPERSEDES` the old one.
+changed; a change creates a new version that `SUPERSEDES` the old one. Each
+version has its own steps and extensions, so changing a step in version 2 never
+alters version 1.
 
 | field | type | description |
 | --- | --- | --- |
@@ -78,7 +89,7 @@ changed; a change creates a new version that `SUPERSEDES` the old one.
 | `scope` | string | the system under design, treated as a black box |
 | `goalLevel` | enum `summary` / `userGoal` / `subfunction` | Cockburn's level: a summary goal spans several user goals; a user goal is one sitting for the primary actor; a subfunction is part of a user goal |
 | `maturity` | enum `L0`–`L3` | how far the use case has been written (see above) |
-| `vetted` | boolean | true once reviewed and accepted at its current maturity |
+| `vetted` | boolean | true once a person has reviewed the use case and its connections (actors, invoked use cases, data links) after it was uploaded; always false on import, set by a `vet` transition |
 | `priority` | enum `high` / `medium` / `low` | how critical it is |
 | `frequency` | string | how often it happens, e.g. "200 per day" |
 | `precondition` | text | what must be true before it starts |
@@ -90,9 +101,10 @@ changed; a change creates a new version that `SUPERSEDES` the old one.
 | `schedule` | string | the release or date it is due |
 
 ### UserStory
-One actor taking one step. A story can be a step in more than one use case or
-extension, and a step that is itself a goal `INVOKES` the lower-level use case
-that achieves it.
+One actor taking one step. A story belongs to one version of one use case (in
+its main scenario or one of its extensions); a new version gets its own copies.
+To share a step between use cases, write it as a subfunction use case and have
+each step that needs it `INVOKES` it, Cockburn's way.
 
 | field | type | description |
 | --- | --- | --- |
@@ -150,25 +162,30 @@ A person who works on use cases.
 | --- | --- | --- |
 | `id` | string | unique key (the login account) |
 | `name` | string | display name |
-| `role` | enum `Contributor` / `Reviewer` / `Expert` | what the account may do |
+| `role` | enum `Contributor` / `Reviewer` / `Expert` | the account's standing; every role may add use cases and advance, reject or vet them |
 
 ### Transition
-A recorded change to a use case's maturity.
+A recorded review decision on a use case version.
 
 | field | type | description |
 | --- | --- | --- |
 | `id` | string | unique key |
-| `decision` | enum `advance` / `reject` | `advance` raises the maturity by one; `reject` lowers it to the previous level |
+| `decision` | enum `advance` / `reject` / `vet` | `advance` raises the maturity by one; `reject` lowers it by one; `vet` marks the upload reviewed and leaves the maturity as it is |
 | `fromMaturity` | enum `L0`–`L3` | maturity before |
 | `toMaturity` | enum `L0`–`L3` | maturity after |
 | `rationale` | text | why: the reason for the decision |
 | `changeNote` | text | what: a summary of what changed |
 | `at` | datetime | when it was recorded |
 
-### CEDS element (existing)
-Already in the graph: a CEDS property, referenced by its CEDS id (e.g. `P000128`,
-stored as `https://w3id.org/CEDStandards/terms/P000128`). Steps point at it;
-nothing new is created.
+### Data element (existing)
+Already in the graph; steps point at it and nothing new is created.
+
+- **CEDS element**: a CEDS property, referenced by its CEDS id (e.g. `P000128`,
+  stored as `https://w3id.org/CEDStandards/terms/P000128`).
+- **Other standard's element**: any forged element, referenced by its `stableId`
+  (e.g. `pesc:field/AcademicRecord/RecipientType.element.DeliveryMethod`), used
+  only when CEDS has nothing for the data. Its `USES_DATA` link is flagged
+  `cedsGap`.
 
 ## Relationships
 
@@ -183,7 +200,7 @@ nothing new is created.
 | `GROUPS` | Extension → UserStory | `order` (integer), `variations` (text[]) | the extension's steps (3a1, 3a2 …) |
 | `INVOKES` | UserStory → UseCase | | the step is achieved by that lower-level use case |
 | `DID` | Actor → UserStory | | the actor who carries out the step |
-| `USES_DATA` | UserStory → CEDS element | `access` (`read` / `write` / `readWrite`), `required` (boolean), `note` | the data the step reads or produces |
+| `USES_DATA` | UserStory → data element | `access` (`read` / `write` / `readWrite`), `required` (boolean), `note`, `cedsGap` (boolean) | the data the step reads or produces; `cedsGap` is set by the importer when the element is not a CEDS element |
 | `QUALIFIED_FOR` | Account → Topic | | the account may review use cases in the topic |
 | `PERFORMS` | Account → Transition | | who made the decision |
 | `ADVANCES` | Transition → UseCase | | the use case (version) the decision applies to |
@@ -209,10 +226,15 @@ A step in the JSON (main scenario or extension):
   "variations": ["online portal", "paper form", "third-party clearinghouse"],
   "invokes": "uc:verify-student-identity",
   "data": [
-    { "ceds": "P001572", "access": "write", "required": true }
+    { "ceds": "P001572", "access": "write", "required": true },
+    { "element": "pesc:field/AcademicRecord/RecipientType.element.DeliveryMethod", "access": "write", "required": false,
+      "note": "How the transcript is to be delivered; no CEDS element" }
   ]
 }
 ```
+
+A data item is either `"ceds"` (a CEDS id) or `"element"` (another standard's
+stableId, imported as a CEDS gap).
 
 An extension:
 
@@ -270,4 +292,46 @@ MERGE (r:Actor {id: 'actor:registrar'}) MERGE (r)-[:DID]->(xs)
 
 In the graph a CEDS property is a `CedsProperty` node whose `stableId` is its
 CEDS term URI (`https://w3id.org/CEDStandards/terms/P001572`), so the short id
-written in the JSON is expanded to that URI when linking.
+written in the JSON is expanded to that URI when linking. A non-CEDS element is
+linked the same way and flagged:
+
+```cypher
+MATCH (s:UserStory {id: 'us:request-transcript'})
+MATCH (e:ForgedNode {stableId: 'pesc:field/AcademicRecord/RecipientType.element.DeliveryMethod'})
+MERGE (s)-[d:USES_DATA]->(e)
+  SET d.access = 'write', d.required = false, d.cedsGap = NOT e:CedsProperty
+```
+
+The CEDS gaps to propose, with the use cases that need them:
+
+```cypher
+MATCH (uc:UseCase)-[:GROUPS|HAS_EXTENSION*1..2]->(s:UserStory)-[d:USES_DATA {cedsGap: true}]->(e)
+RETURN e.stableId, e.name, collect(DISTINCT uc.title) AS neededBy
+```
+
+## Decisions
+
+| question | decision |
+| --- | --- |
+| Data with no CEDS element | Allowed: the step links another standard's element, and the link is flagged `cedsGap` so it can be proposed to CEDS later. |
+| Reusable steps vs versioned use cases | Versioned use cases win. Steps belong to one use case version; shared steps become subfunction use cases reached by `INVOKES`. |
+| Rejection | Drops the maturity by one level. |
+| What `vetted` means | A person has reviewed the use case and its connections after it was uploaded. |
+| Who can advance | Any account, including Contributors. |
+| Stakeholders and interests | Left out; covered by actors, guarantees and value drivers. |
+
+## Changes from the first diagram
+
+- **Data artifact → data at the step.** The diagram's data artifact (any forged
+  element or hub reference) is now `USES_DATA` from each user story, to a CEDS
+  element first, or to another standard's element flagged as a CEDS gap.
+- **`level` → `maturity`**, gated by Cockburn's passes; Cockburn's own level
+  is the new `goalLevel`.
+- **Cockburn fields added**: scope, goal level, primary actor, priority,
+  frequency, failure guarantees, other information, open issues, schedule.
+- **Extensions, variations and `INVOKES`** added, so a scenario can branch and
+  a step can be a lower-level use case.
+- **User stories are the steps**, and belong to one use case version.
+- **Transition** gains a `vet` decision.
+- **Direction** of two relationships: `UseCase -HAS_TOPIC-> Topic` and
+  `Actor -DID-> UserStory`.
