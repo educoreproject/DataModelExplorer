@@ -33,6 +33,7 @@
       "maturity": "L0",
       "vetted": false,
       "primaryActor": "actor:sea-fed-reporting-data-steward",
+      "stakeholders": [],
       "topics": [
         "topic:sedm"
       ],
@@ -1159,7 +1160,7 @@
         }
       ],
       "openIssues": [
-        "Scope, priority, frequency, precondition, trigger and the success and failure guarantees are not yet written in the workbook.",
+        "Scope, priority, frequency, stakeholders (interested parties), precondition, trigger and the success and failure guarantees are not yet written in the workbook.",
         "Each EDFacts file is its own user goal; should each become a user-goal use case invoked from this summary use case?",
         "Only FS002 lists its data (19 elements); the CEDS links on FS002 are proposed and need review, and the other 82 files have none yet.",
         "Several files (Title I, Title III, assessment, directory) are not IDEA files; should they sit under a broader EDFacts reporting value driver?"

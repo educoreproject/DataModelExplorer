@@ -34,6 +34,16 @@
       "id": "actor:receiving-sis",
       "name": "Receiving student information system",
       "kind": "system"
+    },
+    {
+      "id": "actor:receiving-institution",
+      "name": "Receiving institution",
+      "kind": "organization"
+    },
+    {
+      "id": "actor:records-privacy-office",
+      "name": "Records privacy office",
+      "kind": "organization"
     }
   ],
   "useCases": [
@@ -60,6 +70,20 @@
       "maturity": "L3",
       "vetted": false,
       "primaryActor": "actor:student",
+      "stakeholders": [
+        {
+          "actor": "actor:student",
+          "interest": "The transcript arrives quickly and is accepted for transfer credit."
+        },
+        {
+          "actor": "actor:receiving-institution",
+          "interest": "A complete record it can verify came from the sending institution."
+        },
+        {
+          "actor": "actor:records-privacy-office",
+          "interest": "Records are disclosed only at the student's request (FERPA)."
+        }
+      ],
       "priority": "high",
       "frequency": "About 300 per week, peaking at term end",
       "topics": [

@@ -11,6 +11,7 @@ can be proposed to CEDS later.
 ```mermaid
 flowchart LR
   UseCase -- PRIMARY_ACTOR --> Actor
+  UseCase -- HAS_STAKEHOLDER --> Actor
   UseCase -- HAS_TOPIC --> Topic
   UseCase -- ALIGNS_WITH --> ValueDriver
   UseCase -- SUPERSEDES --> UseCase
@@ -35,6 +36,7 @@ flowchart LR
 | Scope | `UseCase.scope` |
 | Level | `UseCase.goalLevel` |
 | Primary actor | `PRIMARY_ACTOR` → Actor |
+| Stakeholders and interests (interested parties) | `HAS_STAKEHOLDER {interest}` → Actor |
 | Priority, Frequency | `UseCase.priority`, `UseCase.frequency` |
 | Preconditions | `UseCase.precondition` |
 | Success end condition | `UseCase.successGuarantees` |
@@ -53,11 +55,10 @@ Added beyond Cockburn: the data each step uses (`USES_DATA` → CEDS), and the
 review and versioning around a use case (Topic, ValueDriver, Account, Transition,
 `SUPERSEDES`).
 
-Left out: Cockburn's *stakeholders and interests*. The actors cover the parties
-who take part, and the guarantees and value drivers carry what they need from
-the outcome. A party with an interest that never acts (an auditor, a privacy
-office) has no place of its own; it can be named in `description` or
-`otherInformation`.
+Stakeholders are actors too: an interested party is an Actor linked to the use
+case by `HAS_STAKEHOLDER`, with its interest on the link. The same Actor can be
+the primary actor, carry out steps, or only have an interest in the outcome (an
+auditor, a privacy office, a federal agency receiving a report).
 
 ## Maturity: Cockburn's passes
 
@@ -69,7 +70,7 @@ fields are filled in.
 | --- | --- | --- |
 | `L0` | the goal | `title`, `description`, `scope`, `goalLevel`, primary actor, `priority`, `frequency` |
 | `L1` | the main path | `trigger`, `precondition`, `successGuarantees`, main success scenario (at least one step) |
-| `L2` | everything that can happen | extensions, variations, `failureGuarantees`, invoked use cases; the data of every step (CEDS, or another standard's element flagged as a CEDS gap) |
+| `L2` | everything that can happen | stakeholders and their interests, extensions, variations, `failureGuarantees`, invoked use cases; the data of every step (CEDS, or another standard's element flagged as a CEDS gap) |
 | `L3` | ready to plan | `otherInformation`, `openIssues`, `schedule` |
 
 ## Entities
@@ -127,14 +128,15 @@ steps taken, and where it ends.
 | `rejoinAtStep` | integer | the main-scenario step it rejoins at (when `outcome` is `rejoin`) |
 
 ### Actor
-A person or system role. It can be the primary actor of a use case, or the
-actor who carries out a step.
+A person, system or organization role. In a use case an actor can be the
+primary actor, carry out steps (`DID`), or be a stakeholder with an interest in
+the outcome (`HAS_STAKEHOLDER`); one actor can play several of these parts.
 
 | field | type | description |
 | --- | --- | --- |
 | `id` | string | unique key |
 | `name` | string | the role, e.g. "Registrar" |
-| `kind` | enum `person` / `system` | whether the role is a person or a system |
+| `kind` | enum `person` / `system` / `organization` | what kind of party the role is |
 
 ### Topic
 The subject area a use case belongs to. It also scopes who can review it.
@@ -192,6 +194,7 @@ Already in the graph; steps point at it and nothing new is created.
 | relationship | from → to | properties | meaning |
 | --- | --- | --- | --- |
 | `PRIMARY_ACTOR` | UseCase → Actor | | whose goal the use case serves |
+| `HAS_STAKEHOLDER` | UseCase → Actor | `interest` (text) | a party with an interest in the outcome, and what it needs protected or delivered |
 | `HAS_TOPIC` | UseCase → Topic | | the subject area |
 | `ALIGNS_WITH` | UseCase → ValueDriver | | the value it delivers |
 | `SUPERSEDES` | UseCase → UseCase | | this version replaces the earlier one |
@@ -269,6 +272,8 @@ MERGE (uc:UseCase {id: 'uc:transcript-exchange', version: 1})
       uc.successGuarantees = 'The receiving institution has a complete, verifiable record.',
       uc.failureGuarantees = 'No record has left the institution; the student knows why.'
 MERGE (pa:Actor {id: 'actor:student'})            MERGE (uc)-[:PRIMARY_ACTOR]->(pa)
+MERGE (ri:Actor {id: 'actor:receiving-institution'}) SET ri.kind = 'organization'
+MERGE (uc)-[h:HAS_STAKEHOLDER]->(ri) SET h.interest = 'A complete record it can verify came from the sending institution.'
 MERGE (t:Topic {id: 'topic:transcripts'})         MERGE (uc)-[:HAS_TOPIC]->(t)
 MERGE (v:ValueDriver {id: 'vd:student-mobility'}) MERGE (uc)-[:ALIGNS_WITH]->(v)
 
@@ -322,7 +327,7 @@ RETURN e.stableId, e.name, collect(DISTINCT uc.title) AS neededBy
 | Rejection | Drops the maturity by one level. |
 | What `vetted` means | A person has reviewed the use case and its connections after it was uploaded. |
 | Who can advance | Any account, including Contributors. |
-| Stakeholders and interests | Left out; covered by actors, guarantees and value drivers. |
+| Stakeholders and interests | Kept, as a kind of actor: `HAS_STAKEHOLDER {interest}` from the use case to an Actor. |
 
 ## Changes from the first diagram
 

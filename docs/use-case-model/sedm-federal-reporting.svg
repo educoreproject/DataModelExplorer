@@ -16,16 +16,17 @@
 <text x="140" y="180" font-size="12" fill="#5F5E5A" text-anchor="middle">Part B and C, via EDFacts</text>
 <line x1="290" y1="58" x2="264" y2="58" stroke="#5F5E5A" stroke-width="1" marker-end="url(#m-dark)"/>
 <line x1="290" y1="156" x2="264" y2="156" stroke="#5F5E5A" stroke-width="1" marker-end="url(#m-dark)"/>
-<rect x="290" y="20" width="480" height="196" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.75"/>
+<rect x="290" y="20" width="480" height="212" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.75"/>
 <text x="530" y="44" font-size="15" fill="#26215C" text-anchor="middle" font-weight="600">Federal Reporting</text>
 <text x="530" y="62" font-size="12" fill="#534AB7" text-anchor="middle">use case SEDM UC-1 · version 1</text>
 <text x="308" y="88" font-size="12" fill="#3C3489"><tspan font-weight="600">Goal level:</tspan><tspan> summary · Maturity: L0 · Vetted: no</tspan></text>
 <text x="308" y="106" font-size="12" fill="#3C3489"><tspan font-weight="600">Description:</tspan><tspan> an SEA gathers and submits its EDFacts files</tspan></text>
 <text x="308" y="124" font-size="12" fill="#3C3489"><tspan font-weight="600">Primary actor:</tspan><tspan> SEA Fed Reporting Data Steward</tspan></text>
-<text x="308" y="142" font-size="12" fill="#7F77DD"><tspan font-weight="600">Scope, priority, frequency:</tspan><tspan font-style="italic"> not yet written</tspan></text>
-<text x="308" y="160" font-size="12" fill="#7F77DD"><tspan font-weight="600">Precondition, trigger:</tspan><tspan font-style="italic"> not yet written</tspan></text>
-<text x="308" y="178" font-size="12" fill="#7F77DD"><tspan font-weight="600">Success and failure guarantees:</tspan><tspan font-style="italic"> not yet written</tspan></text>
-<text x="308" y="196" font-size="12" fill="#3C3489"><tspan font-weight="600">Steps:</tspan><tspan> 83 user stories, one per EDFacts file</tspan></text>
+<text x="308" y="142" font-size="12" fill="#7F77DD"><tspan font-weight="600">Stakeholders (interested parties):</tspan><tspan font-style="italic"> not yet written</tspan></text>
+<text x="308" y="160" font-size="12" fill="#7F77DD"><tspan font-weight="600">Scope, priority, frequency:</tspan><tspan font-style="italic"> not yet written</tspan></text>
+<text x="308" y="178" font-size="12" fill="#7F77DD"><tspan font-weight="600">Precondition, trigger:</tspan><tspan font-style="italic"> not yet written</tspan></text>
+<text x="308" y="196" font-size="12" fill="#7F77DD"><tspan font-weight="600">Success and failure guarantees:</tspan><tspan font-style="italic"> not yet written</tspan></text>
+<text x="308" y="214" font-size="12" fill="#3C3489"><tspan font-weight="600">Steps:</tspan><tspan> 83 user stories, one per EDFacts file</tspan></text>
 <rect x="820" y="30" width="260" height="56" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.75"/>
 <text x="950" y="52" font-size="14" fill="#712B13" text-anchor="middle" font-weight="600">SEA Fed Reporting Data Steward</text>
 <text x="950" y="72" font-size="12" fill="#993C1D" text-anchor="middle">person · primary actor</text>
@@ -123,7 +124,7 @@
 <line x1="758" y1="760" x2="700" y2="330" stroke="#888780" stroke-width="1"/>
 <rect x="20" y="1080" width="1060" height="102" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.75"/>
 <text x="36" y="1100" font-size="13" fill="#2C2C2A" text-anchor="start" font-weight="600">Open issues</text>
-<text x="36" y="1120" font-size="12" fill="#2C2C2A" text-anchor="start">· Scope, priority, frequency, precondition, trigger and the success and failure guarantees are not yet written in the workbook.</text>
+<text x="36" y="1120" font-size="12" fill="#2C2C2A" text-anchor="start">· Scope, priority, frequency, stakeholders (interested parties), precondition, trigger and the success and failure guarantees are not yet written in the workbook.</text>
 <text x="36" y="1138" font-size="12" fill="#2C2C2A" text-anchor="start">· Each EDFacts file is its own user goal; should each become a user-goal use case invoked from this summary use case?</text>
 <text x="36" y="1156" font-size="12" fill="#2C2C2A" text-anchor="start">· Only FS002 lists its data (19 elements); the CEDS links on FS002 are proposed and need review, and the other 82 files have none yet.</text>
 <text x="36" y="1174" font-size="12" fill="#2C2C2A" text-anchor="start">· Several files (Title I, Title III, assessment, directory) are not IDEA files; should they sit under a broader EDFacts reporting value driver?</text>
