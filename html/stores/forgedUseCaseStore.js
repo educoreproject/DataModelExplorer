@@ -5,8 +5,7 @@
 //
 // The EDUcore use-case standard as the GOLD holds it: POST /api/forged-use-cases answers { action: 'list' } with every forged
 // case, and { action: 'case', caseStableId } with one case's steps in reading order and its citations. Nothing here is
-// remembered between pages; the graph is the source. (The older static matrix on the Use Cases page is
-// @/data/github-use-cases and is not this store's.)
+// remembered between pages; the graph is the source. (The older static catalogue it replaced, TQ 2026-10-30, is gone.)
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -17,6 +16,9 @@ const forgedUseCaseStoreInitObject = {
 	caseList: [],
 	caseListLoading: false,
 	caseListStatusMsg: '',
+	citedStandardList: [],
+	citedStandardListLoading: false,
+	citedStandardListStatusMsg: '',
 	caseDetail: null,
 	caseLoading: false,
 	caseStatusMsg: '',
@@ -53,6 +55,30 @@ export const useForgedUseCaseStore = defineStore('forgedUseCaseStore', {
 				return false;
 			} finally {
 				this.caseListLoading = false;
+			}
+		},
+
+		// every standard the forged cases cite, each with the cases that cite it (derived from the graph's citations)
+		async fetchCitedStandardList() {
+			const loginStore = useLoginStore();
+			this.citedStandardListLoading = true;
+			this.citedStandardListStatusMsg = '';
+			try {
+				const response = await axios.post(FORGED_USE_CASES_URL, { action: 'byCitedStandard' }, { headers: authHeadersOf(loginStore) });
+				const standardResult = Array.isArray(response.data) ? response.data[0] : null;
+				if (!standardResult || !Array.isArray(standardResult.citedStandardList)) {
+					this.citedStandardListStatusMsg = 'the server answered without a cited-standard list';
+					this.citedStandardList = [];
+					return false;
+				}
+				this.citedStandardList = standardResult.citedStandardList;
+				return true;
+			} catch (error) {
+				this.citedStandardListStatusMsg = refusalTextOf(error, 'cited-standard list');
+				this.citedStandardList = [];
+				return false;
+			} finally {
+				this.citedStandardListLoading = false;
 			}
 		},
 

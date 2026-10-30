@@ -85,6 +85,23 @@ const moduleFunction =
 				params: {},
 			}),
 
+			// ⟪Phase C2, TQ 2026-10-30: the old catalogue is replaced⟫ every standard the cases CITE (the author's citedStandard,
+			// as written), with the cases that cite it and whether the graph resolves those citations to its elements
+			caseListByCitedStandard: () => ({
+				cypher: `
+					MATCH (useCase:UcUseCase)-[:${citationWalkText}]->(reference:UcDataReference)
+					WHERE reference.citedStandard IS NOT NULL
+					WITH reference.citedStandard AS citedStandard, useCase, reference
+					WITH citedStandard, useCase, count(DISTINCT reference) AS referenceCount,
+					     count(DISTINCT CASE WHEN (reference)-[:DECLARED_CORRESPONDENCE]->() THEN reference END) AS resolvedReferenceCount
+					WITH citedStandard, collect({caseStableId: useCase.stableId, shortName: useCase.shortName, longName: useCase.name,
+					     referenceCount: referenceCount, resolvedReferenceCount: resolvedReferenceCount}) AS caseList
+					RETURN citedStandard, caseList, size(caseList) AS caseCount
+					ORDER BY caseCount DESC, citedStandard
+				`,
+				params: {},
+			}),
+
 			// one case's own properties, its standard's release and its primary actor
 			caseByStableId: ({ caseStableId }) => ({
 				cypher: `

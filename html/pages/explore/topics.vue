@@ -1,56 +1,39 @@
 <script setup>
-import { useCaseTaxonomy, countUseCases, countCompleteUseCases } from '@/data/use-case-taxonomy';
+// @concept: [[DataModelExplorer]]
+// Explore → Topics: the forged use cases grouped by the STANDARD THEY CITE (Phase C2, TQ 2026-10-30: the old catalogue goes
+// away). The groups are derived from the graph's own citations (POST /api/forged-use-cases { action: 'byCitedStandard' }),
+// never from a hand-kept taxonomy, so a new release of the use-case standard regroups itself.
 
-const topicCards = computed(() =>
-	useCaseTaxonomy.map((topic) => ({
-		...topic,
-		driverCount: topic.children.length,
-		useCaseCount: countUseCases(topic.id),
-		completeCount: countCompleteUseCases(topic.id),
-	})),
-);
+import { useForgedUseCaseStore } from '@/stores/forgedUseCaseStore';
+
+const forgedUseCaseStore = useForgedUseCaseStore();
+onMounted(() => {
+	forgedUseCaseStore.fetchCitedStandardList();
+});
+const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
 </script>
 
 <template>
 	<v-container class="py-8" style="max-width: 1000px;">
-		<h1 class="text-h4 font-weight-bold text-primary mb-2">Topics</h1>
+		<h1 class="text-h4 font-weight-bold text-primary mb-2">Topics: use cases by the standard they cite</h1>
 		<p class="text-body-1 text-medium-emphasis mb-8">
-			Explore the key areas driving education data interoperability.
+			Each forged use case cites the standards whose data it needs. Read from the graph's citations.
 		</p>
 
-		<v-row>
-			<v-col
-				v-for="topic in topicCards"
-				:key="topic.id"
-				cols="12"
-				sm="6"
-			>
-				<v-card
-					class="pa-6 h-100"
-					variant="outlined"
-					:to="`/explore/use-cases?topic=${topic.id}`"
-					hover
-				>
-					<div class="d-flex align-center mb-3">
-						<span class="text-h4 mr-3">{{ topic.icon }}</span>
-						<h2 class="text-h6 font-weight-bold">{{ topic.label }}</h2>
-					</div>
-					<p class="text-body-2 text-medium-emphasis mb-4">{{ topic.subtitle }}</p>
-					<div class="d-flex ga-4 text-caption text-medium-emphasis mb-3">
-						<span><strong>{{ topic.driverCount }}</strong> value drivers</span>
-						<span><strong>{{ topic.completeCount }}</strong> / {{ topic.useCaseCount }} complete</span>
-					</div>
-					<div>
-						<v-chip
-							v-for="driver in topic.children"
-							:key="driver.id"
-							size="small"
-							variant="tonal"
-							class="mr-1 mb-1"
-						>
-							{{ driver.label }}
-						</v-chip>
-					</div>
+		<v-progress-linear v-if="forgedUseCaseStore.citedStandardListLoading" indeterminate color="primary" class="mb-4" />
+		<v-alert v-if="forgedUseCaseStore.citedStandardListStatusMsg" type="warning" variant="tonal" class="mb-4">{{ forgedUseCaseStore.citedStandardListStatusMsg }}</v-alert>
+
+		<v-row data-testid="cited-standard-list">
+			<v-col v-for="oneStandard in forgedUseCaseStore.citedStandardList" :key="oneStandard.citedStandard" cols="12" sm="6">
+				<v-card class="pa-5 h-100" variant="outlined" :data-testid="`cited-standard-${oneStandard.citedStandard}`">
+					<h2 class="text-h6 font-weight-bold mb-1">{{ oneStandard.citedStandard }}</h2>
+					<p class="text-caption text-medium-emphasis mb-3">cited by {{ oneStandard.caseCount }} use case{{ oneStandard.caseCount === 1 ? '' : 's' }}</p>
+					<v-list density="compact">
+						<v-list-item v-for="oneCase in oneStandard.caseList" :key="oneCase.caseStableId" :to="forgedCaseLinkOf(oneCase.caseStableId)">
+							<v-list-item-title>{{ oneCase.shortName }}</v-list-item-title>
+							<v-list-item-subtitle>{{ oneCase.resolvedReferenceCount }} of {{ oneCase.referenceCount }} citations resolve to an element in the graph</v-list-item-subtitle>
+						</v-list-item>
+					</v-list>
 				</v-card>
 			</v-col>
 		</v-row>

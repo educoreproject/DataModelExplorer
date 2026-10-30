@@ -7,6 +7,7 @@
 // forged-use-cases — the graph reads behind the pages that show the FORGED use cases (use-case forge Phase 5, 2026-10-30;
 // PLAN-useCaseDme-103026 Phase C). Input { action, ... }; one handler per action, chosen from handlerByActionName:
 //   list  {}                → { caseList }: every UcUseCase with its step and citation counts
+//   byCitedStandard {}      → { citedStandardList }: every standard the cases cite, each with the cases citing it
 //   case  { caseStableId }  → { useCase, stepList, citationList, citationStateCountList }: one case, its steps in reading
 //                             order (position, then codedNotation), and every data reference it reaches with its state
 // Runs on the golden READ-ONLY handle. Refuses by name: an absent or unknown action, an absent caseStableId, a case the
@@ -46,6 +47,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const readCaseList = (callback) =>
 		runNamedQuery('caseList', {}, (queryError, caseRecordList) => callback(queryError, queryError ? undefined : { caseList: caseRecordList }));
+
+	const readCaseListByCitedStandard = (callback) =>
+		runNamedQuery('caseListByCitedStandard', {}, (queryError, standardRecordList) => callback(queryError, queryError ? undefined : { citedStandardList: standardRecordList }));
 
 	const readCase = ({ caseStableId }, callback) => {
 		if (typeof caseStableId !== 'string' || caseStableId.trim() === '') {
@@ -93,6 +97,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	const handlerByActionName = {
 		list: (xQuery, callback) => readCaseList(callback),
+		byCitedStandard: (xQuery, callback) => readCaseListByCitedStandard(callback),
 		case: (xQuery, callback) => readCase({ caseStableId: xQuery.caseStableId }, callback),
 	};
 

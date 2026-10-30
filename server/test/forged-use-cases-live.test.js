@@ -6,6 +6,8 @@
 //   (b) caseStepList returns a case's steps in reading order: position ascending, then codedNotation ('7' before '7a')
 //   (c) caseCitationList returns every data reference the case reaches by the citation walk, each resolved one with the
 //       stableId its DECLARED_CORRESPONDENCE edge reaches, and every citation carries a state from the mapper's rule table
+//   (d) caseListByCitedStandard (the Topics page, Phase C2) names every citedStandard the references carry, each with exactly
+//       the cases that reach such a reference
 // RED BEFORE: with the step ORDER BY removed from the mapper (a twin), (b) fails on uc:ler-issuance.
 //
 // Run: node server/test/forged-use-cases-live.test.js   (needs the gold dataModelExplorerSearch.ini names to hold use cases)
@@ -53,6 +55,18 @@ taskList.push((args, next) => runQuery(`MATCH (:UcUseCase {stableId: $caseStable
 		assert(`(c) ${CASE_STABLE_ID}: all ${expectedRowList.length} references, each with the element its citation reaches`, citationList.length === expectedRowList.length && disagreeingList.length === 0, JSON.stringify(disagreeingList).slice(0, 300));
 		const knownStateList = mapper.citationStateRuleList.map((oneRule) => oneRule.citationState).filter((stateName) => stateName !== 'unclassified');
 		assert('(c) every citation has a state the rule table names (none unclassified); resolved = has a cited element', citationList.every((oneCitation) => knownStateList.indexOf(oneCitation.citationState) !== -1 && ((oneCitation.citationState === 'resolved') === Boolean(oneCitation.citedStableId))), JSON.stringify(citationList.map((oneCitation) => oneCitation.citationState)));
+		next('', args);
+	});
+}));
+taskList.push((args, next) => runQuery(`MATCH (uc:UcUseCase)-[:${mapper.citationWalkEdgeTypeList.join('|')}*1..3]->(ref:UcDataReference) WHERE ref.citedStandard IS NOT NULL
+	WITH ref.citedStandard AS citedStandard, collect(DISTINCT uc.stableId) AS caseIdList RETURN citedStandard, caseIdList`, {}, (err, expectedRowList) => {
+	if (err) { next(err, args); return; }
+	runNamedQuery('caseListByCitedStandard', {}, (queryError, standardRowList) => {
+		if (queryError) { next(queryError, args); return; }
+		const caseIdTextOf = (idList) => JSON.stringify(idList.slice().sort());
+		const expectedByStandard = Object.fromEntries(expectedRowList.map((oneRow) => [oneRow.citedStandard, caseIdTextOf(oneRow.caseIdList)]));
+		const disagreeingList = standardRowList.filter((oneRow) => expectedByStandard[oneRow.citedStandard] !== caseIdTextOf(oneRow.caseList.map((oneCase) => oneCase.caseStableId)));
+		assert(`(d) caseListByCitedStandard: all ${expectedRowList.length} cited standards, each with exactly its citing cases`, expectedRowList.length > 0 && standardRowList.length === expectedRowList.length && disagreeingList.length === 0, JSON.stringify(disagreeingList).slice(0, 300));
 		next('', args);
 	});
 }));
