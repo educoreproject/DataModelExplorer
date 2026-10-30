@@ -6,6 +6,8 @@
 //   (b) caseStepList returns a case's steps in reading order: position ascending, then codedNotation ('7' before '7a')
 //   (c) caseCitationList returns every data reference the case reaches by the citation walk, each resolved one with the
 //       stableId its DECLARED_CORRESPONDENCE edge reaches, and every citation carries a state from the mapper's rule table
+//   (e) caseContextList puts each of the case's context edges in its page section (HAS_ACTOR count = the test's), and
+//       caseImplementationGuide lists exactly the standards whose elements are match-edged to the cited elements' hub cards
 //   (d) caseListByCitedStandard (the Topics page, Phase C2) names every citedStandard the references carry, each with exactly
 //       the cases that reach such a reference
 // RED BEFORE: with the step ORDER BY removed from the mapper (a twin), (b) fails on uc:ler-issuance.
@@ -67,6 +69,28 @@ taskList.push((args, next) => runQuery(`MATCH (uc:UcUseCase)-[:${mapper.citation
 		const expectedByStandard = Object.fromEntries(expectedRowList.map((oneRow) => [oneRow.citedStandard, caseIdTextOf(oneRow.caseIdList)]));
 		const disagreeingList = standardRowList.filter((oneRow) => expectedByStandard[oneRow.citedStandard] !== caseIdTextOf(oneRow.caseList.map((oneCase) => oneCase.caseStableId)));
 		assert(`(d) caseListByCitedStandard: all ${expectedRowList.length} cited standards, each with exactly its citing cases`, expectedRowList.length > 0 && standardRowList.length === expectedRowList.length && disagreeingList.length === 0, JSON.stringify(disagreeingList).slice(0, 300));
+		next('', args);
+	});
+}));
+taskList.push((args, next) => runQuery(`MATCH (:UcUseCase {stableId: $caseStableId})-[actorEdge:HAS_ACTOR]->() RETURN count(actorEdge) AS actorCount`, { caseStableId: CASE_STABLE_ID }, (err, actorRowList) => {
+	if (err) { next(err, args); return; }
+	runNamedQuery('caseContextList', { caseStableId: CASE_STABLE_ID }, (queryError, contextRowList) => {
+		if (queryError) { next(queryError, args); return; }
+		const contextBySection = mapper.mapContextRecordList(contextRowList);
+		assert(`(e) ${CASE_STABLE_ID}: context section 'actor' holds its ${actorRowList[0].actorCount} HAS_ACTOR edges; every section the table names is present`, contextBySection.actor.length === actorRowList[0].actorCount && mapper.caseContextSectionList.every((oneSection) => Array.isArray(contextBySection[oneSection.sectionName])), JSON.stringify(Object.keys(contextBySection)));
+		next('', args);
+	});
+}));
+taskList.push((args, next) => runQuery(`MATCH (:UcUseCase {stableId: $caseStableId})-[:${mapper.citationWalkEdgeTypeList.join('|')}*1..3]->(:UcDataReference)-[:DECLARED_CORRESPONDENCE]->(cited)
+	WITH DISTINCT cited MATCH (hub:HubReference)-[slot]->(cited) WHERE type(slot) IN ['HAS_' + toUpper(hub.hubName) + '_DOMAIN', 'HAS_' + toUpper(hub.hubName) + '_PROPERTY', 'HAS_' + toUpper(hub.hubName) + '_VALUE']
+	MATCH (element:ForgedNode)-[:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub) RETURN collect(DISTINCT element._source) AS standardList`, { caseStableId: CASE_STABLE_ID }, (err, expectedRowList) => {
+	if (err) { next(err, args); return; }
+	runNamedQuery('caseImplementationGuide', { caseStableId: CASE_STABLE_ID }, (queryError, guideRowList) => {
+		if (queryError) { next(queryError, args); return; }
+		const guide = mapper.mapImplementationGuideRecordList(guideRowList);
+		const expectedText = JSON.stringify(expectedRowList[0].standardList.slice().sort());
+		const actualText = JSON.stringify(guide.standardList.map((oneStandard) => oneStandard.standard).sort());
+		assert(`(e) ${CASE_STABLE_ID}: the guide lists exactly the ${expectedRowList[0].standardList.length} standards mapped to its cited elements`, expectedRowList[0].standardList.length > 0 && expectedText === actualText, `${actualText} vs ${expectedText}`);
 		next('', args);
 	});
 }));

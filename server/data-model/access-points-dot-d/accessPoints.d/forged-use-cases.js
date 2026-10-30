@@ -8,7 +8,7 @@
 // PLAN-useCaseDme-103026 Phase C). Input { action, ... }; one handler per action, chosen from handlerByActionName:
 //   list  {}                → { caseList }: every UcUseCase with its step and citation counts
 //   byCitedStandard {}      → { citedStandardList }: every standard the cases cite, each with the cases citing it
-//   case  { caseStableId }  → { useCase, stepList, citationList, citationStateCountList }: one case, its steps in reading
+//   case  { caseStableId }  → { useCase, stepList, citationList, citationStateCountList, contextBySection, implementationGuide }: one case, its steps in reading
 //                             order (position, then codedNotation), and every data reference it reaches with its state
 // Runs on the golden READ-ONLY handle. Refuses by name: an absent or unknown action, an absent caseStableId, a case the
 // graph does not hold, and a graph that holds no use cases (a required label is absent).
@@ -78,12 +78,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			runNamedQuery('caseCitationList', { caseStableId }, (queryError, citationRecordList) => next(queryError, { ...args, citationList: queryError ? [] : mapper.mapCitationRecordList(citationRecordList) })),
 		);
 
+		// ⟪Phase C3⟫ the context the Overview, T-Chart and Swimlane read, and the Implementation Guide
+		taskList.push((args, next) =>
+			runNamedQuery('caseContextList', { caseStableId }, (queryError, contextRecordList) => next(queryError, { ...args, contextBySection: queryError ? {} : mapper.mapContextRecordList(contextRecordList) })),
+		);
+		taskList.push((args, next) =>
+			runNamedQuery('caseImplementationGuide', { caseStableId }, (queryError, guideRecordList) => next(queryError, { ...args, implementationGuide: queryError ? {} : mapper.mapImplementationGuideRecordList(guideRecordList) })),
+		);
+
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
 			if (pipeError) {
 				callback(pipeError);
 				return;
 			}
 			callback('', {
+				contextBySection: args.contextBySection,
+				implementationGuide: args.implementationGuide,
 				useCase: args.useCase,
 				stepList: args.stepList,
 				citationList: args.citationList,

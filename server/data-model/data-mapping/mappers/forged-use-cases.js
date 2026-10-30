@@ -38,6 +38,33 @@ const CITATION_WALK_DEPTH = 3;
 // the edges a story names its data by
 const storyDataEdgeTypeList = Object.freeze(['CONSUMES', 'PRODUCES']);
 
+// ⟪Phase C3, TQ 2026-10-30: the old pages had swimlanes and t-charts⟫ the case's own context edges, each with the page section
+// that shows it (data, not a branch): who takes part, what it assumes and guarantees, what starts it, what it serves, what it
+// is about, the cases it relates to, and its sources. The order here is display order within a section.
+const caseContextSectionList = Object.freeze([
+	{ edgeType: 'HAS_PRIMARY_ACTOR', sectionName: 'primaryActor' },
+	{ edgeType: 'HAS_ACTOR', sectionName: 'actor' },
+	{ edgeType: 'HAS_INTERESTED_PARTY', sectionName: 'interestedParty' },
+	{ edgeType: 'ALIGNS_WITH', sectionName: 'valueDriver' },
+	{ edgeType: 'HAS_SUBJECT', sectionName: 'subject' },
+	{ edgeType: 'TRIGGERED_BY', sectionName: 'trigger' },
+	{ edgeType: 'ASSUMES', sectionName: 'precondition' },
+	{ edgeType: 'GUARANTEES', sectionName: 'guarantee' },
+	{ edgeType: 'PARENT', sectionName: 'relatedCase' },
+	{ edgeType: 'CHILD', sectionName: 'relatedCase' },
+	{ edgeType: 'SIBLING', sectionName: 'relatedCase' },
+	{ edgeType: 'INVOKES', sectionName: 'relatedCase' },
+	{ edgeType: 'INCLUDES', sectionName: 'relatedCase' },
+	{ edgeType: 'EXTENDS', sectionName: 'relatedCase' },
+	{ edgeType: 'DUPLICATE', sectionName: 'relatedCase' },
+	{ edgeType: 'HAS_RESOURCE', sectionName: 'resource' },
+]);
+// the hub slots by which a hub card reaches a cited element (a CEDS class is a card's domain, a property its property, a
+// code its value); each card names its own hub, so the text works for any hub (toolPayloadContract)
+const { cardHubSlotEdgeTypeTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const citedElementSlotNameList = Object.freeze(['DOMAIN', 'PROPERTY', 'VALUE']);
+const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
+
 // a reference's resolution state, from its own properties and its DECLARED_CORRESPONDENCE edge; the FIRST entry whose test
 // holds decides, and the last always holds (a reference the forge carried with no kind the table knows is said so)
 const citationStateRuleList = Object.freeze([
@@ -100,6 +127,37 @@ const moduleFunction =
 					ORDER BY caseCount DESC, citedStandard
 				`,
 				params: {},
+			}),
+
+			// the case's context edges (caseContextSectionList), each with its own properties and its target
+			caseContextList: ({ caseStableId }) => ({
+				cypher: `
+					MATCH (:UcUseCase {stableId: $caseStableId})-[contextEdge]->(target)
+					WHERE type(contextEdge) IN $contextEdgeTypeList
+					RETURN type(contextEdge) AS edgeType, contextEdge.role AS edgeRole, contextEdge.interest AS interest,
+					       contextEdge.notes AS notes, contextEdge.partyKind AS partyKind, contextEdge.listPosition AS listPosition,
+					       target.stableId AS targetStableId, target.name AS targetName, target.shortName AS targetShortName,
+					       target.motivation AS motivation, target.url AS url
+					ORDER BY edgeType, listPosition
+				`,
+				params: { caseStableId, contextEdgeTypeList: caseContextSectionList.map((oneSection) => oneSection.edgeType) },
+			}),
+
+			// the Implementation Guide: for every element the case cites, the standards whose elements a judge mapped to that
+			// element's hub card, by relation. Each row is a JUDGED mapping of the CITED element, never of the case.
+			caseImplementationGuide: ({ caseStableId }) => ({
+				cypher: `
+					MATCH (:UcUseCase {stableId: $caseStableId})-[:${citationWalkText}]->(:UcDataReference)-[:DECLARED_CORRESPONDENCE]->(cited)
+					WITH DISTINCT cited
+					OPTIONAL MATCH (hub:HubReference)-[slot]->(cited)
+					WHERE type(slot) IN [${citedElementSlotNameList.map((slotName) => cardHubSlotEdgeTypeTextFor('hub', slotName)).join(', ')}]
+					OPTIONAL MATCH (element:ForgedNode)-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(hub)
+					WITH cited, element._source AS standard, type(matchEdge) AS relation, count(DISTINCT element) AS elementCount
+					RETURN cited.stableId AS citedStableId, cited.name AS citedName, cited.role AS citedRole, cited._source AS citedSource,
+					       standard, relation, elementCount
+					ORDER BY citedName, standard, relation
+				`,
+				params: { caseStableId },
 			}),
 
 			// one case's own properties, its standard's release and its primary actor
@@ -174,6 +232,34 @@ const moduleFunction =
 				citationCount: citationList.filter((oneCitation) => oneCitation.citationState === citationState).length,
 			}));
 
+		// the context rows grouped by page section: { primaryActor: [...], actor: [...], ... }, every section present
+		const mapContextRecordList = (contextRecordList) => {
+			const sectionNameByEdgeType = Object.fromEntries(caseContextSectionList.map((oneSection) => [oneSection.edgeType, oneSection.sectionName]));
+			const contextBySection = Object.fromEntries(caseContextSectionList.map((oneSection) => [oneSection.sectionName, []]));
+			contextRecordList.forEach((contextRecord) => contextBySection[sectionNameByEdgeType[contextRecord.edgeType]].push(contextRecord));
+			return contextBySection;
+		};
+
+		// the guide by STANDARD: each standard with the cited elements it holds (by relation) — the page's chips and table
+		const mapImplementationGuideRecordList = (guideRecordList) => {
+			const citedElementList = [];
+			const standardByName = {};
+			guideRecordList.forEach((guideRecord) => {
+				if (!citedElementList.some((oneElement) => oneElement.citedStableId === guideRecord.citedStableId)) {
+					citedElementList.push({ citedStableId: guideRecord.citedStableId, citedName: guideRecord.citedName, citedRole: guideRecord.citedRole, citedSource: guideRecord.citedSource });
+				}
+				if (!guideRecord.standard) return;
+				const standardEntry = (standardByName[guideRecord.standard] ||= { standard: guideRecord.standard, elementCount: 0, citedElementByStableId: {} });
+				standardEntry.elementCount += guideRecord.elementCount;
+				const holdingEntry = (standardEntry.citedElementByStableId[guideRecord.citedStableId] ||= { citedStableId: guideRecord.citedStableId, citedName: guideRecord.citedName, relationCountList: [] });
+				holdingEntry.relationCountList.push({ relation: guideRecord.relation, elementCount: guideRecord.elementCount });
+			});
+			const standardList = Object.values(standardByName)
+				.map((standardEntry) => ({ standard: standardEntry.standard, elementCount: standardEntry.elementCount, citedElementList: Object.values(standardEntry.citedElementByStableId) }))
+				.sort((leftEntry, rightEntry) => (rightEntry.citedElementList.length - leftEntry.citedElementList.length) || leftEntry.standard.localeCompare(rightEntry.standard));
+			return { citedElementList, standardList };
+		};
+
 		const mapStepRecordList = (stepRecordList) => stepRecordList.map((stepRecord) => ({ ...stepRecord, dataList: (stepRecord.dataList || []).filter(Boolean) }));
 
 		return {
@@ -184,6 +270,9 @@ const moduleFunction =
 			mapCitationRecordList,
 			citationStateCountListOf,
 			mapStepRecordList,
+			caseContextSectionList,
+			mapContextRecordList,
+			mapImplementationGuideRecordList,
 		};
 	};
 
