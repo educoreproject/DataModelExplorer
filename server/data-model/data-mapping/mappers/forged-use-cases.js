@@ -65,6 +65,57 @@ const { cardHubSlotEdgeTypeTextFor } = require('../../../../cli/lib.d/data-model
 const citedElementSlotNameList = Object.freeze(['DOMAIN', 'PROPERTY', 'VALUE']);
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 
+// ⟪Structure tab, PLAN-useCaseStructureTab-103026⟫ THE CASE AS THE GRAPH HOLDS IT. The walk follows outgoing edges from the
+// case through nodes that are use-case parts (a Uc label, and not another UcUseCase) and stops at the first node that is
+// not one: a cited element of another standard, or another case. Measured 2026-10-30 over all 7 cases: the walk closes at
+// 4 hops (fs002-package-submission: HAS_STEP → PRODUCES → COMPRISES → DECLARED_CORRESPONDENCE); the bound is a guard.
+const STRUCTURE_WALK_DEPTH = 6;
+const USE_CASE_PART_LABEL_PREFIX = 'Uc';
+// machinery, not meaning: left out of the outline AND the extracted JSON (the page says so once)
+const structureExcludedPropertyNameList = Object.freeze(['embedding', 'searchText', 'embeddingModelVersion']);
+// the properties a node's own line already shows, so its property list does not repeat them
+const structureHeadPropertyNameList = Object.freeze(['name', 'stableId']);
+// every edge the walk can meet, in display order, with its plain words (data, not a branch). An edge type absent here is
+// still shown, NAMED as unworded (structureUnwordedGroupLabel), and the live test fails on it.
+const structureEdgeWordingList = Object.freeze([
+	{ edgeType: 'HAS_PRIMARY_ACTOR', groupLabel: 'Primary actor' },
+	{ edgeType: 'HAS_ACTOR', groupLabel: 'Actors (the cast)' },
+	{ edgeType: 'HAS_INTERESTED_PARTY', groupLabel: 'Interested parties' },
+	{ edgeType: 'ALIGNS_WITH', groupLabel: 'Value drivers it serves' },
+	{ edgeType: 'HAS_SUBJECT', groupLabel: 'What it is about' },
+	{ edgeType: 'TRIGGERED_BY', groupLabel: 'What starts it' },
+	{ edgeType: 'ASSUMES', groupLabel: 'Preconditions' },
+	{ edgeType: 'HAS_STEP', groupLabel: 'Steps' },
+	{ edgeType: 'GUARANTEES', groupLabel: 'Guarantees' },
+	{ edgeType: 'REQUIRES', groupLabel: 'Data it requires' },
+	{ edgeType: 'REQUIRES_STANDARD', groupLabel: 'Whole standards it requires' },
+	{ edgeType: 'REQUIRES_ARTIFACT', groupLabel: 'Artifacts it requires' },
+	{ edgeType: 'REQUIRES_ORPHAN', groupLabel: 'Data no standard holds (a gap)' },
+	{ edgeType: 'PERFORMED_BY', groupLabel: 'Performed by' },
+	{ edgeType: 'CONSUMES', groupLabel: 'Data it reads' },
+	{ edgeType: 'PRODUCES', groupLabel: 'Data it produces' },
+	{ edgeType: 'HAS_CONSTITUENT', groupLabel: 'Its parts' },
+	{ edgeType: 'COMPRISES', groupLabel: 'Made up of' },
+	{ edgeType: 'GOVERNS', groupLabel: 'Data it governs' },
+	{ edgeType: 'DECLARED_CORRESPONDENCE', groupLabel: 'Cites, in another standard' },
+	{ edgeType: 'PARENT', groupLabel: 'Parent case' },
+	{ edgeType: 'CHILD', groupLabel: 'Child cases' },
+	{ edgeType: 'SIBLING', groupLabel: 'Sibling cases' },
+	{ edgeType: 'INVOKES', groupLabel: 'Cases it invokes' },
+	{ edgeType: 'INCLUDES', groupLabel: 'Cases it includes' },
+	{ edgeType: 'EXTENDS', groupLabel: 'Cases it extends' },
+	{ edgeType: 'DUPLICATE', groupLabel: 'Duplicate cases' },
+	{ edgeType: 'HAS_RESOURCE', groupLabel: 'Sources' },
+]);
+const structureUnwordedGroupLabel = 'An edge this page has no wording for';
+// the case's own source file inside the standard's source download (educoreForge downloadArtifacts): the zip holds
+// source/<sourceFileName> and source/SHA256SUMS, whose lines name the same relative path
+const SOURCE_ZIP_ENTRY_PREFIX = 'source/';
+const SOURCE_CHECKSUM_ENTRY_NAME = 'source/SHA256SUMS';
+const SOURCE_DOWNLOAD_FACET = 'source';
+const SOURCE_FILE_NAME_PATTERN = /^cases\/[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
+const EXTRACTED_DOCUMENT_FORMAT = 'educoreUseCaseSubgraph/1';
+
 // a reference's resolution state, from its own properties and its DECLARED_CORRESPONDENCE edge; the FIRST entry whose test
 // holds decides, and the last always holds (a reference the forge carried with no kind the table knows is said so)
 const citationStateRuleList = Object.freeze([
@@ -189,6 +240,47 @@ const moduleFunction =
 				params: { caseStableId },
 			}),
 
+			// ⟪Structure tab⟫ the case's whole subgraph in ONE read: every edge the walk meets (once) with its properties, and
+			// every node at either end with its properties less the machinery. The case node is returned on its own as well, so
+			// a case with no edges still answers.
+			caseStructure: ({ caseStableId }) => ({
+				cypher: `
+					MATCH (useCase:UcUseCase {stableId: $caseStableId})
+					OPTIONAL MATCH (root:DmeStandardRoot {_source: useCase._source})
+					CALL {
+						WITH useCase
+						OPTIONAL MATCH walk = (useCase)-[*1..${STRUCTURE_WALK_DEPTH}]->()
+						WHERE all(between IN nodes(walk)[1..-1] WHERE NOT between:UcUseCase AND any(labelName IN labels(between) WHERE labelName STARTS WITH $partLabelPrefix))
+						UNWIND coalesce(relationships(walk), []) AS walkEdge
+						WITH DISTINCT walkEdge
+						WITH collect(walkEdge) AS walkEdgeList
+						CALL {
+							WITH walkEdgeList
+							UNWIND walkEdgeList AS endEdge
+							UNWIND [startNode(endEdge), endNode(endEdge)] AS endNode
+							WITH DISTINCT endNode
+							RETURN collect({stableId: endNode.stableId, labelList: labels(endNode),
+							       propertyPairList: [propertyName IN keys(endNode) WHERE NOT propertyName IN $excludedPropertyNameList | [propertyName, endNode[propertyName]]]}) AS nodeList
+						}
+						RETURN [oneEdge IN walkEdgeList | {edgeType: type(oneEdge), fromStableId: startNode(oneEdge).stableId, toStableId: endNode(oneEdge).stableId,
+						       propertyPairList: [propertyName IN keys(oneEdge) | [propertyName, oneEdge[propertyName]]]}] AS edgeList, nodeList
+					}
+					RETURN {stableId: useCase.stableId, labelList: labels(useCase),
+					        propertyPairList: [propertyName IN keys(useCase) WHERE NOT propertyName IN $excludedPropertyNameList | [propertyName, useCase[propertyName]]]} AS caseNode,
+					       root.standardName AS standardName, root.version AS releaseVersion, edgeList, nodeList
+				`,
+				params: { caseStableId, partLabelPrefix: USE_CASE_PART_LABEL_PREFIX, excludedPropertyNameList: [...structureExcludedPropertyNameList] },
+			}),
+
+			// ⟪Structure tab⟫ where the case's own source file is: its sourceFileName and the standard it belongs to
+			caseSourceFileName: ({ caseStableId }) => ({
+				cypher: `
+					MATCH (useCase:UcUseCase {stableId: $caseStableId})
+					RETURN useCase.stableId AS caseStableId, useCase.sourceFileName AS sourceFileName, useCase._source AS standardSource
+				`,
+				params: { caseStableId },
+			}),
+
 			// every data reference the case reaches, with the element it cites when the graph holds one
 			caseCitationList: ({ caseStableId }) => ({
 				cypher: `
@@ -262,7 +354,124 @@ const moduleFunction =
 
 		const mapStepRecordList = (stepRecordList) => stepRecordList.map((stepRecord) => ({ ...stepRecord, dataList: (stepRecord.dataList || []).filter(Boolean) }));
 
+		// ================================================================================
+		// ⟪Structure tab⟫ SHAPING: the subgraph as an outline (for reading) and as one JSON document (for downloading)
+
+		const groupLabelByEdgeType = Object.fromEntries(structureEdgeWordingList.map((oneWording) => [oneWording.edgeType, oneWording.groupLabel]));
+		const edgeTypeDisplayOrderOf = (edgeType) => (groupLabelByEdgeType[edgeType] ? structureEdgeWordingList.findIndex((oneWording) => oneWording.edgeType === edgeType) : structureEdgeWordingList.length);
+		const isUseCasePart = (labelList) => labelList.some((labelName) => labelName.startsWith(USE_CASE_PART_LABEL_PREFIX));
+
+		// a step's position and codedNotation, then a list position, then the name: reading order within one group
+		const compareChildOrder = (leftChild, rightChild) => {
+			const leftEdge = leftChild.edgePropertyMap;
+			const rightEdge = rightChild.edgePropertyMap;
+			const numberOrder = (fieldName) => (leftEdge[fieldName] ?? Infinity) - (rightEdge[fieldName] ?? Infinity) || 0;
+			return numberOrder('position') || `${leftEdge.codedNotation ?? ''}`.localeCompare(`${rightEdge.codedNotation ?? ''}`) || numberOrder('listPosition') || `${leftChild.childNode.nodeName}`.localeCompare(`${rightChild.childNode.nodeName}`);
+		};
+
+		// mapStructureRecord — the caseStructure row as { outline, extractedDocument, citationCount, resolvedCitationCount, ... }
+		const mapStructureRecord = (structureRecord) => {
+			const nodeByStableId = {};
+			[structureRecord.caseNode, ...structureRecord.nodeList].forEach((nodeRecord) => {
+				nodeByStableId[nodeRecord.stableId] = { stableId: nodeRecord.stableId, labelList: nodeRecord.labelList, propertyMap: Object.fromEntries(nodeRecord.propertyPairList) };
+			});
+			const edgeList = structureRecord.edgeList.map((edgeRecord, edgeIndex) => ({ edgeIndex, edgeType: edgeRecord.edgeType, fromStableId: edgeRecord.fromStableId, toStableId: edgeRecord.toStableId, propertyMap: Object.fromEntries(edgeRecord.propertyPairList) }));
+			const outgoingEdgeListByStableId = {};
+			edgeList.forEach((oneEdge) => (outgoingEdgeListByStableId[oneEdge.fromStableId] ||= []).push(oneEdge));
+			const caseStableId = structureRecord.caseNode.stableId;
+
+			const nodeKindOf = (graphNode, ancestorStableIdList) => {
+				if (graphNode.stableId === caseStableId && !ancestorStableIdList.length) return 'useCase';
+				if (graphNode.labelList.includes('UcUseCase')) return 'otherCase';
+				if (!isUseCasePart(graphNode.labelList)) return 'citedElement';
+				if (ancestorStableIdList.includes(graphNode.stableId)) return 'shownAbove';
+				return 'part';
+			};
+
+			// one outline node; only the case and its parts open into groups, so a cited element or another case is a leaf
+			// and the outline cannot loop
+			const outlineNodeOf = (stableId, ancestorStableIdList) => {
+				const graphNode = nodeByStableId[stableId];
+				const nodeKind = nodeKindOf(graphNode, ancestorStableIdList);
+				const outlineNode = {
+					nodeStableId: stableId,
+					nodeName: graphNode.propertyMap.name ?? graphNode.propertyMap.shortName ?? null,
+					nodeRole: graphNode.propertyMap.role ?? null,
+					labelList: graphNode.labelList,
+					standardSource: graphNode.propertyMap._source ?? null,
+					nodeKind,
+					propertyList: Object.keys(graphNode.propertyMap).filter((propertyName) => !structureHeadPropertyNameList.includes(propertyName)).sort().map((propertyName) => ({ propertyName, propertyValue: graphNode.propertyMap[propertyName] })),
+					groupList: [],
+				};
+				if (nodeKind !== 'useCase' && nodeKind !== 'part') return outlineNode;
+				const childAncestorList = [...ancestorStableIdList, stableId];
+				const childListByEdgeType = {};
+				(outgoingEdgeListByStableId[stableId] || []).forEach((oneEdge) => {
+					(childListByEdgeType[oneEdge.edgeType] ||= []).push({ edgeIndex: oneEdge.edgeIndex, edgeType: oneEdge.edgeType, edgePropertyMap: oneEdge.propertyMap, childNode: outlineNodeOf(oneEdge.toStableId, childAncestorList) });
+				});
+				outlineNode.groupList = Object.keys(childListByEdgeType)
+					.sort((leftType, rightType) => edgeTypeDisplayOrderOf(leftType) - edgeTypeDisplayOrderOf(rightType) || leftType.localeCompare(rightType))
+					.map((edgeType) => ({
+						edgeType,
+						groupLabel: groupLabelByEdgeType[edgeType] || structureUnwordedGroupLabel,
+						isWorded: Boolean(groupLabelByEdgeType[edgeType]),
+						childList: childListByEdgeType[edgeType].sort(compareChildOrder).map((oneChild) => ({ ...oneChild, edgePropertyList: Object.keys(oneChild.edgePropertyMap).sort().map((propertyName) => ({ propertyName, propertyValue: oneChild.edgePropertyMap[propertyName] })) })),
+					}));
+				return outlineNode;
+			};
+
+			const referenceNodeList = Object.values(nodeByStableId).filter((graphNode) => graphNode.labelList.includes('UcDataReference'));
+			const resolvedReferenceCount = referenceNodeList.filter((graphNode) => (outgoingEdgeListByStableId[graphNode.stableId] || []).some((oneEdge) => oneEdge.edgeType === 'DECLARED_CORRESPONDENCE')).length;
+			const nodeList = Object.values(nodeByStableId);
+			return {
+				caseStableId,
+				sourceFileName: nodeByStableId[caseStableId].propertyMap.sourceFileName ?? null,
+				standardName: structureRecord.standardName,
+				releaseVersion: structureRecord.releaseVersion,
+				excludedPropertyNameList: [...structureExcludedPropertyNameList],
+				nodeCount: nodeList.length,
+				edgeCount: edgeList.length,
+				citationCount: referenceNodeList.length,
+				resolvedCitationCount: resolvedReferenceCount,
+				outline: outlineNodeOf(caseStableId, []),
+				extractedDocument: {
+					documentFormat: EXTRACTED_DOCUMENT_FORMAT,
+					caseStableId,
+					standardName: structureRecord.standardName,
+					releaseVersion: structureRecord.releaseVersion,
+					walkRule: `outgoing edges from the case, through use-case parts (a ${USE_CASE_PART_LABEL_PREFIX}* label, not another UcUseCase), up to ${STRUCTURE_WALK_DEPTH} hops; a cited element or another case ends the walk`,
+					excludedPropertyNameList: [...structureExcludedPropertyNameList],
+					nodeCount: nodeList.length,
+					edgeCount: edgeList.length,
+					nodeList,
+					edgeList: edgeList.map(({ edgeType, fromStableId, toStableId, propertyMap }) => ({ edgeType, fromStableId, toStableId, propertyMap })),
+				},
+			};
+		};
+
+		// the save name of an extracted document beside its source: cases/lerIssuance.json → lerIssuance.extracted.json
+		const extractedFileNameOf = (sourceFileName, caseStableId) => (sourceFileName ? sourceFileName.split('/').pop().replace(/\.json$/, '.extracted.json') : `${caseStableId.replace(/[^A-Za-z0-9._-]/g, '_')}.extracted.json`);
+
+		// a SHA256SUMS text as { relativePath: sha256 }; a line that is not '<64 hex>  <path>' is not a checksum and is ignored
+		const checksumByRelativePathOf = (checksumText) =>
+			Object.fromEntries(
+				checksumText
+					.split('\n')
+					.map((oneLine) => oneLine.match(/^([0-9a-f]{64}) [ *]?(\S.*)$/))
+					.filter(Boolean)
+					.map((lineMatch) => [lineMatch[2], lineMatch[1]]),
+			);
+
 		return {
+			mapStructureRecord,
+			extractedFileNameOf,
+			checksumByRelativePathOf,
+			structureEdgeWordingList,
+			structureExcludedPropertyNameList,
+			SOURCE_ZIP_ENTRY_PREFIX,
+			SOURCE_CHECKSUM_ENTRY_NAME,
+			SOURCE_DOWNLOAD_FACET,
+			SOURCE_FILE_NAME_PATTERN,
 			getCypher,
 			requiredLabelList,
 			citationWalkEdgeTypeList,

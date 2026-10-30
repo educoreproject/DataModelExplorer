@@ -6,6 +6,9 @@
 // The EDUcore use-case standard as the GOLD holds it: POST /api/forged-use-cases answers { action: 'list' } with every forged
 // case, and { action: 'case', caseStableId } with one case's steps in reading order and its citations. Nothing here is
 // remembered between pages; the graph is the source. (The older static catalogue it replaced, TQ 2026-10-30, is gone.)
+// ⟪Structure tab, PLAN-useCaseStructureTab-103026⟫ { action: 'caseStructure', caseStableId } answers the case's subgraph as an
+// outline and as one extracted JSON document; { action: 'caseSourceFile', caseStableId } answers the case's own source file
+// as text with its sha256, which is checked here before the file is handed to the person (a mismatch is reported, never saved).
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -22,6 +25,11 @@ const forgedUseCaseStoreInitObject = {
 	caseDetail: null,
 	caseLoading: false,
 	caseStatusMsg: '',
+	caseStructure: null,
+	caseStructureLoading: false,
+	caseStructureStatusMsg: '',
+	structureDownloadingName: '',
+	structureDownloadStatusMsg: '',
 };
 
 // the endpoint is public: a visitor without a token sends no Authorization header (a 'Bearer undefined' is refused as a
@@ -30,6 +38,23 @@ const authHeadersOf = (loginStore) => (loginStore.authtoken ? { ...loginStore.ge
 
 const refusalTextOf = (error, operationName) =>
 	(typeof error.response?.data === 'string' && error.response.data) || error.message || `the ${operationName} request failed`;
+
+const sha256HexOf = async (arrayBuffer) => {
+	const digestBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+	return Array.from(new Uint8Array(digestBuffer)).map((oneByte) => oneByte.toString(16).padStart(2, '0')).join('');
+};
+
+// hands bytes to the browser to save under a name
+const saveBytesAs = (byteArray, saveFileName) => {
+	const objectUrl = URL.createObjectURL(new Blob([byteArray], { type: 'application/json' }));
+	const saveLink = document.createElement('a');
+	saveLink.href = objectUrl;
+	saveLink.download = saveFileName;
+	document.body.appendChild(saveLink);
+	saveLink.click();
+	saveLink.remove();
+	setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+};
 
 export const useForgedUseCaseStore = defineStore('forgedUseCaseStore', {
 	state: () => ({ ...forgedUseCaseStoreInitObject }),
@@ -102,6 +127,68 @@ export const useForgedUseCaseStore = defineStore('forgedUseCaseStore', {
 			} finally {
 				this.caseLoading = false;
 			}
+		},
+
+		// ⟪Structure tab⟫ the case's subgraph as the outline and the extracted document
+		async fetchCaseStructure(caseStableId) {
+			const loginStore = useLoginStore();
+			this.caseStructureLoading = true;
+			this.caseStructureStatusMsg = '';
+			this.caseStructure = null;
+			try {
+				const response = await axios.post(FORGED_USE_CASES_URL, { action: 'caseStructure', caseStableId }, { headers: authHeadersOf(loginStore) });
+				const structureResult = Array.isArray(response.data) ? response.data[0] : null;
+				if (!structureResult || !structureResult.outline) {
+					this.caseStructureStatusMsg = `the server answered without the structure of ${caseStableId}`;
+					return false;
+				}
+				this.caseStructure = structureResult;
+				return true;
+			} catch (error) {
+				this.caseStructureStatusMsg = refusalTextOf(error, 'use-case structure');
+				return false;
+			} finally {
+				this.caseStructureLoading = false;
+			}
+		},
+
+		// the case's own source file, exactly as written: checked against the server's sha256 before it is saved
+		async downloadCaseSourceFile(caseStableId) {
+			const loginStore = useLoginStore();
+			this.structureDownloadingName = 'source';
+			this.structureDownloadStatusMsg = '';
+			try {
+				const response = await axios.post(FORGED_USE_CASES_URL, { action: 'caseSourceFile', caseStableId }, { headers: authHeadersOf(loginStore) });
+				const sourceResult = Array.isArray(response.data) ? response.data[0] : null;
+				if (!sourceResult || typeof sourceResult.sourceText !== 'string') {
+					this.structureDownloadStatusMsg = `the server answered without the source file of ${caseStableId}`;
+					return false;
+				}
+				const sourceByteArray = new TextEncoder().encode(sourceResult.sourceText);
+				const receivedSha256 = await sha256HexOf(sourceByteArray);
+				if (receivedSha256 !== sourceResult.sha256) {
+					this.structureDownloadStatusMsg = `${sourceResult.fileName} arrived damaged (sha256 ${receivedSha256}, the server says ${sourceResult.sha256}); it was not saved`;
+					return false;
+				}
+				saveBytesAs(sourceByteArray, sourceResult.fileName);
+				return true;
+			} catch (error) {
+				this.structureDownloadStatusMsg = refusalTextOf(error, 'source file');
+				return false;
+			} finally {
+				this.structureDownloadingName = '';
+			}
+		},
+
+		// the extracted document the server answered with the structure, saved as JSON
+		downloadExtractedDocument() {
+			if (!this.caseStructure || !this.caseStructure.extractedDocument) {
+				this.structureDownloadStatusMsg = 'the structure has not been loaded, so there is no extracted document to save';
+				return false;
+			}
+			this.structureDownloadStatusMsg = '';
+			saveBytesAs(new TextEncoder().encode(`${JSON.stringify(this.caseStructure.extractedDocument, null, '\t')}\n`), this.caseStructure.extractedFileName);
+			return true;
 		},
 	},
 });

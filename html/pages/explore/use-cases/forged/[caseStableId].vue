@@ -10,6 +10,8 @@
 //   T-Chart              stem: subject → value drivers → use case; bar: its user stories, the elements it cites, its actors
 //   Swimlane             the actors who perform a step (story PERFORMED_BY actor) as lanes, the steps in reading order as rows,
 //                        each with the data it uses (IN) and produces (OUT)
+//   Structure            ⟪PLAN-useCaseStructureTab-103026⟫ the case as the graph holds it: an outline of its nodes and edges,
+//                        with the source and extracted JSON downloads (components/forgedUseCases/CaseStructureTab.vue)
 //   Steps and citations  the steps table and every data reference with its state, linked into the Standards Explorer
 //   Implementation Guide the standards a judge mapped to each cited element's hub card, and an Ask DME roadmap
 
@@ -20,6 +22,7 @@ import { useForgedUseCaseStore } from '@/stores/forgedUseCaseStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { pathTextOf, FAMILY_CATALOG_STABLE_ID } from '@/components/standardsExplorer/explorerVocabulary';
+import CaseStructureTab from '@/components/forgedUseCases/CaseStructureTab.vue';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -48,6 +51,7 @@ const TAB_LIST = Object.freeze([
 	{ tabName: 'overview', tabLabel: 'Overview' },
 	{ tabName: 'tchart', tabLabel: 'T-Chart' },
 	{ tabName: 'swimlane', tabLabel: 'Swimlane' },
+	{ tabName: 'structure', tabLabel: 'Structure' },
 	{ tabName: 'steps', tabLabel: 'Steps and citations' },
 	{ tabName: 'standards', tabLabel: 'Implementation Guide' },
 ]);
@@ -369,6 +373,9 @@ const createImplementationPlan = () => {
 					</table>
 				</div>
 			</div>
+
+			<!-- ═══ STRUCTURE (the case as the graph holds it) ═══ -->
+			<CaseStructureTab v-if="activeTab === 'structure'" :case-stable-id="useCase.caseStableId" />
 
 			<!-- ═══ STEPS AND CITATIONS ═══ -->
 			<div v-if="activeTab === 'steps'" data-testid="panel-steps">
