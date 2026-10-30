@@ -92,7 +92,7 @@ const standardEntryList = computed(() => {
 
 			<div class="d-flex flex-wrap align-center ga-2 mb-2" data-testid="structure-downloads">
 				<v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-download" :loading="store.structureDownloadingName === 'source'" data-testid="structure-download-source" @click="store.downloadCaseSourceFile(caseStableId)">Source JSON</v-btn>
-				<v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-download" data-testid="structure-download-extracted" @click="store.downloadExtractedDocument()">Extracted JSON</v-btn>
+				<v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-download" data-testid="structure-download-extracted" @click="store.downloadExtractedDocument()">Extracted JSON (Experimental)</v-btn>
 				<span class="text-caption text-medium-emphasis">
 					the case's file as its authors wrote it ({{ store.caseStructure.sourceFileName }}), and its {{ store.caseStructure.nodeCount }} nodes and
 					{{ store.caseStructure.edgeCount }} edges as the graph {{ store.caseStructure.graphName }} holds them
