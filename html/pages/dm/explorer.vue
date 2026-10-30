@@ -59,7 +59,7 @@ const graphExamplePromptList = computed(() =>
 const formatCount = (countNumber) => Number(countNumber).toLocaleString();
 
 // ⟪use-case forge Phase 5, 2026-10-30⟫ a use-case standard (the graph contract's useCaseScopeRule.standardKind) is no data
-// standard: it is not mapped to a hub, its cases CITE the hub's elements, and its own page shows them
+// standard: it is not mapped to a hub, its cases CITE other standards' elements, and its own page shows them
 const USE_CASE_STANDARD_KIND = 'useCaseCorpus';
 const isUseCaseStandard = (oneStandard) => oneStandard.standardKind === USE_CASE_STANDARD_KIND;
 
@@ -178,7 +178,7 @@ const fallbackPromptOptions = [
 									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList[0].standardName }} {{ familyGroup.standardList[0].version }}
 									<span style="color: #888;">
 										&middot; {{ formatCount(familyGroup.standardList[0].nodeCount) }} nodes
-										&middot; <template v-if="familyGroup.standardList[0].isHub">a semantic hub</template><template v-else-if="isUseCaseStandard(familyGroup.standardList[0])"><span data-testid="dme-use-case-standard">a use-case standard: its cases cite {{ hubNameText }} elements &middot; <NuxtLink to="/explore/use-cases">see the forged use cases</NuxtLink></span></template><template v-else>{{ hubMappingTextFor(familyGroup.standardList[0]) }}</template>
+										&middot; <template v-if="familyGroup.standardList[0].isHub">a semantic hub</template><template v-else-if="isUseCaseStandard(familyGroup.standardList[0])"><span data-testid="dme-use-case-standard">a use-case standard: its cases cite other standards' elements &middot; <NuxtLink to="/explore/use-cases">see the forged use cases</NuxtLink></span></template><template v-else>{{ hubMappingTextFor(familyGroup.standardList[0]) }}</template>
 									</span>
 								</template>
 								<template v-else>
