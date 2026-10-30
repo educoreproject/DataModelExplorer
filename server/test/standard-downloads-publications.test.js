@@ -9,7 +9,7 @@
 //      its flattened path;
 //   3. refusals by name: an unknown id; a file whose bytes no longer match; a listing for another graph; no listing; a listing
 //      entry whose path leaves mappingLayers/ and hubCards/; an unknown kind; downloads that are not the golden's own;
-//   4. the endpoints: 401 without a user, 400 with the refusal's text, [result] for the listing;
+//   4. the endpoints, public (2026-10-30): answered without a user, 400 with the refusal's text, [result] for the listing;
 //   5. the REAL listing for this golden, when educoreForge has published one (STANDARD_DOWNLOADS_REAL_ROOT_DIR_PATH or the
 //      qbook [standardDownloads] directory): every listed file's bytes hash to the listing's sha256.
 //
@@ -185,13 +185,14 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				ok('publications endpoint: 200 as [result]', answer.statusCode === 200 && Array.isArray(answer.body) && answer.body[0].entryList.length === 2, `${answer.statusCode} ${JSON.stringify(answer.body).slice(0, 200)}`);
 				done();
 			}); },
-			(done) => runEndpoint({ endpointPath: PUBLICATIONS_ENDPOINT_PATH, authclaims: { user: { role: 'public' } }, requestBody: {}, accessPoint }, (answer) => { ok('publications endpoint: 401 for a public (not logged-in) caller', answer.statusCode === 401, `${answer.statusCode}`); done(); }),
+			// public since 2026-10-30 (TQ: "all public"): a caller who is not signed in is answered exactly as a signed-in one
+			(done) => runEndpoint({ endpointPath: PUBLICATIONS_ENDPOINT_PATH, authclaims: { noToken: true, user: { role: 'public' } }, requestBody: {}, accessPoint }, (answer) => { ok('publications endpoint: 200 as [result] for a public (not signed-in) caller', answer.statusCode === 200 && Array.isArray(answer.body) && answer.body[0].entryList.length === 2, `${answer.statusCode} ${JSON.stringify(answer.body).slice(0, 200)}`); done(); }),
 			(done) => runEndpoint({ endpointPath: PUBLICATION_FILE_ENDPOINT_PATH, authclaims: { user: { role: 'user' } }, requestBody: { downloadId: 'mappingLayers/layer/toyLayer/v1/set.sssom.tsv' }, accessPoint }, (answer) => {
 				ok('publication-file endpoint: the file as an attachment with its content type, its sha256 in X-Download-Sha256', answer.statusCode === 200 && Buffer.isBuffer(answer.body) && answer.headerByName['Content-Type'] === 'text/tab-separated-values; charset=utf-8' && answer.headerByName['Content-Disposition'] === 'attachment; filename="mappingLayers_layer_toyLayer_v1_set.sssom.tsv"' && answer.headerByName['X-Download-Sha256'] === sha256Of(answer.body), `${answer.statusCode} ${JSON.stringify(answer.headerByName)}`);
 				done();
 			}),
 			(done) => runEndpoint({ endpointPath: PUBLICATION_FILE_ENDPOINT_PATH, authclaims: { user: { role: 'user' } }, requestBody: { downloadId: '../downloads.json' }, accessPoint }, (answer) => { ok('publication-file endpoint: an unlisted id is 400 with the refusal', answer.statusCode === 400 && /^publicationUnknownId/.test(answer.body), `${answer.statusCode} ${answer.body}`); done(); }),
-			(done) => runEndpoint({ endpointPath: PUBLICATION_FILE_ENDPOINT_PATH, authclaims: { user: { role: 'public' } }, requestBody: { downloadId: 'mappingLayers/layer/toyLayer/v1/set.sssom.tsv' }, accessPoint }, (answer) => { ok('publication-file endpoint: 401 for a public (not logged-in) caller', answer.statusCode === 401, `${answer.statusCode}`); done(); }),
+			(done) => runEndpoint({ endpointPath: PUBLICATION_FILE_ENDPOINT_PATH, authclaims: { noToken: true, user: { role: 'public' } }, requestBody: { downloadId: 'mappingLayers/layer/toyLayer/v1/set.sssom.tsv' }, accessPoint }, (answer) => { ok('publication-file endpoint: the file for a public (not signed-in) caller, its sha256 in X-Download-Sha256', answer.statusCode === 200 && Buffer.isBuffer(answer.body) && answer.headerByName['X-Download-Sha256'] === sha256Of(answer.body), `${answer.statusCode}`); done(); }),
 
 			// ---- 5. the REAL listing for this golden
 			(done) => {

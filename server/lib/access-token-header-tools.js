@@ -31,6 +31,12 @@ const moduleFunction =
 			process.global;
 		const { secret, authsecondsexpirationseconds } = getConfig(moduleName); // moduleName is closure
 
+		// Routes whose endpoint declared, at registration, that a bad token is to be read as no token (the public
+		// downloads, TQ 2026-10-30: a visitor holding a stale or garbled token is served as a visitor, not refused 401).
+		// Exact path match only; every other route still refuses a bad token. See declareTokenTolerantRoute.
+		const tokenTolerantRoutePathList = [];
+		const ANONYMOUS_AUTHCLAIMS = Object.freeze({ noToken: true, user: Object.freeze({ role: 'public' }) });
+
 		// ============================================================
 		// Function: hasValidToken
 		// Description: Middleware to check if the request has a valid JWT token.
@@ -47,8 +53,8 @@ const moduleFunction =
 				if (!authHeader) {
 					// No token provided, set default authclaims
 					xReq.appValueSetter('authclaims', {
-						noToken: true,
-						user: { role: 'public' },
+						...ANONYMOUS_AUTHCLAIMS,
+						user: { ...ANONYMOUS_AUTHCLAIMS.user },
 					});
 					next('skipRestOfPipe', args);
 					return;
@@ -97,8 +103,30 @@ const moduleFunction =
 				if (err == 'skipRestOfPipe') {
 					err = '';
 				}
+				if (err && tokenTolerantRoutePathList.includes(xReq.path)) {
+					xLog.status(`token-tolerant route ${xReq.path}: bad token read as no token (${err})`);
+					xReq.appValueSetter('authclaims', {
+						...ANONYMOUS_AUTHCLAIMS,
+						user: { ...ANONYMOUS_AUTHCLAIMS.user },
+					});
+					err = '';
+				}
 				callback(err);
 			});
+		};
+
+		// ============================================================
+		// Function: declareTokenTolerantRoute
+		// Description:
+		//   An endpoint whose content is public calls this with its own routePath so that a bad token (garbled,
+		//   expired, wrongly signed, naming no known user) is read as no token on that route instead of being
+		//   refused 401. It never grants anything a visitor without a token lacks.
+		// ============================================================
+		const declareTokenTolerantRoute = (routePath) => {
+			if (typeof routePath !== 'string' || !routePath.startsWith('/')) {
+				throw new Error(`declareTokenTolerantRoute: routePath must be an absolute path, got ${JSON.stringify(routePath)}`);
+			}
+			tokenTolerantRoutePathList.push(routePath);
 		};
 
 		// ============================================================
@@ -189,7 +217,7 @@ const moduleFunction =
 			};
 		};
 
-		return { hasValidToken, refreshauthtoken, getValidator };
+		return { hasValidToken, refreshauthtoken, getValidator, declareTokenTolerantRoute };
 	};
 
 module.exports = moduleFunction({ moduleName });

@@ -4,7 +4,7 @@
 // @concept: [[SecurityFirstPattern]]
 
 // standard-downloads-publication-file — POST /api/standard-downloads-publication-file { downloadId } (educoreForge ML3.1c).
-// Logged-in users only, the same roles as the explorer. Answers the file itself, NOT an array, with the content type its kind
+// Public (TQ, 2026-10-30: "all public"), a bad token read as no token. Answers the file itself, NOT an array, with the content type its kind
 // declares (the mapper's CONTENT_TYPE_BY_PUBLICATION_KIND) and Content-Disposition: attachment. Only a downloadId the golden's
 // publication listing names is served, from the listing's own relative path, after the standard-downloads access point has
 // checked its sha256; every refusal is answered 400 with its text. The sha256 travels in the X-Download-Sha256 header.
@@ -68,7 +68,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const method = 'post';
 	const routePath = `${routingPrefix}${moduleName}`;
-	const permissionValidator = accessTokenHeaderTools.getValidator(['user', 'client', 'admin']);
+	// public (TQ, 2026-10-30: "all public"); a stale or garbled token is read as no token on this route
+	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	accessTokenHeaderTools.declareTokenTolerantRoute(routePath);
 
 	expressApp[method](routePath, serviceFunction(permissionValidator));
 	endpointsDotD.logList.push(routePath);

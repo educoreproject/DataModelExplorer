@@ -8,10 +8,9 @@
 // extracted subgraph (both through the forged-use-cases store), and the whole standard's two zips (the standard-downloads
 // store, as every other standard offers them). Which disclosures are open is this tab's own state.
 
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useForgedUseCaseStore } from '@/stores/forgedUseCaseStore';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
-import { useLoginStore } from '@/stores/loginStore';
 import CaseStructureNode from './CaseStructureNode.vue';
 import DownloadEntryButton from '@/components/standardsExplorer/DownloadEntryButton.vue';
 
@@ -21,7 +20,6 @@ const props = defineProps({
 
 const store = useForgedUseCaseStore();
 const downloadsStore = useStandardDownloadsStore();
-const loginStore = useLoginStore();
 const ROOT_PATH = 'case';
 
 const openPathSet = ref(new Set());
@@ -57,10 +55,9 @@ watch(
 	{ immediate: true },
 );
 
-// the whole standard's downloads, as the golden's manifest lists them for the case's own standard. They are served to a
-// signed-in person only (as on the Downloads page), so a visitor is told so instead of being shown a token refusal.
-const isSignedIn = computed(() => Boolean(loginStore.authtoken));
-watch(isSignedIn, (signedIn) => { if (signedIn) downloadsStore.loadManifest(); }, { immediate: true });
+// the whole standard's downloads, as the golden's manifest lists them for the case's own standard. Public, as on the
+// Downloads page (TQ, 2026-10-30: "all public").
+onMounted(() => downloadsStore.loadManifest());
 const standardEntryList = computed(() => {
 	if (!outline.value) return [];
 	return downloadsStore.standardKeyListOfFamily(outline.value.standardSource).flatMap((standardKey) => downloadsStore.entryListOfStandardKey(standardKey));
@@ -102,9 +99,8 @@ const standardEntryList = computed(() => {
 
 			<div class="d-flex flex-wrap align-center ga-2 mb-4" data-testid="structure-standard-downloads">
 				<span class="text-caption font-weight-bold">The whole standard:</span>
-				<span v-if="!isSignedIn" class="text-caption text-medium-emphasis" data-testid="structure-standard-downloads-signin">its source and graph zips are on the Downloads page once you sign in, as for every standard</span>
 				<DownloadEntryButton v-for="oneEntry in standardEntryList" :key="oneEntry.downloadId" :download-entry="oneEntry" />
-				<span v-if="isSignedIn && downloadsStore.statusMsg" class="text-caption text-medium-emphasis" data-testid="structure-standard-downloads-status">{{ downloadsStore.statusMsg }}</span>
+				<span v-if="downloadsStore.statusMsg" class="text-caption text-medium-emphasis" data-testid="structure-standard-downloads-status">{{ downloadsStore.statusMsg }}</span>
 				<span v-if="downloadsStore.downloadStatusMsg" class="text-caption text-error">{{ downloadsStore.downloadStatusMsg }}</span>
 			</div>
 

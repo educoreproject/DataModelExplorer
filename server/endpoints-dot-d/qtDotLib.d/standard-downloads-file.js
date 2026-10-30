@@ -4,7 +4,7 @@
 // @concept: [[SecurityFirstPattern]]
 
 // standard-downloads-file — POST /api/standard-downloads-file { downloadId } (WORKORDER-standardDownloads-101526 §3b).
-// Logged-in users only, the same roles as the explorer. Answers the zip itself, NOT an array: the one endpoint here whose
+// Public (TQ, 2026-10-30: "all public"), a bad token read as no token. Answers the zip itself, NOT an array: the one endpoint here whose
 // body is a file, sent as application/zip with Content-Disposition: attachment. Only a downloadId the golden's manifest
 // lists as available is served, from the manifest's own file name, after the standard-downloads access point has checked
 // its sha256; every refusal (unknown id, unavailable, checksum mismatch, stale manifest) is answered 400 with its text.
@@ -69,7 +69,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const method = 'post';
 	const routePath = `${routingPrefix}${moduleName}`;
-	const permissionValidator = accessTokenHeaderTools.getValidator(['user', 'client', 'admin']);
+	// public (TQ, 2026-10-30: "all public"); a stale or garbled token is read as no token on this route
+	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	accessTokenHeaderTools.declareTokenTolerantRoute(routePath);
 
 	expressApp[method](routePath, serviceFunction(permissionValidator));
 	endpointsDotD.logList.push(routePath);

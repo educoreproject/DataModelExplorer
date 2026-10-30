@@ -4,8 +4,8 @@
 // @concept: [[SecurityFirstPattern]]
 
 // standard-downloads-manifest — POST /api/standard-downloads-manifest { family?, group?, standardKey?, facet? } for the
-// Downloads page and the Standards Explorer's Downloads section (WORKORDER-standardDownloads-101526 §3b). Logged-in users
-// only, the same roles as the explorer. Answers [{ graphName, graphContractSha256, generatedAt, filterList, entryList }]
+// Downloads page and the Standards Explorer's Downloads section (WORKORDER-standardDownloads-101526 §3b). Public (TQ, 2026-10-30:
+// "all public"), a bad token read as no token. Answers [{ graphName, graphContractSha256, generatedAt, filterList, entryList }]
 // from the standard-downloads access point, which refuses by name (400, with its text) when the downloads are not the
 // golden's own, a filter is unknown, or none have been generated.
 
@@ -65,7 +65,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const method = 'post';
 	const routePath = `${routingPrefix}${moduleName}`;
-	const permissionValidator = accessTokenHeaderTools.getValidator(['user', 'client', 'admin']);
+	// public (TQ, 2026-10-30: "all public"); a stale or garbled token is read as no token on this route
+	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	accessTokenHeaderTools.declareTokenTolerantRoute(routePath);
 
 	expressApp[method](routePath, serviceFunction(permissionValidator));
 	endpointsDotD.logList.push(routePath);
