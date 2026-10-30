@@ -75,6 +75,7 @@ export const kindDisplayNameByKind = Object.freeze({
 	optionValue: 'Code',
 	standardGroup: 'Elements in one standard',
 	support: 'Supporting item',
+	useCase: 'Use case',
 	unclassified: 'Unclassified',
 	more: 'More, in the table',
 });
@@ -91,6 +92,7 @@ const pluralKindNameByKind = Object.freeze({
 	property: 'properties',
 	standardGroup: 'standards',
 	optionValue: 'codes',
+	useCase: 'use cases',
 });
 
 export const pluralKindNameOf = (nodeKind, hubName) =>
@@ -115,6 +117,7 @@ export const relationshipDisplayNameByType = Object.freeze({
 	REFERENCES_OBJECT: 'Refers to object',
 	HAS_DEFINITION: 'Defines',
 	HAS_SUPPORT: 'Supporting items',
+	HAS_USE_CASE: 'Use cases',
 	MAPPED_FROM_STANDARD: 'Standards that map here',
 	MAPPED_TO_ANCHOR: 'Mapped elements',
 });

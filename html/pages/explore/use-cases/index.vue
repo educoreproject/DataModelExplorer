@@ -1,9 +1,18 @@
 <script setup>
 import { taxonomy, useCases, stats } from '@/data/github-use-cases';
 import { useLoginStore } from '@/stores/loginStore';
+import { useForgedUseCaseStore } from '@/stores/forgedUseCaseStore';
 
 const loginStore = useLoginStore();
 const route = useRoute();
+
+// ⟪use-case forge Phase 5, 2026-10-30⟫ the FORGED use cases: the EDUcore use-case standard as the graph holds it (not the
+// static matrix below, which is @/data/github-use-cases)
+const forgedUseCaseStore = useForgedUseCaseStore();
+onMounted(() => {
+	forgedUseCaseStore.fetchCaseList();
+});
+const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
 
 // Role-aware entry to the editor
 const userRoles = computed(() =>
@@ -95,6 +104,30 @@ function rowOpacity(status) {
 			</v-btn>
 		</div>
 
+		<v-card variant="outlined" class="mb-8" data-testid="forged-use-cases">
+			<v-card-title class="text-h6 font-weight-bold">Forged use cases: the EDUcore use-case standard, from the graph</v-card-title>
+			<v-card-subtitle class="pb-2">Vetted cases in the Enhanced Cockburn format, forged into the standards graph: each opens with its steps in order and its citations of other standards' elements.</v-card-subtitle>
+			<v-card-text>
+				<v-progress-linear v-if="forgedUseCaseStore.caseListLoading" indeterminate color="primary" class="mb-2" />
+				<v-alert v-if="forgedUseCaseStore.caseListStatusMsg" type="warning" variant="tonal" density="compact">{{ forgedUseCaseStore.caseListStatusMsg }}</v-alert>
+				<v-list v-if="forgedUseCaseStore.caseList.length" density="compact">
+					<v-list-item
+						v-for="oneCase in forgedUseCaseStore.caseList"
+						:key="oneCase.caseStableId"
+						:to="forgedCaseLinkOf(oneCase.caseStableId)"
+						:data-testid="`forged-case-${oneCase.caseStableId}`"
+					>
+						<v-list-item-title class="font-weight-bold">{{ oneCase.shortName }}</v-list-item-title>
+						<v-list-item-subtitle>{{ oneCase.longName }}</v-list-item-subtitle>
+						<template #append>
+							<span class="text-caption text-medium-emphasis">{{ oneCase.stepCount }} steps &middot; {{ oneCase.resolvedReferenceCount }} of {{ oneCase.referenceCount }} references cite an element</span>
+						</template>
+					</v-list-item>
+				</v-list>
+			</v-card-text>
+		</v-card>
+
+		<h2 class="text-h6 font-weight-bold mb-2">Use-case catalogue by topic</h2>
 		<div class="d-flex align-center ga-2 flex-wrap text-body-1 text-medium-emphasis mb-2">
 			<span>{{ displayedTotal }} use cases across SEDM and P20W+LER topics.</span>
 			<v-chip size="small" color="success" variant="tonal">{{ stats.vetted }} vetted</v-chip>

@@ -155,6 +155,19 @@ export const dmeExamplePromptList: DmeExamplePrompt[] = [
 		promptText: 'Show a College Transcript concept such as course credit in both PESC encodings, XML 1.8.0 and JSON-LD, side by side, with the hub card each lands on.',
 		requiredFamilyList: ['CEDS', 'CTDL', 'PESC', 'PESCLD'],
 	},
+	// ⟪use-case forge Phase 5, 2026-10-30⟫ the EDUcore use-case standard (family UseCase): its cases cite CEDS elements
+	{
+		promptText: 'Which use cases touch CEDS C200079 (Credential Award)? Show the edge path by which each one reaches it.',
+		requiredFamilyList: ['UseCase', 'CEDS'],
+	},
+	{
+		promptText: 'Walk me through the LER Issuance use case step by step, in order, with the actor of each step and the data it uses.',
+		requiredFamilyList: ['UseCase'],
+	},
+	{
+		promptText: 'What standards hold the data the LER Issuance use case needs? Go from the case to the CEDS elements it cites, and from each one through its match edges to the other standards.',
+		requiredFamilyList: ['UseCase', 'CEDS'],
+	},
 ];
 
 // ⟪lane zbE, E2-7 (census 69)⟫ the last four prompts (PESC_LD) came live once the PESC_LD forge was on the final gold

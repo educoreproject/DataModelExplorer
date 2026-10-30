@@ -47,6 +47,8 @@ const anchorDomainSlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextF
 // concept guides) is the graph's plumbing, not the standard's structure. Order is display order.
 const childRelationshipTypeList = Object.freeze([
 	'HAS_CLASS',
+	// ⟪use-case forge Phase 5, 2026-10-30⟫ the use-case standard's root owns its cases (each opens on its own page)
+	'HAS_USE_CASE',
 	'HAS_PROPERTY',
 	'HAS_FIELD',
 	'HAS_INSTANCE',
@@ -77,6 +79,7 @@ const kindByLabelList = Object.freeze([
 	{ labelName: 'DmeSupport', nodeKind: 'support' },
 	{ labelName: 'DmeVocabularyTerm', nodeKind: 'support' },
 	{ labelName: 'HubDefinition', nodeKind: 'support' },
+	{ labelName: 'UcUseCase', nodeKind: 'useCase' },
 ]);
 
 // match edge type → the page's match kind; strengthRank orders exact > close > narrow > broad (spec §5)

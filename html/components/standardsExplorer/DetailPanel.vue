@@ -139,6 +139,7 @@ const definitionText = computed(() => {
 		<StandardsExplorerVersionBadge v-if="shownNode.versionBadge" :version-badge="shownNode.versionBadge" class="detail-badge" />
 
 		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" @click="emit('drill', shownNode.stableId)">Open {{ shownNode.displayName }} ›</v-btn>
+		<v-btn v-if="shownNode.kind === 'useCase'" color="primary" class="detail-open" data-testid="detail-open-use-case" :to="`/explore/use-cases/forged/${encodeURIComponent(shownNode.stableId)}`">Steps and citations ›</v-btn>
 		<p v-else-if="!isFocus" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else class="detail-note">You are here. Click anything on this level for its details.</p>
