@@ -20,8 +20,9 @@
 //     hint when the condition is transient (campaign P4a).
 // It NEVER silently produces a bad connection. Successful resolutions are memoized by name
 // (failures are not, so a later call after the container starts can still succeed).
+// resolveContainerConnectionFresh is the asynchronous, unmemoized form, for a caller that retries in the background.
 
-const { execFileSync } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 
 // a plain docker container name; anything else is refused BY NAME before docker is called (W-E-12, 2026-10-06)
 const CONTAINER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
@@ -82,6 +83,23 @@ const runDockerInspectProcess = (containerName, formatTemplate) => {
 	}
 };
 
+// the same inspect without holding the event loop: execFileSync would stop every request for as long as docker takes to
+// answer (up to the timeout, when docker itself is wedged), so a caller that retries in the background must use this one
+const runDockerInspectProcessAsync = (containerName, formatTemplate, callback) => {
+	execFile('docker', ['inspect', containerName, '--format', formatTemplate], { encoding: 'utf-8', timeout: DOCKER_INSPECT_TIMEOUT_MS }, (inspectError, stdoutText, stderrText) => {
+		if (!inspectError) {
+			callback({ exitCode: 0, stdoutText, stderrText: '', timedOut: false });
+			return;
+		}
+		callback({
+			exitCode: typeof inspectError.code === 'number' ? inspectError.code : null,
+			stdoutText: String(stdoutText || ''),
+			stderrText: String(stderrText || inspectError.message || '').trim(),
+			timedOut: inspectError.killed === true || inspectError.signal === 'SIGTERM',
+		});
+	});
+};
+
 // the JSON line docker printed, or the refusal naming the line that was not JSON (a boundary parse, as above)
 const parseInspectJsonLine = (containerName, lineName, lineText) => {
 	try {
@@ -89,6 +107,68 @@ const parseInspectJsonLine = (containerName, lineName, lineText) => {
 	} catch (parseError) {
 		return { refusal: errResult('dockerInspectFailed', `docker inspect of '${containerName}' printed ${lineName} that is not JSON (${JSON.stringify(String(lineText).slice(0, 80))}); retry the call — if it repeats, docker's output format changed`) };
 	}
+};
+
+const containerNameRefusalOf = (containerName) => {
+	if (!containerName) {
+		return errResult('containerNameInvalid', 'containerName is required');
+	}
+	if (!CONTAINER_NAME_PATTERN.test(containerName)) {
+		return errResult('containerNameInvalid', `'${containerName}' is not a valid docker container name (${CONTAINER_NAME_PATTERN}); refused before docker is called`);
+	}
+	return null;
+};
+
+// what one docker inspect answer means: the connection, or the refusal by name
+const connectionFromInspectAnswer = (containerName, inspectAnswer) => {
+	if (inspectAnswer.exitCode !== 0) {
+		if (NO_SUCH_CONTAINER_PATTERN.test(inspectAnswer.stderrText || '')) {
+			return errResult('containerAbsent', `there is no container named '${containerName}' (docker: ${inspectAnswer.stderrText})`);
+		}
+		const dockerText = inspectAnswer.timedOut ? `timed out after ${DOCKER_INSPECT_TIMEOUT_MS} ms` : `exit ${inspectAnswer.exitCode}: ${inspectAnswer.stderrText || 'no message'}`;
+		return errResult('dockerInspectFailed', `docker inspect of '${containerName}' failed (${dockerText}). This is usually transient (docker busy or restarting): retry the call`);
+	}
+	const [statusText, portsJsonText, envJsonText] = String(inspectAnswer.stdoutText).split('\n');
+	if (statusText !== 'running') {
+		const nextStepText = TRANSIENT_CONTAINER_STATUS_LIST.indexOf(statusText) !== -1 ? 'it should be running shortly: retry the call' : `start it (docker start ${containerName}) and retry`;
+		return errResult('containerNotRunning', `container '${containerName}' is ${statusText || 'in an unknown state'}, not running — ${nextStepText}`);
+	}
+	const portsRead = parseInspectJsonLine(containerName, 'its published ports', portsJsonText);
+	if (portsRead.refusal) {
+		return portsRead.refusal;
+	}
+	// --- boltUri: the host port published for the in-container bolt port 7687/tcp ---
+	const boltBindingList = Object.keys(portsRead.parsedValue || {}).filter((containerPortText) => containerPortText.startsWith('7687')).map((containerPortText) => portsRead.parsedValue[containerPortText]).find((bindingList) => Array.isArray(bindingList) && bindingList.length > 0);
+	if (!boltBindingList) {
+		return errResult('noPublishedBoltPort', `container '${containerName}' is running but publishes no 7687/tcp bolt port`);
+	}
+	const hostBoltPort = boltBindingList[0].HostPort;
+
+	// --- user / password: from NEO4J_AUTH (golden) or DME_CLONE_NEO4J_AUTH (a user clone) in the container's Config.Env ---
+	const envRead = parseInspectJsonLine(containerName, 'its environment', envJsonText);
+	if (envRead.refusal) {
+		return envRead.refusal;
+	}
+	const authLineList = (envRead.parsedValue || [])
+		.map((line) => String(line).trim())
+		.filter((line) => CONTAINER_AUTH_ENV_NAME_LIST.some((oneEnvName) => line.startsWith(`${oneEnvName}=`)));
+	if (authLineList.length === 0) {
+		return errResult('noCredential', `container '${containerName}' has none of ${CONTAINER_AUTH_ENV_NAME_LIST.join(', ')} in its environment (a user clone opened before 2026-10-06 carries neither: reopen that graph)`);
+	}
+	if (authLineList.length > 1) {
+		return errResult('credentialAmbiguous', `container '${containerName}' carries more than one of ${CONTAINER_AUTH_ENV_NAME_LIST.join(', ')}; which credential is meant is not guessed`);
+	}
+
+	// Split on the FIRST '/' only — the neo4j user cannot contain '/', and a password legitimately can.
+	const authText = authLineList[0].slice(authLineList[0].indexOf('=') + 1);
+	const slashIdx = authText.indexOf('/');
+	if (slashIdx < 0) {
+		return errResult('credentialMalformed', `NEO4J_AUTH for '${containerName}' is malformed (expected user/password)`);
+	}
+	const user = authText.slice(0, slashIdx);
+	const password = authText.slice(slashIdx + 1);
+
+	return { boltUri: `bolt://localhost:${hostBoltPort}`, user, password, error: null, errorName: null };
 };
 
 // createContainerConnectionResolver({ runDockerInspect }) — the resolver over an injected inspector (the test scripts each
@@ -101,72 +181,43 @@ const createContainerConnectionResolver = ({ runDockerInspect }) => {
 
 	// resolveContainerConnection(containerName) -> { boltUri, user, password, error, errorName }
 	const resolveContainerConnection = (containerName) => {
-		if (!containerName) {
-			return errResult('containerNameInvalid', 'containerName is required');
-		}
-		if (!CONTAINER_NAME_PATTERN.test(containerName)) {
-			return errResult('containerNameInvalid', `'${containerName}' is not a valid docker container name (${CONTAINER_NAME_PATTERN}); refused before docker is called`);
+		const nameRefusal = containerNameRefusalOf(containerName);
+		if (nameRefusal) {
+			return nameRefusal;
 		}
 		if (connectionCache[containerName]) {
 			return connectionCache[containerName];
 		}
-
-		const inspectAnswer = runDockerInspect(containerName, INSPECT_FORMAT_TEMPLATE);
-		if (inspectAnswer.exitCode !== 0) {
-			if (NO_SUCH_CONTAINER_PATTERN.test(inspectAnswer.stderrText || '')) {
-				return errResult('containerAbsent', `there is no container named '${containerName}' (docker: ${inspectAnswer.stderrText})`);
-			}
-			const dockerText = inspectAnswer.timedOut ? `timed out after ${DOCKER_INSPECT_TIMEOUT_MS} ms` : `exit ${inspectAnswer.exitCode}: ${inspectAnswer.stderrText || 'no message'}`;
-			return errResult('dockerInspectFailed', `docker inspect of '${containerName}' failed (${dockerText}). This is usually transient (docker busy or restarting): retry the call`);
+		const result = connectionFromInspectAnswer(containerName, runDockerInspect(containerName, INSPECT_FORMAT_TEMPLATE));
+		if (result.error) {
+			return result;
 		}
-		const [statusText, portsJsonText, envJsonText] = String(inspectAnswer.stdoutText).split('\n');
-		if (statusText !== 'running') {
-			const nextStepText = TRANSIENT_CONTAINER_STATUS_LIST.indexOf(statusText) !== -1 ? 'it should be running shortly: retry the call' : `start it (docker start ${containerName}) and retry`;
-			return errResult('containerNotRunning', `container '${containerName}' is ${statusText || 'in an unknown state'}, not running — ${nextStepText}`);
-		}
-		const portsRead = parseInspectJsonLine(containerName, 'its published ports', portsJsonText);
-		if (portsRead.refusal) {
-			return portsRead.refusal;
-		}
-		// --- boltUri: the host port published for the in-container bolt port 7687/tcp ---
-		const boltBindingList = Object.keys(portsRead.parsedValue || {}).filter((containerPortText) => containerPortText.startsWith('7687')).map((containerPortText) => portsRead.parsedValue[containerPortText]).find((bindingList) => Array.isArray(bindingList) && bindingList.length > 0);
-		if (!boltBindingList) {
-			return errResult('noPublishedBoltPort', `container '${containerName}' is running but publishes no 7687/tcp bolt port`);
-		}
-		const hostBoltPort = boltBindingList[0].HostPort;
-
-		// --- user / password: from NEO4J_AUTH (golden) or DME_CLONE_NEO4J_AUTH (a user clone) in the container's Config.Env ---
-		const envRead = parseInspectJsonLine(containerName, 'its environment', envJsonText);
-		if (envRead.refusal) {
-			return envRead.refusal;
-		}
-		const authLineList = (envRead.parsedValue || [])
-			.map((line) => String(line).trim())
-			.filter((line) => CONTAINER_AUTH_ENV_NAME_LIST.some((oneEnvName) => line.startsWith(`${oneEnvName}=`)));
-		if (authLineList.length === 0) {
-			return errResult('noCredential', `container '${containerName}' has none of ${CONTAINER_AUTH_ENV_NAME_LIST.join(', ')} in its environment (a user clone opened before 2026-10-06 carries neither: reopen that graph)`);
-		}
-		if (authLineList.length > 1) {
-			return errResult('credentialAmbiguous', `container '${containerName}' carries more than one of ${CONTAINER_AUTH_ENV_NAME_LIST.join(', ')}; which credential is meant is not guessed`);
-		}
-
-		// Split on the FIRST '/' only — the neo4j user cannot contain '/', and a password legitimately can.
-		const authText = authLineList[0].slice(authLineList[0].indexOf('=') + 1);
-		const slashIdx = authText.indexOf('/');
-		if (slashIdx < 0) {
-			return errResult('credentialMalformed', `NEO4J_AUTH for '${containerName}' is malformed (expected user/password)`);
-		}
-		const user = authText.slice(0, slashIdx);
-		const password = authText.slice(slashIdx + 1);
-
-		const result = { boltUri: `bolt://localhost:${hostBoltPort}`, user, password, error: null, errorName: null };
 		connectionCache[containerName] = result;
-		logVerbose(`[container-connection-resolver] resolved '${containerName}' -> ${result.boltUri} (user '${user}')`);
+		logVerbose(`[container-connection-resolver] resolved '${containerName}' -> ${result.boltUri} (user '${result.user}')`);
 		return result;
 	};
 	return { resolveContainerConnection };
 };
 
-const { resolveContainerConnection } = createContainerConnectionResolver({ runDockerInspect: runDockerInspectProcess });
+// resolveContainerConnectionFresh(containerName, callback('', connection)) — asks docker every time and never memoizes (a
+// container recreated on another port or with another password must be seen), and never holds the event loop. The
+// connection carries its own error and errorName, exactly as resolveContainerConnection's does.
+const createFreshContainerConnectionResolver = ({ runDockerInspectAsync }) => {
+	if (typeof runDockerInspectAsync !== 'function') {
+		throw new Error('createFreshContainerConnectionResolver: runDockerInspectAsync(containerName, formatTemplate, callback) is REQUIRED');
+	}
+	return (containerName, callback) => {
+		const nameRefusal = containerNameRefusalOf(containerName);
+		if (nameRefusal) {
+			setImmediate(() => callback('', nameRefusal));
+			return;
+		}
+		runDockerInspectAsync(containerName, INSPECT_FORMAT_TEMPLATE, (inspectAnswer) => callback('', connectionFromInspectAnswer(containerName, inspectAnswer)));
+	};
+};
 
-module.exports = { resolveContainerConnection, createContainerConnectionResolver, RESOLVER_ERROR_NAME_LIST, CLONE_AUTH_ENV_NAME, CONTAINER_AUTH_ENV_NAME_LIST };
+const { resolveContainerConnection } = createContainerConnectionResolver({ runDockerInspect: runDockerInspectProcess });
+const resolveContainerConnectionFresh = createFreshContainerConnectionResolver({ runDockerInspectAsync: runDockerInspectProcessAsync });
+const isValidContainerName = (containerName) => !containerNameRefusalOf(containerName);
+
+module.exports = { resolveContainerConnection, resolveContainerConnectionFresh, isValidContainerName, createContainerConnectionResolver, createFreshContainerConnectionResolver, RESOLVER_ERROR_NAME_LIST, CLONE_AUTH_ENV_NAME, CONTAINER_AUTH_ENV_NAME_LIST };

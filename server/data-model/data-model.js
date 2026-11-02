@@ -189,11 +189,13 @@ const moduleFunction =
 		
 
 		// --------------------------------------------------------------------------------
-		// PIPELINE STAGE 3.5: NEO4J INSTANCE CREATION
+		// PIPELINE STAGE 3.5: THE GOLDEN GRAPH HANDLE
 		//
-		// EXPLANATION: Creates Neo4j database connection for the Data Model Explorer.
-		// Config comes from dataModelExplorerSearch.ini via getConfig.
-		// Produces neo4jDb accessor with runQuery(cypher, params, callback).
+		// EXPLANATION: The Data Model Explorer's golden graph, config from dataModelExplorerSearch.ini via getConfig.
+		// A valid config yields neo4jDb, a stable handle that exists from here on and connects when it can
+		// (lib/neo4j-instance/golden-graph-handle.js): this stage never waits for Docker or the graph. Until connected,
+		// runQuery refuses by name. neo4jDb is null ONLY for a configuration fault, which no amount of waiting cures: it is
+		// logged here by name and never retried, so `!neo4jDb` means "not configured", never "not ready".
 
 		taskList.push((args, next) => {
 			const { dataModelLogInfoList } = args;
@@ -206,46 +208,34 @@ const moduleFunction =
 				return;
 			}
 
-			// Single source of truth: derive the golden connection from the container NAME.
-			const { resolveContainerConnection } = require('./lib/user-graph/container-connection-resolver');
-			const conn = resolveContainerConnection(dmeCfg.goldenContainerName);
-			if (conn.error) {
-				xLog.error(`neo4j-instance: cannot resolve DME connection from goldenContainerName '${dmeCfg.goldenContainerName}': ${conn.error}`);
+			const { resolveContainerConnectionFresh, isValidContainerName } = require('./lib/user-graph/container-connection-resolver');
+			if (!isValidContainerName(dmeCfg.goldenContainerName)) {
+				xLog.error(`neo4j-instance: [dataModelExplorerSearch] goldenContainerName '${dmeCfg.goldenContainerName}' is not a valid docker container name; the DME graph is NOT connected`);
 				next('', { ...args, neo4jDb: null });
 				return;
 			}
 			// The golden DME connection is the hardened READ seam: sessions open in
 			// READ mode and auto-commit transactions carry a wall-clock timeout
 			// (dataModelExplorerSearch queryTimeoutMs, REQUIRED: a missing or non-positive value is refused by
-			// name, never defaulted). It does NOT pass writeCapable, so it has no runTransaction either (W-E-10):
-			// the golden graph has no write path from this server.
+			// name, never defaulted). It has no write path from this server (W-E-10); the handle opens every
+			// connection that way and offers no other.
 			const queryTimeoutMs = parseInt(dmeCfg.queryTimeoutMs, 10);
 			if (!(queryTimeoutMs > 0)) {
 				xLog.error(`neo4j-instance: [dataModelExplorerSearch] queryTimeoutMs is required and must be a positive integer of milliseconds (got '${dmeCfg.queryTimeoutMs}'); the DME graph is NOT connected`);
 				next('', { ...args, neo4jDb: null });
 				return;
 			}
-			const neo4jConfig = {
-				neo4jBoltUri: conn.boltUri,
-				neo4jUser: conn.user,
-				neo4jPassword: conn.password,
-				readOnly: true,
+
+			const { createGoldenGraphHandle, GOLDEN_RETRY_DELAY_MS_LIST } = require('./lib/neo4j-instance/golden-graph-handle');
+			const neo4jDb = createGoldenGraphHandle({
+				goldenContainerName: dmeCfg.goldenContainerName,
 				queryTimeoutMs,
-			};
-
-			const neo4jGen = require('./lib/neo4j-instance/neo4j-instance')({ unused: true });
-
-			const localCallback = (err, neo4jDb) => {
-				if (err) {
-					xLog.error(`neo4j-instance initialization failed: ${err}`);
-					next('', { ...args, neo4jDb: null });
-					return;
-				}
-				dataModelLogInfoList.push(`Neo4j connected: ${neo4jConfig.neo4jBoltUri}`);
-				next('', { ...args, neo4jDb, dataModelLogInfoList });
-			};
-
-			neo4jGen.initDatabaseInstance(neo4jConfig, localCallback);
+				retryDelayMsList: GOLDEN_RETRY_DELAY_MS_LIST,
+				resolveConnectionFresh: resolveContainerConnectionFresh,
+				neo4jGen: require('./lib/neo4j-instance/neo4j-instance')({ unused: true }),
+			});
+			dataModelLogInfoList.push(`Neo4j golden graph: ${dmeCfg.goldenContainerName} (connects in the background; GET /api/health says when)`);
+			next('', { ...args, neo4jDb, dataModelLogInfoList });
 		});
 
 		// --------------------------------------------------------------------------------
@@ -354,7 +344,7 @@ const moduleFunction =
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, dataMapping, slackAccess } = args;
+			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, dataMapping, slackAccess, neo4jDb } = args;
 			// Multi-tenant (07): start the orphan-session reaper daemon — periodically
 			// reclaim abandoned per-user containers + clone dirs (lease expired) and clear
 			// their leases; the durable stateScript is untouched. Non-fatal if unavailable.
@@ -396,7 +386,8 @@ const moduleFunction =
 			// dmeMcpOAuth Phase 2: expose sqlDb so startApiServer can hand it to the
 			// Authorization Server mount (oauth-server needs the DB for the adapter,
 			// audit log, GC, and the findAccount-by-sub lookup).
-			callback(err, { accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb });
+			// the golden handle goes up too: startApiServer's warm pool priming waits for its first connection
+			callback(err, { accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb, neo4jDb });
 		});
 	};
 
