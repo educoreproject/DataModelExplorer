@@ -36,6 +36,11 @@ const moduleFunction =
 		// Exact path match only; every other route still refuses a bad token. See declareTokenTolerantRoute.
 		const tokenTolerantRoutePathList = [];
 		const ANONYMOUS_AUTHCLAIMS = Object.freeze({ noToken: true, user: Object.freeze({ role: 'public' }) });
+		// The same, for an endpoint that owns a whole path subtree (the edc: resolver). See declareTokenTolerantPathPrefix.
+		const tokenTolerantPathPrefixList = [];
+		const isTokenTolerantPath = (requestPath) =>
+			tokenTolerantRoutePathList.includes(requestPath) ||
+			tokenTolerantPathPrefixList.some((pathPrefix) => requestPath.startsWith(pathPrefix) || `${requestPath}/` === pathPrefix);
 
 		// ============================================================
 		// Function: hasValidToken
@@ -103,7 +108,7 @@ const moduleFunction =
 				if (err == 'skipRestOfPipe') {
 					err = '';
 				}
-				if (err && tokenTolerantRoutePathList.includes(xReq.path)) {
+				if (err && isTokenTolerantPath(xReq.path)) {
 					xLog.status(`token-tolerant route ${xReq.path}: bad token read as no token (${err})`);
 					xReq.appValueSetter('authclaims', {
 						...ANONYMOUS_AUTHCLAIMS,
@@ -127,6 +132,19 @@ const moduleFunction =
 				throw new Error(`declareTokenTolerantRoute: routePath must be an absolute path, got ${JSON.stringify(routePath)}`);
 			}
 			tokenTolerantRoutePathList.push(routePath);
+		};
+
+		// ============================================================
+		// Function: declareTokenTolerantPathPrefix
+		// Description:
+		//   As declareTokenTolerantRoute, for every path under a prefix ending in '/', and the path without that slash.
+		//   '/api/edc/' covers '/api/edc' and '/api/edc/anything', never '/api/edcOther'.
+		// ============================================================
+		const declareTokenTolerantPathPrefix = (pathPrefix) => {
+			if (typeof pathPrefix !== 'string' || !pathPrefix.startsWith('/') || !pathPrefix.endsWith('/')) {
+				throw new Error(`declareTokenTolerantPathPrefix: pathPrefix must be an absolute path ending in '/', got ${JSON.stringify(pathPrefix)}`);
+			}
+			tokenTolerantPathPrefixList.push(pathPrefix);
 		};
 
 		// ============================================================
@@ -217,7 +235,7 @@ const moduleFunction =
 			};
 		};
 
-		return { hasValidToken, refreshauthtoken, getValidator, declareTokenTolerantRoute };
+		return { hasValidToken, refreshauthtoken, getValidator, declareTokenTolerantRoute, declareTokenTolerantPathPrefix };
 	};
 
 module.exports = moduleFunction({ moduleName });
