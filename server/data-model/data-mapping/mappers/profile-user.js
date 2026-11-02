@@ -117,6 +117,11 @@ const moduleFunction =
 
 			if (direction === 'reverse') {
 				// Application → Database format
+				// A blank password means "unchanged": the mapping now passes '' and null through, so drop them here
+				// or a blank form field would overwrite the stored password.
+				if (outObj.password === '' || outObj.password === null) {
+					delete outObj.password;
+				}
 				// Hash passwords before storing in database
 				if (outObj.password) {
 					// Only hash if password is provided and not already hashed

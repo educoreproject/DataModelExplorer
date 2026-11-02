@@ -1,0 +1,34 @@
+{
+	"compilerVersion": "jedxDictionary-1",
+	"compilerVersionNote": "Raise compilerVersion whenever jedx-dictionary-compiler.js or this file changes what a compile contains: it is a freshness stamp, so every stored compile made by the older version becomes stale and is rebuilt on its next view.",
+	"dictionarySourceRole": "dictionary",
+	"arkansasPilotSourceRole": "arkansasPilot",
+	"skippedDictionarySourcePartList": ["TOC"],
+	"dictionaryHeaderMarkerText": "US Data Element ID",
+	"dictionaryColumnNameByFieldName": {
+		"elementName": "US Data Element",
+		"definition": "US Definition",
+		"elementId": "US Data Element ID",
+		"hrOpenPath": "HR Open Property",
+		"hrOpenFilterCondition": "HR Open Property Filter Conditions",
+		"hrOpenDescription": "HR Open Description",
+		"revisionNotes": "Revision Notes"
+	},
+	"rootSchemaNameBySegment": {
+		"organizations": "OrganizationNounType",
+		"workers": "workerNounType",
+		"worker": "workerNounType",
+		"workercompensationreports": "WorkerCompensationReportNounType",
+		"workerpaidhoursreports": "WorkerPaidHoursReportNounType"
+	},
+	"wildcardSegmentText": "*",
+	"pathAbsentPatternList": ["^$", "^TBD", "^To be determined"],
+	"arkansasPilot": {
+		"headerMarkerText": "Data Element ID",
+		"programNameRowOffset": -1,
+		"groupLabelRowOffset": -2,
+		"elementIdColumnIndex": 0,
+		"elementNameColumnIndex": 1,
+		"elementIdPattern": "^[IVX]+\\.[A-Za-z0-9.()]+$"
+	}
+}

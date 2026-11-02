@@ -58,6 +58,11 @@ const graphExamplePromptList = computed(() =>
 
 const formatCount = (countNumber) => Number(countNumber).toLocaleString();
 
+// ⟪use-case forge Phase 5, 2026-10-30⟫ a use-case standard (the graph contract's useCaseScopeRule.standardKind) is no data
+// standard: it is not mapped to a hub, its cases CITE other standards' elements, and its own page shows them
+const USE_CASE_STANDARD_KIND = 'useCaseCorpus';
+const isUseCaseStandard = (oneStandard) => oneStandard.standardKind === USE_CASE_STANDARD_KIND;
+
 // ctdlHub P7: a graph may hold several hubs (CEDS and CTDL). The hub names come from the standards list
 // (totals.hubStandardList), and each standard's judged mappings are shown per hub (hubMatchEdgeCountByHub).
 const hubNameList = computed(() => (standardListStore.standardInventory && standardListStore.standardInventory.totals.hubStandardList) || []);
@@ -94,6 +99,18 @@ watch(() => graphStore.connected, (connected) => {
 			router.replace({ path: '/dm/explorer' });
 		}, 500);
 	}
+});
+
+// Prefill from ?prefillPrompt= (Companion Pages Ask DME links): the prompt is put in the input and NOT sent; the visitor
+// reads it and presses Submit. The query is then removed, so a later visit to this URL does not refill the input. When
+// ?prompt= is also present, that link asked to send, and the auto-send above handles it instead.
+const edunatorPanel = ref(null);
+onMounted(() => {
+	const prefillPromptText = typeof route.query.prefillPrompt === 'string' ? route.query.prefillPrompt : '';
+	if (!prefillPromptText || route.query.prompt) return;
+	edunatorPanel.value.promptText = prefillPromptText;
+	const { prefillPrompt, ...remainingQuery } = route.query;
+	router.replace({ path: route.path, query: remainingQuery });
 });
 
 // AI-powered filename generation for download button
@@ -135,6 +152,7 @@ const fallbackPromptOptions = [
 				</v-alert>
 
 				<EdunatorPanel
+				ref="edunatorPanel"
 				:store="graphStore"
 				:generate-filename="generateAiFilename"
 				:fallback-prompt-options="fallbackPromptOptions"
@@ -149,6 +167,7 @@ const fallbackPromptOptions = [
 					<p style="color: #1565C0; font-weight: 600; background: #E3F2FD; padding: 0.6em 1em; border-radius: 6px; margin-bottom: 0.8em;">
 						Click the info icon in the bottom right for example prompts to get you started. Your sessions are automatically saved. Access them by the tiny clock icon in the bottom right. Manage them in the profile sessions editor.
 					</p>
+					<CompanionPagesCompanionSiteDocumentButtons />
 					<p><strong>The Data Model Explorer</strong> provides a unified graph of education data standards with cross-standard search, mapping, and comparison. The standards in this graph, read from the graph itself when this page opened:</p>
 					<p v-if="standardListStore.standardListLoading" style="font-style: italic;">Reading the standards list from the graph&hellip;</p>
 					<p v-else-if="standardListStore.standardListUnavailableReason" style="color: #B71C1C; font-weight: 600;">standards list unavailable: {{ standardListStore.standardListUnavailableReason }}</p>
@@ -159,7 +178,7 @@ const fallbackPromptOptions = [
 									<strong>{{ familyGroup.standardFamily }}</strong> &mdash; {{ familyGroup.standardList[0].standardName }} {{ familyGroup.standardList[0].version }}
 									<span style="color: #888;">
 										&middot; {{ formatCount(familyGroup.standardList[0].nodeCount) }} nodes
-										&middot; <template v-if="familyGroup.standardList[0].isHub">a semantic hub</template><template v-else>{{ hubMappingTextFor(familyGroup.standardList[0]) }}</template>
+										&middot; <template v-if="familyGroup.standardList[0].isHub">a semantic hub</template><template v-else-if="isUseCaseStandard(familyGroup.standardList[0])"><span data-testid="dme-use-case-standard">a use-case standard: its cases cite other standards' elements &middot; <NuxtLink to="/explore/use-cases">see the forged use cases</NuxtLink></span></template><template v-else>{{ hubMappingTextFor(familyGroup.standardList[0]) }}</template>
 									</span>
 								</template>
 								<template v-else>

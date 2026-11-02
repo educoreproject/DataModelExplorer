@@ -15,7 +15,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
 import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
 
-definePageMeta({ middleware: 'auth' });
+// public (TQ, 2026-10-30: "all public"): no sign-in middleware, as for the Use Cases page
 
 const route = useRoute();
 const router = useRouter();

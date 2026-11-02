@@ -4,7 +4,7 @@
 // @concept: [[SecurityFirstPattern]]
 
 // standard-downloads-publications — POST /api/standard-downloads-publications {} for the Downloads page (educoreForge ML3.1c:
-// the gold's published mapping sets and card downloads). Logged-in users only, the same roles as the explorer. Answers
+// the gold's published mapping sets and card downloads). Public (TQ, 2026-10-30: "all public"), a bad token read as no token. Answers
 // [{ graphName, publicLabel, manifestRefId, generatedAt, entryList }] from the standard-downloads access point (action
 // publications), which refuses by name (400, with its text) when the downloads or the listing are not the golden's own, or
 // nothing has been published.
@@ -65,7 +65,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const method = 'post';
 	const routePath = `${routingPrefix}${moduleName}`;
-	const permissionValidator = accessTokenHeaderTools.getValidator(['user', 'client', 'admin']);
+	// public (TQ, 2026-10-30: "all public"); a stale or garbled token is read as no token on this route
+	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	accessTokenHeaderTools.declareTokenTolerantRoute(routePath);
 
 	expressApp[method](routePath, serviceFunction(permissionValidator));
 	endpointsDotD.logList.push(routePath);

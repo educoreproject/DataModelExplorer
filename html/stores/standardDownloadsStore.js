@@ -12,6 +12,8 @@
 // ⟪educoreForge ML3.1c⟫ It also holds the PUBLICATION listing (POST /api/standard-downloads-publications): the gold's published
 // mapping sets, their registries and contexts, and the card download per hub release; a listed file is fetched from POST
 // /api/standard-downloads-publication-file and checked against the listing's sha256 the same way.
+// All four endpoints are public (TQ, 2026-10-30: "all public"), so a visitor who is not signed in sends no Authorization
+// header (getAuthTokenProperty would send 'Bearer undefined') and a signed-in person sends their token.
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -27,6 +29,8 @@ const standardDownloadsStoreInitObject = {
 	publicationLoading: false,
 	publicationStatusMsg: '',
 };
+
+const authHeadersOf = (loginStore) => (loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {});
 
 const MANIFEST_URL = '/api/standard-downloads-manifest';
 const FILE_URL = '/api/standard-downloads-file';
@@ -69,7 +73,7 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 			this.manifestLoading = true;
 			this.statusMsg = '';
 			try {
-				const response = await axios.post(MANIFEST_URL, {}, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' } });
+				const response = await axios.post(MANIFEST_URL, {}, { headers: { ...authHeadersOf(loginStore), 'Content-Type': 'application/json' } });
 				const manifest = Array.isArray(response.data) ? response.data[0] : null;
 				if (!manifest || !Array.isArray(manifest.entryList)) {
 					this.statusMsg = 'the server answered without a downloads manifest';
@@ -94,7 +98,7 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 			this.publicationLoading = true;
 			this.publicationStatusMsg = '';
 			try {
-				const response = await axios.post(PUBLICATION_URL, {}, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' } });
+				const response = await axios.post(PUBLICATION_URL, {}, { headers: { ...authHeadersOf(loginStore), 'Content-Type': 'application/json' } });
 				const publication = Array.isArray(response.data) ? response.data[0] : null;
 				if (!publication || !Array.isArray(publication.entryList)) {
 					this.publicationStatusMsg = 'the server answered without a publication listing';
@@ -119,7 +123,7 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 			this.downloadingDownloadId = entry.downloadId;
 			this.downloadStatusMsg = '';
 			try {
-				const response = await axios.post(PUBLICATION_FILE_URL, { downloadId: entry.downloadId }, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' }, responseType: 'blob' });
+				const response = await axios.post(PUBLICATION_FILE_URL, { downloadId: entry.downloadId }, { headers: { ...authHeadersOf(loginStore), 'Content-Type': 'application/json' }, responseType: 'blob' });
 				const fileArrayBuffer = await response.data.arrayBuffer();
 				const receivedSha256 = await sha256HexOf(fileArrayBuffer);
 				const saveFileName = entry.relativePath.split('/').join('_');
@@ -151,7 +155,7 @@ export const useStandardDownloadsStore = defineStore('standardDownloadsStore', {
 			this.downloadingDownloadId = entry.downloadId;
 			this.downloadStatusMsg = '';
 			try {
-				const response = await axios.post(FILE_URL, { downloadId: entry.downloadId }, { headers: { ...loginStore.getAuthTokenProperty, 'Content-Type': 'application/json' }, responseType: 'blob' });
+				const response = await axios.post(FILE_URL, { downloadId: entry.downloadId }, { headers: { ...authHeadersOf(loginStore), 'Content-Type': 'application/json' }, responseType: 'blob' });
 				const zipArrayBuffer = await response.data.arrayBuffer();
 				const receivedSha256 = await sha256HexOf(zipArrayBuffer);
 				if (receivedSha256 !== entry.sha256) {

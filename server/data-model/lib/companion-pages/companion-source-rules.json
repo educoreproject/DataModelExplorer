@@ -1,0 +1,18 @@
+{
+	"_comment": "Rules for companion source uploads (SPEC-companionPages-102826). mediaTypeByExtension: the file extensions a source may have and the media type each is served with; any other extension is refused by name (lower case, no dot). maxSourceByteSize: the largest decoded file accepted (25 MiB); the upload route's JSON body limit in server/lib/large-body-route-list.json is set above it to allow for base64's 4/3. The name patterns guard every value that becomes part of a stored path.",
+	"maxSourceByteSize": 26214400,
+	"namePatternByField": {
+		"pageSlug": "^[a-z0-9][a-z0-9-]{0,63}$",
+		"sourceRole": "^[A-Za-z][A-Za-z0-9]{0,63}$",
+		"sourcePart": "^[A-Za-z0-9]{0,32}$"
+	},
+	"mediaTypeByExtension": {
+		"csv": "text/csv",
+		"xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"pdf": "application/pdf",
+		"json": "application/json",
+		"txt": "text/plain",
+		"md": "text/markdown"
+	}
+}

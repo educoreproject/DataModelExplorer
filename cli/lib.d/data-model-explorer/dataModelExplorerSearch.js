@@ -30,6 +30,9 @@ const { readPassport } = require('./lib/passportReader');
 // ⟪lane DES, 2026-10-12⟫ a LAYER node (StandardLayer) is not part of its standard's population: excluded from every count,
 // name lookup and scan below, and reached through dme_structure (amendment B; DEVLOG-DES population audit)
 const { LAYER_LABEL, notLayerNodeText } = require('./lib/layerScope');
+// ⟪use-case forge Phase 5, 2026-10-30⟫ a USE-CASE node (a case, a story, a citation…) is not a data element: kept out of the
+// element lookups (a citation bears the cited element's name), and its own edges' properties are shown by explore
+const { useCaseNodeText, notUseCaseNodeText } = require('./lib/useCaseScope');
 const { NATIVE_IDENTIFIER_DECLARATION_CYPHER, nativeIdentifierDeclarationVerdictFor, nativeIdentifierPropertyNameListOf } = require('./lib/nativeIdentifier');
 // ⟪lane BM25⟫ the search's legs (keyword BM25, vector), their graph checks and their fusion: one module for both search verbs
 const { searchLegListFor, resolveSearchIndexes, searchAndFuse } = require('./lib/hybridRetrieval');
@@ -492,7 +495,7 @@ const instanceContextSegmentListOf = (nodeVariable) => `CASE ${INSTANCE_CONTEXT_
 	`WHEN ${nodeVariable}.${pathFieldName} IS NOT NULL THEN split(${nodeVariable}.${pathFieldName}, '/')[${leadingSegmentDropCount}..-1]`).join(' ')} ELSE [] END`;
 const instanceContextPathPredicateFor = (nodeVariable) =>
 	`(${nodeVariable}.role = 'DmeInstance' AND any(contextSegment IN ${instanceContextSegmentListOf(nodeVariable)} WHERE toLower(contextSegment) CONTAINS toLower($name)))`;
-const findMappingsMatchPredicateFor = (nodeVariable, identifierFieldList) => `(${notLayerNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable, identifierFieldList)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
+const findMappingsMatchPredicateFor = (nodeVariable, identifierFieldList) => `(${notLayerNodeText(nodeVariable)} AND ${notUseCaseNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable, identifierFieldList)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
 
 const findMappings = (session, nameOrId, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
@@ -1312,6 +1315,7 @@ const getListStandards = (session, callback) => {
 		       d.standardFamily AS standardFamily,
 		       d.releaseLabel AS releaseLabel,
 		       d.descriptionSource AS descriptionSource,
+		       d.standardKind AS standardKind,
 		       nodeCount
 		ORDER BY source
 	`, {}, mergeArgs(args, next, 'standardResult')));
@@ -1358,6 +1362,8 @@ const getListStandards = (session, callback) => {
 			releaseLabel: rec.get('releaseLabel'),
 			// educoreForge lane FIX, Fix 3 (TQ): the provenance of the standard's description text, from its card
 			descriptionSource: rec.get('descriptionSource'),
+			// ⟪use-case forge Phase 5⟫ what kind of standard this is (dataStandard, useCaseCorpus, …), from its card
+			standardKind: rec.get('standardKind'),
 			nodeCount: toNumber(rec.get('nodeCount')),
 			isHub: hubSourceList.indexOf(rec.get('source')) !== -1,
 			hubMatchEdgeCount: hubMatchEdgeCountBySource[rec.get('source')],
@@ -1385,7 +1391,9 @@ const getListStandards = (session, callback) => {
 // W-D-11 / W-D-12 (campaign P1): ONE entry per node, keyed by stableId (same-named nodes were merged by labels + name and
 // kept the last record's edges), with matchedNodeCount. The name match is exact unless nameMatch says caseInsensitive,
 // and an exact lookup ALWAYS reports its case-variant siblings (SIF splits BirthDate / birthDate) so the model can widen.
-const exploreNameMatchPredicateFor = (nodeVariable) => `(($nameMatch = 'exact' AND ${nodeVariable}.name = $name) OR ($nameMatch = 'caseInsensitive' AND toLower(${nodeVariable}.name) = toLower($name)))`;
+// ⟪use-case forge Phase 5⟫ an exact lookup also takes a stableId: a use case is named by its corpus id ('uc:ler-issuance'),
+// which is its stableId, while its name is its long title.
+const exploreNameMatchPredicateFor = (nodeVariable) => `(($nameMatch = 'exact' AND (${nodeVariable}.name = $name OR ${nodeVariable}.stableId = $name)) OR ($nameMatch = 'caseInsensitive' AND toLower(${nodeVariable}.name) = toLower($name)))`;
 const EXPLORE_NAME_MATCH_PREDICATE = exploreNameMatchPredicateFor('n');
 
 const exploreNode = (session, params, callback) => {
@@ -1419,7 +1427,7 @@ const exploreNode = (session, params, callback) => {
 			WITH n
 			OPTIONAL MATCH (n)-[r]->(m:ForgedNode) WHERE ${notLayerNodeText('m')}
 			RETURN n.stableId AS nodeStableId, n {.*, _labels: labels(n)} AS node,
-			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetStableId: m.stableId, targetSource: m._source, targetLabels: labels(m)} ELSE NULL END) AS outgoing
+			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), target: m.name, targetStableId: m.stableId, targetSource: m._source, targetLabels: labels(m), edgeProperties: CASE WHEN ${useCaseNodeText('n')} THEN properties(r) ELSE NULL END} ELSE NULL END) AS outgoing
 		`, queryParams, mergeArgs(args, next, 'outgoingResult')));
 		taskList.push((args, next) => runCypherQuery(session, `
 			MATCH (n:ForgedNode)
@@ -1430,7 +1438,7 @@ const exploreNode = (session, params, callback) => {
 			// reached through dme_structure
 			OPTIONAL MATCH (m:ForgedNode)-[r]->(n) WHERE ${notLayerNodeText('m')} OR type(r) = 'REPAIRS_TEXT_OF'
 			RETURN n.stableId AS nodeStableId,
-			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStableId: m.stableId, sourceStandard: m._source, sourceLabels: labels(m), repairedPropertyName: m.repairedPropertyName, repairedText: m.repairedText, faithfulText: m.faithfulText, repairSource: CASE WHEN m.repairSourceFileName IS NULL THEN null ELSE m.repairSourceFileName + ' line ' + toString(m.repairSourceLineNumber) + ' (' + m.repairSourceTableName + ' ' + m.repairSourceCode + ')' END} ELSE NULL END) AS incoming
+			  collect(CASE WHEN m IS NOT NULL THEN {type: type(r), source: m.name, sourceStableId: m.stableId, sourceStandard: m._source, sourceLabels: labels(m), edgeProperties: CASE WHEN ${useCaseNodeText('n')} THEN properties(r) ELSE NULL END, repairedPropertyName: m.repairedPropertyName, repairedText: m.repairedText, faithfulText: m.faithfulText, repairSource: CASE WHEN m.repairSourceFileName IS NULL THEN null ELSE m.repairSourceFileName + ' line ' + toString(m.repairSourceLineNumber) + ' (' + m.repairSourceTableName + ' ' + m.repairSourceCode + ')' END} ELSE NULL END) AS incoming
 		`, queryParams, mergeArgs(args, next, 'incomingResult')));
 		taskList.push((args, next) => runCypherQuery(session, `
 			MATCH (s:ForgedNode)
@@ -1472,6 +1480,14 @@ const exploreNode = (session, params, callback) => {
 	});
 };
 
+// ⟪use-case forge Phase 5⟫ edgeProperties is the use-case standard's alone (a step's codedNotation and position, a citation's
+// role); on every other edge the query writes NULL, and the field is dropped so other standards' payloads are unchanged
+const exploreEdgeOf = (edgeRecord) => {
+	const exploreEdge = serializeValue(edgeRecord);
+	if (exploreEdge.edgeProperties === null) delete exploreEdge.edgeProperties;
+	return exploreEdge;
+};
+
 // one entry per node, in _source, role, path order; a node without stableId cannot be keyed and is an error by name
 const shapeExploreEntryList = (outgoingResult, incomingResult) => {
 	const incomingByStableId = {};
@@ -1492,9 +1508,9 @@ const shapeExploreEntryList = (outgoingResult, incomingResult) => {
 				stableId: rec.get('nodeStableId'),
 				node: serializeValue(node),
 				outgoingTotal: outgoingEdgeList.length,
-				outgoing: outgoingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(serializeValue),
+				outgoing: outgoingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(exploreEdgeOf),
 				incomingTotal: incomingEdgeList.length,
-				incoming: incomingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(serializeValue),
+				incoming: incomingEdgeList.slice(0, EXPLORE_EDGE_CAP).map(exploreEdgeOf),
 				edgesTruncated: outgoingEdgeList.length > EXPLORE_EDGE_CAP || incomingEdgeList.length > EXPLORE_EDGE_CAP,
 			};
 		})

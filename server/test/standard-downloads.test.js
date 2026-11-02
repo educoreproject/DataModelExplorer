@@ -8,7 +8,7 @@
 //      the manifest's sha256; the same for the REAL College Transcript 1.8.0 graph zip;
 //   3. refusals by name: an unknown id; a path-traversal id; an unavailable entry; a file whose bytes no longer match;
 //      a manifest whose graphContractSha256 or graphName is not the golden's; no downloads for the golden; not configured;
-//   4. the endpoints: 401 without a user, 400 with the refusal's text, [result] for the manifest;
+//   4. the endpoints, public (2026-10-30): answered without a user, 400 with the refusal's text, [result] for the manifest;
 //   5. where each source came from (WORKORDER-sourceUrls-101526): the five sourceUrl fields carried out verbatim, null
 //      when not recorded; a manifest of the earlier format /1 refused by name; the REAL manifest's CEDS, CT 1.8.0 and
 //      Ed-Fi entries say downloadedFrom, republishedAs (with page and note) and nothing recorded.
@@ -220,13 +220,14 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				ok('manifest endpoint: 200 as [result], filtered by the body', answer.statusCode === 200 && Array.isArray(answer.body) && answer.body[0].entryList.length === 2, `${answer.statusCode} ${JSON.stringify(answer.body).slice(0, 200)}`);
 				done();
 			}); },
-			(done) => runEndpoint({ endpointPath: MANIFEST_ENDPOINT_PATH, authclaims: { user: { role: 'public' } }, requestBody: {}, accessPoint }, (answer) => { ok('manifest endpoint: 401 for a public (not logged-in) caller', answer.statusCode === 401, `${answer.statusCode}`); done(); }),
+			// public since 2026-10-30 (TQ: "all public"): a caller who is not signed in is answered exactly as a signed-in one
+			(done) => runEndpoint({ endpointPath: MANIFEST_ENDPOINT_PATH, authclaims: { noToken: true, user: { role: 'public' } }, requestBody: { facet: 'source' }, accessPoint }, (answer) => { ok('manifest endpoint: 200 as [result] for a public (not signed-in) caller', answer.statusCode === 200 && Array.isArray(answer.body) && answer.body[0].entryList.length === 2, `${answer.statusCode} ${JSON.stringify(answer.body).slice(0, 200)}`); done(); }),
 			(done) => runEndpoint({ endpointPath: FILE_ENDPOINT_PATH, authclaims: { user: { role: 'user' } }, requestBody: { downloadId: 'toy-source' }, accessPoint }, (answer) => {
 				ok('file endpoint: the zip as an attachment, its sha256 in X-Download-Sha256', answer.statusCode === 200 && Buffer.isBuffer(answer.body) && answer.headerByName['Content-Type'] === 'application/zip' && answer.headerByName['Content-Disposition'] === 'attachment; filename="toy-source.zip"' && answer.headerByName['X-Download-Sha256'] === sha256Of(answer.body), `${answer.statusCode} ${JSON.stringify(answer.headerByName)}`);
 				done();
 			}),
 			(done) => runEndpoint({ endpointPath: FILE_ENDPOINT_PATH, authclaims: { user: { role: 'user' } }, requestBody: { downloadId: '../outside.zip' }, accessPoint }, (answer) => { ok('file endpoint: a traversal id is 400 with the refusal', answer.statusCode === 400 && /^downloadUnknownId/.test(answer.body), `${answer.statusCode} ${answer.body}`); done(); }),
-			(done) => runEndpoint({ endpointPath: FILE_ENDPOINT_PATH, authclaims: { user: { role: 'public' } }, requestBody: { downloadId: 'toy-source' }, accessPoint }, (answer) => { ok('file endpoint: 401 for a public (not logged-in) caller', answer.statusCode === 401, `${answer.statusCode}`); done(); }),
+			(done) => runEndpoint({ endpointPath: FILE_ENDPOINT_PATH, authclaims: { noToken: true, user: { role: 'public' } }, requestBody: { downloadId: 'toy-source' }, accessPoint }, (answer) => { ok('file endpoint: the zip for a public (not signed-in) caller, its sha256 in X-Download-Sha256', answer.statusCode === 200 && Buffer.isBuffer(answer.body) && answer.headerByName['X-Download-Sha256'] === sha256Of(answer.body), `${answer.statusCode}`); done(); }),
 
 			// ---- 2b. the REAL artifacts for this golden
 			(done) => {

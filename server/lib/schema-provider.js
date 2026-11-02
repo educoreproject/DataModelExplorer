@@ -315,6 +315,22 @@ const declaredCorrespondenceTextFor = (relationshipTypes) => (relationshipTypes.
 	? `\n\n**DECLARED_CORRESPONDENCE** is NOT a match edge: it carries a published cross-IRI assertion verbatim (\`sourcePredicate\`: owl:equivalentClass, skos:relatedMatch, rdfs:subPropertyOf, …) from one standard's term to another's, the source's own words. Never read it as EXACT/CLOSE/BROAD/NARROW and never compose it with match edges. Its edge also carries forge stamps (\`mappingKind\` 'authored', \`mappingSource\`): they say who published the statement, not that it is a mapping. Call it a declared correspondence, a published statement; never a mapping and never an 'authored mapping'.`
 	: '');
 
+// ⟪use-case forge Phase 5, 2026-10-30⟫ the use-case standard's passage, present only when the graph holds use cases (its
+// roles are live), so a graph without them is described exactly as before
+const USE_CASE_PRESENCE_ROLE = 'DmeUseCase';
+const useCaseTextFor = (liveRoleList) => (liveRoleList.includes(USE_CASE_PRESENCE_ROLE)
+	? `
+
+## Use Cases: the EDUcore use-case standard
+
+The graph also holds a standard of **use cases** (\`_source\` UseCase; its StandardDefinition's \`standardKind\` is 'useCaseCorpus', every data standard's is 'dataStandard'; format v0.11, Enhanced Cockburn). A use case is a vetted account of who does what, in which steps, with which data. It is NOT a data standard: its nodes are never data elements, never carry match edges and are never counted with a data standard. Its roles: DmeUseCase (label UcUseCase; \`stableId\` is the corpus id such as 'uc:ler-issuance', \`shortName\` the short title, \`name\` the long one), DmeUserStory, DmeActor, DmeCondition, DmeEvent, DmeValueDriver, DmeSubject, DmeResource, and the two reference roles DmeExternalReference and DmeDataReference (both label UcDataReference). Stories, actors and conditions are SHARED: one node, reached from every case that uses it.
+
+- **Steps**: \`(case:UcUseCase)-[step:HAS_STEP]->(story:UcUserStory)\`; the edge carries \`codedNotation\` ('7', '7a'), \`position\` (its integer part) and \`kind\` (main, exception, extension). Read a case in order: \`ORDER BY step.position, step.codedNotation\`. The story's actor is \`(story)-[:PERFORMED_BY]->(:UcActor)\`. dme_explore with the case id (\`name\` 'uc:ler-issuance') shows a case's edges, each step's in \`edgeProperties\`.
+- **Citations**: a story, subject or case cites data by CONSUMES, PRODUCES, REQUIRES, COMPRISES or GOVERNS to a UcDataReference. An external reference (DmeExternalReference) carries \`citedStandard\` and \`citedIdentifier\` as the author wrote them and, when the cited element is in the graph, ONE **DECLARED_CORRESPONDENCE** edge (\`sourcePredicate\` 'edc:cites', \`declaredBy\` 'UseCase') to the cited standard's OWN node: a CEDS class, property or option value. That edge is the author's citation, not a mapping. To reach the other standards, continue from the cited CEDS node through the hub: \`(hub:HubReference)-[:HAS_CEDS_DOMAIN|HAS_CEDS_PROPERTY|HAS_CEDS_VALUE]->(cited)\`, then \`(element)-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(hub)\`, reporting each mapping as a judgment, as everywhere.
+- **Walking a case to its citations**: use only \`HAS_SUBJECT|HAS_STEP|HAS_CONSTITUENT|COMPRISES|CONSUMES|PRODUCES|REQUIRES|GOVERNS\`, 1 to 3 hops. The cross-case edges (SIBLING, INVOKES, INCLUDES, DUPLICATE, PARENT, CHILD) relate cases to cases; leave them out of a citation walk or every path is multiplied.
+- **The gap record**: a DmeDataReference with \`referenceKind\` 'orphan' (reached by REQUIRES_ORPHAN) is a CONFIRMED standards gap: data the case needs that no standard defines. A reference with \`resolutionAnchor\` 'graph' and no DECLARED_CORRESPONDENCE is an unresolved citation; one with \`resolutionAnchor\` 'document' (W3C-VC, W3C-DID) cites a whole standard that lives in a document, not in the graph. The gap list: \`MATCH (r:UcDataReference) WHERE r.referenceKind = 'orphan' OR (r.resolutionAnchor = 'graph' AND NOT (r)-[:DECLARED_CORRESPONDENCE]->()) RETURN r.referenceKind, r.citedStandard, r.citedIdentifier, r.name\`.`
+	: '');
+
 // ----------------------------------------------------------------------------
 // Curated prose appendix — describes the cross-cutting structure and gives
 // canonical query patterns. Hand-edited; survives forge additions.
@@ -388,7 +404,7 @@ In SIF and PESC the element that search finds (a DmeProperty: the SIF Question, 
 CEDS publishes more than its V14 ontology, and this graph carries two of those publications as LAYERS beside it (block kind \`layer\`), never written onto a V14 node. Every layer node carries the label \`StandardLayer\` and \`_source\` CEDS; **exclude \`StandardLayer\` whenever you count or list CEDS itself** (\`AND NOT n:StandardLayer\`). Use the dme_structure tool first; it answers the concept questions without Cypher.
 
 - **The Conceptual Model** (CEDS Ontology Guide V14, Appendix A; layerKey guide): every class's primary (and sometimes secondary) concept among Person, Organization, Resource, Membership, Asset, Event, Claim and Provenance (HAS_PRIMARY_CONCEPT, HAS_SECONDARY_CONCEPT), and the 204 date properties that record an Event (HAS_EVENT_DATE_CONCEPT).
-- **Text repairs** (layerKey textRepair): some 950 CEDS terms carry U+FFFD replacement characters in the ontology itself (e.g. 'C\uFFFDTE D\'IVOIRE'). Where the CEDS IDS v14 reference data spells the same coded value correctly, a DmeTextRepair node rides BESIDE the CEDS node (REPAIRS_TEXT_OF) with faithfulText, repairedText and its source line. Show the repaired text beside the faithful one and say which is which; never silently replace the CEDS text.
+- **Text repairs** (layerKey textRepair): some 950 CEDS terms carry U+FFFD replacement characters in the ontology itself (e.g. 'C\uFFFDTE D\'IVOIRE'). Where the CEDS IDS v14 reference data spells the same coded value correctly, a DmeTextRepair node rides BESIDE the CEDS node (REPAIRS_TEXT_OF) with faithfulText, repairedText and its source line. Show the repaired text beside the faithful one and say which is which; never silently replace the CEDS text.${useCaseTextFor(liveRoleList)}
 
 ## Conventions
 

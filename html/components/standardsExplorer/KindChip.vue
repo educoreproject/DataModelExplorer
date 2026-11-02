@@ -28,6 +28,7 @@ const swatchStyle = computed(() => {
 		hubProperty: { background: familyStyle.tint, border: `1px solid ${familyStyle.color}`, borderRadius: '50%' },
 		hubDomain: { background: familyStyle.tint, border: `1px solid ${familyStyle.color}`, borderRadius: '4px' },
 		standardGroup: { background: familyStyle.tint, border: `2px solid ${familyStyle.color}`, borderRadius: '50%' },
+		useCase: { background: familyStyle.tint, border: `2px solid ${familyStyle.color}`, borderRadius: '4px' },
 		support: { background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '4px' },
 	};
 	return swatchByKind[props.nodeKind] || { background: '#F3F4F6', border: '1px dashed #9CA3AF', borderRadius: '4px' };

@@ -84,19 +84,19 @@ const moduleFunction = ({ moduleName }) => ({pwHash, hashPassword, verifyPasswor
 	const {placeholder} = getConfig(moduleName); //moduleName is closure
 
 
+	// A field passes when it is PRESENT (!== undefined), not when it is truthy: a truthy test dropped 0, false and ''
+	// (scaffold erratum dataMappingPresentNotTruthy_102726). profile-user.js drops a blank password to match.
 	const baseMappingProcess = mappingSpec => (inObj, {direction}) => {
 		const outObj = {};
 		if (direction == 'forward') {
 			Object.keys(mappingSpec)
-				.filter(name => {
-					const tmp=inObj[mappingSpec[name]];
-					return inObj[mappingSpec[name]];})
+				.filter(name => inObj[mappingSpec[name]] !== undefined)
 				.forEach(goodName => {
 						outObj[goodName] = inObj[mappingSpec[goodName]];
 				});
 		} else {
 			Object.keys(mappingSpec)
-				.filter(name => inObj[name])
+				.filter(name => inObj[name] !== undefined)
 				.forEach(goodName => {
 					outObj[mappingSpec[goodName]] = inObj[goodName];
 				});

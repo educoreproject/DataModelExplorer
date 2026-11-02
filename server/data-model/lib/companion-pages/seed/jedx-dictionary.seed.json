@@ -1,0 +1,132 @@
+{
+	"_comment": "Seed for the jedx-dictionary companion page (SPEC-companionPages-102826 Phase 1), read by seed-companion-page.js. Provenance is from management/zNotesPlansDocs/companionPages-102826/sources/README_PROVENANCE.md. The ORDER of sourceList matters: an earlier draft is uploaded before the later one of the same role and part, so the later one ends current and the earlier one sits in history. workingGroupProposedChanges.xlsx is deliberately absent: the README says it is not a page source. standardKey 'jedx' was read from the standards-neighbourhood answer for jedx:root on GOLD_EVAL_261026_respelled (2026-10-28).",
+	"sourceDirProjectRelativePath": "management/zNotesPlansDocs/companionPages-102826/sources",
+	"uploadedBy": "tqwhite (seeded by ONYX_ORBIT)",
+	"pageRecord": {
+		"pageSlug": "jedx-dictionary",
+		"title": "One dictionary, four lenses",
+		"summary": "Steve Saxton's JEDx workforce data dictionary, linked through HR Open to the JEDx graph and on to CEDS and CTDL.",
+		"audienceText": "HR and workforce staff, state data stewards, implementers and developers",
+		"standardKey": "jedx",
+		"subjectStableId": null,
+		"targetKind": "compiled",
+		"externalUrl": null,
+		"compilerName": "jedxDictionary",
+		"sortOrder": 10,
+		"isActive": true
+	},
+	"sourceList": [
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "TOC",
+			"relativeFilePath": "dictionary-04192026/Data Dictionary Revised Draft 04192026(TOC).csv",
+			"documentDate": "2026-04-19",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQBVyrXU2hrsTrfStiyk-moTAT-SUXfLkaUuLO_lbJRl_KQ",
+			"originNote": "Data Dictionary Revised Draft 04192026, TOC tab only (the only tab downloaded), as CSV. Earlier draft. From Steve Saxton's OneDrive \"Source of Truth\" (Alex Jackl, \"Fwd: Action Plan for JEDx data\", 2026-06-16). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "TOC",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(TOC).csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab TOC, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "I",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(I.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab I, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "III",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(III.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab III, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "IV",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(IV.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab IV, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "V",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(V.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab V, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "VI",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(VI.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab VI, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "VII",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(VII.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab VII, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "VIII",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(VIII.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab VIII, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "IX",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(IX.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab IX, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "dictionary",
+			"sourcePart": "X",
+			"relativeFilePath": "dictionary-08202026/Data Dictionary Revised Draft 08202026(X.csv",
+			"documentDate": "2026-08-20",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQCkP3Bt4Og2SKjVZpv19fzWAcSRptg__LuD3mywKOA0CAE",
+			"originNote": "Data Dictionary Revised Draft 08202026, tab X, downloaded by TQ as one CSV per tab (there is no tab II). From Steve Saxton's OneDrive, \"latest version of the dictionary\" (Brandon Dorman's comment on DEV-122, 2026-10-14). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "arkansasPilot",
+			"sourcePart": "",
+			"relativeFilePath": "arkansasPilot/JEDx Data Options for AR Pilot 05192026.xlsx",
+			"documentDate": "2026-05-19",
+			"originUrl": null,
+			"originNote": "JEDx Data Options for AR Pilot 05192026 (xlsx). Earlier draft. From Jim Goodell's Google Drive, file 1TPfiAnWPqteCFVYZKc362AZc7Pf6XUHS (labelled \"JEDx Data Dictionary\" in Jim Ireland's 2026-09-15 meeting notes; it is the Arkansas sheet, single revision 2026-06-13). No URL was recorded, only the file id. Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "arkansasPilot",
+			"sourcePart": "",
+			"relativeFilePath": "arkansasPilot/JEDx Data Options for Arkansas Pilot 10062026(Sheet1).csv",
+			"documentDate": "2026-10-06",
+			"originUrl": "https://1drv.ms/x/c/541df759062b7549/IQDLECh7xKDfQLXCcr3wWuEhATgZdIYKw187cZs9kcjE2iA",
+			"originNote": "JEDx Data Options for Arkansas Pilot 10062026, Sheet1, as CSV. From Steve Saxton's OneDrive (Brandon Dorman's comment on DEV-122). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		},
+		{
+			"sourceRole": "guide",
+			"sourcePart": "",
+			"relativeFilePath": "guide/Guide_to_Applying_the_JEDx_Workforce_Data_Dictionary_Revised_2026-09-08 Copy.docx",
+			"documentDate": "2026-09-08",
+			"originUrl": "https://1drv.ms/w/c/541df759062b7549/IQBThMxlce4IRY25RcjFok0ZAdwxJECo9JQ3myEaLMQL0Xc",
+			"originNote": "Guide to Applying the JEDx Workforce Data Dictionary, Revised 2026-09-08 (docx). From Steve Saxton's OneDrive (Jim Ireland's meeting notes, 2026-09-15). Collected 2026-10-28 by TQ, with Milo (SHADOW_MEADOW), for Jira DEV-122. Permission: TQ reports blanket permission for all JEDx material (2026-10-28)."
+		}
+	]
+}

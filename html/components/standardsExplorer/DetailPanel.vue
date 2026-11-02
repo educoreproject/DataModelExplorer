@@ -2,8 +2,8 @@
 // The detail panel: the selected row, or the focus node when nothing is selected. Kind, name, definition, how it
 // maps to a hub (kind and confidence, or the mix of kinds for a standard group), the facts, the version badge, and
 // either Open or "end of the line". Beneath it, one version tile per other version of the item's message, loaded
-// lazily; their loading and error states stay inside the tile area. Last, the Downloads section for the standard being
-// visited (DownloadsSection.vue).
+// lazily; their loading and error states stay inside the tile area. Last, the Companion pages and then the Downloads
+// sections for the standard being visited (CompanionPagesSection.vue, DownloadsSection.vue).
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
@@ -139,6 +139,7 @@ const definitionText = computed(() => {
 		<StandardsExplorerVersionBadge v-if="shownNode.versionBadge" :version-badge="shownNode.versionBadge" class="detail-badge" />
 
 		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" @click="emit('drill', shownNode.stableId)">Open {{ shownNode.displayName }} ›</v-btn>
+		<v-btn v-if="shownNode.kind === 'useCase'" color="primary" class="detail-open" data-testid="detail-open-use-case" :to="`/explore/use-cases/forged/${encodeURIComponent(shownNode.stableId)}`">Steps and citations ›</v-btn>
 		<p v-else-if="!isFocus" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else class="detail-note">You are here. Click anything on this level for its details.</p>
@@ -162,6 +163,7 @@ const definitionText = computed(() => {
 			</template>
 		</section>
 
+		<StandardsExplorerCompanionPagesSection />
 		<StandardsExplorerDownloadsSection />
 	</aside>
 </template>

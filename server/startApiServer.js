@@ -154,7 +154,11 @@ const moduleFunction =
 		const rawBodyCapture = (xReq, xRes, buf) => {
 			xReq.rawBody = buf;
 		};
-		expressApp.use(bodyParser.json({ extended: true, verify: rawBodyCapture })); //https://stackabuse.com/get-http-post-body-in-express-js/
+		// Routes in lib/large-body-route-list.json are skipped here: each parses its own large body, after its
+		// permission check, so an unauthenticated caller never gets a large body parsed. Every other route keeps the
+		// default limit.
+		const { skippingLargeBodyRoutes } = require('./lib/large-body-json');
+		expressApp.use(skippingLargeBodyRoutes(bodyParser.json({ extended: true, verify: rawBodyCapture }))); //https://stackabuse.com/get-http-post-body-in-express-js/
 		expressApp.use(
 			bodyParser.urlencoded({ extended: true, verify: rawBodyCapture }),
 		);

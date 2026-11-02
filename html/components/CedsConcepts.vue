@@ -1,5 +1,5 @@
 <script setup>
-// @concept: [[SpecificationViewer]]
+// @concept: [[SchemaVerifier]]
 // @concept: [[CedsHub]]
 //
 // The selected element seen the way the graph is built: no standard maps to
@@ -18,9 +18,10 @@
 // CEDS element), approved the same way.
 
 import { ref, computed, watch } from 'vue';
-import { useSpecificationViewerStore, elementCurationKey } from '@/stores/specificationViewerStore';
+import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
+import { matchDescriptionOf } from '@/components/standardsExplorer/explorerVocabulary';
 
-const store = useSpecificationViewerStore();
+const store = useSchemaVerifierStore();
 
 const props = defineProps({
 	// { source, name, path, standard, description, sourceId, kind }
@@ -84,7 +85,7 @@ const toggleConcept = (concept) => props.toggle(cedsItem(concept));
 
 // Spoke → CEDS concept. Keyed by the spoke's own element.
 const spokeKey = (spoke) => elementCurationKey(spoke);
-const spokeSource = (spoke) => ({ standard: spoke.standard, name: spoke.name, sourceId: spoke.stableId || spoke.sourceId || '', path: spoke.path || '' });
+const spokeSource = (spoke) => ({ standard: spoke.standard, name: spoke.name, sourceId: spoke.sourceId || '', path: spoke.path || '' });
 const spokeApproved = (concept, spoke) => store.hasUserEquivalent(spokeKey(spoke), cedsItem(concept));
 function toggleSpoke(concept, spoke) {
 	const key = spokeKey(spoke);
@@ -144,7 +145,9 @@ const searchToggle = (concept) => (item) => toggleSpoke(concept, searchRowAsSpok
 const REL = {
 	EXACT_MATCH: { label: 'exact', color: 'success', icon: 'mdi-check-decagram', title: 'Authored crosswalk — the standard\'s own documentation maps it to this CEDS concept' },
 	CLOSE_MATCH: { label: 'close', color: 'amber-darken-2', icon: 'mdi-lightbulb-outline', title: 'Inferred by similarity — a hypothesis to confirm' },
-	NARROW_MATCH: { label: 'narrower', color: 'orange-darken-2', icon: 'mdi-lightbulb-outline', title: 'Inferred: a subset of this CEDS concept' },
+	// the chip sits on an element; the direction is said of the CEDS concept, as the judge was asked it
+	BROAD_MATCH: { label: 'broad', color: 'deep-orange-darken-3', icon: 'mdi-lightbulb-outline', title: `Inferred: ${matchDescriptionOf('broad', 'this CEDS concept')}` },
+	NARROW_MATCH: { label: 'narrow', color: 'orange-darken-2', icon: 'mdi-lightbulb-outline', title: `Inferred: ${matchDescriptionOf('narrow', 'this CEDS concept')}` },
 	RELATED_MATCH: { label: 'related', color: 'grey', icon: 'mdi-lightbulb-outline', title: 'Inferred: loosely related' },
 	manual: { label: 'manual', color: 'deep-purple', icon: 'mdi-account-check-outline', title: 'Chosen by a person' },
 };
