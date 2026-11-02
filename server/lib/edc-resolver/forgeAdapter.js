@@ -101,7 +101,7 @@ const readerForRequest = ({ forgeResolver, uriOrPath, uriContractFilePath }) => 
 };
 
 // resolveThroughForge — one resolution; a thrown exception answers 500 by name instead of reaching the API's event loop
-const resolveThroughForge = ({ forgeResolver, uriOrPath, uriContractReader = forgeResolver.uriContractReader }, callback) => {
+const resolveThroughForge = ({ forgeResolver, uriOrPath, uriContractReader }, callback) => {
 	const { resolveEdcUri, registry } = forgeResolver;
 	const attempted = attemptForgeCall(() => resolveEdcUri({ uriOrPath, registry, uriContractReader }, (resolveError, resolved) => callback(resolveError ? { httpStatus: 500, body: { error: resolveError } } : resolved)), 'resolving');
 	if (attempted.error) {
@@ -144,11 +144,15 @@ const openForgeAdapter = ({ configValues }) => {
 	if (forgeResolver.error) {
 		return { refusalText: forgeResolver.error };
 	}
-	const sizeHandleOpened = attemptForgeCall(() => new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true }), `opening a read-only size handle on ${uriContractFilePath}`);
-	if (sizeHandleOpened.error) {
-		return { refusalText: sizeHandleOpened.error };
+	// the size statements are prepared here so a store or an SQLite that cannot run them is a startup refusal, not a fault on a visitor's request
+	const sizeStatementsPrepared = attemptForgeCall(() => {
+		const sizeHandle = new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true });
+		return Object.keys(WHOLE_BLOCK_RULE_BY_KIND).filter((oneKind) => WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql !== undefined).reduce((soFar, oneKind) => ({ ...soFar, [oneKind]: sizeHandle.prepare(WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql) }), {});
+	}, `preparing the block size reads on ${uriContractFilePath}`);
+	if (sizeStatementsPrepared.error) {
+		return { refusalText: sizeStatementsPrepared.error };
 	}
-	const sizeHandle = sizeHandleOpened.result;
+	const sizeStatementByKind = sizeStatementsPrepared.result;
 	const wholeBlockMaxBytes = Number(configValues.wholeBlockMaxBytes);
 	const { layerRegistry, agentRegistry } = forgeResolver.registry;
 
@@ -166,7 +170,7 @@ const openForgeAdapter = ({ configValues }) => {
 		if (wholeBlockRule.byteSizeSql === undefined) {
 			return { routeName: 'wholeBlockChild', kind: parsed.kind };
 		}
-		const sizeRow = sizeHandle.prepare(wholeBlockRule.byteSizeSql).get(parsed.partByName[wholeBlockRule.blockIdentityPartName]);
+		const sizeRow = sizeStatementByKind[parsed.kind].get(parsed.partByName[wholeBlockRule.blockIdentityPartName]);
 		if (sizeRow === undefined) {
 			return { routeName: 'inProcess', kind: parsed.kind };
 		}
@@ -177,7 +181,7 @@ const openForgeAdapter = ({ configValues }) => {
 
 	return {
 		routeFor,
-		resolveInProcess: (edcRequestPath, callback) => resolveThroughForge({ forgeResolver, uriOrPath: edcRequestPath }, callback),
+		resolveInProcess: (edcRequestPath, callback) => resolveThroughForge({ forgeResolver, uriOrPath: edcRequestPath, uriContractReader: forgeResolver.uriContractReader }, callback),
 		edcIriFor: forgeResolver.edcIriFor,
 		baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri,
 		publicPathPrefix,
