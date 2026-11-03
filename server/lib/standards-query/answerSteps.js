@@ -4,7 +4,7 @@
 // operation). The CLI verb knows nothing of these: dataModelExplorerSearch.js gains no store or forge dependency. Every field a step adds is declared in its registry row,
 // because G1.1 removes exactly those and requires the rest to equal the CLI's bytes.
 //
-//   THE STEP INTERFACE: step({ answer, session, facts, registryRow, verbParams, pageNumber, runCypher, storeReads, dmeSearchModule, namedUriList }, done(errText)); it adds to
+//   THE STEP INTERFACE: step({ answer, session, facts, registryRow, verbFacts, pageNumber, runCypher, storeReads, dmeSearchModule, namedUriList }, done(errText)); it adds to
 //   answer in place, on the fresh object the verb built for this request, and pushes every permanent URI it names onto namedUriList (the usage counters read that list).
 // A row whose element has no URI carries <field>AbsentReason, so an absence is said rather than left to be mistaken for a mapping that does not exist.
 
@@ -238,8 +238,8 @@ const STEP_BY_NAME = Object.freeze({
 		});
 	},
 
-	addMappingStatusByHub: ({ answer, session, facts, verbParams, runCypher, dmeSearchModule, storeReads, namedUriList }, done) => {
-		dmeSearchModule.findMappingsMatchedNodeList(session, verbParams.name, (nodeError, matchedNodeList) => {
+	addMappingStatusByHub: ({ answer, session, facts, verbFacts, runCypher, dmeSearchModule, storeReads, namedUriList }, done) => {
+		dmeSearchModule.findMappingsMatchedNodeDetailList(session, verbFacts.matchedStableIdList, (nodeError, matchedNodeList) => {
 			if (nodeError) {
 				done(nodeError);
 				return;
@@ -261,7 +261,7 @@ const STEP_BY_NAME = Object.freeze({
 				}
 				// past the cap: whether a hub is reached is read over every matched node; an abstention past it cannot be told from no offer, and the answer says so
 				answer.mappingStatusNote = `this input matched ${answer.matchedNodeCount} nodes; judgedAbstained and neverOffered were read over the first ${matchedNodeList.length}. Ask by stableId for one element's status`;
-				dmeSearchModule.findMappingsMappedHubNameList(session, verbParams.name, (hubError, mappedHubNameList) => {
+				dmeSearchModule.findMappingsMappedHubNameList(session, verbFacts.matchedStableIdList, (hubError, mappedHubNameList) => {
 					if (hubError) {
 						done(hubError);
 						return;

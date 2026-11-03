@@ -89,6 +89,15 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		ok('a CEDS element carries its own IRI, kind ownIri, resolvesHere false', ownEntry && ownEntry.uri === ownEntry.stableId && ownEntry.resolvesHere === false, JSON.stringify(body.answer.entryList.map((oneEntry) => [oneEntry.uriKind, oneEntry.uriAbsentReason])));
 		next();
 	}));
+	steps.push((next) => {
+		const answerList = [];
+		['First Name', 'Last Name', 'Middle Name'].forEach((elementText) => ask(core, 'mappings', { element: elementText }, ({ httpStatus, body }) => {
+			answerList.push({ httpStatus, refusalName: body.answer.refusalName });
+			if (answerList.length < 3) return;
+			ok('mappings: three at once, the third refused 503 busy by name (its own cap of 2)', answerList.filter((one) => one.httpStatus === 200).length === 2 && answerList.filter((one) => one.httpStatus === 503 && one.refusalName === 'busy').length === 1, JSON.stringify(answerList));
+			next();
+		}));
+	});
 	steps.push((next) => ask(core, 'stats', { expectManifest: 'sha256:0000' }, ({ httpStatus, body }) => {
 		ok('expectManifest differing: 409 manifestMismatch naming both', httpStatus === 409 && body.answer.refusalName === 'manifestMismatch' && body.answer.answeringManifestRefId.length === 64);
 		next();
