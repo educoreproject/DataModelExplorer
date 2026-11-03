@@ -7,8 +7,8 @@
 //     → { reserveSession(subjectRefId) → { isAdmitted: true, sessionOpened(sessionRefId), release() } | { isAdmitted: false, retryAfterSeconds },
 //         touchSession(sessionRefId), sessionClosed(sessionRefId), sweepIdleSessions(), openSessionCountFor(subjectRefId) }
 //
-// A RESERVATION, not a count of open sessions, is what is tested: a session is not open until the transport has answered initialize, so ten initializes arriving together would each
-// see room. An empty subject is the loopback path, which has no sub: it is not capped, because a machine's own clients are not strangers, and its sessions still go when idle.
+// A RESERVATION, not a count of open sessions, is what is tested: a session is not open until the transport has answered initialize, so initializes that overlap could each see room
+// (fourteen sent together over HTTP did not show that gap without it; the transport's timing is why this is not left to luck). An empty subject is the loopback path, which has no sub: it is not capped, because a machine's own clients are not strangers, and its sessions still go when idle.
 
 const MILLISECONDS_PER_SECOND = 1000;
 
