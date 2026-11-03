@@ -1,6 +1,6 @@
 // Logs in by POST, credentials in the body (2026-10-08), falling back to the old GET when the backend has no POST route.
 //
-// The Vercel deploys rewrite /api/* to a separate backend (html/vercel.json). A backend still running code from before 2575721
+// The Vercel deploys rewrite /api/* to a separate backend (html/vercel.json; useBackendProfile keeps /api relative there). A backend still running code from before 2575721
 // has only GET /api/login and answers a POST with Express's 404 "Cannot POST /api/login". Only that 404/405 retries
 // with GET; a 401 (wrong password) or any other error is thrown as it came. The GET puts the password in the query
 // string, so this fallback should come out once every backend the frontend talks to has the POST route.
