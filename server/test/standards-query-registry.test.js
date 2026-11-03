@@ -52,6 +52,12 @@ registry.operationList.forEach((row) => {
 });
 const twelveOperationList = ['search', 'grep', 'element', 'mappings', 'pair', 'codesets', 'unmapped', 'stats', 'standards', 'graph', 'neighbourhood', 'guide'];
 ok('the twelve core operations are on both doors', twelveOperationList.every((operationName) => { const row = registry.operationList.find((one) => one.operationName === operationName); return row && row.doorList.includes('api') && row.doorList.includes('mcp') && row.mcpToolName === `standards_${operationName}`; }));
+// P2's description edits (design section 3): the refusal sentence moved to the MCP server's instructions, every tool says what to do with uri, and no description names the CLI's tools or inputs
+const mcpRowList = registry.operationList.filter((row) => row.doorList.includes('mcp'));
+ok('descriptions: the refusal sentence is in one place', !mcpRowList.some((row) => /If the result is an object carrying refusedByName/.test(row.description)) && registry.mcpInstructionLineList.some((line) => /it is NOT "no such data"/.test(line)));
+ok('descriptions: every tool says uri is permanent', mcpRowList.every((row) => row.description.includes('Every element and card carries uri; quote it, it is permanent.')));
+ok('descriptions: none names a dme_ tool', !mcpRowList.some((row) => /dme_/.test(row.description)));
+ok('descriptions: none names a mode input the door does not take', !/searchMode keyword/.test(JSON.stringify(mcpRowList.map((row) => row.description))));
 const registryText = JSON.stringify(registry.operationList.map(({ operationName, routeName, mcpToolName }) => ({ operationName, routeName, mcpToolName })));
 ok('nothing Smith or rosetta is in the registry', !/smith|rosetta/i.test(registryText) && !/smith_/i.test(JSON.stringify(registry)));
 ok('usage is for admin and super alone', JSON.stringify(registry.operationList.find((row) => row.operationName === 'usage').permissionList) === '["admin","super"]');

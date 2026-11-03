@@ -8,8 +8,10 @@
 // ============================================================================
 // mcp-server.js — MCP Server for AI agent access to the EDUcore knowledge graph
 //
-// Exposes getSchema and cypherQuery tools via Streamable HTTP transport.
-// Both tools delegate to the shared dme-cypher-query access point.
+// Exposes getSchema and cypherQuery via Streamable HTTP transport, both delegating to the
+// shared dme-cypher-query access point, and one standards_<operation> tool per row of the
+// standards query registry (standardsQueryTools.js), each delegating to the standards-query
+// access point.
 // Mounted on the existing Express app alongside REST endpoints and WebSocket.
 //
 // ACCESS (dmeMcpOAuth Phase 3.1): the mount is guarded by a COMPOSED gate —
@@ -27,6 +29,11 @@
 // each MCP session keeps a live auth-context holder (updated on every gated
 // request), and every tool invocation writes an `mcp_tool_call` audit event
 // (user, client, tool — never query payloads or secrets).
+//
+// SESSIONS (standardsQueryService P2): a session lives in this process's memory, so each account
+// may hold sessionCapPerSub of them and an unused one goes after sessionIdleTtlSeconds
+// (mcpSessionKeeper.js). Neither has a default: an instance whose [mcp-server] lacks them refuses
+// every new session by name. A client whose session has gone gets the 404 below and starts again.
 // ============================================================================
 
 const { randomUUID } = require('node:crypto');
@@ -34,6 +41,15 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { isInitializeRequest } = require('@modelcontextprotocol/sdk/types.js');
 const z = require('zod');
+const standardsQueryRegistry = require('../standards-query/standardsQueryOperations.json');
+const dmeProvider = require('../../../cli/lib.d/data-model-explorer/provider.json');
+const { toolFactsFromRegistry, registerStandardsQueryTools } = require('./standardsQueryTools');
+const { createMcpSessionKeeper } = require('./mcpSessionKeeper');
+
+const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
+const SESSION_LIMIT_NAME_LIST = Object.freeze(['sessionCapPerSub', 'sessionIdleTtlSeconds']);
+const MILLISECONDS_PER_SECOND = 1000;
+const SWEEP_MILLISECONDS_MAX = 60000;
 
 const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	const { xLog, getConfig } = process.global;
@@ -46,6 +62,8 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	}
 
 	const mcpPath = mcpConfig.mcpPath || '/mcp';
+
+	const { toolSpecList, instructionLineList } = toolFactsFromRegistry({ registry: standardsQueryRegistry, providerToolList: dmeProvider.tools });
 
 	// oauth-server.js mounts AFTER this module and stashes its exports on the
 	// app; read LAZILY per request so mount order never matters.
@@ -111,6 +129,8 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 					'Use cypherQuery to execute read-only Cypher queries against the graph.',
 					'Always use parameterized queries ($param syntax) when filtering by',
 					'user-provided values.',
+					'',
+					...instructionLineList,
 				].join('\n'),
 			},
 		);
@@ -203,6 +223,8 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 			},
 		);
 
+		registerStandardsQueryTools({ server, toolSpecList, getAuth, accessPointsDotD, logToolCall, xLog });
+
 		return server;
 	};
 
@@ -216,9 +238,40 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 	const transports = {};
 	const authContexts = {};
 
+	const closeSessionByRefId = (sessionRefId) => {
+		if (transports[sessionRefId]) {
+			transports[sessionRefId].close().catch((closeError) => xLog.error(`MCP session ${sessionRefId} would not close: ${closeError}`));
+		}
+	};
+
+	const absentSessionLimitNameList = SESSION_LIMIT_NAME_LIST.filter((limitName) => !POSITIVE_INTEGER_PATTERN.test(String(mcpConfig[limitName])));
+	const sessionKeeper = absentSessionLimitNameList.length > 0 ? null : createMcpSessionKeeper({
+		sessionCapPerSub: Number(mcpConfig.sessionCapPerSub),
+		sessionIdleTtlMilliseconds: Number(mcpConfig.sessionIdleTtlSeconds) * MILLISECONDS_PER_SECOND,
+		nowMs: Date.now,
+		closeSessionByRefId,
+	});
+	if (sessionKeeper) {
+		setInterval(sessionKeeper.sweepIdleSessions, Math.min(SWEEP_MILLISECONDS_MAX, Math.ceil(Number(mcpConfig.sessionIdleTtlSeconds) * MILLISECONDS_PER_SECOND / 2))).unref();
+	} else {
+		xLog.error(`MCP server: [mcp-server] must give positive integers ${SESSION_LIMIT_NAME_LIST.join(', ')}; absent or bad: ${absentSessionLimitNameList.join(', ')}. Every new session is refused by name.`);
+	}
+
+	const refuseNewSession = (req, res, { httpStatus, refusalName, reason, retryAfterSeconds }) => {
+		if (retryAfterSeconds) {
+			res.set('Retry-After', String(retryAfterSeconds));
+		}
+		res.status(httpStatus).json({
+			jsonrpc: '2.0',
+			error: { code: -32000, message: `${refusalName}: ${reason}`, data: { refusalName, reason, ...(retryAfterSeconds ? { retryAfterSeconds } : {}) } },
+			id: req.body.id === undefined ? null : req.body.id,
+		});
+	};
+
 	const refreshSessionAuth = (sessionId, mcpAuth) => {
 		if (sessionId && authContexts[sessionId] && mcpAuth) {
 			authContexts[sessionId].current = mcpAuth;
+			sessionKeeper.touchSession(sessionId);
 		}
 	};
 
@@ -232,12 +285,28 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 			refreshSessionAuth(sessionId, req.mcpAuth);
 			transport = transports[sessionId];
 		} else if (!sessionId && isInitializeRequest(req.body)) {
+			if (!sessionKeeper) {
+				refuseNewSession(req, res, { httpStatus: 503, refusalName: 'sessionLimitsNotConfigured', reason: `this instance's [mcp-server] must give ${absentSessionLimitNameList.join(', ')}` });
+				return;
+			}
+			const sessionReservation = sessionKeeper.reserveSession(req.mcpAuth.sub);
+			if (!sessionReservation.isAdmitted) {
+				xLog.status(`MCP session refused: ${req.mcpAuth.username} holds ${mcpConfig.sessionCapPerSub}`);
+				refuseNewSession(req, res, {
+					httpStatus: 429,
+					refusalName: 'sessionCapReached',
+					reason: `this account holds ${mcpConfig.sessionCapPerSub} open sessions, the most one account may hold; one that is not used goes after ${mcpConfig.sessionIdleTtlSeconds} seconds`,
+					retryAfterSeconds: sessionReservation.retryAfterSeconds,
+				});
+				return;
+			}
 			const authHolder = { current: req.mcpAuth };
 			transport = new StreamableHTTPServerTransport({
 				sessionIdGenerator: () => randomUUID(),
 				onsessioninitialized: (sid) => {
 					transports[sid] = transport;
 					authContexts[sid] = authHolder;
+					sessionReservation.sessionOpened(sid);
 				},
 			});
 
@@ -246,12 +315,13 @@ const moduleFunction = ({ expressApp, accessPointsDotD }) => {
 				if (sid && transports[sid]) {
 					delete transports[sid];
 					delete authContexts[sid];
+					sessionKeeper.sessionClosed(sid);
 				}
 			};
 
 			const server = createMcpServer(() => authHolder.current);
 			await server.connect(transport);
-			await transport.handleRequest(req, res, req.body);
+			await transport.handleRequest(req, res, req.body).finally(sessionReservation.release);
 			return;
 		} else if (sessionId) {
 			// Unknown session (sessions live in memory, so every restart drops
