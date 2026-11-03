@@ -121,7 +121,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			}
 			serviceFacts = gateResult.serviceFacts;
 			unavailableReason = '';
-			xLog.status(`${moduleName}: URI promise proved for manifest ${serviceFacts.manifestLabel} (${serviceFacts.passport.manifestRefId}) on graph ${serviceFacts.passport.graphName}: ${serviceFacts.resolvedUriCount} URIs resolved, ${serviceFacts.ownIriSampleCount} own-IRI elements held by the store`);
+			xLog.status(`${moduleName}: URI promise proved for manifest ${serviceFacts.manifestLabel} (${serviceFacts.passport.manifestRefId}) on graph ${serviceFacts.passport.graphName}: ${serviceFacts.resolvedUriCount} URIs resolved`);
 		});
 	};
 
