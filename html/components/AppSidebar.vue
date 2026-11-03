@@ -56,26 +56,12 @@ const isAdmin = computed(() =>
 				prepend-icon="mdi-lightbulb-on-outline"
 				title="Use Cases"
 			/>
+			<!-- one standards view: overview, visualizations, schema and downloads are tabs inside it -->
 			<v-list-item
 				to="/explore/standards"
 				prepend-icon="mdi-certificate-outline"
 				title="Standards"
-			/>
-			<v-list-item
-				to="/explore/schema-verifier"
-				prepend-icon="mdi-table-search"
-				title="Schema Verifier"
-			/>
-			<v-list-item
-				to="/explore/graphicModelExplorer"
-				prepend-icon="mdi-graph-outline"
-				title="Standards Explorer"
-			/>
-			<v-list-item
-				to="/explore/downloads"
-				prepend-icon="mdi-download-box-outline"
-				title="Downloads"
-				data-testid="menu-downloads"
+				data-testid="menu-standards"
 			/>
 			<v-list-item
 				to="/explore/access-guide"

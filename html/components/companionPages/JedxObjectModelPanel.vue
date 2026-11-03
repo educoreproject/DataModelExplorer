@@ -22,7 +22,7 @@ onMounted(() => downloadsStore.loadManifest());
 const jedxEntryList = computed(() => downloadsStore.entryListOfStandardKey(JEDX_STANDARD_KEY));
 const jedxSourceEntry = computed(() => jedxEntryList.value.find((downloadEntry) => downloadEntry.facet === 'source') || null);
 
-const explorerRootLink = { path: '/explore/graphicModelExplorer', query: { path: pathTextOf(JEDX_ROOT_PATH_STABLE_ID_LIST) } };
+const explorerRootLink = { path: '/explore/standards/explorer', query: { path: pathTextOf(JEDX_ROOT_PATH_STABLE_ID_LIST) } };
 
 const landedSchemaList = computed(() => {
 	const elementCountBySchemaName = {};
@@ -32,7 +32,7 @@ const landedSchemaList = computed(() => {
 			elementCountBySchemaName[dictionaryElement.jedxSchemaName] = (elementCountBySchemaName[dictionaryElement.jedxSchemaName] || 0) + 1;
 		});
 	return Object.entries(elementCountBySchemaName)
-		.map(([jedxSchemaName, elementCount]) => ({ jedxSchemaName, elementCount, explorerLink: { path: '/explore/graphicModelExplorer', query: { path: pathTextOf([...JEDX_ROOT_PATH_STABLE_ID_LIST, `jedx:${jedxSchemaName}`]) } } }))
+		.map(([jedxSchemaName, elementCount]) => ({ jedxSchemaName, elementCount, explorerLink: { path: '/explore/standards/explorer', query: { path: pathTextOf([...JEDX_ROOT_PATH_STABLE_ID_LIST, `jedx:${jedxSchemaName}`]) } } }))
 		.sort((left, right) => right.elementCount - left.elementCount || left.jedxSchemaName.localeCompare(right.jedxSchemaName));
 });
 </script>

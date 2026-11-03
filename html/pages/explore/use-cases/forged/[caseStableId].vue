@@ -63,7 +63,7 @@ const GUARANTEE_ROLE_COLOUR_BY_ROLE = Object.freeze({ success: 'success', minimu
 const RELATED_CASE_LABEL_BY_EDGE_TYPE = Object.freeze({ PARENT: 'part of', CHILD: 'contains', SIBLING: 'sibling', INVOKES: 'invokes', INCLUDES: 'includes', EXTENDS: 'extends', DUPLICATE: 'duplicates' });
 const ACTOR_COLOUR_LIST = Object.freeze(['#1e40af', '#7c3aed', '#15803d', '#b45309', '#be185d', '#0f766e', '#6d28d9', '#dc2626']);
 
-const explorerLinkOf = (citedStableId) => ({ path: '/explore/graphicModelExplorer', query: { path: pathTextOf([FAMILY_CATALOG_STABLE_ID, citedStableId]) } });
+const explorerLinkOf = (citedStableId) => ({ path: '/explore/standards/explorer', query: { path: pathTextOf([FAMILY_CATALOG_STABLE_ID, citedStableId]) } });
 const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
 const citedIdentifierTextOf = (oneCitation) => [oneCitation.citedStandard, oneCitation.citedIdentifier].filter(Boolean).join(' ');
 
@@ -425,7 +425,7 @@ const createImplementationPlan = () => {
 			<div v-if="activeTab === 'standards'" data-testid="panel-standards">
 				<div class="d-flex align-center justify-space-between mb-2">
 					<h2 class="text-h5 font-weight-bold">Implementation Roadmap</h2>
-					<v-btn variant="text" size="small" to="/explore/graphicModelExplorer">STANDARDS EXPLORER</v-btn>
+					<v-btn variant="text" size="small" to="/explore/standards/explorer">STANDARDS EXPLORER</v-btn>
 				</div>
 				<p class="text-body-2 text-medium-emphasis mb-4">
 					{{ standardList.length }} standard{{ standardList.length === 1 ? '' : 's' }} hold elements a judge mapped to the {{ citedElementList.length }} element{{ citedElementList.length === 1 ? '' : 's' }} this case cites. Every row is a judged mapping of a CITED element (its relation counted), not of the case.
