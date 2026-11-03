@@ -2,7 +2,7 @@
 
 // uriPromiseGate — no answer without a URI that resolves (design section 1.5; TQ's ruling R1). Run at startup and at EVERY connection of the golden handle, since a new
 // golden can arrive under the same container name. It reads the passport, requires the store to publish the passport's manifest, and proves by resolving: one element
-// per standard the passport includes, one card per hub, one instance node where the graph has them. An element whose stableId is already an absolute IRI is held by the store but
+// per standard the passport includes, one card per hub, one instance node where the graph has them. An element in uriMinter's temporary own-IRI state is held by the store but
 // is not on /edc/, so it counts as present, not as resolved.
 //
 //   runUriPromiseGate({ session, forgeAdapter, storeHandle }, callback) → callback('', { serviceFacts } | { unavailableReason })
@@ -108,7 +108,7 @@ const runUriPromiseGate = ({ session, forgeAdapter, storeHandle }, callback) => 
 					const minted = args.uriMinter.uriForNode({ stableId, standardName });
 					return minted.uri !== undefined && !minted.isOwnIri && forgeAdapter.routeFor(pathOfUri(minted.uri)).routeName === 'inProcess';
 				});
-				// a standard whose elements are all their own IRIs (CEDS): held by the store, which uriForNode checked, and not resolvable on /edc/, so it is proved through its card
+				// a standard whose elements cannot yet be minted (CEDS, the temporary state in uriMinter.js): held by the store, which uriForNode checked, and proved through its card
 				const ownIriStableId = candidateList.find((stableId) => args.uriMinter.uriForNode({ stableId, standardName }).isOwnIri);
 				sampleList.push({ sampleKind: 'element', standardName, stableId: provableStableId || ownIriStableId });
 				readStandard(standardIndex + 1);

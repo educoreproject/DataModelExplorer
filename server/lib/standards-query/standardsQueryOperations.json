@@ -15,7 +15,7 @@
 		"publicShort": "public, max-age=300",
 		"noStore": "no-store"
 	},
-	"uriNote": "every element carries uri; every card carries uri; mappings carry assertion. A uri under https://w3id.org/EDUcore/ resolves on this instance's /edc/ route; an element whose stableId is already an absolute IRI (CEDS's own terms) carries that IRI, which resolves at its publisher and not on this route: each row says which, by uriKind (edc or ownIri) and resolvesHere.",
+	"uriNote": "every element carries uri; every card carries uri; mappings carry assertion. Each row says what its uri is by uriKind and whether it resolves on this instance's /edc/ route by resolvesHere.",
 	"envelopeRefusalHttpStatusByName": {
 		"manifestMismatch": 409,
 		"rateLimited": 429,

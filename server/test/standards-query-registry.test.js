@@ -104,6 +104,17 @@ const declaredRow = { uriFieldRuleList: [{ pathText: 'rowList[]', stableIdField:
 const addedAnswer = { searchScope: {}, standardElementListByName: {}, pageNumber: 1, pageSize: 20, rowList: [{ stableId: 'a', node: { uri: 'kept' }, uri: 'x', uriKind: 'edc', resolvesHere: true, cardUri: 'y', cardUriKind: 'edc', cardResolvesHere: true, edgeList: [{ targetStableId: 'b', targetUriAbsentReason: 'r' }, { targetStableId: 'c', targetUri: 'z', targetUriKind: 'ownIri', targetResolvesHere: false }] }] };
 ok('strip: removes what the row declares, with its companions, and nothing else', JSON.stringify(stripCoreAdditions(addedAnswer, declaredRow)) === JSON.stringify({ rowList: [{ stableId: 'a', node: { uri: 'kept' }, edgeList: [{ targetStableId: 'b' }, { targetStableId: 'c' }] }] }), JSON.stringify(addedAnswer));
 
+// ---- 5b. the temporary own-IRI state ends by itself when the forge can mint these elements
+const { uriMinterFor } = require('../lib/standards-query/uriMinter');
+const storeHolding = { prepare: () => ({ get: () => ({ isPresent: 1 }) }) };
+const absoluteIri = 'https://w3id.org/CEDStandards/terms/P000033';
+const edcUriOf = (mintFor) => ({ URI_SCHEME: { absoluteIriPrefixList: ['https://', 'http://'] }, parse: () => ({ kind: 'element' }), mint: mintFor });
+const refusingMinter = uriMinterFor({ edcUri: edcUriOf(() => ({ error: 'the segment value "" is forbidden' })), storeHandle: storeHolding, manifestLabel: 'testLabel', standardVersionByName: { CEDS: '14.0.0.0' } });
+const mintingMinter = uriMinterFor({ edcUri: edcUriOf(() => ({ uri: 'https://w3id.org/EDUcore/CEDS/14.0.0.0/minted' })), storeHandle: storeHolding, manifestLabel: 'testLabel', standardVersionByName: { CEDS: '14.0.0.0' } });
+ok('uriMinter: while the forge refuses an absolute stableId, it is the temporary own IRI', JSON.stringify(refusingMinter.uriForNode({ stableId: absoluteIri, standardName: 'CEDS' })) === JSON.stringify({ uri: absoluteIri, isOwnIri: true }));
+ok('uriMinter: once the forge mints it, the row mints normally with no change here', JSON.stringify(mintingMinter.uriForNode({ stableId: absoluteIri, standardName: 'CEDS' })) === JSON.stringify({ uri: 'https://w3id.org/EDUcore/CEDS/14.0.0.0/minted' }));
+ok('uriMinter: a refused mint of a stableId that is not absolute stays absent, never own', refusingMinter.uriForNode({ stableId: 'ceds:x', standardName: 'CEDS' }).uri === undefined);
+
 // ---- 6. the header a client writes
 const endpointText = fs.readFileSync(path.join(__dirname, '..', 'endpoints-dot-d', 'qtDotLib.d', 'standards-query.js'), 'utf8').split('\n').filter((oneLine) => !oneLine.trim().startsWith('//')).join('\n');
 ok('endpoint: the limiter is keyed on req.ip', /requestLimiter\.admit\(xReq\.ip\)/.test(endpointText));

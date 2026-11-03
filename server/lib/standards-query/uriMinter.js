@@ -19,11 +19,16 @@ const uriMinterFor = ({ edcUri, storeHandle, manifestLabel, standardVersionByNam
 		return minted.error ? { absentReason: `notMintable: ${minted.error}` } : { uri: minted.uri };
 	};
 
-	// a hub card's stableId IS its meaning IRI. Any other stableId that is already an absolute IRI (CEDS's own terms) is its own URI by the forge's rule (assertionIdentity.js):
-	// edcUri.mint refuses it for the element kind, and /edc/ does not resolve it, so isOwnIri says so. Every other node is minted. Both are checked against the store, so an
-	// answer never carries a URI for a node the manifest does not hold.
-	const isAbsoluteIri = (stableId) => edcUri.URI_SCHEME.absoluteIriPrefixList.some((onePrefix) => stableId.startsWith(onePrefix));
+	// TEMPORARY, and the only place it lives (TQ's ruling, 2026-11-03). edcUri.mint refuses a stableId that is an absolute IRI, which is every CEDS element's, so today such an element
+	// carries that IRI, marked ownIri and not resolving here. It is not a promise: the CEDS IRIs do not meaningfully resolve. A forge change will give these elements edc: URIs; the
+	// mint then succeeds, this branch stops being reached, and no row and no other code changes. G1.2's second tally counts these and is expected to reach zero. Delete this then.
+	const elementUriOrTemporaryOwnIri = ({ standardName, standardVersion, stableId }) => {
+		const minted = mintedUriOf({ kind: 'element', standardName, standardVersion, elementStableId: stableId });
+		const isAbsoluteIri = edcUri.URI_SCHEME.absoluteIriPrefixList.some((onePrefix) => stableId.startsWith(onePrefix));
+		return minted.uri === undefined && isAbsoluteIri ? { uri: stableId, isOwnIri: true } : minted;
+	};
 
+	// a hub card's stableId IS its meaning IRI. Every other node is checked against the store, so an answer never carries a URI for a node the manifest does not hold.
 	const uriForNode = ({ stableId, standardName }) => {
 		if (edcUri.parse(stableId).kind === 'meaning') {
 			return { uri: stableId };
@@ -35,12 +40,12 @@ const uriMinterFor = ({ edcUri, storeHandle, manifestLabel, standardVersionByNam
 		if (elementInStore.get(standardName, standardVersion, stableId) === undefined) {
 			return { absentReason: NOT_IN_STORE_REASON };
 		}
-		return isAbsoluteIri(stableId) ? { uri: stableId, isOwnIri: true } : mintedUriOf({ kind: 'element', standardName, standardVersion, elementStableId: stableId });
+		return elementUriOrTemporaryOwnIri({ standardName, standardVersion, stableId });
 	};
 
 	const questionUriFor = ({ stableId, standardName }) => {
 		const standardVersion = standardVersionByName[standardName];
-		return standardVersion === undefined || isAbsoluteIri(stableId) ? {} : mintedUriOf({ kind: 'question', publicLabel: manifestLabel, standardName, standardVersion, elementStableId: stableId });
+		return standardVersion === undefined ? {} : mintedUriOf({ kind: 'question', publicLabel: manifestLabel, standardName, standardVersion, elementStableId: stableId });
 	};
 
 	const standardListUri = () => mintedUriOf({ kind: 'manifestStandardList', publicLabel: manifestLabel }).uri;

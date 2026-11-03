@@ -44,8 +44,8 @@ const stripCoreAdditions = (answer, registryRow) => {
 };
 const GLOBAL_ADDED_FIELD_NAME_LIST = Object.freeze(['standardElementListByName', 'pageNumber', 'pageSize']);
 
-// the fields that say what a URI is, for a URI field named uri (uriKind, resolvesHere) or <name>Uri (<name>UriKind, <name>ResolvesHere). Supervisor's ruling: an element that carries its own
-// IRI says so on its own row, 'ownIri' and resolvesHere false, so a reader of one row is not misled; a URI under the EDUcore base is 'edc' and resolves on this instance's /edc/ route.
+// the fields that say what a URI is, for a URI field named uri (uriKind, resolvesHere) or <name>Uri (<name>UriKind, <name>ResolvesHere). A URI under the EDUcore base is 'edc' and resolves on
+// this instance's /edc/ route. 'ownIri' is the temporary state uriMinter.js describes, said on the row itself so that a reader of one row is not misled.
 const uriCompanionNameListFor = (addFieldName) => {
 	const prefixText = addFieldName === 'uri' ? '' : addFieldName.replace(/Uri$/, '');
 	return { kindFieldName: prefixText ? `${prefixText}UriKind` : 'uriKind', resolvesFieldName: prefixText ? `${prefixText}ResolvesHere` : 'resolvesHere', absentFieldName: `${addFieldName}AbsentReason` };
