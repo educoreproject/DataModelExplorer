@@ -838,6 +838,7 @@
 			],
 			"answerStepList": [
 				"mintRuleUris",
+				"addNeighbourhoodCardIdentity",
 				"addSearchScope",
 				"addStandardListings"
 			],
@@ -847,12 +848,142 @@
 					"stableIdField": "node.stableId",
 					"standardField": "source",
 					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].parentClasses[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].optionSets[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].optionValues[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].supports[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].superClasses[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].subClasses[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].ownedClasses[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].referencesTo[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].referencedBy[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].instanceView.ownedFields[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].instanceView.owningObjects[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].instanceView.structuralParents[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].instanceView.structuralChildren[]",
+					"stableIdField": "_id",
+					"standardField": "_source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].crossStandardEquivalents[]",
+					"stableIdField": "otherId",
+					"standardField": "otherSource",
+					"addFieldName": "otherUri"
+				},
+				{
+					"pathText": "hitList[].mappingsIncoming[]",
+					"stableIdField": "fromId",
+					"standardField": "fromSource",
+					"addFieldName": "fromUri"
 				}
 			],
 			"coreAddedFieldList": [
 				{
 					"pathText": "",
 					"fieldName": "searchScope"
+				},
+				{
+					"pathText": "hitList[].mappingsOutgoing[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].mappingsOutgoing[]",
+					"fieldName": "assertion"
+				},
+				{
+					"pathText": "hitList[].mappingsOutgoing[]",
+					"fieldName": "assertionList"
+				},
+				{
+					"pathText": "hitList[].mappingsOutgoing[]",
+					"fieldName": "cardList"
+				},
+				{
+					"pathText": "hitList[].mappingsOutgoing[]",
+					"fieldName": "targetKind"
+				},
+				{
+					"pathText": "hitList[].instanceView.mappingsViaInstances[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "hitList[].instanceView.mappingsViaInstances[]",
+					"fieldName": "assertion"
+				},
+				{
+					"pathText": "hitList[].instanceView.mappingsViaInstances[]",
+					"fieldName": "assertionList"
+				},
+				{
+					"pathText": "hitList[].instanceView.mappingsViaInstances[]",
+					"fieldName": "cardList"
+				},
+				{
+					"pathText": "hitList[].instanceView.mappingsViaInstances[]",
+					"fieldName": "targetKind"
 				}
 			],
 			"embedsQueryTextFromInput": "q",

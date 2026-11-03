@@ -33,7 +33,7 @@ const ok = (testName, condition, detailText) => {
 const configDirPath = path.join(__dirname, '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
 const allConfig = configFileProcessor.getConfig('startApiServer.ini', configDirPath, { resolve: true });
 const edcConfigValues = allConfig['edc-resolver'];
-const LIMITS = { publicInstanceName: 'liveTest', inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
+const LIMITS = { publicInstanceName: 'liveTest', requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
 
 const VECTOR_QUESTION_LIST = [
 	{ operationName: 'search', input: { q: 'date of birth' }, cliVerb: 'search', params: { query: 'date of birth', searchMode: 'hybrid' } },
@@ -117,6 +117,39 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		ok('the seam is READ: a write is refused by Neo4j itself', !seamError && /read|Writing in read access mode/i.test(refusalText), `${seamError} ${refusalText}`);
 		next();
 	}));
+
+	// the gate at a RECONNECT: the same container name comes back holding a golden whose manifest the store does not publish, and then the right one again
+	steps.push((next) => {
+		const { PASSPORT_CYPHER } = require('../../cli/lib.d/data-model-explorer/lib/passportReader');
+		const connectionListenerList = [];
+		let isForeignGolden = false;
+		const foreignManifestRefId = 'f'.repeat(64);
+		const reconnectingHandle = {
+			whenEveryConnected: (listener) => { connectionListenerList.push(listener); setImmediate(listener); },
+			withReadSession: (consumer, callback) => goldenHandle.withReadSession((session, sessionDone) => consumer({
+				run: (cypherText, cypherParameters, transactionConfig) => session.run(cypherText, cypherParameters, transactionConfig).then((queryResult) => {
+					if (cypherText !== PASSPORT_CYPHER || !isForeignGolden) return queryResult;
+					return { records: queryResult.records.map((oneRecord) => ({ get: (fieldName) => ({ ...oneRecord.get(fieldName), manifestRefId: foreignManifestRefId }) })) };
+				}),
+			}, sessionDone), callback),
+		};
+		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', []) }, xLog: process.global.xLog, nowDate: () => new Date() });
+		const waitForState = (isWanted, done) => (isWanted(reconnectCore.serviceState()) ? done() : setTimeout(() => waitForState(isWanted, done), 100));
+		waitForState((state) => state.isServing, () => {
+			ok('reconnect: serving after the first connection', true);
+			isForeignGolden = true;
+			connectionListenerList.forEach((listener) => listener());
+			waitForState((state) => !state.isServing && /is not published/.test(state.unavailableReason), () => ask(reconnectCore, 'stats', {}, ({ httpStatus, body }) => {
+				ok('reconnect: a golden whose manifest the store lacks: every route 503 uriPromiseUnavailable, naming the manifest', httpStatus === 503 && body.answer.refusalName === 'uriPromiseUnavailable' && body.answer.reason.includes(foreignManifestRefId));
+				isForeignGolden = false;
+				connectionListenerList.forEach((listener) => listener());
+				waitForState((state) => state.isServing, () => ask(reconnectCore, 'stats', {}, ({ httpStatus: laterStatus }) => {
+					ok('reconnect: the right golden back: serving again, no restart', laterStatus === 200);
+					next();
+				}));
+			}));
+		});
+	});
 
 	const runNext = (stepIndex) => {
 		if (stepIndex >= steps.length) {

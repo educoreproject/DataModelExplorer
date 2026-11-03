@@ -23,10 +23,9 @@ const moduleName = 'standardsQueryCore';
 const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 const GOLDEN_NOT_READY_REFUSAL_NAME = 'goldenGraphNotReady';
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
-const VECTOR_MODE_DEFAULT_NAME = 'hybrid';
 const SEARCH_MODE_WITHOUT_VECTOR = 'keyword';
 const BUSY_RETRY_SECONDS = 2;
-const REQUIRED_LIMIT_NAME_LIST = Object.freeze(['inFlightMax', 'maxQueryChars', 'maxPatternChars', 'dailyEmbeddingTokenCeiling']);
+const REQUIRED_LIMIT_NAME_LIST = Object.freeze(['requestsPerMinute', 'burstPerSecond', 'inFlightMax', 'maxQueryChars', 'maxPatternChars', 'dailyEmbeddingTokenCeiling']);
 
 const limitNumbersOf = (limitConfigValues) => {
 	const faultList = REQUIRED_LIMIT_NAME_LIST.filter((limitName) => !POSITIVE_INTEGER_PATTERN.test(String(limitConfigValues[limitName])));
@@ -200,9 +199,8 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		if (!registryRow.embedsQueryTextFromInput) {
 			return null;
 		}
-		const searchMode = input[registryRow.searchModeInput] === undefined ? VECTOR_MODE_DEFAULT_NAME : input[registryRow.searchModeInput];
 		const queryText = input[registryRow.embedsQueryTextFromInput];
-		if (searchMode === SEARCH_MODE_WITHOUT_VECTOR || typeof queryText !== 'string') {
+		if (input[registryRow.searchModeInput] === SEARCH_MODE_WITHOUT_VECTOR || typeof queryText !== 'string') {
 			return null;
 		}
 		const ceiling = inputCapByName.dailyEmbeddingTokenCeiling;
@@ -246,7 +244,8 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		runNext(0);
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). A handler answers done(errText, { answer } ).
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, principal }, done(errText, { answer })).
+	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
 		verb: ({ registryRow, input, pageNumber, namedUriList }, done) => {
 			const invocation = verbInvocationFor({ registryRow, input });

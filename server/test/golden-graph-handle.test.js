@@ -61,6 +61,10 @@ const makeWorld = () => {
 					}),
 					verifyConnection: (pingCallback) => setImmediate(() => pingCallback(world.isGraphUp ? '' : 'Neo4jError: refused')),
 					close: () => { world.closedCount += 1; },
+					openReadSession: () => {
+						world.openedSessionCount = (world.openedSessionCount || 0) + 1;
+						return { run: () => Promise.resolve({ records: [] }), close: () => { world.closedSessionCount = (world.closedSessionCount || 0) + 1; return Promise.resolve(); } };
+					},
 				};
 				world.liveConnectionList.push(connection);
 				callback('', connection);
@@ -340,6 +344,43 @@ steps.push((next) => {
 	const dataModelText = fs.readFileSync(path.join(__dirname, '..', 'data-model', 'data-model.js'), 'utf8');
 	ok('data-model.js refuses all three faults with neo4jDb null before a handle exists', (dataModelText.slice(dataModelText.indexOf('THE GOLDEN GRAPH HANDLE'), dataModelText.indexOf('createGoldenGraphHandle({')).match(/neo4jDb: null/g) || []).length === 3);
 	next();
+});
+
+steps.push((next) => {
+	console.log('\n--- withReadSession and whenEveryConnected (standardsQueryService P1) ---');
+	const world = makeWorld();
+	const handle = handleOver(world);
+	let connectionHeardCount = 0;
+	handle.whenEveryConnected(() => { connectionHeardCount += 1; });
+	handle.withReadSession(() => ok('withReadSession does not open a session while waiting', false), (waitingError) => {
+		ok('withReadSession refuses by name while waiting, as runQuery does', waitingError.startsWith(`${GOLDEN_GRAPH_NOT_READY_REFUSAL_NAME}:`) && !world.openedSessionCount, waitingError);
+		world.dockerAnswer = GOOD_CONNECTION;
+		world.isGraphUp = true;
+		waitUntil(() => connectionHeardCount === 1, () => {
+			ok('whenEveryConnected hears the first connection', connectionHeardCount === 1, `${connectionHeardCount}`);
+			handle.withReadSession((session, sessionDone) => sessionDone('', 'an answer'), (sessionError, sessionResult) => {
+				ok('withReadSession answers the consumer\'s result and closes its session', sessionError === '' && sessionResult === 'an answer' && world.openedSessionCount === 1 && world.closedSessionCount === 1, `${sessionError} ${sessionResult} ${world.openedSessionCount} ${world.closedSessionCount}`);
+				handle.withReadSession((session, sessionDone) => sessionDone('a query fault of its own'), (faultError) => {
+					ok('a consumer\'s fault with the graph up is passed on, the connection kept', faultError === 'a query fault of its own' && handle.graphStateOf().graphState === 'connected' && world.closedSessionCount === 2);
+					world.isGraphUp = false;
+					handle.withReadSession((session, sessionDone) => sessionDone('connection closed'), () => {
+						ok('a consumer\'s fault with the graph gone sends the handle back to waiting', handle.graphStateOf().graphState === 'waiting');
+						world.isGraphUp = true;
+						waitUntil(() => connectionHeardCount === 2, () => {
+							ok('whenEveryConnected hears the reconnect (a new golden can come back under one name)', connectionHeardCount === 2, `${connectionHeardCount}`);
+							let lateHeardCount = 0;
+							handle.whenEveryConnected(() => { lateHeardCount += 1; });
+							waitUntil(() => lateHeardCount === 1, () => {
+								ok('a listener registered while connected hears at once', lateHeardCount === 1);
+								handle.close();
+								next();
+							});
+						});
+					});
+				});
+			});
+		});
+	});
 });
 
 steps.push((next) => {

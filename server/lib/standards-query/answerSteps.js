@@ -92,6 +92,25 @@ const addAssertionFields = (targetObject, assertionUriList, namedUriList) => {
 	}
 };
 
+// one card: the row's uri and assertion. Several (only through instances): cardList, and no winner is picked.
+const applyCardRowList = (targetRow, cardRowList, namedUriList) => {
+	const sortedRowList = cardRowList.slice().sort((left, right) => (left.cardUri < right.cardUri ? -1 : 1));
+	namedUriList.push(...sortedRowList.map(({ cardUri }) => cardUri));
+	if (sortedRowList.length === 1) {
+		setUriFields(targetRow, 'uri', sortedRowList[0].cardUri, false);
+		addAssertionFields(targetRow, sortedRowList[0].assertionUriList, namedUriList);
+		return;
+	}
+	if (sortedRowList.length > 1) {
+		targetRow.cardList = sortedRowList.map(({ cardUri, assertionUriList }) => {
+			const cardEntry = {};
+			setUriFields(cardEntry, 'uri', cardUri, false);
+			addAssertionFields(cardEntry, assertionUriList, namedUriList);
+			return cardEntry;
+		});
+	}
+};
+
 const STEP_BY_NAME = Object.freeze({
 	// every rule in the registry row: the walk is data
 	mintRuleUris: ({ answer, facts, registryRow, namedUriList }, done) => {
@@ -151,7 +170,7 @@ const STEP_BY_NAME = Object.freeze({
 		done('');
 	},
 
-	// a row names toId, and a key can stand for many cards (CTDL: up to 117); (element, relation, hub, key) reaches exactly one card on a direct edge (measured: all 22,691),
+	// a row names toId, and one identifier can stand for many cards (CTDL: up to 117); (element, relation, hub, identifier) reaches exactly one card on a direct edge (measured: all 22,691),
 	// several only through instances, and then no winner is picked
 	addMappingRowIdentity: ({ answer, session, facts, runCypher, namedUriList }, done) => {
 		const rowList = answer.mappingRowList.map((oneRow, rowIndex) => ({ rowIndex: neo4j.int(rowIndex), fromStableId: oneRow.fromStableId, hubName: oneRow.hubName, mappingType: oneRow.mappingType, toId: oneRow.toId }));
@@ -167,25 +186,13 @@ const STEP_BY_NAME = Object.freeze({
 			const cardUriListByHubAndId = {};
 			const viaInstanceCardSetByElement = {};
 			answer.mappingRowList.forEach((oneRow, rowIndex) => {
-				const cardRowList = (cardRowListByRowIndex[rowIndex] || []).slice().sort((left, right) => (left.cardUri < right.cardUri ? -1 : 1));
+				const cardRowList = cardRowListByRowIndex[rowIndex] || [];
 				oneRow.targetKind = 'card';
 				if (COMPUTED_DIRECTION_LIST.includes(oneRow.direction)) {
 					oneRow.claimKind = 'computed';
 				}
-				if (cardRowList.length === 1) {
-					setUriFields(oneRow, 'uri', cardRowList[0].cardUri, false);
-					addAssertionFields(oneRow, cardRowList[0].assertionUriList, namedUriList);
-				}
-				if (cardRowList.length > 1) {
-					oneRow.cardList = cardRowList.map(({ cardUri, assertionUriList }) => {
-						const cardEntry = {};
-						setUriFields(cardEntry, 'uri', cardUri, false);
-						addAssertionFields(cardEntry, assertionUriList, namedUriList);
-						return cardEntry;
-					});
-				}
+				applyCardRowList(oneRow, cardRowList, namedUriList);
 				const cardUriList = cardRowList.map(({ cardUri }) => cardUri);
-				namedUriList.push(...cardUriList);
 				const hubAndIdText = `${oneRow.hubName}\u0000${oneRow.toId}`;
 				cardUriListByHubAndId[hubAndIdText] = [...new Set([...(cardUriListByHubAndId[hubAndIdText] || []), ...cardUriList])];
 				if (oneRow.direction === VIA_INSTANCE_DIRECTION) {
@@ -208,6 +215,24 @@ const STEP_BY_NAME = Object.freeze({
 				if (cardUriList) {
 					oneSummary.cardUriList = cardUriList.slice().sort();
 				}
+			});
+			done('');
+		});
+	},
+
+	// the hit's own mapping rows name a card by its identifier, as the mappings rows do
+	addNeighbourhoodCardIdentity: ({ answer, session, runCypher, namedUriList }, done) => {
+		const targetRowList = answer.hitList.flatMap((oneHit) => [...(oneHit.mappingsOutgoing || []), ...((oneHit.instanceView && oneHit.instanceView.mappingsViaInstances) || [])].map((oneMapping) => ({ oneMapping, fromStableId: oneHit.node.stableId })));
+		const rowList = targetRowList.map(({ oneMapping, fromStableId }, rowIndex) => ({ rowIndex: neo4j.int(rowIndex), fromStableId, hubName: oneMapping.toSource, mappingType: oneMapping.mappingType, toId: oneMapping.toId }));
+		runCypher(session, ROW_CARD_CYPHER, { rowList }, (cardError, cardResult) => {
+			if (cardError) {
+				done(cardError);
+				return;
+			}
+			cardResult.records.forEach((oneRecord) => {
+				const { oneMapping } = targetRowList[neo4j.integer.toNumber(oneRecord.get('rowIndex'))];
+				oneMapping.targetKind = 'card';
+				applyCardRowList(oneMapping, oneRecord.get('cardRowList'), namedUriList);
 			});
 			done('');
 		});

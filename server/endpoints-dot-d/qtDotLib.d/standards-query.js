@@ -30,7 +30,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	const permissionValidatorByRouteName = apiDoorRowList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.routeName]: accessTokenHeaderTools.getValidator(registryRow.permissionList) }), {});
 
 	const limitConfigValues = getConfig(LIMIT_CONFIG_SECTION_NAME);
-	const requestLimiter = limitConfigValues.requestsPerMinute && limitConfigValues.burstPerSecond
+	// no limits in this instance's config: the limiter is absent, and the core answers every route 503 serviceNotConfigured, so nothing runs unlimited
+	const limitsAreGiven = /^[1-9][0-9]*$/.test(String(limitConfigValues.requestsPerMinute)) && /^[1-9][0-9]*$/.test(String(limitConfigValues.burstPerSecond));
+	const requestLimiter = limitsAreGiven
 		? createRequestLimiter({ requestsPerMinute: Number(limitConfigValues.requestsPerMinute), burstPerSecond: Number(limitConfigValues.burstPerSecond), nowMs: Date.now })
 		: null;
 
