@@ -343,7 +343,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				callback('', refusedAnswerFor({ operationName, refusal: answer }));
 				return;
 			}
-			if (registryRow.isCounted && principal.kind !== 'smithJob') {
+			if (registryRow.isCounted && principal.kind !== 'rosettaJob') {
 				usageCounter.countAnswer({ operationName, subjectList: [...subjectListFor({ registryRow, input: operationInput }), ...namedSubjectList], uriList: namedUriList });
 			}
 			callback('', {
