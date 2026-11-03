@@ -521,16 +521,19 @@ const EXACT_STABLE_ID_MARK = '/';
 const matchedNodeByStableIdPredicateFor = (nodeVariable) => `${nodeVariable}.stableId IN $matchedStableIdList`;
 const scanForMatchedNodes = (session, nameOrId, identifierFieldList, callback) => {
 	runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', identifierFieldList)}
-		RETURN n.stableId AS stableId, CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n', identifierFieldList)} THEN 0 ELSE 1 END AS isInstancePathOnly`, { name: nameOrId }, (scanError, scanResult) => {
-		if (scanError) {
-			callback(scanError);
-			return;
-		}
-		callback('', {
-			matchedStableIdList: scanResult.records.map((oneRecord) => oneRecord.get('stableId')),
-			instancePathMatchedNodeCount: scanResult.records.reduce((soFar, oneRecord) => soFar + toNumber(oneRecord.get('isInstancePathOnly')), 0),
+		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n', identifierFieldList)} THEN null ELSE 1 END) AS instancePathMatchedNodeCount, collect(n.stableId) AS matchedStableIdList`,
+		{ name: nameOrId }, (scanError, scanResult) => {
+			if (scanError) {
+				callback(scanError);
+				return;
+			}
+			const scanRecord = scanResult.records[0];
+			callback('', {
+				matchedNodeCount: toNumber(scanRecord.get('matchedNodeCount')),
+				instancePathMatchedNodeCount: toNumber(scanRecord.get('instancePathMatchedNodeCount')),
+				matchedStableIdList: scanRecord.get('matchedStableIdList'),
+			});
 		});
-	});
 };
 const resolveMatchedNodes = (session, nameOrId, identifierFieldList, callback) => {
 	if (!nameOrId.includes(EXACT_STABLE_ID_MARK)) {
@@ -546,7 +549,7 @@ const resolveMatchedNodes = (session, nameOrId, identifierFieldList, callback) =
 			scanForMatchedNodes(session, nameOrId, identifierFieldList, callback);
 			return;
 		}
-		callback('', { matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true });
+		callback('', { matchedNodeCount: 1, matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true });
 	});
 };
 
@@ -584,7 +587,7 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, callback) =>
 			...args,
 			matchPredicateFor: matched.isExactStableId ? matchedNodeByStableIdPredicateFor : (nodeVariable) => findMappingsMatchPredicateFor(nodeVariable, args.identifierFieldList),
 			matchQueryParameters: matched.isExactStableId ? { matchedStableIdList: matched.matchedStableIdList } : { name: nameOrId },
-			matchedNodeCount: matched.matchedStableIdList.length,
+			matchedNodeCount: matched.matchedNodeCount,
 			instancePathMatchedNodeCount: matched.instancePathMatchedNodeCount,
 		});
 	}));
