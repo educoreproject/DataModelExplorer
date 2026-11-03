@@ -21,8 +21,23 @@ const RELATIONSHIP_BLOCK_KIND = 'relationship';
 const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix'];
 const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'wholeBlockMaxOldSpaceMegabytes', 'wholeBlockTimeoutMilliseconds'];
 
-// the kinds that read whole block text (briefing section 4). A size rule means the block's byte size can be read first and capped without spawning.
+// the kinds that run in the child, never in the API. Whole block text (briefing section 4), where a size rule means the byte size is read first and capped
+// without spawning; and the manifest, standard, hub and element listings, which the brief expected to be cheap: measured on the server each holds a
+// synchronous read for 0.6 to 17 seconds, which is that long with the API's event loop stopped. A listing takes a query, so a query does not keep it in process.
+const LISTING_RULE = Object.freeze({ takesQuery: true });
 const WHOLE_BLOCK_RULE_BY_KIND = Object.freeze({
+	manifest: {},
+	manifestByContent: {},
+	manifestStandardList: {},
+	manifestStandardListByContent: {},
+	manifestHubList: {},
+	manifestHubListByContent: {},
+	manifestElementList: LISTING_RULE,
+	manifestElementListByContent: LISTING_RULE,
+	hubDomainList: LISTING_RULE,
+	hubDomainListByContent: LISTING_RULE,
+	hubDomainCardList: LISTING_RULE,
+	hubDomainCardListByContent: LISTING_RULE,
 	schemaBlock: { byteSizeSql: 'SELECT octet_length(text) AS byteSize FROM schemaBlocks WHERE refId = ?', blockIdentityPartName: 'schemaBlockRefId' },
 	decisionSchemaBlock: { byteSizeSql: 'SELECT octet_length(frozenText) AS byteSize FROM decisionSchemaBlocks WHERE decisionSchemaBlockHash = ?', blockIdentityPartName: 'decisionBlockHash' },
 	question: { readsRelationshipBlocksOnly: true },
@@ -157,14 +172,14 @@ const openForgeAdapter = ({ configValues }) => {
 	const { layerRegistry, agentRegistry } = forgeResolver.registry;
 
 	// routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'overCap', kind, byteSize }
-	// A request carrying a query is refused before any read, and an absent block reads nothing, so both resolve in process.
+	// A query on a kind that takes none is refused before any read, and an absent block reads nothing, so both resolve in process.
 	const routeFor = (edcRequestPath) => {
 		const parsed = forgeResolver.edcUri.parse(forgeResolver.edcIriFor(edcRequestPath));
 		if (parsed.error) {
 			return { routeName: 'inProcess' };
 		}
 		const wholeBlockRule = WHOLE_BLOCK_RULE_BY_KIND[parsed.kind];
-		if (wholeBlockRule === undefined || edcRequestPath.indexOf('?') !== -1) {
+		if (wholeBlockRule === undefined || (edcRequestPath.indexOf('?') !== -1 && wholeBlockRule.takesQuery !== true)) {
 			return { routeName: 'inProcess', kind: parsed.kind };
 		}
 		if (wholeBlockRule.byteSizeSql === undefined) {

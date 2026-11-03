@@ -4,7 +4,7 @@
 
 // edc-resolver — answers one edc: request path (edcResolverEndpoint-110226). Input { edcRequestPath, answerFormat, whenClientGone }; output { httpStatus, contentType,
 // bodyText, extraHeaderByName } or, for a whole-block child, { httpStatus, contentType, deliverTo }. Dispatch by forgeAdapter.routeFor: the single-row kinds
-// resolve in this process; the whole-block kinds in a spawned child, one at a time; a block over wholeBlockMaxBytes answers 413 without spawning. Every
+// resolve in this process; the whole-block kinds and the slow listings in a spawned child, one at a time; a block over wholeBlockMaxBytes answers 413 without spawning. Every
 // refusal the resolver or this module makes is an ANSWER, never a pipe error: its status and its words are the contract.
 // The store and the forge load once, here, at startup. A failure is logged once and every request answers 503 with the same cause until a restart;
 // nothing retries. Replacing the store file or changing the licence hold list means an API restart (see forgeAdapter.js).
@@ -57,7 +57,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			})),
 		wholeBlockChild: ({ edcRequestPath, answerFormat, whenClientGone, route }, done) => {
 			if (wholeBlockRunner.isBusy()) {
-				done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another whole-block answer is being read; this instance reads one at a time. Retry in ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
+				done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another long read is running; this instance runs one at a time. Retry in ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
 				return;
 			}
 			const { educoreForgeCodePath, uriContractFilePath, publicPathPrefix } = forgeAdapter;

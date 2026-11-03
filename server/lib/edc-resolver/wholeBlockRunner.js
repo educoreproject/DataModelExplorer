@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// wholeBlockRunner — spawns resolveOneUri.js for the whole-block kinds: one child at a time, a heap cap, a timeout (edcResolverEndpoint-110226, briefing
+// wholeBlockRunner — spawns resolveOneUri.js for the whole-block kinds and the slow listings: one child at a time, a heap cap, a timeout (edcResolverEndpoint-110226, briefing
 // section 4). The API only pipes bytes; it never holds a block.
 //
 //   wholeBlockRunnerFor({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, xLog }) → { isBusy, runOneChild }
