@@ -19,10 +19,10 @@ const uriMinterFor = ({ edcUri, storeHandle, manifestLabel, standardVersionByNam
 		return minted.error ? { absentReason: `notMintable: ${minted.error}` } : { uri: minted.uri };
 	};
 
-	// TEMPORARY, and the only place it lives (TQ's ruling, 2026-11-03). edcUri.mint refuses a stableId that is an absolute IRI, which is every CEDS element's, so today such an element
-	// carries that IRI, marked ownIri and not resolving here. It is not a promise: the CEDS IRIs do not meaningfully resolve. A forge change will give these elements edc: URIs; the
-	// mint then succeeds, this branch stops being reached, and no row and no other code changes. G1.2's second tally counts these and is expected to reach zero. Delete this then.
-	const elementUriOrTemporaryOwnIri = ({ standardName, standardVersion, stableId }) => {
+	// THE ONE PERMANENT CASE. edcUri.mint spells a CEDS term by its declared prefix (ceds:P000033), but four CEDS rows have stableIds in another publisher's namespace (http://www.w3.org/...: rdf:Property,
+	// rdfs:Class, owl:Class, owl:NamedIndividual). The forge refuses those for the element kind by decision, so such a node carries its own IRI, marked ownIri and not resolving here. It says what the node
+	// is; it promises nothing of ours. Any other refused mint stays absent, with its reason.
+	const elementUriOrForeignVocabularyIri = ({ standardName, standardVersion, stableId }) => {
 		const minted = mintedUriOf({ kind: 'element', standardName, standardVersion, elementStableId: stableId });
 		const isAbsoluteIri = edcUri.URI_SCHEME.absoluteIriPrefixList.some((onePrefix) => stableId.startsWith(onePrefix));
 		return minted.uri === undefined && isAbsoluteIri ? { uri: stableId, isOwnIri: true } : minted;
@@ -40,7 +40,7 @@ const uriMinterFor = ({ edcUri, storeHandle, manifestLabel, standardVersionByNam
 		if (elementInStore.get(standardName, standardVersion, stableId) === undefined) {
 			return { absentReason: NOT_IN_STORE_REASON };
 		}
-		return elementUriOrTemporaryOwnIri({ standardName, standardVersion, stableId });
+		return elementUriOrForeignVocabularyIri({ standardName, standardVersion, stableId });
 	};
 
 	const questionUriFor = ({ stableId, standardName }) => {

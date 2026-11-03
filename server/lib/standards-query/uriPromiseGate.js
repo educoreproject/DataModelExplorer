@@ -2,11 +2,10 @@
 
 // uriPromiseGate — no answer without a URI that resolves (design section 1.5; TQ's ruling R1). Run at startup and at EVERY connection of the golden handle, since a new
 // golden can arrive under the same container name. It reads the passport, requires the store to publish the passport's manifest, and proves by resolving: one element
-// per standard the passport includes, one card per hub, one instance node where the graph has them. An element in uriMinter's temporary own-IRI state is held by the store but
-// is not on /edc/, so it counts as present, not as resolved.
+// per standard the passport includes, one card per hub, one instance node where the graph has them.
 //
 //   runUriPromiseGate({ session, forgeAdapter, storeHandle }, callback) → callback('', { serviceFacts } | { unavailableReason })
-//   serviceFacts: { passport, manifestLabel, manifestUri, manifestByContentUri, standardVersionByName, decisionBlockHashListByStandard, uriMinter, resolvedUriCount, ownIriSampleCount }
+//   serviceFacts: { passport, manifestLabel, manifestUri, manifestByContentUri, standardVersionByName, decisionBlockHashListByStandard, uriMinter, resolvedUriCount }
 // A sampled element is one that resolves in process: an element with over 200 siblings runs in the resolver's child because its answer mints every sibling, and
 // startup must not stall the API's event loop to prove a point a neighbour proves as well.
 
@@ -103,14 +102,12 @@ const runUriPromiseGate = ({ session, forgeAdapter, storeHandle }, callback) => 
 					next(sampleError, args);
 					return;
 				}
-				const candidateList = sampleResult.records.map((oneRecord) => oneRecord.get('stableId'));
-				const provableStableId = candidateList.find((stableId) => {
+				// every standard proves an element by resolving it, CEDS included: a foreign-vocabulary row (uriMinter) proves nothing and is never the sample
+				const provableStableId = sampleResult.records.map((oneRecord) => oneRecord.get('stableId')).find((stableId) => {
 					const minted = args.uriMinter.uriForNode({ stableId, standardName });
 					return minted.uri !== undefined && !minted.isOwnIri && forgeAdapter.routeFor(pathOfUri(minted.uri)).routeName === 'inProcess';
 				});
-				// a standard whose elements cannot yet be minted (CEDS, the temporary state in uriMinter.js): held by the store, which uriForNode checked, and proved through its card
-				const ownIriStableId = candidateList.find((stableId) => args.uriMinter.uriForNode({ stableId, standardName }).isOwnIri);
-				sampleList.push({ sampleKind: 'element', standardName, stableId: provableStableId || ownIriStableId });
+				sampleList.push({ sampleKind: 'element', standardName, stableId: provableStableId });
 				readStandard(standardIndex + 1);
 			});
 		};
@@ -132,21 +129,15 @@ const runUriPromiseGate = ({ session, forgeAdapter, storeHandle }, callback) => 
 			return;
 		}
 		let resolvedUriCount = 0;
-		let ownIriSampleCount = 0;
 		const proveNext = (proofIndex) => {
 			if (proofIndex >= proofList.length) {
-				next('', { ...args, resolvedUriCount, ownIriSampleCount });
+				next('', { ...args, resolvedUriCount });
 				return;
 			}
 			const { sampleKind, standardName, stableId } = proofList[proofIndex];
 			const minted = args.uriMinter.uriForNode({ stableId, standardName });
 			if (minted.uri === undefined) {
 				next('skipRestOfPipe', { ...args, unavailableReason: `the ${sampleKind} ${stableId} of ${standardName} has no URI: ${minted.absentReason}` });
-				return;
-			}
-			if (minted.isOwnIri) {
-				ownIriSampleCount += 1;
-				proveNext(proofIndex + 1);
 				return;
 			}
 			if (forgeAdapter.routeFor(pathOfUri(minted.uri)).routeName !== 'inProcess') {
@@ -174,7 +165,7 @@ const runUriPromiseGate = ({ session, forgeAdapter, storeHandle }, callback) => 
 			callback('', { unavailableReason: args.unavailableReason });
 			return;
 		}
-		const { passport, storeFacts, uriMinter, resolvedUriCount, ownIriSampleCount } = args;
+		const { passport, storeFacts, uriMinter, resolvedUriCount } = args;
 		callback('', {
 			serviceFacts: {
 				passport,
@@ -185,7 +176,6 @@ const runUriPromiseGate = ({ session, forgeAdapter, storeHandle }, callback) => 
 				decisionBlockHashListByStandard: storeFacts.decisionBlockHashListByStandard,
 				uriMinter,
 				resolvedUriCount,
-				ownIriSampleCount,
 			},
 		});
 	});

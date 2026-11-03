@@ -84,9 +84,14 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		ok('every row carries its card and its element by URI', body.answer.mappingRowList.every((oneRow) => oneRow.uri && oneRow.fromUri && oneRow.uriKind === 'edc' && oneRow.resolvesHere === true));
 		next();
 	}));
-	steps.push((next) => ask(core, 'element', { name: 'Birthdate', standard: 'CEDS' }, ({ body }) => {
-		const ownEntry = body.answer.entryList.find((oneEntry) => oneEntry.uriKind === 'ownIri');
-		ok('a CEDS element carries its own IRI, kind ownIri, resolvesHere false', ownEntry && ownEntry.uri === ownEntry.stableId && ownEntry.resolvesHere === false, JSON.stringify(body.answer.entryList.map((oneEntry) => [oneEntry.uriKind, oneEntry.uriAbsentReason])));
+	steps.push((next) => ask(core, 'element', { stableId: 'https://w3id.org/CEDStandards/terms/P000033' }, ({ body }) => {
+		const cedsEntry = body.answer.entryList[0];
+		ok('a CEDS element carries its edc URI, by the declared prefix, and resolves here', cedsEntry.uri === 'https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P000033' && cedsEntry.uriKind === 'edc' && cedsEntry.resolvesHere === true, JSON.stringify([cedsEntry.uri, cedsEntry.uriKind, cedsEntry.uriAbsentReason]));
+		next();
+	}));
+	steps.push((next) => ask(core, 'element', { stableId: 'http://www.w3.org/2002/07/owl#Class' }, ({ body }) => {
+		const foreignEntry = body.answer.entryList[0];
+		ok('a foreign-vocabulary row carries its own IRI, kind ownIri, resolvesHere false', foreignEntry.uri === foreignEntry.stableId && foreignEntry.uriKind === 'ownIri' && foreignEntry.resolvesHere === false, JSON.stringify([foreignEntry.uri, foreignEntry.uriKind, foreignEntry.uriAbsentReason]));
 		next();
 	}));
 	steps.push((next) => {
