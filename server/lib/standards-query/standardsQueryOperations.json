@@ -581,6 +581,7 @@
 			"operationName": "codesets",
 			"cliVerb": "compareCodesets",
 			"cachePolicy": "publicShort",
+			"reportsRowStableIds": true,
 			"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier hub card (each row names its hubName; hubList names the graph's hubs); values from other standards on the same card are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the hub value and its identifier (hubValue, hubValueKey), and the list of other standards' values on the same hub value card (equivalent only when both are EXACT_MATCH). RETURNS AN OBJECT: verdict, valueTierJudgmentCount, matchedOptionSetCount, valueRowList (cap 100) and totalRowCount / returnedRowCount / truncatedRowCount. matchType null means the value was NOT JUDGED when verdict is 'valuesNotJudgedInThisBuild' (the build holds no value-tier judgments; verdictText says so — report it that way); only when verdict is 'judged' does a null show non-alignment. A name matching no option set is refused by name (noOptionSetMatched); SIF code sets carry no name in this build and cannot be found by name. It does NOT compute alignment types or coverage percentages. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 			"inputFieldList": [
 				{
@@ -640,6 +641,7 @@
 			"cliVerb": "unmappedFields",
 			"cachePolicy": "publicShort",
 			"pageSize": 50,
+			"reportsRowStableIds": true,
 			"description": "List DmeProperty elements of the NON-hub standards that have no mapping to any hub under any of the four match relations — neither directly nor through any of their HAS_INSTANCE instances (SIF Questions, PESC element declarations). The annotation backlog of the non-hub standards: the hub standards (named in hubStandardList; on a one-hub graph also as hubStandard) do not map to themselves, so hubPolicy 'excludeHub' leaves every hub's properties out. RETURNS AN OBJECT: unmappedRowList (standard, fieldName, path, description), totalRowCount, returnedRowCount, truncatedRowCount — quote totalRowCount for \"how many\". If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
 			"inputFieldList": [
 				{

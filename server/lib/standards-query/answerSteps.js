@@ -275,49 +275,27 @@ const STEP_BY_NAME = Object.freeze({
 		});
 	},
 
-	// the option values and the cards they reach: rows name them by text only
-	addCodesetRowIdentity: ({ answer, session, facts, runCypher, namedUriList }, done) => {
-		const rowList = answer.valueRowList.map((oneRow, rowIndex) => ({ rowIndex: neo4j.int(rowIndex), sourceStandard: oneRow.sourceStandard, optionSetName: oneRow.optionSetName, sourceValue: oneRow.sourceValue, matchType: oneRow.matchType, hubName: oneRow.hubName, hubValueKey: oneRow.hubValueKey }));
-		runCypher(session, `UNWIND $rowList AS oneRow
-			MATCH (optionSet:ForgedNode {role: 'DmeOptionSet', _source: oneRow.sourceStandard, name: oneRow.optionSetName})-[:HAS_VALUE]->(optionValue:ForgedNode {role: 'DmeOptionValue', name: oneRow.sourceValue})
-			OPTIONAL MATCH (optionValue)-[matchEdge]->(card:HubReference {hubName: oneRow.hubName, referenceTier: 'value'}) WHERE type(matchEdge) = oneRow.matchType AND card.canonicalKey = oneRow.hubValueKey
-			RETURN oneRow.rowIndex AS rowIndex, min(optionValue.stableId) AS valueStableId, min(card.stableId) AS cardUri, min(matchEdge.assertionId) AS assertionUri`, { rowList }, (identityError, identityResult) => {
-			if (identityError) {
-				done(identityError);
-				return;
+	// the option values and the cards they reach: rows name them by text only, so the verb hands over [value, card, assertion] per row, as for unmapped
+	addCodesetRowIdentity: ({ answer, facts, verbFacts, namedUriList }, done) => {
+		answer.valueRowList.forEach((oneRow, rowIndex) => {
+			const [valueStableId, cardUri, assertionUri] = verbFacts.rowStableIdList[rowIndex];
+			nameUri(facts.uriMinter, oneRow, 'uri', valueStableId, oneRow.sourceStandard, namedUriList);
+			if (cardUri) {
+				setUriFields(oneRow, 'cardUri', cardUri, false);
+				namedUriList.push(cardUri);
 			}
-			identityResult.records.forEach((oneRecord) => {
-				const oneRow = answer.valueRowList[neo4j.integer.toNumber(oneRecord.get('rowIndex'))];
-				nameUri(facts.uriMinter, oneRow, 'uri', oneRecord.get('valueStableId'), oneRow.sourceStandard, namedUriList);
-				if (oneRecord.get('cardUri')) {
-					setUriFields(oneRow, 'cardUri', oneRecord.get('cardUri'), false);
-					namedUriList.push(oneRow.cardUri);
-				}
-				if (oneRecord.get('assertionUri')) {
-					oneRow.assertion = oneRecord.get('assertionUri');
-					namedUriList.push(oneRow.assertion);
-				}
-			});
-			done('');
+			if (assertionUri) {
+				oneRow.assertion = assertionUri;
+				namedUriList.push(assertionUri);
+			}
 		});
+		done('');
 	},
 
-	addUnmappedRowIdentity: ({ answer, session, facts, runCypher, namedUriList }, done) => {
-		const rowList = answer.unmappedRowList.map((oneRow, rowIndex) => ({ rowIndex: neo4j.int(rowIndex), standard: oneRow.standard, fieldName: oneRow.fieldName, path: oneRow.path }));
-		runCypher(session, `UNWIND $rowList AS oneRow
-			MATCH (field:ForgedNode {role: 'DmeProperty', _source: oneRow.standard, name: oneRow.fieldName})
-			WHERE field.path = oneRow.path OR (field.path IS NULL AND oneRow.path IS NULL)
-			RETURN oneRow.rowIndex AS rowIndex, min(field.stableId) AS stableId`, { rowList }, (identityError, identityResult) => {
-			if (identityError) {
-				done(identityError);
-				return;
-			}
-			identityResult.records.forEach((oneRecord) => {
-				const oneRow = answer.unmappedRowList[neo4j.integer.toNumber(oneRecord.get('rowIndex'))];
-				nameUri(facts.uriMinter, oneRow, 'uri', oneRecord.get('stableId'), oneRow.standard, namedUriList);
-			});
-			done('');
-		});
+	// the verb hands over each row's stableId: per-row reads by (standard, name, path) have no index and took 28 of 29 s on demo (measured)
+	addUnmappedRowIdentity: ({ answer, facts, verbFacts, namedUriList }, done) => {
+		answer.unmappedRowList.forEach((oneRow, rowIndex) => nameUri(facts.uriMinter, oneRow, 'uri', verbFacts.rowStableIdList[rowIndex], oneRow.standard, namedUriList));
+		done('');
 	},
 
 	// guide rows name a CEDS class or property by its name
