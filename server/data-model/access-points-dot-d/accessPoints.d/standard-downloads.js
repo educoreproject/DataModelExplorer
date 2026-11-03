@@ -79,6 +79,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			callback(refusalOf('downloadsManifestUnreadable', `${manifestFilePath}: ${shapeFault}`));
 			return;
 		}
+		if (!neo4jDb) {
+			callback(refusalOf('downloadsNotConfigured', 'this server has no golden graph handle (a [dataModelExplorerSearch] configuration fault; the startup log names it)'));
+			return;
+		}
 		const passportQuery = mapper.getCypher('goldenPassport');
 		// neo4j-instance calls back from inside the driver's promise and turns a later throw into a second callback
 		// naming the query; the work after the read therefore starts on its own tick

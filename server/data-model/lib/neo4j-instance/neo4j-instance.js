@@ -12,6 +12,11 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
 
+// the runTransaction of every connection not opened writeCapable: refuses BEFORE the caller's function runs (W-E-10)
+const refusedRunTransaction = (userFn, callback) => {
+	callback('runTransaction: this connection was opened read-only; pass writeCapable:true by name');
+};
+
 // START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ unused }) {
@@ -25,13 +30,13 @@ const moduleFunction = function ({ unused }) {
 	// refuses writes even if a write keyword slips past a validator upstream);
 	// queryTimeoutMs puts a wall-clock timeout on each auto-commit transaction so
 	// a runaway query dies at the server. The golden DME connection sets both
-	// (data-model.js); the multi-tenant user-graph clones write through runQuery
+	// (golden-graph-handle.js); the multi-tenant user-graph clones write through runQuery
 	// (identity marker MERGE, embedding SET, write-executor) and stay unhardened.
 	// runTransaction (below) is the explicit WRITE path, and a connection has it ONLY
 	// when it was opened with writeCapable: true BY NAME (W-E-10, X2, 2026-10-06).
 
 	const runQueryActual =
-		(driver, { readOnly, queryTimeoutMs } = {}) =>
+		(driver, { readOnly, queryTimeoutMs, isFaultLogSuppressed } = {}) =>
 		(cypher, params, callback) => {
 			if (typeof params === 'function') {
 				callback = params;
@@ -62,9 +67,11 @@ const moduleFunction = function ({ unused }) {
 				})
 				.catch((err) => {
 					session.close();
-					xLog.error(
-						`${''.padEnd(50, '-')}\nNeo4j Error: ${err.toString()}\nBad Cypher:\n\t${cypher}\n${''.padEnd(50, '-')}\n`,
-					);
+					if (!isFaultLogSuppressed) {
+						xLog.error(
+							`${''.padEnd(50, '-')}\nNeo4j Error: ${err.toString()}\nBad Cypher:\n\t${cypher}\n${''.padEnd(50, '-')}\n`,
+						);
+					}
 					callback(err.toString(), []);
 				});
 		};
@@ -132,13 +139,9 @@ const moduleFunction = function ({ unused }) {
 	//
 	// W-E-10 (X2, campaign P0, 2026-10-06): runTransaction exists only on a connection opened with
 	// writeCapable: true. Any other connection gets a runTransaction that refuses by name BEFORE the
-	// caller's function runs. The golden DME handle (data-model.js) never asks, so golden has no write
+	// caller's function runs. The golden DME handle (golden-graph-handle.js) never asks, so golden has no write
 	// path; until 2026-10-06 its runTransaction opened a default (WRITE) session beside the READ seam,
 	// and on a scratch graph a golden-shaped handle committed a CREATE through it (measured).
-
-	const refusedRunTransaction = (userFn, callback) => {
-		callback('runTransaction: this connection was opened read-only; pass writeCapable:true by name');
-	};
 
 	const runTransactionActual = (driver) => (userFn, callback) => {
 		const session = driver.session({ defaultAccessMode: neo4j.session.WRITE });
@@ -215,14 +218,16 @@ const moduleFunction = function ({ unused }) {
 	// CLOSE CONNECTION
 
 	const closeActual = (driver) => () => {
-		driver.close();
+		driver.close().catch((closeError) => {
+			xLog.error(`neo4j-instance: driver close failed: ${closeError.toString()}`);
+		});
 	};
 
 	// ================================================================================
 	// INITIALIZE DATABASE INSTANCE
 
 	const initDatabaseInstance = (config, callback) => {
-		const { neo4jBoltUri, neo4jUser, neo4jPassword, readOnly, queryTimeoutMs, writeCapable } =
+		const { neo4jBoltUri, neo4jUser, neo4jPassword, readOnly, queryTimeoutMs, writeCapable, isVerificationQuiet } =
 			config;
 
 		if (!neo4jBoltUri || !neo4jUser || !neo4jPassword) {
@@ -236,24 +241,35 @@ const moduleFunction = function ({ unused }) {
 			{ encrypted: false },
 		);
 
-		const runQuery = runQueryActual(driver, {
+		const seamOptions = {
 			readOnly: !!readOnly,
 			queryTimeoutMs: parseInt(queryTimeoutMs, 10) || undefined,
-		});
+		};
+		const runQuery = runQueryActual(driver, seamOptions);
 		const runTransaction = writeCapable === true ? runTransactionActual(driver) : refusedRunTransaction;
 		const close = closeActual(driver);
 
+		// a ping over the same seam that says nothing in the log: a caller that retries decides for itself what is worth a line
+		const runQuietly = runQueryActual(driver, { ...seamOptions, isFaultLogSuppressed: true });
+		const verifyConnection = (verifyCallback) => runQuietly('RETURN 1 AS ping', {}, (pingError) => verifyCallback(pingError || ''));
+
 		const localCallback = (err) => {
 			if (err) {
-				xLog.error(`neo4j-instance: connection verification failed: ${err}`);
+				// a driver that never answered is closed here: a caller retrying for days must not leave one behind per attempt
+				close();
+				if (!isVerificationQuiet) {
+					xLog.error(`neo4j-instance: connection verification failed: ${err}`);
+				}
 				callback(err);
 				return;
 			}
-			xLog.status(`neo4j-instance: connected to ${neo4jBoltUri}`);
-			callback('', { runQuery, runTransaction, close });
+			if (!isVerificationQuiet) {
+				xLog.status(`neo4j-instance: connected to ${neo4jBoltUri}`);
+			}
+			callback('', { runQuery, runTransaction, close, verifyConnection });
 		};
 
-		runQuery('RETURN 1 AS ping', {}, (err, records) => {
+		(isVerificationQuiet ? runQuietly : runQuery)('RETURN 1 AS ping', {}, (err, records) => {
 			if (err) {
 				localCallback(`Connection test failed: ${err}`);
 				return;
@@ -262,7 +278,7 @@ const moduleFunction = function ({ unused }) {
 		});
 	};
 
-	return { initDatabaseInstance };
+	return { initDatabaseInstance, refusedRunTransaction };
 };
 
 // END OF moduleFunction() ============================================================
