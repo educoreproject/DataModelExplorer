@@ -89,4 +89,4 @@ const openApiDocumentFor = ({ registry, manifestLabel, inputCapByName }) => ({
 	},
 });
 
-module.exports = { openApiDocumentFor };
+module.exports = { openApiDocumentFor, parameterOf };
