@@ -6,7 +6,8 @@
 //
 //   loadForgeResolver({ educoreForgeCodePath, uriContractFilePath }) → { error } | { resolveEdcUri, edcIriFor, edcUri, registry, uriContractReader, Database }
 //       used by the API (through openForgeAdapter) and by the whole-block child (resolveOneUri.js)
-//   openForgeAdapter({ configValues }) → { refusalText } | { routeFor, resolveInProcess, edcIriFor, baseIri, startupLine, ...configured values }
+//   openForgeAdapter({ configValues }) → { refusalText } | { routeFor, resolveInProcess, edcIriFor, edcUri, baseIri, startupLine, openStoreReadHandle, ...configured values }
+//       openStoreReadHandle() → { storeHandle } | { error }: one more read-only handle on the store (the standards query core's reads; never a write)
 //
 // The store opens once, read-only, at startup. An open handle keeps the old inode, so REPLACING THE STORE FILE IS AN API RESTART. So is any change to
 // the licence hold list the block kinds obey, which stubResolver.js freezes at require time: a hold change takes a forge re-sync plus an API restart.
@@ -210,6 +211,11 @@ const openForgeAdapter = ({ configValues }) => {
 		routeFor,
 		resolveInProcess: (edcRequestPath, callback) => resolveThroughForge({ forgeResolver, uriOrPath: edcRequestPath, uriContractReader: forgeResolver.uriContractReader }, callback),
 		edcIriFor: forgeResolver.edcIriFor,
+		edcUri: forgeResolver.edcUri,
+		openStoreReadHandle: () => {
+			const opened = attemptForgeCall(() => new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true }), `opening ${uriContractFilePath} read-only`);
+			return opened.error ? { error: opened.error } : { storeHandle: opened.result };
+		},
 		baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri,
 		publicPathPrefix,
 		educoreForgeCodePath,

@@ -1,0 +1,990 @@
+{
+	"_comment": "The one registry of the standards query service (DESIGN-standardsQueryService-110326 section 1.3). The route table, the OpenAPI document and (P2) the MCP tool list are generated from it. Added fields are declared per row: G1.1 removes exactly these and compares what remains with the CLI byte for byte.",
+	"apiVersion": "v1",
+	"routeBasePath": "standards/v1",
+	"sharedInputFieldList": [
+		{
+			"name": "expectManifest",
+			"type": "text",
+			"required": false,
+			"maxLengthConfigName": "maxQueryChars",
+			"description": "A manifest label or sha256:<manifestRefId>. When the graph's manifest differs the answer is the refusal manifestMismatch naming both."
+		}
+	],
+	"cacheControlByPolicy": {
+		"publicShort": "public, max-age=300",
+		"noStore": "no-store"
+	},
+	"uriNote": "every element carries uri; every card carries uri; mappings carry assertion. A uri under https://w3id.org/EDUcore/ resolves on this instance's /edc/ route; an element whose stableId is already an absolute IRI (CEDS's own terms) carries that IRI, which resolves at its publisher and not on this route: each row says which, by uriKind (edc or ownIri) and resolvesHere.",
+	"envelopeRefusalHttpStatusByName": {
+		"manifestMismatch": 409,
+		"rateLimited": 429,
+		"inputTooLong": 413,
+		"uriPromiseUnavailable": 503,
+		"busy": 503,
+		"serviceNotConfigured": 503,
+		"goldenGraphNotReady": 503,
+		"unknownOperation": 404,
+		"methodNotAllowed": 405,
+		"notAuthorized": 401,
+		"signedInRequired": 401,
+		"unknownInput": 400,
+		"invalidInput": 400,
+		"invalidPage": 400,
+		"invalidLimit": 400,
+		"embeddingCeilingReached": 429,
+		"mappingStatusUnavailable": 503,
+		"queryFailed": 500
+	},
+	"verbRefusalHttpStatusByName": {
+		"emptyQuery": 400,
+		"emptyName": 400,
+		"emptyPattern": 400,
+		"invalidSearchMode": 400,
+		"unknownStandard": 400,
+		"invalidGrepMode": 400,
+		"invalidGrepField": 400,
+		"invalidCaseSensitive": 400,
+		"flagNotForGrepMode": 400,
+		"invalidRegex": 400,
+		"patternTooLong": 413,
+		"grepTimeout": 503,
+		"apocTextUnavailable": 503,
+		"nothingMatched": 404,
+		"noOptionSetMatched": 404,
+		"invalidNameMatch": 400,
+		"invalidStructureMode": 400,
+		"traversalModeRemoved": 400,
+		"pairInputInvalid": 400,
+		"passportAbsent": 503,
+		"passportShapeNotRecognised": 503,
+		"graphContractMismatch": 503,
+		"graphHasNoVectors": 503,
+		"embedderMismatch": 503,
+		"vectorIndexNotInPassport": 503,
+		"fulltextIndexAbsent": 503,
+		"nativeIdentifierUnstamped": 503,
+		"nativeIdentifierDeclarationInvalid": 503,
+		"recipeShapeNotRecognised": 503,
+		"standardDefinitionShapeNotRecognised": 503,
+		"attestationShapeNotRecognised": 503,
+		"noGuideLayer": 404,
+		"layerUsageTipsAbsent": 503,
+		"unknownFlag": 500
+	},
+	"operationList": [
+		{
+			"operationName": "search",
+			"cliVerb": "search",
+			"cachePolicy": "noStore",
+			"pageSize": 20,
+			"description": "Search across ALL standards in the unified graph (the live inventory comes from standards_standards). Hybrid by default: a keyword (BM25) leg over element names and descriptions — every word of the query must appear, so an exact element name or code (NCESId, localId, a PESC element name) is found even when the meaning search ranks it low — fused with a vector (meaning) leg by reciprocal rank; searchMode keyword or vector runs one leg. Accepts an optional standard (a `source` value from standards_standards). RETURNS AN OBJECT: resultList (at most 20 rows, best fused rank first, each with stableId, fusedScore, foundByLegList ('keyword', 'vector' or both) and each leg's rank and raw score, null where that leg did not find the node), totalRowCount (distinct nodes the legs found inside their overFetchWindow-node windows), returnedRowCount, truncatedRowCount, searchMode, legHitCountByName, rrfConstant and scoreUnitByField (what each score is measured in — say which leg found a result when it matters); a filtered page that is short carries shortPageNote — the page is short, not the standard. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (it cannot be searched that way), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "q",
+					"verbInputName": "query",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The search text."
+				},
+				{
+					"name": "standard",
+					"verbInputName": "standard",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "A source value from the standards operation, or a family name."
+				},
+				{
+					"name": "mode",
+					"verbInputName": "searchMode",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"hybrid",
+						"keyword",
+						"vector"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "hybrid (default), keyword or vector."
+				},
+				{
+					"name": "page",
+					"type": "positiveInteger",
+					"required": false,
+					"description": "Page number, from 1."
+				}
+			],
+			"refusalNameList": [
+				"emptyQuery",
+				"invalidSearchMode",
+				"unknownStandard",
+				"embeddingCeilingReached",
+				"passportAbsent",
+				"passportShapeNotRecognised",
+				"graphContractMismatch",
+				"graphHasNoVectors",
+				"embedderMismatch",
+				"vectorIndexNotInPassport",
+				"fulltextIndexAbsent"
+			],
+			"answerStepList": [
+				"mintRuleUris",
+				"addSearchScope",
+				"addPageFacts",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [
+				{
+					"pathText": "resultList[]",
+					"stableIdField": "stableId",
+					"standardField": "standard",
+					"addFieldName": "uri"
+				}
+			],
+			"coreAddedFieldList": [
+				{
+					"pathText": "",
+					"fieldName": "searchScope"
+				}
+			],
+			"embedsQueryTextFromInput": "q",
+			"searchModeInput": "mode",
+			"usageSubjectInputNameList": [
+				"standard"
+			],
+			"routeName": "search",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_search",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "grep",
+			"cliVerb": "grep",
+			"cachePolicy": "noStore",
+			"pageSize": 50,
+			"description": "Find elements by the SHAPE of their name, not its meaning. Use it instead of standards_search when the question is about spelling or form: every element whose name starts with, ends with or contains something (\"every SIF element ending in RefId\", \"PESC names matching ^Student.*Identifier$\"), or a name the user may have misspelt (\"BrithDate\", \"StudentIdentifer\"). It does NOT search meaning: \"date of birth\" will not find BirthDate here (use standards_search). Two modes. regex (the default): a JavaScript regular expression matched anywhere in the field (anchor with ^ and $), case-insensitive unless caseSensitive is 'true', over the name (default), the description, or both; EVERY content node in scope is read, so totalRowCount is the exact number of matching nodes. fuzzy: the pattern is a name; every content name in scope is compared with it by apoc.text.levenshteinSimilarity after apoc.text.clean (case, spaces and punctuation ignored), and names scoring at least minimumSimilarity (0.75) are returned best first with their similarityScore. Accepts an optional standard (a `source` value from standards_standards, or a family name). RETURNS AN OBJECT: resultList (at most 50 rows, each with stableId, name, standard, role, description, matchedFieldList and, in fuzzy mode, similarityScore), totalRowCount, returnedRowCount, truncatedRowCount, scannedNodeCount, matchedNodeCountByStandard, distinctMatchedNameCount and matchedNameSummaryList (the matched names with how many nodes bear each: one name is often many nodes, e.g. a SIF field in every object that carries it) — quote those counts rather than counting rows yourself; a short page carries shortPageNote and is the whole answer. A refusal named invalidRegex means the pattern does not compile (say so, it is not 'no results'); grepTimeout means the pattern took longer than the time limit (simplify it or narrow it); apocTextUnavailable means this graph cannot run fuzzy mode (regex still works). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "pattern",
+					"verbInputName": "pattern",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxPatternChars",
+					"description": "The regular expression, or the name in fuzzy mode."
+				},
+				{
+					"name": "mode",
+					"verbInputName": "mode",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"regex",
+						"fuzzy"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "regex (default) or fuzzy."
+				},
+				{
+					"name": "field",
+					"verbInputName": "field",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"name",
+						"description",
+						"both"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The field matched: name (default), description or both."
+				},
+				{
+					"name": "caseSensitive",
+					"verbInputName": "caseSensitive",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"true",
+						"false"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "true or false (default)."
+				},
+				{
+					"name": "standard",
+					"verbInputName": "standard",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "A source value from the standards operation, or a family name."
+				},
+				{
+					"name": "page",
+					"type": "positiveInteger",
+					"required": false,
+					"description": "Page number, from 1."
+				}
+			],
+			"refusalNameList": [
+				"emptyPattern",
+				"invalidGrepMode",
+				"invalidGrepField",
+				"invalidCaseSensitive",
+				"flagNotForGrepMode",
+				"invalidRegex",
+				"patternTooLong",
+				"grepTimeout",
+				"apocTextUnavailable",
+				"unknownStandard"
+			],
+			"answerStepList": [
+				"mintRuleUris",
+				"addPageFacts",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [
+				{
+					"pathText": "resultList[]",
+					"stableIdField": "stableId",
+					"standardField": "standard",
+					"addFieldName": "uri"
+				}
+			],
+			"usageSubjectInputNameList": [
+				"standard"
+			],
+			"routeName": "grep",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_grep",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true,
+			"coreAddedFieldList": []
+		},
+		{
+			"operationName": "element",
+			"cliVerb": "explore",
+			"cachePolicy": "publicShort",
+			"description": "Show the nodes bearing a name, with all their properties and relationships. RETURNS AN OBJECT: entryList (ONE ENTRY PER NODE that bears the name (same-named nodes are distinct entries keyed by stableId), each with its stableId, outgoing and incoming edges and their totals), totalRowCount / returnedRowCount / truncatedRowCount, matchedNodeCount — state that count when you report, and enumerate entries rather than counting them yourself. The match is exact unless nameMatch is caseInsensitive; caseVariantNodeCount and caseVariantNameList name the nodes an exact lookup missed only by letter case (SIF splits one concept into BirthDate and birthDate) — if caseVariantNodeCount > 0, say so and re-run with nameMatch=caseInsensitive before listing \"all\" of anything. A name no node bears is refused by name (nothingMatched). Accepts an optional standard (a `source` value from standards_standards). The result also carries declaredCorrespondenceList / declaredCorrespondenceCount: the published cross-IRI assertions touching the explored node(s), sourcePredicate verbatim — NOT mappings (see standards_mappings). If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "name",
+					"verbInputName": "name",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The exact name of the element. Give name or stableId."
+				},
+				{
+					"name": "stableId",
+					"verbInputName": "name",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The element's stableId. Give name or stableId."
+				},
+				{
+					"name": "standard",
+					"verbInputName": "standard",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "A source value from the standards operation, or a family name."
+				},
+				{
+					"name": "nameMatch",
+					"verbInputName": "nameMatch",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"exact",
+						"caseInsensitive"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "exact (default) or caseInsensitive."
+				}
+			],
+			"mutuallyExclusiveInputNameList": [
+				"name",
+				"stableId"
+			],
+			"refusalNameList": [
+				"emptyName",
+				"unknownStandard",
+				"nothingMatched",
+				"invalidNameMatch",
+				"invalidLimit"
+			],
+			"answerStepList": [
+				"mintRuleUris",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [
+				{
+					"pathText": "entryList[]",
+					"stableIdField": "stableId",
+					"standardField": "node._source",
+					"addFieldName": "uri"
+				},
+				{
+					"pathText": "entryList[].outgoing[]",
+					"stableIdField": "targetStableId",
+					"standardField": "targetSource",
+					"addFieldName": "targetUri"
+				},
+				{
+					"pathText": "entryList[].incoming[]",
+					"stableIdField": "sourceStableId",
+					"standardField": "sourceStandard",
+					"addFieldName": "sourceUri"
+				},
+				{
+					"pathText": "declaredCorrespondenceList[]",
+					"stableIdField": "subjectStableId",
+					"standardField": "sourceStandard",
+					"addFieldName": "subjectUri"
+				},
+				{
+					"pathText": "declaredCorrespondenceList[]",
+					"stableIdField": "objectStableId",
+					"standardField": "targetStandard",
+					"addFieldName": "objectUri"
+				}
+			],
+			"usageSubjectInputNameList": [
+				"standard"
+			],
+			"routeName": "element",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_element",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true,
+			"coreAddedFieldList": []
+		},
+		{
+			"operationName": "mappings",
+			"cliVerb": "findMappings",
+			"cachePolicy": "publicShort",
+			"description": "Given an element from any standard, return the hub concept it maps to and its cross-standard equivalents. A graph holds one hub or several (each a peer; standards_standards marks them isHub): EVERY ROW NAMES ITS CARD'S HUB in hubName, the rows come hub by hub (never interleaved, each hub allocated the row cap on its own), hubList names the hubs and totalRowCountByHub counts the rows per hub — when an element reaches two hubs, report the hubs separately and never pair elements across hubs. Each element resolves to a hub tuple — a HubReference, the hub's canonical address — through one of four match edges, one per SKOS relation: EXACT_MATCH (same meaning), CLOSE_MATCH (near, not interchangeable), BROAD_MATCH (the hub tuple is broader than the element), NARROW_MATCH (the hub tuple is narrower). EVERY match edge is a JUDGMENT, not a fact: every row carries mappingConfidence (the judge's confidence; null on authored edges), mappingKind ('inferred' = a judge chose it, 'authored' = a document named it) and mappingSource (who decided, naming the actual judge, e.g. 'bridge-jev'; 'bridge-debug' = a DEBUG judge's mechanical placeholder, confidence 0 — if any row has it, say so first and prominently and never present it as a mapping), and mappingRationale (the judge's own stated reason for the pick, when the build recorded one: QUOTE it when asked why; never invent a reason, and say 'no recorded rationale' when it is null; on an outgoingViaInstance row, which counts every instance carrying one verdict, it is ONE instance's recorded reason, since each instance was judged on its own), plus viaMappingConfidence/viaMappingKind/viaMappingSource/viaMappingRationale for the queried element's hop (all null on graphs built before these fields); the relation (mappingType) and the confidence are independent — never present any row as authoritative or authored unless its mappingKind is 'authored'. Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (an equivalence composed from two judgments, not an established fact); 'candidateEquivalent' when the hops are EXACT/CLOSE with at least one CLOSE (a hypothesis); 'related' when either hop is BROAD_MATCH or NARROW_MATCH (never equivalent: both may be narrower than one broad tuple). EXACT/CLOSE rows sort first. Directions: 'outgoing' = this element's hub concept; 'equivalent'/'candidateEquivalent'/'related' = other standards' elements on the same concept (the same card, so the same hub); 'incoming' = when given a hub leaf's name or identifier (e.g. a hub card's canonicalKey, whose name getSchema gives per hub), the source elements that map to it — any hub leaf: class, property, range, value or qualifier. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate/mappingConfidence/mappingSource = the other element's hop, viaMatchType/viaConfidence/viaPredicate/viaMappingConfidence/viaMappingSource = the queried element's own hop; no combined score is computed — judge from both. RETURNS AN OBJECT. EVERY COUNT SAYS ITS UNIT in countUnitByField (rows, edges, elements, instances, groups or nodes) and rowUnit says what a row is: READ THE UNIT BEFORE STATING A NUMBER, and never call a row count a number of mappings or edges. matchedNodeCount (how many nodes the input matched: by name, by identifier, or for an INSTANCE by a segment of its context path, so SIF .../RaceList/Race/Code is found by 'race'; instancePathMatchedNodeCount says how many matched only by path), matchedInstanceGroupSummaryList (per standard: matchedInstanceCount and matchedInstanceGroupCount, and groupList naming the SIF objects or PESC sections holding a matched instance, uncapped up to 200 groups: for 'which objects/sections carry X', read THIS, not the capped rows), hubTupleSummaryList (per hub tuple the rows reach, each naming its hubName, most edges first, at most 25 of hubTupleCount: edgeCount and edgeCountByRelation = match EDGES in the graph into that tuple; elementCount and elementCountByRelation = distinct mapped ELEMENTS, an instanced element counted once; instanceEdgeCount = edges carried by instances: for 'how many mappings does X have' quote THESE), totalRowCount / returnedRowCount / truncatedRowCount (ROWS: one row per direction, element, hub tuple, relation and via-relation, each naming its element by fromStableId; ONE graph edge can be several rows, e.g. 'incoming' through the hub leaf and 'equivalent' through another matched element, so a row total is not an edge total), totalRowCountByDirection (rows per direction), mappingRowList (at most 30 rows; every relation present first gets up to 7 rows, then the rest fill composing-first by confidence, so no relation is ever dropped; WITHIN a relation the rows are shared round-robin across the source standards, best confidence first within each, so one standard never crowds out another), totalRowCountByRelation and truncatedRowCountByRelation (rows of each relation NOT shown), and totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard (the same, per relation and per source standard). When a truncated count is non-zero, say how many rows of that relation (and which standards' rows) were left out and offer to narrow the query; never say a relation or a standard has no mapping when its total is non-zero. Every row includes the decomposed hub tuple (hubTuple: domain · property · range [· value] + the card identifier; hubDomain, hubProperty, hubRange, hubValue, hubQualifier). Accepts an element name, XPath, _id, stableId or a hub card identifier (its canonicalKey, whose name and form getSchema gives per hub, e.g. a global ID or a term CURIE); an input that matches no node is refused by name (nothingMatched). CLASSIFICATION_CROSSWALK edges (present only in graphs holding classification standards) are deliberately excluded: a classification-crosswalk correspondence is not a mapping. DECLARED CORRESPONDENCES: declaredCorrespondenceList (at most 50; declaredCorrespondenceCount is the total; declaredCorrespondenceRowUnit says what a row is) lists the published cross-IRI assertions touching a matched node — sourceStandard, subjectName, sourcePredicate quoted verbatim (e.g. owl:equivalentClass, skos:relatedMatch), targetStandard, objectName, objectKind. They are NOT mappings: never call one an EXACT/CLOSE/BROAD/NARROW match, never compose one with a match edge, never count it as mapped, and never call it an 'authored mapping' (its edge's mappingKind 'authored' only names who published it); quote the predicate and say the standard itself declared it. INSTANCE NODES (SIF, PESC): these standards put their mappings on INSTANCE nodes reached by HAS_INSTANCE — a SIF Question has one Field per object it appears in; a PESC element declaration has one occurrence per place it appears in the document. Direction 'outgoingViaInstance' = the queried declaration's hub concept as carried by its instances, one row per hub tuple and verdict, with instanceGroupList (the SIF objects or PESC document sections holding it) and instanceCount (how many instances carry it). On a shared-hub or incoming row, instanceGroupList/instanceCount describe the from-element's instances that carry the mapping, and viaInstanceGroupList/viaInstanceCount describe the queried declaration's instances that carry the near hop. instanceOf names the declaration when the row's element is itself an instance. These fields are ABSENT (not null) on rows that involve no instances, in every standard that carries its mappings on the element itself. Present instance mappings grouped by object (SIF) or section (PESC), never as repeated rows. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "element",
+					"verbInputName": "name",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "Element name, path, stableId or hub card identifier."
+				}
+			],
+			"refusalNameList": [
+				"emptyName",
+				"nothingMatched",
+				"nativeIdentifierUnstamped",
+				"nativeIdentifierDeclarationInvalid",
+				"mappingStatusUnavailable"
+			],
+			"answerStepList": [
+				"addMappingRowIdentity",
+				"mintRuleUris",
+				"addMappingStatusByHub",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [
+				{
+					"pathText": "mappingRowList[]",
+					"stableIdField": "fromStableId",
+					"standardField": "fromSource",
+					"addFieldName": "fromUri"
+				},
+				{
+					"pathText": "declaredCorrespondenceList[]",
+					"stableIdField": "subjectStableId",
+					"standardField": "sourceStandard",
+					"addFieldName": "subjectUri"
+				},
+				{
+					"pathText": "declaredCorrespondenceList[]",
+					"stableIdField": "objectStableId",
+					"standardField": "targetStandard",
+					"addFieldName": "objectUri"
+				}
+			],
+			"coreAddedFieldList": [
+				{
+					"pathText": "",
+					"fieldName": "mappingStatusByHub"
+				},
+				{
+					"pathText": "",
+					"fieldName": "matchedElementList"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "assertion"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "assertionList"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "cardList"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "question"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "targetKind"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "claimKind"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "instanceDisagreement"
+				},
+				{
+					"pathText": "mappingRowList[]",
+					"fieldName": "instanceCardUriList"
+				},
+				{
+					"pathText": "hubTupleSummaryList[]",
+					"fieldName": "cardUriList"
+				}
+			],
+			"usageSubjectInputNameList": [],
+			"routeName": "mappings",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_mappings",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "pair",
+			"coreHandlerName": "pair",
+			"cachePolicy": "publicShort",
+			"pageSize": 50,
+			"description": "What the manifest holds between an element and another standard (element, standard), or between two standards (standard, otherStandard, page). pairStatus is declaredCorrespondence (a standard's own published statement, predicate quoted), computedViaHub (both elements reach one hub card: a suggestion with both hops shown, claimKind computed, never a judgment) or notJudged (no judgment between them has been made in this manifest; each side's hub answers are given). A pair nobody has judged is a normal answer with HTTP 200. Every element and card carries uri; quote it, it is permanent.",
+			"inputFieldList": [
+				{
+					"name": "element",
+					"verbInputName": "name",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "An element name, path, stableId or hub card identifier."
+				},
+				{
+					"name": "standard",
+					"verbInputName": "standard",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The other standard (with element), or the first standard (with otherStandard)."
+				},
+				{
+					"name": "otherStandard",
+					"verbInputName": "otherStandard",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The second standard, when comparing two standards."
+				},
+				{
+					"name": "page",
+					"type": "positiveInteger",
+					"required": false,
+					"description": "Page number, from 1."
+				}
+			],
+			"refusalNameList": [
+				"pairInputInvalid",
+				"unknownStandard",
+				"nothingMatched",
+				"mappingStatusUnavailable"
+			],
+			"answerStepList": [
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [],
+			"usageSubjectInputNameList": [
+				"standard",
+				"otherStandard"
+			],
+			"countsPairSubject": true,
+			"routeName": "pair",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_pair",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "codesets",
+			"cliVerb": "compareCodesets",
+			"cachePolicy": "publicShort",
+			"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier hub card (each row names its hubName; hubList names the graph's hubs); values from other standards on the same card are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the hub value and its identifier (hubValue, hubValueKey), and the list of other standards' values on the same hub value card (equivalent only when both are EXACT_MATCH). RETURNS AN OBJECT: verdict, valueTierJudgmentCount, matchedOptionSetCount, valueRowList (cap 100) and totalRowCount / returnedRowCount / truncatedRowCount. matchType null means the value was NOT JUDGED when verdict is 'valuesNotJudgedInThisBuild' (the build holds no value-tier judgments; verdictText says so — report it that way); only when verdict is 'judged' does a null show non-alignment. A name matching no option set is refused by name (noOptionSetMatched); SIF code sets carry no name in this build and cannot be found by name. It does NOT compute alignment types or coverage percentages. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "name",
+					"verbInputName": "name",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The option set name."
+				}
+			],
+			"refusalNameList": [
+				"emptyName",
+				"noOptionSetMatched"
+			],
+			"answerStepList": [
+				"addCodesetRowIdentity",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [
+				{
+					"pathText": "valueRowList[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "valueRowList[]",
+					"fieldName": "uriAbsentReason"
+				},
+				{
+					"pathText": "valueRowList[]",
+					"fieldName": "cardUri"
+				},
+				{
+					"pathText": "valueRowList[]",
+					"fieldName": "assertion"
+				}
+			],
+			"usageSubjectInputNameList": [],
+			"routeName": "codesets",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_codesets",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "unmapped",
+			"cliVerb": "unmappedFields",
+			"cachePolicy": "publicShort",
+			"pageSize": 50,
+			"description": "List DmeProperty elements of the NON-hub standards that have no mapping to any hub under any of the four match relations — neither directly nor through any of their HAS_INSTANCE instances (SIF Questions, PESC element declarations). The annotation backlog of the non-hub standards: the hub standards (named in hubStandardList; on a one-hub graph also as hubStandard) do not map to themselves, so hubPolicy 'excludeHub' leaves every hub's properties out. RETURNS AN OBJECT: unmappedRowList (standard, fieldName, path, description), totalRowCount, returnedRowCount, truncatedRowCount — quote totalRowCount for \"how many\". If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "standard",
+					"verbInputName": "standard",
+					"type": "text",
+					"required": false,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "A source value from the standards operation, or a family name."
+				},
+				{
+					"name": "page",
+					"type": "positiveInteger",
+					"required": false,
+					"description": "Page number, from 1."
+				}
+			],
+			"refusalNameList": [
+				"unknownStandard",
+				"invalidLimit"
+			],
+			"answerStepList": [
+				"addUnmappedRowIdentity",
+				"addPageFacts",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [
+				{
+					"pathText": "unmappedRowList[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "unmappedRowList[]",
+					"fieldName": "uriAbsentReason"
+				}
+			],
+			"usageSubjectInputNameList": [
+				"standard"
+			],
+			"routeName": "unmapped",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_unmapped",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "stats",
+			"cliVerb": "stats",
+			"cachePolicy": "publicShort",
+			"description": "Whole-graph statistics across ALL loaded standards: node counts by standard (_source), node counts by universal-contract role, match-edge counts per relation (EXACT_MATCH, CLOSE_MATCH, BROAD_MATCH, NARROW_MATCH), and property-tier mapping coverage of the NON-hub standards (coverage: totalProperties, mappedProperties, hubPropertyCount, hubPolicy, hubStandardList, and mappedPropertyCountByHub — per hub, the non-hub properties mapped onto that hub, every hub listed; hubStandard only on a one-hub graph — the hubs do not map to themselves, so their properties are counted apart; a property counts as mapped under any of the four). For the per-standard registry list, use standards_standards. A SIF Question or PESC element counts as a mapped property when one of its HAS_INSTANCE instances carries the mapping edge. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [],
+			"refusalNameList": [],
+			"answerStepList": [],
+			"uriFieldRuleList": [],
+			"usageSubjectInputNameList": [],
+			"routeName": "stats",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_stats",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true,
+			"coreAddedFieldList": []
+		},
+		{
+			"operationName": "standards",
+			"cliVerb": "listStandards",
+			"cachePolicy": "publicShort",
+			"description": "Inventory of every standard loaded in the graph. Reads the :DmeStandardRoot nodes and returns each standard's source (the value every standard filter takes), standardKey, name, standardName, description, version, sourceUrl, standardFamily, releaseLabel, standardKind (what kind of standard: dataStandard, or useCaseCorpus for the use-case standard, whose nodes are cases, stories and citations of other standards, never data elements), live nodeCount, isHub (true for each hub standard, read from the graph's :HubDefinitions — a graph may hold several), hubMatchEdgeCount (match edges of the four relations from this standard's nodes to any hub; 0 for a hub, which does not map to itself), hubMatchEdgeCountByHub (the same edges per hub, every hub listed) and mappedToHub (hubMatchEdgeCount > 0). Returns totals.hubStandardList and totals.hubList (each hub's hubName, hubSource and hubVersion; on a one-hub graph also totals.hubSource), totals.standardCount and totals.familyList ([{family, releaseCount, sourceList}], counted by the tool's own query) — read 'how many standards / how many PESC releases' from these, never by counting the list yourself; when familyFieldPresent is false the build declares no families (familyNote says so) and you must not group releases into families by their names. Use this for any 'what standards are loaded?' question — it never goes stale as new standards are forged in. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [],
+			"refusalNameList": [],
+			"answerStepList": [
+				"addStandardRowListings"
+			],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [
+				{
+					"pathText": "standards[]",
+					"fieldName": "elements"
+				},
+				{
+					"pathText": "",
+					"fieldName": "manifestStandardList"
+				}
+			],
+			"usageSubjectInputNameList": [],
+			"routeName": "standards",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_standards",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "graph",
+			"cliVerb": "describeGraph",
+			"cachePolicy": "publicShort",
+			"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the :GraphProvenance passport read by the graph contract (engine versions and fingerprints, the embedding model and dimension, the vector index names, the judge identities and renderer versions, content counts, the trust verdict, the recipe name and hash, the contract sha), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with kind, version, position and purpose), the lineage (basedOnManifestRefId and its basis — 'none named at build' is not 'root'), every :BuildAttestation (each gate's verdict with its totals: notRun never means pass), and one :StandardDefinition per standard (sourceKey — the `_source` value every filter takes; standardKey — the forge token used in block subjects; version + versionSource, source format, element counts, mapping kinds and sources, standardKind, standardUsageTips). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. A graph built before the graph contract is REFUSED by name (graphContractMismatch), never shown with blanks. Read-only. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [],
+			"refusalNameList": [
+				"passportAbsent",
+				"passportShapeNotRecognised",
+				"graphContractMismatch",
+				"recipeShapeNotRecognised",
+				"standardDefinitionShapeNotRecognised",
+				"attestationShapeNotRecognised",
+				"invalidLimit"
+			],
+			"answerStepList": [],
+			"uriFieldRuleList": [],
+			"usageSubjectInputNameList": [],
+			"routeName": "graph",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_graph",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true,
+			"coreAddedFieldList": []
+		},
+		{
+			"operationName": "neighbourhood",
+			"cliVerb": "graphRetriever",
+			"cachePolicy": "noStore",
+			"description": "Search with graph context enrichment. Finds nodes with the same hybrid search standards_search runs (keyword BM25 + vector, fused by reciprocal rank; each hit carries hitRank, fusedScore, foundByLegList and both legs' ranks and scores), then traverses graph relationships to return surrounding context including cross-standard mappings, types, codesets, and reference networks. Use when you need to understand how a result connects to the rest of the data model. RETURNS AN OBJECT: { retrievalMode: \"traversal\", requestedHitCount, returnedHitCount, hitList } — one hitList entry per search hit. A mapping list holds only real match edges: an empty list means the hit itself carries none. optionSets lists the code sets of a property, directly (HAS_OPTION_SET) or, for SIF, through its instance Fields (HAS_OPTION_SET; viaInstance: true; each code set carries name, path and valueCount), with optionSetCount the total; referencesTo/referencedBy carry referenceEdgeType (REFERENCES, REFERENCES_TYPE or REFERENCES_OBJECT). Every mapping entry names its hub: toSource in mappingsOutgoing and mappingsViaInstances, hubSource in crossStandardEquivalents and mappingsIncoming (where hubName is the card's own name); a pair shares ONE card, so never crosses hubs. Each mapping list (mappingsOutgoing, crossStandardEquivalents, mappingsIncoming, instanceView.mappingsViaInstances) holds at most 20 entries PER HUB (each hub's entries are allocated on their own and listed hub by hub, so one hub never crowds out another), shared within a hub across the four match relations (each present relation first gets up to 5), and has a companion <list>TruncatedByRelation ([{hub, relation, truncatedCount}]) naming how many entries of each hub and relation were left out — report those, and never call a relation absent when it was only truncated. In crossStandardEquivalents and mappingsIncoming the entries of a relation are shared round-robin across standards, so one standard never crowds out another, and <list>TruncatedByRelationAndStandard ([{hub, relation, standard, truncatedCount}]) names what each standard lost; never call a standard unmapped when it was only truncated. For SIF and PESC results an extra instanceView object appears (absent for all other standards): instanceTotal and instancesByGroup (the element's HAS_INSTANCE instances grouped by SIF object or PESC document section), mappingsViaInstances (the element's hub mappings, which live on those instances, with instanceGroupList/instanceCount), instanceOf (when the node is itself an instance), and SIF structure — ownedFields/owningObjects (HAS_FIELD: object has field) and structuralParents/structuralChildren (HAS_CHILD: element contains element). For SIF and PESC, mappingsOutgoing is normally empty: read mappingsViaInstances instead. If the result has retrievalMode \"flat\" (and a retrievalNote, and results in place of hitList), traversal.cypher was not available and its rows are the search hits with no graph context: tell the user so, quoting the retrievalNote. Before searching, the graph is checked: a refusal named embedderMismatch, graphHasNoVectors, vectorIndexNotInPassport, fulltextIndexAbsent or graphContractMismatch is an answer about the GRAPH (its vectors are not the ones this reader can search), not 'no results'. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "q",
+					"verbInputName": "query",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The search text."
+				},
+				{
+					"name": "limit",
+					"verbInputName": "limit",
+					"type": "positiveInteger",
+					"required": false,
+					"maximum": 25,
+					"description": "Search hits to walk from: default 10, at most 25."
+				},
+				{
+					"name": "mode",
+					"verbInputName": "searchMode",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"hybrid",
+						"keyword",
+						"vector"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "hybrid (default), keyword or vector."
+				}
+			],
+			"refusalNameList": [
+				"emptyQuery",
+				"invalidLimit",
+				"invalidSearchMode",
+				"traversalModeRemoved",
+				"embeddingCeilingReached",
+				"passportAbsent",
+				"passportShapeNotRecognised",
+				"graphContractMismatch",
+				"graphHasNoVectors",
+				"embedderMismatch",
+				"vectorIndexNotInPassport",
+				"fulltextIndexAbsent"
+			],
+			"answerStepList": [
+				"mintRuleUris",
+				"addSearchScope",
+				"addStandardListings"
+			],
+			"uriFieldRuleList": [
+				{
+					"pathText": "hitList[]",
+					"stableIdField": "node.stableId",
+					"standardField": "source",
+					"addFieldName": "uri"
+				}
+			],
+			"coreAddedFieldList": [
+				{
+					"pathText": "",
+					"fieldName": "searchScope"
+				}
+			],
+			"embedsQueryTextFromInput": "q",
+			"searchModeInput": "mode",
+			"usageSubjectInputNameList": [],
+			"routeName": "neighbourhood",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_neighbourhood",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "guide",
+			"cliVerb": "structure",
+			"cachePolicy": "publicShort",
+			"description": "Reads a standard's guide LAYER: a separately published companion that standards_search and the other tools deliberately leave out. The layer describes itself in every answer, as layerUsageTips (read it first: it says what the layer holds). Two modes. classConcepts: a CEDS class's primary and secondary Conceptual Model concept (name = its C-id, e.g. C200013, or its name). propertyConcepts: the Event concepts Table A-2 of the guide lists for a CEDS date property, in the guide's order (name = its P-id or its name); an empty list means the guide does not mark it as an Event date. RETURNS AN OBJECT: rowList, totalRowCount, returnedRowCount, truncatedRowCount, mode, guideVersion and note — quote totalRowCount rather than counting rows. A refusal named noGuideLayer means the graph was built without the Ontology Guide layer. If the result is an object carrying refusedByName, your input matched nothing valid: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\".",
+			"inputFieldList": [
+				{
+					"name": "mode",
+					"verbInputName": "mode",
+					"type": "text",
+					"required": true,
+					"enum": [
+						"classConcepts",
+						"propertyConcepts"
+					],
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "classConcepts or propertyConcepts."
+				},
+				{
+					"name": "name",
+					"verbInputName": "name",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "A class C-id or name, or a property P-id or name."
+				}
+			],
+			"refusalNameList": [
+				"invalidStructureMode",
+				"emptyName",
+				"noGuideLayer",
+				"layerUsageTipsAbsent",
+				"nativeIdentifierUnstamped",
+				"nativeIdentifierDeclarationInvalid",
+				"nothingMatched"
+			],
+			"answerStepList": [
+				"addGuideRowIdentity"
+			],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [
+				{
+					"pathText": "rowList[]",
+					"fieldName": "uri"
+				},
+				{
+					"pathText": "rowList[]",
+					"fieldName": "uriAbsentReason"
+				}
+			],
+			"usageSubjectInputNameList": [],
+			"routeName": "guide",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"mcpToolName": "standards_guide",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreHandlerName": "verb",
+			"bodyForm": "envelope",
+			"requiresUriPromise": true,
+			"isCounted": true
+		},
+		{
+			"operationName": "usage",
+			"coreHandlerName": "usage",
+			"bodyForm": "bare",
+			"permissionList": [
+				"admin",
+				"super"
+			],
+			"admission": "public",
+			"doorList": [
+				"api"
+			],
+			"requiresUriPromise": false,
+			"cachePolicy": "noStore",
+			"description": "Counts of what was asked: per operation, per standard or pair named, and per permanent URI an answer named, by UTC day. Never a query text, an IP or a principal. Administrators only.",
+			"inputFieldList": [],
+			"refusalNameList": [],
+			"answerStepList": [],
+			"uriFieldRuleList": [],
+			"usageSubjectInputNameList": [],
+			"isCounted": false,
+			"routeName": "usage",
+			"coreAddedFieldList": []
+		},
+		{
+			"operationName": "openApiDocument",
+			"routeName": "openapi.json",
+			"coreHandlerName": "openApiDocument",
+			"bodyForm": "bare",
+			"doorList": [
+				"api"
+			],
+			"requiresUriPromise": false,
+			"cachePolicy": "publicShort",
+			"description": "This API described as an OpenAPI 3.1 document, generated from the operation registry.",
+			"inputFieldList": [],
+			"refusalNameList": [],
+			"answerStepList": [],
+			"uriFieldRuleList": [],
+			"usageSubjectInputNameList": [],
+			"isCounted": false,
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"coreAddedFieldList": []
+		}
+	]
+}

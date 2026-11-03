@@ -16,6 +16,11 @@
 //   handle.runTransaction(userFn, callback(errText))   always refused by name: the golden has no write path (W-E-10)
 //   handle.graphStateOf() -> { graphState: 'connected' | 'waiting', goldenContainerName }
 //   handle.whenFirstConnected(listener)                listener() once, at the first connection this process makes
+//   handle.whenEveryConnected(listener)                listener() at each connection, the first and every reconnect: a new golden can come
+//                                                      back under the same container name, so what was read from the last one may not hold
+//   handle.withReadSession(consumer(session, sessionDone), callback(errText, result))
+//       the seam for code written against the driver's session.run: one READ session with the connection's timeout, closed here.
+//       Waiting: refused by name, as runQuery is. A consumer's fault is judged by the same ping as a query's.
 //   handle.close()                                     stops retrying and closes the driver
 //
 // Every connection is opened readOnly with queryTimeoutMs and never writeCapable. The handle adds no route around that
@@ -66,6 +71,7 @@ const createGoldenGraphHandle = ({ goldenContainerName, queryTimeoutMs, retryDel
 	let isClosed = false;
 	let hasEverConnected = false;
 	const firstConnectionListenerList = [];
+	const everyConnectionListenerList = [];
 	let connectionUnderPing = null;
 	let pingWaiterList = [];
 
@@ -111,6 +117,7 @@ const createGoldenGraphHandle = ({ goldenContainerName, queryTimeoutMs, retryDel
 			// each on its own tick: this code runs inside the driver's promise, which would swallow a listener's throw
 			firstConnectionListenerList.splice(0).forEach((listener) => setImmediate(listener));
 		}
+		everyConnectionListenerList.forEach((listener) => setImmediate(listener));
 	};
 
 	const runConnectionAttempt = () => {
@@ -216,6 +223,32 @@ const createGoldenGraphHandle = ({ goldenContainerName, queryTimeoutMs, retryDel
 		firstConnectionListenerList.push(listener);
 	};
 
+	const whenEveryConnected = (listener) => {
+		everyConnectionListenerList.push(listener);
+		if (activeConnection) {
+			setImmediate(listener);
+		}
+	};
+
+	const withReadSession = (sessionConsumer, callback) => {
+		const connectionUsed = activeConnection;
+		if (!connectionUsed) {
+			setImmediate(() => callback(notReadyRefusalText()));
+			return;
+		}
+		const readSession = connectionUsed.openReadSession();
+		sessionConsumer(readSession, (consumerError, consumerResult) => {
+			const finish = () => {
+				if (!consumerError) {
+					callback('', consumerResult);
+					return;
+				}
+				judgeConnectionAfterFault(connectionUsed, () => callback(consumerError));
+			};
+			readSession.close().then(finish, finish);
+		});
+	};
+
 	const close = () => {
 		isClosed = true;
 		if (retryTimer) {
@@ -230,7 +263,7 @@ const createGoldenGraphHandle = ({ goldenContainerName, queryTimeoutMs, retryDel
 
 	scheduleAttempt(0);
 
-	return { runQuery, runTransaction: neo4jGen.refusedRunTransaction, graphStateOf, whenFirstConnected, close };
+	return { runQuery, runTransaction: neo4jGen.refusedRunTransaction, graphStateOf, whenFirstConnected, whenEveryConnected, withReadSession, close };
 };
 
 module.exports = { createGoldenGraphHandle, GOLDEN_GRAPH_NOT_READY_REFUSAL_NAME, GOLDEN_RETRY_DELAY_MS_LIST };
