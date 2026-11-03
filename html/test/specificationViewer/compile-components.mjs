@@ -44,6 +44,11 @@ const FILES = [
 	'components/standardsExplorer/Table.vue',
 	'components/standardsExplorer/SpecificationCard.vue',
 	'components/standardsExplorer/SpecificationCatalog.vue',
+	'components/standardsExplorer/LevelItemList.vue',
+	'components/standardsExplorer/Breadcrumb.vue',
+	'components/standardsExplorer/CrossingBanner.vue',
+	'components/standardsExplorer/Diagram.vue',
+	'app.vue',
 ].filter((rel) => fs.existsSync(path.join(HTML, rel)));
 
 let failed = false;

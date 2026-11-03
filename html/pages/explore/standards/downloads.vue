@@ -90,6 +90,12 @@ const familyGroupList = computed(() => {
 });
 
 const roundTripTextOf = (roundTrip) => (roundTrip ? `invented ${roundTrip.inventedTotal} · lost ${roundTrip.lostTotal} · content gaps ${roundTrip.contentGapTotal} · omitted by declaration ${roundTrip.explicitlyOmittedTotal}` : '');
+// the page names itself and its filter, so a reader (or an AI agent) of the tab knows which downloads it is looking at
+useHead(() => ({
+	title: [activeFilter.value.standardKey || activeFilter.value.group || (activeFilter.value.family && familyStyleOf(activeFilter.value.family).displayName), 'Downloads'].filter(Boolean).join(' · '),
+	meta: [{ name: 'description', content: 'Download each education data standard EDUcore holds: its source as taken in, and the standard written back out of the graph with its round-trip validation files.' }],
+}));
+
 const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullPath : `${window.location.origin}${route.fullPath}`));
 </script>
 

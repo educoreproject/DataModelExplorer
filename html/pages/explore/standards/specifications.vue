@@ -16,6 +16,11 @@ import { useSpecificationViewerStore, elementCurationKey } from '@/stores/specif
 import { useLoginStore } from '@/stores/loginStore';
 
 const store = useSpecificationViewerStore();
+
+useHead({
+	title: 'Specification Viewer',
+	meta: [{ name: 'description', content: 'Pick an education data specification and walk its elements, with every element\'s cross-specification mappings; or load your own OpenAPI schema and map its fields.' }],
+});
 const loginStore = useLoginStore();
 
 const mode = ref('specs'); // 'specs' | 'openapi'

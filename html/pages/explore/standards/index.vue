@@ -13,6 +13,12 @@ const route = useRoute();
 const loginStore = useLoginStore();
 
 const signInTarget = computed(() => ({ path: '/login', query: { redirect: route.fullPath } }));
+
+// signed in, the walk names the page itself (WalkView.vue)
+useHead(() => (loginStore.validUser ? {} : {
+	title: 'Standards',
+	meta: [{ name: 'description', content: 'The education data specifications EDUcore describes: owner, version, governance, implementation burden, access, privacy and equity notes for each. Sign in to walk them in the Standards Explorer.' }],
+}));
 </script>
 
 <template>

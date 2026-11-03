@@ -4,14 +4,25 @@
 // description, tags, and its implementation details behind an expansion panel. Drawn in the signed-out catalog
 // (SpecificationCatalog.vue) and, compact, in the Standards Explorer's detail panel for the family being walked.
 
+import { computed } from 'vue';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+import { FAMILY_CATALOG_STABLE_ID, explorerLinkOf } from '@/components/standardsExplorer/explorerVocabulary';
 
-defineProps({
+const props = defineProps({
 	spec: { type: Object, required: true },
 	compact: { type: Boolean, default: false },
+	// the card is an article named by its own heading; its level follows the page it sits in (h4 under the catalog's
+	// category h3, h3 under the detail panel's h2)
+	headingLevel: { type: Number, default: 4 },
 });
 
 const specStore = useSpecificationMetadataStore();
+
+// where else this specification lives in the Standards view, as links (not shown compact: the panel it sits in is
+// already the explorer, and carries its own Downloads section)
+const titleId = computed(() => `spec-card-title-${props.spec.id}`);
+const explorerLink = computed(() => (props.spec.graphFamily ? explorerLinkOf([FAMILY_CATALOG_STABLE_ID, `family:${props.spec.graphFamily}`]) : null));
+const downloadsLink = computed(() => (props.spec.graphFamily ? { path: '/explore/standards/downloads', query: { family: props.spec.graphFamily } } : null));
 
 const burdenColor = (burden) => {
 	if (burden === 'low') return 'success';
@@ -21,9 +32,9 @@ const burdenColor = (burden) => {
 </script>
 
 <template>
-	<v-card variant="outlined" class="spec-card" :data-testid="`spec-card-${spec.id}`">
+	<v-card tag="article" variant="outlined" class="spec-card" :aria-labelledby="titleId" :data-testid="`spec-card-${spec.id}`">
 		<v-card-title class="d-flex align-center flex-wrap ga-2 pb-1">
-			<span class="text-subtitle-1 font-weight-bold spec-card-title">{{ spec.title }}</span>
+			<component :is="`h${headingLevel}`" :id="titleId" class="text-subtitle-1 font-weight-bold spec-card-title">{{ spec.title }}</component>
 			<v-chip size="x-small" :color="burdenColor(spec.implementationBurden)" variant="tonal">
 				{{ spec.implementationBurden }} burden
 			</v-chip>
@@ -181,6 +192,7 @@ const burdenColor = (burden) => {
 									:key="link.url"
 									:href="link.url"
 									target="_blank"
+									rel="noopener noreferrer"
 									size="small"
 									variant="text"
 									class="mr-2"
@@ -193,6 +205,10 @@ const burdenColor = (burden) => {
 					</v-expansion-panel-text>
 				</v-expansion-panel>
 			</v-expansion-panels>
+			<div v-if="!compact && (explorerLink || downloadsLink)" class="spec-card-links">
+				<v-btn v-if="explorerLink" :to="explorerLink" size="small" variant="tonal" color="primary" prepend-icon="mdi-graph-outline" :aria-label="`Explore ${spec.title} in the Standards Explorer`" :data-testid="`spec-card-explore-${spec.id}`">Explore in the Standards Explorer</v-btn>
+				<v-btn v-if="downloadsLink" :to="downloadsLink" size="small" variant="text" color="primary" prepend-icon="mdi-download-box-outline" :aria-label="`Downloads for ${spec.title}`" :data-testid="`spec-card-downloads-${spec.id}`">Downloads</v-btn>
+			</div>
 		</v-card-text>
 	</v-card>
 </template>
@@ -201,7 +217,14 @@ const burdenColor = (burden) => {
 .spec-card :deep(.v-card-subtitle) {
 	white-space: normal;
 }
+.spec-card-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
 .spec-card-title {
+	margin: 0;
 	flex: 1;
 	min-width: 180px;
 	white-space: normal;

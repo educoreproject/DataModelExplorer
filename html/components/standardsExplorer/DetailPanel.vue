@@ -10,7 +10,7 @@
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, explorerLinkOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -120,12 +120,12 @@ const definitionText = computed(() => {
 </script>
 
 <template>
-	<aside v-if="shownNode" aria-label="Details" class="detail-panel" data-testid="detail-panel">
+	<aside v-if="shownNode" :aria-label="`Details: ${shownNode.displayName}`" class="detail-panel" data-testid="detail-panel">
 		<div class="detail-head">
 			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? 'Focus' : 'Selected' }}</span>
 		</div>
-		<h2 class="detail-name" data-testid="detail-name">{{ shownNode.displayName }}</h2>
+		<h2 class="detail-name" data-testid="detail-name" aria-live="polite">{{ shownNode.displayName }}</h2>
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
 
 		<div v-if="mappingList.length" class="detail-box" data-testid="detail-mapping">
@@ -162,22 +162,23 @@ const definitionText = computed(() => {
 
 		<StandardsExplorerVersionBadge v-if="shownNode.versionBadge" :version-badge="shownNode.versionBadge" class="detail-badge" />
 
-		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" @click="emit('drill', shownNode.stableId)">Open {{ shownNode.displayName }} ›</v-btn>
+		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" :to="explorerLinkOf([...store.pathStableIdList, shownNode.stableId])">Open {{ shownNode.displayName }} ›</v-btn>
 		<v-btn v-if="shownNode.kind === 'useCase'" color="primary" class="detail-open" data-testid="detail-open-use-case" :to="`/explore/use-cases/forged/${encodeURIComponent(shownNode.stableId)}`">Steps and citations ›</v-btn>
-		<p v-else-if="!isFocus" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
+		<!-- the end of the line only when nothing is beneath (a selected item with children has its Open above, and is not
+		     the end of the line); a focus with children is where the walk is -->
 		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
-		<p v-else class="detail-note">You are here. Click anything on this level for its details.</p>
+		<p v-else-if="isFocus" class="detail-note">You are here. Click anything on this level for its details.</p>
 
 		<section v-if="shownSpec" class="detail-catalog" aria-label="About this specification" data-testid="detail-spec">
 			<span class="detail-box-head">About this specification</span>
-			<StandardsExplorerSpecificationCard :spec="shownSpec" compact />
+			<StandardsExplorerSpecificationCard :spec="shownSpec" compact :heading-level="3" />
 		</section>
 		<section v-else-if="isFamilyCatalog" class="detail-catalog" aria-label="Specification catalog" data-testid="detail-spec-catalog">
 			<span class="detail-box-head">Specification catalog</span>
 			<p class="detail-note">Select a family for its catalog card: owner, governance, burden, access and implementation details.</p>
 			<template v-if="specNotInGraphList.length">
 				<p class="detail-note" data-testid="detail-spec-not-in-graph">In the catalog, not yet walkable in the graph:</p>
-				<StandardsExplorerSpecificationCard v-for="oneSpec in specNotInGraphList" :key="oneSpec.id" :spec="oneSpec" compact />
+				<StandardsExplorerSpecificationCard v-for="oneSpec in specNotInGraphList" :key="oneSpec.id" :spec="oneSpec" compact :heading-level="3" />
 			</template>
 		</section>
 

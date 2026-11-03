@@ -32,7 +32,7 @@ const activeTabKey = computed(() => {
 	<div class="standards-view" data-testid="standards-view">
 		<div class="standards-view-bar">
 			<h1 class="standards-view-title">Standards</h1>
-			<v-tabs :model-value="activeTabKey" color="primary" density="comfortable" show-arrows class="standards-view-tabs">
+			<v-tabs :model-value="activeTabKey" color="primary" density="comfortable" show-arrows class="standards-view-tabs" aria-label="Standards sections">
 				<v-tab
 					v-for="oneTab in STANDARDS_TAB_LIST"
 					:key="oneTab.tabKey"

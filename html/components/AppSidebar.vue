@@ -30,14 +30,16 @@ const isAdmin = computed(() =>
 		width="260"
 		elevation="1"
 		color="surface"
+		aria-label="Site"
 	>
-		<!-- Logo -->
-		<div class="sidebar-header" @click="router.push('/')" style="cursor: pointer;">
+		<!-- Logo: a real link home, so it can be followed and named, not a clickable div -->
+		<NuxtLink to="/" class="sidebar-header" aria-label="EDUcore home" data-testid="menu-logo">
 			<img src="/educore-logo.png" alt="EDUcore" class="sidebar-logo-img" />
-		</div>
+		</NuxtLink>
 
 		<!-- Home -->
-		<v-list density="compact" nav class="pt-1 pb-0">
+		<!-- each section is a named navigation landmark of links (Vuetify's default role=list wants listitem children) -->
+		<v-list density="compact" nav class="pt-1 pb-0" role="navigation" aria-label="Home">
 			<v-list-item
 				to="/"
 				prepend-icon="mdi-home-outline"
@@ -49,7 +51,7 @@ const isAdmin = computed(() =>
 		<v-divider class="my-1" />
 
 		<!-- Explore (public) -->
-		<v-list density="compact" nav>
+		<v-list density="compact" nav role="navigation" aria-label="Explore">
 			<v-list-subheader>Explore</v-list-subheader>
 			<v-list-item
 				to="/explore/use-cases"
@@ -78,7 +80,7 @@ const isAdmin = computed(() =>
 		<v-divider />
 
 		<!-- Tools (auth-gated) -->
-		<v-list v-if="LoginStore.validUser" density="compact" nav>
+		<v-list v-if="LoginStore.validUser" density="compact" nav role="navigation" aria-label="Tools">
 			<v-list-subheader>Tools</v-list-subheader>
 			<v-list-item
 				to="/uc/matrix"
@@ -95,7 +97,7 @@ const isAdmin = computed(() =>
 		<v-divider v-if="LoginStore.validUser" />
 
 		<!-- Account (auth-gated) -->
-		<v-list v-if="LoginStore.validUser" density="compact" nav>
+		<v-list v-if="LoginStore.validUser" density="compact" nav role="navigation" aria-label="Account">
 			<v-list-subheader>Account</v-list-subheader>
 			<v-list-item
 				to="/profile/edit"
@@ -117,7 +119,7 @@ const isAdmin = computed(() =>
 
 		<template #append>
 			<v-divider />
-			<v-list density="compact" nav>
+			<v-list density="compact" nav role="navigation" aria-label="Library and sign out">
 				<v-list-item
 					v-if="LoginStore.validUser"
 					to="/library"
@@ -128,6 +130,7 @@ const isAdmin = computed(() =>
 					v-if="LoginStore.validUser"
 					prepend-icon="mdi-logout"
 					title="Logout"
+					role="button"
 					@click="handleLogout"
 				/>
 			</v-list>
@@ -137,6 +140,7 @@ const isAdmin = computed(() =>
 
 <style scoped>
 .sidebar-header {
+	display: block;
 	padding: 20px 24px;
 	text-align: center;
 	background: var(--edu-surface, #fff);

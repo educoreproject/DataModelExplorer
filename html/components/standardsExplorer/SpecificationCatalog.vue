@@ -16,8 +16,8 @@ const categoryList = computed(() => Object.entries(specStore.specsByCategory).ma
 		<p class="text-body-1 text-medium-emphasis mb-6">
 			{{ specStore.specCount }} education data specifications with implementation guidance, equity considerations, and cross-spec relationships.
 		</p>
-		<section v-for="oneGroup in categoryList" :key="oneGroup.category" class="mb-8">
-			<h3 class="text-h6 font-weight-bold mb-3">{{ oneGroup.category }}</h3>
+		<section v-for="oneGroup in categoryList" :key="oneGroup.category" class="mb-8" :aria-labelledby="`spec-category-${oneGroup.category}`">
+			<h3 :id="`spec-category-${oneGroup.category}`" class="text-h6 font-weight-bold mb-3">{{ oneGroup.category }}</h3>
 			<StandardsExplorerSpecificationCard v-for="spec in oneGroup.specList" :key="spec.id" :spec="spec" class="mb-4" />
 		</section>
 	</div>

@@ -113,7 +113,7 @@ try {
 	await visitorPage.goto(`${baseUrl}/explore/standards`);
 	await visitorPage.waitForSelector('[data-testid="standards-signin-prompt"]', { timeout: 15000 }).catch(() => {});
 	check('signed out: the sign-in prompt is shown', (await visitorPage.locator('[data-testid="standards-signin-prompt"]').count()) === 1);
-	check('signed out: the specification catalog is shown', (await visitorPage.locator('[data-testid^="spec-card-"]').count()) > 0);
+	check('signed out: the specification catalog is shown', (await visitorPage.locator('article[data-testid^="spec-card-"]').count()) > 0);
 	check('signed out: the explorer\'s walk is not opened', (await visitorPage.locator('[data-testid="standards-explorer"]').count()) === 0);
 	await visitorContext.close();
 

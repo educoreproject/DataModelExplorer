@@ -184,10 +184,19 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // a language, a title and a description on every page, so a screen reader or an AI agent reading the page
+      // knows where it is; a page names itself with useHead({ title }) and the template adds the site
+      htmlAttrs: { lang: 'en' },
+      title: 'EDUcore',
       meta: [
         {
+          // zoom stays allowed (maximum-scale=1 and user-scalable=no blocked it, which WCAG 1.4.4 forbids)
           name: 'viewport',
-          content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no',
+          content: 'width=device-width, initial-scale=1.0',
+        },
+        {
+          name: 'description',
+          content: 'EDUcore: education data standards (CEDS, PESC, SIF, Ed-Fi, CTDL and more), their use cases, how their elements map to each other, and their downloads.',
         },
       ],
       link: [

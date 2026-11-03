@@ -7,6 +7,7 @@
 :root {
   --edu-blue:    #072A6C;
   --edu-teal:    #00B5B8;
+  --edu-teal-text: #00797C; /* the teal for small text on white: #00B5B8 is 2.5:1, this is 5.3:1 (WCAG AA) */
   --edu-orange:  #FFAB40;
   --edu-violet:  #5B3FD3;
   --edu-yellow:  #F4F38C;
@@ -141,7 +142,7 @@ h2, h3, h4, h5, h6,
   font-weight: 700 !important;
   letter-spacing: 0.12em !important;
   text-transform: uppercase !important;
-  color: var(--edu-teal) !important;
+  color: var(--edu-teal-text) !important;
 }
 
 /* ── Expansion panels ── */

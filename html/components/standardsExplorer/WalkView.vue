@@ -14,7 +14,7 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { explorerPathOf, pathStableIdListOf, pathTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { displayNameOf, explorerPathOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const route = useRoute();
 const router = useRouter();
@@ -46,7 +46,6 @@ const drillInto = (stableId) => {
 	goToPath([...store.pathStableIdList, stableId]);
 };
 
-const goToCrumb = (pathIndex) => goToPath(store.pathStableIdList.slice(0, pathIndex + 1));
 
 const shareUrlText = computed(() => (typeof window === 'undefined' ? route.fullPath : `${window.location.origin}${route.fullPath}`));
 
@@ -61,6 +60,21 @@ const copyShareUrl = async () => {
 const showLoading = computed(() => store.neighbourhoodLoading);
 const showError = computed(() => !store.neighbourhoodLoading && !store.neighbourhood && Boolean(store.statusMsg));
 const showLevel = computed(() => !store.neighbourhoodLoading && Boolean(store.neighbourhood));
+
+// ================================================================================
+// WHERE THE WALK IS, IN WORDS — the page title, and the level's name for the region holding it, so a screen reader or
+// an AI agent reading the page knows which standard and which level it is on without seeing the diagram
+
+const focusNameText = computed(() => (store.focusNode && store.focusNode.kind !== 'familyCatalog' ? displayNameOf(store.focusNode) : ''));
+const levelLabelText = computed(() => {
+	if (!store.focusNode) return 'Explorer';
+	const kindText = store.focusNode.kind === 'familyCatalog' ? 'every standards family' : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
+	return `Explorer: ${store.levelRowList.length} items in ${kindText}, shown as a ${store.effectiveViewMode}`;
+});
+useHead(() => ({
+	title: focusNameText.value ? `${focusNameText.value} · Standards Explorer` : 'Standards Explorer',
+	meta: [{ name: 'description', content: 'Walk the education data standards in the EDUcore graph: each family, its classes and properties, the hub elements they map to, and every other standard that maps there.' }],
+}));
 </script>
 
 <template>
@@ -77,18 +91,17 @@ const showLevel = computed(() => !store.neighbourhoodLoading && Boolean(store.ne
 			</div>
 		</div>
 
-		<StandardsExplorerBreadcrumb :crumb-list="store.crumbList" @go-to-crumb="goToCrumb" />
+		<StandardsExplorerBreadcrumb :crumb-list="store.crumbList" />
 
 		<StandardsExplorerCrossingBanner
 			v-if="store.crossing && store.crossing.isCrossed"
 			:crossing="store.crossing"
-			@go-home="goToCrumb(store.crossing.homeCrumb.pathIndex)"
 		/>
 
 		<StandardsExplorerToolbar />
 
 		<div class="explorer-body">
-			<section class="explorer-main" aria-label="Explorer">
+			<section class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
 				<StandardsExplorerStateNotice v-else-if="showError" state-name="error" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
@@ -105,7 +118,10 @@ const showLevel = computed(() => !store.neighbourhoodLoading && Boolean(store.ne
 							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">Show diagram</v-btn>
 						</div>
 					</v-alert>
-					<StandardsExplorerDiagram v-if="store.effectiveViewMode === 'diagram'" @drill="drillInto" />
+					<template v-if="store.effectiveViewMode === 'diagram'">
+						<StandardsExplorerDiagram @drill="drillInto" />
+						<StandardsExplorerLevelItemList />
+					</template>
 					<StandardsExplorerTable v-else @drill="drillInto" />
 				</template>
 				<StandardsExplorerLegend v-if="store.legendVisible" />
