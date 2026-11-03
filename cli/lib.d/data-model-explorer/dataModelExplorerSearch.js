@@ -1078,7 +1078,7 @@ const shapeHubTupleSummary = (hubTupleResult) => {
 // verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hubs are read from
 // :HubDefinition (it was the literal 'CEDS'); ⟪ctdlHub P7⟫ every hub standard is excluded, and each row names its value
 // card's hub (a cross-standard equivalent is another standard's value on the SAME card, so never across hubs).
-const compareCodesets = (session, name, callback) => {
+const compareCodesets = (session, name, reportRowStableIdList, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('compareCodesets', 'emptyName', emptyNameRefusal));
@@ -1124,9 +1124,20 @@ const compareCodesets = (session, name, callback) => {
 			WITH collect({ sourceStandard: os._source, optionSetName: os.name, sourceValue: v.name, matchType: type(m),
 			               confidence: m.mappingConfidence, mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind,
 			               mappingSource: m.mappingSource, hubName: hub.hubName, hubValue: cv.name, hubValueKey: hub.canonicalKey,
-			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList
-			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount
-		`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList), rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, mergeArgs(args, next, 'valueResult'));
+			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList,
+			     collect([v.stableId, hub.stableId, m.assertionId]) AS identityRowList
+			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount, identityRowList[..$rowCap] AS valueIdentityRowList
+		`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList), rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, (valueError, valueResult) => {
+			if (valueError) {
+				next(valueError, args);
+				return;
+			}
+			// ⟪standardsQueryService⟫ each row's [option value, card, assertion] for the core; the verb's answer does not carry them
+			if (reportRowStableIdList) {
+				reportRowStableIdList(valueResult.records[0].get('valueIdentityRowList'));
+			}
+			next('', { ...args, valueResult });
+		});
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
@@ -1219,14 +1230,18 @@ const unmappedFields = (session, params, callback) => {
 				  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 				WITH f ORDER BY f._source, f.name
 				WITH collect({ standard: f._source, fieldName: f.name, path: f.path, description: f.description,
-				               isHubStandard: f._source IN $hubSourceList }) AS rowList
-				RETURN rowList[$rowOffset..($rowOffset + $limit)] AS unmappedRowList, size(rowList) AS totalRowCount
+				               isHubStandard: f._source IN $hubSourceList }) AS rowList, collect(f.stableId) AS stableIdList
+				RETURN rowList[$rowOffset..($rowOffset + $limit)] AS unmappedRowList, size(rowList) AS totalRowCount, stableIdList[$rowOffset..($rowOffset + $limit)] AS unmappedStableIdList
 			`, { limit: neo4j.int(limit), rowOffset: neo4j.int(rowOffsetOfPage(params, limit)), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
 				if (err) {
 					callback(err);
 					return;
 				}
 				const unmappedRecord = result.records[0];
+				// ⟪standardsQueryService⟫ a row's stableId is not in the verb's answer, whose fields are fixed; the core takes it here rather than reading the graph again per row
+				if (params.reportRowStableIdList) {
+					params.reportRowStableIdList(unmappedRecord.get('unmappedStableIdList'));
+				}
 				callback('', {
 					...listEnvelopeFor('unmappedFields', unmappedRecord.get('unmappedRowList').map(serializeValue), toNumber(unmappedRecord.get('totalRowCount'))),
 					...legacyHubStandardFieldOf(hubInventory.hubList),
@@ -2022,7 +2037,7 @@ const QUERY_HANDLER_BY_QUERY_TYPE = {
 	search: (session, params, config, callback) => searchAllStandards(session, params.query, config, params, callback),
 	graphRetriever: (session, params, config, callback) => graphRetriever(session, params.query, config, params, callback),
 	findMappings: (session, params, config, callback) => findMappings(session, params.name, params.reportMatchedStableIdList, callback),
-	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, callback),
+	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, params.reportRowStableIdList, callback),
 	unmappedFields: (session, params, config, callback) => unmappedFields(session, params, callback),
 	stats: (session, params, config, callback) => getStats(session, callback),
 	listStandards: (session, params, config, callback) => getListStandards(session, callback),

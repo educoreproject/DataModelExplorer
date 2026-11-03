@@ -263,6 +263,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				...invocation.params,
 				...(registryRow.pageSize ? { pageNumber } : {}),
 				...(registryRow.reportsMatchedStableIds ? { reportMatchedStableIdList: (matchedStableIdList) => { verbFacts.matchedStableIdList = matchedStableIdList; } } : {}),
+				...(registryRow.reportsRowStableIds ? { reportRowStableIdList: (rowStableIdList) => { verbFacts.rowStableIdList = rowStableIdList; } } : {}),
 			};
 			goldenHandle.withReadSession((session, sessionDone) => {
 				const queryHandler = dmeSearchModule.QUERY_HANDLER_BY_QUERY_TYPE[invocation.queryType];
