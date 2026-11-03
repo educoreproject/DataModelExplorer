@@ -2031,18 +2031,8 @@ const search = (queryType, params, callback) => {
 	});
 };
 
-// ⟪standardsQueryService P1⟫ THE SESSION SEAM. The same handlers, on a session and a config the caller holds, so the API runs a verb in
-// process on its golden handle: no docker inspect, no new driver. withReadSession(consumer(session, sessionDone), callback(errText, result))
-// owns the session's opening and closing; the CLI path above is unchanged. A verb is always READ here: WRITE_CAPABLE_QUERY_TYPE_LIST is empty.
-const searchOnSessionSeam = ({ queryType, params, config, withReadSession }, callback) => {
-	const queryHandler = QUERY_HANDLER_BY_QUERY_TYPE[queryType];
-	if (!queryHandler) {
-		callback(`${moduleName}: unknown query type '${queryType}'`);
-		return;
-	}
-	withReadSession((session, sessionDone) => queryHandler(session, params, config, sessionDone), callback);
-};
-
+// ⟪standardsQueryService P1⟫ THE SESSION SEAM is QUERY_HANDLER_BY_QUERY_TYPE, exported below: a handler takes any session and config, so the API runs a verb in process on its golden
+// handle's READ session with no docker inspect and no new driver. Paging (pageNumber), the matched nodes below and loadModuleConfig serve it too; the CLI path above is unchanged.
 // The nodes findMappings matches for an input, by the verb's own predicate: the core needs their identities, which the verb's answer only counts.
 const FIND_MAPPINGS_MATCHED_NODE_CAP = 200;
 const findMappingsMatchedNodeList = (session, nameOrId, callback) => {
@@ -2163,4 +2153,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search, searchOnSessionSeam, findMappingsMatchedNodeList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
+module.exports = { search, findMappingsMatchedNodeList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };

@@ -244,7 +244,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		runNext(0);
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, principal }, done(errText, { answer })).
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, principal }, done(errText, { answer })).
 	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
 		verb: ({ registryRow, input, pageNumber, namedUriList }, done) => {
@@ -270,8 +270,8 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				});
 			}, done);
 		},
-		pair: ({ registryRow, input, pageNumber, namedUriList }, done) => {
-			goldenHandle.withReadSession((session, sessionDone) => runPair({ session, facts: serviceFacts, input, pageNumber, pageSize: registryRow.pageSize, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList }, (pairError, answer) => {
+		pair: ({ registryRow, input, pageNumber, namedUriList, namedSubjectList }, done) => {
+			goldenHandle.withReadSession((session, sessionDone) => runPair({ session, facts: serviceFacts, input, pageNumber, pageSize: registryRow.pageSize, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, (pairError, answer) => {
 				if (pairError) {
 					sessionDone(pairError);
 					return;
@@ -299,13 +299,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		return refusedAnswerFor({ operationName, refusal: refusalOf(operationName, 'queryFailed', `the query failed (${errorRefId})`) });
 	};
 
-	const subjectListFor = ({ registryRow, input }) => {
-		const namedStandardList = registryRow.usageSubjectInputNameList.filter((inputName) => input[inputName] !== undefined).map((inputName) => input[inputName]);
-		return [
-			...namedStandardList.map((subjectText) => ({ subjectKind: 'standard', subjectText })),
-			...(registryRow.countsPairSubject && namedStandardList.length === 2 ? [{ subjectKind: 'pair', subjectText: namedStandardList.slice().sort().join(' | ') }] : []),
-		];
-	};
+	const subjectListFor = ({ registryRow, input }) => registryRow.usageSubjectInputNameList.filter((inputName) => input[inputName] !== undefined).map((inputName) => ({ subjectKind: 'standard', subjectText: input[inputName] }));
 
 	const runOperation = ({ operationName, input, principal }, callback) => {
 		const registryRow = registryRowByOperationName[operationName];
@@ -335,9 +329,10 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		}
 		inFlightCount += 1;
 		const namedUriList = [];
+		const namedSubjectList = [];
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
 		const { page: unusedPage, ...handlerInput } = operationInput;
-		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, principal }, (handlerError, handlerResult) => {
+		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
 			if (handlerError) {
 				callback('', errorAnswerFor({ operationName, errorText: String(handlerError) }));
@@ -349,7 +344,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				return;
 			}
 			if (registryRow.isCounted && principal.kind !== 'smithJob') {
-				usageCounter.countAnswer({ operationName, subjectList: subjectListFor({ registryRow, input: operationInput }), uriList: namedUriList });
+				usageCounter.countAnswer({ operationName, subjectList: [...subjectListFor({ registryRow, input: operationInput }), ...namedSubjectList], uriList: namedUriList });
 			}
 			callback('', {
 				httpStatus: 200,

@@ -556,7 +556,6 @@
 				"standard",
 				"otherStandard"
 			],
-			"countsPairSubject": true,
 			"routeName": "pair",
 			"doorList": [
 				"api",

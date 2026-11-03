@@ -4,7 +4,8 @@
 // answer, HTTP 200, never a refusal and never an empty list. No element-to-element judgment exists in any manifest, every judged edge targets a card, so nothing here says
 // 'judged': a row is a standard's own published statement (declaredCorrespondence) or a computed suggestion through one shared card with both hops shown (computedViaHub).
 //
-//   runPair({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList }, callback('', answer | refusal))
+//   runPair({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, callback('', answer | refusal))
+//   namedSubjectList receives one counter per pair of standards asked about (A9): the evidence the peer bridge job reads first. Never the element text a caller typed.
 
 const path = require('path');
 const neo4j = require('neo4j-driver');
@@ -110,7 +111,7 @@ const standardSideOf = ({ session, sourceList, hubList, facts, runCypher, storeR
 	});
 };
 
-const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList }, callback) => {
+const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, callback) => {
 	const { element, standard, otherStandard } = input;
 	const formName = element !== undefined && otherStandard === undefined ? 'element' : 'standards';
 	if (standard === undefined || (element !== undefined && otherStandard !== undefined) || (element === undefined && otherStandard === undefined)) {
@@ -195,6 +196,9 @@ const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, store
 			callback('', args.refusal);
 			return;
 		}
+		const firstSideNameList = args.matchedNodeList ? [...new Set(args.matchedNodeList.map((oneNode) => oneNode.standardName))] : args.firstSourceList;
+		const secondSideNameList = args.secondSourceList || args.firstSourceList;
+		firstSideNameList.forEach((firstName) => secondSideNameList.forEach((secondName) => namedSubjectList.push({ subjectKind: 'pair', subjectText: [firstName, secondName].sort().join(' | ') })));
 		const rowList = args.pageRowList.map((row) => answerRowOf({ row, facts, namedUriList }));
 		const sharedFields = { rowList, totalRowCount: args.totalRowCount, returnedRowCount: rowList.length, truncatedRowCount: args.totalRowCount - rowList.length, rowUnit: ROW_UNIT_TEXT, pageNumber, pageSize };
 		if (args.totalRowCount === 0) {
