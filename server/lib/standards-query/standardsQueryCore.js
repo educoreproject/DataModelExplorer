@@ -66,6 +66,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 	let serviceFacts = null;
 	let unavailableReason = setupRefusalText || 'the URI promise gate has not yet passed for this graph';
 	let inFlightCount = 0;
+	const inFlightCountByOperationName = {};
 	// standards and graph are fully determined by the graph the gate proved and take seconds to read: one read per connection, however many ask at once
 	let cachedAnswerByOperationName = {};
 	let waiterListByOperationName = {};
@@ -257,7 +258,12 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				done('', { answer: invocation.refusal });
 				return;
 			}
-			const verbParams = { ...invocation.params, ...(registryRow.pageSize ? { pageNumber } : {}) };
+			const verbFacts = {};
+			const verbParams = {
+				...invocation.params,
+				...(registryRow.pageSize ? { pageNumber } : {}),
+				...(registryRow.reportsMatchedStableIds ? { reportMatchedStableIdList: (matchedStableIdList) => { verbFacts.matchedStableIdList = matchedStableIdList; } } : {}),
+			};
 			goldenHandle.withReadSession((session, sessionDone) => {
 				const queryHandler = dmeSearchModule.QUERY_HANDLER_BY_QUERY_TYPE[invocation.queryType];
 				queryHandler(session, verbParams, verbConfig, (verbError, answer) => {
@@ -269,7 +275,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 						sessionDone('', { answer });
 						return;
 					}
-					const stepContext = { answer, session, facts: serviceFacts, registryRow, verbParams, pageNumber, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList };
+					const stepContext = { answer, session, facts: serviceFacts, registryRow, verbFacts, pageNumber, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList };
 					runStepList({ registryRow, stepContext }, (stepError) => (stepError ? sessionDone(stepError) : sessionDone('', { answer })));
 				});
 			}, done);
@@ -338,11 +344,18 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			waiterListByOperationName[operationName].push(callback);
 			return;
 		}
+		// a slow operation has its own cap, so one kind of question cannot hold every slot of the whole instance
+		const operationInFlightCount = inFlightCountByOperationName[operationName] || 0;
+		if (registryRow.inFlightMaxForOperation && operationInFlightCount >= registryRow.inFlightMaxForOperation) {
+			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${operationInFlightCount} ${operationName} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
+			return;
+		}
 		if (inFlightCount >= inputCapByName.inFlightMax) {
 			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${inFlightCount} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
 			return;
 		}
 		inFlightCount += 1;
+		inFlightCountByOperationName[operationName] = operationInFlightCount + 1;
 		const cacheInUseAtStart = cachedAnswerByOperationName;
 		if (registryRow.cachesAnswerPerManifest) {
 			waiterListByOperationName[operationName] = [];
@@ -362,6 +375,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		const { page: unusedPage, ...handlerInput } = operationInput;
 		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
+			inFlightCountByOperationName[operationName] -= 1;
 			if (handlerError) {
 				finishOperation(errorAnswerFor({ operationName, errorText: String(handlerError) }));
 				return;
