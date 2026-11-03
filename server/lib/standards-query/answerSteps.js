@@ -254,7 +254,16 @@ const STEP_BY_NAME = Object.freeze({
 					done(statusError);
 					return;
 				}
+				// the verb's totals count every matched node, so a mapping past the cap is still 'mapped'; an abstention past it cannot be told from no offer, and the answer says so
+				Object.keys(mappingStatusByHub).forEach((hubName) => {
+					if ((answer.totalRowCountByHub || {})[hubName] > 0) {
+						mappingStatusByHub[hubName] = 'mapped';
+					}
+				});
 				answer.mappingStatusByHub = mappingStatusByHub;
+				if (answer.matchedNodeCount > matchedNodeList.length) {
+					answer.mappingStatusNote = `this input matched ${answer.matchedNodeCount} nodes; judgedAbstained and neverOffered were read over the first ${matchedNodeList.length}. Ask by stableId for one element's status`;
+				}
 				done('');
 			});
 		});

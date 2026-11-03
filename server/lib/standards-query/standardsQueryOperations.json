@@ -447,6 +447,10 @@
 					"fieldName": "matchedElementList"
 				},
 				{
+					"pathText": "",
+					"fieldName": "mappingStatusNote"
+				},
+				{
 					"pathText": "mappingRowList[]",
 					"fieldName": "uri"
 				},
