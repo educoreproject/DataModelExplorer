@@ -30,7 +30,7 @@ const moduleFunction = function ({ unused }) {
 	// refuses writes even if a write keyword slips past a validator upstream);
 	// queryTimeoutMs puts a wall-clock timeout on each auto-commit transaction so
 	// a runaway query dies at the server. The golden DME connection sets both
-	// (data-model.js); the multi-tenant user-graph clones write through runQuery
+	// (golden-graph-handle.js); the multi-tenant user-graph clones write through runQuery
 	// (identity marker MERGE, embedding SET, write-executor) and stay unhardened.
 	// runTransaction (below) is the explicit WRITE path, and a connection has it ONLY
 	// when it was opened with writeCapable: true BY NAME (W-E-10, X2, 2026-10-06).
@@ -139,7 +139,7 @@ const moduleFunction = function ({ unused }) {
 	//
 	// W-E-10 (X2, campaign P0, 2026-10-06): runTransaction exists only on a connection opened with
 	// writeCapable: true. Any other connection gets a runTransaction that refuses by name BEFORE the
-	// caller's function runs. The golden DME handle (data-model.js) never asks, so golden has no write
+	// caller's function runs. The golden DME handle (golden-graph-handle.js) never asks, so golden has no write
 	// path; until 2026-10-06 its runTransaction opened a default (WRITE) session beside the READ seam,
 	// and on a scratch graph a golden-shaped handle committed a CREATE through it (measured).
 
