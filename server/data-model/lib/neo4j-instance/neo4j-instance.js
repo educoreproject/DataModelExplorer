@@ -246,6 +246,19 @@ const moduleFunction = function ({ unused }) {
 			queryTimeoutMs: parseInt(queryTimeoutMs, 10) || undefined,
 		};
 		const runQuery = runQueryActual(driver, seamOptions);
+		// A READ session for code written against the driver's session.run (the DME verbs, standardsQueryService P1). Only a readOnly connection
+		// has one, and queryTimeoutMs is its wall: a caller's shorter timeout stands, a longer one or none takes the connection's.
+		const openReadSession = () => {
+			const driverSession = driver.session({ defaultAccessMode: neo4j.session.READ });
+			const timeoutFor = (transactionConfig) => Math.min(transactionConfig && transactionConfig.timeout ? transactionConfig.timeout : Infinity, seamOptions.queryTimeoutMs || Infinity);
+			return {
+				run: (cypher, params, transactionConfig) => {
+					const timeoutMs = timeoutFor(transactionConfig);
+					return driverSession.run(cypher, params || {}, timeoutMs === Infinity ? {} : { timeout: timeoutMs });
+				},
+				close: () => driverSession.close(),
+			};
+		};
 		const runTransaction = writeCapable === true ? runTransactionActual(driver) : refusedRunTransaction;
 		const close = closeActual(driver);
 
@@ -266,7 +279,7 @@ const moduleFunction = function ({ unused }) {
 			if (!isVerificationQuiet) {
 				xLog.status(`neo4j-instance: connected to ${neo4jBoltUri}`);
 			}
-			callback('', { runQuery, runTransaction, close, verifyConnection });
+			callback('', { runQuery, runTransaction, close, verifyConnection, ...(seamOptions.readOnly ? { openReadSession } : {}) });
 		};
 
 		(isVerificationQuiet ? runQuietly : runQuery)('RETURN 1 AS ping', {}, (err, records) => {

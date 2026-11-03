@@ -94,9 +94,9 @@ const moduleName = path.basename(__filename).replace(/.js$/, '');
 // CONFIG
 // =====================================================================
 
-const loadConfig = (callback) => {
+// the ini section and the query embedder, with no graph connection: the API holds its own (the golden handle) and asks only this
+const loadModuleConfig = (callback) => {
 	const configFileProcessor = require('qtools-config-file-processor');
-	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
 
 	const findProjectRoot = ({ rootFolderName = 'system', closest = true } = {}) =>
 		__dirname.replace(new RegExp(`^(.*${closest ? '' : '?'}\\/${rootFolderName}).*$`), "$1");
@@ -112,23 +112,6 @@ const loadConfig = (callback) => {
 		return;
 	}
 	const moduleConfig = config[moduleName];
-
-	// Single source of truth: derive the bolt connection {boltUri,user,password} from the golden
-	// container NAME (goldenContainerName) instead of reading redundant neo4j* fields. The
-	// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
-	const { goldenContainerName } = moduleConfig;
-	if (!goldenContainerName) {
-		callback(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
-		return;
-	}
-	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
-	if (error) {
-		callback(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
-		return;
-	}
-	moduleConfig.neo4jBoltUri = boltUri;
-	moduleConfig.neo4jUser = user;
-	moduleConfig.neo4jPassword = password;
 
 	// Create provider-agnostic embedder from config
 	// An unresolved ini token ('<!voyageApiKey!>') means the Voyage API key is absent — no embedder
@@ -146,6 +129,33 @@ const loadConfig = (callback) => {
 	}
 
 	callback('', moduleConfig);
+};
+
+const loadConfig = (callback) => {
+	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
+	loadModuleConfig((moduleConfigError, moduleConfig) => {
+		if (moduleConfigError) {
+			callback(moduleConfigError);
+			return;
+		}
+		// Single source of truth: derive the bolt connection {boltUri,user,password} from the golden
+		// container NAME (goldenContainerName) instead of reading redundant neo4j* fields. The
+		// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
+		const { goldenContainerName } = moduleConfig;
+		if (!goldenContainerName) {
+			callback(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
+			return;
+		}
+		const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
+		if (error) {
+			callback(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
+			return;
+		}
+		moduleConfig.neo4jBoltUri = boltUri;
+		moduleConfig.neo4jUser = user;
+		moduleConfig.neo4jPassword = password;
+		callback('', moduleConfig);
+	});
 };
 
 // =====================================================================
@@ -217,6 +227,11 @@ const serializeValue = (val) => {
 	}
 	return val;
 };
+
+// ⟪standardsQueryService P1⟫ the rows of one page. params.pageNumber is never a CLI flag: only the standards query core sets it, and
+// a verb without it answers its first page, which is the row list the CLI has always answered.
+const rowOffsetOfPage = (params, pageSize) => ((params.pageNumber === undefined ? 1 : params.pageNumber) - 1) * pageSize;
+const pageRowsOf = (rowList, params, pageSize) => rowList.slice(rowOffsetOfPage(params, pageSize), rowOffsetOfPage(params, pageSize) + pageSize);
 
 // L7 output bounds — a popular hub or a graph-wide rawCypher would otherwise explode the
 // JSON output (the known output-cap failure mode for LLM consumers).
@@ -299,7 +314,7 @@ const searchAllStandards = (session, query, config, params, callback) => {
 		}
 		const { fusedRowList, legHitCountByName } = args.searchResult;
 		const { sourceList } = args.standardFilter;
-		const resultList = fusedRowList.slice(0, SEARCH_PAGE_SIZE).map((oneRow) => ({
+		const resultList = pageRowsOf(fusedRowList, params, SEARCH_PAGE_SIZE).map((oneRow) => ({
 			...serializeValue(oneRow),
 			labels: oneRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
 		}));
@@ -1161,8 +1176,8 @@ const unmappedFields = (session, params, callback) => {
 				WITH f ORDER BY f._source, f.name
 				WITH collect({ standard: f._source, fieldName: f.name, path: f.path, description: f.description,
 				               isHubStandard: f._source IN $hubSourceList }) AS rowList
-				RETURN rowList[..$limit] AS unmappedRowList, size(rowList) AS totalRowCount
-			`, { limit: neo4j.int(limit), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
+				RETURN rowList[$rowOffset..($rowOffset + $limit)] AS unmappedRowList, size(rowList) AS totalRowCount
+			`, { limit: neo4j.int(limit), rowOffset: neo4j.int(rowOffsetOfPage(params, limit)), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
 				if (err) {
 					callback(err);
 					return;
@@ -1762,7 +1777,7 @@ const grep = (session, params, callback) => {
 			next('', args);
 			return;
 		}
-		const stableIdList = args.matchOutcome.matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => oneRow.stableId);
+		const stableIdList = pageRowsOf(args.matchOutcome.matchedRowList, params, GREP_PAGE_SIZE).map((oneRow) => oneRow.stableId);
 		runCypherQuery(session, GREP_PAGE_DETAIL_CYPHER, { stableIdList }, (detailError, detailResult) => {
 			if (detailError) {
 				next(`grep reading the page's nodes failed: ${detailError}`, args);
@@ -1783,7 +1798,7 @@ const grep = (session, params, callback) => {
 			return;
 		}
 		const { scannedNodeCount, matchedRowList } = args.matchOutcome;
-		const resultList = matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => {
+		const resultList = pageRowsOf(matchedRowList, params, GREP_PAGE_SIZE).map((oneRow) => {
 			const detailRow = args.detailRowByStableId[oneRow.stableId];
 			return {
 				standard: oneRow.standard,
@@ -2016,6 +2031,33 @@ const search = (queryType, params, callback) => {
 	});
 };
 
+// ⟪standardsQueryService P1⟫ THE SESSION SEAM is QUERY_HANDLER_BY_QUERY_TYPE, exported below: a handler takes any session and config, so the API runs a verb in process on its golden
+// handle's READ session with no docker inspect and no new driver. Paging (pageNumber), the matched nodes below and loadModuleConfig serve it too; the CLI path above is unchanged.
+// The nodes findMappings matches for an input, by the verb's own predicate: the core needs their identities, which the verb's answer only counts.
+const FIND_MAPPINGS_MATCHED_NODE_CAP = 200;
+const findMappingsMatchedNodeList = (session, nameOrId, callback) => {
+	runCypherQuery(session, NATIVE_IDENTIFIER_DECLARATION_CYPHER, {}, (declarationError, declarationResult) => {
+		if (declarationError) {
+			callback(declarationError);
+			return;
+		}
+		const verdict = nativeIdentifierDeclarationVerdictFor(declarationResult.records.map((oneRecord) => ({ sourceKey: oneRecord.get('sourceKey'), nativeIdentifierPropertyName: oneRecord.get('nativeIdentifierPropertyName') })));
+		if (verdict.refusalName) {
+			callback(verdict.reason);
+			return;
+		}
+		runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', findMappingsIdentifierFieldListFor(verdict.declarationList))}
+			RETURN n.stableId AS stableId, n._source AS standardName, n.name AS elementName, n.role AS role, 'HubReference' IN labels(n) AS isHubCard ORDER BY stableId LIMIT $nodeCap`,
+			{ name: nameOrId, nodeCap: neo4j.int(FIND_MAPPINGS_MATCHED_NODE_CAP) }, (nodeError, nodeResult) => {
+				if (nodeError) {
+					callback(nodeError);
+					return;
+				}
+				callback('', nodeResult.records.map((oneRecord) => oneRecord.toObject()));
+			});
+	});
+};
+
 // =====================================================================
 // CLI ENTRY POINT
 // =====================================================================
@@ -2111,4 +2153,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
+module.exports = { search, findMappingsMatchedNodeList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
