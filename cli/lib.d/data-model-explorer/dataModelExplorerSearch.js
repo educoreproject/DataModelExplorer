@@ -535,9 +535,18 @@ const scanForMatchedNodes = (session, nameOrId, identifierFieldList, callback) =
 			});
 		});
 };
-const resolveMatchedNodes = (session, nameOrId, identifierFieldList, callback) => {
-	if (!nameOrId.includes(EXACT_STABLE_ID_MARK)) {
+// admitScan, when given (the standards query core), is asked before a scan and may refuse it: an exact element never scans, so it never counts against the core's cap on scans.
+const SCAN_NOT_ADMITTED_TEXT = 'scanNotAdmitted';
+const resolveMatchedNodes = (session, nameOrId, identifierFieldList, admitScan, callback) => {
+	const scanIfAdmitted = () => {
+		if (admitScan && !admitScan()) {
+			callback(SCAN_NOT_ADMITTED_TEXT);
+			return;
+		}
 		scanForMatchedNodes(session, nameOrId, identifierFieldList, callback);
+	};
+	if (!nameOrId.includes(EXACT_STABLE_ID_MARK)) {
+		scanIfAdmitted();
 		return;
 	}
 	runCypherQuery(session, `MATCH (n:ForgedNode {stableId: $name}) WHERE ${notLayerNodeText('n')} AND ${notUseCaseNodeText('n')} RETURN n.stableId AS stableId`, { name: nameOrId }, (exactError, exactResult) => {
@@ -546,14 +555,14 @@ const resolveMatchedNodes = (session, nameOrId, identifierFieldList, callback) =
 			return;
 		}
 		if (exactResult.records.length === 0) {
-			scanForMatchedNodes(session, nameOrId, identifierFieldList, callback);
+			scanIfAdmitted();
 			return;
 		}
 		callback('', { matchedNodeCount: 1, matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true });
 	});
 };
 
-const findMappings = (session, nameOrId, reportMatchedStableIdList, callback) => {
+const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('findMappings', 'emptyName', emptyNameRefusal));
@@ -575,7 +584,7 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, callback) =>
 		}
 		next('', { ...args, identifierFieldList: findMappingsIdentifierFieldListFor(verdict.declarationList) });
 	}));
-	taskList.push((args, next) => resolveMatchedNodes(session, nameOrId, args.identifierFieldList, (resolveError, matched) => {
+	taskList.push((args, next) => resolveMatchedNodes(session, nameOrId, args.identifierFieldList, admitScan, (resolveError, matched) => {
 		if (resolveError) {
 			next(resolveError, args);
 			return;
@@ -2036,7 +2045,7 @@ const calculate = (params, callback) => {
 const QUERY_HANDLER_BY_QUERY_TYPE = {
 	search: (session, params, config, callback) => searchAllStandards(session, params.query, config, params, callback),
 	graphRetriever: (session, params, config, callback) => graphRetriever(session, params.query, config, params, callback),
-	findMappings: (session, params, config, callback) => findMappings(session, params.name, params.reportMatchedStableIdList, callback),
+	findMappings: (session, params, config, callback) => findMappings(session, params.name, params.reportMatchedStableIdList, params.admitScan, callback),
 	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, params.reportRowStableIdList, callback),
 	unmappedFields: (session, params, config, callback) => unmappedFields(session, params, callback),
 	stats: (session, params, config, callback) => getStats(session, callback),
@@ -2101,7 +2110,7 @@ const findMappingsMatchedNodeDetailList = (session, matchedStableIdList, callbac
 };
 
 // the same, for a caller that has not run the verb (the pair operation): one resolve, then the details
-const findMappingsMatchedNodeList = (session, nameOrId, callback) => {
+const findMappingsMatchedNodeList = (session, nameOrId, admitScan, callback) => {
 	runCypherQuery(session, NATIVE_IDENTIFIER_DECLARATION_CYPHER, {}, (declarationError, declarationResult) => {
 		if (declarationError) {
 			callback(declarationError);
@@ -2112,7 +2121,7 @@ const findMappingsMatchedNodeList = (session, nameOrId, callback) => {
 			callback(verdict.reason);
 			return;
 		}
-		resolveMatchedNodes(session, nameOrId, findMappingsIdentifierFieldListFor(verdict.declarationList), (resolveError, matched) => (resolveError ? callback(resolveError) : findMappingsMatchedNodeDetailList(session, matched.matchedStableIdList, callback)));
+		resolveMatchedNodes(session, nameOrId, findMappingsIdentifierFieldListFor(verdict.declarationList), admitScan, (resolveError, matched) => (resolveError ? callback(resolveError) : findMappingsMatchedNodeDetailList(session, matched.matchedStableIdList, callback)));
 	});
 };
 
@@ -2219,4 +2228,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search, findMappingsMatchedNodeList, findMappingsMatchedNodeDetailList, findMappingsMappedHubNameList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
+module.exports = { search, SCAN_NOT_ADMITTED_TEXT, findMappingsMatchedNodeList, findMappingsMatchedNodeDetailList, findMappingsMappedHubNameList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };

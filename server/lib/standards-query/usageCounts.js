@@ -5,7 +5,11 @@
 // URI the core itself minted, so nothing a caller typed reaches this table unchecked. Counting never holds up or fails an answer: counts wait in memory and are
 // written together every flush; a failed write is logged and those counts are lost. Read back only by GET usage (admin, super).
 //
-//   createUsageCounter({ sqlDb, xLog, flushMilliseconds, nowDate }) → { countAnswer({ operationName, subjectList, uriList }), readCounts(callback), flushNow(callback) }
+// THE BOUND (a public route must not grow a table without end): per-URI rows are the only unbounded kind, up to a row per URI per operation per day. They are kept usageUriRetentionDays, then
+// swept, and never exceed usageUriRowCap: at the cap, URI counts stop getting rows of their own and are added to one 'uriRollup' row per operation and day, so the total is kept and only the detail is lost.
+// Operation, standard and pair counters are few and are kept: the pair counts are the evidence the peer bridge job reads first.
+//
+//   createUsageCounter({ sqlDb, xLog, flushMilliseconds, nowDate, uriRowCap, uriRetentionDays }) → { countAnswer({ operationName, subjectList, uriList }), readCounts(callback), flushNow(callback), stop() }
 
 const crypto = require('crypto');
 const sqlString = require('sqlstring-sqlite');
@@ -14,7 +18,12 @@ const USAGE_COLUMN_NAME_LIST = Object.freeze(['operationName', 'subjectKind', 's
 const QUIET_STATEMENT_OPTIONS = Object.freeze({ suppressStatementLog: true, noTableNameOk: true });
 const READ_ROW_CAP = 5000;
 
-const createUsageCounter = ({ sqlDb, xLog, flushMilliseconds, nowDate }) => {
+const URI_SUBJECT_KIND = 'uri';
+const URI_ROLLUP_SUBJECT_KIND = 'uriRollup';
+const URI_ROLLUP_SUBJECT_TEXT = 'URIs past usageUriRowCap, counted together';
+const MILLISECONDS_PER_DAY = 86400000;
+
+const createUsageCounter = ({ sqlDb, xLog, flushMilliseconds, nowDate, uriRowCap, uriRetentionDays }) => {
 	const countByRowText = new Map();
 	let usageTable = null;
 
@@ -59,6 +68,9 @@ const createUsageCounter = ({ sqlDb, xLog, flushMilliseconds, nowDate }) => {
 		});
 	};
 
+	const utcDayText = (dateObject) => dateObject.toISOString().slice(0, 10);
+
+	// each flush, oldest first: sweep what is past retention, read what is left, fold URI counts into the roll-up if the table is at its cap, write
 	const flushNow = (callback) => {
 		if (countByRowText.size === 0) {
 			callback('');
@@ -66,13 +78,34 @@ const createUsageCounter = ({ sqlDb, xLog, flushMilliseconds, nowDate }) => {
 		}
 		const rowEntryList = [...countByRowText.entries()];
 		countByRowText.clear();
-		const valuesText = rowEntryList.map(([rowText, askedCount]) => `(${[crypto.createHash('sha256').update(rowText).digest('hex'), ...JSON.parse(rowText), askedCount].map((columnValue) => sqlString.escape(columnValue)).join(', ')})`).join(', ');
 		withUsageTable((tableError, tableHandle) => {
 			if (tableError) {
 				callback(tableError);
 				return;
 			}
-			tableHandle.runStatement(`INSERT INTO usageCounts (refId, ${USAGE_COLUMN_NAME_LIST.join(', ')}) VALUES ${valuesText} ON CONFLICT (refId) DO UPDATE SET askedCount = askedCount + excluded.askedCount`, QUIET_STATEMENT_OPTIONS, (writeError) => callback(writeError || ''));
+			const oldestKeptDayText = utcDayText(new Date(nowDate().getTime() - uriRetentionDays * MILLISECONDS_PER_DAY));
+			tableHandle.runStatement(`DELETE FROM usageCounts WHERE subjectKind = ${sqlString.escape(URI_SUBJECT_KIND)} AND utcDay < ${sqlString.escape(oldestKeptDayText)}`, QUIET_STATEMENT_OPTIONS, (sweepError) => {
+				if (sweepError) {
+					callback(sweepError);
+					return;
+				}
+				tableHandle.getData(`SELECT count(*) AS uriRowCount FROM usageCounts WHERE subjectKind = ${sqlString.escape(URI_SUBJECT_KIND)}`, QUIET_STATEMENT_OPTIONS, (countError, countRowList) => {
+					if (countError) {
+						callback(countError);
+						return;
+					}
+					const isAtCap = countRowList[0].uriRowCount >= uriRowCap;
+					const rowByText = new Map();
+					rowEntryList.forEach(([rowText, askedCount]) => {
+						const [operationName, subjectKind, subjectText, utcDay] = JSON.parse(rowText);
+						const finalRow = isAtCap && subjectKind === URI_SUBJECT_KIND ? [operationName, URI_ROLLUP_SUBJECT_KIND, URI_ROLLUP_SUBJECT_TEXT, utcDay] : [operationName, subjectKind, subjectText, utcDay];
+						const finalText = JSON.stringify(finalRow);
+						rowByText.set(finalText, (rowByText.get(finalText) || 0) + askedCount);
+					});
+					const valuesText = [...rowByText.entries()].map(([rowText, askedCount]) => `(${[crypto.createHash('sha256').update(rowText).digest('hex'), ...JSON.parse(rowText), askedCount].map((columnValue) => sqlString.escape(columnValue)).join(', ')})`).join(', ');
+					tableHandle.runStatement(`INSERT INTO usageCounts (refId, ${USAGE_COLUMN_NAME_LIST.join(', ')}) VALUES ${valuesText} ON CONFLICT (refId) DO UPDATE SET askedCount = askedCount + excluded.askedCount`, QUIET_STATEMENT_OPTIONS, (writeError) => callback(writeError || ''));
+				});
+			});
 		});
 	};
 

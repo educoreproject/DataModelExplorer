@@ -25,7 +25,7 @@ const GOLDEN_NOT_READY_REFUSAL_NAME = 'goldenGraphNotReady';
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 const SEARCH_MODE_WITHOUT_VECTOR = 'keyword';
 const BUSY_RETRY_SECONDS = 2;
-const REQUIRED_LIMIT_NAME_LIST = Object.freeze(['requestsPerMinute', 'burstPerSecond', 'inFlightMax', 'maxQueryChars', 'maxPatternChars', 'dailyEmbeddingTokenCeiling']);
+const REQUIRED_LIMIT_NAME_LIST = Object.freeze(['requestsPerMinute', 'burstPerSecond', 'inFlightMax', 'maxQueryChars', 'maxPatternChars', 'dailyEmbeddingTokenCeiling', 'usageUriRowCap', 'usageUriRetentionDays']);
 
 const limitNumbersOf = (limitConfigValues) => {
 	const faultList = REQUIRED_LIMIT_NAME_LIST.filter((limitName) => !POSITIVE_INTEGER_PATTERN.test(String(limitConfigValues[limitName])));
@@ -66,7 +66,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 	let serviceFacts = null;
 	let unavailableReason = setupRefusalText || 'the URI promise gate has not yet passed for this graph';
 	let inFlightCount = 0;
-	const inFlightCountByOperationName = {};
+	const scanCountByOperationName = {};
 	// standards and graph are fully determined by the graph the gate proved and take seconds to read: one read per connection, however many ask at once
 	let cachedAnswerByOperationName = {};
 	let waiterListByOperationName = {};
@@ -249,10 +249,10 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		runNext(0);
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, principal }, done(errText, { answer })).
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer })).
 	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
-		verb: ({ registryRow, input, pageNumber, namedUriList }, done) => {
+		verb: ({ registryRow, input, pageNumber, namedUriList, admitScan }, done) => {
 			const invocation = verbInvocationFor({ registryRow, input });
 			if (invocation.refusal) {
 				done('', { answer: invocation.refusal });
@@ -262,6 +262,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			const verbParams = {
 				...invocation.params,
 				...(registryRow.pageSize ? { pageNumber } : {}),
+				...(admitScan ? { admitScan } : {}),
 				...(registryRow.reportsMatchedStableIds ? { reportMatchedStableIdList: (matchedStableIdList) => { verbFacts.matchedStableIdList = matchedStableIdList; } } : {}),
 				...(registryRow.reportsRowStableIds ? { reportRowStableIdList: (rowStableIdList) => { verbFacts.rowStableIdList = rowStableIdList; } } : {}),
 			};
@@ -281,8 +282,8 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				});
 			}, done);
 		},
-		pair: ({ registryRow, input, pageNumber, namedUriList, namedSubjectList }, done) => {
-			goldenHandle.withReadSession((session, sessionDone) => runPair({ session, facts: serviceFacts, input, pageNumber, pageSize: registryRow.pageSize, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, (pairError, answer) => {
+		pair: ({ registryRow, input, pageNumber, namedUriList, namedSubjectList, admitScan }, done) => {
+			goldenHandle.withReadSession((session, sessionDone) => runPair({ session, facts: serviceFacts, input, pageNumber, pageSize: registryRow.pageSize, runCypher: runCypherQuery, storeReads, dmeSearchModule, namedUriList, namedSubjectList, admitScan }, (pairError, answer) => {
 				if (pairError) {
 					sessionDone(pairError);
 					return;
@@ -299,6 +300,9 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 	});
 
 	const errorAnswerFor = ({ operationName, errorText }) => {
+		if (errorText === dmeSearchModule.SCAN_NOT_ADMITTED_TEXT) {
+			return refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `as many ${operationName} searches that read the whole graph are running as this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds, or ask by exact stableId, which needs no such search`) });
+		}
 		if (errorText.startsWith(GOLDEN_NOT_READY_REFUSAL_NAME)) {
 			return refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, GOLDEN_NOT_READY_REFUSAL_NAME, errorText) });
 		}
@@ -345,18 +349,21 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			waiterListByOperationName[operationName].push(callback);
 			return;
 		}
-		// a slow operation has its own cap, so one kind of question cannot hold every slot of the whole instance
-		const operationInFlightCount = inFlightCountByOperationName[operationName] || 0;
-		if (registryRow.inFlightMaxForOperation && operationInFlightCount >= registryRow.inFlightMaxForOperation) {
-			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${operationInFlightCount} ${operationName} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
-			return;
-		}
 		if (inFlightCount >= inputCapByName.inFlightMax) {
 			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${inFlightCount} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
 			return;
 		}
 		inFlightCount += 1;
-		inFlightCountByOperationName[operationName] = operationInFlightCount + 1;
+		// a scan has its own cap per operation, so one kind of slow question cannot hold every slot; only a call that actually scans counts, so an exact element never does
+		let isHoldingScanSlot = false;
+		const admitScan = registryRow.scanInFlightMax ? () => {
+			if ((scanCountByOperationName[operationName] || 0) >= registryRow.scanInFlightMax) {
+				return false;
+			}
+			scanCountByOperationName[operationName] = (scanCountByOperationName[operationName] || 0) + 1;
+			isHoldingScanSlot = true;
+			return true;
+		} : undefined;
 		const cacheInUseAtStart = cachedAnswerByOperationName;
 		if (registryRow.cachesAnswerPerManifest) {
 			waiterListByOperationName[operationName] = [];
@@ -374,9 +381,11 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		const namedSubjectList = [];
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
 		const { page: unusedPage, ...handlerInput } = operationInput;
-		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, principal }, (handlerError, handlerResult) => {
+		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
-			inFlightCountByOperationName[operationName] -= 1;
+			if (isHoldingScanSlot) {
+				scanCountByOperationName[operationName] -= 1;
+			}
 			if (handlerError) {
 				finishOperation(errorAnswerFor({ operationName, errorText: String(handlerError) }));
 				return;

@@ -33,7 +33,7 @@ const ok = (testName, condition, detailText) => {
 const configDirPath = path.join(__dirname, '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
 const allConfig = configFileProcessor.getConfig('startApiServer.ini', configDirPath, { resolve: true });
 const edcConfigValues = allConfig['edc-resolver'];
-const LIMITS = { publicInstanceName: 'liveTest', requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
+const LIMITS = { publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
 
 const VECTOR_QUESTION_LIST = [
 	{ operationName: 'search', input: { q: 'date of birth' }, cliVerb: 'search', params: { query: 'date of birth', searchMode: 'hybrid' } },
@@ -94,7 +94,20 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		['First Name', 'Last Name', 'Middle Name'].forEach((elementText) => ask(core, 'mappings', { element: elementText }, ({ httpStatus, body }) => {
 			answerList.push({ httpStatus, refusalName: body.answer.refusalName });
 			if (answerList.length < 3) return;
-			ok('mappings: three at once, the third refused 503 busy by name (its own cap of 2)', answerList.filter((one) => one.httpStatus === 200).length === 2 && answerList.filter((one) => one.httpStatus === 503 && one.refusalName === 'busy').length === 1, JSON.stringify(answerList));
+			ok('mappings: three name searches at once, the third refused 503 busy by name (the cap of 2 on scans)', answerList.filter((one) => one.httpStatus === 200).length === 2 && answerList.filter((one) => one.httpStatus === 503 && one.refusalName === 'busy').length === 1, JSON.stringify(answerList));
+			next();
+		}));
+		setImmediate(() => ask(core, 'mappings', { element: 'lif:Person/MilitaryLearningExperience/inline/dischargeDate' }, ({ httpStatus }) => {
+			ok('mappings: an exact element during those searches is answered: it never counts against the cap', httpStatus === 200, `${httpStatus}`);
+		}));
+
+	});
+	steps.push((next) => {
+		const answerList = [];
+		['a/first/slashed/miss', 'a/second/slashed/miss', 'a/third/slashed/miss'].forEach((elementText) => ask(core, 'mappings', { element: elementText }, ({ httpStatus, body }) => {
+			answerList.push({ httpStatus, refusalName: body.answer.refusalName });
+			if (answerList.length < 3) return;
+			ok('mappings: a slash that is no stableId scans, so it counts: of three at once, one is refused busy', answerList.filter((one) => one.refusalName === 'busy').length === 1 && answerList.filter((one) => one.refusalName === 'nothingMatched').length === 2, JSON.stringify(answerList));
 			next();
 		}));
 	});
