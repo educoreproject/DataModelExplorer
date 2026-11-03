@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// resolveOneUri — one whole-block edc: URI in, one answer out, then exit (edcResolverEndpoint-110226, briefing section 4). A synchronous read of a big
+// resolveOneUri — one edc: URI that must not run in the API in, one answer out, then exit (edcResolverEndpoint-110226, briefing section 4). A synchronous read of a big
 // TEXT column blocks a whole process, so these kinds read here, under a heap cap, and never in the API.
 //
 //   node --max-old-space-size=<megabytes> resolveOneUri.js < <one JSON object>
