@@ -29,7 +29,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	// a second store handle beside the resolver's: the adapter is the ONE place the forge is required, and it is a read-only open
 	const forgeAdapter = openForgeAdapter({ configValues: getConfig(EDC_CONFIG_SECTION_NAME) });
-	const usageCounter = createUsageCounter({ sqlDb, xLog, flushMilliseconds: USAGE_FLUSH_MILLISECONDS, nowDate });
+	const limitConfigValues = getConfig(LIMIT_CONFIG_SECTION_NAME);
+	const usageCounter = createUsageCounter({ sqlDb, xLog, flushMilliseconds: USAGE_FLUSH_MILLISECONDS, nowDate, uriRowCap: Number(limitConfigValues.usageUriRowCap), uriRetentionDays: Number(limitConfigValues.usageUriRetentionDays) });
 
 	let standardsQueryCore = null;
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
@@ -38,7 +39,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		}
 		standardsQueryCore = createStandardsQueryCore({
 			registry,
-			limitConfigValues: getConfig(LIMIT_CONFIG_SECTION_NAME),
+			limitConfigValues,
 			goldenHandle: neo4jDb,
 			forgeAdapter,
 			dmeSearchModule,

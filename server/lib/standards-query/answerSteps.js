@@ -249,18 +249,22 @@ const STEP_BY_NAME = Object.freeze({
 				nameUri(facts.uriMinter, namedElement, 'uri', oneNode.stableId, oneNode.standardName, namedUriList);
 				return namedElement;
 			});
-			mappingStatusByHubFor({ session, facts, runCypher, storeReads, matchedNodeList, hubList: answer.hubList }, (statusError, mappingStatusByHub) => {
+			mappingStatusByHubFor({ session, facts, runCypher, storeReads, matchedNodeList, hubList: answer.hubList }, (statusError, mappingStatusByHub, statusFacts) => {
 				if (statusError) {
 					done(statusError);
 					return;
 				}
 				answer.mappingStatusByHub = mappingStatusByHub;
-				if (answer.matchedNodeCount <= matchedNodeList.length) {
+				const isNodeListCut = answer.matchedNodeCount > matchedNodeList.length;
+				if (!isNodeListCut && statusFacts.instanceListCutCount === 0) {
 					done('');
 					return;
 				}
-				// past the cap: whether a hub is reached is read over every matched node; an abstention past it cannot be told from no offer, and the answer says so
-				answer.mappingStatusNote = `this input matched ${answer.matchedNodeCount} nodes; judgedAbstained and neverOffered were read over the first ${matchedNodeList.length}. Ask by stableId for one element's status`;
+				// past a cap: whether a hub is reached is read over every matched node and its instances; an abstention past it cannot be told from no offer, and the answer says so
+				answer.mappingStatusNote = [
+					...(isNodeListCut ? [`this input matched ${answer.matchedNodeCount} nodes; judgedAbstained and neverOffered were read over the first ${matchedNodeList.length}. Ask by stableId for one element's status`] : []),
+					...(statusFacts.instanceListCutCount > 0 ? [instanceCapNoteFor(statusFacts.instanceListCutCount)] : []),
+				].join(' ');
 				dmeSearchModule.findMappingsMappedHubNameList(session, verbFacts.matchedStableIdList, (hubError, mappedHubNameList) => {
 					if (hubError) {
 						done(hubError);
@@ -327,10 +331,11 @@ const mappingStatusByHubFor = ({ session, facts, runCypher, storeReads, matchedN
 	runCypher(session, `UNWIND $stableIdList AS focusStableId
 		MATCH (focus:ForgedNode {stableId: focusStableId})
 		OPTIONAL MATCH (focus)-[:HAS_INSTANCE]->(instance:ForgedNode)
-		WITH focus, collect(instance)[..$instanceCap] AS instanceList
+		WITH focus, collect(instance) AS allInstanceList
+		WITH focus, allInstanceList[..$instanceCap] AS instanceList, size(allInstanceList) > $instanceCap AS isInstanceListCut
 		UNWIND [focus] + instanceList AS subject
 		OPTIONAL MATCH (subject)-[matchEdge:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(card:HubReference)
-		RETURN subject.stableId AS subjectStableId, subject._source AS standardName, collect(DISTINCT card.hubName) AS mappedHubNameList`,
+		RETURN subject.stableId AS subjectStableId, subject._source AS standardName, collect(DISTINCT card.hubName) AS mappedHubNameList, focus.stableId AS focusStableId, isInstanceListCut`,
 		{ stableIdList, instanceCap: neo4j.int(STATUS_INSTANCE_CAP) }, (statusError, statusResult) => {
 			if (statusError) {
 				callback(statusError);
@@ -355,8 +360,9 @@ const mappingStatusByHubFor = ({ session, facts, runCypher, storeReads, matchedN
 				}
 				mappingStatusByHub[hubName] = abstained.hubNameSet.has(hubName) ? 'judgedAbstained' : 'neverOffered';
 			});
-			callback('', mappingStatusByHub);
+			callback('', mappingStatusByHub, { instanceListCutCount: new Set(subjectRowList.filter((oneRow) => oneRow.isInstanceListCut).map((oneRow) => oneRow.focusStableId)).size });
 		});
 };
+const instanceCapNoteFor = (instanceListCutCount) => `${instanceListCutCount} of the matched nodes have more than ${STATUS_INSTANCE_CAP} instances; judgedAbstained and neverOffered were read over the first ${STATUS_INSTANCE_CAP} of each.`;
 
-module.exports = { STEP_BY_NAME, stripCoreAdditions, objectsAtPath, mappingStatusByHubFor, nameUri, setUriFields, MAPPING_STATUS_UNAVAILABLE_PREFIX };
+module.exports = { STEP_BY_NAME, stripCoreAdditions, objectsAtPath, mappingStatusByHubFor, instanceCapNoteFor, nameUri, setUriFields, MAPPING_STATUS_UNAVAILABLE_PREFIX };

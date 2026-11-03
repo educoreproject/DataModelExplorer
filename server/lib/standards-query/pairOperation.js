@@ -4,14 +4,14 @@
 // answer, HTTP 200, never a refusal and never an empty list. No element-to-element judgment exists in any manifest, every judged edge targets a card, so nothing here says
 // 'judged': a row is a standard's own published statement (declaredCorrespondence) or a computed suggestion through one shared card with both hops shown (computedViaHub).
 //
-//   runPair({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, callback('', answer | refusal))
+//   runPair({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList, admitScan }, callback('', answer | refusal))
 //   namedSubjectList receives one counter per pair of standards asked about (A9): the evidence the peer bridge job reads first. Never the element text a caller typed.
 
 const path = require('path');
 const neo4j = require('neo4j-driver');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const { resolveStandardFilter, resolveHubList } = require(path.join(__dirname, '..', '..', '..', 'cli', 'lib.d', 'data-model-explorer', 'lib', 'liveInventory'));
-const { mappingStatusByHubFor, nameUri, setUriFields } = require('./answerSteps');
+const { mappingStatusByHubFor, instanceCapNoteFor, nameUri, setUriFields } = require('./answerSteps');
 
 const PAIR_OPERATION_NAME = 'pair';
 const ROW_UNIT_TEXT = 'a pair of elements: one row per (this element, other element, relation path). A computedViaHub row is a suggestion read through one hub card, never a judgment between the two; a declaredCorrespondence row is one standard\'s own published statement';
@@ -111,7 +111,7 @@ const standardSideOf = ({ session, sourceList, hubList, facts, runCypher, storeR
 	});
 };
 
-const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList }, callback) => {
+const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, storeReads, dmeSearchModule, namedUriList, namedSubjectList, admitScan }, callback) => {
 	const { element, standard, otherStandard } = input;
 	const formName = element !== undefined && otherStandard === undefined ? 'element' : 'standards';
 	if (standard === undefined || (element !== undefined && otherStandard !== undefined) || (element === undefined && otherStandard === undefined)) {
@@ -139,7 +139,7 @@ const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, store
 	taskList.push((args, next) => resolveHubList(session, (hubError, hubInventory) => (hubError ? next(hubError, args) : next('', { ...args, hubList: hubInventory.hubList }))));
 
 	if (formName === 'element') {
-		taskList.push((args, next) => dmeSearchModule.findMappingsMatchedNodeList(session, element, (nodeError, matchedNodeList) => {
+		taskList.push((args, next) => dmeSearchModule.findMappingsMatchedNodeList(session, element, admitScan, (nodeError, matchedNodeList) => {
 			if (nodeError) {
 				next(nodeError, args);
 				return;
@@ -178,12 +178,12 @@ const runPair = ({ session, facts, input, pageNumber, pageSize, runCypher, store
 			standardSideOf({ session, sourceList: args.firstSourceList, hubList: args.hubList, facts, runCypher, storeReads }, (sideError, thisSide) => (sideError ? next(sideError, args) : readOtherSide(thisSide)));
 			return;
 		}
-		mappingStatusByHubFor({ session, facts, runCypher, storeReads, matchedNodeList: args.matchedNodeList, hubList: args.hubList }, (statusError, mappingStatusByHub) => {
+		mappingStatusByHubFor({ session, facts, runCypher, storeReads, matchedNodeList: args.matchedNodeList, hubList: args.hubList }, (statusError, mappingStatusByHub, statusFacts) => {
 			if (statusError) {
 				next(statusError, args);
 				return;
 			}
-			readOtherSide({ elementList: args.matchedNodeList.map((oneNode) => elementOf({ facts, stableId: oneNode.stableId, elementName: oneNode.elementName, standardName: oneNode.standardName, namedUriList })), mappingStatusByHub });
+			readOtherSide({ elementList: args.matchedNodeList.map((oneNode) => elementOf({ facts, stableId: oneNode.stableId, elementName: oneNode.elementName, standardName: oneNode.standardName, namedUriList })), mappingStatusByHub, ...(statusFacts.instanceListCutCount > 0 ? { mappingStatusNote: instanceCapNoteFor(statusFacts.instanceListCutCount) } : {}) });
 		});
 	});
 

@@ -1,0 +1,26 @@
+{
+	"_comment": "The standing timing gate of the standards query service (server/lib/standards-query/standardsQueryTimingGate.js): one row per thing a caller can ask that costs differently, with its bound in seconds. Run on every demo deploy. Every registry route must have a row here or be named in exemptOperationList with why, and standards-query-registry.test.js holds that. knownSlow rows are stated, not excused: their bound is the measured cost, so getting worse fails. Bounds were set from demo's measurements of 2026-11-03: a 4-vCPU shared server, about 3.3 times slower than the Mac.",
+	"defaultWarmBoundSeconds": 5,
+	"defaultFirstCallBoundSeconds": 10,
+	"exemptOperationList": [{ "operationName": "usage", "why": "admin only: the gate holds no credential, and its answer costs one SQLite read" }],
+	"rowList": [
+		{ "label": "search hybrid", "operationName": "search", "queryText": "q=date of birth" },
+		{ "label": "search keyword", "operationName": "search", "queryText": "q=race&mode=keyword" },
+		{ "label": "grep regex", "operationName": "grep", "queryText": "pattern=^birth&standard=LIF" },
+		{ "label": "element by name", "operationName": "element", "queryText": "name=dischargeDate&standard=LIF" },
+		{ "label": "mappings, exact stableId", "operationName": "mappings", "queryText": "element=lif:Person/MilitaryLearningExperience/inline/dischargeDate" },
+		{ "label": "mappings, name search", "operationName": "mappings", "queryText": "element=dischargeDate", "knownSlow": "reads every node three times: a name search keeps today's answer, ruled 2026-11-03; ordered single scan is a later phase", "warmBoundSeconds": 40, "firstCallBoundSeconds": 45 },
+		{ "label": "pair, exact element", "operationName": "pair", "queryText": "element=lif:Person/MilitaryLearningExperience/inline/dischargeDate&standard=JEDx" },
+		{ "label": "pair, element by name", "operationName": "pair", "queryText": "element=dischargeDate&standard=JEDx", "knownSlow": "reads every node once to resolve the name", "warmBoundSeconds": 20, "firstCallBoundSeconds": 25 },
+		{ "label": "pair, two standards", "operationName": "pair", "queryText": "standard=CTDL&otherStandard=CEDS" },
+		{ "label": "codesets", "operationName": "codesets", "queryText": "name=Race" },
+		{ "label": "unmapped, one standard", "operationName": "unmapped", "queryText": "standard=LIF" },
+		{ "label": "unmapped, all", "operationName": "unmapped", "queryText": "" },
+		{ "label": "stats", "operationName": "stats", "queryText": "" },
+		{ "label": "standards", "operationName": "standards", "queryText": "", "firstCallBoundSeconds": 25, "firstCallNote": "one read per graph connection, then kept" },
+		{ "label": "graph", "operationName": "graph", "queryText": "" },
+		{ "label": "neighbourhood", "operationName": "neighbourhood", "queryText": "q=race&mode=keyword&limit=3" },
+		{ "label": "guide", "operationName": "guide", "queryText": "mode=classConcepts&name=C200013" },
+		{ "label": "openapi", "operationName": "openApiDocument", "queryText": "" }
+	]
+}

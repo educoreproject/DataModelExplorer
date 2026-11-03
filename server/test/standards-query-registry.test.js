@@ -115,6 +115,28 @@ ok('uriMinter: while the forge refuses an absolute stableId, it is the temporary
 ok('uriMinter: once the forge mints it, the row mints normally with no change here', JSON.stringify(mintingMinter.uriForNode({ stableId: absoluteIri, standardName: 'CEDS' })) === JSON.stringify({ uri: 'https://w3id.org/EDUcore/CEDS/14.0.0.0/minted' }));
 ok('uriMinter: a refused mint of a stableId that is not absolute stays absent, never own', refusingMinter.uriForNode({ stableId: 'ceds:x', standardName: 'CEDS' }).uri === undefined);
 
+// ---- 5c. the status instance cap is named, not silent, whichever answer carries it
+const { mappingStatusByHubFor, instanceCapNoteFor } = require('../lib/standards-query/answerSteps');
+const stubRecordOf = (rowObject) => ({ toObject: () => rowObject });
+const stubFacts = { decisionBlockHashListByStandard: {} };
+const stubStoreReads = { abstainedHubNameSetFor: () => ({ hubNameSet: new Set() }) };
+const statusOutcomeFor = (isInstanceListCut) => {
+	let outcome;
+	mappingStatusByHubFor({ session: {}, facts: stubFacts, storeReads: stubStoreReads, matchedNodeList: [{ stableId: 'a', standardName: 'LIF' }], hubList: [{ hubName: 'CEDS', hubSource: 'CEDS' }], runCypher: (unusedSession, cypherText, cypherParameters, done) => done('', { records: [stubRecordOf({ subjectStableId: 'a', standardName: 'LIF', mappedHubNameList: [], focusStableId: 'a', isInstanceListCut })] }) }, (statusError, mappingStatusByHub, statusFacts) => { outcome = { statusError, mappingStatusByHub, statusFacts }; });
+	return outcome;
+};
+ok('status: an instance list under the cap reports no cut', statusOutcomeFor(false).statusFacts.instanceListCutCount === 0);
+ok('status: an instance list past the cap is counted', statusOutcomeFor(true).statusFacts.instanceListCutCount === 1);
+ok('status: the note names the cap', /more than 500 instances/.test(instanceCapNoteFor(1)));
+
+// ---- 5d. the timing gate covers every route
+const timingBounds = require('../lib/standards-query/standardsQueryTimingBounds.json');
+const coveredOperationNameList = [...timingBounds.rowList.map((oneRow) => oneRow.operationName), ...timingBounds.exemptOperationList.map((oneRow) => oneRow.operationName)];
+registry.operationList.forEach((row) => ok(`timing gate: ${row.operationName} has a row or a stated exemption`, coveredOperationNameList.includes(row.operationName)));
+ok('timing gate: every row names a real operation', timingBounds.rowList.every((oneRow) => registry.operationList.some((row) => row.operationName === oneRow.operationName)));
+ok('timing gate: a known-slow row states its bound', timingBounds.rowList.filter((oneRow) => oneRow.knownSlow).every((oneRow) => oneRow.warmBoundSeconds > 0 && oneRow.firstCallBoundSeconds > 0));
+ok('timing gate: every exemption says why', timingBounds.exemptOperationList.every((oneRow) => oneRow.why && oneRow.why.length > 10));
+
 // ---- 6. the header a client writes
 const endpointText = fs.readFileSync(path.join(__dirname, '..', 'endpoints-dot-d', 'qtDotLib.d', 'standards-query.js'), 'utf8').split('\n').filter((oneLine) => !oneLine.trim().startsWith('//')).join('\n');
 ok('endpoint: the limiter is keyed on req.ip', /requestLimiter\.admit\(xReq\.ip\)/.test(endpointText));
