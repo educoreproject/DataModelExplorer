@@ -27,3 +27,12 @@ export const backendProfiles = {
 // The backend is still the LOCAL API server, so this does not breach the dev-never-talks-to-
 // production rule; it only changes which address the browser uses to reach it.
 export const sameOriginProxyHosts = ['dme.qbook.work'];
+
+// Hostnames served by Vercel, whose vercel.json rewrites /api/* to the backend (2026-11-03: demo.educore.dev, whose
+// backend runs main; ed-core.org's ran code from before 2026-10-08 and answered the explorer's routes 404). The browser
+// calls the page's own /api, so vercel.json is the one place that names the backend, whatever NUXT_PUBLIC_API_BASE the
+// Vercel build was given. A rewrite cannot carry a websocket, so each names the host its websocket opens on directly.
+export const vercelApiProxyWsHostByHost = {
+	'educore.org': 'demo.educore.dev',
+	'www.educore.org': 'demo.educore.dev',
+};
