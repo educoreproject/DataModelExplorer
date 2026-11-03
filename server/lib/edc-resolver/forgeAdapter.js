@@ -25,7 +25,14 @@ const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'whole
 // without spawning; and the manifest, standard, hub and element listings, which the brief expected to be cheap: measured on the server each holds a
 // synchronous read for 0.6 to 17 seconds, which is that long with the API's event loop stopped. A listing takes a query, so a query does not keep it in process.
 const LISTING_RULE = Object.freeze({ takesQuery: true });
+// An element answers its whole sibling list, minted URI by URI: under this many siblings it takes under 50 ms on the server and stays in process; a family
+// of 13,006 took 0.8 seconds warm and 2.3 cold. The count is read with a LIMIT, so reading it costs next to nothing whatever the family's size.
+const ELEMENT_SIBLING_COUNT_IN_PROCESS = 200;
 const WHOLE_BLOCK_RULE_BY_KIND = Object.freeze({
+	element: {
+		siblingCountSql: `WITH thisElement AS (SELECT schemaBlockRefId, parentStableId FROM derivedElementIndex WHERE standardName = ? AND standardVersion = ? AND elementStableId = ? ORDER BY rowid LIMIT 1)
+			SELECT count(*) AS siblingCount FROM (SELECT 1 FROM derivedElementIndex sibling, thisElement WHERE sibling.schemaBlockRefId = thisElement.schemaBlockRefId AND sibling.parentStableId = thisElement.parentStableId LIMIT ${ELEMENT_SIBLING_COUNT_IN_PROCESS + 1})`,
+	},
 	manifest: {},
 	manifestByContent: {},
 	manifestStandardList: {},
@@ -159,15 +166,15 @@ const openForgeAdapter = ({ configValues }) => {
 	if (forgeResolver.error) {
 		return { refusalText: forgeResolver.error };
 	}
-	// the size statements are prepared here so a store or an SQLite that cannot run them is a startup refusal, not a fault on a visitor's request
-	const sizeStatementsPrepared = attemptForgeCall(() => {
-		const sizeHandle = new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true });
-		return Object.keys(WHOLE_BLOCK_RULE_BY_KIND).filter((oneKind) => WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql !== undefined).reduce((soFar, oneKind) => ({ ...soFar, [oneKind]: sizeHandle.prepare(WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql) }), {});
-	}, `preparing the block size reads on ${uriContractFilePath}`);
-	if (sizeStatementsPrepared.error) {
-		return { refusalText: sizeStatementsPrepared.error };
+	// the routing statements are prepared here so a store or an SQLite that cannot run them is a startup refusal, not a fault on a visitor's request
+	const routingStatementsPrepared = attemptForgeCall(() => {
+		const routingHandle = new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true });
+		return Object.keys(WHOLE_BLOCK_RULE_BY_KIND).filter((oneKind) => WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql !== undefined || WHOLE_BLOCK_RULE_BY_KIND[oneKind].siblingCountSql !== undefined).reduce((soFar, oneKind) => ({ ...soFar, [oneKind]: routingHandle.prepare(WHOLE_BLOCK_RULE_BY_KIND[oneKind].byteSizeSql || WHOLE_BLOCK_RULE_BY_KIND[oneKind].siblingCountSql) }), {});
+	}, `preparing the routing reads on ${uriContractFilePath}`);
+	if (routingStatementsPrepared.error) {
+		return { refusalText: routingStatementsPrepared.error };
 	}
-	const sizeStatementByKind = sizeStatementsPrepared.result;
+	const routingStatementByKind = routingStatementsPrepared.result;
 	const wholeBlockMaxBytes = Number(configValues.wholeBlockMaxBytes);
 	const { layerRegistry, agentRegistry } = forgeResolver.registry;
 
@@ -182,10 +189,15 @@ const openForgeAdapter = ({ configValues }) => {
 		if (wholeBlockRule === undefined || (edcRequestPath.indexOf('?') !== -1 && wholeBlockRule.takesQuery !== true)) {
 			return { routeName: 'inProcess', kind: parsed.kind };
 		}
+		if (wholeBlockRule.siblingCountSql !== undefined) {
+			const { standardName, standardVersion, elementStableId } = parsed.partByName;
+			const { siblingCount } = routingStatementByKind[parsed.kind].get(standardName, standardVersion, elementStableId);
+			return { routeName: siblingCount > ELEMENT_SIBLING_COUNT_IN_PROCESS ? 'wholeBlockChild' : 'inProcess', kind: parsed.kind };
+		}
 		if (wholeBlockRule.byteSizeSql === undefined) {
 			return { routeName: 'wholeBlockChild', kind: parsed.kind };
 		}
-		const sizeRow = sizeStatementByKind[parsed.kind].get(parsed.partByName[wholeBlockRule.blockIdentityPartName]);
+		const sizeRow = routingStatementByKind[parsed.kind].get(parsed.partByName[wholeBlockRule.blockIdentityPartName]);
 		if (sizeRow === undefined) {
 			return { routeName: 'inProcess', kind: parsed.kind };
 		}
