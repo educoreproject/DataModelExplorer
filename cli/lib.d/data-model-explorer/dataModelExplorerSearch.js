@@ -2058,6 +2058,25 @@ const findMappingsMatchedNodeList = (session, nameOrId, callback) => {
 	});
 };
 
+// Which hubs any node the input matches reaches by a match edge, itself or through an instance. Over EVERY matched node, where the list above stops at its cap, and outgoing only:
+// the verb's totalRowCountByHub also counts rows INTO a hub's own card, which would call CEDS's own Birthdate mapped to CEDS.
+const findMappingsMappedHubNameList = (session, nameOrId, callback) => {
+	runCypherQuery(session, NATIVE_IDENTIFIER_DECLARATION_CYPHER, {}, (declarationError, declarationResult) => {
+		if (declarationError) {
+			callback(declarationError);
+			return;
+		}
+		const verdict = nativeIdentifierDeclarationVerdictFor(declarationResult.records.map((oneRecord) => ({ sourceKey: oneRecord.get('sourceKey'), nativeIdentifierPropertyName: oneRecord.get('nativeIdentifierPropertyName') })));
+		if (verdict.refusalName) {
+			callback(verdict.reason);
+			return;
+		}
+		runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', findMappingsIdentifierFieldListFor(verdict.declarationList))}
+			MATCH (n)-[:HAS_INSTANCE*0..1]->(edgeOwner:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(card:HubReference)
+			RETURN DISTINCT card.hubName AS hubName`, { name: nameOrId }, (hubError, hubResult) => (hubError ? callback(hubError) : callback('', hubResult.records.map((oneRecord) => oneRecord.get('hubName')))));
+	});
+};
+
 // =====================================================================
 // CLI ENTRY POINT
 // =====================================================================
@@ -2153,4 +2172,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search, findMappingsMatchedNodeList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
+module.exports = { search, findMappingsMatchedNodeList, findMappingsMappedHubNameList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };

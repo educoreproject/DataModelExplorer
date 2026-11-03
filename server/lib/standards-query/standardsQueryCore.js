@@ -66,6 +66,9 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 	let serviceFacts = null;
 	let unavailableReason = setupRefusalText || 'the URI promise gate has not yet passed for this graph';
 	let inFlightCount = 0;
+	// standards and graph are fully determined by the graph the gate proved and take seconds to read: one read per connection, however many ask at once
+	let cachedAnswerByOperationName = {};
+	let waiterListByOperationName = {};
 	let embeddingTokenDayText = '';
 	let embeddingTokensToday = 0;
 
@@ -98,6 +101,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 
 	const runGateNow = () => {
 		serviceFacts = null;
+		cachedAnswerByOperationName = {};
 		if (storeOpen.error) {
 			unavailableReason = storeOpen.error;
 			xLog.error(`${moduleName}: ${unavailableReason}`);
@@ -323,11 +327,35 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			callback('', refusedAnswerFor({ operationName, refusal: firstRefusal }));
 			return;
 		}
+		if (registryRow.cachesAnswerPerManifest && (cachedAnswerByOperationName[operationName] || waiterListByOperationName[operationName])) {
+			if (principal.kind !== 'rosettaJob') {
+				usageCounter.countAnswer({ operationName, subjectList: [], uriList: [] }); // these answers name no URI and take no subject
+			}
+			if (cachedAnswerByOperationName[operationName]) {
+				callback('', cachedAnswerByOperationName[operationName]);
+				return;
+			}
+			waiterListByOperationName[operationName].push(callback);
+			return;
+		}
 		if (inFlightCount >= inputCapByName.inFlightMax) {
 			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${inFlightCount} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
 			return;
 		}
 		inFlightCount += 1;
+		const cacheInUseAtStart = cachedAnswerByOperationName;
+		if (registryRow.cachesAnswerPerManifest) {
+			waiterListByOperationName[operationName] = [];
+		}
+		// the first asker and everyone who waited on it get one answer; it is kept only if it succeeded and the graph did not change while it ran
+		const finishOperation = (finishedAnswer) => {
+			const waiterList = waiterListByOperationName[operationName] || [];
+			delete waiterListByOperationName[operationName];
+			if (registryRow.cachesAnswerPerManifest && finishedAnswer.httpStatus === 200 && cacheInUseAtStart === cachedAnswerByOperationName) {
+				cachedAnswerByOperationName[operationName] = finishedAnswer;
+			}
+			[callback, ...waiterList].forEach((oneCallback) => oneCallback('', finishedAnswer));
+		};
 		const namedUriList = [];
 		const namedSubjectList = [];
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
@@ -335,18 +363,18 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
 			if (handlerError) {
-				callback('', errorAnswerFor({ operationName, errorText: String(handlerError) }));
+				finishOperation(errorAnswerFor({ operationName, errorText: String(handlerError) }));
 				return;
 			}
 			const { answer } = handlerResult;
 			if (answer.refusedByName) {
-				callback('', refusedAnswerFor({ operationName, refusal: answer }));
+				finishOperation(refusedAnswerFor({ operationName, refusal: answer }));
 				return;
 			}
 			if (registryRow.isCounted && principal.kind !== 'rosettaJob') {
 				usageCounter.countAnswer({ operationName, subjectList: [...subjectListFor({ registryRow, input: operationInput }), ...namedSubjectList], uriList: namedUriList });
 			}
-			callback('', {
+			finishOperation({
 				httpStatus: 200,
 				bodyText: JSON.stringify(registryRow.bodyForm === 'envelope' ? { answeredFrom: answeredFromFor(operationName), answer, uriNote: registry.uriNote } : answer),
 				cachePolicy: registryRow.cachePolicy,

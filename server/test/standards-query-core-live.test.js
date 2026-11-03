@@ -123,20 +123,42 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		const { PASSPORT_CYPHER } = require('../../cli/lib.d/data-model-explorer/lib/passportReader');
 		const connectionListenerList = [];
 		let isForeignGolden = false;
+		let sessionCount = 0;
 		const foreignManifestRefId = 'f'.repeat(64);
 		const reconnectingHandle = {
 			whenEveryConnected: (listener) => { connectionListenerList.push(listener); setImmediate(listener); },
-			withReadSession: (consumer, callback) => goldenHandle.withReadSession((session, sessionDone) => consumer({
+			withReadSession: (consumer, callback) => { sessionCount += 1; goldenHandle.withReadSession((session, sessionDone) => consumer({
 				run: (cypherText, cypherParameters, transactionConfig) => session.run(cypherText, cypherParameters, transactionConfig).then((queryResult) => {
 					if (cypherText !== PASSPORT_CYPHER || !isForeignGolden) return queryResult;
 					return { records: queryResult.records.map((oneRecord) => ({ get: (fieldName) => ({ ...oneRecord.get(fieldName), manifestRefId: foreignManifestRefId }) })) };
 				}),
-			}, sessionDone), callback),
+			}, sessionDone), callback); },
 		};
 		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', []) }, xLog: process.global.xLog, nowDate: () => new Date() });
+		const waitForCacheProof = (done) => {
+			const sessionCountBefore = sessionCount;
+			let answeredCount = 0;
+			const bodyTextList = [];
+			for (let askIndex = 0; askIndex < 5; askIndex += 1) {
+				reconnectCore.runOperation({ operationName: 'standards', input: {}, principal: { kind: 'anonymous' } }, (unusedError, answer) => {
+					bodyTextList.push(answer.bodyText);
+					answeredCount += 1;
+					if (answeredCount < 5) return;
+					ok('standards: five askers at once, one read of the graph, one answer', sessionCount === sessionCountBefore + 1 && new Set(bodyTextList).size === 1, `${sessionCount - sessionCountBefore} reads`);
+					ask(reconnectCore, 'standards', {}, ({ httpStatus }) => {
+						ok('standards: a later asker reads no graph at all', httpStatus === 200 && sessionCount === sessionCountBefore + 1, `${sessionCount - sessionCountBefore} reads`);
+						ask(reconnectCore, 'standards', { expectManifest: 'other' }, ({ httpStatus: mismatchStatus }) => {
+							ok('standards: expectManifest is still checked in front of the kept answer', mismatchStatus === 409);
+							done();
+						});
+					});
+				});
+			}
+		};
 		const waitForState = (isWanted, done) => (isWanted(reconnectCore.serviceState()) ? done() : setTimeout(() => waitForState(isWanted, done), 100));
 		waitForState((state) => state.isServing, () => {
 			ok('reconnect: serving after the first connection', true);
+			waitForCacheProof(() => {
 			isForeignGolden = true;
 			connectionListenerList.forEach((listener) => listener());
 			waitForState((state) => !state.isServing && /is not published/.test(state.unavailableReason), () => ask(reconnectCore, 'stats', {}, ({ httpStatus, body }) => {
@@ -145,9 +167,14 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 				connectionListenerList.forEach((listener) => listener());
 				waitForState((state) => state.isServing, () => ask(reconnectCore, 'stats', {}, ({ httpStatus: laterStatus }) => {
 					ok('reconnect: the right golden back: serving again, no restart', laterStatus === 200);
-					next();
+					const sessionCountAfterReconnect = sessionCount;
+					ask(reconnectCore, 'standards', {}, ({ httpStatus: rereadStatus }) => {
+						ok('standards: a reconnect drops the kept answer: read again once', rereadStatus === 200 && sessionCount === sessionCountAfterReconnect + 1);
+						next();
+					});
 				}));
 			}));
+			});
 		});
 	});
 
