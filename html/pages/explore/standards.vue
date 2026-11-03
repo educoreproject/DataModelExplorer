@@ -1,31 +1,30 @@
 <script setup>
 // @concept: [[DataModelExplorer]]
-// Explore → Standards: the one standards view. One sidebar entry, four tabs, each its own child route so a tab is a
+// Explore → Standards: the one standards view. One sidebar entry, three tabs, each its own child route so a tab is a
 // link to share and each tab keeps its own query (the explorer's ?path=, the downloads' ?family=…):
-//   Overview        /explore/standards                the specification catalog (public)
-//   Visualizations  /explore/standards/explorer       the Standards Explorer diagrams and tables (signed in)
-//   Schema          /explore/standards/schema         the Schema Verifier (public)
-//   Downloads       /explore/standards/downloads      every standard's source and graph zips (public)
-// The old routes (/explore/graphicModelExplorer, /explore/schema-verifier, /explore/downloads, /explore/pesc)
-// redirect here with their query, so shared links still land on their screen.
+//   Explorer        /explore/standards                 the specification catalog and the Standards Explorer as one view:
+//                                                      signed in, the walk with each family's catalog card; signed out,
+//                                                      the catalog with a prompt to sign in for the walk
+//   Specifications  /explore/standards/specifications  the Specification Viewer (public)
+//   Downloads       /explore/standards/downloads       every standard's source and graph zips (public)
+// The old routes (/explore/graphicModelExplorer, /explore/standards/explorer, /explore/specification-viewer,
+// /explore/schema-verifier, /explore/downloads, /explore/pesc) redirect here with their query, so shared links still
+// land on their screen.
 
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { useLoginStore } from '@/stores/loginStore';
 
 const route = useRoute();
-const loginStore = useLoginStore();
 
 const STANDARDS_TAB_LIST = [
-	{ tabKey: 'overview', title: 'Overview', icon: 'mdi-certificate-outline', to: '/explore/standards' },
-	{ tabKey: 'explorer', title: 'Visualizations', icon: 'mdi-graph-outline', to: '/explore/standards/explorer', needsSignIn: true },
-	{ tabKey: 'schema', title: 'Schema', icon: 'mdi-table-search', to: '/explore/standards/schema' },
+	{ tabKey: 'explorer', title: 'Explorer', icon: 'mdi-graph-outline', to: '/explore/standards' },
+	{ tabKey: 'specifications', title: 'Specifications', icon: 'mdi-table-search', to: '/explore/standards/specifications' },
 	{ tabKey: 'downloads', title: 'Downloads', icon: 'mdi-download-box-outline', to: '/explore/standards/downloads' },
 ];
 
 const activeTabKey = computed(() => {
 	const trailingSegment = route.path.replace(/\/$/, '').split('/').pop();
-	return STANDARDS_TAB_LIST.find((oneTab) => oneTab.tabKey === trailingSegment)?.tabKey || 'overview';
+	return STANDARDS_TAB_LIST.find((oneTab) => oneTab.tabKey === trailingSegment)?.tabKey || 'explorer';
 });
 </script>
 
@@ -39,12 +38,11 @@ const activeTabKey = computed(() => {
 					:key="oneTab.tabKey"
 					:value="oneTab.tabKey"
 					:to="oneTab.to"
-					:exact="oneTab.tabKey === 'overview'"
+					:exact="oneTab.tabKey === 'explorer'"
 					:prepend-icon="oneTab.icon"
 					:data-testid="`standards-tab-${oneTab.tabKey}`"
 				>
 					{{ oneTab.title }}
-					<v-icon v-if="oneTab.needsSignIn && !loginStore.validUser" size="14" class="ml-1" title="Sign in to use">mdi-lock-outline</v-icon>
 				</v-tab>
 			</v-tabs>
 		</div>

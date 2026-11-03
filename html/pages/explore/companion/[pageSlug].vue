@@ -53,7 +53,7 @@ const openTab = (chosenTabName) => router.replace({ query: { ...route.query, tab
 
 <template>
 	<div class="companion-page" data-testid="companion-page">
-		<NuxtLink to="/explore/standards/explorer" class="companion-back">‹ Standards Explorer</NuxtLink>
+		<NuxtLink to="/explore/standards" class="companion-back">‹ Standards Explorer</NuxtLink>
 		<v-progress-linear v-if="companionPageStore.loading" indeterminate color="primary" class="mt-3" />
 		<v-alert v-if="companionPageStore.statusMsg" type="error" variant="tonal" class="mt-3" data-testid="companion-page-error">This page could not be read: {{ companionPageStore.statusMsg }}</v-alert>
 

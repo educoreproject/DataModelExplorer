@@ -1,14 +1,14 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // Resolves a single term (an OpenAPI property name or a crosswalk element) into
 // its HR Open equivalent (bundled crosswalk) and its CEDS / cross-standard
-// equivalents (live EDUcore graph lookup). Used by the Schema Verifier page in
+// equivalents (live EDUcore graph lookup). Used by the Specification Viewer page in
 // both Crosswalk and OpenAPI modes.
 
 import { ref, watch, computed } from 'vue';
-import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore } from '@/stores/specificationViewerStore';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	// Free-text term to resolve (property name, element name, or path).

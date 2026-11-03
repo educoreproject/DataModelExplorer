@@ -2,7 +2,7 @@
 //
 // Pure client-side data store. No API calls — all specifications are embedded.
 // State: specs (array of specification metadata objects)
-// Getters: specById, specsByCategory, specsByBurden, specsInGraph, allTags, specCount
+// Getters: specById, specByGraphFamily, specsByCategory, specsByBurden, specsInGraph, allTags, specCount
 
 // =========================================================================
 // Define the specification metadata store using Pinia
@@ -17,6 +17,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 1. IEEE P1484.2 LER
 			{
 				id: 'lrw-competency-framework',
+				graphFamily: null, // the standardFamily the Standards Explorer names this specification by
 				title: 'IEEE P1484.2 LER Ecosystem Standard',
 				type: 'Standard',
 				category: 'Learner Records',
@@ -104,6 +105,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 2. CASE v1.1
 			{
 				id: 'case-v1',
+				graphFamily: 'CASE', // the standardFamily the Standards Explorer names this specification by
 				title: 'Competency & Academic Standards Exchange (CASE) v1.1',
 				type: 'Standard',
 				category: 'Competency Frameworks',
@@ -194,6 +196,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 3. CTDL
 			{
 				id: 'ctdl',
+				graphFamily: 'CTDL', // the standardFamily the Standards Explorer names this specification by
 				title: 'Credential Transparency Description Language (CTDL)',
 				type: 'Standard',
 				category: 'Credential Transparency',
@@ -293,6 +296,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 3b. CTDL-ASN
 			{
 				id: 'ctdl-asn',
+				graphFamily: 'CTDLASN', // the standardFamily the Standards Explorer names this specification by
 				title: 'CTDL-ASN (Achievement Standards Network)',
 				type: 'Standard',
 				category: 'Competency Frameworks',
@@ -388,6 +392,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 3c. CTDL QData
 			{
 				id: 'qdata',
+				graphFamily: 'CTDLQData', // the standardFamily the Standards Explorer names this specification by
 				title: 'CTDL QData (Quantitative Data)',
 				type: 'Standard',
 				category: 'Credential Transparency',
@@ -481,6 +486,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 4. Open Badges 3.0
 			{
 				id: 'open-badges-v3',
+				graphFamily: 'OpenBadges', // the standardFamily the Standards Explorer names this specification by
 				title: 'Open Badges 3.0',
 				type: 'Standard',
 				category: 'Digital Credentials',
@@ -570,6 +576,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 5. CLR 2.0
 			{
 				id: 'clr-v2',
+				graphFamily: 'CLR', // the standardFamily the Standards Explorer names this specification by
 				title: 'Comprehensive Learner Record (CLR) 2.0',
 				type: 'Standard',
 				category: 'Learner Records',
@@ -660,6 +667,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 6. CEDS
 			{
 				id: 'ceds',
+				graphFamily: 'CEDS', // the standardFamily the Standards Explorer names this specification by
 				title: 'Common Education Data Standards (CEDS)',
 				type: 'Standard',
 				category: 'Data Standards',
@@ -751,6 +759,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 7. SIF 3.7
 			{
 				id: 'sif',
+				graphFamily: 'SIF', // the standardFamily the Standards Explorer names this specification by
 				title: 'Schools Interoperability Framework (SIF) 3.7',
 				type: 'Standard',
 				category: 'Data Standards',
@@ -841,6 +850,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 8. Ed-Fi Data Standard
 			{
 				id: 'edfi',
+				graphFamily: 'EdFi', // the standardFamily the Standards Explorer names this specification by
 				title: 'Ed-Fi Data Standard',
 				type: 'Standard',
 				category: 'Data Standards',
@@ -932,6 +942,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 9. LIF 2.0
 			{
 				id: 'lif',
+				graphFamily: 'LIF', // the standardFamily the Standards Explorer names this specification by
 				title: 'Learner Information Framework (LIF) 2.0',
 				type: 'Standard',
 				category: 'Learner Records',
@@ -1018,6 +1029,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 10. PESC
 			{
 				id: 'pesc',
+				graphFamily: 'PESC', // the standardFamily the Standards Explorer names this specification by
 				title: 'Postsecondary Electronic Standards Council (PESC)',
 				type: 'Standard',
 				category: 'Student Records',
@@ -1107,6 +1119,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 11. JEDx
 			{
 				id: 'jedx',
+				graphFamily: 'JEDx', // the standardFamily the Standards Explorer names this specification by
 				title: 'Jobs and Employment Data Exchange (JEDx)',
 				type: 'Standard',
 				category: 'Workforce',
@@ -1196,6 +1209,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 12. CIP
 			{
 				id: 'cip',
+				graphFamily: 'CIP', // the standardFamily the Standards Explorer names this specification by
 				title: 'Classification of Instructional Programs (CIP)',
 				type: 'Classification System',
 				category: 'Education Taxonomy',
@@ -1285,6 +1299,7 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 			// 13. Ed-API (Edu-API)
 			{
 				id: 'edu-api',
+				graphFamily: 'EduAPI', // the standardFamily the Standards Explorer names this specification by
 				title: 'Ed-API (Edu-API) v1.0',
 				type: 'Standard',
 				category: 'Data Standards',
@@ -1381,6 +1396,13 @@ export const useSpecificationMetadataStore = defineStore('specificationMetadataS
 
 		specById: (state) => {
 			return (id) => state.specs.find((s) => s.id === id);
+		},
+
+		// ------------------------------------------------------------
+		// Look up a spec by the standardFamily the Standards Explorer's graph names it by (CEDS, EdFi, OpenBadges…)
+
+		specByGraphFamily: (state) => {
+			return (standardFamily) => (standardFamily ? state.specs.find((s) => s.graphFamily === standardFamily) : undefined);
 		},
 
 		// ------------------------------------------------------------

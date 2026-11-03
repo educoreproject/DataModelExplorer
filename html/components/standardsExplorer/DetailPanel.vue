@@ -4,12 +4,16 @@
 // either Open or "end of the line". Beneath it, one version tile per other version of the item's message, loaded
 // lazily; their loading and error states stay inside the tile area. Last, the Companion pages and then the Downloads
 // sections for the standard being visited (CompanionPagesSection.vue, DownloadsSection.vue).
+// For a family, a release or a standard, the specification catalog's card for that family (SpecificationCard.vue);
+// at the families catalog, the catalog's specifications the graph does not hold yet.
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
+const specStore = useSpecificationMetadataStore();
 
 // the family the walk began in (the first family: crumb, eg family:PESC); other families get the outlined Standard
 // fact. At the families catalog no walk has begun, so nothing is outlined there
@@ -70,7 +74,8 @@ const factList = computed(() => {
 		// a SIF field's path can run ten steps deep: it breaks after a '/', never inside a step, and copies whole
 		{ factName: 'Path', factText: ['instance', 'property'].includes(oneNode.kind) && oneNode.path && !/^(type|element|group)\//.test(oneNode.path) ? oneNode.path : '', breaksAfterSlash: true },
 		{ factName: 'Property of', factText: oneNode.ownerName || '' },
-		{ factName: 'Holds', factText: oneNode.kind === 'family' ? `${familyHoldingTextOf(oneNode)}, ${oneNode.classCount} classes` : '' },
+		// a family's row carries its counts; an opened family's own node does not (the server sends none), so it says nothing
+		{ factName: 'Holds', factText: oneNode.kind === 'family' && oneNode.standardCount !== undefined ? `${familyHoldingTextOf(oneNode)}, ${oneNode.classCount} classes` : '' },
 		{ factName: 'Properties', factText: oneNode.propertyCount ? `${oneNode.propertyCount}, ${oneNode.mappedPropertyCount} ${oneNode.kind === 'hubDomain' ? 'mapped to by a standard' : 'mapped to a hub'}` : '' },
 		{ factName: humanizeKindName(pluralKindNameOf('hubAnchor', oneNode.hubName)), factText: oneNode.hubElementCount ? `${oneNode.hubElementCount}; ${hubMappedTextOf(oneNode)}` : '' },
 		{ factName: 'Occurrences', factText: oneNode.occurrenceCount > 1 ? String(oneNode.occurrenceCount) : '' },
@@ -79,6 +84,25 @@ const factList = computed(() => {
 		{ factName: kindDisplayNameOf('hubDomain', oneNode.hubName), factText: (oneNode.hubDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.hubDomainName || '' },
 		{ factName: 'Occurrences shown', factText: isFocus.value && store.neighbourhood.instanceFolding && store.neighbourhood.instanceFolding.occurrenceCount > 1 ? (store.neighbourhood.instanceFolding.folded ? 'folded: they all map the same way' : 'yes: they map differently') : '' },
 	].filter((oneFact) => oneFact.factText);
+});
+
+// ================================================================================
+// THE SPECIFICATION CATALOG — a family, release or standard shows its family's catalog card; deeper items do not (the
+// card is about the whole specification, and it would repeat on every class and property)
+
+const SPEC_CARD_KIND_LIST = ['family', 'release', 'standard'];
+const shownSpec = computed(() => {
+	const oneNode = shownNode.value;
+	if (!oneNode || !SPEC_CARD_KIND_LIST.includes(oneNode.kind)) return null;
+	return specStore.specByGraphFamily(oneNode.standardFamily || (oneNode.kind === 'family' ? oneNode.name : null)) || null;
+});
+
+// at the families catalog: the catalog's specifications no family row on this level stands for
+const isFamilyCatalog = computed(() => isFocus.value && store.focusNode?.stableId === FAMILY_CATALOG_STABLE_ID);
+const specNotInGraphList = computed(() => {
+	if (!isFamilyCatalog.value) return [];
+	const graphFamilySet = new Set(store.levelRowList.map((oneRow) => oneRow.standardFamily || oneRow.name));
+	return specStore.specs.filter((oneSpec) => !oneSpec.graphFamily || !graphFamilySet.has(oneSpec.graphFamily));
 });
 
 // the hubs the shown mappings reach, as the server names them (each mapping's anchor.hubName)
@@ -143,6 +167,19 @@ const definitionText = computed(() => {
 		<p v-else-if="!isFocus" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else class="detail-note">You are here. Click anything on this level for its details.</p>
+
+		<section v-if="shownSpec" class="detail-catalog" aria-label="About this specification" data-testid="detail-spec">
+			<span class="detail-box-head">About this specification</span>
+			<StandardsExplorerSpecificationCard :spec="shownSpec" compact />
+		</section>
+		<section v-else-if="isFamilyCatalog" class="detail-catalog" aria-label="Specification catalog" data-testid="detail-spec-catalog">
+			<span class="detail-box-head">Specification catalog</span>
+			<p class="detail-note">Select a family for its catalog card: owner, governance, burden, access and implementation details.</p>
+			<template v-if="specNotInGraphList.length">
+				<p class="detail-note" data-testid="detail-spec-not-in-graph">In the catalog, not yet walkable in the graph:</p>
+				<StandardsExplorerSpecificationCard v-for="oneSpec in specNotInGraphList" :key="oneSpec.id" :spec="oneSpec" compact />
+			</template>
+		</section>
 
 		<section v-if="store.versionTileSubject" class="detail-versions" aria-label="Other versions" data-testid="detail-versions">
 			<span class="detail-box-head">In other versions</span>
@@ -268,6 +305,13 @@ const definitionText = computed(() => {
 }
 .detail-open {
 	align-self: flex-start;
+}
+.detail-catalog {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-top: 14px;
+	border-top: 1px solid #e3e7ef;
 }
 .detail-versions {
 	display: flex;

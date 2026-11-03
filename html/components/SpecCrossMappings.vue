@@ -1,7 +1,7 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[CedsHub]]
-// The right-hand panel of the Schema Verifier's specification browser.
+// The right-hand panel of the Specification Viewer's specification browser.
 //
 // The graph is a hub-and-spoke ontology: no standard's documentation
 // crosswalks directly to another's — each maps to CEDS. So the panel reads the
@@ -19,9 +19,9 @@
 // concept, and that is what the panel shows.
 
 import { ref, computed, watch } from 'vue';
-import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore, elementCurationKey } from '@/stores/specificationViewerStore';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	// The element being explained: { name, source, standard, kind, description, sourceId, path }.
@@ -40,7 +40,8 @@ const sourceInfo = computed(() =>
 		? {
 				standard: props.element.standard || props.element.source,
 				name: props.element.name,
-				sourceId: props.element.sourceId || '',
+				// the node's graph identity, so the export resolves exactly this node
+				sourceId: props.element.stableId || props.element.sourceId || '',
 				// dotted graph path — lets the graph-ingestion export resolve the
 				// exact node (LIF has an `identifier` on every entity)
 				path: props.element.path || '',

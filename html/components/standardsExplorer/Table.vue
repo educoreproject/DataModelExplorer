@@ -4,15 +4,18 @@
 
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
 import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
+const specStore = useSpecificationMetadataStore();
 const emit = defineEmits(['drill']);
 
 // the Info column says what it holds, from the kinds on this level
 const infoTextOf = (oneRow) => {
 	const infoByKind = {
-		family: () => familyHoldingTextOf(oneRow),
+		// a family the specification catalog describes leads with the catalog's full title
+		family: () => [specStore.specByGraphFamily(oneRow.standardFamily)?.title, familyHoldingTextOf(oneRow)].filter(Boolean).join(' · '),
 		class: () => oneRow.description,
 		property: () => (oneRow.mapping ? oneRow.mapping.anchor.name : oneRow.description),
 		instance: () => oneRow.path || oneRow.description,

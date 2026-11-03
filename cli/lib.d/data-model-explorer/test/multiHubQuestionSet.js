@@ -7,7 +7,7 @@
 //
 // Every question goes through the code the DME runs: the CLI verbs through QUERY_HANDLER_BY_QUERY_TYPE on a READ session
 // (askMilo's spawn adds only argument parsing and stdout), the HTTP endpoints through their own route handlers over the
-// real dme-cypher-query access point, the Schema Verifier and PESC Explorer through their access points and mappers,
+// real dme-cypher-query access point, the Specification Viewer and PESC Explorer through their access points and mappers,
 // the Slack card through its mapper, getSchema through schema-provider, and the MCP instructions as the source declares them.
 //
 // Elements are named by (source, name, role), never by stableId: stableIds differ between builds, and the set must ask

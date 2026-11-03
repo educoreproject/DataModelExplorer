@@ -1,5 +1,5 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // "Your equivalence crosswalk" — the per-element set of mappings the user has
 // accepted, each with an optional transformation rule. Shared by the
 // specification browser (SpecCrossMappings) and the HR Open / OpenAPI view
@@ -9,9 +9,9 @@
 // openRuleFor(item, true) so the rule editor appears at the moment of mapping.
 
 import { ref, computed } from 'vue';
-import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore } from '@/stores/specificationViewerStore';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	curationKey: { type: String, required: true },

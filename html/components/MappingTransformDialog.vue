@@ -1,5 +1,5 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // Editor for the transformation rule attached to one accepted mapping
 // (source element → target element). Opened right after a mapping is added
 // ("how does the value get across?") and again from any curated chip to
@@ -7,7 +7,7 @@
 // type; the hint under the type picker says what to write.
 
 import { ref, watch, computed } from 'vue';
-import { TRANSFORM_TYPES } from '@/stores/schemaVerifierStore';
+import { TRANSFORM_TYPES } from '@/stores/specificationViewerStore';
 
 const props = defineProps({
 	modelValue: { type: Boolean, default: false },

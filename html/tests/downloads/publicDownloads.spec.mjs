@@ -5,7 +5,7 @@
 //       zip each download; the publications section answers (a listing, or the gold's own "none published")
 //   D2b signed out, a forged use case's Structure tab offers the whole standard's zips (no "once you sign in" text) and
 //       one downloads
-//   D2c signed out, the Standards Explorer still sends a visitor to /login (it was not opened)
+//   D2c signed out, the Standards view shows the specification catalog and a sign-in prompt, never the explorer's walk
 //   D2d signed in, the Standards Explorer's Downloads section offers the CEDS zips and one downloads
 // A download counts only when the browser fires its download event and the saved file is not empty.
 //
@@ -109,21 +109,23 @@ try {
 		await structureDownloads.screenshot({ path: shotPath('D2b-structureTab-signedOut') });
 	}
 
-	console.log('D2c signed out: the Standards Explorer still asks for sign-in');
-	await visitorPage.goto(`${baseUrl}/explore/standards/explorer`);
-	await visitorPage.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {});
-	check('the Standards Explorer sends a visitor to /login', /\/login/.test(visitorPage.url()), visitorPage.url());
+	console.log('D2c signed out: the Standards view shows the catalog and asks for sign-in for the explorer');
+	await visitorPage.goto(`${baseUrl}/explore/standards`);
+	await visitorPage.waitForSelector('[data-testid="standards-signin-prompt"]', { timeout: 15000 }).catch(() => {});
+	check('signed out: the sign-in prompt is shown', (await visitorPage.locator('[data-testid="standards-signin-prompt"]').count()) === 1);
+	check('signed out: the specification catalog is shown', (await visitorPage.locator('[data-testid^="spec-card-"]').count()) > 0);
+	check('signed out: the explorer\'s walk is not opened', (await visitorPage.locator('[data-testid="standards-explorer"]').count()) === 0);
 	await visitorContext.close();
 
 	// ---- signed in
 	console.log('D2d signed in: the Standards Explorer\'s Downloads section');
 	const memberContext = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1100 } });
 	const memberPage = await memberContext.newPage();
-	await memberPage.goto(`${baseUrl}/login?redirect=${encodeURIComponent(`/explore/standards/explorer?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`)}`);
+	await memberPage.goto(`${baseUrl}/login?redirect=${encodeURIComponent(`/explore/standards?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`)}`);
 	await memberPage.getByLabel('User Name').fill(argumentByName.userName);
 	await memberPage.getByLabel('Password', { exact: true }).fill(userPassword);
 	await memberPage.getByRole('button', { name: 'Login' }).click();
-	await memberPage.waitForURL(/standards\/explorer/, { timeout: 30000 });
+	await memberPage.waitForURL(/\/explore\/standards\?path=/, { timeout: 30000 });
 	await memberPage.waitForSelector('[data-testid="downloads-section"] [data-testid^="download-entry-"]', { timeout: 60000 }).catch(() => {});
 	const sectionButton = memberPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').first();
 	const sectionButtonCount = await memberPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').count();

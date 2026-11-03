@@ -3,7 +3,7 @@
 // @concept: [[UserMappingPersistence]]
 // @concept: [[MapperPattern]]
 //
-// A user mapping is one accepted equivalence in the Schema Verifier's curated
+// A user mapping is one accepted equivalence in the Specification Viewer's curated
 // crosswalk: SOURCE element (the thing being mapped, identified by mappingKey)
 // → TARGET element in another specification, plus an optional TRANSFORMATION
 // RULE describing how a value moves from source to target.

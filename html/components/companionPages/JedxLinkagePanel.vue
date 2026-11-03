@@ -19,7 +19,7 @@ const props = defineProps({
 const JEDX_ROOT_PATH_STABLE_ID_LIST = ['families:all', 'family:JEDx', 'jedx:root'];
 
 const explorerLinkOf = (dictionaryElement) => ({
-	path: '/explore/standards/explorer',
+	path: '/explore/standards',
 	query: { path: pathTextOf([...JEDX_ROOT_PATH_STABLE_ID_LIST, `jedx:${dictionaryElement.jedxSchemaName}`, dictionaryElement.jedxStableId]) },
 });
 
