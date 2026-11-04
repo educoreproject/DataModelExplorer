@@ -2,10 +2,12 @@
 // browser against a running dev server, with every /api/* call answered by standardsViewFixtures.mjs, so it needs no
 // backend and no graph.
 //   V1 the sidebar has one Standards entry and none of the entries it replaced
-//   V2 signed out, /explore/standards shows the sign-in prompt and the specification catalog, never the walk
+//   V2 signed out (the explorer is public since 2026-11-04), /explore/standards opens the walk: no sign-in prompt, no
+//      Authorization header on the walk's requests, and no companion pages asked for (they stay for signed-in people)
 //   V3 the Specifications and Downloads tabs open and are selected; Downloads keeps its ?family= filter
 //   V4 every old route redirects to its tab with its query
-//   V5 signing in from the prompt comes back to the Explorer tab with the walk open
+//   V5 a shared walk link opens signed out
+//   V6..V8 run signed out
 //   V6 the families level: the table leads each family with its catalog title; the panel lists the catalog's
 //      specifications the graph does not hold
 //   V7 selecting a family shows its catalog card in the panel; opening it keeps the card for the focus, and the panel
@@ -50,6 +52,14 @@ try {
 	const page = await context.newPage();
 	const pageErrorList = [];
 	page.on('pageerror', (error) => pageErrorList.push(`${error.message} at ${(error.stack || '').split('\n')[1]?.trim() || '?'} on ${page.url().replace(baseUrl, '')}`));
+	// what the walk asks the server, and whether it sends a token
+	const neighbourhoodRequestList = [];
+	let companionRequestCount = 0;
+	page.on('request', (oneRequest) => {
+		const requestPath = new URL(oneRequest.url()).pathname;
+		if (requestPath === '/api/standards-neighbourhood') neighbourhoodRequestList.push({ authorization: oneRequest.headers().authorization || '' });
+		if (requestPath === '/api/companion-page-list') companionRequestCount += 1;
+	});
 	const open = async (routePath) => {
 		await page.goto(`${baseUrl}${routePath}`, { waitUntil: 'load' });
 		await page.waitForSelector('[data-testid="standards-view"]', { timeout: 30000 }).catch(() => {});
@@ -62,12 +72,12 @@ try {
 	check('one Standards entry', (await page.locator('[data-testid="menu-standards"]').count()) === 1);
 	check('no separate Schema Verifier, Specification Viewer, Standards Explorer or Downloads entries', !/Schema Verifier|Specification Viewer|Standards Explorer|Downloads/.test(sidebarText), sidebarText.replace(/\s+/g, ' '));
 
-	console.log('V2 signed out');
+	console.log('V2 signed out: the walk is public');
+	await page.waitForSelector('[data-testid="standards-explorer"] [data-testid="level-item-list"] li', { timeout: 30000 }).catch(() => {});
 	check('the Explorer tab is selected', (await selectedTabText()) === 'Explorer', await selectedTabText());
-	check('the sign-in prompt is shown', (await page.locator('[data-testid="standards-signin-prompt"]').count()) === 1);
-	const signedOutCardCount = await page.locator('article[data-testid^="spec-card-"]').count();
-	check('the whole specification catalog is shown', signedOutCardCount === 15, `${signedOutCardCount} cards`);
-	check('the walk is not opened', (await page.locator('[data-testid="standards-explorer"]').count()) === 0);
+	check('the walk opens without signing in', (await page.locator('[data-testid="standards-explorer"]').count()) === 1 && (await page.locator('[data-testid="level-item-list"] li').count()) === 12);
+	check('no sign-in prompt', (await page.locator('[data-testid="standards-signin-prompt"]').count()) === 0);
+	check('the walk\'s requests carry no Authorization header', neighbourhoodRequestList.length > 0 && neighbourhoodRequestList.every((oneRequest) => !oneRequest.authorization), `${neighbourhoodRequestList.length} requests; ${neighbourhoodRequestList.map((oneRequest) => oneRequest.authorization || 'none').join(', ')}`);
 	await shoot(page, 'V2-signedOut');
 
 	console.log('V3 the other tabs');
@@ -88,22 +98,17 @@ try {
 		['/explore/specification-viewer', /\/explore\/standards\/specifications$/],
 		['/explore/graphicModelExplorer?path=families%3Aall', /\/explore\/standards\?path=families(%3A|:)all$/],
 		['/explore/standards/explorer?path=families%3Aall', /\/explore\/standards\?path=families(%3A|:)all$/],
-		['/explore/pesc', /\/explore\/standards\?path=family(%3A|:)PESC$/],
+		// the explorer then writes the walk out from the top (families:all), as it does for any path that skips it
+		['/explore/pesc', /\/explore\/standards\?path=(families(%3A|:)all(,|%2C))?family(%3A|:)PESC$/],
 	]) {
 		await open(oldPath);
 		check(`${oldPath} redirects`, newPattern.test(page.url()), page.url().replace(baseUrl, ''));
 	}
 
-	console.log('V5 signing in from the prompt');
+	console.log('V5 a shared walk link, signed out');
 	await open('/explore/standards?path=families%3Aall');
-	await page.click('[data-testid="standards-signin"]');
-	await page.waitForURL(/\/login/, { timeout: 15000 });
-	await page.getByLabel('User Name').fill('fixture');
-	await page.getByLabel('Password', { exact: true }).fill('fixture');
-	await page.getByRole('button', { name: 'Login' }).click();
-	await page.waitForURL(/\/explore\/standards\?path=/, { timeout: 30000 }).catch(() => {});
-	await page.waitForSelector('[data-testid="standards-explorer"]', { timeout: 30000 }).catch(() => {});
-	check('back on the Explorer tab with the walk open', (await page.locator('[data-testid="standards-explorer"]').count()) === 1 && (await selectedTabText()) === 'Explorer', page.url().replace(baseUrl, ''));
+	await page.waitForSelector('[data-testid="standards-explorer"] [data-testid="level-item-list"] li', { timeout: 30000 }).catch(() => {});
+	check('it opens on the Explorer tab with the walk', (await page.locator('[data-testid="standards-explorer"]').count()) === 1 && (await selectedTabText()) === 'Explorer' && !/\/login/.test(page.url()), page.url().replace(baseUrl, ''));
 
 	console.log('V6 the families level');
 	await page.locator('.v-btn', { hasText: /^Table$/ }).first().click().catch(() => {});
@@ -147,6 +152,7 @@ try {
 	await page.waitForFunction(() => !document.querySelector('[data-testid="view-schema"]'), null, { timeout: 10000 }).catch(() => {});
 	check('at the families catalog it is not offered', (await page.locator('[data-testid="view-schema"]').count()) === 0);
 
+	check('signed out, companion pages were never asked for', companionRequestCount === 0, `${companionRequestCount} requests`);
 	check('no page errors', pageErrorList.length === 0, pageErrorList.join(' | '));
 } finally {
 	await browser.close();

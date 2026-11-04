@@ -8,7 +8,7 @@ Pages are a single-page app: their content is drawn by JavaScript, and each page
 
 - [Use cases](https://educore.org/explore/use-cases): the EDUcore use-case standard; each case opens at /explore/use-cases/forged/{caseStableId} with an Overview (and a generated use case map of which steps read or write which CEDS elements), T-Chart, Swimlane, Structure, Steps and citations, and an Implementation Guide
 - [Use cases by the standard they cite](https://educore.org/explore/topics)
-- [Standards](https://educore.org/explore/standards): the specification catalog (owner, version, governance, implementation burden, access, privacy and equity notes for each); signed in, the Standards Explorer walk of every standard, class and property and how each maps across (?path= holds the walk; inside a standard, Schema Viewer shows its schema)
+- [Standards](https://educore.org/explore/standards): the Standards Explorer, open to everyone: walk every standard, class and property and how each maps across to the hub elements, with each specification's catalog card (owner, version, governance, implementation burden, access, privacy and equity notes) beside it (?path= holds the walk; inside a standard, Schema Viewer shows its schema)
 - [Specifications](https://educore.org/explore/standards/specifications): the Specification Viewer: pick a specification and walk its elements with their cross-specification mappings, or load an OpenAPI schema and map its fields
 - [Downloads](https://educore.org/explore/standards/downloads): each standard's source as taken in, and the standard written back out of the graph with its round-trip validation files (?family=, ?group=, ?standardKey= filter); then the published SSSOM mapping sets and hub cards
 - [Access guide](https://educore.org/explore/access-guide): the three ways in (the site, MCP, the REST API), with examples
@@ -27,7 +27,7 @@ Pages are a single-page app: their content is drawn by JavaScript, and each page
 - `GET /api/dme-spec-elements`: one specification's elements (search and paging by query)
 - `POST /api/forged-use-cases` `{ "action": "list" | "byCitedStandard" | "case" | "caseStructure" | "useCaseDiagram", "caseStableId"? }`: the use cases; `useCaseDiagram` answers a case's map as SVG
 - `POST /api/standard-downloads-manifest` `{}`: every download; then `POST /api/standard-downloads-file` `{ "downloadId" }`
-- `POST /api/standards-neighbourhood` `{ "action": "node", "stableId" }`: one node of the Standards Explorer walk (sign-in required; start at "families:all")
+- `POST /api/standards-neighbourhood` `{ "action": "node", "stableId" }`: one node of the Standards Explorer walk (start at "families:all")
 - `GET /api/dme-list-standards`: the standards with their hubs and mapping coverage (sign-in required)
 
 ## Optional

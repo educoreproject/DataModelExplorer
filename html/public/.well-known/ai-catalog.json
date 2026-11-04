@@ -89,7 +89,7 @@
       "name": "Standards Explorer node",
       "method": "POST",
       "url": "https://educore.org/api/standards-neighbourhood",
-      "authentication": "educore.org login (Bearer token)",
+      "authentication": "none",
       "requestBody": {
         "action": "node",
         "stableId": "families:all to start"
@@ -114,10 +114,10 @@
       "access": "public"
     },
     {
-      "name": "Standards (catalog; signed in, the Standards Explorer)",
+      "name": "Standards Explorer (with the specification catalog)",
       "url": "https://educore.org/explore/standards",
       "urlTemplate": "https://educore.org/explore/standards?path={walk}",
-      "access": "public catalog; explorer requires login"
+      "access": "public"
     },
     {
       "name": "Specification Viewer",

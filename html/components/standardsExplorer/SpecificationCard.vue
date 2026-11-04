@@ -2,7 +2,7 @@
 // @concept: [[DataModelExplorer]]
 // One specification from the catalog (specificationMetadataStore): owner, version, governance, burden and access,
 // description, tags, and its implementation details behind an expansion panel. Drawn in the signed-out catalog
-// (SpecificationCatalog.vue) and, compact, in the Standards Explorer's detail panel for the family being walked.
+// (until 2026-11-04, the signed-out catalog) and, compact, in the Standards Explorer's detail panel for the family being walked.
 
 import { computed } from 'vue';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';

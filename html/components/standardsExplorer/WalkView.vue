@@ -1,7 +1,7 @@
 <script setup>
 // @concept: [[DataModelExplorer]]
 // The Standards Explorer's walk (DEV-123; every family since 2026-10-14), the Standards view's Explorer tab
-// (pages/explore/standards/index.vue, which shows it only to a signed-in visitor: the walk's endpoint needs an account).
+// (pages/explore/standards/index.vue), open to everyone since 2026-11-04 (the walk's endpoint is public).
 //
 // Opens on every standards family in the graph (the synthetic 'families:all') and walks, one click at a time, down a
 // standard to its classes and properties, across to the hub element a property maps to, and out into every other

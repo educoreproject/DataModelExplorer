@@ -46,7 +46,6 @@ const FILES = [
 	'components/standardsExplorer/DetailPanel.vue',
 	'components/standardsExplorer/Table.vue',
 	'components/standardsExplorer/SpecificationCard.vue',
-	'components/standardsExplorer/SpecificationCatalog.vue',
 	'components/standardsExplorer/LevelItemList.vue',
 	'components/standardsExplorer/Breadcrumb.vue',
 	'components/standardsExplorer/CrossingBanner.vue',

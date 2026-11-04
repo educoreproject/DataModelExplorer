@@ -4,8 +4,8 @@
 //   N1 every page of the view: a title naming it, <html lang>, one h1, a main landmark, the site navigation and its
 //      sections as named landmarks, and a name on every visible link, button, tab and text field
 //   N2 the sidebar's logo is a link home with a name, not a clickable div
-//   N3 the catalog: each specification is an article named by its heading, with links (hrefs) to explore it and to
-//      its downloads; following the explore href lands on that family
+//   N3 signed out (the explorer is public): the walk names itself, and a family's catalog card in the panel is an
+//      article named by its heading
 //   N4 the explorer in Diagram view (a selected item with more inside is offered Open, never also called the end of
 //      the line): the canvas is named as a picture, and the level's items are listed under it,
 //      one per row, each with a Select button and, when it has more inside, an Open link; following an Open href
@@ -97,19 +97,14 @@ try {
 		await page.waitForTimeout(800);
 	};
 
-	console.log('N1, N2 signed out');
-	await open('/explore/standards', '[data-testid^="spec-card-"]');
-	await checkPage(page, { pageLabel: 'Standards (signed out)', titlePattern: /^Standards · EDUcore$/, sectionNameList: ['Explore'] });
+	console.log('N1, N2, N3 signed out');
+	await open('/explore/standards', '[data-testid="level-item-list"] li');
+	await checkPage(page, { pageLabel: 'Standards Explorer (signed out)', titlePattern: /^Standards Explorer · EDUcore$/, sectionNameList: ['Explore', 'Breadcrumb', 'Items on this level'] });
 	const logoLink = page.locator('[data-testid="menu-logo"]');
 	check('the logo is a link home named "EDUcore home"', (await logoLink.evaluate((oneElement) => oneElement.tagName)) === 'A' && (await hrefOf(logoLink)) === '/' && (await logoLink.getAttribute('aria-label')) === 'EDUcore home');
-
-	console.log('N3 the catalog');
-	const cedsCard = page.locator('[data-testid="spec-card-ceds"]');
-	check('a specification is an article named by its heading', (await cedsCard.evaluate((oneElement) => oneElement.tagName)) === 'ARTICLE' && (await page.getByRole('article', { name: 'Common Education Data Standards (CEDS)' }).count()) === 1);
-	const exploreHref = await hrefOf(page.locator('[data-testid="spec-card-explore-ceds"]'));
-	const downloadsHref = await hrefOf(page.locator('[data-testid="spec-card-downloads-ceds"]'));
-	check('its card links to exploring it', /^\/explore\/standards\?path=families(%3A|:)all,family(%3A|:)CEDS$/.test(exploreHref), exploreHref);
-	check('its card links to its downloads', downloadsHref === '/explore/standards/downloads?family=CEDS', downloadsHref);
+	await page.getByRole('button', { name: /^Select CEDS \(Standards family\)/ }).click();
+	await page.waitForSelector('[data-testid="detail-spec"] [data-testid="spec-card-ceds"]', { timeout: 10000 }).catch(() => {});
+	check('signed out, a family\'s catalog card is an article named by its heading', (await page.locator('[data-testid="spec-card-ceds"]').evaluate((oneElement) => oneElement.tagName).catch(() => '')) === 'ARTICLE' && (await page.getByRole('article', { name: 'Common Education Data Standards (CEDS)' }).count()) === 1);
 
 	for (const [routePath, pageLabel, titlePattern] of [
 		['/explore/standards/specifications', 'Specifications', /^Specification Viewer · EDUcore$/],

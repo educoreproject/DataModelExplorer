@@ -1,11 +1,11 @@
 // publicDownloads.spec.mjs — D2 of PLAN-publicDownloadsAndEditorRemoval-103026 in a real browser against a running site.
-// The downloads are public (TQ, 2026-10-30: "all public"); the Standards Explorer stays signed-in (SHADOW_MEADOW's
-// ruling the same day), so its Downloads section is checked signed IN, to prove it still works.
+// The downloads are public (TQ, 2026-10-30: "all public"), and since 2026-11-04 so is the Standards Explorer (it was
+// signed-in only, SHADOW_MEADOW's ruling of 2026-10-30); its Downloads section is checked signed out and signed in.
 //   D2a signed out, /explore/standards/downloads opens (no redirect to /login), lists the standards, and a source zip and a graph
 //       zip each download; the publications section answers (a listing, or the gold's own "none published")
 //   D2b signed out, a forged use case's Structure tab offers the whole standard's zips (no "once you sign in" text) and
 //       one downloads
-//   D2c signed out, the Standards view shows the specification catalog and a sign-in prompt, never the explorer's walk
+//   D2c signed out, the Standards Explorer opens (public since 2026-11-04) and its Downloads section offers the CEDS zips
 //   D2d signed in, the Standards Explorer's Downloads section offers the CEDS zips and one downloads
 // A download counts only when the browser fires its download event and the saved file is not empty.
 //
@@ -109,12 +109,12 @@ try {
 		await structureDownloads.screenshot({ path: shotPath('D2b-structureTab-signedOut') });
 	}
 
-	console.log('D2c signed out: the Standards view shows the catalog and asks for sign-in for the explorer');
-	await visitorPage.goto(`${baseUrl}/explore/standards`);
-	await visitorPage.waitForSelector('[data-testid="standards-signin-prompt"]', { timeout: 15000 }).catch(() => {});
-	check('signed out: the sign-in prompt is shown', (await visitorPage.locator('[data-testid="standards-signin-prompt"]').count()) === 1);
-	check('signed out: the specification catalog is shown', (await visitorPage.locator('article[data-testid^="spec-card-"]').count()) > 0);
-	check('signed out: the explorer\'s walk is not opened', (await visitorPage.locator('[data-testid="standards-explorer"]').count()) === 0);
+	console.log('D2c signed out: the Standards Explorer is public (BD 2026-11-04)');
+	await visitorPage.goto(`${baseUrl}/explore/standards?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`);
+	await visitorPage.waitForSelector('[data-testid="standards-explorer"]', { timeout: 30000 }).catch(() => {});
+	check('signed out: the Standards Explorer opens, no sign-in asked', (await visitorPage.locator('[data-testid="standards-explorer"]').count()) === 1 && !/\/login/.test(visitorPage.url()), visitorPage.url());
+	await visitorPage.waitForSelector('[data-testid="downloads-section"] [data-testid^="download-entry-"]', { timeout: 60000 }).catch(() => {});
+	check('signed out: the explorer\'s Downloads section offers the CEDS zips', (await visitorPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').count()) > 0);
 	await visitorContext.close();
 
 	// ---- signed in

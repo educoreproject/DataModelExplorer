@@ -3,8 +3,8 @@
 // Explore → Standards: the one standards view. One sidebar entry, three tabs, each its own child route so a tab is a
 // link to share and each tab keeps its own query (the explorer's ?path=, the downloads' ?family=…):
 //   Explorer        /explore/standards                 the specification catalog and the Standards Explorer as one view:
-//                                                      signed in, the walk with each family's catalog card; signed out,
-//                                                      the catalog with a prompt to sign in for the walk
+//                                                      the walk, with each family's catalog card (public since
+//                                                      2026-11-04; it was signed-in only)
 //   Specifications  /explore/standards/specifications  the Specification Viewer (public)
 //   Downloads       /explore/standards/downloads       every standard's source and graph zips (public)
 // The old routes (/explore/graphicModelExplorer, /explore/standards/explorer, /explore/specification-viewer,
