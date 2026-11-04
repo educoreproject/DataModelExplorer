@@ -69,6 +69,7 @@ const focusNameText = computed(() => (store.focusNode && store.focusNode.kind !=
 const levelLabelText = computed(() => {
 	if (!store.focusNode) return 'Explorer';
 	const kindText = store.focusNode.kind === 'familyCatalog' ? 'every standards family' : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
+	if (store.effectiveViewMode === 'schema') return `Explorer: the schema of ${kindText}, in the Schema Viewer`;
 	return `Explorer: ${store.levelRowList.length} items in ${kindText}, shown as a ${store.effectiveViewMode}`;
 });
 useHead(() => ({
@@ -122,12 +123,14 @@ useHead(() => ({
 						<StandardsExplorerDiagram @drill="drillInto" />
 						<StandardsExplorerLevelItemList />
 					</template>
+					<!-- the standard being walked, in the Specification Viewer; it takes the whole width (no legend, no panel) -->
+					<StandardsExplorerSchemaView v-else-if="store.effectiveViewMode === 'schema'" />
 					<StandardsExplorerTable v-else @drill="drillInto" />
 				</template>
-				<StandardsExplorerLegend v-if="store.legendVisible" />
+				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
 			</section>
 
-			<StandardsExplorerDetailPanel class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
+			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>

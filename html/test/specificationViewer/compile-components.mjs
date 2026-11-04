@@ -27,6 +27,9 @@ const FILES = [
 	'components/SchemaEquivalents.vue',
 	'components/SpecCrossMappings.vue',
 	'components/SpecElementDetail.vue',
+	'components/SpecificationViewer.vue',
+	'components/standardsExplorer/SchemaView.vue',
+	'components/standardsExplorer/Toolbar.vue',
 	'pages/explore/specification-viewer.vue',
 	'pages/explore/schema-verifier.vue',
 	// the one Standards view and its tabs

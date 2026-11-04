@@ -144,7 +144,20 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		},
 
 		// a large level opens in the table unless the person asked for the diagram of THIS level
+		// ⟪Schema Viewer, BD 2026-11-04⟫ the standard the walk is in: the focus's own family, else the family the walk began
+		// in; none at the families catalog, where there is no one standard to show the schema of
+		walkStandard() {
+			const focusNode = this.focusNode;
+			if (!focusNode || focusNode.kind === 'familyCatalog') return null;
+			const standardFamily = focusNode.standardFamily || (this.pathStableIdList.find((oneStableId) => oneStableId.indexOf('family:') === 0) || '').slice('family:'.length);
+			if (!standardFamily) return null;
+			return { standardFamily, standardKey: focusNode.standardKey || null, releaseLabel: focusNode.releaseLabel || null, version: focusNode.version || null };
+		},
+
+		// the view shown: the choice, except that a large level opens as a table (unless its diagram was asked for), and the
+		// Schema Viewer needs a standard to show (at the families catalog it falls back to the diagram)
 		effectiveViewMode() {
+			if (this.viewModeChoice === 'schema') return this.walkStandard ? 'schema' : 'diagram';
 			if (this.isLargeLevel && this.diagramRequestedForStableId !== this.focusNode?.stableId) return 'table';
 			return this.viewModeChoice;
 		},

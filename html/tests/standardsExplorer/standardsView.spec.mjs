@@ -10,6 +10,8 @@
 //      specifications the graph does not hold
 //   V7 selecting a family shows its catalog card in the panel; opening it keeps the card for the focus, and the panel
 //      reads no 'undefined' (an opened family's node carries no counts)
+//   V8 the Schema Viewer: not offered at the families catalog; inside CEDS it is a third view beside Diagram and Table,
+//      showing the Specification Viewer opened on CEDS, full width (no detail panel, no filter); Diagram brings them back
 //
 //   node html/tests/standardsExplorer/standardsView.spec.mjs --baseUrl=http://localhost:3000 [--evidenceDir=…]
 //        [--playwrightPath=playwright] [--chromePath=…]
@@ -127,6 +129,23 @@ try {
 	await page.waitForTimeout(500);
 	check('its implementation details open', /Burden Rubric|Guidance/.test(await page.locator('[data-testid="detail-spec"]').innerText()));
 	await shoot(page, 'V7-cedsOpened');
+
+	console.log('V8 the Schema Viewer');
+	check('inside CEDS, Schema Viewer is a third view', (await page.locator('[data-testid="view-schema"]').count()) === 1 && /Schema Viewer/.test(await page.locator('[data-testid="view-switch"]').innerText()));
+	await page.locator('[data-testid="view-schema"]').click();
+	await page.waitForSelector('[data-testid="schema-view"] [data-testid="specification-viewer"]', { timeout: 15000 }).catch(() => {});
+	const schemaPickerLocator = page.locator('[data-testid="schema-view"] .v-autocomplete');
+	await page.waitForFunction(() => /CEDS/.test(document.querySelector('[data-testid="schema-view"] .v-autocomplete')?.innerText || ''), null, { timeout: 15000 }).catch(() => {});
+	check('it shows the Specification Viewer, opened on CEDS', /CEDS/.test((await schemaPickerLocator.innerText().catch(() => '')) || '') && (await page.locator('[data-testid="schema-view-unmatched"]').count()) === 0, ((await schemaPickerLocator.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 80));
+	check('embedded: no page header of its own, no Load Your Own Schema switch', (await page.locator('[data-testid="schema-view"]').getByRole('heading', { name: 'Specification Viewer' }).count()) === 0 && (await page.locator('[data-testid="schema-view"]').getByText('Load Your Own Schema').count()) === 0);
+	check('it takes the width: no detail panel, no filter', (await page.locator('[data-testid="detail-panel"]').count()) === 0 && (await page.locator('[data-testid="filter"]').count()) === 0);
+	await shoot(page, 'V8-schemaViewer');
+	await page.locator('[data-testid="view-diagram"]').click();
+	await page.waitForSelector('[data-testid="detail-panel"]', { timeout: 10000 }).catch(() => {});
+	check('Diagram brings the panel and the diagram back', (await page.locator('[data-testid="detail-panel"]').count()) === 1 && (await page.locator('[data-testid="explorer-diagram"]').count()) === 1);
+	await page.locator('[data-testid^="crumb-"]').first().click();
+	await page.waitForFunction(() => !document.querySelector('[data-testid="view-schema"]'), null, { timeout: 10000 }).catch(() => {});
+	check('at the families catalog it is not offered', (await page.locator('[data-testid="view-schema"]').count()) === 0);
 
 	check('no page errors', pageErrorList.length === 0, pageErrorList.join(' | '));
 } finally {
