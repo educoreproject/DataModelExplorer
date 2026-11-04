@@ -181,7 +181,7 @@
 					"standard": "EdFi",
 					"mode": "keyword"
 				},
-				"exampleShows": "Ed-Fi elements about birth dates, each with its uri.",
+				"exampleShows": "Ed-Fi elements about birth dates.",
 				"expectedAnswerFieldList": [
 					"resultList",
 					"totalRowCount"
@@ -364,7 +364,7 @@
 					],
 					"defaultValue": "summary",
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full is every row and field."
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
 				}
 			],
 			"mutuallyExclusiveInputNameList": [
@@ -475,7 +475,7 @@
 					],
 					"defaultValue": "summary",
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full is every row and field."
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
 				}
 			],
 			"refusalNameList": [
@@ -742,7 +742,7 @@
 				"exampleInput": {
 					"name": "Race"
 				},
-				"exampleShows": "Race codes per standard, and the cards they reach.",
+				"exampleShows": "Race codes per standard, and their cards.",
 				"expectedAnswerFieldList": [
 					"valueRowList"
 				]
@@ -915,7 +915,7 @@
 					],
 					"defaultValue": "summary",
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full is every row and field."
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
 				}
 			],
 			"refusalNameList": [
@@ -950,7 +950,7 @@
 			"aboutEntry": {
 				"forWhat": "Say what this graph is, how it was built, from what, and what it can do.",
 				"exampleInput": {},
-				"exampleShows": "The build's main facts, each check's verdict, each standard's kind, version and source.",
+				"exampleShows": "The build's main facts, each check's verdict, each standard's kind and source.",
 				"expectedAnswerFieldList": [
 					"whatThisGraphCanDo",
 					"passport",
@@ -1529,7 +1529,7 @@
 		"whatThisIs": [
 			"A read-only service answering questions about education data standards: what a standard holds, what an element maps to in a hub standard, and how elements in different standards relate.",
 			"It answers from one graph built from the published standards. Every answer names the graph and its manifest, the content-addressed list of what went into it.",
-			"A hub is a standard the others map to, eg CEDS. A card is one hub concept. An element is a field, class or code in any standard. A mapping from an element to a card is a judgment, usually by software, and says who made it and how sure it was.",
+			"A hub is a standard the others map to, eg CEDS. A card is one hub concept. An element is a field, class or code in any standard; its stableId is its identifier in the graph. A mapping from an element to a card is a judgment, usually by software, and says who made it and how sure it was.",
 			"Elements in different standards correspond only through one card, so name the hub whenever you report a mapping."
 		],
 		"howToReadAnAnswer": {
@@ -1551,8 +1551,8 @@
 			"targetKind": "What a mapping row points at: card. element is reserved for mappings between elements, which no manifest holds yet.",
 			"refusal": "An HTTP 4xx or 503 (a tool error on MCP) whose answer carries refusedByName, refusalName, reason and sometimes validValueList. The question was not answered; that does not mean no such data exists."
 		},
-		"uriResolvesToLine": "A uri is a permanent name; w3id.org does not forward these names yet. To read one, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. The answer is what the manifest holds about that thing, in JSON.",
-		"operationNoteLine": "Each operation is a GET at its exampleUrl's path and, on MCP, the tool standards_<operation>, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are described in sharedInputDescriptionByName unless the operation words one itself.",
+		"uriResolvesToLine": "A uri is a permanent name; w3id.org does not forward these names yet. To read one, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. It answers in JSON.",
+		"operationNoteLine": "Each operation is a GET at its exampleUrl's path and, on MCP, the tool standards_<operation>, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are in sharedInputDescriptionByName unless the operation words one itself.",
 		"uriNotResolvedHereLine": "A uri is a permanent name. This instance has no route that reads one."
 	}
 }
