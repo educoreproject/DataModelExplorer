@@ -601,7 +601,7 @@
 			"isCounted": true,
 			"summaryShaperName": "mappings",
 			"aboutEntry": {
-				"forWhat": "Say what an element maps to in each hub, how sure that is, and which standards hold equivalents. Given a card's uri, say which elements map to that card.",
+				"forWhat": "Say what an element maps to in each hub, how sure that is, and which standards hold equivalents. Given a card's uri, say who maps to it.",
 				"slowWhen": "element is a name (about half a minute); a stableId, uri or card identifier is quick",
 				"exampleInput": {
 					"element": "lif:Person/MilitaryLearningExperience/inline/dischargeDate"
@@ -1728,14 +1728,14 @@
 		],
 		"howToReadAnAnswer": {
 			"answeredFrom": "Which graph and manifest answered, on which instance.",
-			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element. A card's uri given to mappings answers which elements map to it; read at /edc/, it answers what the card is.",
-			"blockVerification": "A schema or decision block too large to carry as JSON is sent at /edc/ as the store holds it, as plain text. Those bytes are not checked before they are sent, so checking them is yours: their sha256 must equal the X-Edc-Expected-Sha256 header, which is the name in the block's uri.",
+			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element. Given to mappings, a card's uri answers who maps to it; at /edc/, what it is.",
+			"blockVerification": "A block too large for JSON comes from /edc/ as plain text, unchecked. Checking it is yours: its sha256 must equal X-Edc-Expected-Sha256, the name in its uri.",
 			"rowDetail": "mappings, element and graph answer in summary form unless asked rowDetail=full. A summary carries rowDetail: summary and leftOutOfSummary, which says by count what it left out and how to ask.",
 			"mappingStatusByHub": {
 				"mapped": "A mapping reaches this hub.",
 				"judgedAbstained": "A judge was offered this element against this hub and declined.",
 				"neverOffered": "No judge was asked. Nothing is known either way.",
-				"notApplicable": "The element belongs to this hub, or the input is a hub card, which no hub is ever offered."
+				"notApplicable": "The element belongs to this hub, or the input is a hub card."
 			},
 			"silenceIsNotAbstention": "A hub with no mapping is one of two different things: neverOffered is silence and judgedAbstained is a decision. Never report one as the other, or either as \"no equivalent exists\".",
 			"pairStatus": {
