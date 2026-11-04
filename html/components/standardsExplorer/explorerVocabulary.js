@@ -265,6 +265,11 @@ export const displayNameOf = (nodeSummary) => {
 
 export const pathTextOf = (pathStableIdList) => pathStableIdList.map((oneStableId) => oneStableId.replace(/%/g, '%25').replace(/,/g, '%2C')).join(',');
 
+// the route the explorer lives at, and a link to one walk on it: every drill, crumb and Open is a real link with an href
+// built here, so it can be followed, opened in a new tab, shared, or read by an AI agent without clicking
+export const EXPLORER_ROUTE_PATH = '/explore/standards';
+export const explorerLinkOf = (pathStableIdList) => ({ path: EXPLORER_ROUTE_PATH, query: { path: pathTextOf(pathStableIdList) } });
+
 export const pathStableIdListOf = (pathText) =>
 	typeof pathText === 'string' && pathText !== ''
 		? pathText.split(',').filter((onePart) => onePart !== '').map((onePart) => onePart.replace(/%2C/g, ',').replace(/%25/g, '%'))

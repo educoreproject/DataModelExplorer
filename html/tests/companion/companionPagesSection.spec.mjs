@@ -28,7 +28,7 @@ const baseUrl = argumentByName.baseUrl.replace(/\/$/, '');
 fs.mkdirSync(argumentByName.evidenceDir, { recursive: true });
 const shotPath = (shotName) => path.join(argumentByName.evidenceDir, `${shotName}.png`);
 
-const EXPLORER_PATH = '/explore/graphicModelExplorer';
+const EXPLORER_PATH = '/explore/standards';
 const JEDX_ROOT_PATH_TEXT = 'families:all,family:JEDx,jedx:root';
 const NO_PAGE_PATH_TEXT_LIST = [
 	{ pathText: 'families:all,family:CEDS,https://w3id.org/CEDStandards/terms/', shotName: 'companionPages-G2.1-cedsRoot', showsDownloads: true },
@@ -66,7 +66,7 @@ try {
 	await page.getByLabel('User Name').fill(argumentByName.userName);
 	await page.getByLabel('Password', { exact: true }).fill(userPassword);
 	await page.getByRole('button', { name: 'Login' }).click();
-	await page.waitForURL(/graphicModelExplorer/, { timeout: 30000 });
+	await page.waitForURL(/\/explore\/standards\?path=/, { timeout: 30000 });
 	await waitForDetailPanel(page);
 
 	console.log(`G2.1a ${JEDX_ROOT_PATH_TEXT}`);

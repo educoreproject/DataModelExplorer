@@ -1,5 +1,5 @@
 <script setup>
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SemanticSearch]]
 //
 // Search for a TARGET field to map to. Two ways to ask:
@@ -17,9 +17,9 @@
 // modes) and SchemaEquivalents (text mode).
 
 import { ref, computed, watch, onMounted } from 'vue';
-import { useSchemaVerifierStore } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore } from '@/stores/specificationViewerStore';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	// Graph element being mapped ({ source, name, path }) — enables "similar" mode.

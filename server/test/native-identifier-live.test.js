@@ -96,7 +96,7 @@ neo4jGen.initDatabaseInstance({ ...cliConfig, readOnly: true, queryTimeoutMs: 12
 				});
 			});
 		};
-		// the two other sourceId endpoints the Schema Verifier calls with a numeric limit (LIMIT $limit arrived as a float and
+		// the two other sourceId endpoints the Specification Viewer calls with a numeric limit (LIMIT $limit arrived as a float and
 		// was refused by Neo4j on the live DEV server, measured 2026-10-23): answered, and every row carries stableId
 		const checkSearchEndpoints = () => {
 			getEndpoint({ endpointFileName: 'dme-field-search.js', query: { q: 'birth date', limit: '5' }, serverDb }, (fieldAnswer) => {

@@ -33,7 +33,7 @@ const standardDownloadList = computed(() =>
 );
 
 const familyLinkText = computed(() => `All downloads for ${familyStyleOf(standardFamily.value).displayName}`);
-const familyLinkTarget = computed(() => ({ path: '/explore/downloads', query: { family: standardFamily.value } }));
+const familyLinkTarget = computed(() => ({ path: '/explore/standards/downloads', query: { family: standardFamily.value } }));
 </script>
 
 <template>
@@ -41,7 +41,7 @@ const familyLinkTarget = computed(() => ({ path: '/explore/downloads', query: { 
 		<span class="downloads-section-head">Downloads</span>
 		<template v-if="isCatalog">
 			<p class="downloads-section-note">The source of every standard, and each written back out of this graph (experimental).</p>
-			<NuxtLink to="/explore/downloads" class="downloads-section-link" data-testid="downloads-all-link">All downloads ›</NuxtLink>
+			<NuxtLink to="/explore/standards/downloads" class="downloads-section-link" data-testid="downloads-all-link">All downloads ›</NuxtLink>
 		</template>
 		<template v-else>
 			<p v-if="downloadsStore.manifestLoading" class="downloads-section-note">Looking for downloads…</p>

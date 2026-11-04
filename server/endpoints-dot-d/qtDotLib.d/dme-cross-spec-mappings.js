@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // @concept: [[DataModelExplorer]]
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SecurityFirstPattern]]
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');

@@ -30,6 +30,10 @@ const forgedUseCaseStoreInitObject = {
 	caseStructureStatusMsg: '',
 	structureDownloadingName: '',
 	structureDownloadStatusMsg: '',
+	// ⟪Overview diagram⟫ the case drawn by the server as one SVG, with its summary
+	useCaseDiagram: null,
+	useCaseDiagramLoading: false,
+	useCaseDiagramStatusMsg: '',
 };
 
 // the endpoint is public: a visitor without a token sends no Authorization header (a 'Bearer undefined' is refused as a
@@ -149,6 +153,29 @@ export const useForgedUseCaseStore = defineStore('forgedUseCaseStore', {
 				return false;
 			} finally {
 				this.caseStructureLoading = false;
+			}
+		},
+
+		// ⟪Overview diagram⟫ { caseStableId, svgText, width, height, summary }: the server draws the case from the graph
+		async fetchUseCaseDiagram(caseStableId) {
+			const loginStore = useLoginStore();
+			this.useCaseDiagramLoading = true;
+			this.useCaseDiagramStatusMsg = '';
+			this.useCaseDiagram = null;
+			try {
+				const response = await axios.post(FORGED_USE_CASES_URL, { action: 'useCaseDiagram', caseStableId }, { headers: authHeadersOf(loginStore) });
+				const diagramResult = Array.isArray(response.data) ? response.data[0] : null;
+				if (!diagramResult || typeof diagramResult.svgText !== 'string' || !diagramResult.svgText.startsWith('<svg')) {
+					this.useCaseDiagramStatusMsg = `the server answered without a diagram of ${caseStableId}`;
+					return false;
+				}
+				this.useCaseDiagram = diagramResult;
+				return true;
+			} catch (error) {
+				this.useCaseDiagramStatusMsg = refusalTextOf(error, 'use-case diagram');
+				return false;
+			} finally {
+				this.useCaseDiagramLoading = false;
 			}
 		},
 

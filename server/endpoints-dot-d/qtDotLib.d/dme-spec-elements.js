@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // @concept: [[DataModelExplorer]]
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SecurityFirstPattern]]
 
 // ⟪lane zbE⟫ LIMIT takes an INTEGER: a JS number reaches Neo4j as a float ('5.0') and the query is refused, so every
@@ -39,7 +39,7 @@ const moduleFunction = function ({
 	// ================================================================================
 	// ELEMENT LIST FOR ONE SPECIFICATION
 	//
-	// Backs the Schema Verifier's left-hand list once a specification has been
+	// Backs the Specification Viewer's left-hand list once a specification has been
 	// picked from the inventory (dme-specifications). Node eligibility matches
 	// dme-equivalents so an element listed here is one the equivalence lookups can
 	// actually resolve.

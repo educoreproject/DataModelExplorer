@@ -35,4 +35,5 @@ export const sameOriginProxyHosts = ['dme.qbook.work'];
 export const vercelApiProxyWsHostByHost = {
 	'educore.org': 'demo.educore.dev',
 	'www.educore.org': 'demo.educore.dev',
+	'staging.educore.org': 'demo.educore.dev', // staging builds from dev
 };

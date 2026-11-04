@@ -60,7 +60,7 @@ const toJson = (rows, meta = {}) =>
 	JSON.stringify(
 		{
 			exportedAt: new Date().toISOString(),
-			source: 'EDUcore Schema Verifier — user-proposed mappings (dme_user_mappings)',
+			source: 'EDUcore Specification Viewer — user-proposed mappings (dme_user_mappings)',
 			...meta,
 			mappingCount: rows.length,
 			mappings: rows.map((r) => Object.fromEntries(EXPORT_COLUMNS.map((c) => [c, r[c] ?? '']))),
@@ -122,13 +122,13 @@ function rowToCypher(row) {
 		`    r.detail = ${lit(row.detail)}, r.mappingKey = ${lit(row.mappingKey)},`,
 		`    r.proposedBy = ${lit(row.proposedBy)}, r.proposedByRefId = ${lit(row.userRefId)}, r.proposedAt = ${lit(row.createdAt)},`,
 		`    r.reviewedBy = ${lit(row.reviewedByName)}, r.reviewedAt = ${lit(row.reviewedAt)}, r.reviewNote = ${lit(row.reviewNote)},`,
-		`    r.owner = 'dme-schema-verifier', r.provenanceTier = 'human-proposed', r.ingestedAt = datetime();`,
+		`    r.owner = 'dme-specification-viewer', r.provenanceTier = 'human-proposed', r.ingestedAt = datetime();`,
 	].join('\n');
 }
 
 function toCypher(rows, meta = {}) {
 	const header = [
-		'// EDUcore Schema Verifier — user-proposed mappings',
+		'// EDUcore Specification Viewer — user-proposed mappings',
 		`// exported ${new Date().toISOString()}${meta.statusFilter ? ` · status = ${meta.statusFilter}` : ''} · ${rows.length} row(s)`,
 		'// Run with cypher-shell against the EDUcore graph. Idempotent: re-running updates the same PROPOSED_MATCH edges.',
 		'// Each statement resolves both elements by path, then stable id, then name, and takes the best single hit.',

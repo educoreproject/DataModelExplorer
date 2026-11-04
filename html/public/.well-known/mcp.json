@@ -1,0 +1,12 @@
+{
+  "$comment": "EDUcore's MCP server declaration. The fuller catalog is /.well-known/ai-catalog.json.",
+  "mcpServers": {
+    "educore-standards": {
+      "url": "https://ed-core.org/mcp",
+      "transport": "streamable-http",
+      "description": "Read-only access to the EDUcore education standards knowledge graph (CEDS, PESC, SIF, Ed-Fi, CTDL and more, with cross-standard mappings and use cases). Tools: getSchema, cypherQuery.",
+      "authentication": { "type": "oauth2", "note": "educore.org login required; request credentials from support@educore.org" },
+      "documentation": "https://educore.org/explore/access-guide"
+    }
+  }
+}

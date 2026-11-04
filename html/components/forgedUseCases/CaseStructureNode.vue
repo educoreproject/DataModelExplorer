@@ -30,7 +30,7 @@ const groupPathOf = (edgeType) => `${props.nodePath}>${edgeType}`;
 const propertyPathOf = () => `${props.nodePath}>@properties`;
 const isOpen = (pathText) => props.openPathSet.has(pathText);
 const valueTextOf = (propertyValue) => (typeof propertyValue === 'string' ? propertyValue : JSON.stringify(propertyValue));
-const explorerLinkOf = (citedStableId) => ({ path: '/explore/graphicModelExplorer', query: { path: pathTextOf([FAMILY_CATALOG_STABLE_ID, citedStableId]) } });
+const explorerLinkOf = (citedStableId) => ({ path: '/explore/standards', query: { path: pathTextOf([FAMILY_CATALOG_STABLE_ID, citedStableId]) } });
 const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
 const roleLabelOf = (outlineNode) => outlineNode.labelList.filter((labelName) => !['ForgedNode', 'StandardBase'].includes(labelName)).join(' · ');
 </script>
