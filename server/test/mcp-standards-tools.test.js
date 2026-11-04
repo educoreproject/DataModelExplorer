@@ -47,7 +47,7 @@ taskList.push((args, next) => postRpc({ port: args.harness.port, sessionRefId: a
 	const toolList = listResult.rpcMessage.result.tools;
 	const toolByName = toolList.reduce((soFar, oneTool) => ({ ...soFar, [oneTool.name]: oneTool }), {});
 	const expectedRowList = registry.operationList.filter((registryRow) => registryRow.doorList.includes('mcp'));
-	ok('list: twelve standards tools beside the two', expectedRowList.length === 12 && toolList.length === 14, `${toolList.length}`);
+	ok('list: thirteen standards tools beside the two', expectedRowList.length === 13 && toolList.length === 15, `${toolList.length}`);
 	ok('list: every mcp row is a tool under its registry name', expectedRowList.every((registryRow) => toolByName[registryRow.mcpToolName]));
 	ok('list: usage is no tool', !toolList.some((oneTool) => /usage/i.test(oneTool.name)));
 	ok('list: every description is the registry row', expectedRowList.every((registryRow) => toolByName[registryRow.mcpToolName].description === registryRow.description));
@@ -57,6 +57,9 @@ taskList.push((args, next) => postRpc({ port: args.harness.port, sessionRefId: a
 	ok('schema: required is published', JSON.stringify(searchSchema.required) === '["q"]', JSON.stringify(searchSchema));
 	ok('schema: an enum is published', JSON.stringify(searchSchema.properties.mode.enum) === '["hybrid","keyword","vector"]');
 	ok('schema: a positive integer is published', searchSchema.properties.page.type === 'integer' && searchSchema.properties.page.minimum === 1);
+	const rowDetailSchemaOf = (toolName) => toolByName[toolName].inputSchema.properties.rowDetail;
+	ok('schema: rowDetail is offered on the three that take it, with its values and default', ['standards_mappings', 'standards_element', 'standards_graph'].every((toolName) => JSON.stringify(rowDetailSchemaOf(toolName).enum) === '["summary","full"]' && rowDetailSchemaOf(toolName).default === 'summary'));
+	ok('schema: rowDetail is on no other tool', expectedRowList.filter((registryRow) => !['mappings', 'element', 'graph'].includes(registryRow.operationName)).every((registryRow) => !rowDetailSchemaOf(registryRow.mcpToolName)));
 	ok('schema: expectManifest is offered', searchSchema.properties.expectManifest && searchSchema.properties.expectManifest.description.length > 10);
 	ok('schema: unknown fields are declared out', searchSchema.additionalProperties === false);
 	ok('schema: a tool with no inputs of its own has an object schema', toolByName.standards_stats.inputSchema.type === 'object' && Object.keys(toolByName.standards_stats.inputSchema.properties).join() === 'expectManifest');

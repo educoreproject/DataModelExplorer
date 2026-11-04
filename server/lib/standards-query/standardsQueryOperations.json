@@ -17,6 +17,7 @@
 	},
 	"uriNote": "every element carries uri; every card carries uri; mappings carry assertion. Each row says what its uri is by uriKind and whether it resolves on this instance's /edc/ route by resolvesHere.",
 	"mcpInstructionLineList": [
+		"For how this service works, what each tool is for and the limits in force, call standards_about.",
 		"The standards_* tools answer from the same graph with no Cypher: try them first, and use cypherQuery for what they do not ask.",
 		"Each standards_* answer is JSON: answeredFrom names the graph and manifest that answered, answer holds the result. Every element and card carries uri; quote it, it is permanent.",
 		"A refused answer arrives as a tool error whose answer carries refusedByName, refusalName and reason: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". A refusal named busy says how long to wait: retry after that."
@@ -172,7 +173,20 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "Find elements by meaning or name.",
+				"exampleInput": {
+					"q": "date of birth",
+					"standard": "EdFi",
+					"mode": "keyword"
+				},
+				"exampleShows": "Ed-Fi elements about birth dates.",
+				"expectedAnswerFieldList": [
+					"resultList",
+					"totalRowCount"
+				]
+			}
 		},
 		{
 			"operationName": "grep",
@@ -283,13 +297,25 @@
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
 			"isCounted": true,
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"aboutEntry": {
+				"forWhat": "Find every element matching a regular expression or a misspelled name.",
+				"exampleInput": {
+					"pattern": "^birth",
+					"standard": "LIF"
+				},
+				"exampleShows": "LIF elements whose names begin with birth.",
+				"expectedAnswerFieldList": [
+					"resultList",
+					"totalRowCount"
+				]
+			}
 		},
 		{
 			"operationName": "element",
 			"cliVerb": "explore",
 			"cachePolicy": "publicShort",
-			"description": "Show the nodes bearing a name, with all their properties and relationships. RETURNS AN OBJECT: entryList (ONE ENTRY PER NODE that bears the name (same-named nodes are distinct entries keyed by stableId), each with its stableId, outgoing and incoming edges and their totals), totalRowCount / returnedRowCount / truncatedRowCount, matchedNodeCount — state that count when you report, and enumerate entries rather than counting them yourself. The match is exact unless nameMatch is caseInsensitive; caseVariantNodeCount and caseVariantNameList name the nodes an exact lookup missed only by letter case (SIF splits one concept into BirthDate and birthDate) — if caseVariantNodeCount > 0, say so and re-run with nameMatch=caseInsensitive before listing \"all\" of anything. A name no node bears is refused by name (nothingMatched). Accepts an optional standard (a `source` value from standards_standards). The result also carries declaredCorrespondenceList / declaredCorrespondenceCount: the published cross-IRI assertions touching the explored node(s), sourcePredicate verbatim — NOT mappings (see standards_mappings). Every element and card carries uri; quote it, it is permanent.",
+			"description": "Show the nodes bearing a name, with all their properties and relationships. RETURNS AN OBJECT: entryList (ONE ENTRY PER NODE that bears the name (same-named nodes are distinct entries keyed by stableId), each with its stableId, outgoing and incoming edges and their totals), totalRowCount / returnedRowCount / truncatedRowCount, matchedNodeCount — state that count when you report, and enumerate entries rather than counting them yourself. The match is exact unless nameMatch is caseInsensitive; caseVariantNodeCount and caseVariantNameList name the nodes an exact lookup missed only by letter case (SIF splits one concept into BirthDate and birthDate) — if caseVariantNodeCount > 0, say so and re-run with nameMatch=caseInsensitive before listing \"all\" of anything. A name no node bears is refused by name (nothingMatched). Accepts an optional standard (a `source` value from standards_standards). The result also carries declaredCorrespondenceList / declaredCorrespondenceCount: the published cross-IRI assertions touching the explored node(s), sourcePredicate verbatim — NOT mappings (see standards_mappings). rowDetail: the default summary gives each node's uri and name, the hub cards they reach (hubCardList), and, for a few nodes, each node's description and mapping edges; leftOutOfSummary says by count what it left out. The edge lists described above belong to rowDetail=full. The uri of an element from any answer is accepted as stableId. Every element and card carries uri; quote it, it is permanent.",
 			"inputFieldList": [
 				{
 					"name": "name",
@@ -305,7 +331,8 @@
 					"type": "text",
 					"required": false,
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "The element's stableId. Give name or stableId."
+					"description": "The element's stableId or uri, or a CEDS term as ceds:P000033. Give name or stableId.",
+					"acceptsUri": true
 				},
 				{
 					"name": "standard",
@@ -326,6 +353,18 @@
 					],
 					"maxLengthConfigName": "maxQueryChars",
 					"description": "exact (default) or caseInsensitive."
+				},
+				{
+					"name": "rowDetail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"summary",
+						"full"
+					],
+					"defaultValue": "summary",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
 				}
 			],
 			"mutuallyExclusiveInputNameList": [
@@ -337,7 +376,8 @@
 				"unknownStandard",
 				"nothingMatched",
 				"invalidNameMatch",
-				"invalidLimit"
+				"invalidLimit",
+				"invalidInput"
 			],
 			"answerStepList": [
 				"mintRuleUris",
@@ -392,7 +432,21 @@
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
 			"isCounted": true,
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"summaryShaperName": "element",
+			"aboutEntry": {
+				"forWhat": "Show the nodes bearing a name: what each is and which hub cards it reaches.",
+				"exampleInput": {
+					"name": "dischargeDate",
+					"standard": "LIF"
+				},
+				"exampleShows": "The LIF node of that name, its description and its CEDS mapping.",
+				"expectedAnswerFieldList": [
+					"entryList",
+					"hubCardList",
+					"leftOutOfSummary"
+				]
+			}
 		},
 		{
 			"operationName": "mappings",
@@ -400,7 +454,7 @@
 			"cachePolicy": "publicShort",
 			"scanInFlightMax": 2,
 			"reportsMatchedStableIds": true,
-			"description": "Given an element from any standard, return the hub concept it maps to and its cross-standard equivalents. A graph holds one hub or several (each a peer; standards_standards marks them isHub): EVERY ROW NAMES ITS CARD'S HUB in hubName, the rows come hub by hub (never interleaved, each hub allocated the row cap on its own), hubList names the hubs and totalRowCountByHub counts the rows per hub — when an element reaches two hubs, report the hubs separately and never pair elements across hubs. Each element resolves to a hub tuple — a HubReference, the hub's canonical address — through one of four match edges, one per SKOS relation: EXACT_MATCH (same meaning), CLOSE_MATCH (near, not interchangeable), BROAD_MATCH (the hub tuple is broader than the element), NARROW_MATCH (the hub tuple is narrower). EVERY match edge is a JUDGMENT, not a fact: every row carries mappingConfidence (the judge's confidence; null on authored edges), mappingKind ('inferred' = a judge chose it, 'authored' = a document named it) and mappingSource (who decided, naming the actual judge, e.g. 'bridge-jev'; 'bridge-debug' = a DEBUG judge's mechanical placeholder, confidence 0 — if any row has it, say so first and prominently and never present it as a mapping), and mappingRationale (the judge's own stated reason for the pick, when the build recorded one: QUOTE it when asked why; never invent a reason, and say 'no recorded rationale' when it is null; on an outgoingViaInstance row, which counts every instance carrying one verdict, it is ONE instance's recorded reason, since each instance was judged on its own), plus viaMappingConfidence/viaMappingKind/viaMappingSource/viaMappingRationale for the queried element's hop (all null on graphs built before these fields); the relation (mappingType) and the confidence are independent — never present any row as authoritative or authored unless its mappingKind is 'authored'. Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (an equivalence composed from two judgments, not an established fact); 'candidateEquivalent' when the hops are EXACT/CLOSE with at least one CLOSE (a hypothesis); 'related' when either hop is BROAD_MATCH or NARROW_MATCH (never equivalent: both may be narrower than one broad tuple). EXACT/CLOSE rows sort first. Directions: 'outgoing' = this element's hub concept; 'equivalent'/'candidateEquivalent'/'related' = other standards' elements on the same concept (the same card, so the same hub); 'incoming' = when given a hub leaf's name or identifier (e.g. a hub card's canonicalKey, whose name getSchema gives per hub), the source elements that map to it — any hub leaf: class, property, range, value or qualifier. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate/mappingConfidence/mappingSource = the other element's hop, viaMatchType/viaConfidence/viaPredicate/viaMappingConfidence/viaMappingSource = the queried element's own hop; no combined score is computed — judge from both. RETURNS AN OBJECT. EVERY COUNT SAYS ITS UNIT in countUnitByField (rows, edges, elements, instances, groups or nodes) and rowUnit says what a row is: READ THE UNIT BEFORE STATING A NUMBER, and never call a row count a number of mappings or edges. matchedNodeCount (how many nodes the input matched: by name, by identifier, or for an INSTANCE by a segment of its context path, so SIF .../RaceList/Race/Code is found by 'race'; instancePathMatchedNodeCount says how many matched only by path), matchedInstanceGroupSummaryList (per standard: matchedInstanceCount and matchedInstanceGroupCount, and groupList naming the SIF objects or PESC sections holding a matched instance, uncapped up to 200 groups: for 'which objects/sections carry X', read THIS, not the capped rows), hubTupleSummaryList (per hub tuple the rows reach, each naming its hubName, most edges first, at most 25 of hubTupleCount: edgeCount and edgeCountByRelation = match EDGES in the graph into that tuple; elementCount and elementCountByRelation = distinct mapped ELEMENTS, an instanced element counted once; instanceEdgeCount = edges carried by instances: for 'how many mappings does X have' quote THESE), totalRowCount / returnedRowCount / truncatedRowCount (ROWS: one row per direction, element, hub tuple, relation and via-relation, each naming its element by fromStableId; ONE graph edge can be several rows, e.g. 'incoming' through the hub leaf and 'equivalent' through another matched element, so a row total is not an edge total), totalRowCountByDirection (rows per direction), mappingRowList (at most 30 rows; every relation present first gets up to 7 rows, then the rest fill composing-first by confidence, so no relation is ever dropped; WITHIN a relation the rows are shared round-robin across the source standards, best confidence first within each, so one standard never crowds out another), totalRowCountByRelation and truncatedRowCountByRelation (rows of each relation NOT shown), and totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard (the same, per relation and per source standard). When a truncated count is non-zero, say how many rows of that relation (and which standards' rows) were left out and offer to narrow the query; never say a relation or a standard has no mapping when its total is non-zero. Every row includes the decomposed hub tuple (hubTuple: domain · property · range [· value] + the card identifier; hubDomain, hubProperty, hubRange, hubValue, hubQualifier). Accepts an element name, XPath, _id, stableId or a hub card identifier (its canonicalKey, whose name and form getSchema gives per hub, e.g. a global ID or a term CURIE); an input that matches no node is refused by name (nothingMatched). CLASSIFICATION_CROSSWALK edges (present only in graphs holding classification standards) are deliberately excluded: a classification-crosswalk correspondence is not a mapping. DECLARED CORRESPONDENCES: declaredCorrespondenceList (at most 50; declaredCorrespondenceCount is the total; declaredCorrespondenceRowUnit says what a row is) lists the published cross-IRI assertions touching a matched node — sourceStandard, subjectName, sourcePredicate quoted verbatim (e.g. owl:equivalentClass, skos:relatedMatch), targetStandard, objectName, objectKind. They are NOT mappings: never call one an EXACT/CLOSE/BROAD/NARROW match, never compose one with a match edge, never count it as mapped, and never call it an 'authored mapping' (its edge's mappingKind 'authored' only names who published it); quote the predicate and say the standard itself declared it. INSTANCE NODES (SIF, PESC): these standards put their mappings on INSTANCE nodes reached by HAS_INSTANCE — a SIF Question has one Field per object it appears in; a PESC element declaration has one occurrence per place it appears in the document. Direction 'outgoingViaInstance' = the queried declaration's hub concept as carried by its instances, one row per hub tuple and verdict, with instanceGroupList (the SIF objects or PESC document sections holding it) and instanceCount (how many instances carry it). On a shared-hub or incoming row, instanceGroupList/instanceCount describe the from-element's instances that carry the mapping, and viaInstanceGroupList/viaInstanceCount describe the queried declaration's instances that carry the near hop. instanceOf names the declaration when the row's element is itself an instance. These fields are ABSENT (not null) on rows that involve no instances, in every standard that carries its mappings on the element itself. Present instance mappings grouped by object (SIF) or section (PESC), never as repeated rows. Every element and card carries uri; quote it, it is permanent.",
+			"description": "Given an element from any standard, return the hub concept it maps to and its cross-standard equivalents. A graph holds one hub or several (each a peer; standards_standards marks them isHub): EVERY ROW NAMES ITS CARD'S HUB in hubName, the rows come hub by hub (never interleaved, each hub allocated the row cap on its own), hubList names the hubs and totalRowCountByHub counts the rows per hub — when an element reaches two hubs, report the hubs separately and never pair elements across hubs. Each element resolves to a hub tuple — a HubReference, the hub's canonical address — through one of four match edges, one per SKOS relation: EXACT_MATCH (same meaning), CLOSE_MATCH (near, not interchangeable), BROAD_MATCH (the hub tuple is broader than the element), NARROW_MATCH (the hub tuple is narrower). EVERY match edge is a JUDGMENT, not a fact: every row carries mappingConfidence (the judge's confidence; null on authored edges), mappingKind ('inferred' = a judge chose it, 'authored' = a document named it) and mappingSource (who decided, naming the actual judge, e.g. 'bridge-jev'; 'bridge-debug' = a DEBUG judge's mechanical placeholder, confidence 0 — if any row has it, say so first and prominently and never present it as a mapping), and mappingRationale (the judge's own stated reason for the pick, when the build recorded one: QUOTE it when asked why; never invent a reason, and say 'no recorded rationale' when it is null; on an outgoingViaInstance row, which counts every instance carrying one verdict, it is ONE instance's recorded reason, since each instance was judged on its own), plus viaMappingConfidence/viaMappingKind/viaMappingSource/viaMappingRationale for the queried element's hop (all null on graphs built before these fields); the relation (mappingType) and the confidence are independent — never present any row as authoritative or authored unless its mappingKind is 'authored'. Elements from different standards that resolve to the SAME HubReference form a shared-hub pair, labeled CONSERVATIVELY: direction 'equivalent' ONLY when BOTH hops are EXACT_MATCH (an equivalence composed from two judgments, not an established fact); 'candidateEquivalent' when the hops are EXACT/CLOSE with at least one CLOSE (a hypothesis); 'related' when either hop is BROAD_MATCH or NARROW_MATCH (never equivalent: both may be narrower than one broad tuple). EXACT/CLOSE rows sort first. Directions: 'outgoing' = this element's hub concept; 'equivalent'/'candidateEquivalent'/'related' = other standards' elements on the same concept (the same card, so the same hub); 'incoming' = when given a hub leaf's name or identifier (e.g. a hub card's canonicalKey, whose name getSchema gives per hub), the source elements that map to it — any hub leaf: class, property, range, value or qualifier. Shared-hub rows carry BOTH hops' evidence: mappingType/confidence/matchPredicate/mappingConfidence/mappingSource = the other element's hop, viaMatchType/viaConfidence/viaPredicate/viaMappingConfidence/viaMappingSource = the queried element's own hop; no combined score is computed — judge from both. RETURNS AN OBJECT. EVERY COUNT SAYS ITS UNIT in countUnitByField (rows, edges, elements, instances, groups or nodes) and rowUnit says what a row is: READ THE UNIT BEFORE STATING A NUMBER, and never call a row count a number of mappings or edges. matchedNodeCount (how many nodes the input matched: by name, by identifier, or for an INSTANCE by a segment of its context path, so SIF .../RaceList/Race/Code is found by 'race'; instancePathMatchedNodeCount says how many matched only by path), matchedInstanceGroupSummaryList (per standard: matchedInstanceCount and matchedInstanceGroupCount, and groupList naming the SIF objects or PESC sections holding a matched instance, uncapped up to 200 groups: for 'which objects/sections carry X', read THIS, not the capped rows), hubTupleSummaryList (per hub tuple the rows reach, each naming its hubName, most edges first, at most 25 of hubTupleCount: edgeCount and edgeCountByRelation = match EDGES in the graph into that tuple; elementCount and elementCountByRelation = distinct mapped ELEMENTS, an instanced element counted once; instanceEdgeCount = edges carried by instances: for 'how many mappings does X have' quote THESE), totalRowCount / returnedRowCount / truncatedRowCount (ROWS: one row per direction, element, hub tuple, relation and via-relation, each naming its element by fromStableId; ONE graph edge can be several rows, e.g. 'incoming' through the hub leaf and 'equivalent' through another matched element, so a row total is not an edge total), totalRowCountByDirection (rows per direction), mappingRowList (at most 30 rows; every relation present first gets up to 7 rows, then the rest fill composing-first by confidence, so no relation is ever dropped; WITHIN a relation the rows are shared round-robin across the source standards, best confidence first within each, so one standard never crowds out another), totalRowCountByRelation and truncatedRowCountByRelation (rows of each relation NOT shown), and totalRowCountByRelationAndStandard and truncatedRowCountByRelationAndStandard (the same, per relation and per source standard). When a truncated count is non-zero, say how many rows of that relation (and which standards' rows) were left out and offer to narrow the query; never say a relation or a standard has no mapping when its total is non-zero. Every row includes the decomposed hub tuple (hubTuple: domain · property · range [· value] + the card identifier; hubDomain, hubProperty, hubRange, hubValue, hubQualifier). Accepts an element name, XPath, _id, stableId or a hub card identifier (its canonicalKey, whose name and form getSchema gives per hub, e.g. a global ID or a term CURIE); an input that matches no node is refused by name (nothingMatched). CLASSIFICATION_CROSSWALK edges (present only in graphs holding classification standards) are deliberately excluded: a classification-crosswalk correspondence is not a mapping. DECLARED CORRESPONDENCES: declaredCorrespondenceList (at most 50; declaredCorrespondenceCount is the total; declaredCorrespondenceRowUnit says what a row is) lists the published cross-IRI assertions touching a matched node — sourceStandard, subjectName, sourcePredicate quoted verbatim (e.g. owl:equivalentClass, skos:relatedMatch), targetStandard, objectName, objectKind. They are NOT mappings: never call one an EXACT/CLOSE/BROAD/NARROW match, never compose one with a match edge, never count it as mapped, and never call it an 'authored mapping' (its edge's mappingKind 'authored' only names who published it); quote the predicate and say the standard itself declared it. INSTANCE NODES (SIF, PESC): these standards put their mappings on INSTANCE nodes reached by HAS_INSTANCE — a SIF Question has one Field per object it appears in; a PESC element declaration has one occurrence per place it appears in the document. Direction 'outgoingViaInstance' = the queried declaration's hub concept as carried by its instances, one row per hub tuple and verdict, with instanceGroupList (the SIF objects or PESC document sections holding it) and instanceCount (how many instances carry it). On a shared-hub or incoming row, instanceGroupList/instanceCount describe the from-element's instances that carry the mapping, and viaInstanceGroupList/viaInstanceCount describe the queried declaration's instances that carry the near hop. instanceOf names the declaration when the row's element is itself an instance. These fields are ABSENT (not null) on rows that involve no instances, in every standard that carries its mappings on the element itself. Present instance mappings grouped by object (SIF) or section (PESC), never as repeated rows. rowDetail: the default summary answers with mappingStatusByHub, the hub cards (hubTupleSummaryList), the element's own mappings (ownMappingRowList, with the judge's rationale on the first two), and standardCountList, which says which standards hold equivalents with a count per standard and shows a sample of their rows; leftOutOfSummary says by count what it left out. The per-row fields described above belong to rowDetail=full, which can pass 100 KB: ask by exact stableId or uri to keep it small. The uri of an element or card from any answer is accepted as the element input. Every element and card carries uri; quote it, it is permanent.",
 			"inputFieldList": [
 				{
 					"name": "element",
@@ -408,7 +462,20 @@
 					"type": "text",
 					"required": true,
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "Element name, path, stableId or hub card identifier."
+					"description": "Element name, path, stableId, hub card identifier or uri, or a CEDS term as ceds:P000033.",
+					"acceptsUri": true
+				},
+				{
+					"name": "rowDetail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"summary",
+						"full"
+					],
+					"defaultValue": "summary",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
 				}
 			],
 			"refusalNameList": [
@@ -416,7 +483,8 @@
 				"nothingMatched",
 				"nativeIdentifierUnstamped",
 				"nativeIdentifierDeclarationInvalid",
-				"mappingStatusUnavailable"
+				"mappingStatusUnavailable",
+				"invalidInput"
 			],
 			"answerStepList": [
 				"addMappingRowIdentity",
@@ -512,7 +580,23 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"summaryShaperName": "mappings",
+			"aboutEntry": {
+				"forWhat": "Say what an element maps to in each hub, how sure that is, and which standards hold equivalents.",
+				"slowWhen": "element is a name (about half a minute); a stableId, uri or card identifier is quick",
+				"exampleInput": {
+					"element": "lif:Person/MilitaryLearningExperience/inline/dischargeDate"
+				},
+				"exampleShows": "Its CEDS card, the judgment behind it, its status toward each hub, and the standards reaching that card.",
+				"expectedAnswerFieldList": [
+					"mappingStatusByHub",
+					"ownMappingRowList",
+					"hubTupleSummaryList",
+					"standardCountList",
+					"leftOutOfSummary"
+				]
+			}
 		},
 		{
 			"operationName": "pair",
@@ -520,7 +604,7 @@
 			"cachePolicy": "publicShort",
 			"pageSize": 50,
 			"scanInFlightMax": 2,
-			"description": "What the manifest holds between an element and another standard (element, standard), or between two standards (standard, otherStandard, page). pairStatus is declaredCorrespondence (a standard's own published statement, predicate quoted), computedViaHub (both elements reach one hub card: a suggestion with both hops shown, claimKind computed, never a judgment) or notJudged (no judgment between them has been made in this manifest; each side's hub answers are given). A pair nobody has judged is a normal answer with HTTP 200. Every element and card carries uri; quote it, it is permanent.",
+			"description": "What the manifest holds between an element and another standard (element, standard), or between two standards (standard, otherStandard, page). pairStatus is declaredCorrespondence (a standard's own published statement, predicate quoted), computedViaHub (both elements reach one hub card: a suggestion with both hops shown, claimKind computed, never a judgment) or notJudged (no judgment between them has been made in this manifest; each side's hub answers are given). A pair nobody has judged is a normal answer with HTTP 200. The uri of an element from any answer is accepted as the element input. Every element and card carries uri; quote it, it is permanent.",
 			"inputFieldList": [
 				{
 					"name": "element",
@@ -528,7 +612,8 @@
 					"type": "text",
 					"required": false,
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "An element name, path, stableId or hub card identifier."
+					"description": "An element name, path, stableId, hub card identifier or uri, or a CEDS term as ceds:P000033.",
+					"acceptsUri": true
 				},
 				{
 					"name": "standard",
@@ -580,7 +665,19 @@
 			],
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "Ask what the manifest holds between an element and a standard, or between two standards.",
+				"slowWhen": "element is a name (up to a quarter of a minute); a stableId or uri is quick",
+				"exampleInput": {
+					"element": "lif:Person/MilitaryLearningExperience/inline/dischargeDate",
+					"standard": "CTDLQData"
+				},
+				"exampleShows": "pairStatus notJudged, and each side's status toward each hub.",
+				"expectedAnswerFieldList": [
+					"pairStatus"
+				]
+			}
 		},
 		{
 			"operationName": "codesets",
@@ -639,7 +736,17 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "Compare one option set's values across standards.",
+				"exampleInput": {
+					"name": "Race"
+				},
+				"exampleShows": "Race codes per standard, and their cards.",
+				"expectedAnswerFieldList": [
+					"valueRowList"
+				]
+			}
 		},
 		{
 			"operationName": "unmapped",
@@ -700,7 +807,17 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "List the elements that reach no hub.",
+				"exampleInput": {
+					"standard": "LIF"
+				},
+				"exampleShows": "A page of LIF elements with no mapping.",
+				"expectedAnswerFieldList": [
+					"unmappedRowList"
+				]
+			}
 		},
 		{
 			"operationName": "stats",
@@ -726,7 +843,13 @@
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
 			"isCounted": true,
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"aboutEntry": {
+				"forWhat": "Count nodes and relationships.",
+				"exampleInput": {},
+				"exampleShows": "Counts by kind of node.",
+				"expectedAnswerFieldList": []
+			}
 		},
 		{
 			"operationName": "standards",
@@ -764,15 +887,37 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "List the standards loaded, their versions and which are hubs; every standard input takes these values.",
+				"exampleInput": {},
+				"exampleShows": "One row per standard, with a listing of its elements.",
+				"expectedAnswerFieldList": [
+					"standards",
+					"totals"
+				]
+			}
 		},
 		{
 			"operationName": "graph",
 			"cliVerb": "describeGraph",
 			"cachePolicy": "publicShort",
 			"cachesAnswerPerManifest": true,
-			"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the :GraphProvenance passport read by the graph contract (engine versions and fingerprints, the embedding model and dimension, the vector index names, the judge identities and renderer versions, content counts, the trust verdict, the recipe name and hash, the contract sha), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with kind, version, position and purpose), the lineage (basedOnManifestRefId and its basis — 'none named at build' is not 'root'), every :BuildAttestation (each gate's verdict with its totals: notRun never means pass), and one :StandardDefinition per standard (sourceKey — the `_source` value every filter takes; standardKey — the forge token used in block subjects; version + versionSource, source format, element counts, mapping kinds and sources, standardKind, standardUsageTips). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. A graph built before the graph contract is REFUSED by name (graphContractMismatch), never shown with blanks. Read-only. Every element and card carries uri; quote it, it is permanent.",
-			"inputFieldList": [],
+			"description": "The graph's self-description card: what this graph IS, how it was built, from what, and what it can do — read entirely from in-graph self-documentation nodes. Returns the :GraphProvenance passport read by the graph contract (engine versions and fingerprints, the embedding model and dimension, the vector index names, the judge identities and renderer versions, content counts, the trust verdict, the recipe name and hash, the contract sha), the :ManifestRecipe + :RecipeBlock recipe (every content-addressed block the graph was replayed from, with kind, version, position and purpose), the lineage (basedOnManifestRefId and its basis — 'none named at build' is not 'root'), every :BuildAttestation (each gate's verdict with its totals: notRun never means pass), and one :StandardDefinition per standard (sourceKey — the `_source` value every filter takes; standardKey — the forge token used in block subjects; version + versionSource, source format, element counts, mapping kinds and sources, standardKind, standardUsageTips). Includes a pre-rendered human 'card' field. Use this FIRST for any 'what is this graph / how was it built / what version of X is loaded?' question. A graph built before the graph contract is REFUSED by name (graphContractMismatch), never shown with blanks. Read-only. rowDetail: the default summary keeps what the graph is, how it was built and from what: the main passport fields, the recipe, the lineage, each attestation's verdict, and each standard's kind, version, source and counts; leftOutOfSummary says by count what it left out. The recipe's blocks, the usage tips and the pre-rendered card belong to rowDetail=full, which is about 250 KB, more than many model clients accept. Every element and card carries uri; quote it, it is permanent.",
+			"inputFieldList": [
+				{
+					"name": "rowDetail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"summary",
+						"full"
+					],
+					"defaultValue": "summary",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "summary (the default) suits a model; leftOutOfSummary says by count what it left out. full adds it back, up to the row cap."
+				}
+			],
 			"refusalNameList": [
 				"passportAbsent",
 				"passportShapeNotRecognised",
@@ -780,7 +925,8 @@
 				"recipeShapeNotRecognised",
 				"standardDefinitionShapeNotRecognised",
 				"attestationShapeNotRecognised",
-				"invalidLimit"
+				"invalidLimit",
+				"invalidInput"
 			],
 			"answerStepList": [],
 			"uriFieldRuleList": [],
@@ -799,7 +945,21 @@
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
 			"isCounted": true,
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"summaryShaperName": "graph",
+			"aboutEntry": {
+				"forWhat": "Say what this graph is, how it was built, from what, and what it can do.",
+				"exampleInput": {},
+				"exampleShows": "The build's main facts, each check's verdict, each standard's kind and source.",
+				"expectedAnswerFieldList": [
+					"whatThisGraphCanDo",
+					"passport",
+					"recipe",
+					"attestations",
+					"standards",
+					"leftOutOfSummary"
+				]
+			}
 		},
 		{
 			"operationName": "neighbourhood",
@@ -1017,7 +1177,19 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "Search, then walk to what surrounds each hit: parents, instances and mappings.",
+				"exampleInput": {
+					"q": "race",
+					"mode": "keyword",
+					"limit": "3"
+				},
+				"exampleShows": "Three hits, each with its neighbours and mappings.",
+				"expectedAnswerFieldList": [
+					"hitList"
+				]
+			}
 		},
 		{
 			"operationName": "guide",
@@ -1083,7 +1255,18 @@
 			"coreHandlerName": "verb",
 			"bodyForm": "envelope",
 			"requiresUriPromise": true,
-			"isCounted": true
+			"isCounted": true,
+			"aboutEntry": {
+				"forWhat": "Read the CEDS guide layer: which domains and entities use a class or property.",
+				"exampleInput": {
+					"mode": "classConcepts",
+					"name": "C200013"
+				},
+				"exampleShows": "The guide rows for that CEDS class.",
+				"expectedAnswerFieldList": [
+					"rowList"
+				]
+			}
 		},
 		{
 			"operationName": "usage",
@@ -1107,7 +1290,15 @@
 			"usageSubjectInputNameList": [],
 			"isCounted": false,
 			"routeName": "usage",
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"aboutEntry": {
+				"forWhat": "Read the counts of what has been asked, by operation and subject.",
+				"exampleInput": {},
+				"exampleShows": "One row per counter.",
+				"expectedAnswerFieldList": [
+					"countRowList"
+				]
+			}
 		},
 		{
 			"operationName": "openApiDocument",
@@ -1130,7 +1321,238 @@
 			"permissionList": [
 				"public"
 			],
-			"coreAddedFieldList": []
+			"coreAddedFieldList": [],
+			"aboutEntry": {
+				"forWhat": "Read the machine description: every route, input and refusal.",
+				"exampleInput": {},
+				"exampleShows": "An OpenAPI document.",
+				"expectedAnswerFieldList": []
+			}
+		},
+		{
+			"operationName": "about",
+			"routeName": "about",
+			"aliasRouteNameList": [
+				""
+			],
+			"mcpToolName": "standards_about",
+			"coreHandlerName": "about",
+			"bodyForm": "envelope",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"requiresUriPromise": false,
+			"isCounted": true,
+			"cachePolicy": "publicShort",
+			"inputFieldList": [],
+			"answerStepList": [],
+			"usageSubjectInputNameList": [],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [],
+			"refusalNameList": [],
+			"description": "How this service works: what it answers from, how to read an answer, every operation with its inputs, speed and one worked example, the limits in force, and where the machine description is. Call this first if you do not know the service. Every element and card carries uri; quote it, it is permanent.",
+			"aboutEntry": {
+				"forWhat": "Read this.",
+				"exampleInput": {},
+				"exampleShows": "This document.",
+				"expectedAnswerFieldList": [
+					"whatThisIs",
+					"howToReadAnAnswer",
+					"operationList",
+					"limitsInForce"
+				]
+			}
 		}
-	]
+	],
+	"summaryUriNote": "every element and card carries uri, and a row says uriKind and resolvesHere only when its uri does not resolve on this instance's /edc/ route. mappings summaries show assertion on an element's own rows; leftOutOfSummary counts the rest.",
+	"publicRouteBasePath": "standards/v1",
+	"summaryShape": {
+		"howToAskForFull": "Ask again with rowDetail=full for what is counted here; a full answer can pass 100 KB. To stay small, ask about one element by its uri.",
+		"howToAskForFullGraph": "Ask again with rowDetail=full. It is about 250 KB, more than many model clients accept.",
+		"mappingRowUnit": "A row is one view of a mapping, not one graph edge; rowDetail=full's rowUnit says more.",
+		"matchedElementListCap": 8,
+		"ownRowCap": 4,
+		"ownRowRationaleCap": 2,
+		"shownRowCap": 18,
+		"declaredCorrespondenceListCap": 3,
+		"detailedEntryCap": 8,
+		"matchedElementFieldList": [
+			"name",
+			"standard",
+			"uri",
+			"uriAbsentReason",
+			"uriKind",
+			"resolvesHere"
+		],
+		"mappingsTopFieldList": [
+			"totalRowCount",
+			"returnedRowCount",
+			"truncatedRowCount",
+			"totalRowCountByDirection",
+			"totalRowCountByHub",
+			"hubTupleCount",
+			"matchedNodeCount",
+			"instancePathMatchedNodeCount",
+			"mappingStatusByHub",
+			"mappingStatusNote",
+			"hubList"
+		],
+		"hubTupleFieldList": [
+			"toId",
+			"toName",
+			"hubName",
+			"edgeCount",
+			"elementCount",
+			"instanceEdgeCount",
+			"cardUriList"
+		],
+		"ownRowFieldList": [
+			"direction",
+			"fromName",
+			"fromSource",
+			"fromUri",
+			"fromUriAbsentReason",
+			"hubName",
+			"toId",
+			"hubTuple",
+			"mappingType",
+			"mappingConfidence",
+			"mappingKind",
+			"mappingSource",
+			"instanceCount",
+			"instanceDisagreement",
+			"assertion"
+		],
+		"standardRowFieldList": [
+			"direction",
+			"fromName",
+			"fromUri",
+			"fromUriAbsentReason",
+			"toId",
+			"mappingType"
+		],
+		"elementTopFieldList": [
+			"totalRowCount",
+			"returnedRowCount",
+			"truncatedRowCount",
+			"rowUnit",
+			"matchedNodeCount",
+			"nameMatchMode",
+			"caseVariantNodeCount",
+			"caseVariantNameList"
+		],
+		"entryUriFieldList": [
+			"uri",
+			"uriAbsentReason",
+			"uriKind",
+			"resolvesHere"
+		],
+		"entryNodeFieldList": [
+			"name"
+		],
+		"detailedEntryFieldList": [
+			"outgoingTotal",
+			"incomingTotal",
+			"edgesTruncated"
+		],
+		"detailedEntryNodeFieldList": [
+			"_source",
+			"dataType",
+			"path",
+			"description"
+		],
+		"mappingEdgeFieldList": [
+			"type",
+			"targetSource",
+			"target",
+			"targetUri",
+			"targetUriAbsentReason"
+		],
+		"whatThisGraphCanDoLineList": [
+			"It holds education data standards as elements, with judged mappings from those elements to the cards of its hub standards.",
+			"It answers what a standard holds, what an element maps to and how sure that is, which elements in other standards reach the same card, and what no one has judged.",
+			"The about operation says how to ask each of these."
+		],
+		"passportFieldList": [
+			"graphName",
+			"builtAt",
+			"manifestRefId",
+			"structuralVersion",
+			"contentNodeCount",
+			"contentEdgeCount",
+			"standardCount",
+			"meaningBearingEdgeCount",
+			"meaningTierBreakdown",
+			"trustworthyForMeaning",
+			"trustBasis",
+			"trustNote",
+			"embeddingModelVersion",
+			"embeddingDims",
+			"judgeIdentityList",
+			"recipeName",
+			"recipeHash",
+			"graphContractSha256"
+		],
+		"recipeFieldList": [
+			"recipeName",
+			"description",
+			"createdAt",
+			"recipeHash",
+			"manifestRefId",
+			"basedOnManifestRefIdBasis"
+		],
+		"attestationFieldList": [
+			"gate",
+			"verdict",
+			"verdictSupplied"
+		],
+		"standardFieldList": [
+			"sourceKey",
+			"standardName",
+			"standardKind",
+			"standardFamily",
+			"version",
+			"sourceFormat",
+			"sourceUrl",
+			"classCount",
+			"propertyCount",
+			"optionValueCount",
+			"mappedPropertyCountByHub"
+		]
+	},
+	"aboutText": {
+		"whatThisIs": [
+			"A read-only service answering questions about education data standards: what a standard holds, what an element maps to in a hub standard, and how elements in different standards relate.",
+			"It answers from one graph built from the published standards. Every answer names the graph and its manifest, the content-addressed list of what went into it.",
+			"A hub is a standard the others map to, eg CEDS. A card is one hub concept. An element is a field, class or code in any standard; its stableId is its identifier in the graph. A mapping from an element to a card is a judgment, usually by software, and says who made it and how sure it was.",
+			"Elements in different standards correspond only through one card, so name the hub whenever you report a mapping."
+		],
+		"howToReadAnAnswer": {
+			"answeredFrom": "Which graph and manifest answered, on which instance.",
+			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element.",
+			"rowDetail": "mappings, element and graph answer in summary form unless asked rowDetail=full. A summary carries rowDetail: summary and leftOutOfSummary, which says by count what it left out and how to ask.",
+			"mappingStatusByHub": {
+				"mapped": "A mapping reaches this hub.",
+				"judgedAbstained": "A judge was offered this element against this hub and declined.",
+				"neverOffered": "No judge was asked. Nothing is known either way.",
+				"notApplicable": "The element belongs to this hub."
+			},
+			"silenceIsNotAbstention": "A hub with no mapping is one of two different things: neverOffered is silence and judgedAbstained is a decision. Never report one as the other, or either as \"no equivalent exists\".",
+			"pairStatus": {
+				"declaredCorrespondence": "One standard's own published statement relating its term to the other's; not a mapping.",
+				"computedViaHub": "Both elements reach one card: a suggestion built from two judgments, itself never judged.",
+				"notJudged": "Neither of the above. No one has judged this pair: a normal answer, not an error."
+			},
+			"targetKind": "What a mapping row points at: card. element is reserved for mappings between elements, which no manifest holds yet.",
+			"refusal": "An HTTP 4xx or 503 (a tool error on MCP) whose answer carries refusedByName, refusalName, reason and sometimes validValueList. The question was not answered; that does not mean no such data exists."
+		},
+		"uriResolvesToLine": "A uri is a permanent name; w3id.org does not forward these names yet. To read one, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. It answers in JSON.",
+		"operationNoteLine": "Each operation is a GET at its exampleUrl's path and, on MCP, the tool standards_<operation>, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are in sharedInputDescriptionByName unless the operation words one itself.",
+		"uriNotResolvedHereLine": "A uri is a permanent name. This instance has no route that reads one."
+	}
 }

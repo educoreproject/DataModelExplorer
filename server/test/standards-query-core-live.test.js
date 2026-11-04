@@ -54,7 +54,7 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 	const goldenHandle = createGoldenGraphHandle({ goldenContainerName: dmeModuleConfig.goldenContainerName, queryTimeoutMs: 30000, retryDelayMsList: GOLDEN_RETRY_DELAY_MS_LIST, resolveConnectionFresh, neo4jGen });
 	const forgeAdapter = openForgeAdapter({ configValues: edcConfigValues });
 	ok('the forge adapter opens', !forgeAdapter.refusalText, forgeAdapter.refusalText);
-	const makeCore = (limitValues) => createStandardsQueryCore({ registry, limitConfigValues: limitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', []) }, xLog: process.global.xLog, nowDate: () => new Date() });
+	const makeCore = (limitValues) => createStandardsQueryCore({ registry, limitConfigValues: limitValues, doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
 	const core = makeCore(LIMITS);
 	const ceilingCore = makeCore({ ...LIMITS, dailyEmbeddingTokenCeiling: 1 });
 	const ask = (whichCore, operationName, input, done) => whichCore.runOperation({ operationName, input, principal: { kind: 'anonymous' } }, (unusedError, answer) => done({ ...answer, body: JSON.parse(answer.bodyText) }));
@@ -78,18 +78,79 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 			});
 		});
 	}));
-	steps.push((next) => ask(core, 'mappings', { element: 'lif:Person/MilitaryLearningExperience/inline/dischargeDate' }, ({ httpStatus, body }) => {
+	steps.push((next) => ask(core, 'mappings', { element: 'lif:Person/MilitaryLearningExperience/inline/dischargeDate', rowDetail: 'full' }, ({ httpStatus, body }) => {
 		ok('mappings: 200', httpStatus === 200);
 		ok('answeredFrom names the graph, the manifest and the instance', /^GOLD_/.test(body.answeredFrom.graphName) && body.answeredFrom.manifestRefId.length === 64 && body.answeredFrom.instance === 'liveTest');
 		ok('every row carries its card and its element by URI', body.answer.mappingRowList.every((oneRow) => oneRow.uri && oneRow.fromUri && oneRow.uriKind === 'edc' && oneRow.resolvesHere === true));
 		next();
 	}));
-	steps.push((next) => ask(core, 'element', { stableId: 'https://w3id.org/CEDStandards/terms/P000033' }, ({ body }) => {
+	// P2.1: the default form, and a uri handed back. The answer that holds a uri is the one that says what it may be asked with
+	const LIF_DISCHARGE = 'lif:Person/MilitaryLearningExperience/inline/dischargeDate';
+	steps.push((next) => ask(core, 'mappings', { element: LIF_DISCHARGE }, ({ httpStatus, body, bodyText }) => {
+		ok('summary: mappings answers in summary form unless asked', httpStatus === 200 && body.answer.rowDetail === 'summary' && !body.answer.mappingRowList && body.answer.ownMappingRowList.length > 0);
+		ok('summary: it says what it left out and how to ask', /rowDetail=full/.test(body.answer.leftOutOfSummary.howToAsk));
+		ok('summary: the envelope is the same envelope', body.answeredFrom.operation === 'mappings' && typeof body.uriNote === 'string');
+		const elementUri = body.answer.matchedElementList[0].uri;
+		ask(core, 'mappings', { element: elementUri }, (handedBack) => {
+			ok('uri input: an element uri handed back to mappings answers the same bytes as its stableId', handedBack.bodyText === bodyText, `${handedBack.httpStatus}`);
+			ask(core, 'pair', { element: elementUri, standard: 'CTDLQData' }, (pairAnswer) => {
+				ok('uri input: an element uri handed to pair answers', pairAnswer.httpStatus === 200 && pairAnswer.body.answer.pairStatus === 'notJudged', `${pairAnswer.httpStatus}`);
+				next();
+			});
+		});
+	}));
+	steps.push((next) => ask(core, 'element', { stableId: 'https://w3id.org/CEDStandards/terms/P000033' }, ({ bodyText }) => {
+		const spellingList = ['ceds:P000033', 'https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P000033', 'edc:CEDS/14.0.0.0/ceds:P000033'];
+		const answerList = [];
+		spellingList.forEach((spelling) => ask(core, 'element', { stableId: spelling }, (oneAnswer) => {
+			answerList.push(oneAnswer);
+			if (answerList.length === spellingList.length) {
+				ok('uri input: ceds:, the uri and the edc: form of a CEDS term each answer what its stableId answers', answerList.every((one) => one.bodyText === bodyText), answerList.map((one) => one.httpStatus).join(','));
+				next();
+			}
+		}));
+	}));
+	steps.push((next) => ask(core, 'mappings', { element: 'https://w3id.org/EDUcore/LIF/9.9/lif:Person/MilitaryLearningExperience/inline/dischargeDate' }, ({ httpStatus, body }) => {
+		ok('uri input: an element uri of a version this manifest does not hold is not answered from the one it does', httpStatus === 404 && body.answer.refusalName === 'nothingMatched', `${httpStatus}`);
+		next();
+	}));
+	steps.push((next) => ask(core, 'mappings', { element: LIF_DISCHARGE, rowDetail: 'brief' }, ({ httpStatus, body }) => {
+		ok('rowDetail: an unknown value is refused by name, not read as the default', httpStatus === 400 && body.answer.refusalName === 'invalidInput' && JSON.stringify(body.answer.validValueList) === '["summary","full"]', `${httpStatus}`);
+		next();
+	}));
+	steps.push((next) => ask(core, 'graph', {}, (summaryAnswer) => ask(core, 'graph', { rowDetail: 'full' }, (fullAnswer) => ask(core, 'graph', {}, (summaryAgain) => {
+		ok('graph: each form is kept apart: the summary, then the whole, then the summary again', summaryAnswer.body.answer.rowDetail === 'summary' && fullAnswer.body.answer.rowDetail === undefined && Array.isArray(fullAnswer.body.answer.blocks) && summaryAgain.bodyText === summaryAnswer.bodyText);
+		next();
+	}))));
+	// G5: every worked example in about answers as its entry says. An admin's about holds usage too, so every row is run.
+	steps.push((next) => core.runOperation({ operationName: 'about', input: {}, principal: { kind: 'siteUser', role: 'admin', userRefId: 'liveTest' } }, (unusedError, aboutAnswer) => {
+		const aboutBody = JSON.parse(aboutAnswer.bodyText).answer;
+		ok('about: an administrator is told usage, and it is not cached for anyone else', aboutBody.operationList.some((entry) => entry.operation === 'usage') && aboutAnswer.cachePolicy === 'noStore');
+		const remainingEntryList = [...aboutBody.operationList];
+		const runNextExample = () => {
+			const oneEntry = remainingEntryList.shift();
+			if (!oneEntry) {
+				next();
+				return;
+			}
+			const registryRow = registry.operationList.find((row) => row.routeName === oneEntry.operation);
+			const exampleInput = Object.fromEntries(new URL(oneEntry.exampleUrl).searchParams.entries());
+			core.runOperation({ operationName: registryRow.operationName, input: exampleInput, principal: { kind: 'siteUser', role: 'admin', userRefId: 'liveTest' } }, (exampleError, exampleAnswer) => {
+				const exampleBody = JSON.parse(exampleAnswer.bodyText);
+				const exampleObject = registryRow.bodyForm === 'envelope' ? exampleBody.answer : exampleBody;
+				const absentFieldList = registryRow.aboutEntry.expectedAnswerFieldList.filter((fieldName) => exampleObject[fieldName] === undefined || (Array.isArray(exampleObject[fieldName]) && exampleObject[fieldName].length === 0));
+				ok(`about: the worked example of ${oneEntry.operation} answers 200 with what its entry says`, exampleAnswer.httpStatus === 200 && absentFieldList.length === 0, `${exampleAnswer.httpStatus} ${absentFieldList.join(', ')}`);
+				runNextExample();
+			});
+		};
+		runNextExample();
+	}));
+	steps.push((next) => ask(core, 'element', { stableId: 'https://w3id.org/CEDStandards/terms/P000033', rowDetail: 'full' }, ({ body }) => {
 		const cedsEntry = body.answer.entryList[0];
 		ok('a CEDS element carries its edc URI, by the declared prefix, and resolves here', cedsEntry.uri === 'https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P000033' && cedsEntry.uriKind === 'edc' && cedsEntry.resolvesHere === true, JSON.stringify([cedsEntry.uri, cedsEntry.uriKind, cedsEntry.uriAbsentReason]));
 		next();
 	}));
-	steps.push((next) => ask(core, 'element', { stableId: 'http://www.w3.org/2002/07/owl#Class' }, ({ body }) => {
+	steps.push((next) => ask(core, 'element', { stableId: 'http://www.w3.org/2002/07/owl#Class', rowDetail: 'full' }, ({ body }) => {
 		const foreignEntry = body.answer.entryList[0];
 		ok('a foreign-vocabulary row carries its own IRI, kind ownIri, resolvesHere false', foreignEntry.uri === foreignEntry.stableId && foreignEntry.uriKind === 'ownIri' && foreignEntry.resolvesHere === false, JSON.stringify([foreignEntry.uri, foreignEntry.uriKind, foreignEntry.uriAbsentReason]));
 		next();
@@ -161,7 +222,7 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 				}),
 			}, sessionDone), callback); },
 		};
-		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', []) }, xLog: process.global.xLog, nowDate: () => new Date() });
+		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
 		const waitForCacheProof = (done) => {
 			const sessionCountBefore = sessionCount;
 			let answeredCount = 0;

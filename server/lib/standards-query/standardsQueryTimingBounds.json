@@ -21,6 +21,10 @@
 		{ "label": "graph", "operationName": "graph", "queryText": "" },
 		{ "label": "neighbourhood", "operationName": "neighbourhood", "queryText": "q=race&mode=keyword&limit=3" },
 		{ "label": "guide", "operationName": "guide", "queryText": "mode=classConcepts&name=C200013" },
-		{ "label": "openapi", "operationName": "openApiDocument", "queryText": "" }
+		{ "label": "openapi", "operationName": "openApiDocument", "queryText": "" },
+		{ "label": "about", "operationName": "about", "queryText": "" },
+		{ "label": "mappings, exact, full", "operationName": "mappings", "queryText": "element=lif:Person/MilitaryLearningExperience/inline/dischargeDate&rowDetail=full" },
+		{ "label": "element, full", "operationName": "element", "queryText": "name=dischargeDate&standard=LIF&rowDetail=full" },
+		{ "label": "graph, full", "operationName": "graph", "queryText": "rowDetail=full" }
 	]
 }
