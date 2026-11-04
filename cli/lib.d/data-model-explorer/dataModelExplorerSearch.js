@@ -681,8 +681,8 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, c
 			})),
 			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 			hubList: hubListFieldOf(args.hubInventory.hubList),
-			...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 			...(args.isExactHubCard ? { cardInputNote: FIND_MAPPINGS_CARD_INPUT_NOTE } : {}),
+			...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 		});
 	});
 };

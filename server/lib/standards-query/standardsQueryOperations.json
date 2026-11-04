@@ -1728,6 +1728,7 @@
 		"howToReadAnAnswer": {
 			"answeredFrom": "Which graph and manifest answered, on which instance.",
 			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element. A card's uri given to mappings answers which elements map to it; read at /edc/, it answers what the card is.",
+			"blockVerification": "A schema or decision block too large to carry as JSON is sent at /edc/ as the store holds it, as plain text. Those bytes are not checked before they are sent, so checking them is yours: their sha256 must equal the X-Edc-Expected-Sha256 header, which is the name in the block's uri.",
 			"rowDetail": "mappings, element and graph answer in summary form unless asked rowDetail=full. A summary carries rowDetail: summary and leftOutOfSummary, which says by count what it left out and how to ask.",
 			"mappingStatusByHub": {
 				"mapped": "A mapping reaches this hub.",

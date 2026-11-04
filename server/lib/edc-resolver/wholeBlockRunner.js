@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
-// wholeBlockRunner — spawns resolveOneUri.js for the whole-block kinds and the slow listings: one child at a time, a heap cap, a timeout (edcResolverEndpoint-110226, briefing
-// section 4). The API only pipes bytes; it never holds a block.
+// wholeBlockRunner — spawns resolveOneUri.js for the whole-block kinds and the slow listings, and streamOneBlock.js for a block over the cap: one child at a time between them, a heap cap, a timeout
+// (edcResolverEndpoint-110226, briefing section 4). The API only pipes bytes; it never holds a block.
 //
-//   wholeBlockRunnerFor({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, xLog }) → { isBusy, runOneChild }
-//   runOneChild({ childInput, whenClientGone }, callback) → callback once; whenClientGone(handler) registers what stops the child:
+//   wholeBlockRunnerFor({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, directBlockTimeoutMilliseconds, xLog }) → { isBusy, runOneChild }
+//   runOneChild({ childPlanName, childInput, whenClientGone }, callback) → callback once; childPlanName is a row of the plans below; whenClientGone(handler) registers what stops the child:
 //       callback('', { httpStatus, deliverTo(xRes) })     the child's header line arrived; deliverTo pipes the rest and ends xRes
 //       callback({ httpStatus, errorText })               it never answered: 504 timed out, 500 died (heap cap, crash), by name
 // A child that dies AFTER its header line has already promised a status, so deliverTo destroys the response: the client sees a broken transfer, never
@@ -15,16 +15,33 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { spawn } = require('child_process');
 const path = require('path');
 
-const CHILD_SCRIPT_PATH = path.join(__dirname, 'resolveOneUri.js');
 const NEWLINE_BYTE = 10;
 const STDERR_KEPT_CHARACTER_COUNT = 2000;
 
-const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, xLog }) => {
+const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, directBlockTimeoutMilliseconds, xLog }) => {
 	let childIsRunning = false;
+	// a direct block's child has a sqlite3 of its own, so it leads a process group and a stop ends both
+	const CHILD_PLAN_BY_NAME = Object.freeze({
+		wholeBlock: { scriptPath: path.join(__dirname, 'resolveOneUri.js'), timeoutMilliseconds: wholeBlockTimeoutMilliseconds, leadsProcessGroup: false },
+		directBlock: { scriptPath: path.join(__dirname, 'streamOneBlock.js'), timeoutMilliseconds: directBlockTimeoutMilliseconds, leadsProcessGroup: true },
+	});
 
-	const runOneChild = ({ childInput, whenClientGone }, callback) => {
+	const runOneChild = ({ childPlanName, childInput, whenClientGone }, callback) => {
 		childIsRunning = true;
-		const child = spawn(process.execPath, [`--max-old-space-size=${wholeBlockMaxOldSpaceMegabytes}`, CHILD_SCRIPT_PATH], { stdio: ['pipe', 'pipe', 'pipe'] });
+		const { scriptPath, timeoutMilliseconds, leadsProcessGroup } = CHILD_PLAN_BY_NAME[childPlanName];
+		const child = spawn(process.execPath, [`--max-old-space-size=${wholeBlockMaxOldSpaceMegabytes}`, scriptPath], { stdio: ['pipe', 'pipe', 'pipe'], detached: leadsProcessGroup });
+		// its stdout goes too: 'close' waits for that stream to end, and a stream piped to a stalled client never would, which would hold the one slot long after the child was dead
+		const stopChild = () => {
+			child.stdout.destroy();
+			if (child.exitCode !== null || child.signalCode !== null || child.pid === undefined) {
+				return;
+			}
+			if (leadsProcessGroup) {
+				process.kill(-child.pid, 'SIGKILL');
+				return;
+			}
+			child.kill('SIGKILL');
+		};
 		let hasTimedOut = false;
 		let hasAnswered = false;
 		let stderrTail = '';
@@ -32,11 +49,7 @@ const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeout
 		let responseBeingDelivered = null;
 
 		// a client gone before the header line, or during delivery, stops the child; otherwise it would block on a full pipe until its timeout, holding the one slot
-		whenClientGone(() => {
-			if (child.exitCode === null && child.signalCode === null) {
-				child.kill('SIGKILL');
-			}
-		});
+		whenClientGone(stopChild);
 
 		const answerOnce = (errorAnswer, answer) => {
 			if (!hasAnswered) {
@@ -46,8 +59,8 @@ const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeout
 		};
 		const timeoutTimer = setTimeout(() => {
 			hasTimedOut = true;
-			child.kill('SIGKILL');
-		}, wholeBlockTimeoutMilliseconds);
+			stopChild();
+		}, timeoutMilliseconds);
 
 		child.stderr.setEncoding('utf8');
 		child.stderr.on('data', (stderrChunk) => {
@@ -66,7 +79,7 @@ const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeout
 			child.stdout.pause();
 			const headerMatch = /^\{"httpStatus":([1-5][0-9][0-9])\}$/.exec(headerBuffer.subarray(0, newlineIndex).toString('utf8'));
 			if (headerMatch === null) {
-				child.kill('SIGKILL');
+				stopChild();
 				answerOnce({ httpStatus: 500, errorText: `${moduleName}: the whole-block child's first line is not its header` });
 				return;
 			}
@@ -92,7 +105,7 @@ const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeout
 				xLog.error(`${moduleName}: child ended exit=${exitCode} signal=${signalName} timedOut=${hasTimedOut}: ${stderrTail}`);
 			}
 			if (hasTimedOut) {
-				answerOnce({ httpStatus: 504, errorText: `${moduleName}: the whole-block child was stopped at its ${wholeBlockTimeoutMilliseconds} ms timeout` });
+				answerOnce({ httpStatus: 504, errorText: `${moduleName}: the whole-block child was stopped at its ${timeoutMilliseconds} ms timeout` });
 			} else {
 				answerOnce({ httpStatus: 500, errorText: `${moduleName}: the whole-block child ended without answering (exit ${exitCode}, signal ${signalName}); its heap cap is ${wholeBlockMaxOldSpaceMegabytes} MB` });
 			}

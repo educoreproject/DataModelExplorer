@@ -4,10 +4,11 @@
 // forgeAdapter — the ONE place educore requires the educoreForge tree (edcResolverEndpoint-110226, briefing section 1). It loads the edc: resolver
 // and the uriContract reader from a forge checkout named by config, because their closure is a third of the forge and a copy would be a fork.
 //
-//   loadForgeResolver({ educoreForgeCodePath, uriContractFilePath }) → { error } | { resolveEdcUri, edcIriFor, edcUri, registry, uriContractReader, Database, retrievalModules }
+//   loadForgeResolver({ educoreForgeCodePath, uriContractFilePath }) → { error } | { resolveEdcUri, edcIriFor, edcUri, stubResolver, registry, uriContractReader, Database, retrievalModules }
 //       used by the API (through openForgeAdapter) and by the whole-block child (resolveOneUri.js)
 //   openForgeAdapter({ configValues }) → { refusalText } | { routeFor, resolveInProcess, edcIriFor, edcUri, retrievalModules, baseIri, startupLine, openStoreReadHandle, ...configured values }
 //       openStoreReadHandle() → { storeHandle } | { error }: one more read-only handle on the store (the standards query core's reads; never a write)
+//       routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'directBlock' | 'overCap', kind, byteSize }: a block over wholeBlockMaxBytes is sent as the store holds it by streamOneBlock.js, up to directBlockMaxBytes
 //       retrievalModules: { candidateRetrievalLib, hubEdgeType, dmeRoles }: the forge's pure vote and rank modules and the names they read (Rosetta retrieval, design 4.1); they take records by injection and read no store
 //
 // The store opens once, read-only, at startup. An open handle keeps the old inode, so REPLACING THE STORE FILE IS AN API RESTART. So is any change to
@@ -20,8 +21,8 @@ const fs = require('fs');
 const path = require('path');
 
 const RELATIONSHIP_BLOCK_KIND = 'relationship';
-const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix'];
-const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'wholeBlockMaxOldSpaceMegabytes', 'wholeBlockTimeoutMilliseconds'];
+const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix', 'directBlockSqliteCommandPath'];
+const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'wholeBlockMaxOldSpaceMegabytes', 'wholeBlockTimeoutMilliseconds', 'directBlockMaxBytes', 'directBlockTimeoutMilliseconds'];
 
 // the kinds that run in the child, never in the API. Whole block text (briefing section 4), where a size rule means the byte size is read first and capped
 // without spawning; and the manifest, standard, hub and element listings, which the brief expected to be cheap: measured on the server each holds a
@@ -97,6 +98,7 @@ const loadForgeResolver = ({ educoreForgeCodePath, uriContractFilePath }) => {
 		resolveEdcUri: stubResolver.resolveEdcUri,
 		edcIriFor: stubResolver.edcIriFor,
 		edcUri,
+		stubResolver,
 		registry: opened.result.registryLoad.registry,
 		uriContractReader: opened.result.uriContractReader,
 		Database,
@@ -181,9 +183,10 @@ const openForgeAdapter = ({ configValues }) => {
 	}
 	const routingStatementByKind = routingStatementsPrepared.result;
 	const wholeBlockMaxBytes = Number(configValues.wholeBlockMaxBytes);
+	const directBlockMaxBytes = Number(configValues.directBlockMaxBytes);
 	const { layerRegistry, agentRegistry } = forgeResolver.registry;
 
-	// routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'overCap', kind, byteSize }
+	// routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'directBlock' | 'overCap', kind, byteSize }
 	// A query on a kind that takes none is refused before any read, and an absent block reads nothing, so both resolve in process.
 	const routeFor = (edcRequestPath) => {
 		const parsed = forgeResolver.edcUri.parse(forgeResolver.edcIriFor(edcRequestPath));
@@ -206,9 +209,10 @@ const openForgeAdapter = ({ configValues }) => {
 		if (sizeRow === undefined) {
 			return { routeName: 'inProcess', kind: parsed.kind };
 		}
-		return sizeRow.byteSize > wholeBlockMaxBytes
-			? { routeName: 'overCap', kind: parsed.kind, byteSize: sizeRow.byteSize, blockIdentity: parsed.partByName[wholeBlockRule.blockIdentityPartName] }
-			: { routeName: 'wholeBlockChild', kind: parsed.kind };
+		if (sizeRow.byteSize <= wholeBlockMaxBytes) {
+			return { routeName: 'wholeBlockChild', kind: parsed.kind };
+		}
+		return { routeName: sizeRow.byteSize <= directBlockMaxBytes ? 'directBlock' : 'overCap', kind: parsed.kind, byteSize: sizeRow.byteSize, blockIdentity: parsed.partByName[wholeBlockRule.blockIdentityPartName] };
 	};
 
 	return {
@@ -226,6 +230,9 @@ const openForgeAdapter = ({ configValues }) => {
 		educoreForgeCodePath,
 		uriContractFilePath,
 		wholeBlockMaxBytes,
+		directBlockMaxBytes,
+		directBlockTimeoutMilliseconds: Number(configValues.directBlockTimeoutMilliseconds),
+		directBlockSqliteCommandPath: configValues.directBlockSqliteCommandPath,
 		wholeBlockMaxOldSpaceMegabytes: Number(configValues.wholeBlockMaxOldSpaceMegabytes),
 		wholeBlockTimeoutMilliseconds: Number(configValues.wholeBlockTimeoutMilliseconds),
 		startupLine: `${moduleName}: resolver open; forge ${educoreForgeCodePath} at commit ${forgeCommitOf(educoreForgeCodePath)}; store ${uriContractFilePath} (read-only); registry ${layerRegistry.layerList.length} layers, ${agentRegistry.agentList.length} agents`,
