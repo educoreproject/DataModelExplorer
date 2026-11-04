@@ -64,6 +64,24 @@ openHarness({}, (harnessError, harness) => {
 		next();
 	}));
 
+	// ---- a cosine is a raw cosine. Neo4j's index answers (1 + cos) / 2, so the best a pool reports is held against the best the hub's texts can give, worked out here by a scan and not by the index
+	steps.push((next) => {
+		const { name } = shared.fieldList.find((oneField) => oneField.name === 'dischargeDate') || shared.fieldList[0];
+		goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { text: $name }) WITH t.textEmbedding AS vector LIMIT 1 MATCH (hub:DmeEmbedText { _source: 'CEDS' }) WITH max(vector.similarity.cosine(hub.textEmbedding, vector)) AS bestSimilarity RETURN 2 * bestSimilarity - 1 AS bestRawCosine", { name }).then((queryResult) => sessionDone('', queryResult.records[0].get('bestRawCosine')), (queryError) => sessionDone(queryError.message)), (scanError, bestRawCosine) => {
+			retrieve({ fieldList: [{ name }], hubList: ['CEDS'], rowDetail: 'full' }, ({ body }) => {
+				const bestReported = Math.max(...body.answer.fieldList[0].byHub.CEDS.candidateList.map((oneCandidate) => oneCandidate.cosine));
+				ok(`a reported cosine is raw: ${bestReported} is no more than the scan's ${bestRawCosine && bestRawCosine.toFixed(4)}`, !scanError && bestReported <= bestRawCosine + 0.001, scanError);
+				next();
+			});
+		});
+	});
+	// ---- the window reaches the hub's own hits: a window of 40 across every standard left pools of a few (the G2 probe's), and recall alone does not show it
+	steps.push((next) => retrieve({ fieldList: shared.fieldList.slice(0, 40), hubList: ['CTDL'], rowDetail: 'full' }, ({ body }) => {
+		const sortedSizeList = body.answer.fieldList.map((oneField) => oneField.byHub.CTDL.poolSize).sort((left, right) => left - right);
+		ok(`the window reaches the hub: median CTDL pool ${sortedSizeList[20]} of 40 fields is at the cap`, sortedSizeList[20] === 40, `${sortedSizeList[20]}`);
+		next();
+	}));
+
 	// ---- the second submission spends nothing and answers the same (G3.5)
 	steps.push((next) => {
 		const shortList = shared.fieldList.slice(0, 5);
@@ -287,21 +305,35 @@ openHarness({}, (harnessError, harness) => {
 			});
 		});
 		fuseStepList.push((next) => {
-			let releaseEmbedding = null;
-			openHarness({ embedder: { batchSize: 20, embed: (textList, done) => { releaseEmbedding = () => done('', textList.map(() => stubVector)); } } }, (openError, busyHarness) => {
+			const releaseList = [];
+			const releaseAll = () => releaseList.splice(0).forEach((oneRelease) => oneRelease());
+			openHarness({ embedder: { batchSize: 20, embed: (textList, done) => { releaseList.push(() => done('', textList.map(() => stubVector))); } } }, (openError, busyHarness) => {
 				const ask = (done) => busyHarness.core.runOperation({ operationName: 'rosettaRetrieval', input: { fieldList: [{ name: `busyField${Math.random()}` }], hubList: ['CEDS'] }, principal: { kind: 'oauthUser', userRefId: 'mcpPerson', role: 'user' } }, done);
 				ask((firstError, firstAnswer) => {
 					ok('in flight: the first runs when the second has gone', firstAnswer.httpStatus === 200, `${firstAnswer.httpStatus}`);
 					busyHarness.close(next);
 				});
 				const waitForFirst = () => {
-					if (!releaseEmbedding) {
+					if (releaseList.length === 0) {
 						setTimeout(waitForFirst, 20);
 						return;
 					}
+					let secondHasAnswered = false;
+					// a second retrieval let in would wait on the embedder for ever: say so and release it, so this gate fails rather than hangs
+					const notRefusedTimer = setTimeout(() => {
+						if (!secondHasAnswered) {
+							ok('in flight: a second concurrent retrieval is refused at once', false, 'it went on to the embedder');
+							releaseAll();
+						}
+					}, 3000);
 					ask((secondError, secondAnswer) => {
+						secondHasAnswered = true;
+						clearTimeout(notRefusedTimer);
+						if (secondAnswer.httpStatus === 200) {
+							return;
+						}
 						ok('in flight: a second concurrent retrieval, whatever the door, is 503 busy with Retry-After', secondAnswer.httpStatus === 503 && JSON.parse(secondAnswer.bodyText).answer.refusalName === 'busy' && secondAnswer.retryAfterSeconds > 0, secondAnswer.bodyText.slice(0, 200));
-						releaseEmbedding();
+						releaseAll();
 					});
 				};
 				waitForFirst();
