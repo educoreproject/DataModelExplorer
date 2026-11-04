@@ -40,7 +40,21 @@
 		"invalidLimit": 400,
 		"embeddingCeilingReached": 429,
 		"mappingStatusUnavailable": 503,
-		"queryFailed": 500
+		"queryFailed": 500,
+		"noSubmission": 400,
+		"noFieldsFound": 400,
+		"invalidFieldEntry": 400,
+		"fieldTextTooLong": 413,
+		"maxFieldListLength": 413,
+		"depthExceeded": 400,
+		"refCycle": 400,
+		"refExpansionsExceeded": 400,
+		"unknownHub": 400,
+		"retrievalTokensPerRequestExceeded": 413,
+		"retrievalCeilingReached": 429,
+		"embeddingFailed": 503,
+		"loopbackNotAdmitted": 401,
+		"tierNotOffered": 400
 	},
 	"verbRefusalHttpStatusByName": {
 		"emptyQuery": 400,
@@ -161,6 +175,7 @@
 				"standard"
 			],
 			"routeName": "search",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -284,6 +299,7 @@
 				"standard"
 			],
 			"routeName": "grep",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -419,6 +435,7 @@
 				"standard"
 			],
 			"routeName": "element",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -568,6 +585,7 @@
 			],
 			"usageSubjectInputNameList": [],
 			"routeName": "mappings",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -654,6 +672,7 @@
 				"otherStandard"
 			],
 			"routeName": "pair",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -724,6 +743,7 @@
 			],
 			"usageSubjectInputNameList": [],
 			"routeName": "codesets",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -795,6 +815,7 @@
 				"standard"
 			],
 			"routeName": "unmapped",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -830,6 +851,7 @@
 			"uriFieldRuleList": [],
 			"usageSubjectInputNameList": [],
 			"routeName": "stats",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -875,6 +897,7 @@
 			],
 			"usageSubjectInputNameList": [],
 			"routeName": "standards",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -932,6 +955,7 @@
 			"uriFieldRuleList": [],
 			"usageSubjectInputNameList": [],
 			"routeName": "graph",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -1165,6 +1189,7 @@
 			"searchModeInput": "mode",
 			"usageSubjectInputNameList": [],
 			"routeName": "neighbourhood",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -1243,6 +1268,7 @@
 			],
 			"usageSubjectInputNameList": [],
 			"routeName": "guide",
+			"httpMethod": "GET",
 			"doorList": [
 				"api",
 				"mcp"
@@ -1290,6 +1316,7 @@
 			"usageSubjectInputNameList": [],
 			"isCounted": false,
 			"routeName": "usage",
+			"httpMethod": "GET",
 			"coreAddedFieldList": [],
 			"aboutEntry": {
 				"forWhat": "Read the counts of what has been asked, by operation and subject.",
@@ -1303,6 +1330,7 @@
 		{
 			"operationName": "openApiDocument",
 			"routeName": "openapi.json",
+			"httpMethod": "GET",
 			"coreHandlerName": "openApiDocument",
 			"bodyForm": "bare",
 			"doorList": [
@@ -1330,8 +1358,151 @@
 			}
 		},
 		{
+			"operationName": "rosettaRetrieval",
+			"routeName": "rosetta/retrieval",
+			"httpMethod": "POST",
+			"bodyLimitText": "1mb",
+			"mcpToolName": "rosetta_retrieve",
+			"mcpDoorRefusesLoopback": true,
+			"coreHandlerName": "rosettaRetrieval",
+			"bodyForm": "envelope",
+			"doorList": [
+				"api",
+				"mcp"
+			],
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"requiresUriPromise": true,
+			"isCounted": true,
+			"cachePolicy": "noStore",
+			"summaryShaperName": "rosettaRetrieval",
+			"inputFieldList": [
+				{
+					"name": "fieldList",
+					"type": "list",
+					"required": false,
+					"jsonSchemaDetail": {
+						"items": {
+							"type": "object",
+							"required": [
+								"name"
+							],
+							"additionalProperties": false,
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"definition": {
+									"type": "string"
+								},
+								"path": {
+									"type": "string"
+								},
+								"type": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"description": "Your fields: a list of { name, definition, path, type }, only name required. Give a definition where you have one: a bare name like identifier finds little. Give exactly one of fieldList, jsonSchema, jsonLdContext."
+				},
+				{
+					"name": "jsonSchema",
+					"type": "object",
+					"required": false,
+					"description": "A JSON Schema document (draft 2020-12 or 7). Each property is a field, its description the definition. $ref resolves only inside the document; a remote one is listed in unresolvedRefList and never fetched."
+				},
+				{
+					"name": "jsonLdContext",
+					"type": "object",
+					"required": false,
+					"description": "A JSON-LD document holding @context. Each term is a field, an rdfs:comment beside it the definition. A remote @context URL is listed in unresolvedContextList, never fetched, and its terms are not fields."
+				},
+				{
+					"name": "hubList",
+					"type": "list",
+					"required": false,
+					"jsonSchemaDetail": {
+						"items": {
+							"type": "string"
+						}
+					},
+					"description": "The hubs to retrieve from, by name. Every hub in the graph when absent. An unknown hub is refused with the valid list."
+				},
+				{
+					"name": "rowDetail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"summary",
+						"full"
+					],
+					"defaultValue": "summary",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "summary (the default) suits a model: each pool's size and top candidates, with leftOutOfSummary saying by count what it left out. full carries every candidate."
+				}
+			],
+			"refusalNameList": [
+				"noSubmission",
+				"noFieldsFound",
+				"invalidFieldEntry",
+				"fieldTextTooLong",
+				"maxFieldListLength",
+				"depthExceeded",
+				"refCycle",
+				"refExpansionsExceeded",
+				"unknownHub",
+				"retrievalTokensPerRequestExceeded",
+				"retrievalCeilingReached",
+				"embeddingFailed",
+				"embedderMismatch",
+				"graphHasNoVectors",
+				"passportAbsent",
+				"passportShapeNotRecognised",
+				"graphContractMismatch",
+				"vectorIndexNotInPassport",
+				"serviceNotConfigured",
+				"invalidInput",
+				"inputTooLong",
+				"loopbackNotAdmitted"
+			],
+			"answerStepList": [],
+			"usageSubjectInputNameList": [],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [],
+			"description": "Submit your own fields, as a field list, a JSON Schema or a JSON-LD @context, and get for every field and every hub the hub cards whose text is closest to yours: a pool of candidates with cosines. Nothing is judged: a pool is candidates, never an answer, and its first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists. Each answer holds each pool's size and top candidates unless rowDetail=full; about 20 fields at a time keeps it readable. Your text goes to the embedding vendor, Voyage AI, to become a vector, under that vendor's terms; this service keeps a hash and the vector, not the text. Every element and card carries uri; quote it, it is permanent.",
+			"aboutEntry": {
+				"forWhat": "Find which hub cards come closest to your own fields, for you to read and decide on.",
+				"whatThisDoesNot": "Nothing is judged. A pool is candidates ranked by how close their text is to yours, never an answer: its first candidate is not a mapping, and an empty pool does not mean no equivalent exists.",
+				"whatHappensToYourText": "Each text goes to the embedding vendor, Voyage AI, to become a vector. What Voyage keeps or does with it falls under Voyage's terms, not this service's: send nothing you would not send them. This service stores no text, publishes none, gives it to no one else and trains nothing on it. It keeps each text's sha256 and vector for {strangerVectorRetentionDays} days after last use, so sending it again costs no second call.",
+				"slowWhen": "a submission has many fields: the largest can take over a minute",
+				"exampleInput": {
+					"fieldList": [
+						{
+							"name": "dischargeDate",
+							"definition": "If this is not a currently held service, the date of discharge."
+						}
+					],
+					"hubList": [
+						"CEDS"
+					]
+				},
+				"exampleShows": "One field against one hub: the pool's size and its top candidates, each with uri, label and cosine.",
+				"expectedAnswerFieldList": [
+					"fieldList",
+					"nothingJudgedNote",
+					"poolCountByHub",
+					"leftOutOfSummary"
+				]
+			},
+			"mcpBodyLimitText": "100kb"
+		},
+		{
 			"operationName": "about",
 			"routeName": "about",
+			"httpMethod": "GET",
 			"aliasRouteNameList": [
 				""
 			],
@@ -1523,7 +1694,28 @@
 			"propertyCount",
 			"optionValueCount",
 			"mappedPropertyCountByHub"
-		]
+		],
+		"retrievalCandidateFieldList": [
+			"uri",
+			"label",
+			"cosine",
+			"rank"
+		],
+		"retrievalFieldFieldList": [
+			"name",
+			"definitionAbsent",
+			"valueTierNotOffered"
+		],
+		"retrievalPoolFieldList": [
+			"poolSize"
+		],
+		"retrievalShownPerPoolMin": 2,
+		"retrievalShownPerPoolMax": 5,
+		"retrievalCandidateBytesEstimate": 195,
+		"retrievalAnswerByteBudget": 16500,
+		"retrievalReadableFieldCount": 20,
+		"howToAskForFullRetrieval": "Ask rowDetail=full for every candidate of every pool, with its votes, card cosine, both ranks and domain.",
+		"retrievalOverReadableAdvice": "This answer is over what a model client may read. To read every field, submit about {readableFieldCount} fields at a time: text already submitted costs nothing to send again."
 	},
 	"aboutText": {
 		"whatThisIs": [
@@ -1552,7 +1744,13 @@
 			"refusal": "An HTTP 4xx or 503 (a tool error on MCP) whose answer carries refusedByName, refusalName, reason and sometimes validValueList. The question was not answered; that does not mean no such data exists."
 		},
 		"uriResolvesToLine": "A uri is a permanent name; w3id.org does not forward these names yet. To read one, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. It answers in JSON.",
-		"operationNoteLine": "Each operation is a GET at its exampleUrl's path and, on MCP, the tool standards_<operation>, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are in sharedInputDescriptionByName unless the operation words one itself.",
-		"uriNotResolvedHereLine": "A uri is a permanent name. This instance has no route that reads one."
-	}
+		"operationNoteLine": "Each operation answers at its exampleUrl's path, by GET unless method says otherwise, and on MCP as the tool mcpTool names, or standards_<operation> where that is absent, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are in sharedInputDescriptionByName unless the operation words one itself.",
+		"uriNotResolvedHereLine": "A uri is a permanent name. This instance has no route that reads one.",
+		"retrievalUnconfiguredLine": "not configured here, so retrieval refuses by name"
+	},
+	"rosettaAnswerNote": {
+		"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists.",
+		"costEstimateNote": "What one judged reading of each non-empty pool would cost at the rate measured so far. No such reading is offered here and nothing was charged for this answer."
+	},
+	"mcpToolPrefix": "standards_"
 }

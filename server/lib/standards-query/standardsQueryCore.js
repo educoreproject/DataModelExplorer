@@ -2,7 +2,7 @@
 
 // standardsQueryCore — one module answers every question about the standards; the Query API, MCP and later doors hold no query of their own (design, first page).
 //
-//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate })
+//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval? })
 //     → { runOperation({ operationName, input, principal }, callback('', { httpStatus, bodyText, cachePolicy, retryAfterSeconds })), registryRowFor, serviceState }
 //
 // An operation runs IN PROCESS on the golden handle's READ session: no spawned node, docker inspect or new driver per call (design 1.6). Query logic stays in the DME CLI module;
@@ -61,7 +61,13 @@ const storeReadsFor = (storeHandle) => {
 	};
 };
 
-const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate }) => {
+// an input declared as more than text arrives in a request body or a tool's arguments; each such type is one row here
+const STRUCTURED_INPUT_TEST_BY_TYPE = Object.freeze({
+	list: Array.isArray,
+	object: (inputValue) => inputValue !== null && typeof inputValue === 'object' && !Array.isArray(inputValue),
+});
+
+const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval }) => {
 	const registryRowByOperationName = registry.operationList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.operationName]: registryRow }), {});
 	const refusalStatusByName = { ...registry.verbRefusalHttpStatusByName, ...registry.envelopeRefusalHttpStatusByName };
 	const limits = limitNumbersOf(limitConfigValues);
@@ -179,7 +185,12 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		if (unknownNameList.length > 0) {
 			return refusalOf(operationName, 'unknownInput', `${operationName} does not take ${unknownNameList.join(', ')}; it takes: ${allFieldList.map((oneField) => oneField.name).join(', ') || 'nothing'}`, { validValueList: allFieldList.map((oneField) => oneField.name) });
 		}
-		const notTextName = Object.keys(input).find((inputName) => typeof input[inputName] !== 'string');
+		const structuredTestOf = (inputName) => STRUCTURED_INPUT_TEST_BY_TYPE[allFieldList.find((oneField) => oneField.name === inputName).type];
+		const badStructuredName = Object.keys(input).find((inputName) => structuredTestOf(inputName) && !structuredTestOf(inputName)(input[inputName]));
+		if (badStructuredName) {
+			return refusalOf(operationName, 'invalidInput', `${badStructuredName} must be ${allFieldList.find((oneField) => oneField.name === badStructuredName).type === 'list' ? 'a list' : 'an object'}`);
+		}
+		const notTextName = Object.keys(input).find((inputName) => !structuredTestOf(inputName) && typeof input[inputName] !== 'string');
 		if (notTextName) {
 			return refusalOf(operationName, 'invalidInput', `${notTextName} was given more than once or in a form that is not text`);
 		}
@@ -338,6 +349,14 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 				runStepList({ registryRow, stepContext: { answer, facts: serviceFacts, registryRow, namedUriList } }, (stepError) => (stepError ? sessionDone(stepError) : sessionDone('', { answer })));
 			}), done);
 		},
+		// nothing here is judged: rosettaRetrieval has no way to reach a judge. An instance with no [rosetta-fuse] refuses this one operation by name; the others are untouched.
+		rosettaRetrieval: ({ registryRow, input, namedSubjectList }, done) => {
+			if (!rosettaRetrieval) {
+				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', 'this instance has no [rosetta-fuse] settings, so retrieval is off here') });
+				return;
+			}
+			goldenHandle.withReadSession((session, sessionDone) => rosettaRetrieval.runRetrieval({ session, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, sessionDone), done);
+		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),
 		// what a signed-in administrator is told must not sit in a shared cache
@@ -442,7 +461,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 				return;
 			}
 			if (handlerResult.answer.refusedByName) {
-				finishOperation(refusedAnswerFor({ operationName, refusal: handlerResult.answer }));
+				finishOperation(refusedAnswerFor({ operationName, refusal: handlerResult.answer, retryAfterSeconds: handlerResult.retryAfterSeconds }));
 				return;
 			}
 			const isSummary = rowDetail === ROW_DETAIL_SUMMARY;
@@ -462,6 +481,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		runOperation,
 		registryRowFor: (operationName) => registryRowByOperationName[operationName],
 		serviceState: () => ({ isServing: serviceFacts !== null, unavailableReason, inFlightCount, embeddingTokensToday: embeddingTokensSpentToday() }),
+		serviceFactsForGate: () => serviceFacts, // the proved facts, for a gate that calls the retrieval stage directly
 	};
 };
 

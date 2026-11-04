@@ -40,13 +40,18 @@ const encodedQueryOf = (queryText) => (queryText === '' ? '' : `?${new URLSearch
 	return [onePair.slice(0, splitAt), onePair.slice(splitAt + 1)];
 })).toString()}`);
 
-const timedGet = (routeText, done) => {
+// a row with bodyJson is a POST of that body; every other row is a GET
+const timedRequest = (routeText, bodyJson, done) => {
 	const startedAt = process.hrtime.bigint();
-	client.get(`${baseUrl}/${routePrefix}/${routeText}`, (res) => {
+	const bodyText = bodyJson === undefined ? undefined : JSON.stringify(bodyJson);
+	const request = client.request(`${baseUrl}/${routePrefix}/${routeText}`, { method: bodyText === undefined ? 'GET' : 'POST', headers: bodyText === undefined ? {} : { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyText) } }, (res) => {
 		res.resume();
 		res.on('end', () => done({ httpStatus: res.statusCode, seconds: Number(process.hrtime.bigint() - startedAt) / 1e9 }));
-	}).on('error', () => done({ httpStatus: 0, seconds: 0 }));
+	});
+	request.on('error', () => done({ httpStatus: 0, seconds: 0 }));
+	request.end(bodyText);
 };
+const timedGet = (routeText, done) => timedRequest(routeText, undefined, done);
 
 const median = (numberList) => numberList.slice().sort((left, right) => left - right)[Math.floor(numberList.length / 2)];
 
@@ -72,7 +77,7 @@ const measureRow = (rowIndex, done) => {
 	const oneRow = bounds.rowList[rowIndex];
 	const routeText = `${routeNameOf(oneRow.operationName)}${encodedQueryOf(oneRow.queryText)}`;
 	const callList = [];
-	const callNext = () => timedGet(routeText, (oneCall) => {
+	const callNext = () => timedRequest(routeText, oneRow.bodyJson, (oneCall) => {
 		callList.push(oneCall);
 		if (callList.length < WARM_CALL_COUNT + 1) {
 			setTimeout(callNext, SPACING_MILLISECONDS);

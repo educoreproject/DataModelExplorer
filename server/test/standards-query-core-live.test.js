@@ -134,14 +134,16 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 				return;
 			}
 			const registryRow = registry.operationList.find((row) => row.routeName === oneEntry.operation);
-			const exampleInput = Object.fromEntries(new URL(oneEntry.exampleUrl).searchParams.entries());
-			core.runOperation({ operationName: registryRow.operationName, input: exampleInput, principal: { kind: 'siteUser', role: 'admin', userRefId: 'liveTest' } }, (exampleError, exampleAnswer) => {
+			const exampleInput = oneEntry.exampleBody || Object.fromEntries(new URL(oneEntry.exampleUrl).searchParams.entries());
+			// a retrieval example needs a store and an embedder, which the harness gives it: the core here has none, as an instance with no [rosetta-fuse] has none
+			const withCoreForExample = (useCore) => (oneEntry.method === 'POST' ? require('./lib/rosettaLiveHarness').openHarness({}, (harnessError, harness) => useCore(harness.core)) : useCore(core));
+			withCoreForExample((exampleCore) => exampleCore.runOperation({ operationName: registryRow.operationName, input: exampleInput, principal: { kind: 'siteUser', role: 'admin', userRefId: 'liveTest' } }, (exampleError, exampleAnswer) => {
 				const exampleBody = JSON.parse(exampleAnswer.bodyText);
 				const exampleObject = registryRow.bodyForm === 'envelope' ? exampleBody.answer : exampleBody;
 				const absentFieldList = registryRow.aboutEntry.expectedAnswerFieldList.filter((fieldName) => exampleObject[fieldName] === undefined || (Array.isArray(exampleObject[fieldName]) && exampleObject[fieldName].length === 0));
 				ok(`about: the worked example of ${oneEntry.operation} answers 200 with what its entry says`, exampleAnswer.httpStatus === 200 && absentFieldList.length === 0, `${exampleAnswer.httpStatus} ${absentFieldList.join(', ')}`);
 				runNextExample();
-			});
+			}));
 		};
 		runNextExample();
 	}));

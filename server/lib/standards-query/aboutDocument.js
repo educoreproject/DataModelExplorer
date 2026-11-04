@@ -13,8 +13,12 @@ const EDC_BASE_TOKEN = '{edcBaseUrl}';
 
 const mayCall = (registryRow, principal) => registryRow.permissionList.includes(PUBLIC_PERMISSION_NAME) || (principal.kind === SITE_USER_PRINCIPAL_KIND && registryRow.permissionList.includes(principal.role));
 
+const GET_METHOD_NAME = 'GET';
+const RETRIEVAL_RETENTION_TOKEN = '{strangerVectorRetentionDays}';
+
+// the input of a GET is the url's query; the input of a POST is its body, shown beside the url
 const exampleUrlOf = ({ registry, registryRow, publicInstanceName }) => {
-	const queryText = new URLSearchParams(registryRow.aboutEntry.exampleInput).toString().replace(/%3A/g, ':').replace(/%2F/g, '/'); // both are legal in a query, and a reader can read them
+	const queryText = (registryRow.httpMethod === GET_METHOD_NAME ? new URLSearchParams(registryRow.aboutEntry.exampleInput) : new URLSearchParams()).toString().replace(/%3A/g, ':').replace(/%2F/g, '/'); // both are legal in a query, and a reader can read them
 	return `https://${publicInstanceName}/${registry.publicRouteBasePath}/${registryRow.routeName}${queryText ? `?${queryText}` : ''}`;
 };
 
@@ -30,19 +34,29 @@ const sharedInputDescriptionsOf = (registryRowList) => {
 	}, {});
 };
 
-const operationEntryOf = ({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName }) => {
+// an entry may say plainly what its operation does not do and what becomes of what you send. The numbers in those sentences are the config's; with no config the sentence is absent rather than a guess.
+const plainStatementsOf = ({ registryRow, rosettaFuseValues }) => ({
+	...(registryRow.aboutEntry.whatThisDoesNot ? { whatThisDoesNot: registryRow.aboutEntry.whatThisDoesNot } : {}),
+	...(registryRow.aboutEntry.whatHappensToYourText && rosettaFuseValues ? { whatHappensToYourText: registryRow.aboutEntry.whatHappensToYourText.replace(RETRIEVAL_RETENTION_TOKEN, String(rosettaFuseValues.strangerVectorRetentionDays)) } : {}),
+});
+
+const operationEntryOf = ({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues }) => {
 	const ownWordingFieldList = registryRow.inputFieldList.filter((inputField) => sharedInputDescriptionByName[inputField.name] !== inputField.description);
 	const nameListWhere = (isWanted) => registryRow.inputFieldList.filter(isWanted).map((inputField) => inputField.name);
 	return {
 		operation: registryRow.routeName,
+		...(registryRow.httpMethod === GET_METHOD_NAME ? {} : { method: registryRow.httpMethod }),
 		...(registryRow.mcpToolName ? {} : { isOnMcp: false }),
+		...(registryRow.mcpToolName && registryRow.mcpToolName !== `${registry.mcpToolPrefix}${registryRow.routeName}` ? { mcpTool: registryRow.mcpToolName } : {}),
 		forWhat: registryRow.aboutEntry.forWhat,
+		...plainStatementsOf({ registryRow, rosettaFuseValues }),
 		...(nameListWhere((inputField) => inputField.required === true).length > 0 ? { requiredInputList: nameListWhere((inputField) => inputField.required === true) } : {}),
 		...(nameListWhere((inputField) => inputField.required !== true).length > 0 ? { optionalInputList: nameListWhere((inputField) => inputField.required !== true) } : {}),
 		...(ownWordingFieldList.length > 0 ? { ownInputDescriptionByName: ownWordingFieldList.reduce((soFar, inputField) => ({ ...soFar, [inputField.name]: inputField.description }), {}) } : {}),
 		...(registryRow.aboutEntry.slowWhen ? { slowWhen: registryRow.aboutEntry.slowWhen } : {}),
 		...(registryRow.pageSize ? { rowsPerPage: registryRow.pageSize } : {}),
 		exampleUrl: exampleUrlOf({ registry, registryRow, publicInstanceName }),
+		...(registryRow.httpMethod === GET_METHOD_NAME ? {} : { exampleBody: registryRow.aboutEntry.exampleInput }),
 		exampleShows: registryRow.aboutEntry.exampleShows,
 	};
 };
@@ -61,6 +75,17 @@ const limitsInForceOf = ({ registry, inputCapByName, doorLimitValues }) => ({
 	patternCharacters: inputCapByName.maxPatternChars,
 	embeddingTokensPerDay: inputCapByName.dailyEmbeddingTokenCeiling,
 	...mcpSessionLimitsOf(doorLimitValues),
+	retrieval: doorLimitValues.rosettaFuseValues ? {
+		fieldsPerSubmission: doorLimitValues.rosettaFuseValues.maxFieldListLength,
+		nameCharacters: doorLimitValues.rosettaFuseValues.maxFieldNameChars,
+		definitionCharacters: doorLimitValues.rosettaFuseValues.maxFieldDefinitionChars,
+		documentDepth: doorLimitValues.rosettaFuseValues.maxDocumentDepth,
+		bodySize: registry.operationList.find((registryRow) => registryRow.bodyLimitText).bodyLimitText,
+		bodySizeOnMcp: registry.operationList.find((registryRow) => registryRow.mcpBodyLimitText).mcpBodyLimitText,
+		atOnce: doorLimitValues.rosettaFuseValues.retrievalInFlightMax,
+		newTextTokensPerRequest: doorLimitValues.rosettaFuseValues.retrievalMaxTokensPerRequest,
+		newTextTokensPerDay: doorLimitValues.rosettaFuseValues.retrievalDailyTokenCeiling,
+	} : registry.aboutText.retrievalUnconfiguredLine,
 });
 
 const aboutDocumentFor = ({ registry, inputCapByName, doorLimitValues, publicInstanceName, principal }) => {
@@ -73,7 +98,7 @@ const aboutDocumentFor = ({ registry, inputCapByName, doorLimitValues, publicIns
 			whatThisIs: registry.aboutText.whatThisIs,
 			howToReadAnAnswer: registry.aboutText.howToReadAnAnswer,
 			operationNote: registry.aboutText.operationNoteLine,
-			operationList: listedRowList.map((registryRow) => operationEntryOf({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName })),
+			operationList: listedRowList.map((registryRow) => operationEntryOf({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues: doorLimitValues.rosettaFuseValues })),
 			sharedInputDescriptionByName,
 			limitsInForce: limitsInForceOf({ registry, inputCapByName, doorLimitValues }),
 			whereToLookNext: {
