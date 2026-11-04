@@ -151,7 +151,7 @@ openHarness({}, (harnessError, harness) => {
 				ok('summary: 20 fields on two hubs, at or under 20 KB', summaryBytes <= 20000, `${summaryBytes}`);
 				console.log(`  bytes, 20 fields, two hubs: summary ${summaryBytes}, full ${Buffer.byteLength(fullAnswer.bodyText)}`);
 				ok('the answer names the graph, and nothing was judged', summaryAnswer.body.answeredFrom.operation === 'rosettaRetrieval' && /Nothing here is judged/.test(summary.nothingJudgedNote));
-				ok('costEstimateByHub: fields with candidates at the measured rate', full.costEstimateByHub.CEDS.fieldsWithCandidates === full.poolCountByHub.CEDS.fieldsWithCandidates);
+				ok('no answer quotes a price: nothing judged is offered, and the price policy is TQ\'s', !/costEstimate|usdEstimate|judgeUsd/i.test(fullAnswer.bodyText) && !/costEstimate|usdEstimate|judgeUsd/i.test(summaryAnswer.bodyText));
 				next();
 			});
 		});

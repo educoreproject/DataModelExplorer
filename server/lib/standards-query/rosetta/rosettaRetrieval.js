@@ -252,11 +252,6 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			const nonEmptyCount = poolList.filter((onePool) => onePool.poolSize > 0).length;
 			return { ...soFar, [hubName]: { fieldsWithCandidates: nonEmptyCount, emptyPools: poolList.length - nonEmptyCount } };
 		}, {}),
-		costEstimateByHub: hubRowList.reduce((soFar, { hubName }) => {
-			const fieldsWithCandidates = Object.values(poolByTargetName[hubName]).filter((onePool) => onePool.poolSize > 0).length;
-			return { ...soFar, [hubName]: { fieldsWithCandidates, usdEstimate: Number((fieldsWithCandidates * fuseValues.judgeUsdPerFieldEstimate).toFixed(2)) } };
-		}, {}),
-		costEstimateNote: facts.costEstimateNote,
 		unresolvedRefList: parsed.unresolvedRefList,
 		unresolvedContextList: parsed.unresolvedContextList,
 		notWalkedList: parsed.notWalkedList,

@@ -1476,7 +1476,7 @@
 			"aboutEntry": {
 				"forWhat": "Find which hub cards come closest to your own fields, for you to read and decide on.",
 				"whatThisDoesNot": "Nothing is judged. A pool is candidates ranked by how close their text is to yours, never an answer: its first candidate is not a mapping, and an empty pool does not mean no equivalent exists.",
-				"whatHappensToYourText": "Each text goes to the embedding vendor, Voyage AI, to become a vector. What Voyage keeps or does with it falls under Voyage's terms, not this service's: send nothing you would not send them. This service stores no text, publishes none, gives it to no one else and trains nothing on it. It keeps each text's sha256 and vector for {strangerVectorRetentionDays} days after last use, so sending it again costs no second call.",
+				"whatHappensToYourText": "Each text goes to the embedding vendor, Voyage AI, to become a vector. Voyage's terms govern what it keeps or does with that text, training included: send nothing you would not send them. This service stores no text, publishes none, gives it to no one else and trains nothing on it. It keeps each text's sha256 and vector for {strangerVectorRetentionDays} days after last use, so sending it again costs no second call.",
 				"slowWhen": "a submission has many fields: the largest can take over a minute",
 				"exampleInput": {
 					"fieldList": [
@@ -1749,8 +1749,7 @@
 		"retrievalUnconfiguredLine": "not configured here, so retrieval refuses by name"
 	},
 	"rosettaAnswerNote": {
-		"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists.",
-		"costEstimateNote": "What one judged reading of each non-empty pool would cost at the rate measured so far. No such reading is offered here and nothing was charged for this answer."
+		"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists."
 	},
 	"mcpToolPrefix": "standards_"
 }
