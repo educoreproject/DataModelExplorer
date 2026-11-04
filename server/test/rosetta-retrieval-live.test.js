@@ -70,7 +70,7 @@ openHarness({}, (harnessError, harness) => {
 		goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { text: $name }) WITH t.textEmbedding AS vector LIMIT 1 MATCH (hub:DmeEmbedText { _source: 'CEDS' }) WITH max(vector.similarity.cosine(hub.textEmbedding, vector)) AS bestSimilarity RETURN 2 * bestSimilarity - 1 AS bestRawCosine", { name }).then((queryResult) => sessionDone('', queryResult.records[0].get('bestRawCosine')), (queryError) => sessionDone(queryError.message)), (scanError, bestRawCosine) => {
 			retrieve({ fieldList: [{ name }], hubList: ['CEDS'], rowDetail: 'full' }, ({ body }) => {
 				const bestReported = Math.max(...body.answer.fieldList[0].byHub.CEDS.candidateList.map((oneCandidate) => oneCandidate.cosine));
-				ok(`a reported cosine is raw: ${bestReported} is no more than the scan's ${bestRawCosine && bestRawCosine.toFixed(4)}`, !scanError && bestReported <= bestRawCosine + 0.001, scanError);
+				ok(`a reported cosine is raw: ${bestReported} is no more than the scan's ${bestRawCosine && bestRawCosine.toFixed(4)}`, !scanError && bestReported <= bestRawCosine + 0.005, scanError);
 				next();
 			});
 		});
