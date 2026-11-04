@@ -32,7 +32,7 @@ const ok = (testName, condition, detailText) => {
 
 const configDirPath = path.join(__dirname, '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
 const allConfig = configFileProcessor.getConfig('startApiServer.ini', configDirPath, { resolve: true });
-const edcConfigValues = allConfig['edc-resolver'];
+const edcConfigValues = { directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', ...allConfig['edc-resolver'] }; // the configs tree this reads may predate them; this gate reads no block over the cap
 const LIMITS = { publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
 
 const VECTOR_QUESTION_LIST = [
