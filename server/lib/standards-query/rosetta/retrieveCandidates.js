@@ -5,7 +5,7 @@
 //   createRetrievalDriver({ candidateRetrievalLib, neo4jIntegerOf, hubEdgeType, baseRoleByBaseKind, runCypher, uriMinter, embeddingModelVersion, textIndexName, retrievalSettingValues })
 //     → { poolsForFieldSlice({ session, fieldSlice, target }, done(err, poolByFieldRefId)) }
 //   A fieldSlice row is { fieldRefId, textList: [{ textHash, vector, textRoleList: ['name' | 'definition'] }] }, each distinct text once.
-//   target: { kind: 'hubCards', hubName, sourceName } | { kind: 'standardElements', standardName } — THE TARGET INTERFACE is POOL_RUNNER_BY_KIND; the stage knows nothing about who called it.
+//   target: { kind: 'hubCards', hubName, sourceName, tier } | { kind: 'standardElements', standardName } — THE TARGET INTERFACE is POOL_RUNNER_BY_KIND; the stage knows nothing about who called it.
 //   A pool: { status: 'candidates' | 'noCandidate', admittedCount, poolSize, candidateList: [{ stableId, uri, label, domain?, cosine, cardTextCosine?, ownVotes, rank, rankByCosine, admittedBy }], cosineRankOneOutsidePool? }
 //
 // TWO THINGS READING THE G2 PROBE WOULD NOT TELL YOU (measured, runs/P3): 1. db.index.vector.queryNodes answers (1 + cos) / 2, so the forge's minScore of 0.3 on that scale is cos -0.4 and refuses nothing: every score here is turned back into a cosine. 2. The index spans every standard, and the forge's 40 hits are 40 OF THE HUB'S texts: asking for 40 and filtering by _source left 0 to 5 hits. So each text reads a window (indexWindowPerText) and takes the target's first hitsPerText inside it.

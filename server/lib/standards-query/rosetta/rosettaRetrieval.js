@@ -4,8 +4,8 @@
 //
 //   rosettaFuseValuesOf(configValues) → { fuseValues } | { refusalText }
 //   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
-//     → { runRetrieval({ session, serviceFacts, input, namedSubjectList }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), stats() }
-//   retrieveCandidates({ session, serviceFacts, queryTextList, target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status }))
+//     → { runRetrieval({ session, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), stats() }
+//   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
 //
 // WHERE A STRANGER'S TEXT GOES: to the embedding vendor, to become a vector, and into the answer it was sent for. Never to a log (an embedding failure logs the vendor's status, not its body), never to Neo4j (a vector goes, which is why the keyword leg is not fused: it would put the text in a query parameter), never to usageCounts (the hubs are counted, and no URI: a pool is what the service said, not what anyone asked). In the store: its sha256 and vector, with no text.
 
