@@ -4,7 +4,8 @@
 //   openApiDocumentFor({ registry, routeBasePath, manifestLabel, inputCapByName }) → the OpenAPI 3.1 document
 
 const OPENAPI_VERSION = '3.1.0';
-const TYPE_SCHEMA_BY_INPUT_TYPE = Object.freeze({ text: { type: 'string' }, positiveInteger: { type: 'integer', minimum: 1 } });
+const TYPE_SCHEMA_BY_INPUT_TYPE = Object.freeze({ text: { type: 'string' }, positiveInteger: { type: 'integer', minimum: 1 }, list: { type: 'array' }, object: { type: 'object' } });
+const OPERATION_NAME_OF_HTTP_METHOD = Object.freeze({ GET: 'get', POST: 'post' });
 
 const parameterOf = (inputField, inputCapByName) => ({
 	name: inputField.name,
@@ -17,8 +18,28 @@ const parameterOf = (inputField, inputCapByName) => ({
 		...(inputField.enum ? { enum: inputField.enum } : {}),
 		...(inputField.maximum ? { maximum: inputField.maximum } : {}),
 		...(inputField.defaultValue ? { default: inputField.defaultValue } : {}),
+		...(inputField.jsonSchemaDetail || {}),
 	},
 });
+
+// a GET's inputs are query parameters; a POST's are the named properties of one JSON body
+const inputsOf = ({ registry, registryRow, inputCapByName }) => {
+	const parameterList = [...registryRow.inputFieldList, ...(registryRow.requiresUriPromise ? registry.sharedInputFieldList : [])].map((inputField) => parameterOf(inputField, inputCapByName));
+	if (registryRow.httpMethod === 'GET') {
+		return { parameters: parameterList };
+	}
+	return {
+		requestBody: {
+			required: true,
+			content: { 'application/json': { schema: {
+				type: 'object',
+				additionalProperties: false,
+				required: parameterList.filter((oneParameter) => oneParameter.required).map((oneParameter) => oneParameter.name),
+				properties: parameterList.reduce((soFar, oneParameter) => ({ ...soFar, [oneParameter.name]: { ...oneParameter.schema, description: oneParameter.description } }), {}),
+			} } },
+		},
+	};
+};
 
 const refusalResponseListOf = ({ registry, registryRow }) => {
 	const statusByName = { ...registry.verbRefusalHttpStatusByName, ...registry.envelopeRefusalHttpStatusByName };
@@ -50,11 +71,11 @@ const openApiDocumentFor = ({ registry, manifestLabel, inputCapByName }) => ({
 	paths: registry.operationList.reduce((soFar, registryRow) => ({
 		...soFar,
 		[`/${registryRow.routeName}`]: {
-			get: {
+			[OPERATION_NAME_OF_HTTP_METHOD[registryRow.httpMethod]]: {
 				operationId: registryRow.operationName,
 				summary: registryRow.description.split(/(?<=[.!?])\s/)[0],
 				description: registryRow.description,
-				parameters: [...registryRow.inputFieldList, ...(registryRow.requiresUriPromise ? registry.sharedInputFieldList : [])].map((inputField) => parameterOf(inputField, inputCapByName)),
+				...inputsOf({ registry, registryRow, inputCapByName }),
 				responses: {
 					200: { description: 'The answer.', content: { 'application/json': { schema: registryRow.bodyForm === 'envelope' ? { $ref: '#/components/schemas/Envelope' } : { type: 'object' } } } },
 					...refusalResponseListOf({ registry, registryRow }),

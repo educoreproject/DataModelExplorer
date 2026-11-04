@@ -6,6 +6,7 @@
 // A site token's noToken claim says nothing about login (login tokens carry it too): the test is user.role, present and not 'public'.
 
 const PUBLIC_ROLE_NAME = 'public';
+const MCP_DOOR_NAME = 'mcp';
 
 const ANONYMOUS_PRINCIPAL = Object.freeze({ kind: 'anonymous', userRefId: '', role: '' });
 
@@ -40,6 +41,11 @@ const admitRequest = ({ door, credential, operationName, registryRow }, callback
 		return;
 	}
 	const principal = readPrincipal(credential);
+	// design 4.8: a rosetta tool needs a person. The MCP loopback has no sub, so every loopback client would be one owner; a users row whose role is public names nobody who signed in.
+	if (door === MCP_DOOR_NAME && registryRow.mcpDoorRefusesLoopback && (principal.kind === 'anonymous' || principal.role === PUBLIC_ROLE_NAME)) {
+		callback('', { refusal: { refusalName: 'loopbackNotAdmitted', reason: `${operationName} on MCP needs an account signed in by OAuth; a loopback or public-role caller has none. The Query API answers it with no credential.` } });
+		return;
+	}
 	const refusalName = admissionTest(principal);
 	callback('', refusalName ? { refusal: { refusalName, reason: `${operationName} needs a signed-in person; this request carries no such credential` } } : { principal });
 };

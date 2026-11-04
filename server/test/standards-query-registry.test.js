@@ -14,10 +14,11 @@ const path = require('path');
 process.global = { xLog: { status() {}, error() {}, verbose() {}, result() {} }, getConfig: () => ({}), rawConfig: {}, commandLineParameters: { switches: {}, values: {} } };
 
 const registry = require('../lib/standards-query/standardsQueryOperations.json');
+const { admitRequest } = require('../lib/standards-query/admitRequest');
 const { openApiDocumentFor } = require('../lib/standards-query/openApiEmitter');
 const { aboutDocumentFor } = require('../lib/standards-query/aboutDocument');
 const { SUMMARY_SHAPER_BY_NAME } = require('../lib/standards-query/answerSummaries');
-const { admitRequest } = require('../lib/standards-query/admitRequest');
+
 const { createRequestLimiter } = require('../lib/standards-query/requestLimiter');
 const { stripCoreAdditions, STEP_BY_NAME } = require('../lib/standards-query/answerSteps');
 const { VERB_PAYLOAD_CONTRACT, VERB_INPUT_CONTRACT } = require('../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
@@ -60,8 +61,12 @@ ok('descriptions: the refusal sentence is in one place', !mcpRowList.some((row) 
 ok('descriptions: every tool says uri is permanent', mcpRowList.every((row) => row.description.includes('Every element and card carries uri; quote it, it is permanent.')));
 ok('descriptions: none names a dme_ tool', !mcpRowList.some((row) => /dme_/.test(row.description)));
 ok('descriptions: none names a mode input the door does not take', !/searchMode keyword/.test(JSON.stringify(mcpRowList.map((row) => row.description))));
+// P3 adds retrieval, and only retrieval: no route or tool of the judged step exists until it does
 const registryText = JSON.stringify(registry.operationList.map(({ operationName, routeName, mcpToolName }) => ({ operationName, routeName, mcpToolName })));
-ok('nothing Smith or rosetta is in the registry', !/smith|rosetta/i.test(registryText) && !/smith_/i.test(JSON.stringify(registry)));
+ok('no Smith in the registry; the only rosetta row is retrieval', !/smith/i.test(JSON.stringify(registry)) && JSON.stringify(registry.operationList.filter((row) => /rosetta/i.test(JSON.stringify([row.operationName, row.routeName, row.mcpToolName]))).map((row) => [row.routeName, row.mcpToolName])) === '[["rosetta/retrieval","rosetta_retrieve"]]');
+ok('nothing of the judged step is offered: no submit, status, fetch or cancel', !/rosetta_(submit|status|fetch|cancel)|rosetta\/jobs/.test(registryText));
+ok('every row declares its method', registry.operationList.every((row) => ['GET', 'POST'].includes(row.httpMethod)));
+ok('a POST row names a body limit, and it is the large-body list\'s for both spellings', registry.operationList.filter((row) => row.httpMethod === 'POST').every((row) => { const limitByPath = require('../lib/large-body-route-list.json').jsonBodyLimitByRoutePath; return row.bodyLimitText && limitByPath[`/api/${registry.routeBasePath}/${row.routeName}`] === row.bodyLimitText && limitByPath[`/api/${registry.routeBasePath}/${row.routeName}/`] === row.bodyLimitText; }));
 ok('timing gate: a slow row and a slowWhen agree: about cannot call quick what the gate knows is slow', registry.operationList.every((row) => Boolean(row.aboutEntry && row.aboutEntry.slowWhen) === require('../lib/standards-query/standardsQueryTimingBounds.json').rowList.some((oneRow) => oneRow.operationName === row.operationName && oneRow.knownSlow)));
 ok('usage is for admin and super alone', JSON.stringify(registry.operationList.find((row) => row.operationName === 'usage').permissionList) === '["admin","super"]');
 
@@ -72,28 +77,33 @@ ok('openapi: version 3.1 and the manifest in info.version', openApiDocument.open
 registry.operationList.forEach((row) => ok(`openapi: lists ${row.routeName}`, openApiDocument.paths[`/${row.routeName}`] !== undefined));
 const refList = JSON.stringify(openApiDocument).match(/"#\/components\/schemas\/[A-Za-z]+"/g).map((refText) => refText.slice(1, -1).split('/').pop());
 ok('openapi: every $ref resolves', refList.every((schemaName) => openApiDocument.components.schemas[schemaName] !== undefined));
-ok('openapi: no undefined response status', Object.values(openApiDocument.paths).every((onePath) => !Object.keys(onePath.get.responses).includes('undefined')));
-ok('openapi: mentions no smith or rosetta', !/smith|rosetta/i.test(JSON.stringify(openApiDocument)));
+ok('openapi: no undefined response status', Object.values(openApiDocument.paths).every((onePath) => !Object.keys(Object.values(onePath)[0].responses).includes('undefined')));
+ok('openapi: mentions no smith', !/smith/i.test(JSON.stringify(openApiDocument)));
+ok('openapi: each route is under the method its row declares', registry.operationList.every((row) => JSON.stringify(Object.keys(openApiDocument.paths[`/${row.routeName}`])) === JSON.stringify([row.httpMethod.toLowerCase()])));
+const retrievalBodySchema = openApiDocument.paths['/rosetta/retrieval'].post.requestBody.content['application/json'].schema;
+ok('openapi: retrieval documents its body, and each submission form', ['fieldList', 'jsonSchema', 'jsonLdContext', 'hubList', 'rowDetail', 'expectManifest'].every((inputName) => retrievalBodySchema.properties[inputName]) && retrievalBodySchema.properties.fieldList.type === 'array' && retrievalBodySchema.properties.fieldList.items.required[0] === 'name');
+ok('openapi: retrieval documents maxFieldListLength as 413', /maxFieldListLength/.test(openApiDocument.paths['/rosetta/retrieval'].post.responses[413].description));
 const searchPath = openApiDocument.paths['/search'].get;
 ok('openapi: a capped input says its cap', searchPath.parameters.find((param) => param.name === 'q').schema.maxLength === 500);
 ok('openapi: inputTooLong is documented as 413', /inputTooLong/.test(searchPath.responses[413].description));
 
 // ---- 2b. rowDetail is documented everywhere it is taken (TQ, 2026-11-04: "Make sure it's well documented")
-const ROW_DETAIL_OPERATION_NAME_LIST = ['mappings', 'element', 'graph'];
+const ROW_DETAIL_OPERATION_NAME_LIST = ['mappings', 'element', 'graph', 'rosettaRetrieval'];
 const rowDetailRowList = registry.operationList.filter((row) => row.inputFieldList.some((field) => field.name === 'rowDetail'));
-ok('rowDetail: taken by exactly the three operations ruled', JSON.stringify(rowDetailRowList.map((row) => row.operationName).sort()) === JSON.stringify([...ROW_DETAIL_OPERATION_NAME_LIST].sort()));
+ok('rowDetail: taken by exactly the operations ruled', JSON.stringify(rowDetailRowList.map((row) => row.operationName).sort()) === JSON.stringify([...ROW_DETAIL_OPERATION_NAME_LIST].sort()));
 rowDetailRowList.forEach((row) => {
 	const rowDetailField = row.inputFieldList.find((field) => field.name === 'rowDetail');
 	ok(`rowDetail: ${row.operationName} declares its values and its default`, JSON.stringify(rowDetailField.enum) === '["summary","full"]' && rowDetailField.defaultValue === 'summary');
 	ok(`rowDetail: ${row.operationName} names a shaper that exists`, typeof SUMMARY_SHAPER_BY_NAME[row.summaryShaperName] === 'function');
-	ok(`rowDetail: the ${row.operationName} tool's description states it`, /rowDetail/.test(row.description) && /rowDetail=full/.test(row.description) && /leftOutOfSummary/.test(row.description));
-	const openApiParameter = openApiDocument.paths[`/${row.routeName}`].get.parameters.find((param) => param.name === 'rowDetail');
+	ok(`rowDetail: the ${row.operationName} tool's description states it`, /rowDetail=full/.test(row.description) && row.inputFieldList.some((field) => field.name === 'rowDetail' && /leftOutOfSummary/.test(field.description)));
+	const openApiOperation = openApiDocument.paths[`/${row.routeName}`][row.httpMethod.toLowerCase()];
+	const openApiParameter = row.httpMethod === 'GET' ? openApiOperation.parameters.find((param) => param.name === 'rowDetail') : { schema: openApiOperation.requestBody.content['application/json'].schema.properties.rowDetail, description: openApiOperation.requestBody.content['application/json'].schema.properties.rowDetail.description };
 	ok(`rowDetail: OpenAPI documents it on ${row.routeName}`, openApiParameter && JSON.stringify(openApiParameter.schema.enum) === '["summary","full"]' && openApiParameter.schema.default === 'summary' && /leftOutOfSummary/.test(openApiParameter.description));
 });
 
 // ---- 2c. about (G5): nothing can drift, by construction and by these
 const ABOUT_LIMITS = { requestsPerMinute: 61, burstPerSecond: 23, inFlightMax: 29, maxQueryChars: 501, maxPatternChars: 201, dailyEmbeddingTokenCeiling: 2000003 };
-const ABOUT_DOOR_LIMITS = { sessionCapPerSub: 11, sessionIdleTtlSeconds: 1801, edcPublicPathPrefix: '/edc/' };
+const ABOUT_DOOR_LIMITS = { sessionCapPerSub: 11, sessionIdleTtlSeconds: 1801, edcPublicPathPrefix: '/edc/', rosettaFuseValues: { maxFieldListLength: 201, maxFieldNameChars: 202, maxFieldDefinitionChars: 2003, maxDocumentDepth: 33, retrievalInFlightMax: 2, retrievalMaxTokensPerRequest: 120007, retrievalDailyTokenCeiling: 2000009, strangerVectorRetentionDays: 31 } };
 const aboutOf = (principal) => aboutDocumentFor({ registry, inputCapByName: ABOUT_LIMITS, doorLimitValues: ABOUT_DOOR_LIMITS, publicInstanceName: 'demo.educore.dev', principal });
 const anonymousAbout = aboutOf({ kind: 'anonymous', role: '' });
 const publicRowList = registry.operationList.filter((row) => row.permissionList.includes('public'));
@@ -109,8 +119,17 @@ ok('about: every input is named as required or optional, correctly', publicRowLi
 ok('about: usage is hidden from the anonymous, a plain user and an OAuth administrator', [anonymousAbout, aboutOf({ kind: 'siteUser', role: 'user' }), aboutOf({ kind: 'oauthUser', role: 'admin' })].every((one) => !one.listsGatedOperation && !one.answer.operationList.some((entry) => entry.operation === 'usage')));
 ok('about: usage is shown to a site administrator and marked as not shareable', aboutOf({ kind: 'siteUser', role: 'super' }).listsGatedOperation && aboutOf({ kind: 'siteUser', role: 'admin' }).answer.operationList.some((entry) => entry.operation === 'usage'));
 ok('about: the limits are the config\'s, none typed', Object.values(ABOUT_LIMITS).every((limitNumber) => Object.values(anonymousAbout.answer.limitsInForce).includes(limitNumber)) && anonymousAbout.answer.limitsInForce.mcpSessionsPerAccount === 11 && anonymousAbout.answer.limitsInForce.mcpIdleSeconds === 1801);
+// G3.9: retrieval's entry says plainly what it is
+const retrievalEntry = anonymousAbout.answer.operationList.find((entry) => entry.operation === 'rosetta/retrieval');
+ok('about: retrieval says it is a POST, shows the body and names its tool', retrievalEntry.method === 'POST' && retrievalEntry.exampleBody.fieldList.length > 0 && retrievalEntry.mcpTool === 'rosetta_retrieve' && new URL(retrievalEntry.exampleUrl).search === '');
+ok('about: retrieval says nothing is judged and a pool is candidates, never an answer', /Nothing is judged/.test(retrievalEntry.whatThisDoesNot) && /candidates/.test(retrievalEntry.whatThisDoesNot) && /never an answer/.test(retrievalEntry.whatThisDoesNot));
+ok('about: retrieval says where the text goes and how long, the number the config\'s', /Voyage AI/.test(retrievalEntry.whatHappensToYourText) && /stores no text/.test(retrievalEntry.whatHappensToYourText) && /Voyage's terms/.test(retrievalEntry.whatHappensToYourText) && retrievalEntry.whatHappensToYourText.includes(`for ${ABOUT_DOOR_LIMITS.rosettaFuseValues.strangerVectorRetentionDays} days`) && !retrievalEntry.whatHappensToYourText.includes('{'));
+ok('about: retrieval\'s limits are the config\'s', anonymousAbout.answer.limitsInForce.retrieval.fieldsPerSubmission === ABOUT_DOOR_LIMITS.rosettaFuseValues.maxFieldListLength && anonymousAbout.answer.limitsInForce.retrieval.newTextTokensPerDay === ABOUT_DOOR_LIMITS.rosettaFuseValues.retrievalDailyTokenCeiling);
+ok('about: quotes no price', !/costEstimate|usdEstimate|judgeUsd|\$[0-9]/i.test(JSON.stringify(anonymousAbout.answer)));
+ok('about: no job, judge or submit is offered anywhere in it', !/rosetta_(submit|status|fetch|cancel)|rosetta\/jobs|judgeOne/.test(JSON.stringify(anonymousAbout.answer)));
+ok('retrieval: its tool description and summary agree on how many fields stay readable', registry.operationList.find((row) => row.operationName === 'rosettaRetrieval').description.includes(`about ${registry.summaryShape.retrievalReadableFieldCount} fields`));
 const unconfiguredAbout = aboutDocumentFor({ registry, inputCapByName: ABOUT_LIMITS, doorLimitValues: { sessionCapPerSub: NaN, sessionIdleTtlSeconds: NaN }, publicInstanceName: 'demo.educore.dev', principal: { kind: 'anonymous', role: '' } }).answer;
-ok('about: an instance with no MCP limits or uri route says so, and no number or undefined stands in', /refuses new sessions/.test(unconfiguredAbout.limitsInForce.mcpSessions) && unconfiguredAbout.limitsInForce.mcpSessionsPerAccount === undefined && !/undefined|NaN/.test(JSON.stringify(unconfiguredAbout)));
+ok('about: an instance with no MCP limits or uri route says so, and no number or undefined stands in', /refuses new sessions/.test(unconfiguredAbout.limitsInForce.mcpSessions) && unconfiguredAbout.limitsInForce.mcpSessionsPerAccount === undefined && /refuses by name/.test(unconfiguredAbout.limitsInForce.retrieval) && !/undefined|NaN/.test(JSON.stringify(unconfiguredAbout)));
 ok('about: the typed prose states no limit number the config owns', !/\b(60|20|500|200)\b/.test(JSON.stringify(registry.aboutText)));
 const howToRead = anonymousAbout.answer.howToReadAnAnswer;
 ok('about: names the four mappingStatusByHub values', JSON.stringify(Object.keys(howToRead.mappingStatusByHub).sort()) === '["judgedAbstained","mapped","neverOffered","notApplicable"]');
@@ -120,9 +139,9 @@ ok('about: says a hub\'s silence and an abstention are different things', /never
 ok('about: every example url is real and on the public route', anonymousAbout.answer.operationList.every((entry) => entry.exampleUrl.startsWith('https://demo.educore.dev/standards/v1/') && new URL(entry.exampleUrl).pathname.endsWith(`/${entry.operation}`)));
 ok('about: says where the machine description is and what a uri resolves to', anonymousAbout.answer.whereToLookNext.machineDescription === 'https://demo.educore.dev/standards/v1/openapi.json' && anonymousAbout.answer.whereToLookNext.whatAUriResolvesTo.includes('https://demo.educore.dev/edc/'));
 const aboutEnvelopeText = JSON.stringify({ answeredFrom: { graphName: 'GOLD_261030_useCases', manifestRefId: 'x'.repeat(64), manifestLabel: 'educore-2026-10-30', manifest: 'https://w3id.org/EDUcore/manifest/educore-2026-10-30', manifestByContent: `https://w3id.org/EDUcore/manifest/sha256/${'x'.repeat(64)}`, manifestStandardList: 'https://w3id.org/EDUcore/manifest/educore-2026-10-30/standards', builtAt: '2026-10-30T04:44:59.262Z', graphContractSha256: 'x'.repeat(64), structuralVersion: 'V.09', embeddingModelVersion: 'voyage-4-large', instance: 'demo.educore.dev', apiVersion: 'v1', operation: 'about' }, answer: anonymousAbout.answer, uriNote: registry.uriNote });
-ok('about: under 10 KB, envelope and all', Buffer.byteLength(aboutEnvelopeText) < 10000, `${Buffer.byteLength(aboutEnvelopeText)}`);
+ok('about: under 13 KB, envelope and all (retrieval\'s entry and limits took it past the old 10 KB; REPORT-P3 has the measurement)', Buffer.byteLength(aboutEnvelopeText) < 13000, `${Buffer.byteLength(aboutEnvelopeText)}`);
 const INTERNAL_NAME_PATTERN = /rosetta|smith|forge|golden|\bbb2\b|neo4j|cypher|\bdme\b|dme_|uriContract|jev\b|qtools|askMilo|Milo\b/i;
-const aboutWithoutEnvelopeText = JSON.stringify(anonymousAbout.answer);
+const aboutWithoutEnvelopeText = JSON.stringify(anonymousAbout.answer).replace(/rosetta\/retrieval|rosetta_retrieve/g, 'publicRetrievalName'); // the two names a stranger is given, ruled by TQ; any other mention is internal
 const internalNameMatch = aboutWithoutEnvelopeText.match(INTERNAL_NAME_PATTERN);
 ok('about: a stranger meets no internal name', internalNameMatch === null, internalNameMatch && aboutWithoutEnvelopeText.slice(Math.max(0, internalNameMatch.index - 60), internalNameMatch.index + 40));
 ok('about: the bare root is its alias', JSON.stringify(registry.operationList.find((row) => row.operationName === 'about').aliasRouteNameList) === '[""]');
@@ -195,6 +214,16 @@ registry.operationList.forEach((row) => ok(`timing gate: ${row.operationName} ha
 ok('timing gate: every row names a real operation', timingBounds.rowList.every((oneRow) => registry.operationList.some((row) => row.operationName === oneRow.operationName)));
 ok('timing gate: a known-slow row states its bound', timingBounds.rowList.filter((oneRow) => oneRow.knownSlow).every((oneRow) => oneRow.warmBoundSeconds > 0 && oneRow.firstCallBoundSeconds > 0));
 ok('timing gate: every exemption says why', timingBounds.exemptOperationList.every((oneRow) => oneRow.why && oneRow.why.length > 10));
+
+// ---- 5e. a rosetta tool needs a person (design 4.8); the Query API does not
+
+const retrievalRow = registry.operationList.find((row) => row.operationName === 'rosettaRetrieval');
+const admissionOf = (door, credential) => { let admission; admitRequest({ door, credential, operationName: retrievalRow.operationName, registryRow: retrievalRow }, (unusedError, oneAdmission) => { admission = oneAdmission; }); return admission; };
+ok('rosetta_retrieve: an MCP loopback caller is refused by name', admissionOf('mcp', { mode: 'loopback', sub: '' }).refusal.refusalName === 'loopbackNotAdmitted');
+ok('rosetta_retrieve: an OAuth account of role public is refused by name', admissionOf('mcp', { sub: 'someRefId', role: 'public' }).refusal.refusalName === 'loopbackNotAdmitted');
+ok('rosetta_retrieve: an OAuth account is admitted', admissionOf('mcp', { sub: 'someRefId', role: 'user' }).principal.kind === 'oauthUser');
+ok('POST rosetta/retrieval: nobody needs a credential', admissionOf('api', undefined).principal.kind === 'anonymous');
+ok('the other tools still admit the loopback', (() => { let admission; const searchRow = registry.operationList.find((row) => row.operationName === 'search'); admitRequest({ door: 'mcp', credential: { mode: 'loopback', sub: '' }, operationName: 'search', registryRow: searchRow }, (unusedError, oneAdmission) => { admission = oneAdmission; }); return admission.principal.kind === 'anonymous'; })());
 
 // ---- 6. the header a client writes
 const endpointText = fs.readFileSync(path.join(__dirname, '..', 'endpoints-dot-d', 'qtDotLib.d', 'standards-query.js'), 'utf8').split('\n').filter((oneLine) => !oneLine.trim().startsWith('//')).join('\n');

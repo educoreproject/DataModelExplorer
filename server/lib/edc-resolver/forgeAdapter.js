@@ -4,10 +4,11 @@
 // forgeAdapter — the ONE place educore requires the educoreForge tree (edcResolverEndpoint-110226, briefing section 1). It loads the edc: resolver
 // and the uriContract reader from a forge checkout named by config, because their closure is a third of the forge and a copy would be a fork.
 //
-//   loadForgeResolver({ educoreForgeCodePath, uriContractFilePath }) → { error } | { resolveEdcUri, edcIriFor, edcUri, registry, uriContractReader, Database }
+//   loadForgeResolver({ educoreForgeCodePath, uriContractFilePath }) → { error } | { resolveEdcUri, edcIriFor, edcUri, registry, uriContractReader, Database, retrievalModules }
 //       used by the API (through openForgeAdapter) and by the whole-block child (resolveOneUri.js)
-//   openForgeAdapter({ configValues }) → { refusalText } | { routeFor, resolveInProcess, edcIriFor, edcUri, baseIri, startupLine, openStoreReadHandle, ...configured values }
+//   openForgeAdapter({ configValues }) → { refusalText } | { routeFor, resolveInProcess, edcIriFor, edcUri, retrievalModules, baseIri, startupLine, openStoreReadHandle, ...configured values }
 //       openStoreReadHandle() → { storeHandle } | { error }: one more read-only handle on the store (the standards query core's reads; never a write)
+//       retrievalModules: { candidateRetrievalLib, hubEdgeType, dmeRoles }: the forge's pure vote and rank modules and the names they read (Rosetta retrieval, design 4.1); they take records by injection and read no store
 //
 // The store opens once, read-only, at startup. An open handle keeps the old inode, so REPLACING THE STORE FILE IS AN API RESTART. So is any change to
 // the licence hold list the block kinds obey, which stubResolver.js freezes at require time: a hold change takes a forge re-sync plus an API restart.
@@ -75,11 +76,13 @@ const loadForgeResolver = ({ educoreForgeCodePath, uriContractFilePath }) => {
 		stubResolver: require(path.join(educoreForgeCodePath, 'lib', 'edc-uri', 'stubResolver')),
 		edcUri: require(path.join(educoreForgeCodePath, 'lib', 'edc-uri', 'edcUri')),
 		Database: require(path.join(educoreForgeCodePath, 'node_modules', 'better-sqlite3')),
+		candidateRetrievalLib: require(path.join(educoreForgeCodePath, 'lib', 'bridge-framework', 'candidateRetrieval')),
+		vocabularyLib: require(path.join(educoreForgeCodePath, 'lib', 'vocabulary', 'vocabulary')),
 	}), `loading the forge tree at ${educoreForgeCodePath}`);
 	if (loaded.error) {
 		return { error: loaded.error };
 	}
-	const { uriContractLib, stubResolver, edcUri, Database } = loaded.result;
+	const { uriContractLib, stubResolver, edcUri, Database, candidateRetrievalLib, vocabularyLib } = loaded.result;
 	const opened = attemptForgeCall(() => {
 		const openedContract = uriContractLib.uriContractReaderFor({ uriContractFilePath });
 		return openedContract.error ? openedContract : { ...openedContract, registryLoad: openedContract.uriContract.loadRegistry() };
@@ -97,6 +100,7 @@ const loadForgeResolver = ({ educoreForgeCodePath, uriContractFilePath }) => {
 		registry: opened.result.registryLoad.registry,
 		uriContractReader: opened.result.uriContractReader,
 		Database,
+		retrievalModules: { candidateRetrievalLib, hubEdgeType: vocabularyLib.hubEdgeType, dmeRoles: vocabularyLib.DME_ROLES },
 	};
 };
 
@@ -212,6 +216,7 @@ const openForgeAdapter = ({ configValues }) => {
 		resolveInProcess: (edcRequestPath, callback) => resolveThroughForge({ forgeResolver, uriOrPath: edcRequestPath, uriContractReader: forgeResolver.uriContractReader }, callback),
 		edcIriFor: forgeResolver.edcIriFor,
 		edcUri: forgeResolver.edcUri,
+		retrievalModules: forgeResolver.retrievalModules,
 		openStoreReadHandle: () => {
 			const opened = attemptForgeCall(() => new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true }), `opening ${uriContractFilePath} read-only`);
 			return opened.error ? { error: opened.error } : { storeHandle: opened.result };

@@ -216,6 +216,47 @@ const graphSummaryOf = ({ answer, summaryShape }) => {
 	};
 };
 
-const SUMMARY_SHAPER_BY_NAME = Object.freeze({ mappings: mappingsSummaryOf, element: elementSummaryOf, graph: graphSummaryOf });
+// how many candidates each pool shows: as many as fit the byte budget, between the shape's floor and ceiling, so a short submission reads more of each pool
+const shownPerPoolOf = ({ poolCount, summaryShape }) => Math.max(summaryShape.retrievalShownPerPoolMin, Math.min(summaryShape.retrievalShownPerPoolMax, Math.floor(summaryShape.retrievalAnswerByteBudget / (Math.max(poolCount, 1) * summaryShape.retrievalCandidateBytesEstimate))));
+
+// a pool's first candidates by rank, and the best cosine among them always: vote-first ranking can leave the closest text behind, and a reader must see it. The rank field says where it stood.
+const shownCandidatesOf = ({ onePool, shownPerPool, summaryShape }) => {
+	const cosineRankOne = onePool.cosineRankOneOutsidePool || onePool.candidateList.find((oneCandidate) => oneCandidate.rankByCosine === 1);
+	const firstList = onePool.candidateList.slice(0, shownPerPool);
+	const shownList = cosineRankOne && !firstList.some((oneCandidate) => oneCandidate.uri === cosineRankOne.uri) ? [...firstList.slice(0, shownPerPool - 1), cosineRankOne] : firstList;
+	return shownList.map((oneCandidate) => pickFields(oneCandidate, summaryShape.retrievalCandidateFieldList));
+};
+
+const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
+	const poolRowList = answer.fieldList.flatMap((oneField) => Object.values(oneField.byHub));
+	const shownPerPool = shownPerPoolOf({ poolCount: poolRowList.length, summaryShape });
+	let candidatesShownCount = 0;
+	const fieldList = answer.fieldList.map((oneField) => ({
+		...pickFields(oneField, summaryShape.retrievalFieldFieldList),
+		byHub: Object.keys(oneField.byHub).reduce((soFar, hubName) => {
+			const onePool = oneField.byHub[hubName];
+			const topCandidateList = shownCandidatesOf({ onePool, shownPerPool, summaryShape });
+			candidatesShownCount += topCandidateList.length;
+			return { ...soFar, [hubName]: { ...pickFields(onePool, summaryShape.retrievalPoolFieldList), topCandidateList } };
+		}, {}),
+	}));
+	const everyCandidateList = poolRowList.flatMap((onePool) => onePool.candidateList);
+	const { fieldList: unusedFieldList, ...restOfAnswer } = answer;
+	return {
+		rowDetail: SUMMARY_ROW_DETAIL_NAME,
+		...restOfAnswer,
+		fieldList,
+		leftOutOfSummary: {
+			howToAsk: summaryShape.howToAskForFullRetrieval,
+			shownPerPool,
+			candidatesNotShown: everyCandidateList.length + poolRowList.filter((onePool) => onePool.cosineRankOneOutsidePool).length - candidatesShownCount,
+			candidateFieldNameList: fieldNamesOutside(everyCandidateList, summaryShape.retrievalCandidateFieldList),
+			fieldFieldNameList: fieldNamesOutside(answer.fieldList, [...summaryShape.retrievalFieldFieldList, 'byHub']),
+			...(answer.fieldList.length > summaryShape.retrievalReadableFieldCount ? { sizeAdvice: summaryShape.retrievalOverReadableAdvice.replace('{readableFieldCount}', String(summaryShape.retrievalReadableFieldCount)) } : {}),
+		},
+	};
+};
+
+const SUMMARY_SHAPER_BY_NAME = Object.freeze({ mappings: mappingsSummaryOf, element: elementSummaryOf, graph: graphSummaryOf, rosettaRetrieval: rosettaRetrievalSummaryOf });
 
 module.exports = { SUMMARY_SHAPER_BY_NAME };
