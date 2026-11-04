@@ -1493,6 +1493,7 @@
 				"expectedAnswerFieldList": [
 					"fieldList",
 					"nothingJudgedNote",
+					"rankNote",
 					"poolCountByHub",
 					"leftOutOfSummary"
 				]
@@ -1751,7 +1752,8 @@
 		"retrievalUnconfiguredLine": "not configured here, so retrieval refuses by name"
 	},
 	"rosettaAnswerNote": {
-		"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists."
+		"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists.",
+		"rankNote": "rank orders a pool by how many of your texts, name and definition, reached the card, then by your text against the card as a whole. cosine is the best match of one of your texts to one of the card's own texts. So a lower rank can carry a higher cosine, and the best cosine is always shown."
 	},
 	"mcpToolPrefix": "standards_"
 }
