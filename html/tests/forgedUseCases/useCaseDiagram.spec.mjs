@@ -1,4 +1,4 @@
-// caseDiagram.spec.mjs — the use case map on a forged use case's Overview tab, in a real browser against a running dev
+// useCaseDiagram.spec.mjs — the use case map on a forged use case's Overview tab, in a real browser against a running dev
 // server. Every /api/* call is answered here: the case from server/test/fixtures/useCaseDiagramFixture.js, and the
 // diagram drawn by the SERVER's own renderer (render-use-case-diagram) on the same rows, so the browser decodes exactly
 // what the server would send. Needs no backend and no graph.
@@ -7,7 +7,7 @@
 //   M2 Download SVG saves the server's SVG, named after the case
 //   M3 a refused diagram says why and offers Try again, which draws it
 //
-//   node html/tests/forgedUseCases/caseDiagram.spec.mjs --baseUrl=http://localhost:3000 [--evidenceDir=…]
+//   node html/tests/forgedUseCases/useCaseDiagram.spec.mjs --baseUrl=http://localhost:3000 [--evidenceDir=…]
 //        [--playwrightPath=playwright] [--chromePath=…]
 
 import fs from 'node:fs';
@@ -22,7 +22,7 @@ const fixture = requireHere(path.join(repositoryRoot, 'server/test/fixtures/useC
 
 const argumentByName = Object.fromEntries(process.argv.slice(2).filter((argumentText) => argumentText.startsWith('--')).map((argumentText) => argumentText.slice(2).split(/=(.*)/s).slice(0, 2)));
 if (!argumentByName.baseUrl) {
-	console.error('caseDiagram: missing --baseUrl');
+	console.error('useCaseDiagram: missing --baseUrl');
 	process.exit(2);
 }
 const { chromium } = requireHere(argumentByName.playwrightPath || 'playwright');
@@ -55,7 +55,7 @@ const answerApi = async (route) => {
 	const json = (payload) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
 	if (new URL(route.request().url()).pathname.endsWith('/api/forged-use-cases')) {
 		if (body.action === 'case') return json([caseAnswer]);
-		if (body.action === 'caseDiagram') {
+		if (body.action === 'useCaseDiagram') {
 			if (refuseDiagram) return route.fulfill({ status: 400, contentType: 'text/plain', body: 'forged-use-cases: caseStepDataLinkList failed: fixture refusal (abc123)' });
 			return json([{ caseStableId: body.caseStableId, ...expectedDiagram }]);
 		}
@@ -73,20 +73,20 @@ try {
 
 	console.log('M1 the map on the Overview');
 	await page.goto(`${baseUrl}/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`, { waitUntil: 'load' });
-	await page.waitForSelector('[data-testid="case-diagram-image"]', { timeout: 30000 }).catch(() => {});
+	await page.waitForSelector('[data-testid="use-case-diagram-image"]', { timeout: 30000 }).catch(() => {});
 	check('the map has a heading', (await page.getByRole('heading', { name: 'USE CASE MAP' }).count()) === 1);
-	const imageFacts = await page.locator('[data-testid="case-diagram-image"]').evaluate((imageElement) => imageElement.decode().then(() => ({ naturalWidth: imageElement.naturalWidth, naturalHeight: imageElement.naturalHeight, alt: imageElement.alt })).catch((decodeError) => ({ decodeError: String(decodeError) }))).catch((error) => ({ decodeError: error.message }));
+	const imageFacts = await page.locator('[data-testid="use-case-diagram-image"]').evaluate((imageElement) => imageElement.decode().then(() => ({ naturalWidth: imageElement.naturalWidth, naturalHeight: imageElement.naturalHeight, alt: imageElement.alt })).catch((decodeError) => ({ decodeError: String(decodeError) }))).catch((error) => ({ decodeError: error.message }));
 	check('the browser decodes the server\'s SVG', imageFacts.naturalWidth === expectedDiagram.width && imageFacts.naturalHeight === expectedDiagram.height, JSON.stringify(imageFacts).slice(0, 160));
 	check('its text alternative is the server\'s summary', (imageFacts.alt || '').includes(expectedDiagram.summary.summaryText));
-	check('its caption is the summary', ((await page.locator('[data-testid="case-diagram-summary"]').textContent()) || '').trim() === expectedDiagram.summary.summaryText);
-	check('it sits on the Overview, above the actors', await page.locator('[data-testid="panel-overview"] [data-testid="case-diagram"]').count() === 1);
+	check('its caption is the summary', ((await page.locator('[data-testid="use-case-diagram-summary"]').textContent()) || '').trim() === expectedDiagram.summary.summaryText);
+	check('it sits on the Overview, above the actors', await page.locator('[data-testid="panel-overview"] [data-testid="use-case-diagram"]').count() === 1);
 	if (evidenceDir) {
-		await page.locator('[data-testid="case-diagram"]').scrollIntoViewIfNeeded();
+		await page.locator('[data-testid="use-case-diagram"]').scrollIntoViewIfNeeded();
 		await page.screenshot({ path: path.join(evidenceDir, 'M1-overviewMap.png') });
 	}
 
 	console.log('M2 Download SVG');
-	const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.locator('[data-testid="case-diagram-download"]').click()]);
+	const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.locator('[data-testid="use-case-diagram-download"]').click()]);
 	const savedPath = path.join(evidenceDir || fs.mkdtempSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '.tmp-')), download.suggestedFilename());
 	await download.saveAs(savedPath);
 	const savedText = fs.readFileSync(savedPath, 'utf8');
@@ -97,12 +97,12 @@ try {
 	console.log('M3 a refused diagram');
 	refuseDiagram = true;
 	await page.reload({ waitUntil: 'load' });
-	await page.waitForSelector('[data-testid="case-diagram-error"]', { timeout: 30000 }).catch(() => {});
-	check('it says why', /could not be drawn: forged-use-cases: caseStepDataLinkList failed/.test((await page.locator('[data-testid="case-diagram-error"]').textContent().catch(() => '')) || ''));
+	await page.waitForSelector('[data-testid="use-case-diagram-error"]', { timeout: 30000 }).catch(() => {});
+	check('it says why', /could not be drawn: forged-use-cases: caseStepDataLinkList failed/.test((await page.locator('[data-testid="use-case-diagram-error"]').textContent().catch(() => '')) || ''));
 	refuseDiagram = false;
-	await page.locator('[data-testid="case-diagram-error"]').getByRole('button', { name: 'Try again' }).click();
-	await page.waitForSelector('[data-testid="case-diagram-image"]', { timeout: 15000 }).catch(() => {});
-	check('Try again draws it', (await page.locator('[data-testid="case-diagram-image"]').count()) === 1);
+	await page.locator('[data-testid="use-case-diagram-error"]').getByRole('button', { name: 'Try again' }).click();
+	await page.waitForSelector('[data-testid="use-case-diagram-image"]', { timeout: 15000 }).catch(() => {});
+	check('Try again draws it', (await page.locator('[data-testid="use-case-diagram-image"]').count()) === 1);
 
 	check('no page errors', pageErrorList.length === 0, pageErrorList.join(' | '));
 } finally {

@@ -14,7 +14,7 @@
 //   caseStructure  { caseStableId } → { graphName, outline, extractedDocument, extractedFileName, nodeCount, edgeCount, citationCount, ... }:
 //                             the case's subgraph in one read, as an outline and as one JSON document (the mapper's shaping)
 //   ⟪Overview diagram⟫
-//   caseDiagram    { caseStableId } → { caseStableId, svgText, width, height, summary }: the case drawn as one SVG (its context,
+//   useCaseDiagram { caseStableId } → { caseStableId, svgText, width, height, summary }: the case drawn as one SVG (its context,
 //                             actors, steps, and the data each step reads or writes, as the elements they cite), by
 //                             render-use-case-diagram from the case action's rows plus caseStepDataLinkList
 //   caseSourceFile { caseStableId } → { caseStableId, sourceFileName, fileName, byteSize, sha256, sourceText }: the case's own
@@ -146,7 +146,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	};
 
 	// ⟪Overview diagram⟫ the case as the case action reads it, the data each step reaches, drawn as one SVG
-	const readCaseDiagram = ({ caseStableId }, callback) => {
+	const readUseCaseDiagram = ({ caseStableId }, callback) => {
 		readCase({ caseStableId }, (caseError, caseResult) => {
 			if (caseError) {
 				callback(caseError);
@@ -161,7 +161,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				try {
 					diagram = renderUseCaseDiagram({ ...caseResult, stepDataLinkList });
 				} catch (renderError) {
-					callback(`${moduleName}: caseDiagram could not draw ${caseStableId}: ${renderError.message}`);
+					callback(`${moduleName}: useCaseDiagram could not draw ${caseStableId}: ${renderError.message}`);
 					return;
 				}
 				callback('', { caseStableId, ...diagram });
@@ -270,7 +270,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		case: (xQuery, callback) => readCase({ caseStableId: xQuery.caseStableId }, callback),
 		caseStructure: (xQuery, callback) => readCaseStructure({ caseStableId: xQuery.caseStableId }, callback),
 		caseSourceFile: (xQuery, callback) => readCaseSourceFile({ caseStableId: xQuery.caseStableId }, callback),
-		caseDiagram: (xQuery, callback) => readCaseDiagram({ caseStableId: xQuery.caseStableId }, callback),
+		useCaseDiagram: (xQuery, callback) => readUseCaseDiagram({ caseStableId: xQuery.caseStableId }, callback),
 	};
 
 	const serviceFunction = (xQuery, callback) => {

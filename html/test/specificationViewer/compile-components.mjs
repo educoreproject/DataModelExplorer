@@ -53,7 +53,7 @@ const FILES = [
 	'components/standardsExplorer/Diagram.vue',
 	'app.vue',
 	// the use case map on a forged use case's Overview
-	'components/forgedUseCases/CaseDiagram.vue',
+	'components/forgedUseCases/UseCaseDiagram.vue',
 	'pages/explore/use-cases/forged/[caseStableId].vue',
 ].filter((rel) => fs.existsSync(path.join(HTML, rel)));
 

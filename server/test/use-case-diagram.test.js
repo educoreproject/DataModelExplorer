@@ -1,13 +1,13 @@
 'use strict';
 // use-case-diagram.test.js — the Overview diagram of a forged use case (render-use-case-diagram, and the forged-use-cases
-// access point's caseDiagram action). Needs no graph: the renderer is pure, and the access point runs against a fake
+// access point's useCaseDiagram action). Needs no graph: the renderer is pure, and the access point runs against a fake
 // neo4jDb that answers each named query of the forged-use-cases mapper with the rows of useCaseDiagramFixture.
 //   1. the renderer draws every step, actor and datum once, links each step to the data it reads or writes, styles
 //      what is not established fact (variant steps, gaps, elements the graph does not hold) dashed, and puts the
 //      case's data no step names in the footer
 //   2. every text from the graph is escaped; the SVG is well formed and names itself (title, desc, role=img)
 //   3. a case with no steps still draws; a case without its id is refused by name
-//   4. the access point's caseDiagram answers { caseStableId, svgText, width, height, summary } from the mapper's queries,
+//   4. the access point's useCaseDiagram answers { caseStableId, svgText, width, height, summary } from the mapper's queries,
 //      including caseStepDataLinkList, and refuses an absent caseStableId by name
 //
 // Run: node server/test/use-case-diagram.test.js
@@ -81,7 +81,7 @@ try { renderUseCaseDiagram({ useCase: {} }); } catch (error) { refusalText = err
 ok('a case without its id is refused by name', /caseStableId/.test(refusalText), refusalText);
 
 // ================================================================================
-console.log('\n4. the access point\'s caseDiagram action');
+console.log('\n4. the access point\'s useCaseDiagram action');
 const mapper = require('../data-model/data-mapping/mappers/forged-use-cases')({});
 // the fake graph answers each named query by the text only it carries
 const rowListByQueryMarker = [
@@ -108,14 +108,14 @@ require(path.join(__dirname, '../data-model/access-points-dot-d/accessPoints.d/f
 });
 const forgedUseCases = accessPointByName['forged-use-cases'];
 
-forgedUseCases({ action: 'caseDiagram', caseStableId: fixture.useCase.caseStableId }, (diagramError, diagramResult) => {
-	ok('caseDiagram answers', !diagramError, diagramError);
+forgedUseCases({ action: 'useCaseDiagram', caseStableId: fixture.useCase.caseStableId }, (diagramError, diagramResult) => {
+	ok('useCaseDiagram answers', !diagramError, diagramError);
 	ok('it answers the case id, the SVG, its size and its summary', diagramResult && diagramResult.caseStableId === fixture.useCase.caseStableId && /^<svg /.test(diagramResult.svgText) && diagramResult.width === 1100 && diagramResult.height > 600 && diagramResult.summary);
 	ok('it read the steps\' data links (caseStepDataLinkList)', askedQueryList.includes('partWalk'));
 	ok('the citation states came through the mapper (CEDS green, a gap, one not in the graph)', diagramResult && diagramResult.svgText.includes('CEDS P001572') && diagramResult.svgText.includes('standards gap') && diagramResult.svgText.includes('not in the graph'));
 	ok('the drawing matches the renderer\'s on the same rows', diagramResult && diagramResult.summary.linkCount === summary.linkCount && diagramResult.summary.stepDataCount === summary.stepDataCount);
 
-	forgedUseCases({ action: 'caseDiagram' }, (refusalError) => {
+	forgedUseCases({ action: 'useCaseDiagram' }, (refusalError) => {
 		ok('an absent caseStableId is refused by name', /caseStableId/.test(String(refusalError)), String(refusalError));
 		console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 		process.exit(failed ? 1 : 0);
