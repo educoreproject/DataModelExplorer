@@ -16,6 +16,7 @@ const parameterOf = (inputField, inputCapByName) => ({
 		...(inputField.maxLengthConfigName ? { maxLength: inputCapByName[inputField.maxLengthConfigName] } : {}),
 		...(inputField.enum ? { enum: inputField.enum } : {}),
 		...(inputField.maximum ? { maximum: inputField.maximum } : {}),
+		...(inputField.defaultValue ? { default: inputField.defaultValue } : {}),
 	},
 });
 

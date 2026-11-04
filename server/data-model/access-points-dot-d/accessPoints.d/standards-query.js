@@ -17,6 +17,7 @@ const registry = require('../../../lib/standards-query/standardsQueryOperations.
 const DME_SEARCH_MODULE_PATH = path.join(__dirname, '..', '..', '..', '..', 'cli', 'lib.d', 'data-model-explorer', 'dataModelExplorerSearch');
 const LIMIT_CONFIG_SECTION_NAME = 'standards-query-limits';
 const EDC_CONFIG_SECTION_NAME = 'edc-resolver';
+const MCP_CONFIG_SECTION_NAME = 'mcp-server';
 const USAGE_FLUSH_MILLISECONDS = 5000;
 
 //START OF moduleFunction() ============================================================
@@ -40,6 +41,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		standardsQueryCore = createStandardsQueryCore({
 			registry,
 			limitConfigValues,
+			doorLimitValues: {
+				sessionCapPerSub: Number((getConfig(MCP_CONFIG_SECTION_NAME) || {}).sessionCapPerSub),
+				sessionIdleTtlSeconds: Number((getConfig(MCP_CONFIG_SECTION_NAME) || {}).sessionIdleTtlSeconds),
+				edcPublicPathPrefix: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).publicPathPrefix,
+			},
 			goldenHandle: neo4jDb,
 			forgeAdapter,
 			dmeSearchModule,

@@ -15,6 +15,8 @@ process.global = { xLog: { status() {}, error() {}, verbose() {}, result() {} },
 
 const registry = require('../lib/standards-query/standardsQueryOperations.json');
 const { openApiDocumentFor } = require('../lib/standards-query/openApiEmitter');
+const { aboutDocumentFor } = require('../lib/standards-query/aboutDocument');
+const { SUMMARY_SHAPER_BY_NAME } = require('../lib/standards-query/answerSummaries');
 const { admitRequest } = require('../lib/standards-query/admitRequest');
 const { createRequestLimiter } = require('../lib/standards-query/requestLimiter');
 const { stripCoreAdditions, STEP_BY_NAME } = require('../lib/standards-query/answerSteps');
@@ -60,6 +62,7 @@ ok('descriptions: none names a dme_ tool', !mcpRowList.some((row) => /dme_/.test
 ok('descriptions: none names a mode input the door does not take', !/searchMode keyword/.test(JSON.stringify(mcpRowList.map((row) => row.description))));
 const registryText = JSON.stringify(registry.operationList.map(({ operationName, routeName, mcpToolName }) => ({ operationName, routeName, mcpToolName })));
 ok('nothing Smith or rosetta is in the registry', !/smith|rosetta/i.test(registryText) && !/smith_/i.test(JSON.stringify(registry)));
+ok('timing gate: a slow row and a slowWhen agree: about cannot call quick what the gate knows is slow', registry.operationList.every((row) => Boolean(row.aboutEntry && row.aboutEntry.slowWhen) === require('../lib/standards-query/standardsQueryTimingBounds.json').rowList.some((oneRow) => oneRow.operationName === row.operationName && oneRow.knownSlow)));
 ok('usage is for admin and super alone', JSON.stringify(registry.operationList.find((row) => row.operationName === 'usage').permissionList) === '["admin","super"]');
 
 // ---- 2. the OpenAPI document
@@ -74,6 +77,56 @@ ok('openapi: mentions no smith or rosetta', !/smith|rosetta/i.test(JSON.stringif
 const searchPath = openApiDocument.paths['/search'].get;
 ok('openapi: a capped input says its cap', searchPath.parameters.find((param) => param.name === 'q').schema.maxLength === 500);
 ok('openapi: inputTooLong is documented as 413', /inputTooLong/.test(searchPath.responses[413].description));
+
+// ---- 2b. rowDetail is documented everywhere it is taken (TQ, 2026-11-04: "Make sure it's well documented")
+const ROW_DETAIL_OPERATION_NAME_LIST = ['mappings', 'element', 'graph'];
+const rowDetailRowList = registry.operationList.filter((row) => row.inputFieldList.some((field) => field.name === 'rowDetail'));
+ok('rowDetail: taken by exactly the three operations ruled', JSON.stringify(rowDetailRowList.map((row) => row.operationName).sort()) === JSON.stringify([...ROW_DETAIL_OPERATION_NAME_LIST].sort()));
+rowDetailRowList.forEach((row) => {
+	const rowDetailField = row.inputFieldList.find((field) => field.name === 'rowDetail');
+	ok(`rowDetail: ${row.operationName} declares its values and its default`, JSON.stringify(rowDetailField.enum) === '["summary","full"]' && rowDetailField.defaultValue === 'summary');
+	ok(`rowDetail: ${row.operationName} names a shaper that exists`, typeof SUMMARY_SHAPER_BY_NAME[row.summaryShaperName] === 'function');
+	ok(`rowDetail: the ${row.operationName} tool's description states it`, /rowDetail/.test(row.description) && /rowDetail=full/.test(row.description) && /leftOutOfSummary/.test(row.description));
+	const openApiParameter = openApiDocument.paths[`/${row.routeName}`].get.parameters.find((param) => param.name === 'rowDetail');
+	ok(`rowDetail: OpenAPI documents it on ${row.routeName}`, openApiParameter && JSON.stringify(openApiParameter.schema.enum) === '["summary","full"]' && openApiParameter.schema.default === 'summary' && /leftOutOfSummary/.test(openApiParameter.description));
+});
+
+// ---- 2c. about (G5): nothing can drift, by construction and by these
+const ABOUT_LIMITS = { requestsPerMinute: 61, burstPerSecond: 23, inFlightMax: 29, maxQueryChars: 501, maxPatternChars: 201, dailyEmbeddingTokenCeiling: 2000003 };
+const ABOUT_DOOR_LIMITS = { sessionCapPerSub: 11, sessionIdleTtlSeconds: 1801, edcPublicPathPrefix: '/edc/' };
+const aboutOf = (principal) => aboutDocumentFor({ registry, inputCapByName: ABOUT_LIMITS, doorLimitValues: ABOUT_DOOR_LIMITS, publicInstanceName: 'demo.educore.dev', principal });
+const anonymousAbout = aboutOf({ kind: 'anonymous', role: '' });
+const publicRowList = registry.operationList.filter((row) => row.permissionList.includes('public'));
+registry.operationList.forEach((row) => {
+	ok(`about: ${row.operationName} has an entry`, row.aboutEntry && row.aboutEntry.forWhat && row.aboutEntry.exampleShows && row.aboutEntry.exampleInput && Array.isArray(row.aboutEntry.expectedAnswerFieldList));
+	const exampleInputNameList = Object.keys((row.aboutEntry || {}).exampleInput || {});
+	ok(`about: the example of ${row.operationName} uses only inputs it takes, and every required one`, exampleInputNameList.every((inputName) => row.inputFieldList.some((field) => field.name === inputName)) && row.inputFieldList.filter((field) => field.required).every((field) => exampleInputNameList.includes(field.name)));
+});
+ok('about: lists every public operation and nothing else', JSON.stringify(anonymousAbout.answer.operationList.map((entry) => entry.operation)) === JSON.stringify(publicRowList.map((row) => row.routeName)));
+ok('about: no entry names an operation that does not exist', anonymousAbout.answer.operationList.every((entry) => registry.operationList.some((row) => row.routeName === entry.operation)));
+ok('about: every input of every listed operation is described', publicRowList.every((row) => row.inputFieldList.every((field) => { const entry = anonymousAbout.answer.operationList.find((one) => one.operation === row.routeName); return anonymousAbout.answer.sharedInputDescriptionByName[field.name] === field.description || (entry.ownInputDescriptionByName || {})[field.name] === field.description; })));
+ok('about: every input is named as required or optional, correctly', publicRowList.every((row) => { const entry = anonymousAbout.answer.operationList.find((one) => one.operation === row.routeName); return row.inputFieldList.every((field) => (field.required ? entry.requiredInputList : entry.optionalInputList).includes(field.name)); }));
+ok('about: usage is hidden from the anonymous, a plain user and an OAuth administrator', [anonymousAbout, aboutOf({ kind: 'siteUser', role: 'user' }), aboutOf({ kind: 'oauthUser', role: 'admin' })].every((one) => !one.listsGatedOperation && !one.answer.operationList.some((entry) => entry.operation === 'usage')));
+ok('about: usage is shown to a site administrator and marked as not shareable', aboutOf({ kind: 'siteUser', role: 'super' }).listsGatedOperation && aboutOf({ kind: 'siteUser', role: 'admin' }).answer.operationList.some((entry) => entry.operation === 'usage'));
+ok('about: the limits are the config\'s, none typed', Object.values(ABOUT_LIMITS).every((limitNumber) => Object.values(anonymousAbout.answer.limitsInForce).includes(limitNumber)) && anonymousAbout.answer.limitsInForce.mcpSessionsPerAccount === 11 && anonymousAbout.answer.limitsInForce.mcpIdleSeconds === 1801);
+const unconfiguredAbout = aboutDocumentFor({ registry, inputCapByName: ABOUT_LIMITS, doorLimitValues: { sessionCapPerSub: NaN, sessionIdleTtlSeconds: NaN }, publicInstanceName: 'demo.educore.dev', principal: { kind: 'anonymous', role: '' } }).answer;
+ok('about: an instance with no MCP limits or uri route says so, and no number or undefined stands in', /refuses new sessions/.test(unconfiguredAbout.limitsInForce.mcpSessions) && unconfiguredAbout.limitsInForce.mcpSessionsPerAccount === undefined && !/undefined|NaN/.test(JSON.stringify(unconfiguredAbout)));
+ok('about: the typed prose states no limit number the config owns', !/\b(60|20|500|200)\b/.test(JSON.stringify(registry.aboutText)));
+const howToRead = anonymousAbout.answer.howToReadAnAnswer;
+ok('about: names the four mappingStatusByHub values', JSON.stringify(Object.keys(howToRead.mappingStatusByHub).sort()) === '["judgedAbstained","mapped","neverOffered","notApplicable"]');
+ok('about: names the three pair kinds', JSON.stringify(Object.keys(howToRead.pairStatus).sort()) === '["computedViaHub","declaredCorrespondence","notJudged"]');
+ok('about: explains answeredFrom, uri, rowDetail, targetKind and a refusal', ['answeredFrom', 'uri', 'rowDetail', 'targetKind', 'refusal'].every((fieldName) => howToRead[fieldName]) && ['refusedByName', 'refusalName', 'reason', 'validValueList'].every((fieldName) => howToRead.refusal.includes(fieldName)));
+ok('about: says a hub\'s silence and an abstention are different things', /neverOffered is silence and judgedAbstained is a decision/.test(howToRead.silenceIsNotAbstention));
+ok('about: every example url is real and on the public route', anonymousAbout.answer.operationList.every((entry) => entry.exampleUrl.startsWith('https://demo.educore.dev/standards/v1/') && new URL(entry.exampleUrl).pathname.endsWith(`/${entry.operation}`)));
+ok('about: says where the machine description is and what a uri resolves to', anonymousAbout.answer.whereToLookNext.machineDescription === 'https://demo.educore.dev/standards/v1/openapi.json' && anonymousAbout.answer.whereToLookNext.whatAUriResolvesTo.includes('https://demo.educore.dev/edc/'));
+const aboutEnvelopeText = JSON.stringify({ answeredFrom: { graphName: 'GOLD_261030_useCases', manifestRefId: 'x'.repeat(64), manifestLabel: 'educore-2026-10-30', manifest: 'https://w3id.org/EDUcore/manifest/educore-2026-10-30', manifestByContent: `https://w3id.org/EDUcore/manifest/sha256/${'x'.repeat(64)}`, manifestStandardList: 'https://w3id.org/EDUcore/manifest/educore-2026-10-30/standards', builtAt: '2026-10-30T04:44:59.262Z', graphContractSha256: 'x'.repeat(64), structuralVersion: 'V.09', embeddingModelVersion: 'voyage-4-large', instance: 'demo.educore.dev', apiVersion: 'v1', operation: 'about' }, answer: anonymousAbout.answer, uriNote: registry.uriNote });
+ok('about: under 10 KB, envelope and all', Buffer.byteLength(aboutEnvelopeText) < 10000, `${Buffer.byteLength(aboutEnvelopeText)}`);
+const INTERNAL_NAME_PATTERN = /rosetta|smith|forge|golden|\bbb2\b|neo4j|cypher|\bdme\b|dme_|uriContract|jev\b|qtools|askMilo|Milo\b/i;
+const aboutWithoutEnvelopeText = JSON.stringify(anonymousAbout.answer);
+const internalNameMatch = aboutWithoutEnvelopeText.match(INTERNAL_NAME_PATTERN);
+ok('about: a stranger meets no internal name', internalNameMatch === null, internalNameMatch && aboutWithoutEnvelopeText.slice(Math.max(0, internalNameMatch.index - 60), internalNameMatch.index + 40));
+ok('about: the bare root is its alias', JSON.stringify(registry.operationList.find((row) => row.operationName === 'about').aliasRouteNameList) === '[""]');
+ok('mcp instructions: one line points at standards_about', registry.mcpInstructionLineList.some((line) => /standards_about/.test(line)));
 
 // ---- 3. admitRequest
 const publicRow = { admission: 'public' };

@@ -26,8 +26,10 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	const { expressApp, accessTokenHeaderTools, accessPointsDotD, routingPrefix } = passThroughParameters;
 	const routeBasePath = `${routingPrefix}${registry.routeBasePath}`;
 	const apiDoorRowList = registry.operationList.filter((registryRow) => registryRow.doorList.includes(API_DOOR_NAME));
-	const registryRowByRouteName = apiDoorRowList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.routeName]: registryRow }), {});
-	const permissionValidatorByRouteName = apiDoorRowList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.routeName]: accessTokenHeaderTools.getValidator(registryRow.permissionList) }), {});
+	// a row may answer on more than one route: the bare root is an alias of about, in the registry
+	const routeNameListOf = (registryRow) => [registryRow.routeName, ...(registryRow.aliasRouteNameList || [])];
+	const registryRowByRouteName = apiDoorRowList.reduce((soFar, registryRow) => routeNameListOf(registryRow).reduce((soFarWithRoute, routeName) => ({ ...soFarWithRoute, [routeName]: registryRow }), soFar), {});
+	const permissionValidatorByRouteName = Object.keys(registryRowByRouteName).reduce((soFar, routeName) => ({ ...soFar, [routeName]: accessTokenHeaderTools.getValidator(registryRowByRouteName[routeName].permissionList) }), {});
 
 	const limitConfigValues = getConfig(LIMIT_CONFIG_SECTION_NAME);
 	// no limits in this instance's config: the limiter is absent, and the core answers every route 503 serviceNotConfigured, so nothing runs unlimited
@@ -71,7 +73,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 		taskList.push((args, next) => {
 			if (!registryRow) {
-				stopWith(args, next, shellRefusal({ refusalName: 'unknownOperation', reason: `there is no route ${routeBasePath}/${routeName}`, extraFields: { validValueList: Object.keys(registryRowByRouteName) } }));
+				stopWith(args, next, shellRefusal({ refusalName: 'unknownOperation', reason: `there is no route ${routeBasePath}/${routeName}`, extraFields: { validValueList: apiDoorRowList.map((oneRow) => oneRow.routeName) } }));
 				return;
 			}
 			if (xReq.method !== 'GET') {
@@ -98,7 +100,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		taskList.push((args, next) => {
 			const validatorRefusal = permissionValidatorByRouteName[routeName](xReq.appValueGetter('authclaims'));
 			if (validatorRefusal) {
-				stopWith(args, next, shellRefusal({ refusalName: 'notAuthorized', reason: `${routeName} is for ${registryRow.permissionList.join(', ')} only` }));
+				stopWith(args, next, shellRefusal({ refusalName: 'notAuthorized', reason: `${registryRow.routeName} is for ${registryRow.permissionList.join(', ')} only` }));
 				return;
 			}
 			next('', args);

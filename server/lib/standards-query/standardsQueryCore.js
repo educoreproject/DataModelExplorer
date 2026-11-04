@@ -2,7 +2,7 @@
 
 // standardsQueryCore — one module answers every question about the standards; the Query API, MCP and later doors hold no query of their own (design, first page).
 //
-//   createStandardsQueryCore({ registry, limitConfigValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate })
+//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate })
 //     → { runOperation({ operationName, input, principal }, callback('', { httpStatus, bodyText, cachePolicy, retryAfterSeconds })), registryRowFor, serviceState }
 //
 // An operation runs IN PROCESS on the golden handle's READ session: no spawned node, docker inspect or new driver per call (design 1.6). Query logic stays in the DME CLI module;
@@ -18,6 +18,8 @@ const { STEP_BY_NAME, MAPPING_STATUS_UNAVAILABLE_PREFIX } = require('./answerSte
 const { runPair } = require('./pairOperation');
 const { runUriPromiseGate } = require('./uriPromiseGate');
 const { openApiDocumentFor } = require('./openApiEmitter');
+const { aboutDocumentFor } = require('./aboutDocument');
+const { SUMMARY_SHAPER_BY_NAME } = require('./answerSummaries');
 
 const moduleName = 'standardsQueryCore';
 const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
@@ -25,6 +27,10 @@ const GOLDEN_NOT_READY_REFUSAL_NAME = 'goldenGraphNotReady';
 const CHARACTERS_PER_TOKEN_ESTIMATE = 4;
 const SEARCH_MODE_WITHOUT_VECTOR = 'keyword';
 const BUSY_RETRY_SECONDS = 2;
+const URI_KIND_ELEMENT = 'element';
+const ROW_DETAIL_INPUT_NAME = 'rowDetail';
+const ROW_DETAIL_SUMMARY = 'summary';
+const NO_STORE_CACHE_POLICY = 'noStore';
 const REQUIRED_LIMIT_NAME_LIST = Object.freeze(['requestsPerMinute', 'burstPerSecond', 'inFlightMax', 'maxQueryChars', 'maxPatternChars', 'dailyEmbeddingTokenCeiling', 'usageUriRowCap', 'usageUriRetentionDays']);
 
 const limitNumbersOf = (limitConfigValues) => {
@@ -55,7 +61,7 @@ const storeReadsFor = (storeHandle) => {
 	};
 };
 
-const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate }) => {
+const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate }) => {
 	const registryRowByOperationName = registry.operationList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.operationName]: registryRow }), {});
 	const refusalStatusByName = { ...registry.verbRefusalHttpStatusByName, ...registry.envelopeRefusalHttpStatusByName };
 	const limits = limitNumbersOf(limitConfigValues);
@@ -185,6 +191,11 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		if (badIntegerField) {
 			return refusalOf(operationName, badIntegerField.name === 'page' ? 'invalidPage' : 'invalidLimit', `${badIntegerField.name} must be a positive integer${badIntegerField.maximum ? ` of at most ${badIntegerField.maximum}` : ''}; got '${input[badIntegerField.name]}'`);
 		}
+		// an input the core itself reads has no verb to refuse a bad value (rowDetail): an unknown value is refused by name, never read as the default
+		const badOwnEnumField = allFieldList.find((oneField) => oneField.enum && !oneField.verbInputName && input[oneField.name] !== undefined && !oneField.enum.includes(input[oneField.name]));
+		if (badOwnEnumField) {
+			return refusalOf(operationName, 'invalidInput', `${badOwnEnumField.name} must be one of ${badOwnEnumField.enum.join(', ')}; got '${input[badOwnEnumField.name]}'`, { validValueList: badOwnEnumField.enum });
+		}
 		const bothGivenList = (registryRow.mutuallyExclusiveInputNameList || []).filter((inputName) => input[inputName] !== undefined);
 		if (bothGivenList.length > 1) {
 			return refusalOf(operationName, 'invalidInput', `give one of ${bothGivenList.join(', ')}, not both`);
@@ -214,6 +225,24 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		}
 		return null;
 	};
+
+	// An answer hands out uris, so an input marked acceptsUri takes one back: an element uri of the version this manifest holds, or a declared spelling (ceds:P000033), becomes the stableId it names, by the forge's
+	// own parser. Anything else stays as sent for the verb to read as it always has: a card uri already is a stableId, and an element uri of another version names nothing here, so it is nothingMatched as before.
+	const stableIdOfUriInput = (inputText) => {
+		const { edcUri } = forgeAdapter;
+		const spelledStableId = edcUri.elementStableIdOfSpelling(inputText);
+		if (spelledStableId !== inputText) {
+			return spelledStableId;
+		}
+		if (!inputText.startsWith(edcUri.URI_SCHEME.baseIri) && !inputText.startsWith(`${edcUri.URI_SCHEME.curiePrefix}:`)) {
+			return inputText;
+		}
+		const parsedUri = edcUri.parse(inputText);
+		const { standardName, standardVersion, elementStableId, ...otherPartByName } = parsedUri.partByName || {};
+		const namesOneElementHere = parsedUri.kind === URI_KIND_ELEMENT && Object.keys(otherPartByName).length === 0 && serviceFacts.standardVersionByName[standardName] === standardVersion;
+		return namesOneElementHere ? elementStableId : inputText;
+	};
+	const withUriInputsResolved = ({ registryRow, input }) => registryRow.inputFieldList.filter((oneField) => oneField.acceptsUri && input[oneField.name] !== undefined).reduce((soFar, oneField) => ({ ...soFar, [oneField.name]: stableIdOfUriInput(input[oneField.name]) }), input);
 
 	// the verb's input, through the CLI's own reader: its defaults and its refusals are the verb's, not a second copy
 	const verbInvocationFor = ({ registryRow, input }) => {
@@ -249,7 +278,21 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		runNext(0);
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer })).
+	// the row's rowDetail field holds its default; the input was checked against its enum before this is read
+	const rowDetailOf = ({ registryRow, input }) => {
+		const rowDetailField = registryRow.inputFieldList.find((oneField) => oneField.name === ROW_DETAIL_INPUT_NAME);
+		return rowDetailField ? (input[ROW_DETAIL_INPUT_NAME] || rowDetailField.defaultValue) : '';
+	};
+	// a summary names fewer URIs than the verb's answer did, and the usage counters count what a caller was told about
+	const summaryAnswerOf = ({ registryRow, answer, namedUriList }) => {
+		const summaryAnswer = SUMMARY_SHAPER_BY_NAME[registryRow.summaryShaperName]({ answer, summaryShape: registry.summaryShape });
+		const summaryText = JSON.stringify(summaryAnswer);
+		const retainedUriList = namedUriList.filter((oneUri) => summaryText.includes(oneUri));
+		namedUriList.splice(0, namedUriList.length, ...retainedUriList);
+		return summaryAnswer;
+	};
+
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer, cachePolicy? })).
 	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
 		verb: ({ registryRow, input, pageNumber, namedUriList, admitScan }, done) => {
@@ -297,6 +340,11 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),
+		// what a signed-in administrator is told must not sit in a shared cache
+		about: ({ registryRow, principal }, done) => {
+			const { answer, listsGatedOperation } = aboutDocumentFor({ registry, inputCapByName, doorLimitValues, publicInstanceName: limitConfigValues.publicInstanceName, principal });
+			done('', { answer, cachePolicy: listsGatedOperation ? NO_STORE_CACHE_POLICY : registryRow.cachePolicy });
+		},
 	});
 
 	const errorAnswerFor = ({ operationName, errorText }) => {
@@ -333,20 +381,22 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 			return;
 		}
 		const { expectManifest, ...operationInput } = input;
+		const rowDetail = rowDetailOf({ registryRow, input: operationInput });
+		const answerCacheName = `${operationName}\u0000${rowDetail}`; // standards has one form; graph has two, each kept once it is read
 		const firstRefusal = registryRow.requiresUriPromise ? (manifestRefusalFor({ operationName, expectManifest }) || embeddingRefusalFor({ registryRow, operationName, input: operationInput })) : null;
 		if (firstRefusal) {
 			callback('', refusedAnswerFor({ operationName, refusal: firstRefusal }));
 			return;
 		}
-		if (registryRow.cachesAnswerPerManifest && (cachedAnswerByOperationName[operationName] || waiterListByOperationName[operationName])) {
+		if (registryRow.cachesAnswerPerManifest && (cachedAnswerByOperationName[answerCacheName] || waiterListByOperationName[answerCacheName])) {
 			if (principal.kind !== 'rosettaJob') {
 				usageCounter.countAnswer({ operationName, subjectList: [], uriList: [] }); // these answers name no URI and take no subject
 			}
-			if (cachedAnswerByOperationName[operationName]) {
-				callback('', cachedAnswerByOperationName[operationName]);
+			if (cachedAnswerByOperationName[answerCacheName]) {
+				callback('', cachedAnswerByOperationName[answerCacheName]);
 				return;
 			}
-			waiterListByOperationName[operationName].push(callback);
+			waiterListByOperationName[answerCacheName].push(callback);
 			return;
 		}
 		if (inFlightCount >= inputCapByName.inFlightMax) {
@@ -366,21 +416,22 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 		} : undefined;
 		const cacheInUseAtStart = cachedAnswerByOperationName;
 		if (registryRow.cachesAnswerPerManifest) {
-			waiterListByOperationName[operationName] = [];
+			waiterListByOperationName[answerCacheName] = [];
 		}
 		// the first asker and everyone who waited on it get one answer; it is kept only if it succeeded and the graph did not change while it ran
 		const finishOperation = (finishedAnswer) => {
-			const waiterList = waiterListByOperationName[operationName] || [];
-			delete waiterListByOperationName[operationName];
+			const waiterList = waiterListByOperationName[answerCacheName] || [];
+			delete waiterListByOperationName[answerCacheName];
 			if (registryRow.cachesAnswerPerManifest && finishedAnswer.httpStatus === 200 && cacheInUseAtStart === cachedAnswerByOperationName) {
-				cachedAnswerByOperationName[operationName] = finishedAnswer;
+				cachedAnswerByOperationName[answerCacheName] = finishedAnswer;
 			}
 			[callback, ...waiterList].forEach((oneCallback) => oneCallback('', finishedAnswer));
 		};
 		const namedUriList = [];
 		const namedSubjectList = [];
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
-		const { page: unusedPage, ...handlerInput } = operationInput;
+		const { page: unusedPage, [ROW_DETAIL_INPUT_NAME]: unusedRowDetail, ...unresolvedHandlerInput } = operationInput;
+		const handlerInput = registryRow.requiresUriPromise ? withUriInputsResolved({ registryRow, input: unresolvedHandlerInput }) : unresolvedHandlerInput;
 		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
 			if (isHoldingScanSlot) {
@@ -390,18 +441,19 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, goldenHandle, f
 				finishOperation(errorAnswerFor({ operationName, errorText: String(handlerError) }));
 				return;
 			}
-			const { answer } = handlerResult;
-			if (answer.refusedByName) {
-				finishOperation(refusedAnswerFor({ operationName, refusal: answer }));
+			if (handlerResult.answer.refusedByName) {
+				finishOperation(refusedAnswerFor({ operationName, refusal: handlerResult.answer }));
 				return;
 			}
+			const isSummary = rowDetail === ROW_DETAIL_SUMMARY;
+			const answer = isSummary ? summaryAnswerOf({ registryRow, answer: handlerResult.answer, namedUriList }) : handlerResult.answer;
 			if (registryRow.isCounted && principal.kind !== 'rosettaJob') {
 				usageCounter.countAnswer({ operationName, subjectList: [...subjectListFor({ registryRow, input: operationInput }), ...namedSubjectList], uriList: namedUriList });
 			}
 			finishOperation({
 				httpStatus: 200,
-				bodyText: JSON.stringify(registryRow.bodyForm === 'envelope' ? { answeredFrom: answeredFromFor(operationName), answer, uriNote: registry.uriNote } : answer),
-				cachePolicy: registryRow.cachePolicy,
+				bodyText: JSON.stringify(registryRow.bodyForm === 'envelope' ? { answeredFrom: answeredFromFor(operationName), answer, uriNote: isSummary ? registry.summaryUriNote : registry.uriNote } : answer),
+				cachePolicy: handlerResult.cachePolicy || registryRow.cachePolicy,
 			});
 		});
 	};
