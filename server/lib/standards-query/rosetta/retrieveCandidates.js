@@ -9,7 +9,7 @@
 //   A pool: { status: 'candidates' | 'noCandidate', admittedCount, poolSize, candidateList: [{ stableId, uri, label, domain?, cosine, cardTextCosine?, ownVotes, rank, rankByCosine, admittedBy }], cosineRankOneOutsidePool? }
 //
 // TWO THINGS READING THE G2 PROBE WOULD NOT TELL YOU (measured, runs/P3): 1. db.index.vector.queryNodes answers (1 + cos) / 2, so the forge's minScore of 0.3 on that scale is cos -0.4 and refuses nothing: every score here is turned back into a cosine. 2. The index spans every standard, and the forge's 40 hits are 40 OF THE HUB'S texts: asking for 40 and filtering by _source left 0 to 5 hits. So each text reads a window (indexWindowPerText) and takes the target's first hitsPerText inside it.
-// A search memo is what voteCandidatePool reads hits from, and it is seeded here with the graph's hits, with an index holding no vectors: nothing hub-sized is resident. Card vectors are read for the admitted cards only, a slice at a time, for the forge's cardTextCosine.
+// A search memo is what voteCandidatePool reads hits from, and it is seeded here with the graph's hits, with an index holding no vectors: nothing hub-sized is resident. The forge's card-text term is computed in the graph, the forge's rankVotedCandidates orders by it, and no card vector reaches this process.
 
 const STRANGER_SOURCE_ROLE = 'strangerField';
 const COSINE_DECIMALS = 4;
@@ -35,8 +35,14 @@ const VOTE_ONLY_SLOT_EDGES_CYPHER = `MATCH (card:HubReference) WHERE card.stable
 MATCH (card)-[slotEdge]->(base) WHERE type(slotEdge) IN $slotNameList AND base.stableId IN $baseStableIdList
 RETURN DISTINCT card.stableId AS cardStableId, type(slotEdge) AS slot, base.stableId AS baseStableId, base.role AS baseRole`;
 
-const CARD_FACTS_CYPHER = `MATCH (card:HubReference) WHERE card.stableId IN $cardStableIdList
-RETURN card.stableId AS stableId, card.name AS label, card.domainName AS domain, card.embedding AS embedding, card.embeddingModelVersion AS embeddingModelVersion`;
+// R-BR-14's card-text term, worked out where the vectors live, so no card vector crosses to this process: vector.similarity.cosine answers (1 + cos) / 2, turned back here as the hits are. A CTDL field admits hundreds of cards, and a vector read into Node is 24 KB of heap.
+const CARD_TEXT_COSINE_CYPHER = `UNWIND $textRowList AS textRow
+UNWIND textRow.cardStableIdList AS cardStableId
+MATCH (card:ForgedNode { stableId: cardStableId })
+RETURN textRow.textHash AS textHash, cardStableId, 2 * vector.similarity.cosine(card.embedding, textRow.vector) - 1 AS cardTextCosine, card.embeddingModelVersion AS embeddingModelVersion`;
+
+const CARD_FACTS_CYPHER = `MATCH (card:ForgedNode) WHERE card.stableId IN $cardStableIdList
+RETURN card.stableId AS stableId, card.name AS label, card.domainName AS domain`;
 
 const ELEMENT_FACTS_CYPHER = `MATCH (element:ForgedNode) WHERE element.stableId IN $stableIdList RETURN element.stableId AS stableId, element.name AS label`;
 
@@ -136,55 +142,76 @@ const createRetrievalDriver = ({ candidateRetrievalLib, neo4jIntegerOf, hubEdgeT
 		fieldSlice.flatMap((oneField) => oneField.textList).forEach(({ textHash, vector }) => {
 			memoMade.searchMemo.entryByTextStableId.set(textHash, Object.freeze({ vector, hitList: Object.freeze(hitListByTextHash[textHash].map(({ hitTextStableId, cosine }) => Object.freeze({ hitTextStableId, cosine }))) }));
 		});
-		const textRecordListByFieldRefId = {};
 		const votedByFieldRefId = {};
 		for (let fieldIndex = 0; fieldIndex < fieldSlice.length; fieldIndex += 1) {
 			const oneField = fieldSlice[fieldIndex];
-			textRecordListByFieldRefId[oneField.fieldRefId] = oneField.textList.map((oneText) => textRecordOf({ oneField, oneText }));
-			const voted = candidateRetrievalLib.voteCandidatePool({ searchMemo: memoMade.searchMemo, cardSlotIndex: slotted.cardSlotIndex, subjectStableId: oneField.fieldRefId, subjectTextRecordList: textRecordListByFieldRefId[oneField.fieldRefId] });
+			const voted = candidateRetrievalLib.voteCandidatePool({ searchMemo: memoMade.searchMemo, cardSlotIndex: slotted.cardSlotIndex, subjectStableId: oneField.fieldRefId, subjectTextRecordList: oneField.textList.map((oneText) => textRecordOf({ oneField, oneText })) });
 			if (voted.error) {
 				done(voted.error.message);
 				return;
 			}
 			votedByFieldRefId[oneField.fieldRefId] = voted.admittedList;
 		}
-		const admittedCardStableIdList = distinctOf(Object.values(votedByFieldRefId).flat().map((oneCandidate) => oneCandidate.stableId));
-		if (admittedCardStableIdList.length === 0) {
+		const fieldsWithCardsList = fieldSlice.filter(({ fieldRefId }) => votedByFieldRefId[fieldRefId].length > 0);
+		if (fieldsWithCardsList.length === 0) {
 			done('', fieldSlice.reduce((soFar, { fieldRefId }) => ({ ...soFar, [fieldRefId]: emptyPool() }), {}));
 			return;
 		}
-		runCypher(session, CARD_FACTS_CYPHER, { cardStableIdList: admittedCardStableIdList }, (factsError, factsResult) => {
-			if (factsError) {
-				done(`reading ${hubName} cards: ${factsError}`);
+		// each distinct text, with the cards admitted for any field that holds it: the same pair is asked once
+		const cardStableIdSetByTextHash = new Map();
+		const vectorOfTextHash = new Map();
+		fieldsWithCardsList.forEach(({ fieldRefId, textList }) => textList.forEach(({ textHash, vector }) => {
+			vectorOfTextHash.set(textHash, vector);
+			const cardStableIdSet = cardStableIdSetByTextHash.get(textHash) || new Set();
+			votedByFieldRefId[fieldRefId].forEach((oneCandidate) => cardStableIdSet.add(oneCandidate.stableId));
+			cardStableIdSetByTextHash.set(textHash, cardStableIdSet);
+		}));
+		const textRowList = [...cardStableIdSetByTextHash.entries()].map(([textHash, cardStableIdSet]) => ({ textHash, vector: vectorOfTextHash.get(textHash), cardStableIdList: [...cardStableIdSet] }));
+		runCypher(session, CARD_TEXT_COSINE_CYPHER, { textRowList }, (cosineError, cosineResult) => {
+			if (cosineError) {
+				done(`reading ${hubName} card cosines: ${cosineError}`);
 				return;
 			}
-			const cardFactRowList = rowsOf(factsResult);
-			const indexed = candidateRetrievalLib.buildHubVectorIndex({ vectorRecordList: cardFactRowList.map(({ stableId, embedding, embeddingModelVersion: cardModelVersion }) => ({ stableId, embedding, embeddingModelVersion: cardModelVersion })), embeddingModelVersion });
-			if (indexed.error) {
-				done(indexed.error.message);
-				return;
-			}
-			const cardFactsByStableId = cardFactRowList.reduce((soFar, oneRow) => { soFar[oneRow.stableId] = oneRow; return soFar; }, {});
-			const poolByFieldRefId = {};
-			for (let fieldIndex = 0; fieldIndex < fieldSlice.length; fieldIndex += 1) {
-				const { fieldRefId } = fieldSlice[fieldIndex];
-				if (votedByFieldRefId[fieldRefId].length === 0) {
-					poolByFieldRefId[fieldRefId] = emptyPool();
-					continue;
-				}
-				const ordered = candidateRetrievalLib.cardTextCosineFor({ admittedList: votedByFieldRefId[fieldRefId], subjectTextRecordList: textRecordListByFieldRefId[fieldRefId], hubVectorIndex: indexed.hubVectorIndex });
-				if (ordered.error) {
-					done(ordered.error.message);
+			const cosineByTextAndCard = new Map();
+			for (let recordIndex = 0; recordIndex < cosineResult.records.length; recordIndex += 1) {
+				const oneRecord = cosineResult.records[recordIndex];
+				if (oneRecord.get('embeddingModelVersion') !== embeddingModelVersion) {
+					done(`card ${oneRecord.get('cardStableId')} is embedded by '${oneRecord.get('embeddingModelVersion')}', not '${embeddingModelVersion}': a cosine between two models is meaningless`);
 					return;
 				}
-				const ranked = candidateRetrievalLib.rankVotedCandidates({ admittedList: ordered.admittedList, k: ordered.admittedList.length });
+				cosineByTextAndCard.set(`${oneRecord.get('textHash')}\u0000${oneRecord.get('cardStableId')}`, oneRecord.get('cardTextCosine'));
+			}
+			const rankedListByFieldRefId = {};
+			for (let fieldIndex = 0; fieldIndex < fieldsWithCardsList.length; fieldIndex += 1) {
+				const { fieldRefId, textList } = fieldsWithCardsList[fieldIndex];
+				// as the forge's cardTextCosineFor: the highest cosine over the field's own texts, an exact tie to the lower text id
+				const sortedTextHashList = textList.map((oneText) => oneText.textHash).sort(compareText);
+				const scoredList = votedByFieldRefId[fieldRefId].map((oneCandidate) => {
+					const winner = sortedTextHashList.reduce((soFar, textHash) => {
+						const oneCosine = cosineByTextAndCard.get(`${textHash}\u0000${oneCandidate.stableId}`);
+						return soFar === null || oneCosine > soFar.cardTextCosine ? { cardTextCosine: oneCosine, cardTextWinningTextStableId: textHash } : soFar;
+					}, null);
+					return { ...oneCandidate, ...winner };
+				});
+				const ranked = candidateRetrievalLib.rankVotedCandidates({ admittedList: scoredList, k: scoredList.length });
 				if (ranked.error) {
 					done(ranked.error.message);
 					return;
 				}
-				poolByFieldRefId[fieldRefId] = poolOfRanked({ rankedList: ranked.rankedList, cardFactsByStableId, sourceName: target.sourceName });
+				rankedListByFieldRefId[fieldRefId] = ranked.rankedList;
 			}
-			done('', poolByFieldRefId);
+			const shownCardStableIdList = distinctOf(Object.values(rankedListByFieldRefId).flatMap((rankedList) => {
+				const bestCosine = rankedList.reduce((soFar, oneCandidate) => (oneCandidate.bestCosine > soFar.bestCosine || (oneCandidate.bestCosine === soFar.bestCosine && compareText(oneCandidate.stableId, soFar.stableId) < 0) ? oneCandidate : soFar));
+				return [...rankedList.slice(0, poolCap), bestCosine].map((oneCandidate) => oneCandidate.stableId);
+			}));
+			runCypher(session, CARD_FACTS_CYPHER, { cardStableIdList: shownCardStableIdList }, (factsError, factsResult) => {
+				if (factsError) {
+					done(`reading ${hubName} cards: ${factsError}`);
+					return;
+				}
+				const cardFactsByStableId = rowsOf(factsResult).reduce((soFar, oneRow) => { soFar[oneRow.stableId] = oneRow; return soFar; }, {});
+				done('', fieldSlice.reduce((soFar, { fieldRefId }) => ({ ...soFar, [fieldRefId]: rankedListByFieldRefId[fieldRefId] ? poolOfRanked({ rankedList: rankedListByFieldRefId[fieldRefId], cardFactsByStableId, sourceName: target.sourceName }) : emptyPool() }), {}));
+			});
 		});
 	};
 

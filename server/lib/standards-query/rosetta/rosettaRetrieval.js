@@ -4,7 +4,7 @@
 //
 //   rosettaFuseValuesOf(configValues) → { fuseValues } | { refusalText }
 //   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
-//     → { runRetrieval({ session, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), stats() }
+//     → { runRetrieval({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), stats() }
 //   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
 //
 // WHERE A STRANGER'S TEXT GOES: to the embedding vendor, to become a vector, and into the answer it was sent for. Never to a log (an embedding failure logs the vendor's status, not its body), never to Neo4j (a vector goes, which is why the keyword leg is not fused: it would put the text in a query parameter), never to usageCounts (the hubs are counted, and no URI: a pool is what the service said, not what anyone asked). In the store: its sha256 and vector, with no text.
@@ -212,12 +212,13 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 	});
 
 	// a slice of fields at a time: the handle's per-query time limit is on each query, a slice's card vectors leave memory with it, and the graph is not held for one long statement
-	const poolsForFieldVectorList = ({ session, serviceFacts, graphFacts, fieldVectorList, targetList }, done) => {
+	const poolsForFieldVectorList = ({ withReadSession, serviceFacts, graphFacts, fieldVectorList, targetList }, done) => {
 		const retrievalDriver = driverFor({ serviceFacts, graphFacts });
 		const poolByTargetName = targetList.reduce((soFar, { targetName }) => ({ ...soFar, [targetName]: {} }), {});
 		const sliceSize = Math.max(1, Math.floor(fuseValues.textsPerGraphQuery / 2));
 		eachInTurn(targetList, ({ targetName, target }, nextTarget) => {
-			eachInTurn(sliceListOf(fieldVectorList, sliceSize), (fieldSlice, nextSlice) => retrievalDriver.poolsForFieldSlice({ session, fieldSlice, target }, (poolError, poolByFieldRefId) => {
+			// a session of its own per slice: neo4j-driver's Session keeps every Result, records and all, in _results until it closes, so one session for a whole request held 1.5 GB at 200 fields (measured, runs/P3/heapProbeBefore.txt)
+			eachInTurn(sliceListOf(fieldVectorList, sliceSize), (fieldSlice, nextSlice) => withReadSession((session, sessionDone) => retrievalDriver.poolsForFieldSlice({ session, fieldSlice, target }, sessionDone), (poolError, poolByFieldRefId) => {
 				if (poolError) {
 					nextSlice(poolError);
 					return;
@@ -263,7 +264,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 	};
 
 	// THE ONE DOOR-INDEPENDENT RUN. Every cap here holds on MCP, which has no per-address limiter.
-	const runRetrieval = ({ session, serviceFacts, input, namedSubjectList, answerNoteValues }, callback) => {
+	const runRetrieval = ({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, callback) => {
 		if (inFlightCount >= fuseValues.retrievalInFlightMax) {
 			callback('', { answer: refusalOf('busy', `${inFlightCount} retrievals are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`), retryAfterSeconds: BUSY_RETRY_SECONDS });
 			return;
@@ -289,7 +290,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			next('', { ...args, submissionForm, parsed });
 		});
 
-		taskList.push((args, next) => withGraphFacts({ session, serviceFacts }, (factsError, graphFacts) => {
+		taskList.push((args, next) => withReadSession((session, sessionDone) => withGraphFacts({ session, serviceFacts }, sessionDone), (factsError, graphFacts) => {
 			if (factsError) {
 				next(factsError, args);
 				return;
@@ -336,7 +337,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 
 		taskList.push((args, next) => {
 			const targetList = args.askedHubRowList.map(({ hubName, sourceName }) => ({ targetName: hubName, target: { kind: 'hubCards', hubName, sourceName, tier: TIER_OFFERED } }));
-			poolsForFieldVectorList({ session, serviceFacts, graphFacts: args.graphFacts, fieldVectorList: args.fieldVectorList, targetList }, (poolError, poolByTargetName) => next(poolError, { ...args, poolByTargetName }));
+			poolsForFieldVectorList({ withReadSession, serviceFacts, graphFacts: args.graphFacts, fieldVectorList: args.fieldVectorList, targetList }, (poolError, poolByTargetName) => next(poolError, { ...args, poolByTargetName }));
 		});
 
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
