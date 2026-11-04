@@ -25,6 +25,7 @@ import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { pathTextOf, FAMILY_CATALOG_STABLE_ID } from '@/components/standardsExplorer/explorerVocabulary';
 import CaseStructureTab from '@/components/forgedUseCases/CaseStructureTab.vue';
 import UseCaseDiagram from '@/components/forgedUseCases/UseCaseDiagram.vue';
+import { useJsonLd, absoluteUrlOf } from '@/composables/useJsonLd';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -101,6 +102,46 @@ const dataTextOf = (oneStep, dataEdgeType) => oneStep.dataList.filter((oneData) 
 // T-CHART — the data domains are the elements the case cites that resolve in the graph
 
 const citedElementList = computed(() => implementationGuide.value.citedElementList || []);
+
+// ================================================================================
+// THE CASE AS SCHEMA.ORG — a HowTo: its steps in reading order, each step's `about` the elements it reads or writes (a
+// DefinedTerm in the standard that defines it, eg CEDS P001572), so an agent can read which step uses which element
+
+useHead(() => ({
+	title: useCase.value ? `${useCase.value.shortName || useCase.value.longName} · Use Cases` : 'Use case',
+	meta: useCase.value ? [{ name: 'description', content: `${useCase.value.longName}: an EDUcore use case, with its steps and the CEDS and other standards' elements each step reads or writes.` }] : [],
+}));
+
+const definedTermOf = (citationRow) => ({
+	'@type': 'DefinedTerm',
+	name: citationRow.citedName || citationRow.referenceName,
+	termCode: citationRow.citedIdentifier || undefined,
+	inDefinedTermSet: citationRow.citedSource || citationRow.citedStandard || undefined,
+	description: citationRow.citationStateLabel || undefined,
+});
+useJsonLd('use-case', () => {
+	if (!useCase.value) return null;
+	const citationByReferenceStableId = Object.fromEntries(citationList.value.map((oneCitation) => [oneCitation.referenceStableId, oneCitation]));
+	return {
+		'@type': 'HowTo',
+		'@id': absoluteUrlOf(route.fullPath),
+		name: useCase.value.longName || useCase.value.shortName,
+		alternateName: useCase.value.shortName || undefined,
+		identifier: useCase.value.caseStableId,
+		description: [useCase.value.scope ? `Scope: ${useCase.value.scope}.` : '', useCase.value.level ? `Level: ${useCase.value.level}.` : '', useCase.value.frequency ? `Frequency: ${useCase.value.frequency}.` : ''].filter(Boolean).join(' ') || undefined,
+		isPartOf: useCase.value.standardName ? { '@type': 'CreativeWork', name: useCase.value.standardName, version: useCase.value.releaseVersion || undefined } : undefined,
+		publisher: { '@id': 'https://educore.org/#organization' },
+		about: citationList.value.filter((oneCitation) => oneCitation.citationState === 'resolved').map(definedTermOf),
+		step: stepList.value.map((oneStep, stepIndex) => ({
+			'@type': 'HowToStep',
+			position: stepIndex + 1,
+			identifier: oneStep.codedNotation || undefined,
+			name: oneStep.action,
+			text: [oneStep.actorName ? `${oneStep.actorName}: ${oneStep.action}` : oneStep.action, oneStep.intention, oneStep.benefit].filter(Boolean).join('. '),
+			about: (oneStep.dataList || []).map((oneData) => (citationByReferenceStableId[oneData.dataStableId] ? definedTermOf(citationByReferenceStableId[oneData.dataStableId]) : { '@type': 'DefinedTerm', name: oneData.dataName })),
+		})),
+	};
+});
 
 // ================================================================================
 // IMPLEMENTATION GUIDE — standards chips (the most cited elements held first, all selected), and an Ask DME roadmap

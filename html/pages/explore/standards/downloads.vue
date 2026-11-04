@@ -14,6 +14,7 @@ import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
 import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { useJsonLd, absoluteUrlOf } from '@/composables/useJsonLd';
 
 // public (TQ, 2026-10-30: "all public"): no sign-in middleware, as for the Use Cases page
 
@@ -90,6 +91,39 @@ const familyGroupList = computed(() => {
 });
 
 const roundTripTextOf = (roundTrip) => (roundTrip ? `invented ${roundTrip.inventedTotal} · lost ${roundTrip.lostTotal} · content gaps ${roundTrip.contentGapTotal} · omitted by declaration ${roundTrip.explicitlyOmittedTotal}` : '');
+// every standard shown, as Schema.org: a Dataset per standard and version, its source and graph zips as its distributions
+// (each is fetched by POST /api/standard-downloads-file { downloadId }, so the DataDownload names the page that offers it)
+const FACET_NAME_BY_FACET = { source: 'Source, exactly as it was taken in', graph: 'Written back out of the graph, with its round-trip validation files (experimental)' };
+useJsonLd('downloads', () => {
+	if (!downloadsStore.manifest) return null;
+	const datasetList = familyGroupList.value.flatMap((familyGroup) =>
+		familyGroup.groupList.flatMap((groupRow) =>
+			groupRow.standardList.map((standardRow) => ({
+				'@type': 'Dataset',
+				name: `${groupRow.groupName} ${standardRow.version}`,
+				alternateName: standardRow.standardName,
+				version: standardRow.version,
+				identifier: standardRow.standardKey,
+				description: `${familyGroup.displayName} ${groupRow.groupName} version ${standardRow.version}, as held in the EDUcore graph ${downloadsStore.manifest.graphName}.`,
+				isPartOf: { '@type': 'CreativeWork', name: familyGroup.displayName },
+				creator: { '@id': 'https://educore.org/#organization' },
+				isAccessibleForFree: true,
+				url: absoluteUrlOf(`/explore/standards/downloads?standardKey=${encodeURIComponent(standardRow.standardKey)}`),
+				distribution: Object.values(standardRow.entryByFacet)
+					.filter((oneEntry) => oneEntry.available !== false)
+					.map((oneEntry) => ({
+						'@type': 'DataDownload',
+						name: FACET_NAME_BY_FACET[oneEntry.facet] || oneEntry.facet,
+						encodingFormat: 'application/zip',
+						contentSize: oneEntry.byteSize ? `${oneEntry.byteSize} B` : undefined,
+						url: absoluteUrlOf(`/explore/standards/downloads?standardKey=${encodeURIComponent(standardRow.standardKey)}`),
+					})),
+			})),
+		),
+	);
+	return { '@type': 'ItemList', name: 'EDUcore standard downloads', numberOfItems: datasetList.length, itemListElement: datasetList.map((oneDataset, datasetIndex) => ({ '@type': 'ListItem', position: datasetIndex + 1, item: oneDataset })) };
+});
+
 // the page names itself and its filter, so a reader (or an AI agent) of the tab knows which downloads it is looking at
 useHead(() => ({
 	title: [activeFilter.value.standardKey || activeFilter.value.group || (activeFilter.value.family && familyStyleOf(activeFilter.value.family).displayName), 'Downloads'].filter(Boolean).join(' · '),

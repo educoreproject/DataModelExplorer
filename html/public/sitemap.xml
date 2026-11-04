@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- EDUcore's public pages. One use case per /explore/use-cases/forged/{caseStableId} is linked from /explore/use-cases. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://educore.org/</loc></url>
+  <url><loc>https://educore.org/explore/use-cases</loc></url>
+  <url><loc>https://educore.org/explore/topics</loc></url>
+  <url><loc>https://educore.org/explore/standards</loc></url>
+  <url><loc>https://educore.org/explore/standards/specifications</loc></url>
+  <url><loc>https://educore.org/explore/standards/downloads</loc></url>
+  <url><loc>https://educore.org/explore/access-guide</loc></url>
+  <url><loc>https://educore.org/explore/implementation-burden</loc></url>
+  <url><loc>https://educore.org/who-we-are</loc></url>
+  <url><loc>https://educore.org/llms.txt</loc></url>
+</urlset>

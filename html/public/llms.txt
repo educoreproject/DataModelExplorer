@@ -1,0 +1,36 @@
+# EDUcore
+
+> EDUcore maps education data standards to each other. Its knowledge graph holds the standards (CEDS, PESC, SIF, Ed-Fi, CTDL, CASE, CLR, Open Badges, Ed-API, LIF, JEDx, CIP and more), every class and property in them, how each property maps to the shared hub elements (CEDS and CTDL), and a library of vetted use cases whose steps cite the elements they read or write. Everything is browsable on the site, queryable over a public REST API, and available to AI agents through an MCP server.
+
+Pages are a single-page app: their content is drawn by JavaScript, and each page's URL holds its whole state, so a link opens the same view. The machine-readable catalog of everything below is at [/.well-known/ai-catalog.json](https://educore.org/.well-known/ai-catalog.json).
+
+## Explore (public)
+
+- [Use cases](https://educore.org/explore/use-cases): the EDUcore use-case standard; each case opens at /explore/use-cases/forged/{caseStableId} with an Overview (and a generated use case map of which steps read or write which CEDS elements), T-Chart, Swimlane, Structure, Steps and citations, and an Implementation Guide
+- [Use cases by the standard they cite](https://educore.org/explore/topics)
+- [Standards](https://educore.org/explore/standards): the specification catalog (owner, version, governance, implementation burden, access, privacy and equity notes for each); signed in, the Standards Explorer walk of every standard, class and property and how each maps across (?path= holds the walk; inside a standard, Schema Viewer shows its schema)
+- [Specifications](https://educore.org/explore/standards/specifications): the Specification Viewer: pick a specification and walk its elements with their cross-specification mappings, or load an OpenAPI schema and map its fields
+- [Downloads](https://educore.org/explore/standards/downloads): each standard's source as taken in, and the standard written back out of the graph with its round-trip validation files (?family=, ?group=, ?standardKey= filter); then the published SSSOM mapping sets and hub cards
+- [Access guide](https://educore.org/explore/access-guide): the three ways in (the site, MCP, the REST API), with examples
+- [Implementation burden](https://educore.org/explore/implementation-burden): what implementing each specification takes
+
+## MCP server (AI agents)
+
+- Endpoint: https://ed-core.org/mcp (Streamable HTTP, server name educore-standards). Read-only. Requires an educore.org login (OAuth on first connect); request credentials from support@educore.org.
+- Tools: getSchema (the graph's labels, relationships and example queries; call it first) and cypherQuery (read-only Cypher, parameterised).
+- Claude Code: `claude mcp add educore-standards --transport http https://ed-core.org/mcp`
+
+## REST API (public unless noted)
+
+- `GET /api/dme-cypher-query?action=schema`: the graph schema; `POST /api/dme-cypher-query` `{ "action": "query", "query": "MATCH …", "params": {} }` runs a read-only Cypher query (the MCP cypherQuery engine)
+- `GET /api/dme-specifications`: every specification the graph holds, with element, class and property counts
+- `GET /api/dme-spec-elements`: one specification's elements (search and paging by query)
+- `POST /api/forged-use-cases` `{ "action": "list" | "byCitedStandard" | "case" | "caseStructure" | "useCaseDiagram", "caseStableId"? }`: the use cases; `useCaseDiagram` answers a case's map as SVG
+- `POST /api/standard-downloads-manifest` `{}`: every download; then `POST /api/standard-downloads-file` `{ "downloadId" }`
+- `POST /api/standards-neighbourhood` `{ "action": "node", "stableId" }`: one node of the Standards Explorer walk (sign-in required; start at "families:all")
+- `GET /api/dme-list-standards`: the standards with their hubs and mapping coverage (sign-in required)
+
+## Optional
+
+- [Who we are](https://educore.org/who-we-are)
+- Contact: support@educore.org

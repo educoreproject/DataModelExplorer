@@ -1,1 +1,32 @@
+# EDUcore: everything public may be crawled and read, by search engines and AI agents alike.
+# A summary for AI agents is at /llms.txt; the machine-readable catalog at /.well-known/ai-catalog.json.
+# Only account, admin and sign-in pages are kept out (they hold nothing public).
 
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /profile
+Disallow: /library
+Disallow: /login
+Disallow: /rater/admin
+
+# AI agents and assistants named so their access is explicit, not merely implied
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+Disallow: /admin
+Disallow: /profile
+Disallow: /library
+Disallow: /login
+Disallow: /rater/admin
+
+Sitemap: https://educore.org/sitemap.xml

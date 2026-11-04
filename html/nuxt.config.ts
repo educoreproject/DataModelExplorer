@@ -199,7 +199,37 @@ export default defineNuxtConfig({
           content: 'EDUcore: education data standards (CEDS, PESC, SIF, Ed-Fi, CTDL and more), their use cases, how their elements map to each other, and their downloads.',
         },
       ],
+      // Schema.org JSON-LD for the whole site, baked into every page's HTML (so it is there before any JavaScript runs);
+      // each page adds its own (composables/useJsonLd.js). Agents: /llms.txt and /.well-known/ai-catalog.json.
+      script: [
+        {
+          type: 'application/ld+json',
+          innerHTML: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'Organization',
+                '@id': 'https://educore.org/#organization',
+                name: 'EDUcore',
+                url: 'https://educore.org/',
+                logo: 'https://educore.org/educore-logo.png',
+                email: 'support@educore.org',
+              },
+              {
+                '@type': 'WebSite',
+                '@id': 'https://educore.org/#website',
+                name: 'EDUcore',
+                url: 'https://educore.org/',
+                description: 'A knowledge graph of education data standards (CEDS, PESC, SIF, Ed-Fi, CTDL and more): their elements, how they map to each other, use cases citing them, and downloads.',
+                publisher: { '@id': 'https://educore.org/#organization' },
+                inLanguage: 'en',
+              },
+            ],
+          }),
+        },
+      ],
       link: [
+        { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'EDUcore for AI agents (llms.txt)' },
         {
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&display=swap',
