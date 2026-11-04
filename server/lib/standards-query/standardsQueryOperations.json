@@ -479,7 +479,7 @@
 					"type": "text",
 					"required": true,
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "Element name, path, stableId, hub card identifier or uri, or a CEDS term as ceds:P000033.",
+					"description": "Element name, path, stableId, hub card identifier or uri, or a CEDS term as ceds:P000033. Given a hub card's uri, answers which elements map to that card.",
 					"acceptsUri": true
 				},
 				{
@@ -601,7 +601,7 @@
 			"isCounted": true,
 			"summaryShaperName": "mappings",
 			"aboutEntry": {
-				"forWhat": "Say what an element maps to in each hub, how sure that is, and which standards hold equivalents.",
+				"forWhat": "Say what an element maps to in each hub, how sure that is, and which standards hold equivalents. Given a card's uri, say which elements map to that card.",
 				"slowWhen": "element is a name (about half a minute); a stableId, uri or card identifier is quick",
 				"exampleInput": {
 					"element": "lif:Person/MilitaryLearningExperience/inline/dischargeDate"
@@ -1571,6 +1571,7 @@
 			"instancePathMatchedNodeCount",
 			"mappingStatusByHub",
 			"mappingStatusNote",
+			"cardInputNote",
 			"hubList"
 		],
 		"hubTupleFieldList": [
@@ -1726,13 +1727,13 @@
 		],
 		"howToReadAnAnswer": {
 			"answeredFrom": "Which graph and manifest answered, on which instance.",
-			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element.",
+			"uri": "The permanent name of an element or card. Quote it. Hand it back as the element input of mappings or pair, or as stableId to element. A card's uri given to mappings answers which elements map to it; read at /edc/, it answers what the card is.",
 			"rowDetail": "mappings, element and graph answer in summary form unless asked rowDetail=full. A summary carries rowDetail: summary and leftOutOfSummary, which says by count what it left out and how to ask.",
 			"mappingStatusByHub": {
 				"mapped": "A mapping reaches this hub.",
 				"judgedAbstained": "A judge was offered this element against this hub and declined.",
 				"neverOffered": "No judge was asked. Nothing is known either way.",
-				"notApplicable": "The element belongs to this hub."
+				"notApplicable": "The element belongs to this hub, or the input is a hub card, which no hub is ever offered."
 			},
 			"silenceIsNotAbstention": "A hub with no mapping is one of two different things: neverOffered is silence and judgedAbstained is a decision. Never report one as the other, or either as \"no equivalent exists\".",
 			"pairStatus": {
