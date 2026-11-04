@@ -355,7 +355,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', 'this instance has no [rosetta-fuse] settings, so retrieval is off here') });
 				return;
 			}
-			goldenHandle.withReadSession((session, sessionDone) => rosettaRetrieval.runRetrieval({ session, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, sessionDone), done);
+			rosettaRetrieval.runRetrieval({ withReadSession: goldenHandle.withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, done);
 		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),

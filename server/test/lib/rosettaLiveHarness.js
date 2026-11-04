@@ -1,6 +1,6 @@
 'use strict';
 // rosettaLiveHarness — what the live Rosetta and size gates share: the real golden, the real store and forge modules, a core built as the access point builds it, and an embedder that answers from the graph's own text nodes, so a gate is free, offline and deterministic. It is the embedder, and nothing else, that stands in; runs/P3/g31 measures the real one.
-//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder? }, done(err | '', { core, rosettaRetrieval, store, session, serviceFacts..., close })) ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
+//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher? }, done(err | '', { core, rosettaRetrieval, store, session, serviceFacts..., close })) ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
 
 const fs = require('fs');
 const os = require('os');
@@ -51,7 +51,7 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', dirPath, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedder, storeFilePath } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery } = {}, done) => {
 	const edcConfigValues = qbookConfigOf()['edc-resolver'];
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -86,7 +86,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedd
 				return;
 			}
 			const usedEmbedder = embedder || graphTextEmbedderFor({ goldenHandle, callLog: embedCallLog });
-			const rosettaRetrieval = createRosettaRetrieval({ fuseValues: fuseRead.fuseValues, strangerVectorStore, embedder: usedEmbedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher: runCypherQuery, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
+			const rosettaRetrieval = createRosettaRetrieval({ fuseValues: fuseRead.fuseValues, strangerVectorStore, embedder: usedEmbedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
 			const usageCountList = [];
 			const core = createStandardsQueryCore({
 				registry,
