@@ -5,8 +5,9 @@
 // One case of the EDUcore use-case standard, read from the graph. TQ ruled that the old static catalogue goes away and that
 // its replacement must not be poorer ("the old ones had swimlanes and t-charts and stuff"), so the old page's presentation
 // is carried over, every tab fed by the graph instead of the static file:
-//   Overview             the case, its actors (HAS_ACTOR role and interest), what it assumes and guarantees, what starts it,
-//                        its related cases and its sources
+//   Overview             the case, its use case map (drawn by the server from the graph: actors, steps and the elements each
+//                        step reads or writes; components/forgedUseCases/CaseDiagram.vue), its actors (HAS_ACTOR role and
+//                        interest), what it assumes and guarantees, what starts it, its related cases and its sources
 //   T-Chart              stem: subject → value drivers → use case; bar: its user stories, the elements it cites, its actors
 //   Swimlane             the actors who perform a step (story PERFORMED_BY actor) as lanes, the steps in reading order as rows,
 //                        each with the data it uses (IN) and produces (OUT)
@@ -23,6 +24,7 @@ import { useLoginStore } from '@/stores/loginStore';
 import { createEdunatorStore } from '@/stores/createEdunatorStore';
 import { pathTextOf, FAMILY_CATALOG_STABLE_ID } from '@/components/standardsExplorer/explorerVocabulary';
 import CaseStructureTab from '@/components/forgedUseCases/CaseStructureTab.vue';
+import CaseDiagram from '@/components/forgedUseCases/CaseDiagram.vue';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -192,6 +194,8 @@ const createImplementationPlan = () => {
 						<v-chip v-for="oneDriver in contextOf('valueDriver')" :key="oneDriver.targetStableId" size="small" variant="outlined">{{ oneDriver.targetName }}</v-chip>
 					</div>
 				</v-card>
+
+				<CaseDiagram :case-stable-id="useCase.caseStableId" />
 
 				<v-row class="mb-6">
 					<v-col cols="12" md="6">

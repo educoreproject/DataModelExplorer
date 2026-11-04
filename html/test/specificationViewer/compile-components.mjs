@@ -49,6 +49,9 @@ const FILES = [
 	'components/standardsExplorer/CrossingBanner.vue',
 	'components/standardsExplorer/Diagram.vue',
 	'app.vue',
+	// the use case map on a forged use case's Overview
+	'components/forgedUseCases/CaseDiagram.vue',
+	'pages/explore/use-cases/forged/[caseStableId].vue',
 ].filter((rel) => fs.existsSync(path.join(HTML, rel)));
 
 let failed = false;
