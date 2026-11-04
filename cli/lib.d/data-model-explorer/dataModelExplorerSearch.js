@@ -52,6 +52,7 @@ const {
 	declaredCorrespondenceCypherFor,
 	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+	FIND_MAPPINGS_CARD_INPUT_NOTE,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
 	HUB_TUPLE_SUMMARY_CAP,
@@ -549,7 +550,7 @@ const resolveMatchedNodes = (session, nameOrId, identifierFieldList, admitScan, 
 		scanIfAdmitted();
 		return;
 	}
-	runCypherQuery(session, `MATCH (n:ForgedNode {stableId: $name}) WHERE ${notLayerNodeText('n')} AND ${notUseCaseNodeText('n')} RETURN n.stableId AS stableId`, { name: nameOrId }, (exactError, exactResult) => {
+	runCypherQuery(session, `MATCH (n:ForgedNode {stableId: $name}) WHERE ${notLayerNodeText('n')} AND ${notUseCaseNodeText('n')} RETURN n.stableId AS stableId, 'HubReference' IN labels(n) AS isHubCard`, { name: nameOrId }, (exactError, exactResult) => {
 		if (exactError) {
 			callback(exactError);
 			return;
@@ -558,7 +559,7 @@ const resolveMatchedNodes = (session, nameOrId, identifierFieldList, admitScan, 
 			scanIfAdmitted();
 			return;
 		}
-		callback('', { matchedNodeCount: 1, matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true });
+		callback('', { matchedNodeCount: 1, matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true, isExactHubCard: exactResult.records[0].get('isHubCard') });
 	});
 };
 
@@ -598,6 +599,7 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, c
 			matchQueryParameters: matched.isExactStableId ? { matchedStableIdList: matched.matchedStableIdList } : { name: nameOrId },
 			matchedNodeCount: matched.matchedNodeCount,
 			instancePathMatchedNodeCount: matched.instancePathMatchedNodeCount,
+			isExactHubCard: matched.isExactHubCard === true,
 		});
 	}));
 	taskList.push((args, next) => {
@@ -605,7 +607,7 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, c
 			next('', args);
 			return;
 		}
-		runFindMappingsQuery(session, args.matchPredicateFor, args.matchQueryParameters, args.hubInventory.hubList, mergeArgs(args, next, 'mappingResult'));
+		runFindMappingsQuery(session, args.matchPredicateFor, args.matchQueryParameters, args.hubInventory.hubList, args.isExactHubCard, mergeArgs(args, next, 'mappingResult'));
 	});
 	// ⟪campaign P4a, Q9⟫ where the matched instances sit: per standard, the groups (SIF objects, PESC sections) holding an
 	// instance the input matched directly or through its declaration, whether or not it carries a mapping
@@ -679,6 +681,7 @@ const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, c
 			})),
 			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 			hubList: hubListFieldOf(args.hubInventory.hubList),
+			...(args.isExactHubCard ? { cardInputNote: FIND_MAPPINGS_CARD_INPUT_NOTE } : {}),
 			...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 		});
 	});
@@ -728,10 +731,32 @@ const HUB_CARD_IDENTIFIER_TEXT = 'coalesce(hub.canonicalKey, hub.termIri)';
 const hubDecompositionMatchTextFor = (hubNameList) => [['DOMAIN', 'cd'], ['PROPERTY', 'cp'], ['RANGE', 'cr'], ['VALUE', 'cv'], ['QUALIFIER', 'cq']]
 	.map(([slotName, leafVariableName]) => `OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(hubNameList, slotName).join('|')}]->(${leafVariableName}:ForgedNode)`)
 	.join('\n\t\t\t');
-const runFindMappingsQuery = (session, matchPredicateFor, matchQueryParameters, hubList, callback) => {
+const runFindMappingsQuery = (session, matchPredicateFor, matchQueryParameters, hubList, isExactHubCard, callback) => {
 	const hubNameList = hubList.map((hubRow) => hubRow.hubName);
 	const incomingHubEdgePattern = allHubDecompositionEdgeTypeList(hubNameList).join('|');
 	const hubDecompositionMatchText = hubDecompositionMatchTextFor(hubNameList);
+	const incomingRowText = `			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
+			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
+			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource, m.mappingRationale AS srcMappingRationale,
+			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
+			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
+			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
+			${hubDecompositionMatchText}
+			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
+			       srcMatchType AS mappingType, srcConfidence AS confidence,
+			       srcPredicate AS matchPredicate,
+			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
+			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
+			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
+			       null AS instanceOf,
+			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
+			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
+`;
 	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
 		WHERE ${matchPredicateFor('n')}
@@ -804,29 +829,12 @@ const runFindMappingsQuery = (session, matchPredicateFor, matchQueryParameters, 
 			// elements that resolve to a tuple containing it. The hub decomposes like every other arm (no n.name stand-ins).
 			// A source INSTANCE is reported as its declaration, its instances grouped and counted.
 			MATCH (n)<-[:${incomingHubEdgePattern}]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
-			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
-			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
-			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource, m.mappingRationale AS srcMappingRationale,
-			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
-			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
-			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
-			${hubDecompositionMatchText}
-			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
-			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
-			       srcMatchType AS mappingType, srcConfidence AS confidence,
-			       srcPredicate AS matchPredicate,
-			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
-			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
-			       cd.name AS hubDomain, cp.name AS hubProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
-			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
-			       null AS instanceOf,
-			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
-			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
-			       null AS viaInstanceGroupList, null AS viaInstanceCount
-	UNION
-			WITH n
+${incomingRowText}	UNION
+			${isExactHubCard ? `WITH n
+			// ⟪cardUriAnswers⟫ n IS the hub card, asked for by its exact uri: the source elements mapped to this one card
+			MATCH (hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode) WHERE hub = n
+${incomingRowText}	UNION
+			` : ''}WITH n
 			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
 			// live on its instances. One row per hub tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.

@@ -322,7 +322,7 @@ const STEP_BY_NAME = Object.freeze({
 const STANDARD_NAME_FIELD_LIST = Object.freeze(['standard', 'source', '_source', 'fromSource', 'sourceStandard', 'targetStandard', 'targetSource']);
 
 // The three meanings of "no mapping" (A1). The graph holds edges only; the store holds abstentions. The answer is per hub, over the nodes the input matched and their instances:
-//   mapped: a match edge reaches the hub. notApplicable: every matched node belongs to the hub. judgedAbstained: the manifest's decision blocks hold an abstention toward it.
+//   mapped: a match edge reaches the hub. notApplicable: every matched node belongs to the hub, or is a hub card, which no hub is ever offered. judgedAbstained: the manifest's decision blocks hold an abstention toward it.
 //   neverOffered: none of those. A store that cannot be read refuses by name rather than letting judgedAbstained read as neverOffered.
 const STATUS_INSTANCE_CAP = 500;
 const MAPPING_STATUS_UNAVAILABLE_PREFIX = 'mappingStatusUnavailable';
@@ -354,7 +354,7 @@ const mappingStatusByHubFor = ({ session, facts, runCypher, storeReads, matchedN
 					mappingStatusByHub[hubName] = 'mapped';
 					return;
 				}
-				if (matchedNodeList.length > 0 && matchedNodeList.every((oneNode) => oneNode.standardName === hubSource)) {
+				if (matchedNodeList.length > 0 && matchedNodeList.every((oneNode) => oneNode.isHubCard || oneNode.standardName === hubSource)) {
 					mappingStatusByHub[hubName] = 'notApplicable';
 					return;
 				}
