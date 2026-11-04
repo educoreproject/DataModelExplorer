@@ -16,19 +16,21 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const NEWLINE_BYTE = 10;
+const DIRECT_BLOCK_CLIENT_GONE_GRACE_MILLISECONDS = 2000;
 const STDERR_KEPT_CHARACTER_COUNT = 2000;
 
 const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeoutMilliseconds, directBlockTimeoutMilliseconds, xLog }) => {
 	let childIsRunning = false;
-	// a direct block's child has a sqlite3 of its own, so it leads a process group and a stop ends both
+	// a direct block's child has a sqlite3 of its own, so it leads a process group and a stop ends both. Its answer states its length, and nginx closes the connection the moment that many bytes
+	// arrive: that looks like a client gone, so a stop waits out a grace, which lets a finished child compare its hash and end by itself
 	const CHILD_PLAN_BY_NAME = Object.freeze({
-		wholeBlock: { scriptPath: path.join(__dirname, 'resolveOneUri.js'), timeoutMilliseconds: wholeBlockTimeoutMilliseconds, leadsProcessGroup: false },
-		directBlock: { scriptPath: path.join(__dirname, 'streamOneBlock.js'), timeoutMilliseconds: directBlockTimeoutMilliseconds, leadsProcessGroup: true },
+		wholeBlock: { scriptPath: path.join(__dirname, 'resolveOneUri.js'), timeoutMilliseconds: wholeBlockTimeoutMilliseconds, leadsProcessGroup: false, clientGoneGraceMilliseconds: 0 },
+		directBlock: { scriptPath: path.join(__dirname, 'streamOneBlock.js'), timeoutMilliseconds: directBlockTimeoutMilliseconds, leadsProcessGroup: true, clientGoneGraceMilliseconds: DIRECT_BLOCK_CLIENT_GONE_GRACE_MILLISECONDS },
 	});
 
 	const runOneChild = ({ childPlanName, childInput, whenClientGone }, callback) => {
 		childIsRunning = true;
-		const { scriptPath, timeoutMilliseconds, leadsProcessGroup } = CHILD_PLAN_BY_NAME[childPlanName];
+		const { scriptPath, timeoutMilliseconds, leadsProcessGroup, clientGoneGraceMilliseconds } = CHILD_PLAN_BY_NAME[childPlanName];
 		const child = spawn(process.execPath, [`--max-old-space-size=${wholeBlockMaxOldSpaceMegabytes}`, scriptPath], { stdio: ['pipe', 'pipe', 'pipe'], detached: leadsProcessGroup });
 		// its stdout goes too: 'close' waits for that stream to end, and a stream piped to a stalled client never would, which would hold the one slot long after the child was dead
 		const stopChild = () => {
@@ -49,7 +51,7 @@ const wholeBlockRunnerFor = ({ wholeBlockMaxOldSpaceMegabytes, wholeBlockTimeout
 		let responseBeingDelivered = null;
 
 		// a client gone before the header line, or during delivery, stops the child; otherwise it would block on a full pipe until its timeout, holding the one slot
-		whenClientGone(stopChild);
+		whenClientGone(() => setTimeout(stopChild, clientGoneGraceMilliseconds));
 
 		const answerOnce = (errorAnswer, answer) => {
 			if (!hasAnswered) {

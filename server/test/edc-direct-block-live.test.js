@@ -19,6 +19,7 @@ if (!fs.existsSync(URI_CONTRACT_FILE_PATH)) {
 }
 
 const CAP_BYTES = 67108864;
+const CLIENT_GONE_SETTLE_MILLISECONDS = 3000; // past the runner's grace on a client gone
 const SMALLEST_OVER_CAP_SCHEMA_BLOCK = '4002ade8ba2d8c3297bf17ec8008a622c6bd46d35205302d1beddd4c242afed3'; // SIF, 74.9 MB
 const OVER_CAP_BLOCK_LIST = Object.freeze([
 	{ pathText: 'schemaBlock/sha256/fa44bccf2a36c7da27775d97f4de75e6f2b8867f7df4f1ea7ac0b874ec3853fa', blockIdentity: 'fa44bccf2a36c7da27775d97f4de75e6f2b8867f7df4f1ea7ac0b874ec3853fa' },
@@ -87,7 +88,7 @@ const serviceFunction = accessPointFor({});
 serverFor(serviceFunction, (server, port) => {
 	const runBlock = (blockIndex) => {
 		if (blockIndex >= OVER_CAP_BLOCK_LIST.length) {
-			runHeldBlock();
+			setTimeout(runClosedAtLength, CLIENT_GONE_SETTLE_MILLISECONDS);
 			return;
 		}
 		const oneBlock = OVER_CAP_BLOCK_LIST[blockIndex];
@@ -96,6 +97,25 @@ serverFor(serviceFunction, (server, port) => {
 			ok('  it carries the expected hash, the length and the words that checking is the client\'s', downloaded.headers['x-edc-expected-sha256'] === oneBlock.blockIdentity && Number(downloaded.headers['content-length']) === downloaded.byteCount && /not checked before it is sent/.test(downloaded.headers['x-edc-verification']));
 			runBlock(blockIndex + 1);
 		});
+	};
+	// nginx closes its upstream connection the moment Content-Length is met: that is a finished download, and the child must live to compare its hash
+	const runClosedAtLength = () => {
+		errorLineList.length = 0;
+		const closingRequest = http.get({ port, path: `/${OVER_CAP_BLOCK_LIST[1].pathText}`, host: '127.0.0.1' }, (closingResponse) => {
+			let byteCount = 0;
+			closingResponse.on('data', (oneChunk) => {
+				byteCount += oneChunk.length;
+				if (byteCount === Number(closingResponse.headers['content-length'])) {
+					closingRequest.destroy();
+					setTimeout(() => {
+						ok('a client that closes on the last byte is a finished download: no stop is logged, and the child ended by itself', errorLineList.length === 0, errorLineList.join(' | ').slice(0, 200));
+						runHeldBlock();
+					}, CLIENT_GONE_SETTLE_MILLISECONDS);
+				}
+			});
+			closingResponse.on('error', () => {});
+		});
+		closingRequest.on('error', () => {});
 	};
 	const runHeldBlock = () => downloadWhenFree(port, `decisionSchemaBlock/sha256/${HELD_OVER_CAP_DECISION_BLOCK}`, (held) => {
 		const body = JSON.parse(held.headText);
@@ -116,7 +136,7 @@ serverFor(serviceFunction, (server, port) => {
 					ok('a client that goes away ends the child and its sqlite3', sqliteProcessCount() === '0', `${sqliteProcessCount()} sqlite3 left`);
 					server.close();
 					runTimeout();
-				}, 1500);
+				}, CLIENT_GONE_SETTLE_MILLISECONDS);
 			});
 		});
 		holdingRequest.on('error', () => {});
