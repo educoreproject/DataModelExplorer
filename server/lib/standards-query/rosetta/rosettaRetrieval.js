@@ -236,6 +236,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		fieldCount: parsed.fieldList.length,
 		hubList: hubRowList.map((oneHub) => oneHub.hubName),
 		nothingJudgedNote: facts.nothingJudgedNote,
+		rankNote: facts.rankNote,
 		retrievalSetting: { hitsPerText: fuseValues.hitsPerText, minCosine: fuseValues.minScore, poolCap: fuseValues.poolCap, tier: TIER_OFFERED },
 		fieldList: parsed.fieldList.map((oneField, fieldIndex) => {
 			const { fieldRefId } = fieldVectorList[fieldIndex];
