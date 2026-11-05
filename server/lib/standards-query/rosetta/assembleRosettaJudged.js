@@ -45,25 +45,32 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 			callback(storeError);
 			return;
 		}
-		// a judge that was configured and will not build leaves the step off, by name. The reason says what is wrong and never holds a credential: the client's own refusals name only the file.
-		const buildEngine = () => {
+		// a judge that was configured and will not build leaves the step off, by name. The reason says what is wrong and never holds a credential: the client's own refusals name only the file. Nothing on this path may throw: it runs in a sqlite callback, and a throw there stops the API, every other operation with it.
+		const buildEngine = (built) => {
 			if (judgedValues.judgeAbsentReason) {
-				return { judgeAbsentReason: judgedValues.judgeAbsentReason };
+				built({ judgeAbsentReason: judgedValues.judgeAbsentReason });
+				return;
 			}
-			fs.mkdirSync(path.dirname(judgedValues.spendLedgerFilePath), { recursive: true }); // the forge's ledger will not create a home for itself, and this one is ours
-			const judgeModules = forgeAdapter.loadJudgeModules();
-			if (judgeModules.error) {
-				return { judgeAbsentReason: judgeModules.error };
-			}
-			const engineMade = createRosettaJudgeEngine({ judgedValues, judgeModules, jobStore, componentOverrides, nowMs, waitMilliseconds, xLog });
-			return engineMade.refusalText ? { judgeAbsentReason: engineMade.refusalText } : { judgeEngine: engineMade };
+			fs.mkdir(path.dirname(judgedValues.spendLedgerFilePath), { recursive: true }, (mkdirError) => { // the forge's ledger will not create a home for itself, and this one is ours
+				if (mkdirError) {
+					built({ judgeAbsentReason: `the judge's spend ledger has no home at ${judgedValues.spendLedgerFilePath}: ${mkdirError.code}` });
+					return;
+				}
+				const judgeModules = forgeAdapter.loadJudgeModules();
+				if (judgeModules.error) {
+					built({ judgeAbsentReason: judgeModules.error });
+					return;
+				}
+				const engineMade = createRosettaJudgeEngine({ judgedValues, judgeModules, jobStore, componentOverrides, nowMs, waitMilliseconds, xLog });
+				built(engineMade.refusalText ? { judgeAbsentReason: engineMade.refusalText } : { judgeEngine: engineMade });
+			});
 		};
-		const { judgeEngine, judgeAbsentReason } = buildEngine();
+		buildEngine(({ judgeEngine, judgeAbsentReason }) => {
 		if (judgeAbsentReason) {
 			xLog.status(`assembleRosettaJudged: the judged step refuses submissions here: ${judgeAbsentReason}`);
 		}
 		let runner = null;
-		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
+		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, judgedTokensSpentToday: strangerVectorStore.judgedTokensSpentToday, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
 		const sweepNow = (done) => jobStore.sweepExpired({ cacheOldestKeptMs: nowMs() - judgedValues.jobRetentionDays * MILLISECONDS_PER_DAY }, done);
 		const startRunner = ({ getServiceFacts, runOperation }, startedDone) => {
 			runner = createRosettaJobRunner({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, rosettaRetrieval, withReadSession: goldenHandle.withReadSession, getServiceFacts, alreadyMappedFromFor: alreadyMappedFromVia(runOperation), spendLedgerWriter: spendLedgerWriterFor({ jobStore, judgeEngine, judgedValues, xLog }), runCypher, nowMs, xLog });
@@ -81,6 +88,7 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 			return runner;
 		};
 		callback('', { judgedValues, jobStore, judgeEngine, rosettaJobService, startRunner, sweepNow });
+		});
 	});
 };
 

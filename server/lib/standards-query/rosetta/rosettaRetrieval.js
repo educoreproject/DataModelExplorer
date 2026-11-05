@@ -29,6 +29,7 @@ const SHOW_VECTOR_INDEXES_CYPHER = 'SHOW INDEXES YIELD name, type, entityType, l
 const HUB_LIST_CYPHER = 'MATCH (hub:HubDefinition) RETURN hub.hubName AS hubName, hub._source AS sourceName, hub.version AS hubVersion ORDER BY hubName';
 const BASE_ROLE_BY_KIND_FROM_VOCABULARY = Object.freeze({ class: 'CLASS', property: 'PROPERTY', optionSet: 'OPTION_SET' });
 const TIER_OFFERED = 'property';
+const OMITTED_COUNT_NAME_LIST = Object.freeze(['unresolvedRefOmittedCount', 'unresolvedContextOmittedCount', 'notWalkedOmittedCount']);
 
 // DATA: each submission form, the input that carries it, and what reads it. A new form is one row and one parser file.
 const SUBMISSION_FORM_LIST = Object.freeze([
@@ -37,7 +38,7 @@ const SUBMISSION_FORM_LIST = Object.freeze([
 	{ inputName: 'jsonLdContext', formatName: 'jsonLdContext', parser: parseJsonLdContext },
 ]);
 
-const INTEGER_SETTING_NAME_LIST = Object.freeze(['maxFieldListLength', 'maxFieldNameChars', 'maxFieldDefinitionChars', 'maxFieldPathChars', 'maxDocumentDepth', 'maxRefExpansions', 'retrievalMaxTokensPerRequest', 'retrievalDailyTokenCeiling', 'retrievalInFlightMax', 'hitsPerText', 'poolCap', 'indexWindowPerText', 'textsPerGraphQuery', 'strangerVectorCacheMaxRows', 'strangerVectorRetentionDays']);
+const INTEGER_SETTING_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'maxUnresolvedListLength', 'maxFieldListLength', 'maxFieldNameChars', 'maxFieldDefinitionChars', 'maxFieldPathChars', 'maxDocumentDepth', 'maxRefExpansions', 'retrievalMaxTokensPerRequest', 'retrievalDailyTokenCeiling', 'retrievalInFlightMax', 'hitsPerText', 'poolCap', 'indexWindowPerText', 'textsPerGraphQuery', 'strangerVectorCacheMaxRows', 'strangerVectorRetentionDays']);
 const NUMBER_SETTING_NAME_LIST = Object.freeze(['minScore', 'judgeUsdPerFieldEstimate']);
 const TEXT_SETTING_NAME_LIST = Object.freeze(['rosettaStoreFilePath']);
 
@@ -131,8 +132,15 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		});
 	};
 
+	// two counts, one for each door to the vendor: an open retrieval spending its ceiling must not stop a signed-in job, nor a job an open retrieval
+	const TOKEN_ACCOUNT_BY_NAME = Object.freeze({
+		retrieval: { dailyCeiling: fuseValues.retrievalDailyTokenCeiling, spentToday: strangerVectorStore.tokensSpentToday, addToday: strangerVectorStore.addTokensToday, ceilingRefusal: () => refusalOf('retrievalCeilingReached', `today's ceiling of ${fuseValues.retrievalDailyTokenCeiling} retrieval tokens would be passed, so this retrieval cannot run. It resets at midnight UTC. Text already submitted costs nothing and still answers.`, { dailyTokenCeiling: fuseValues.retrievalDailyTokenCeiling }) },
+		judged: { dailyCeiling: fuseValues.judgedDailyTokenCeiling, spentToday: strangerVectorStore.judgedTokensSpentToday, addToday: strangerVectorStore.addJudgedTokensToday, ceilingRefusal: () => refusalOf('judgedTokenCeilingReached', `today's ceiling of ${fuseValues.judgedDailyTokenCeiling} tokens for judged jobs would be passed. It resets at midnight UTC. Retrieval keeps working.`, { dailyTokenCeiling: fuseValues.judgedDailyTokenCeiling }) },
+	});
+
 	// THE SPEND. Every text is asked of the cache first; only what is new costs a call. The fuse is read before any call, and the day's tokens are charged before the call goes, so a request that fails still counted.
-	const vectorsForTextRowList = ({ distinctTextRowList, embeddingModelVersion }, done) => {
+	const vectorsForTextRowList = ({ distinctTextRowList, embeddingModelVersion, tokenAccountName = 'retrieval', onTokensCharged }, done) => {
+		const tokenAccount = TOKEN_ACCOUNT_BY_NAME[tokenAccountName];
 		const textHashList = distinctTextRowList.map((oneRow) => oneRow.textHash);
 		strangerVectorStore.readVectors({ textHashList, embeddingModelVersion }, (readError, cachedVectorByTextHash) => {
 			if (readError) {
@@ -145,13 +153,13 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 				done('', { refusal: refusalOf('retrievalTokensPerRequestExceeded', `this submission's new text comes to about ${estimatedTokens} tokens; one request may spend ${fuseValues.retrievalMaxTokensPerRequest}. Send it in smaller submissions.`, { estimatedTokens, maxTokens: fuseValues.retrievalMaxTokensPerRequest }) });
 				return;
 			}
-			strangerVectorStore.tokensSpentToday((spentError, tokensSpentToday) => {
+			tokenAccount.spentToday((spentError, tokensSpentToday) => {
 				if (spentError) {
 					done(`the rosetta store would not read: ${spentError}`);
 					return;
 				}
-				if (estimatedTokens > 0 && tokensSpentToday + estimatedTokens > fuseValues.retrievalDailyTokenCeiling) {
-					done('', { refusal: refusalOf('retrievalCeilingReached', `today's ceiling of ${fuseValues.retrievalDailyTokenCeiling} retrieval tokens would be passed, so this retrieval cannot run. It resets at midnight UTC. Text already submitted costs nothing and still answers.`, { dailyTokenCeiling: fuseValues.retrievalDailyTokenCeiling }) });
+				if (estimatedTokens > 0 && tokensSpentToday + estimatedTokens > tokenAccount.dailyCeiling) {
+					done('', { refusal: tokenAccount.ceilingRefusal() });
 					return;
 				}
 				retrievalStats.cachedTextsServedTotal += distinctTextRowList.length - newTextRowList.length;
@@ -162,10 +170,13 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 					done('', { vectorByTextHash: cachedVectorByTextHash });
 					return;
 				}
-				strangerVectorStore.addTokensToday(estimatedTokens, (chargeError) => {
+				tokenAccount.addToday(estimatedTokens, (chargeError) => {
 					if (chargeError) {
 						done(`the rosetta store would not take the day's count: ${chargeError}`);
 						return;
+					}
+					if (onTokensCharged) {
+						onTokensCharged({ estimatedTokens, newTextCount: newTextRowList.length, cachedTextCount: distinctTextRowList.length - newTextRowList.length });
 					}
 					const vectorByTextHash = { ...cachedVectorByTextHash };
 					eachInTurn(sliceListOf(newTextRowList, embedder.batchSize), (textSlice, next) => {
@@ -257,6 +268,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		unresolvedRefList: parsed.unresolvedRefList,
 		unresolvedContextList: parsed.unresolvedContextList,
 		notWalkedList: parsed.notWalkedList,
+		...OMITTED_COUNT_NAME_LIST.reduce((soFar, countName) => (parsed[countName] ? { ...soFar, [countName]: parsed[countName] } : soFar), {}),
 	});
 
 	const finished = (done) => (doneError, doneResult) => {
@@ -356,7 +368,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 	};
 
 	// the stage itself, for any caller: design 4.1's signature. target names a hub or a standard; a name the graph does not hold is refused with the valid list.
-	const retrieveCandidates = ({ session, serviceFacts, queryTextList, target }, done) => {
+	const retrieveCandidates = ({ session, serviceFacts, queryTextList, target, tokenAccountName, onTokensCharged }, done) => {
 		withGraphFacts({ session, serviceFacts }, (factsError, graphFacts) => {
 			if (factsError) {
 				done(factsError);
@@ -381,7 +393,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			}
 			const resolvedTarget = target.kind === 'hubCards' ? { ...target, sourceName: graphFacts.hubRowList.find((oneHub) => oneHub.hubName === target.hubName).sourceName } : target;
 			const textRowList = fieldTextListOf({ name: queryTextList[0], definition: queryTextList[1] });
-			vectorsForTextRowList({ distinctTextRowList: textRowList, embeddingModelVersion: graphFacts.embeddingModelVersion }, (vectorError, vectorRead) => {
+			vectorsForTextRowList({ distinctTextRowList: textRowList, embeddingModelVersion: graphFacts.embeddingModelVersion, tokenAccountName, onTokensCharged }, (vectorError, vectorRead) => {
 				if (vectorError) {
 					done(vectorError);
 					return;

@@ -22,6 +22,7 @@ const CREATE_STATEMENT_LIST = Object.freeze([
 	'CREATE TABLE IF NOT EXISTS strangerVectorCache (textHash TEXT NOT NULL, embeddingModelVersion TEXT NOT NULL, vectorBlob BLOB NOT NULL, lastUsedAtMs INTEGER NOT NULL, PRIMARY KEY (textHash, embeddingModelVersion))',
 	'CREATE INDEX IF NOT EXISTS strangerVectorCacheByLastUsed ON strangerVectorCache (lastUsedAtMs)',
 	'CREATE TABLE IF NOT EXISTS retrievalTokenDays (utcDay TEXT PRIMARY KEY, tokenCount INTEGER NOT NULL)',
+	'CREATE TABLE IF NOT EXISTS judgedTokenDays (utcDay TEXT PRIMARY KEY, tokenCount INTEGER NOT NULL)',
 ]);
 
 const vectorOfBlob = (vectorBlob) => Array.from(new Float32Array(vectorBlob.buffer, vectorBlob.byteOffset, vectorBlob.length / Float32Array.BYTES_PER_ELEMENT));
@@ -114,6 +115,10 @@ const createStrangerVectorStore = ({ storeFilePath, maxRows, retentionDays, nowD
 
 	const addTokensToday = (tokenCount, done) => storeHandle.run('INSERT INTO retrievalTokenDays (utcDay, tokenCount) VALUES (?, ?) ON CONFLICT (utcDay) DO UPDATE SET tokenCount = tokenCount + excluded.tokenCount', [utcDayText(), tokenCount], (writeError) => done(writeError ? writeError.message : ''));
 
+	// the judged step counts its own: an open retrieval spending its ceiling must not stop a job somebody signed in for (design 4.2)
+	const judgedTokensSpentToday = (done) => storeHandle.get('SELECT tokenCount FROM judgedTokenDays WHERE utcDay = ?', [utcDayText()], (readError, oneRow) => (readError ? done(readError.message) : done('', oneRow ? oneRow.tokenCount : 0)));
+	const addJudgedTokensToday = (tokenCount, done) => storeHandle.run('INSERT INTO judgedTokenDays (utcDay, tokenCount) VALUES (?, ?) ON CONFLICT (utcDay) DO UPDATE SET tokenCount = tokenCount + excluded.tokenCount', [utcDayText(), tokenCount], (writeError) => done(writeError ? writeError.message : ''));
+
 	const rowCount = (done) => storeHandle.get('SELECT count(*) AS rowCount FROM strangerVectorCache', [], (readError, oneRow) => (readError ? done(readError.message) : done('', oneRow.rowCount)));
 
 	const close = (done) => storeHandle.close((closeError) => {
@@ -123,7 +128,7 @@ const createStrangerVectorStore = ({ storeFilePath, maxRows, retentionDays, nowD
 		done();
 	});
 
-	const storeApi = { readVectors, writeVectors, tokensSpentToday, addTokensToday, sweepNow, rowCount, storeHandle, close };
+	const storeApi = { readVectors, writeVectors, tokensSpentToday, addTokensToday, judgedTokensSpentToday, addJudgedTokensToday, sweepNow, rowCount, storeHandle, close };
 };
 
 module.exports = { createStrangerVectorStore };

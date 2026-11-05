@@ -17,11 +17,22 @@ const { judgedSettings } = require('./rosettaJudgeEngine');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const JOB_REF_ID_BYTES = 16;
+const BYTES_PER_TOKEN_ESTIMATE = 4;
+const OMITTED_COUNT_NAME_LIST = Object.freeze(['unresolvedRefOmittedCount', 'unresolvedContextOmittedCount', 'notWalkedOmittedCount']);
 const JOB_REF_ID_PATTERN = /^[0-9a-f]{32}$/;
+// what a cancel did, by what it found: running told to stop, queued ended, or it arrived after the job had already finished
+const cancelNoteOf = ({ wasChanged, status }) => {
+	if (!wasChanged) {
+		return 'the job had already finished when this arrived; what it did stays fetchable';
+	}
+	return status === 'cancelling' ? 'it stops at the next field; a judge call already sent is finished and recorded, and what is finished stays fetchable' : 'it had not begun; nothing was spent';
+};
 const refusalOf = (refusedByName, refusalName, reason, extraFields = {}) => ({ refusedByName, refusalName, reason, ...extraFields });
 const roundedUsdOf = (usd) => Number(usd.toFixed(4));
 
-const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues, hubRowListFor, tickRunner, nowMs }) => {
+const PATH_IN_REASON_PATTERN = /\/[^\s'"`,;:)]+/g; // the reason is an answer to a stranger; the whole of it is in the log
+
+const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues, hubRowListFor, judgedTokensSpentToday, tickRunner, nowMs }) => {
 	const refusalJudgedAnswer = (operationName, refusalName, reason, extraFields) => ({ answer: refusalOf(operationName, refusalName, reason, extraFields) });
 
 	let isAdmitting = false;
@@ -66,8 +77,20 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 	};
 
 	// the checks that read the store, in the order a person would want told: their own open job, the queue, then money
-	const admissionRefusalFor = ({ principal, estimateUsd }, done) => {
+	const admissionRefusalFor = ({ principal, estimateUsd, estimatedTokens }, done) => {
 		const operationName = 'rosettaSubmit';
+		judgedTokensSpentToday((tokenError, tokensSpent) => {
+			if (tokenError) {
+				done(tokenError);
+				return;
+			}
+			if (tokensSpent + estimatedTokens > judgedValues.judgedDailyTokenCeiling) {
+				done('', refusalJudgedAnswer(operationName, 'judgedTokenCeilingReached', 'today\'s tokens for judged jobs are spent. It resets at midnight UTC. Retrieval keeps working.'));
+				return;
+			}
+			afterTokenCheck();
+		});
+		const afterTokenCheck = () => {
 		if (estimateUsd > judgedValues.perJobCeilingUsd) {
 			done('', refusalJudgedAnswer(operationName, 'perJobCeilingReached', `a job of this size is more than one job may spend; send fewer fields or fewer hubs. At most ${judgedValues.judgedMaxFieldListLength} fields a job.`));
 			return;
@@ -120,12 +143,13 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 				});
 			});
 		});
+		};
 	};
 
 	const submit = ({ principal, input, serviceFacts, withReadSession, answeredFrom, namedSubjectList }, done) => {
 		const operationName = 'rosettaSubmit';
 		if (!judgeEngine) {
-			done('', refusalJudgedAnswer(operationName, 'judgeNotConfigured', `the judged step is off on this instance: ${judgeAbsentReason}. Retrieval keeps working.`));
+			done('', refusalJudgedAnswer(operationName, 'judgeNotConfigured', `the judged step is off on this instance: ${String(judgeAbsentReason).replace(PATH_IN_REASON_PATTERN, '<path>')}. Retrieval keeps working.`));
 			return;
 		}
 		const formList = SUBMISSION_FORM_LIST.filter((oneForm) => input[oneForm.inputName] !== undefined);
@@ -157,7 +181,9 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 				return;
 			}
 			const estimateUsd = roundedUsdOf(parsed.fieldList.length * hubNameList.length * judgedValues.judgeUsdPerFieldEstimate);
-			inTurn((finished) => admissionRefusalFor({ principal, estimateUsd }, (admitError, admission) => {
+			// an upper bound, since a text the cache holds costs nothing: refused here rather than accepted and stopped at its first field
+			const estimatedTokens = Math.ceil(parsed.fieldList.reduce((soFar, oneField) => soFar + Buffer.byteLength(oneField.name) + Buffer.byteLength(oneField.definition || ''), 0) / BYTES_PER_TOKEN_ESTIMATE);
+			inTurn((finished) => admissionRefusalFor({ principal, estimateUsd, estimatedTokens }, (admitError, admission) => {
 				if (admitError) {
 					finished(`the job store would not read: ${admitError}`);
 					return;
@@ -175,7 +201,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					byteSize: Buffer.byteLength(JSON.stringify(input[submissionForm.inputName])),
 					fieldList: parsed.fieldList,
 					hubNameList,
-					submissionNote: { unresolvedRefList: parsed.unresolvedRefList, unresolvedContextList: parsed.unresolvedContextList, notWalkedList: parsed.notWalkedList },
+					submissionNote: { unresolvedRefList: parsed.unresolvedRefList, unresolvedContextList: parsed.unresolvedContextList, notWalkedList: parsed.notWalkedList, ...OMITTED_COUNT_NAME_LIST.reduce((soFar, countName) => (parsed[countName] ? { ...soFar, [countName]: parsed[countName] } : soFar), {}) },
 					expiresAtMs: nowMs() + judgedValues.jobRetentionDays * MILLISECONDS_PER_DAY,
 					estimateUsd,
 					answeredFrom,
@@ -244,7 +270,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 				done(`the job store would not write: ${cancelError}`);
 				return;
 			}
-			jobStore.readJob(job.jobRefId, (readError, currentJob) => (readError ? done(`the job store would not read: ${readError}`) : done('', { answer: { jobRefId: job.jobRefId, status: currentJob.status, cancelNote: wasChanged && currentJob.status === 'cancelling' ? 'it stops at the next field; a judge call already sent is finished and recorded, and what is finished stays fetchable' : 'it had not begun; nothing was spent' } })));
+			jobStore.readJob(job.jobRefId, (readError, currentJob) => (readError ? done(`the job store would not read: ${readError}`) : done('', { answer: { jobRefId: job.jobRefId, status: currentJob.status, cancelNote: cancelNoteOf({ wasChanged, status: currentJob.status }) } })));
 		});
 	}, done);
 

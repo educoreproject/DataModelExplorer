@@ -25,14 +25,13 @@ const { assembleRosettaJudged } = require('../../lib/standards-query/rosetta/ass
 const registry = require('../../lib/standards-query/standardsQueryOperations.json');
 
 const CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
-const MAIN_TREE_CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configsStandardsQueryP3', 'instanceSpecific', 'qbook');
 const DIRECT_BLOCK_CONFIG_VALUES = Object.freeze({ directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@harness.example' }); // the configs tree this reads may predate them; none of these gates reads a block
 const GATE_WAIT_MILLISECONDS = 200;
 const GATE_WAIT_LIMIT = 300;
 const LIVE_LIMIT_VALUES = Object.freeze({ publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 });
-const LIVE_FUSE_VALUES = Object.freeze({ retrievalMaxTokensPerRequest: 120000, retrievalDailyTokenCeiling: 2000000, retrievalInFlightMax: 1, maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, hitsPerText: 40, minScore: 0.3, poolCap: 40, indexWindowPerText: 5000, textsPerGraphQuery: 40, judgeUsdPerFieldEstimate: 0.07, strangerVectorCacheMaxRows: 200000, strangerVectorRetentionDays: 30, judgedMaxFieldListLength: 50, maxRunningJobs: 1, maxQueuedJobs: 5, perPrincipalJobsOpen: 1, perJobCeilingUsd: 8, perPrincipalDailyUsd: 10, dailyJudgeCeilingUsd: 25, jobRetentionDays: 30, jobRunnerPollSeconds: 3600, judgeRetryWaitSecondsList: '1,1', judgedPoolCap: 20 });
-const FAKE_PRICING_INI_TEXT = '[spendPrice_anthropicOpus5]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate fixture, the rate in spendPricing.ini\npriceAsOf=2026-11-05\n';
-const FAKE_VENDOR_INI_TEXT = '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\n';
+const LIVE_FUSE_VALUES = Object.freeze({ retrievalMaxTokensPerRequest: 120000, retrievalDailyTokenCeiling: 2000000, retrievalInFlightMax: 1, judgedDailyTokenCeiling: 2000000, maxUnresolvedListLength: 50, maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, hitsPerText: 40, minScore: 0.3, poolCap: 40, indexWindowPerText: 5000, textsPerGraphQuery: 40, judgeUsdPerFieldEstimate: 0.07, strangerVectorCacheMaxRows: 200000, strangerVectorRetentionDays: 30, judgedMaxFieldListLength: 50, maxRunningJobs: 1, maxQueuedJobs: 5, perPrincipalJobsOpen: 1, perJobCeilingUsd: 8, perPrincipalDailyUsd: 10, dailyJudgeCeilingUsd: 25, jobRetentionDays: 30, jobRunnerPollSeconds: 3600, judgeRetryWaitSecondsList: '1,1', judgedPoolCap: 20 });
+const FAKE_PRICING_INI_TEXT = '[spendPrice_anthropicOpus5]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate fixture, the rate in spendPricing.ini\npriceAsOf=2026-11-05\n[spendPrice_voyage4Large]\nprovider=voyage\nmodel=voyage-4-large\ninputUsdPerMillionTokens=0.12\noutputUsdPerMillionTokens=0\npriceSource=gate fixture\npriceAsOf=2026-11-05\n';
+const FAKE_VENDOR_INI_TEXT = '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\nmaxTokens=2500\n';
 
 // the texts of the graph's own nodes become their own stored vectors. A text the graph does not hold is a fault of the fixture, said by name.
 const graphTextEmbedderFor = ({ goldenHandle, callLog }) => ({
@@ -52,11 +51,10 @@ const graphTextEmbedderFor = ({ goldenHandle, callLog }) => ({
 });
 
 const qbookConfigOf = () => {
-	const dirPath = fs.existsSync(path.join(MAIN_TREE_CONFIG_DIR_PATH, 'startApiServer.ini')) ? MAIN_TREE_CONFIG_DIR_PATH : CONFIG_DIR_PATH;
-	return configFileProcessor.getConfig('startApiServer.ini', dirPath, { resolve: true });
+	return configFileProcessor.getConfig('startApiServer.ini', CONFIG_DIR_PATH, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, nowDate: suppliedNowDate } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate } = {}, done) => {
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'] };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -75,6 +73,10 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 		if (forgeAdapter.refusalText) {
 			done(`forge: ${forgeAdapter.refusalText}`);
 			return;
+		}
+		if (wrapJudgeModules) { // a gate can watch what the judge's modules make
+			const realLoad = forgeAdapter.loadJudgeModules;
+			forgeAdapter.loadJudgeModules = () => wrapJudgeModules(realLoad());
 		}
 		const fuseRead = rosettaFuseValuesOf({ ...LIVE_FUSE_VALUES, rosettaStoreFilePath, ...fuseOverrideValues });
 		if (fuseRead.refusalText) {
@@ -98,7 +100,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				fs.writeFileSync(path.join(scratchDirPath, 'fakeAnthropic.ini'), FAKE_VENDOR_INI_TEXT);
 				fs.writeFileSync(path.join(scratchDirPath, 'fakePricing.ini'), FAKE_PRICING_INI_TEXT);
 			}
-			const usedJudgeConfigValues = judgeConfigValues || (vendorPostOnce ? { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'fakeAnthropic.ini'), spendPricingFilePath: path.join(scratchDirPath, 'fakePricing.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'ledger', 'rosettaSpendLedgerLifetime.jsonl') } : {});
+			const usedJudgeConfigValues = judgeConfigValues || (vendorPostOnce ? { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'fakeAnthropic.ini'), spendPricingFilePath: path.join(scratchDirPath, 'fakePricing.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'ledger', 'rosettaSpendLedgerLifetime.jsonl') } : {});
 			assembleRosettaJudged({ fuseConfigValues: { ...LIVE_FUSE_VALUES, ...fuseOverrideValues }, judgeConfigValues: usedJudgeConfigValues, fuseValues: fuseRead.fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle, runCypher, nowDate, xLog, componentOverrides: vendorPostOnce ? { postOnce: vendorPostOnce } : undefined, ...(waitMilliseconds ? { waitMilliseconds } : {}) }, (assembleError, rosettaJudged) => {
 			if (assembleError) {
 				done(assembleError);
@@ -121,8 +123,10 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 			let waitCount = 0;
 			const waitForGate = () => {
 				if (core.serviceState().isServing) {
-					const runner = rosettaJudged.startRunner({ getServiceFacts: core.serviceFactsForGate, runOperation: core.runOperation });
-					done('', { edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
+					// a gate can stand in for the graph's facts, to change the manifest or lose the graph under a running job
+					const factsHolder = { getServiceFacts: core.serviceFactsForGate };
+					const runner = rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation });
+					done('', { setServiceFactsForRunner: (getServiceFacts) => { factsHolder.getServiceFacts = getServiceFacts; }, edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
 					return;
 				}
 				waitCount += 1;

@@ -3,7 +3,7 @@
 //
 // A RATIONALE CAN QUOTE A STRANGER'S TEXT, AND SO CAN A FIELD NAME. Everything from an answer is shown by {{ }}, which escapes it. This page must never use v-html: a gate (rosetta-page.test.js) reads this file and fails if it does.
 
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRosettaStore } from '@/stores/rosettaStore';
 import { useLoginStore } from '@/stores/loginStore';
 
@@ -29,6 +29,12 @@ const downloadDraft = (hubName) => {
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+const currentUserRefId = () => (loginStore.validUser ? loginStore.loggedInUser.refId || loginStore.loggedInUser.username : '');
+onMounted(() => store.forgetIfAnotherPerson(currentUserRefId()));
+watch(currentUserRefId, (nextUserRefId) => {
+	store.forgetIfAnotherPerson(nextUserRefId);
+	activeTab.value = store.jobStatus ? activeTab.value : 'submit';
+});
 onUnmounted(() => store.stopPolling());
 </script>
 

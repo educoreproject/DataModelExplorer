@@ -22,9 +22,9 @@ const SINGLE_ATTEMPT = 1;
 const STOP_REASON_MAX_TOKENS = 'max_tokens';
 const JUDGMENT_BUDGET_PER_UNIT = Object.freeze({ maxJudgmentCount: 2 }); // one ask and judgeOne's one bounded re-ask
 
-const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds']);
+const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds']);
 const USD_FUSE_NAME_LIST = Object.freeze(['perJobCeilingUsd', 'perPrincipalDailyUsd', 'dailyJudgeCeilingUsd', 'judgeUsdPerFieldEstimate']);
-const JUDGE_TEXT_NAME_LIST = Object.freeze(['judgeProviderName', 'judgeWireModel', 'anthropicConfigFilePath', 'spendPricingFilePath', 'judgePromptVariant', 'spendLedgerFilePath']);
+const JUDGE_TEXT_NAME_LIST = Object.freeze(['judgeProviderName', 'judgeWireModel', 'judgeOutputTokenBudget', 'anthropicConfigFilePath', 'spendPricingFilePath', 'judgePromptVariant', 'spendLedgerFilePath']);
 
 const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
 	const badFuseList = [
@@ -48,6 +48,27 @@ const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
 const FAULT_ROW_LIST = judgedSettings.vendorFaultRowList.map((oneRow) => ({ ...oneRow, compiledPattern: new RegExp(oneRow.pattern, 'i') }));
 const vendorFaultRowOf = (errorText) => FAULT_ROW_LIST.find((oneRow) => oneRow.compiledPattern.test(errorText));
 
+// the forge's scan reads identifiers as they are written: P001234, ceterms:Name. A person may type p001234, P 001234, P００１２３４ or CETERMS:Name, and a model reads all of them as the id. So each text is scanned as written and in two normal forms: full width folded, separators inside an id closed up, then each case.
+const SEPARATOR_INSIDE_IDENTIFIER_PATTERN = /([PpCc]|\d)[\s\-_.]+(?=\d)/g;
+const normalFormListOf = (fieldText) => {
+	const closedText = String(fieldText).normalize('NFKC').replace(SEPARATOR_INSIDE_IDENTIFIER_PATTERN, '$1');
+	return [String(fieldText), closedText.toUpperCase(), closedText.toLowerCase()];
+};
+const sourceSurfacesOf = (oneField) => ['name', 'definition', 'path', 'type'].reduce((soFar, partName) => {
+	const partText = oneField[partName] || '';
+	return normalFormListOf(partText).reduce((formsSoFar, formText, formIndex) => ({ ...formsSoFar, [`${partName}${formIndex}`]: formText }), soFar);
+}, {});
+
+// a NONE from a response that was cut may be the model running out of room, so it is not reported as a judge declining
+const unitStatusOfJudged = ({ chosenCardStableId, answerWasCut }) => {
+	if (chosenCardStableId !== null) {
+		return 'proposed';
+	}
+	return answerWasCut ? 'abstainedOnCutAnswer' : 'abstained';
+};
+const STORE_FAILED_STOP = Object.freeze({ jobStatus: 'stopped', stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take what the judge needs recorded' });
+const JUDGE_ANSWER_REFUSAL_PATTERN = new RegExp(judgedSettings.judgeAnswerRefusalPattern, 'i');
+
 const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, componentOverrides, nowMs, waitMilliseconds, xLog }) => {
 	if (judgedValues.judgeProviderName !== PROVIDER_NAME_ANTHROPIC) {
 		return { refusalText: `[rosetta-judge] judgeProviderName is '${judgedValues.judgeProviderName}'; this build judges through ${PROVIDER_NAME_ANTHROPIC}` };
@@ -63,6 +84,10 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		return { refusalText: made.error };
 	}
 	const { judgeClient } = made;
+	// the budget lives in the file the credential lives in, which a person can carry from another instance: said here and proved here, so a wrong file is a refusal and not a run of cut answers
+	if (judgeClient.judgeConfig.maxTokens !== Number(judgedValues.judgeOutputTokenBudget)) {
+		return { refusalText: `[rosetta-judge] judgeOutputTokenBudget is ${judgedValues.judgeOutputTokenBudget}, and the judge's own ini gives ${judgeClient.judgeConfig.maxTokens}: set maxTokens in that file` };
+	}
 	const priceRead = spendPricer.priceRowFor({ provider: PROVIDER_NAME_ANTHROPIC, model: judgeClient.wireModel });
 	if (priceRead.error) {
 		return { refusalText: `the judge's model ${judgeClient.wireModel} is refused as unpriced: ${priceRead.error.message || priceRead.error}` };
@@ -91,15 +116,14 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		return hubFactsByName[hubName];
 	};
 
-	const judgmentCache = jobStore.judgmentCacheFor();
-
 	// THE METER. judgeOne calls rerank; this is rerank. One attempt per row, priced as it answers, waits between attempts within the stated bound, and stopReasonNow asked before each attempt, so a fuse or a cancel holds between retries too.
-	const meteredClientFor = ({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder }) => ({
+	const meteredClientFor = ({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash }) => ({
 		...judgeClient,
 		rerank: (rerankOptions, rerankDone) => {
 			const attemptNumberOf = (waitIndex) => waitIndex + 1;
 			const runAttempt = (waitIndex) => stopReasonNow((stopError, stopReason) => {
 				if (stopError) {
+					stopHolder.stopReason = STORE_FAILED_STOP;
 					rerankDone(`rosettaJudgeEngine: the fuse could not be read: ${stopError}`);
 					return;
 				}
@@ -108,8 +132,9 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					rerankDone(`rosettaJudgeEngine: stopped before attempt ${attemptNumberOf(waitIndex)}: ${stopReason.stopReasonName}`);
 					return;
 				}
-				jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: judgedValues.judgeUsdPerFieldEstimate, wireModel: judgeClient.wireModel }, (addError, callRefId) => {
+				jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: judgedValues.judgeUsdPerFieldEstimate, wireModel: judgeClient.wireModel, promptHash }, (addError, callRefId) => {
 					if (addError) {
+						stopHolder.stopReason = STORE_FAILED_STOP;
 						rerankDone(`rosettaJudgeEngine: the bill would not write, so the call was not sent: ${addError}`);
 						return;
 					}
@@ -117,7 +142,14 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					judgeClient.rerank({ ...rerankOptions, maxRetries: SINGLE_ATTEMPT }, (rerankError, clientReturn) => {
 						const faultRow = rerankError ? vendorFaultRowOf(String(rerankError)) : undefined;
 						// a fault the vendor does not bill frees its estimate; one it may have billed keeps it, and a retry adds another: retries are priced
-						const finishWith = (callFacts, afterFinish) => jobStore.finishJudgeCall({ callRefId, ...callFacts }, (finishError) => (finishError ? rerankDone(`rosettaJudgeEngine: the bill would not write: ${finishError}`) : afterFinish()));
+						const finishWith = (callFacts, afterFinish) => jobStore.finishJudgeCall({ callRefId, ...callFacts }, (finishError) => {
+							if (finishError) {
+								stopHolder.stopReason = STORE_FAILED_STOP;
+								rerankDone(`rosettaJudgeEngine: the bill would not write: ${finishError}`);
+								return;
+							}
+							afterFinish();
+						});
 						const retryOrStop = (oneFaultRow, afterStop) => {
 							const waitSeconds = judgedValues.judgeRetryWaitSecondsList[waitIndex];
 							const isUnderAttemptLimit = oneFaultRow.attemptLimit === undefined || attemptNumberOf(waitIndex) < oneFaultRow.attemptLimit;
@@ -129,8 +161,12 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 							afterStop();
 						};
 						if (rerankError) {
+							// a vendor failing in a way nobody named stops the job: asked a hundred times, it would otherwise end done
 							if (!faultRow) {
-								finishWith({ callStatus: CALL_STATUS.failedUnbilled, usd: 0, faultName: 'unrecognised' }, () => rerankDone(rerankError));
+								finishWith({ callStatus: CALL_STATUS.failedUnbilled, usd: 0, faultName: judgedSettings.unnamedVendorFault.faultName }, () => {
+									stopHolder.vendorStop = judgedSettings.unnamedVendorFault;
+									rerankDone(`rosettaJudgeEngine: ${judgedSettings.unnamedVendorFault.faultName}`);
+								});
 								return;
 							}
 							finishWith(faultRow.billedWhenUnanswered ? { callStatus: CALL_STATUS.unansweredPriced, usd: judgedValues.judgeUsdPerFieldEstimate, faultName: faultRow.faultName } : { callStatus: CALL_STATUS.failedUnbilled, usd: 0, faultName: faultRow.faultName }, () => retryOrStop(faultRow, () => {
@@ -177,11 +213,12 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		},
 	});
 
-	// what the stranger wrote, as the forge's source element: the subject side of the allow-list, so a property nobody declared cannot reach a prompt
+	// what the stranger wrote, as the forge's source element: the subject side of the allow-list, so a property nobody declared cannot reach a prompt. On one line each: the renderer prints a value raw, so a newline in a stranger's text would make lines that look like the prompt's own sections.
+	const oneLineOf = (fieldText) => String(fieldText).replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ');
 	const sourceElementOf = (oneField) => ({
-		name: oneField.name,
-		stableId: oneField.name,
-		material: { name: oneField.name, ...(oneField.definition ? { description: oneField.definition } : {}), ...(oneField.path ? { path: oneField.path } : {}), ...(oneField.type ? { dataType: oneField.type } : {}) },
+		name: oneLineOf(oneField.name),
+		stableId: oneLineOf(oneField.name),
+		material: { name: oneLineOf(oneField.name), ...(oneField.definition ? { description: oneLineOf(oneField.definition) } : {}), ...(oneField.path ? { path: oneLineOf(oneField.path) } : {}), ...(oneField.type ? { dataType: oneLineOf(oneField.type) } : {}) },
 		evidence: { subject: {}, assertion: {} },
 		sourceLabelByColumn: {},
 		sourceNoteByColumn: {},
@@ -195,7 +232,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		}
 		const { hubBridging, identifierScan } = hubFacts;
 		// a stranger who pastes ids is no attacker, but an id lets the judge match by id instead of meaning: this one field is not judged, and the job goes on (design 4.8)
-		const sourceHit = identifierScan.firstHitIn({ fieldName: oneField.name || '', fieldDefinition: oneField.definition || '', fieldPath: oneField.path || '', fieldType: oneField.type || '' });
+		const sourceHit = identifierScan.firstHitIn(sourceSurfacesOf(oneField));
 		if (sourceHit) {
 			done('', { unitStatus: 'identifierInSourceText', identifierScanPatternName: sourceHit.patternName, identifierScanSurfaceName: sourceHit.surfaceName });
 			return;
@@ -225,8 +262,8 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		const stopHolder = {};
 		judgeModules.judgeOne({
 			question,
-			judgeClient: meteredClientFor({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder }),
-			judgmentCache,
+			judgeClient: meteredClientFor({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash: question.promptHash }),
+			judgmentCache: jobStore.judgmentCacheFor({ ownerPrincipalRefId, onCutMarkRead: (wasCut) => { stopHolder.answerWasCut = wasCut; }, cutMarkForPut: () => Boolean(stopHolder.answerWasCut) }),
 			matchForensics: { appendRecord: ({ pairKey: pairName, generation, record }, appended) => jobStore.appendForensicRecord({ jobRefId, pairName, generation, record }, appended) },
 			budget: { ...JUDGMENT_BUDGET_PER_UNIT, judgmentCountSoFar: 0 },
 			pairKey: `rosetta::${hubName}`,
@@ -247,14 +284,19 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 				return;
 			}
 			if (judgeError) {
-				// the vendor answered, and judgeOne would not take the answer (a form fault after its one re-ask, an unreadable choice). The money is already on the bill. The text can quote the prompt, so it stays in no log.
+				// the vendor answered, and judgeOne would not take the answer (a form fault after its one re-ask, an unreadable choice). The money is already on the bill. The text can quote the prompt, so it stays in no log. Anything else judgeOne says is this service failing, which must stop the job and not read as a judge's refusal.
+				if (!JUDGE_ANSWER_REFUSAL_PATTERN.test(String(judgeError)) && !/rosettaJudgeEngine: judgeUnpricedAnswer/.test(String(judgeError))) {
+					xLog.error(`rosettaJudgeEngine: job ${jobRefId}: judging failed in this service, not at the vendor`);
+					done('', { stoppedBy: { jobStatus: 'stopped', stopReasonName: 'judgeFaulted', stopReasonText: 'this service could not finish a judgment' } });
+					return;
+				}
 				xLog.status(`rosettaJudgeEngine: job ${jobRefId}: judgeOne refused one answer`);
-				done('', { unitStatus: 'judgeRefused', promptHash: question.promptHash });
+				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash });
 				return;
 			}
 			const collapse = (rendered.cardCollapseList || []).find((oneEntry) => oneEntry.renderedStableId === judged.chosenCardStableId);
 			done('', {
-				unitStatus: judged.chosenCardStableId === null ? 'abstained' : 'proposed',
+				unitStatus: unitStatusOfJudged({ chosenCardStableId: judged.chosenCardStableId, answerWasCut: stopHolder.answerWasCut }),
 				promptHash: question.promptHash,
 				cacheHit: judged.cacheHit,
 				...(judged.chosenCardStableId === null ? {} : { chosenCardStableId: judged.chosenCardStableId, category: judged.category, confidence: judged.confidence === undefined ? CONFIDENCE_OF_NO_CATEGORY : judged.confidence, ...(judged.predicate ? { predicate: judged.predicate } : {}) }),

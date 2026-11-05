@@ -58,4 +58,20 @@ const fieldCollectorFor = (parserLimitValues) => {
 	return { add, fieldList };
 };
 
-module.exports = { isPlainRecord, isUsableText, depthRefusalFor, fieldCollectorFor };
+// a list of what the walk could not read, capped as it grows: a hostile document can name a hundred thousand of them. What is over the cap is counted, and a long text in a row is cut to the path cap.
+const cappedRowListFor = (parserLimitValues) => {
+	const rowList = [];
+	let omittedCount = 0;
+	const add = (oneRow) => {
+		if (rowList.length >= parserLimitValues.maxUnresolvedListLength) {
+			omittedCount += 1;
+			return;
+		}
+		rowList.push(Object.keys(oneRow).reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: typeof oneRow[fieldName] === 'string' ? oneRow[fieldName].slice(0, parserLimitValues.maxFieldPathChars) : oneRow[fieldName] }), {}));
+	};
+	return { add, rowList, omittedCount: () => omittedCount };
+};
+// only a list that overflowed says so: an ordinary answer keeps the fields it always had
+const omittedCountsOf = (countByName) => Object.keys(countByName).filter((countName) => countByName[countName] > 0).reduce((soFar, countName) => ({ ...soFar, [countName]: countByName[countName] }), {});
+
+module.exports = { isPlainRecord, isUsableText, depthRefusalFor, fieldCollectorFor, cappedRowListFor, omittedCountsOf };

@@ -13,7 +13,10 @@ const { judgedSettings } = require('./rosettaJudgeEngine');
 const STATUS_NOT_JUDGED = 'notJudged';
 const JOB_STATUS_DONE = 'done';
 const OPEN_STATUS_LIST = Object.freeze(['queued', 'running', 'cancelling']);
-const STATUS_COUNT_NAME_LIST = Object.freeze(['abstained', 'noCandidate', 'notJudged', 'lostAtRestart', 'judgeRefused', 'identifierInSourceText', 'identifierInCandidateText']);
+const STATUS_COUNT_NAME_LIST = Object.freeze(['abstained', 'abstainedOnCutAnswer', 'noCandidate', 'notJudged', 'lostAtRestart', 'judgeRefused', 'identifierInSourceText', 'identifierInCandidateText']);
+const STATUS_NAME_LIST_NOT_JUDGED = Object.freeze(['notJudged', 'lostAtRestart', 'judgeRefused']);
+const COUNT_NAME_ANSWERS_CUT = 'answersCut';
+const DRAFT_REFUSED_TERM_ROW_LIST = judgedSettings.draftRefusedTermPatternList.map((oneRow) => ({ ...oneRow, compiledPattern: new RegExp(oneRow.pattern) }));
 const roundedUsdOf = (usd) => Number(usd.toFixed(4));
 const isoOf = (timeMs) => (timeMs ? new Date(timeMs).toISOString() : null);
 
@@ -26,6 +29,7 @@ const ownerJobFactsOf = ({ job, spentUsd, unitsFinished }) => ({
 	unitsFinished,
 	unitsTotal: job.fieldCount * job.hubNameList.length,
 	unitNote: 'one unit is one field against one hub',
+	embeddingTokensEstimate: job.embeddingTokens,
 	spentUsd: roundedUsdOf(spentUsd),
 	estimateUsd: job.estimateUsd,
 	submittedAt: isoOf(job.submittedAtMs),
@@ -35,31 +39,38 @@ const ownerJobFactsOf = ({ job, spentUsd, unitsFinished }) => ({
 });
 
 const countsByHubOf = ({ job, fieldList, rowByUnitName }) => job.hubNameList.reduce((soFar, hubName) => {
-	const zeroCounts = [...Object.values(judgedSettings.proposalCategoryCountNameByCategory), ...STATUS_COUNT_NAME_LIST].reduce((zeroSoFar, countName) => ({ ...zeroSoFar, [countName]: 0 }), {});
+	const zeroCounts = [...Object.values(judgedSettings.proposalCategoryCountNameByCategory), ...STATUS_COUNT_NAME_LIST, COUNT_NAME_ANSWERS_CUT].reduce((zeroSoFar, countName) => ({ ...zeroSoFar, [countName]: 0 }), {});
 	const hubCounts = fieldList.reduce((countsSoFar, unusedField, fieldIndex) => {
 		const oneRow = rowByUnitName.get(`${fieldIndex}\u0000${hubName}`);
 		const countName = !oneRow ? STATUS_NOT_JUDGED : (oneRow.unitStatus === 'proposed' ? judgedSettings.proposalCategoryCountNameByCategory[oneRow.judgment.proposal.category] : oneRow.unitStatus);
-		return { ...countsSoFar, [countName]: (countsSoFar[countName] || 0) + 1 };
+		const withStatus = { ...countsSoFar, [countName]: (countsSoFar[countName] || 0) + 1 };
+		return oneRow && oneRow.judgment.answerWasCut ? { ...withStatus, [COUNT_NAME_ANSWERS_CUT]: withStatus[COUNT_NAME_ANSWERS_CUT] + 1 } : withStatus;
 	}, zeroCounts);
 	return { ...soFar, [hubName]: hubCounts };
 }, {});
 
+// a @context maps a term to an IRI, and some names mean something else there or to whatever reads the JSON: each stays out, named with the true reason. A Map, so a name like constructor is only a name.
 const draftsByHubOf = ({ job, fieldList, rowByUnitName }) => {
 	const leftOutTermList = [];
 	const draftContextByHub = job.hubNameList.reduce((soFar, hubName) => {
-		const termContext = {};
+		const termUriByName = new Map();
 		fieldList.forEach((oneField, fieldIndex) => {
 			const oneRow = rowByUnitName.get(`${fieldIndex}\u0000${hubName}`);
 			if (!oneRow || oneRow.unitStatus !== 'proposed' || !judgedSettings.draftCategoryList.includes(oneRow.judgment.proposal.category)) {
 				return;
 			}
-			if (termContext[oneField.name] !== undefined) {
+			const refusedRow = DRAFT_REFUSED_TERM_ROW_LIST.find((oneTermRow) => oneTermRow.compiledPattern.test(oneField.name));
+			if (refusedRow) {
+				leftOutTermList.push({ term: oneField.name, hubName, reason: refusedRow.reason });
+				return;
+			}
+			if (termUriByName.has(oneField.name)) {
 				leftOutTermList.push({ term: oneField.name, hubName, reason: 'two fields share this name, and a @context holds a term once' });
 				return;
 			}
-			termContext[oneField.name] = oneRow.judgment.proposal.uri;
+			termUriByName.set(oneField.name, oneRow.judgment.proposal.uri);
 		});
-		return { ...soFar, [hubName]: { '@context': termContext } };
+		return { ...soFar, [hubName]: { '@context': Object.fromEntries(termUriByName) } };
 	}, {});
 	return { draftContextByHub, leftOutTermList };
 };
@@ -80,6 +91,8 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		}, {}),
 	}));
 	const { draftContextByHub, leftOutTermList } = draftsByHubOf({ job, fieldList, rowByUnitName });
+	const counts = countsByHubOf({ job, fieldList, rowByUnitName });
+	const hasUnitNotJudged = Object.values(counts).some((hubCounts) => STATUS_NAME_LIST_NOT_JUDGED.some((statusName) => hubCounts[statusName] > 0));
 	const isFullDetail = rowDetail === 'full';
 	const pageCount = Math.max(1, Math.ceil(reportedFieldList.length / pageSize));
 	return {
@@ -89,9 +102,9 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		strongOnlyNote: answerNoteValues.strongOnlyNote,
 		strongEvidenceNote: answerNoteValues.strongEvidenceNote,
 		rationaleNote: answerNoteValues.rationaleNote,
-		...(job.status === JOB_STATUS_DONE ? {} : { isPartial: true, partialNote: answerNoteValues.partialNote }),
+		...(job.status === JOB_STATUS_DONE && !hasUnitNotJudged ? {} : { isPartial: true, partialNote: answerNoteValues.partialNote }),
 		answeredFromAtSubmit: job.answeredFrom,
-		counts: { byHub: countsByHubOf({ job, fieldList, rowByUnitName }) },
+		counts: { byHub: counts },
 		draftContextByHub,
 		...(leftOutTermList.length ? { leftOutOfDraftList: leftOutTermList } : {}),
 		...submissionNote,

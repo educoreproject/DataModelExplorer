@@ -214,7 +214,15 @@ const loadJudgeModulesFrom = (educoreForgeCodePath) => {
 		},
 		loadSpendPricing: ({ pricingFilePath }) => {
 			const attempted = attemptForgeCall(() => spendPricingLib.loadSpendPricing({ pricingFilePath }), `reading prices from ${pricingFilePath}`);
-			return attempted.error ? { error: attempted.error } : attempted.result;
+			if (attempted.error || attempted.result.error) {
+				return { error: attempted.error || attempted.result.error };
+			}
+			const { spendPricer } = attempted.result;
+			const attemptPricing = (priceInput, askPrice) => {
+				const priced = attemptForgeCall(() => askPrice(priceInput), 'pricing a call');
+				return priced.error ? { error: priced.error } : priced.result;
+			};
+			return { spendPricer: { ...spendPricer, usdFor: (priceInput) => attemptPricing(priceInput, spendPricer.usdFor), priceRowFor: (priceInput) => attemptPricing(priceInput, spendPricer.priceRowFor) } };
 		},
 		spendLedgerLib,
 		// a configuration fault in the client is a throw at construction, by the client's own rule: here it becomes { error }. It never echoes a credential.

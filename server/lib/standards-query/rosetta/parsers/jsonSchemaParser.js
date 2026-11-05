@@ -4,7 +4,7 @@
 // $ref resolves only inside the document. A remote one is recorded in unresolvedRefList and never fetched; this file reaches no network, by having nothing to reach it with. A cycle is refused by name, and so is a document past the expansion cap: a 2 KB schema can otherwise fan out to 10^k fields.
 // What is not walked (anyOf, oneOf, allOf past its first level) is named in notWalkedList, never dropped in silence.
 
-const { isPlainRecord, depthRefusalFor, fieldCollectorFor } = require('./parserLimits');
+const { isPlainRecord, depthRefusalFor, fieldCollectorFor, cappedRowListFor, omittedCountsOf } = require('./parserLimits');
 
 const LOCAL_REF_PREFIX = '#';
 const UNWALKED_COMPOSITION_NAME_LIST = Object.freeze(['anyOf', 'oneOf', 'not']);
@@ -30,8 +30,10 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		return { refusal: depthRefusal };
 	}
 	const collector = fieldCollectorFor(parserLimitValues);
-	const unresolvedRefList = [];
-	const notWalkedList = [];
+	const unresolvedRefs = cappedRowListFor(parserLimitValues);
+	const unresolvedRefList = unresolvedRefs.rowList;
+	const notWalkedRows = cappedRowListFor(parserLimitValues);
+	const notWalkedList = notWalkedRows.rowList;
 	let refExpansionCount = 0;
 
 	// follows $ref to the schema it names: { schemaPart, refStack } | { refusal } | {} when unresolved, which is recorded
@@ -41,7 +43,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		}
 		const refText = schemaPart.$ref;
 		if (!refText.startsWith(LOCAL_REF_PREFIX)) {
-			unresolvedRefList.push({ path: pathText, ref: refText, reason: 'remote: never fetched' });
+			unresolvedRefs.add({ path: pathText, ref: refText, reason: 'remote: never fetched' });
 			return {};
 		}
 		if (refStack.includes(refText)) {
@@ -53,7 +55,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		}
 		const refTarget = localRefTargetOf(submittedDocument, refText);
 		if (!isPlainRecord(refTarget)) {
-			unresolvedRefList.push({ path: pathText, ref: refText, reason: 'names nothing in this document' });
+			unresolvedRefs.add({ path: pathText, ref: refText, reason: 'names nothing in this document' });
 			return {};
 		}
 		return resolveSchemaPart({ schemaPart: refTarget, pathText, refStack: [...refStack, refText] });
@@ -63,7 +65,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		if (depth > parserLimitValues.maxDocumentDepth) {
 			return { refusalName: 'depthExceeded', reason: `the schema at ${pathText} walks deeper than ${parserLimitValues.maxDocumentDepth} levels`, maxDepth: parserLimitValues.maxDocumentDepth, path: pathText };
 		}
-		UNWALKED_COMPOSITION_NAME_LIST.filter((compositionName) => schemaPart[compositionName] !== undefined).forEach((compositionName) => notWalkedList.push({ path: pathText, reason: `${compositionName} is not walked` }));
+		UNWALKED_COMPOSITION_NAME_LIST.filter((compositionName) => schemaPart[compositionName] !== undefined).forEach((compositionName) => notWalkedRows.add({ path: pathText, reason: `${compositionName} is not walked` }));
 		const propertyByName = isPlainRecord(schemaPart.properties) ? schemaPart.properties : {};
 		const propertyNameList = Object.keys(propertyByName);
 		for (let propertyIndex = 0; propertyIndex < propertyNameList.length; propertyIndex += 1) {
@@ -71,7 +73,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 			const propertyPath = `${pathText}/${escapedSegmentOf(propertyName)}`;
 			const propertyPart = propertyByName[propertyName];
 			if (!isPlainRecord(propertyPart)) {
-				notWalkedList.push({ path: propertyPath, reason: 'its schema is not an object' });
+				notWalkedRows.add({ path: propertyPath, reason: 'its schema is not an object' });
 				continue;
 			}
 			const resolved = resolveSchemaPart({ schemaPart: propertyPart, pathText: propertyPath, refStack });
@@ -105,13 +107,13 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		}
 		if (Array.isArray(schemaPart.allOf)) {
 			if (allOfDepth >= ALL_OF_DEPTH_WALKED) {
-				notWalkedList.push({ path: pathText, reason: 'allOf past its first level is not walked' });
+				notWalkedRows.add({ path: pathText, reason: 'allOf past its first level is not walked' });
 				return null;
 			}
 			for (let memberIndex = 0; memberIndex < schemaPart.allOf.length; memberIndex += 1) {
 				const memberPart = schemaPart.allOf[memberIndex];
 				if (!isPlainRecord(memberPart)) {
-					notWalkedList.push({ path: `${pathText}/allOf/${memberIndex}`, reason: 'its schema is not an object' });
+					notWalkedRows.add({ path: `${pathText}/allOf/${memberIndex}`, reason: 'its schema is not an object' });
 					continue;
 				}
 				const resolvedMember = resolveSchemaPart({ schemaPart: memberPart, pathText: `${pathText}/allOf/${memberIndex}`, refStack });
@@ -140,7 +142,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 	if (collector.fieldList.length === 0) {
 		return { refusal: { refusalName: 'noFieldsFound', reason: 'this schema has no properties to read as fields', unresolvedRefList, notWalkedList } };
 	}
-	return { fieldList: collector.fieldList, unresolvedRefList, unresolvedContextList: [], notWalkedList };
+	return { fieldList: collector.fieldList, unresolvedRefList, unresolvedContextList: [], notWalkedList, ...omittedCountsOf({ unresolvedRefOmittedCount: unresolvedRefs.omittedCount(), notWalkedOmittedCount: notWalkedRows.omittedCount() }) };
 };
 
 module.exports = { parseJsonSchema };

@@ -11,7 +11,7 @@ const PICK_PREDICATE_BY_CATEGORY = Object.freeze({ strong: 'exactMatch', moderat
 const pickOf = (choice, category, rationale) => ({ choice, category, rationale, predicate: PICK_PREDICATE_BY_CATEGORY[category] });
 const abstentionOf = (rationale) => ({ choice: 'NONE', category: 'none', rationale, predicate: 'none' });
 
-const fakeJudgeVendorFor = ({ answerFor = () => pickOf('1', 'strong', 'The first candidate means the same thing.') } = {}) => {
+const fakeJudgeVendorFor = ({ answerFor = () => pickOf('1', 'strong', 'The first candidate means the same thing.'), answerDelayMs = 0 } = {}) => {
 	const callLog = [];
 	let faultScriptList = [];
 	let heldCallList = null;
@@ -29,9 +29,13 @@ const fakeJudgeVendorFor = ({ answerFor = () => pickOf('1', 'strong', 'The first
 	};
 	const postOnce = ({ payload }, callback) => {
 		const callIndex = callLog.length;
-		callLog.push({ model: payload.model, userPrompt: payload.messages[0].content, systemPrompt: payload.system, atMs: Date.now() });
+		callLog.push({ maxTokens: payload.max_tokens, model: payload.model, userPrompt: payload.messages[0].content, systemPrompt: payload.system, atMs: Date.now() });
 		if (heldCallList) {
 			heldCallList.push(() => answerNow({ payload, callIndex }, callback));
+			return;
+		}
+		if (answerDelayMs) {
+			setTimeout(() => answerNow({ payload, callIndex }, callback), answerDelayMs);
 			return;
 		}
 		answerNow({ payload, callIndex }, callback);

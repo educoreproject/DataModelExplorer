@@ -17,6 +17,9 @@ const MILLISECONDS_PER_DAY = 86400000;
 const MILLISECONDS_PER_SECOND = 1000;
 const TIER_OFFERED = 'property';
 const UNIT_STATUS_NO_CANDIDATE = 'noCandidate';
+const JUDGED_TOKEN_ACCOUNT_NAME = 'judged';
+const EMBEDDING_PROVIDER_NAME = 'voyage';
+const RELEASE_JOB = Object.freeze({ releaseJob: true });
 const JOB_STATUS = Object.freeze({ done: 'done', running: 'running', cancelled: 'cancelled', fuseTripped: 'fuseTripped', vendorStopped: 'vendorStopped', stopped: 'stopped' });
 const CARD_FACTS_CYPHER_FOR = (candidateFieldNameList) => `MATCH (card:HubReference) WHERE card.stableId IN $cardStableIdList RETURN card { .stableId, .qualifierNames, ${candidateFieldNameList.filter((oneName) => oneName !== 'componentIdeaList').map((oneName) => `.${oneName}`).join(', ')} } AS cardFacts`;
 
@@ -68,6 +71,12 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			}
 			if (currentJob.status === 'cancelling') {
 				done('', { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' });
+				return;
+			}
+			// compared before every unit: the graph can come back on another golden under a running job, and pools from it are not this job's. No facts just now is not a change: the unit will wait for them.
+			const currentFacts = getServiceFacts();
+			if (currentFacts && currentFacts.passport.manifestRefId !== job.answeredFrom.manifestRefId) {
+				done('', manifestChangedStop({ job, serviceFacts: currentFacts }));
 				return;
 			}
 			const sinceMs = nowMs() - MILLISECONDS_PER_DAY;
@@ -123,6 +132,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		});
 	};
 
+	const manifestChangedStop = ({ job, serviceFacts }) => ({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'manifestChanged', stopReasonText: `this job began on manifest ${job.answeredFrom.manifestRefId}; the instance now answers from ${serviceFacts.passport.manifestRefId}` });
+
 	const runnerUpListOf = ({ candidateList, chosenCardStableId }) => candidateList.filter((oneCandidate) => oneCandidate.stableId !== chosenCardStableId).slice(0, judgedSettings.runnerUpListLength).map(({ uri, label, cosine }) => ({ uri, label, cosine }));
 
 	// a field with a pool comes out as one row, whichever way the judge went. A vendor fault writes no row here: the caller ends the job and the report reads notJudged.
@@ -136,6 +147,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			...(outcome.identifierScanPatternName ? { identifierScanPatternName: outcome.identifierScanPatternName } : {}),
 			...(outcome.judgesRationale ? { judgesRationale: outcome.judgesRationale } : {}),
 			...(outcome.answerWasCut ? { answerWasCut: true } : {}),
+			...(outcome.notJudgedReason ? { notJudgedReason: outcome.notJudgedReason } : {}),
 			...(chosenCandidate ? {
 				proposal: {
 					uri: chosenCandidate.uri,
@@ -151,7 +163,13 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		};
 	};
 
-	const runUnit = ({ job, oneField, fieldIndex, hubName, serviceFacts }, unitDone) => {
+	const runUnit = ({ job, oneField, fieldIndex, hubName }, unitDone) => {
+		// the graph is reconnecting: the job lets go, keeps its status, and the next tick picks it up where it was
+		const serviceFacts = getServiceFacts();
+		if (!serviceFacts) {
+			unitDone('', RELEASE_JOB);
+			return;
+		}
 		const stopReasonNow = stopReasonFor(job);
 		stopReasonNow((stopError, stopReason) => {
 			if (stopError) {
@@ -163,7 +181,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 				return;
 			}
 			// a session of its own, closed before the judge is asked: a judge call takes seconds and no graph session waits on it
-			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: 'hubCards', hubName, tier: TIER_OFFERED } }, (poolError, pool) => {
+			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: 'hubCards', hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
 				if (poolError || pool.refusal || pool.status === UNIT_STATUS_NO_CANDIDATE) {
 					sessionDone(poolError, { pool });
 					return;
@@ -218,12 +236,17 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 	const runJob = (job, jobDone) => {
 		const serviceFacts = getServiceFacts();
 		const finishWith = (stopReason) => finishJob({ job, stopReason }, jobDone);
+		// the facts were there at the tick and went while the queue was read: nothing has begun, and the next tick asks again
+		if (!serviceFacts) {
+			jobDone();
+			return;
+		}
 		if (!judgeEngine) {
 			finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeNotConfigured', stopReasonText: judgeAbsentReason || 'this instance has no judge' });
 			return;
 		}
 		if (serviceFacts.passport.manifestRefId !== job.answeredFrom.manifestRefId) {
-			finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'manifestChanged', stopReasonText: `this job began on manifest ${job.answeredFrom.manifestRefId}; the instance now answers from ${serviceFacts.passport.manifestRefId}` });
+			finishWith(manifestChangedStop({ job, serviceFacts }));
 			return;
 		}
 		jobStore.markJobRunning({ jobRefId: job.jobRefId, startedAtMs: nowMs() }, (statusError, hasBegun) => {
@@ -255,7 +278,11 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 							runNextUnit(unitIndex + 1);
 							return;
 						}
-						runUnit({ job, oneField: submission.fieldList[fieldIndex], fieldIndex, hubName, serviceFacts }, (unusedError, stopReason) => {
+						runUnit({ job, oneField: submission.fieldList[fieldIndex], fieldIndex, hubName }, (unusedError, stopReason) => {
+							if (stopReason === RELEASE_JOB) {
+								jobDone();
+								return;
+							}
 							if (stopReason) {
 								finishWith(stopReason);
 								return;
@@ -279,7 +306,20 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			activeJobCount -= 1;
 			setImmediate(tick);
 		};
-		jobStore.readJobList({ statusList: [JOB_STATUS.running] }, (runningError, runningJobList) => {
+		jobStore.readJobList({ statusList: ['cancelling'] }, (cancellingError, cancellingJobList) => {
+			// told to stop, and no unit will ever read that: nobody holds it. It would keep its owner's one slot and its estimate for ever.
+			const unheldCancelling = cancellingError ? undefined : cancellingJobList.find((oneJob) => !heldJobRefIdSet.has(oneJob.jobRefId));
+			if (unheldCancelling) {
+				heldJobRefIdSet.add(unheldCancelling.jobRefId);
+				finishJob({ job: unheldCancelling, stopReason: { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' } }, () => {
+					heldJobRefIdSet.delete(unheldCancelling.jobRefId);
+					released();
+				});
+				return;
+			}
+			startNextJob();
+		});
+		const startNextJob = () => jobStore.readJobList({ statusList: [JOB_STATUS.running] }, (runningError, runningJobList) => {
 			if (runningError) {
 				xLog.error(`rosettaJobRunner: the queue would not read: ${runningError}`);
 				activeJobCount -= 1;
@@ -338,7 +378,8 @@ const spendLedgerWriterFor = ({ jobStore, judgeEngine, judgedValues, xLog }) => 
 		done('');
 		return;
 	}
-	jobStore.judgeCallTotalsOf(job.jobRefId, (totalsError, totalsRowList) => {
+	const withFreshJob = (useJob) => jobStore.readJob(job.jobRefId, (readError, currentJob) => (readError ? done(readError) : useJob(currentJob)));
+	withFreshJob((freshJob) => jobStore.judgeCallTotalsOf(job.jobRefId, (totalsError, totalsRowList) => {
 		if (totalsError) {
 			done(totalsError);
 			return;
@@ -361,7 +402,7 @@ const spendLedgerWriterFor = ({ jobStore, judgeEngine, judgedValues, xLog }) => 
 				buildStartedAtIso: new Date(job.startedAtMs || job.submittedAtMs).toISOString(),
 				storeDirPath: 'rosettaJobs.sqlite',
 				bridgeSpendList: [{ bridgeName: 'rosetta', pairKey: job.hubNameList.join('+'), judgeSpend: { asked: sumOf('callCount'), servedFromCache: 0, abstained: judgmentRowList.filter((oneRow) => oneRow.unitStatus === 'abstained').length, inputTokens: sumOf('inputTokens'), outputTokens: sumOf('outputTokens'), usd: sumOf('usd'), savedUsd: 0, savedUsdUnknownCount: 0, debugUnitCount: 0, usdByProviderModel } }],
-				embeddingSpendRecordList: [],
+				embeddingSpendRecordList: freshJob.embeddingTextCount + freshJob.embeddingCachedCount > 0 ? [{ provider: EMBEDDING_PROVIDER_NAME, model: freshJob.answeredFrom.embeddingModelVersion, texts: freshJob.embeddingTextCount + freshJob.embeddingCachedCount, distinctMisses: freshJob.embeddingTextCount, servedFromCache: freshJob.embeddingCachedCount, tokens: freshJob.embeddingTokens, latencyMs: 0 }] : [],
 				spendPricer: judgeEngine.spendPricer,
 			});
 			if (ledgerMade.error) {
@@ -370,7 +411,7 @@ const spendLedgerWriterFor = ({ jobStore, judgeEngine, judgedValues, xLog }) => 
 			}
 			spendLedgerLib.appendLifetimeSpendLedger({ lifetimeLedgerFilePath: judgedValues.spendLedgerFilePath, spendLedger: ledgerMade.spendLedger }, (appendError) => done(appendError || ''));
 		});
-	});
+	}));
 };
 
 module.exports = { createRosettaJobRunner, spendLedgerWriterFor, readCandidateCardsFor, judgedCandidateListOf, OPEN_STATUS_LIST };

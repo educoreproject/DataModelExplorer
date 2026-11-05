@@ -257,41 +257,60 @@ const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
 	};
 };
 
-// one short line per field per hub: the category and the card's label, or the unit's status. A notJudged line carries its reason, so it never reads as the judge declining. URIs outside a draft stay in full: a line a reader might quote as a mapping should be asked for whole.
-const judgedLineOf = ({ oneUnit, labelChars }) => {
+// one short line per field per hub: the category and the card's label, or the unit's status. A notJudged line carries its reason, so it never reads as the judge declining, and a cut answer says so. URIs outside a draft stay in full: a line a reader might quote as a mapping should be asked for whole.
+const judgedLineOf = ({ hubName, oneUnit, labelChars }) => {
+	const cutMark = oneUnit.answerWasCut ? ' (cut)' : '';
 	if (oneUnit.proposal) {
 		const { category, label } = oneUnit.proposal;
-		return labelChars === 0 ? category : `${category}: ${label.length > labelChars ? `${label.slice(0, labelChars)}…` : label}`;
+		const labelText = label || '';
+		return `${hubName} ${labelChars === 0 || !labelText ? category : `${category}: ${labelText.length > labelChars ? `${labelText.slice(0, labelChars)}…` : labelText}`}${cutMark}`;
 	}
-	return oneUnit.notJudgedReason ? `${oneUnit.status} (${oneUnit.notJudgedReason})` : oneUnit.status;
+	return `${hubName} ${oneUnit.notJudgedReason ? `${oneUnit.status} (${oneUnit.notJudgedReason})` : oneUnit.status}${cutMark}`;
 };
 const nonZeroCountsOf = (countByName) => Object.keys(countByName).filter((countName) => countByName[countName] > 0).reduce((soFar, countName) => ({ ...soFar, [countName]: countByName[countName] }), {});
+const LIST_COUNT_NAME_BY_LIST_NAME = Object.freeze({ unresolvedRefList: 'unresolvedRefOmittedCount', unresolvedContextList: 'unresolvedContextOmittedCount', notWalkedList: 'notWalkedOmittedCount' });
 
-// the drafts must be whole, and every strong proposal is a long uri, so the labels take what room is left: a job with many strong proposals shows fewer letters of each, then none, and says so by count
+// A SUMMARY MUST HOLD ITS BOUND, WHATEVER WAS SUBMITTED. The drafts come first and each strong line is a long uri, so what gives way, in order: the labels' length, the labels, then the drafts, then the length of the names. Each step says so in leftOutOfSummary, and a list of what the walk could not read is a count here and whole in the full form. A line is a list, its first member the field's name exactly as sent, so a name cannot write a verdict.
 const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
-	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, strongEvidenceNote: unusedEvidenceNote, counts, job: { unitNote: unusedUnitNote, ...jobFacts }, unresolvedRefList, unresolvedContextList, notWalkedList, ...restOfAnswer } = answer;
-	const nonEmptyListsOf = (listByName) => Object.keys(listByName).filter((listName) => listByName[listName] && listByName[listName].length > 0).reduce((soFar, listName) => ({ ...soFar, [listName]: listByName[listName] }), {});
+	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, strongEvidenceNote: unusedEvidenceNote, rationaleNote: unusedRationaleNote, counts, job: { unitNote: unusedUnitNote, hubList: unusedHubList, submittedAt: unusedSubmittedAt, startedAt: unusedStartedAt, ...jobFacts }, judge: { promptVariant: unusedPromptVariant, ...judgeFacts }, draftContextByHub, leftOutOfDraftList = [], ...restOfAnswer } = answer;
+	const reportBody = Object.keys(LIST_COUNT_NAME_BY_LIST_NAME).reduce((soFar, listName) => {
+		const { [listName]: unusedList, [LIST_COUNT_NAME_BY_LIST_NAME[listName]]: unusedCount, ...withoutList } = soFar;
+		return withoutList;
+	}, restOfAnswer);
+	const listCountByName = Object.keys(LIST_COUNT_NAME_BY_LIST_NAME).reduce((soFar, listName) => {
+		const rowCount = (answer[listName] || []).length + (answer[LIST_COUNT_NAME_BY_LIST_NAME[listName]] || 0);
+		return rowCount > 0 ? { ...soFar, [listName.replace('List', 'Count')]: rowCount } : soFar;
+	}, {});
 	const everyUnitList = fieldList.flatMap((oneField) => Object.values(oneField.byHub));
 	const proposalCount = everyUnitList.filter((oneUnit) => oneUnit.proposal).length;
-	const summaryAt = (labelChars) => ({
+	const summaryAt = ({ labelChars, showDrafts, nameChars }) => ({
 		rowDetail: SUMMARY_ROW_DETAIL_NAME,
 		job: jobFacts,
-		...restOfAnswer,
-		...nonEmptyListsOf({ unresolvedRefList, unresolvedContextList, notWalkedList }),
+		judge: judgeFacts,
+		...reportBody,
 		counts: { byHub: Object.keys(counts.byHub).reduce((soFar, hubName) => ({ ...soFar, [hubName]: nonZeroCountsOf(counts.byHub[hubName]) }), {}) },
-		fieldLineList: fieldList.map((oneField) => [oneField.name, ...Object.keys(oneField.byHub).map((hubName) => `${hubName} ${judgedLineOf({ oneUnit: oneField.byHub[hubName], labelChars })}`)].join(' | ')),
+		...(showDrafts ? { draftContextByHub } : {}),
+		fieldLineNote: summaryShape.judgedFieldLineNote,
+		fieldLineList: fieldList.map((oneField) => [nameChars && oneField.name.length > nameChars ? `${oneField.name.slice(0, nameChars)}…` : oneField.name, ...Object.keys(oneField.byHub).map((hubName) => judgedLineOf({ hubName, oneUnit: oneField.byHub[hubName], labelChars }))]),
 		leftOutOfSummary: {
 			howToAsk: summaryShape.howToAskForFullJudged,
 			rationalesNotShown: everyUnitList.filter((oneUnit) => oneUnit.judgesRationale).length,
 			proposalUrisNotShown: proposalCount,
 			...(labelChars === 0 && proposalCount > 0 ? { proposalLabelsNotShown: proposalCount } : {}),
+			...(showDrafts ? {} : { draftsNotShown: summaryShape.judgedDraftsNotShownText }),
+			...(nameChars ? { namesCutAtCharacters: nameChars } : {}),
+			...(leftOutOfDraftList.length ? { termsLeftOutOfDrafts: leftOutOfDraftList.length } : {}),
+			...listCountByName,
 			runnerUpsNotShown: everyUnitList.reduce((soFar, oneUnit) => soFar + (oneUnit.runnerUpList || []).length, 0),
 			definitionsNotShown: fieldList.filter((oneField) => oneField.definition).length,
 		},
 	});
-	const roomPerProposal = Math.floor((summaryShape.judgedAnswerByteBudget - Buffer.byteLength(JSON.stringify(summaryAt(0)))) / Math.max(proposalCount, 1));
-	const labelChars = Math.min(summaryShape.judgedLineLabelChars, roomPerProposal);
-	return summaryAt(labelChars >= summaryShape.judgedLineLabelCharsMin ? labelChars : 0);
+	const bytesOf = (summaryForm) => Buffer.byteLength(JSON.stringify(summaryForm));
+	const roomPerProposal = Math.floor((summaryShape.judgedAnswerByteBudget - bytesOf(summaryAt({ labelChars: 0, showDrafts: true }))) / Math.max(proposalCount, 1));
+	const labelChars = Math.min(summaryShape.judgedLineLabelChars, roomPerProposal) >= summaryShape.judgedLineLabelCharsMin ? Math.min(summaryShape.judgedLineLabelChars, roomPerProposal) : 0;
+	const formList = [{ labelChars, showDrafts: true }, { labelChars: 0, showDrafts: true }, { labelChars: 0, showDrafts: false }, { labelChars: 0, showDrafts: false, nameChars: summaryShape.judgedLineNameCharsWhenShort }];
+	const fittingForm = formList.find((oneForm) => bytesOf(summaryAt(oneForm)) <= summaryShape.judgedAnswerByteBudget);
+	return summaryAt(fittingForm || formList[formList.length - 1]);
 };
 
 const SUMMARY_SHAPER_BY_NAME = Object.freeze({ mappings: mappingsSummaryOf, element: elementSummaryOf, graph: graphSummaryOf, rosettaRetrieval: rosettaRetrievalSummaryOf, rosettaFetch: rosettaFetchSummaryOf });

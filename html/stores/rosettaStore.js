@@ -35,8 +35,17 @@ export const useRosettaStore = defineStore('rosettaStore', {
 		report: null,
 		reportPage: 1,
 		pollTimer: null,
+		lastSeenUserRefId: '',
 	}),
 	actions: {
+		// what one person pasted and read must not be there for the next: a sign-out in this tab leaves the store as it was, so the page asks when the person changes and whenever it opens
+		forgetIfAnotherPerson(currentUserRefId) {
+			if (this.lastSeenUserRefId && this.lastSeenUserRefId !== currentUserRefId) {
+				clearTimeout(this.pollTimer);
+				this.$reset();
+			}
+			this.lastSeenUserRefId = currentUserRefId || '';
+		},
 		headers() {
 			return { ...useLoginStore().getAuthTokenProperty };
 		},
