@@ -1,7 +1,6 @@
 // rosettaStore — the Rosetta page's calls: retrieval (open), then a judged job (signed in). Each action is a short, flat sequence with its error handling beside it. A refusal keeps the service's own name and reason, so the page says what the service said.
 
 import axios from 'axios';
-import { defineStore } from 'pinia';
 import { useLoginStore } from '@/stores/loginStore';
 
 const ROUTE_BASE_PATH = '/api/standards/v1/rosetta';

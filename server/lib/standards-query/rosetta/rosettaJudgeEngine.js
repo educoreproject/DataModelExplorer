@@ -24,23 +24,24 @@ const JUDGMENT_BUDGET_PER_UNIT = Object.freeze({ maxJudgmentCount: 2 }); // one 
 
 const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds']);
 const USD_FUSE_NAME_LIST = Object.freeze(['perJobCeilingUsd', 'perPrincipalDailyUsd', 'dailyJudgeCeilingUsd', 'judgeUsdPerFieldEstimate']);
-const JUDGE_TEXT_NAME_LIST = Object.freeze(['judgeProviderName', 'anthropicConfigFilePath', 'spendPricingFilePath', 'judgePromptVariant', 'spendLedgerFilePath']);
+const JUDGE_TEXT_NAME_LIST = Object.freeze(['judgeProviderName', 'judgeWireModel', 'anthropicConfigFilePath', 'spendPricingFilePath', 'judgePromptVariant', 'spendLedgerFilePath']);
 
 const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
 	const badFuseList = [
 		...INTEGER_FUSE_NAME_LIST.filter((settingName) => !/^[1-9][0-9]*$/.test(String(fuseConfigValues[settingName]))),
 		...USD_FUSE_NAME_LIST.filter((settingName) => !(Number(fuseConfigValues[settingName]) > 0)),
 		...(/^[1-9][0-9]*(,[1-9][0-9]*)*$/.test(String(fuseConfigValues.judgeRetryWaitSecondsList)) ? [] : ['judgeRetryWaitSecondsList']),
+		...(/^[0-9]+$/.test(String(fuseConfigValues.judgedPoolCap)) ? [] : ['judgedPoolCap']),
 	];
 	if (badFuseList.length > 0) {
-		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST, 'judgeRetryWaitSecondsList'].join(', ')}; absent or bad: ${badFuseList.join(', ')}` };
+		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST, 'judgeRetryWaitSecondsList', 'judgedPoolCap (0 is off)'].join(', ')}; absent or bad: ${badFuseList.join(', ')}` };
 	}
 	const fuseNumberByName = [...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST].reduce((soFar, settingName) => ({ ...soFar, [settingName]: Number(fuseConfigValues[settingName]) }), {});
 	const judgeRetryWaitSecondsList = String(fuseConfigValues.judgeRetryWaitSecondsList).split(',').map(Number);
 	const absentJudgeList = JUDGE_TEXT_NAME_LIST.filter((settingName) => !judgeConfigValues[settingName]);
 	// an instance may run retrieval with no judge. Which is not silence: every submission is refused judgeNotConfigured, naming this reason.
 	const judgeAbsentReason = absentJudgeList.length > 0 ? `this instance's [rosetta-judge] does not give ${absentJudgeList.join(', ')}` : '';
-	return { judgedValues: { ...fuseNumberByName, judgeRetryWaitSecondsList, judgeAbsentReason, ...JUDGE_TEXT_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: judgeConfigValues[settingName] }), {}) } };
+	return { judgedValues: { ...fuseNumberByName, judgedPoolCap: Number(fuseConfigValues.judgedPoolCap), judgeRetryWaitSecondsList, judgeAbsentReason, ...JUDGE_TEXT_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: judgeConfigValues[settingName] }), {}) } };
 };
 
 // the JSON's patterns, compiled once; the first row that matches names the fault. An error text that matches none is the judge's answer being refused, not the vendor failing.
@@ -56,7 +57,8 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		return { refusalText: `the judge's prices would not read: ${pricing.error.message || pricing.error}` };
 	}
 	const { spendPricer } = pricing;
-	const made = judgeModules.createLlmClient({ configFilePath: judgedValues.anthropicConfigFilePath, ...(componentOverrides ? { componentOverrides } : {}) });
+	// the model is this instance's choice, named in [rosetta-judge]: the forge's ini holds the credential, and its model line is the forge's business
+	const made = judgeModules.createLlmClient({ configFilePath: judgedValues.anthropicConfigFilePath, wireModel: judgedValues.judgeWireModel, ...(componentOverrides ? { componentOverrides } : {}) });
 	if (made.error) {
 		return { refusalText: made.error };
 	}
@@ -118,7 +120,8 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 						const finishWith = (callFacts, afterFinish) => jobStore.finishJudgeCall({ callRefId, ...callFacts }, (finishError) => (finishError ? rerankDone(`rosettaJudgeEngine: the bill would not write: ${finishError}`) : afterFinish()));
 						const retryOrStop = (oneFaultRow, afterStop) => {
 							const waitSeconds = judgedValues.judgeRetryWaitSecondsList[waitIndex];
-							if (oneFaultRow.retriable && waitSeconds !== undefined) {
+							const isUnderAttemptLimit = oneFaultRow.attemptLimit === undefined || attemptNumberOf(waitIndex) < oneFaultRow.attemptLimit;
+							if (oneFaultRow.retriable && waitSeconds !== undefined && isUnderAttemptLimit) {
 								xLog.status(`rosettaJudgeEngine: job ${jobRefId}: ${oneFaultRow.faultName}, attempt ${attemptNumberOf(waitIndex)}, waiting ${waitSeconds} s`);
 								waitMilliseconds(waitSeconds * 1000, () => runAttempt(waitIndex + 1));
 								return;
@@ -160,8 +163,9 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 						}
 						const isIncomplete = clientReturn.category === undefined || clientReturn.rationale === undefined;
 						finishWith(callFacts, () => {
-							if (isIncomplete && judgedValues.judgeRetryWaitSecondsList[waitIndex] !== undefined) {
-								waitMilliseconds(judgedValues.judgeRetryWaitSecondsList[waitIndex] * 1000, () => runAttempt(waitIndex + 1));
+							// a judgment with no category or reason, cut or careless: one more try, priced, and then judgeOne's own rule decides. It can never read as an abstention, because judgeOne refuses an abstention with no reason.
+							if (isIncomplete && waitIndex === 0) {
+								waitMilliseconds(judgedValues.judgeRetryWaitSecondsList[0] * 1000, () => runAttempt(1));
 								return;
 							}
 							rerankDone('', { ...clientReturn, latencyMs: nowMs() - startedAtMs });

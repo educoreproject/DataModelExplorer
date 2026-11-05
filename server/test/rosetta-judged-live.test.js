@@ -117,7 +117,7 @@ gate('unpricedModel', (done) => {
 	const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rosettaUnpriced-'));
 	fs.writeFileSync(path.join(scratchDirPath, 'a.ini'), '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-retired-9\n');
 	fs.writeFileSync(path.join(scratchDirPath, 'p.ini'), '[spendPrice_x]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate\npriceAsOf=2026-11-05\n');
-	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'l', 'l.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1) }, USER_A, ({ httpStatus, answer }) => {
+	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgeWireModel: 'claude-retired-9', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'l', 'l.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1) }, USER_A, ({ httpStatus, answer }) => {
 		ok('a judge model with no price is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /unpriced/.test(answer.reason), answer.reason);
 		fs.rmSync(scratchDirPath, { recursive: true, force: true });
 		close();
@@ -424,7 +424,7 @@ gate('G4.9restart', (done) => {
 					ok('G4.9 restart: the field under way is lostAtRestart, not abstained, and not asked again', statusOfField(2) === 'lostAtRestart' && report.counts.byHub.CEDS.abstained === 0 && !vendor.callLog.some((oneCall) => oneCall.userPrompt.includes('restartField2')), statusOfField(2));
 					ok('G4.9 restart: no field before it is paid for twice', !vendor.callLog.some((oneCall) => /restartField[01]\b/.test(oneCall.userPrompt)), `${vendor.callLog.length}`);
 					ok('G4.9 restart: the rest are judged', statusOfField(3) === 'proposed' && statusOfField(4) === 'proposed' && vendor.callLog.length === 2, `${vendor.callLog.length}`);
-					const expectedUsd = 4 * 0.0281 + 0.053; // four answered at the fake's bill; the lost one at its estimate
+					const expectedUsd = 4 * 0.0281 + 0.09; // four answered at the fake's bill; the lost one at its estimate
 					ok(`G4.9 restart: nothing spent is forgotten: ${statusAnswer.spentUsd} is four answered and one lost at its estimate`, Math.abs(statusAnswer.spentUsd - expectedUsd) < 0.001, `${statusAnswer.spentUsd} vs ${expectedUsd}`);
 					harness.rosettaJudged.jobStore.rollingSpendUsd({ sinceMs: 0 }, (rollError, rollingUsd) => {
 						ok('G4.9 restart: the rolling sum agrees', !rollError && Math.abs(rollingUsd - expectedUsd) < 0.001, `${rollingUsd}`);
@@ -468,6 +468,10 @@ const VENDOR_FAULT_CASE_LIST = [
 	{ caseName: 'out of credit', faultList: [{ status: 400, body: { error: { message: 'Your credit balance is too low to access the Anthropic API' } } }], expectStatus: 'vendorStopped', expectStopName: 'judgeOutOfCredit', expectCallCount: 1 },
 	{ caseName: 'a retired model', faultList: [{ status: 404, body: { error: { message: 'model: not found' } } }], expectStatus: 'vendorStopped', expectStopName: 'judgeModelRefused', expectCallCount: 1 },
 	{ caseName: 'a 200 with no usage: read as a fault, and priced', faultList: [{ status: 200, body: { content: [] } }], expectStatus: 'done', expectPricedUnanswered: 1 },
+	// a response cut before the choice was written. It must never read as the judge declining: it is retried once, priced, then that one unit is judgeRefused and the job goes on
+	{ caseName: 'cut before the choice, twice', faultList: [1, 2].map(() => ({ status: 200, body: { content: [{ type: 'tool_use', name: 'select_candidate', input: {} }], usage: { input_tokens: 10000, output_tokens: 1500 }, stop_reason: 'max_tokens' } })), expectStatus: 'done', expectFirstUnitStatus: 'judgeRefused', expectVendorCalls: 3 },
+	{ caseName: 'cut after NONE, before the reason, twice', faultList: [1, 2, 3, 4].map(() => ({ status: 200, body: { content: [{ type: 'tool_use', name: 'select_candidate', input: { choice: 'NONE' } }], usage: { input_tokens: 10000, output_tokens: 1500 }, stop_reason: 'max_tokens' } })), expectStatus: 'done', expectFirstUnitStatus: 'judgeRefused' },
+	{ caseName: 'cut with a bare NONE in text, the re-ask cut too', faultList: [1, 2, 3, 4].map(() => ({ status: 200, body: { content: [{ type: 'text', text: 'NONE of these' }, { type: 'tool_use', name: 'select_candidate', input: {} }], usage: { input_tokens: 10000, output_tokens: 1500 }, stop_reason: 'max_tokens' } })), expectStatus: 'done', expectFirstUnitStatus: 'judgeRefused' },
 ];
 
 gate('G4.10', (done) => {
@@ -494,7 +498,13 @@ gate('G4.10', (done) => {
 					ok(`G4.10 ${oneCase.caseName}: the retry is on the bill, unbilled by the vendor`, countOf('failedUnbilled') === oneCase.expectUnbilled && Math.abs(statusAnswer.spentUsd - 2 * 0.0281) < 0.001, `${countOf('failedUnbilled')} ${statusAnswer.spentUsd}`);
 				}
 				if (oneCase.expectPricedUnanswered) {
-					ok(`G4.10 ${oneCase.caseName}: the unanswered call stays priced at the estimate, and the retry adds to it`, countOf('unansweredPriced') === oneCase.expectPricedUnanswered && Math.abs(statusAnswer.spentUsd - (2 * 0.0281 + 0.053)) < 0.001, `${countOf('unansweredPriced')} ${statusAnswer.spentUsd}`);
+					ok(`G4.10 ${oneCase.caseName}: the unanswered call stays priced at the estimate, and the retry adds to it`, countOf('unansweredPriced') === oneCase.expectPricedUnanswered && Math.abs(statusAnswer.spentUsd - (2 * 0.0281 + 0.09)) < 0.001, `${countOf('unansweredPriced')} ${statusAnswer.spentUsd}`);
+				}
+				if (oneCase.expectFirstUnitStatus) {
+					ok(`G4.10 ${oneCase.caseName}: the unit is ${oneCase.expectFirstUnitStatus}, and the next is judged`, report.fieldList[0].byHub.CEDS.status === oneCase.expectFirstUnitStatus && report.fieldList[1].byHub.CEDS.status === 'proposed', `${report.fieldList[0].byHub.CEDS.status} ${report.fieldList[1].byHub.CEDS.status}`);
+				}
+				if (oneCase.expectVendorCalls) {
+					ok(`G4.10 ${oneCase.caseName}: asked ${oneCase.expectVendorCalls} times in all`, vendor.callLog.length === oneCase.expectVendorCalls, `${vendor.callLog.length}`);
 				}
 				if (oneCase.expectCallCount) {
 					ok(`G4.10 ${oneCase.caseName}: it is not retried`, vendor.callLog.length === oneCase.expectCallCount, `${vendor.callLog.length}`);
@@ -560,6 +570,34 @@ gate('masked', (done) => {
 				ok('masked: the masked card is not in the prompt', cardList[0].name && pool.poolSize === cardList.length && !new RegExp(`\\[${cardList.length}\\]`).test(vendor.callLog[0].userPrompt.split('CANDIDATE ELEMENTS')[2] || ''));
 				const everyInputNameList = registry.operationList.flatMap((oneRow) => oneRow.inputFieldList.map((oneField2) => oneField2.name));
 				ok('masked: no registry input can name it', !everyInputNameList.some((inputName) => /mask|candidateCard|pool/i.test(inputName)));
+				close();
+			}));
+		});
+	}, done);
+});
+
+gate('judgedPoolCap', (done) => {
+	const { judgedCandidateListOf } = require('../lib/standards-query/rosetta/rosettaJobRunner');
+	const candidateOf = (rank, rankByCosine) => ({ stableId: `card${rank}`, rank, rankByCosine });
+	const fortyList = Array.from({ length: 40 }, (unusedItem, index) => candidateOf(index + 1, index === 32 ? 1 : index + 50));
+	ok('judgedPoolCap: 0 is the pool as retrieval built it, the same list', judgedCandidateListOf({ pool: { candidateList: fortyList }, judgedPoolCap: 0 }) === fortyList);
+	const capped = judgedCandidateListOf({ pool: { candidateList: fortyList }, judgedPoolCap: 20 });
+	ok('judgedPoolCap: 20 keeps the first 20 by rank and seats cosine rank 1 from inside the pool', capped.length === 21 && capped[20].rank === 33 && capped.slice(0, 20).every((one, index) => one.rank === index + 1));
+	const outside = candidateOf(55, 1);
+	const cappedOutside = judgedCandidateListOf({ pool: { candidateList: fortyList.map((one) => ({ ...one, rankByCosine: one.rank + 1 })), cosineRankOneOutsidePool: outside }, judgedPoolCap: 20 });
+	ok('judgedPoolCap: it seats cosine rank 1 from past the pool too, which the judge at pool 40 never sees', cappedOutside.length === 21 && cappedOutside[20].stableId === 'card55');
+	const alreadyIn = judgedCandidateListOf({ pool: { candidateList: fortyList.map((one) => ({ ...one, rankByCosine: one.rank })) }, judgedPoolCap: 20 });
+	ok('judgedPoolCap: when cosine rank 1 is in the first 20, nothing is added', alreadyIn.length === 20);
+	// the setting on, through the real runner: the judge sees at most cap + 1, and retrieval's public answer is byte-identical with it off
+	const field = { name: 'dischargeDate', definition: 'The date of discharge.' };
+	const vendor = fakeJudgeVendorFor();
+	withHarness({ vendorPostOnce: vendor.postOnce, fuseOverrideValues: { judgedPoolCap: 20 } }, (harness, close) => {
+		const ask = askFor(harness);
+		ask('rosettaRetrieval', { fieldList: [field], hubList: ['CEDS'], rowDetail: 'full' }, USER_A, (onAnswer) => {
+			ok('judgedPoolCap on: retrieval\'s public pool is still whole', onAnswer.answer.fieldList[0].byHub.CEDS.poolSize === 40, `${onAnswer.answer.fieldList[0].byHub.CEDS.poolSize}`);
+			ask('rosettaSubmit', { fieldList: [field], hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, () => {
+				const offeredCount = Number((vendor.callLog[vendor.callLog.length - 1].userPrompt.match(/CANDIDATE ELEMENTS \((\d+)\)/) || [])[1]);
+				ok(`judgedPoolCap on: the judge is offered at most 21, not 40 (${offeredCount})`, offeredCount >= 15 && offeredCount <= 21, `${offeredCount}`);
 				close();
 			}));
 		});

@@ -20,6 +20,16 @@ const UNIT_STATUS_NO_CANDIDATE = 'noCandidate';
 const JOB_STATUS = Object.freeze({ done: 'done', running: 'running', cancelled: 'cancelled', fuseTripped: 'fuseTripped', vendorStopped: 'vendorStopped', stopped: 'stopped' });
 const CARD_FACTS_CYPHER_FOR = (candidateFieldNameList) => `MATCH (card:HubReference) WHERE card.stableId IN $cardStableIdList RETURN card { .stableId, .qualifierNames, ${candidateFieldNameList.filter((oneName) => oneName !== 'componentIdeaList').map((oneName) => `.${oneName}`).join(', ')} } AS cardFacts`;
 
+// WHAT THE JUDGE IS OFFERED. judgedPoolCap 0 is the pool as retrieval built it. Above 0 it is the pool's first judgedPoolCap by rank, plus the card closest by cosine, always, even from past the cap or past the pool: vote-first order can rank the true card behind every card a generic name reached twice (P4's organization name: cosine rank 1 at rank 33 to 41). Retrieval's own answer never reads this.
+const judgedCandidateListOf = ({ pool, judgedPoolCap }) => {
+	if (judgedPoolCap === 0) {
+		return pool.candidateList;
+	}
+	const firstList = pool.candidateList.slice(0, judgedPoolCap);
+	const cosineRankOne = pool.cosineRankOneOutsidePool || pool.candidateList.find((oneCandidate) => oneCandidate.rankByCosine === 1);
+	return cosineRankOne && !firstList.some((oneCandidate) => oneCandidate.stableId === cosineRankOne.stableId) ? [...firstList, cosineRankOne] : firstList;
+};
+
 // the forge's loader writes a one-element list as a plain string (SIF certificate, note 3); the renderer takes a list
 const cardOfFacts = (cardFacts) => ({ ...cardFacts, ...(typeof cardFacts.qualifierNames === 'string' ? { qualifierNames: [cardFacts.qualifierNames] } : {}), ...(cardFacts.qualifierNames === null ? { qualifierNames: undefined } : {}) });
 
@@ -158,14 +168,15 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					sessionDone(poolError, { pool });
 					return;
 				}
-				readCandidateCards({ session, hubName, candidateList: pool.candidateList }, (cardError, candidateCardList) => sessionDone(cardError, { pool, candidateCardList }));
+				const judgedCandidateList = judgedCandidateListOf({ pool, judgedPoolCap: judgedValues.judgedPoolCap });
+				readCandidateCards({ session, hubName, candidateList: judgedCandidateList }, (cardError, candidateCardList) => sessionDone(cardError, { pool, judgedCandidateList, candidateCardList }));
 			}), (readError, poolRead) => {
 				if (readError) {
 					xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a pool could not be read: ${readError}`);
 					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'poolUnreadable', stopReasonText: 'a pool could not be read from the graph' });
 					return;
 				}
-				const { pool, candidateCardList } = poolRead;
+				const { pool, judgedCandidateList, candidateCardList } = poolRead;
 				if (pool.refusal) {
 					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: pool.refusal.refusalName, stopReasonText: pool.refusal.reason });
 					return;
@@ -197,8 +208,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 						return;
 					}
 					// asked only after the judge has answered, so a published mapping can never reach a prompt
-					const withEnrichment = (afterEnrichment) => (outcome.chosenCardStableId ? alreadyMappedFromFor({ cardUri: pool.candidateList.find((oneCandidate) => oneCandidate.stableId === outcome.chosenCardStableId).uri }, afterEnrichment) : afterEnrichment(undefined));
-					withEnrichment((alreadyMappedFrom) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool, alreadyMappedFrom }) }, () => unitDone('', null)));
+					const withEnrichment = (afterEnrichment) => (outcome.chosenCardStableId ? alreadyMappedFromFor({ cardUri: judgedCandidateList.find((oneCandidate) => oneCandidate.stableId === outcome.chosenCardStableId).uri }, afterEnrichment) : afterEnrichment(undefined));
+					withEnrichment((alreadyMappedFrom) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom }) }, () => unitDone('', null)));
 				});
 			});
 		});
@@ -360,4 +371,4 @@ const spendLedgerWriterFor = ({ jobStore, judgeEngine, judgedValues, xLog }) => 
 	});
 };
 
-module.exports = { createRosettaJobRunner, spendLedgerWriterFor, readCandidateCardsFor, OPEN_STATUS_LIST };
+module.exports = { createRosettaJobRunner, spendLedgerWriterFor, readCandidateCardsFor, judgedCandidateListOf, OPEN_STATUS_LIST };

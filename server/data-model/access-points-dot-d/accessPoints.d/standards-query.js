@@ -63,9 +63,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const sweepAndLog = () => strangerVectorStore.sweepNow((sweepError) => (sweepError ? xLog.error(`${moduleName}: the rosetta sweep failed: ${sweepError}`) : undefined));
 			sweepAndLog();
 			setInterval(sweepAndLog, SWEEP_MILLISECONDS).unref();
-			done({
-				fuseValues,
-				rosettaRetrieval: createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder: dmeModuleConfig.embedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher: runCypherQuery, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog }),
+			const rosettaRetrieval = createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder: dmeModuleConfig.embedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher: runCypherQuery, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
+			// the judged step is built beside retrieval: with no judge configured it still answers, refusing submissions by name. An absent or bad judged setting turns off that step alone, by name in the log.
+			assembleRosettaJudged({ fuseConfigValues: getConfig(ROSETTA_CONFIG_SECTION_NAME), judgeConfigValues: getConfig(ROSETTA_JUDGE_CONFIG_SECTION_NAME) || {}, fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle: neo4jDb, runCypher: runCypherQuery, nowDate, xLog }, (assembleError, rosettaJudged) => {
+				if (assembleError) {
+					xLog.error(`${moduleName}: the rosetta judged step is off: ${assembleError}`);
+				}
+				done({ fuseValues, rosettaRetrieval, rosettaJudged: assembleError ? undefined : rosettaJudged });
 			});
 		});
 	};
