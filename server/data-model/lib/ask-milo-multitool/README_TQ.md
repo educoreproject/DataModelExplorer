@@ -214,10 +214,10 @@ A planned feature will add a file upload UI to the askMilo web tool, allowing cl
 
 ## Deploying to the Server
 
-### For educore.tqwhite.com:
+### For educore.tqtmp.org:
 
 1. Create symlinks in educore's `lib.d/` pointing to your provider (and indexer if it has container management)
-2. Create `yourSearch.ini` in `educore/.../instanceSpecific/educore.tqwhite.com/`
+2. Create `yourSearch.ini` in `educore/.../instanceSpecific/educore.tqtmp.org/`
 3. Add the server-path provider entry to educore's `askMilo.ini`
 4. `deployPrograms educore --actions=configs,code,restart`
 5. SSH in, verify the container starts, check the search .ini has correct credentials
@@ -228,7 +228,7 @@ Same deployment as qbookSuperTool. Tools registered locally in `qbookSuperTool/.
 
 ### The gotcha
 
-**Server configs are flat.** Your `instanceSpecific/educore.tqwhite.com/yourSearch.ini` lands as `configs/yourSearch.ini` on the server. The hostname check in the search script handles this automatically — but if you're debugging on the server, look in `configs/`, not `configs/instanceSpecific/`.
+**Server configs are flat.** Your `instanceSpecific/educore.tqtmp.org/yourSearch.ini` lands as `configs/yourSearch.ini` on the server. The hostname check in the search script handles this automatically — but if you're debugging on the server, look in `configs/`, not `configs/instanceSpecific/`.
 
 ---
 

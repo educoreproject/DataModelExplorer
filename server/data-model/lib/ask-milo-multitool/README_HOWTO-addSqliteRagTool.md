@@ -153,7 +153,7 @@ npm install better-sqlite3 sqlite-vec
 
 ### Server .ini
 
-Create a server-specific `.ini` at `educore/system/configs/instanceSpecific/educore.tqwhite.com/careerStorySearch.ini` with the same structure as the local config but with server-appropriate API keys.
+Create a server-specific `.ini` at `educore/system/configs/instanceSpecific/educore.tqtmp.org/careerStorySearch.ini` with the same structure as the local config but with server-appropriate API keys.
 
 ---
 

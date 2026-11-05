@@ -34,13 +34,60 @@ ssh educore 'apt-get install -y docker-ce docker-ce-cli containerd.io docker-bui
 ssh educore 'apt install nginx -y'
 ```
 
-## 4. Add swap (recommended)
+## 3a. Keep Docker ports off the internet (REQUIRED)
 
-With 4 containers, 4GB RAM is tight. Add 2GB swap as safety margin.
+**ufw does not protect Docker-published ports.** Docker writes its own iptables rules ahead of ufw's, so a container run with `-p 7720:7687` is reachable from the whole internet even when ufw allows only ssh and nginx. The graph containers publish on `0.0.0.0`; until 2026-11-02 the production, demo and warm-spare Neo4j ports on this box (and six on cfnew) answered from outside. Nothing legitimate needs them from outside: the app, nginx and askMilo reach them over localhost.
+
+The fix lives in Docker's `DOCKER-USER` chain, which Docker consults before its own rules and never overwrites. Replies to traffic the containers started are allowed; new connections arriving on the public interface (`eth0` on these droplets; check with `ip -br addr`) are dropped. The private VPC (`eth1`) and localhost are untouched, and no container has to be recreated.
+
+Apply live:
 
 ```bash
-ssh educore 'fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab'
+ssh educore 'iptables -I DOCKER-USER 1 -i eth0 -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN && iptables -I DOCKER-USER 2 -i eth0 -j DROP'
 ```
+
+Persist across reboots by appending this block to `/etc/ufw/after.rules` (back the file up first), then check it parses with `ufw --dry-run reload`:
+
+```
+# BEGIN milo DOCKER-USER
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -i eth0 -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -i eth0 -j DROP
+COMMIT
+# END milo DOCKER-USER
+```
+
+Verify from OUTSIDE the box (your Mac), not from the server, since localhost always connects:
+
+```bash
+for p in 7720 7721 7726 7727; do nc -z -G 4 <droplet-ip> $p && echo "$p OPEN" || echo "$p closed"; done
+```
+
+Every graph port must read `closed`, and the sites must still return 200. To undo: `iptables -D DOCKER-USER -i eth0 -j DROP` and remove the block from `after.rules`.
+
+## 4. Add swap (REQUIRED)
+
+This box runs several Neo4j containers, four API instances and whole-block downloads on 7.9 GB of RAM. The original 2 GB of swap is not enough: on 2026-11-04 one 476 MB block download took it from 1,852 MB to full, mostly by pushing idle Neo4j memory out, while `MemAvailable` still looked healthy. A full swap leaves no cushion, and the next spike can get a process killed. **So watch swap used as well as available memory.**
+
+Current setup, 6 GB of swap and `swappiness` 10:
+
+```bash
+# the original 2 GB, on the root disk
+ssh educore 'fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab'
+
+# 4 GB more, on the block volume (needs /mnt/external_volume_1 mounted). nofail lets the box boot without the volume.
+ssh educore 'SF=/mnt/external_volume_1/swapfile4g; fallocate -l 4G $SF && chmod 600 $SF && mkswap $SF && swapon $SF && echo "$SF none swap sw,nofail,x-systemd.requires-mounts-for=/mnt/external_volume_1 0 0" >> /etc/fstab && systemctl daemon-reload'
+
+# prefer dropping file cache to swapping out idle programs
+ssh educore 'sysctl -q vm.swappiness=10 && echo "vm.swappiness=10" > /etc/sysctl.d/90-educore-swappiness.conf'
+```
+
+Check it with `ssh educore 'free -m; swapon --show; cat /proc/sys/vm/swappiness'`. Neither change needs a restart.
+
+To undo the 4 GB file: `swapoff /mnt/external_volume_1/swapfile4g`, remove its line from `/etc/fstab`, then delete the file. To undo the setting: remove the `sysctl.d` file and run `sysctl -q vm.swappiness=60`.
+
+More swap only buys a cushion. If swap used keeps climbing, the droplet needs more RAM.
 
 ## 5. Deploy configs and code
 
@@ -49,7 +96,16 @@ deployPrograms educore --actions=configs
 deployPrograms educore --actions=code
 ```
 
-Note: `deployPrograms` handles the askMilo symlink (`/usr/local/bin/askMilo`) and npm install automatically via post-deploy SSH commands configured in `deployPrograms.ini`.
+Note: `deployPrograms` handles the askMilo symlink and npm install automatically via post-deploy SSH commands configured in `deployPrograms.ini` (`actions.code.ssh.after.1`).
+
+**One askMilo link per instance.** Several instances share one box (production in `/home/educore`, plus `/home/demo`, `/home/tq`, `/home/brandon`), and `/usr/local/bin` is host-wide. Only production writes the plain name; every other instance writes its own:
+
+	/usr/local/bin/askMilo          -> /home/educore/system/code/... (production, educore.tqtmp.org)
+	/usr/local/bin/askMilo-demo     -> /home/demo/system/code/...
+	/usr/local/bin/askMilo-tq       -> /home/tq/system/code/...
+	/usr/local/bin/askMilo-brandon  -> /home/brandon/system/code/...
+
+Until 2026-11-02 every instance wrote `/usr/local/bin/askMilo`, so whichever instance deployed last owned it (a demo deploy silently re-pointed it away from production). The running servers do not depend on the link (ws-graphinator spawns its own repo copy), but anything typed or scripted as bare `askMilo` does. A new instance's `deployPrograms.ini` must use its own `askMilo-<instance>` name.
 
 ## 6. Install nginx config
 

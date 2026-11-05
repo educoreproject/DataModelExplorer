@@ -171,7 +171,7 @@ export default defineNuxtConfig({
   // changeOrigin, or proxy location fixes this — it's a Nitro architectural issue.
   //
   // DEV:  graphinatorStore.js uses import.meta.dev to connect directly to port 7790
-  // PROD: nginx /ws/ location handles the upgrade (see nginx/educore.tqwhite.com.conf)
+  // PROD: nginx /ws/ location handles the upgrade (see nginx/com.tqwhite.educore.conf)
 
   runtimeConfig: {
     public: {

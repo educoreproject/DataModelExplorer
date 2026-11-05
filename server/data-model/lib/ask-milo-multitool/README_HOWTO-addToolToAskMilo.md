@@ -248,7 +248,7 @@ On the production server (CodeFactory), qbookSuperTool and educore are separate 
 
 #### Server config layout is flat
 
-Locally, configs live in `configs/instanceSpecific/{hostname}/`. On the server, `deployPrograms` rsyncs the contents of `instanceSpecific/{serverConfigName}/` **flat** into `configs/`. So `instanceSpecific/educore.tqwhite.com/yourSearch.ini` lands as `configs/yourSearch.ini` on the server. The search script's hostname check (`os.hostname() == 'qMini.local'`) controls which path to use: on qMini.local (your Mac), it looks in `instanceSpecific/qbook/`; on any other hostname, it looks in `configs/` directly.
+Locally, configs live in `configs/instanceSpecific/{hostname}/`. On the server, `deployPrograms` rsyncs the contents of `instanceSpecific/{serverConfigName}/` **flat** into `configs/`. So `instanceSpecific/educore.tqtmp.org/yourSearch.ini` lands as `configs/yourSearch.ini` on the server. The search script's hostname check (`os.hostname() == 'qMini.local'`) controls which path to use: on qMini.local (your Mac), it looks in `instanceSpecific/qbook/`; on any other hostname, it looks in `configs/` directly.
 
 ### The .ini Config
 
@@ -276,10 +276,10 @@ Every tool needs configs **in each project where it will run**. Here's the check
 2. **askMilo.ini:** Add provider path to `aiToolsLib.enabled` in `qbookSuperTool/.../qbook/askMilo.ini`
    - Provider path is local: `/Users/tqwhite/tq_usr_bin/qbookSuperTool/system/code/cli/lib.d/your-provider`
 
-#### For educore.tqwhite.com (if deploying to educore):
+#### For educore.tqtmp.org (if deploying to educore):
 
-3. **Search .ini:** `educore/system/configs/instanceSpecific/educore.tqwhite.com/yourSearch.ini`
-4. **askMilo.ini:** Add provider path to `aiToolsLib.enabled` in `educore/.../educore.tqwhite.com/askMilo.ini`
+3. **Search .ini:** `educore/system/configs/instanceSpecific/educore.tqtmp.org/yourSearch.ini`
+4. **askMilo.ini:** Add provider path to `aiToolsLib.enabled` in `educore/.../educore.tqtmp.org/askMilo.ini`
    - Provider path is server: `/home/educore/system/code/cli/lib.d/your-provider`
 5. **Symlink:** Create symlink in educore's `lib.d/` pointing to qbookSuperTool's provider directory (so `deployPrograms` carries it to the server)
 
@@ -361,7 +361,7 @@ ln -s /Users/tqwhite/tq_usr_bin/qbookSuperTool/system/code/cli/lib.d/index-your-
 deployPrograms educore --actions=configs,code,restart
 ```
 
-This rsyncs configs (your new `.ini` files from `instanceSpecific/educore.tqwhite.com/`) and code (the provider directory via symlink) to the server, then restarts.
+This rsyncs configs (your new `.ini` files from `instanceSpecific/educore.tqtmp.org/`) and code (the provider directory via symlink) to the server, then restarts.
 
 ### Server-Side First-Time Setup (Neo4j tools)
 
@@ -380,7 +380,7 @@ Open the web UI (Graphinator or askMilo page). Your tool should appear as a chec
 ## How It All Connects at Runtime
 
 ```
-User types query in web UI (educore.tqwhite.com or qbook.work or qbookInternal)
+User types query in web UI (educore.tqtmp.org or qbook.work or qbookInternal)
   → Vue component sends via WebSocket
     → nginx proxies /ws/ to the Node backend (production)
        OR direct connect to localhost:7797 (dev/local)
@@ -437,5 +437,5 @@ After full setup, you'll have created or modified:
 | `yourSearch.ini` | `qbookSuperTool/.../instanceSpecific/qbook/` | Local config (CLI + qbookInternal) |
 | `askMilo.ini` (modified) | `qbookSuperTool/.../instanceSpecific/qbook/` | Added local provider path |
 | Symlink | `educore/.../lib.d/your-provider` → qbookSuperTool | For server deployment |
-| `yourSearch.ini` | `educore/.../instanceSpecific/educore.tqwhite.com/` | Server config for educore |
-| `askMilo.ini` (modified) | `educore/.../instanceSpecific/educore.tqwhite.com/` | Added server provider path |
+| `yourSearch.ini` | `educore/.../instanceSpecific/educore.tqtmp.org/` | Server config for educore |
+| `askMilo.ini` (modified) | `educore/.../instanceSpecific/educore.tqtmp.org/` | Added server provider path |
