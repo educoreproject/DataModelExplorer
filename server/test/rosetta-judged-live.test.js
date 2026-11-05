@@ -358,7 +358,7 @@ gate('G4.8', (done) => {
 				ok('G4.8: a summary holds the status, counts, drafts and one line per field per hub', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount && report.fieldLineList.length === fieldCount && / \| CEDS strong/.test(report.fieldLineList[0]) && / \| CTDL strong/.test(report.fieldLineList[0]));
 				ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', page: fieldCount > 10 ? '2' : '1' }, principal, ({ bodyText: fullText, answer: fullReport }) => {
 					console.log(`  G4.8 full, page ${fullReport.page} of ${fullReport.pageCount}: ${Buffer.byteLength(fullText)} bytes`);
-					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && fullReport.fieldList[0].byHub.CEDS.judgesRationale.length > 0 && fullReport.fieldList[0].byHub.CEDS.proposal.uri.length > 0, `${fullReport.fieldList.length}`);
+					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && fullReport.fieldList[0].byHub.CEDS.judgesRationale.length > 0 && fullReport.fieldList[0].byHub.CEDS.proposal.uri.length > 0 && fullReport.fieldList.length === 10 && fullReport.fieldList[0].name.endsWith(`x${fieldCount > 10 ? 10 : 0}`), `${fullReport.fieldList.length}`);
 					sizeNext(restList, runIndex + 1);
 				});
 			})));
