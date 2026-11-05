@@ -442,6 +442,14 @@ gate('G4.9restart', (done) => {
 	});
 });
 
+gate('G4.9cancelRace', (done) => withHarness({ vendorPostOnce: fakeJudgeVendorFor().postOnce }, (harness, close) => {
+	const { jobStore } = harness.rosettaJudged;
+	jobStore.addJob({ jobRefId: 'e'.repeat(32), ownerPrincipalKind: 'oauthUser', ownerPrincipalRefId: USER_A.userRefId, formatName: 'fieldList', byteSize: 1, fieldList: fieldListOf(1), hubNameList: ['CEDS'], submissionNote: {}, expiresAtMs: Date.now() + MILLISECONDS_PER_DAY, estimateUsd: 0.05, answeredFrom: {}, judgeFacts: {} }, () => jobStore.requestCancel('e'.repeat(32), () => jobStore.markJobRunning({ jobRefId: 'e'.repeat(32), startedAtMs: Date.now() }, (markError, hasBegun) => jobStore.readJob('e'.repeat(32), (readError, job) => {
+		ok('G4.9: a cancel that lands after the queue is read is not overwritten by the start', hasBegun === false && job.status === 'cancelled', `${hasBegun} ${job.status}`);
+		close();
+	}))));
+}, done));
+
 gate('G4.9manifest', (done) => {
 	const vendor = fakeJudgeVendorFor();
 	vendor.holdCalls();

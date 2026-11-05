@@ -226,9 +226,11 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'manifestChanged', stopReasonText: `this job began on manifest ${job.answeredFrom.manifestRefId}; the instance now answers from ${serviceFacts.passport.manifestRefId}` });
 			return;
 		}
-		jobStore.setJobStatus({ jobRefId: job.jobRefId, status: JOB_STATUS.running, startedAtMs: job.startedAtMs || nowMs() }, (statusError) => {
-			if (statusError) {
-				xLog.error(`rosettaJobRunner: job ${job.jobRefId} would not start: ${statusError}`);
+		jobStore.markJobRunning({ jobRefId: job.jobRefId, startedAtMs: nowMs() }, (statusError, hasBegun) => {
+			if (statusError || !hasBegun) {
+				if (statusError) {
+					xLog.error(`rosettaJobRunner: job ${job.jobRefId} would not start: ${statusError}`);
+				}
 				jobDone();
 				return;
 			}

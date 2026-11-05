@@ -3,7 +3,7 @@
 // rosettaJobStore — what a judged job leaves in Rosetta's own store, <dataStores>/rosettaJobs.sqlite (design 4.6). It shares strangerVectorStore's handle, so one file has one writer. Nothing here reaches graphBuilderSupport.sqlite or the forge's forensic files: judgeOne writes where it is told, and judgmentCacheFor and appendForensicRecord are what it is told.
 //
 //   createRosettaJobStore({ storeHandle, nowMs, xLog }, callback) → callback('', jobStore)
-//   jobStore: addJob, readJob, readSubmission, readJobList, setJobStatus, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
+//   jobStore: addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
 //
 // MONEY LIVES IN ONE TABLE. judgeCalls holds a row for every call to the vendor, written BEFORE the call goes, at the estimate, and corrected to the bill when it answers. Every sum is read from that table, so a process that dies mid-call has already written down what it may owe, and no second counter can disagree with it. A row left inFlight by a kill becomes lostAtRestart and keeps its estimate.
 // A UNIT is one field against one hub (fieldIndex, hubName). A judgments row means that unit is finished, whatever its outcome, and a finished unit is never asked again: that is the whole of "no field is paid for twice".
@@ -65,6 +65,9 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	const readJobList = ({ statusList }, done) => all(`${JOB_READ_SQL} WHERE jobs.status IN (${statusList.map(() => '?').join(',')}) ORDER BY jobs.queueOrder`, statusList, (readError, jobRowList) => (readError ? done(readError) : done('', jobRowList.map(jobOfRow))));
 
 	const setJobStatus = ({ jobRefId, status, stopReasonName, stopReasonText, startedAtMs, finishedAtMs }, done) => run('UPDATE jobs SET status = ?, stopReasonName = coalesce(?, stopReasonName), stopReasonText = coalesce(?, stopReasonText), startedAtMs = coalesce(?, startedAtMs), finishedAtMs = coalesce(?, finishedAtMs) WHERE jobRefId = ?', [status, stopReasonName === undefined ? null : stopReasonName, stopReasonText === undefined ? null : stopReasonText, startedAtMs === undefined ? null : startedAtMs, finishedAtMs === undefined ? null : finishedAtMs, jobRefId], (writeError) => done(writeError));
+
+	// a job begins only from queued or running, and says whether it did: a cancel that landed after the queue was read must not be overwritten
+	const markJobRunning = ({ jobRefId, startedAtMs }, done) => run("UPDATE jobs SET status = 'running', startedAtMs = coalesce(startedAtMs, ?) WHERE jobRefId = ? AND status IN ('queued', 'running')", [startedAtMs, jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
 
 	// a queued job ends here and now; a running one is told, and stops at its next boundary, so a call already sent is still recorded when it answers
 	const requestCancel = (jobRefId, done) => run("UPDATE jobs SET status = CASE status WHEN 'queued' THEN 'cancelled' ELSE 'cancelling' END, finishedAtMs = CASE status WHEN 'queued' THEN ? ELSE finishedAtMs END, stopReasonName = 'cancelledByOwner' WHERE jobRefId = ? AND status IN ('queued', 'running')", [nowMs(), jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
@@ -157,7 +160,7 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 			callback(`rosettaJobStore: the tables would not take: ${createError}`);
 			return;
 		}
-		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts });
+		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts });
 	});
 };
 
