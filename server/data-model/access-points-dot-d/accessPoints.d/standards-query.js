@@ -15,6 +15,7 @@ const { createUsageCounter } = require('../../../lib/standards-query/usageCounts
 const registry = require('../../../lib/standards-query/standardsQueryOperations.json');
 const { createRosettaRetrieval, rosettaFuseValuesOf } = require('../../../lib/standards-query/rosetta/rosettaRetrieval');
 const { createStrangerVectorStore } = require('../../../lib/standards-query/rosetta/strangerVectorStore');
+const { assembleRosettaJudged } = require('../../../lib/standards-query/rosetta/assembleRosettaJudged');
 const { runCypherQuery } = require('../../../../cli/lib.d/data-model-explorer/lib/runCypherQuery');
 const { checkGraphEmbeddingContract } = require('../../../../cli/lib.d/data-model-explorer/lib/graphEmbeddingContract');
 const neo4jDriver = require('neo4j-driver');
@@ -24,6 +25,7 @@ const LIMIT_CONFIG_SECTION_NAME = 'standards-query-limits';
 const EDC_CONFIG_SECTION_NAME = 'edc-resolver';
 const MCP_CONFIG_SECTION_NAME = 'mcp-server';
 const ROSETTA_CONFIG_SECTION_NAME = 'rosetta-fuse';
+const ROSETTA_JUDGE_CONFIG_SECTION_NAME = 'rosetta-judge';
 const USAGE_FLUSH_MILLISECONDS = 5000;
 const SWEEP_MILLISECONDS = 86400000;
 
@@ -72,7 +74,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		if (configError) {
 			xLog.error(`${moduleName}: the DME config could not be read: ${configError}`);
 		}
-		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval }) => {
+		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval, rosettaJudged }) => {
 			standardsQueryCore = createStandardsQueryCore({
 				registry,
 				limitConfigValues,
@@ -82,6 +84,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					edcPublicPathPrefix: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).publicPathPrefix,
 					sizeRefusalContactAddress: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).sizeRefusalContactAddress,
 					rosettaFuseValues: fuseValues,
+					rosettaJudgedValues: rosettaJudged ? rosettaJudged.judgedValues : undefined,
 				},
 				goldenHandle: neo4jDb,
 				forgeAdapter,
@@ -91,7 +94,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				xLog,
 				nowDate,
 				rosettaRetrieval,
+				rosettaJobService: rosettaJudged ? rosettaJudged.rosettaJobService : undefined,
 			});
+			if (rosettaJudged) {
+				rosettaJudged.startRunner({ getServiceFacts: standardsQueryCore.serviceFactsForGate, runOperation: standardsQueryCore.runOperation });
+			}
 		});
 	});
 

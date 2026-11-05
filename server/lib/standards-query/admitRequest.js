@@ -24,9 +24,16 @@ const PRINCIPAL_READER_BY_DOOR = Object.freeze({
 	mcp: (mcpAuth) => (mcpAuth && mcpAuth.sub ? { kind: 'oauthUser', userRefId: mcpAuth.sub, role: mcpAuth.role } : ANONYMOUS_PRINCIPAL),
 });
 
+const REFUSAL_REASON_BY_NAME = Object.freeze({
+	judgedStepNotOfferedToScripts: 'the judged step is offered through website sign-in and MCP sign-in; a request with neither is refused, until API credentials exist. Retrieval is open and needs none.',
+	notFound: 'there is no such job for this account',
+});
+
 const ADMISSION_TEST_BY_NAME = Object.freeze({
 	public: () => '',
 	signedIn: (principal) => (principal.kind === 'anonymous' ? 'signedInRequired' : ''),
+	// Rosetta's judged step (Q25): the credential is the test. The row names what the anonymous are told: a submit says scripts are not offered this yet, and a status or fetch says notFound, as for any job not theirs.
+	judgedStep: (principal, registryRow) => (principal.kind === 'anonymous' ? registryRow.anonymousRefusalName : ''),
 });
 
 const admitRequest = ({ door, credential, operationName, registryRow }, callback) => {
@@ -46,8 +53,8 @@ const admitRequest = ({ door, credential, operationName, registryRow }, callback
 		callback('', { refusal: { refusalName: 'loopbackNotAdmitted', reason: `${operationName} on MCP needs an account signed in by OAuth; a loopback or public-role caller has none. The Query API answers it with no credential.` } });
 		return;
 	}
-	const refusalName = admissionTest(principal);
-	callback('', refusalName ? { refusal: { refusalName, reason: `${operationName} needs a signed-in person; this request carries no such credential` } } : { principal });
+	const refusalName = admissionTest(principal, registryRow);
+	callback('', refusalName ? { refusal: { refusalName, reason: REFUSAL_REASON_BY_NAME[refusalName] || `${operationName} needs a signed-in person; this request carries no such credential` } } : { principal });
 };
 
 module.exports = { admitRequest };

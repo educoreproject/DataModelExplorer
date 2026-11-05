@@ -3,7 +3,8 @@
 // strangerVectorStore — Rosetta's own store, <dataStores>/rosettaJobs.sqlite, created by the API (design 4.5, 4.6). P3 holds two tables. strangerVectorCache: a text's sha256, the embedding model and the vector, NEVER the text, so a resubmission costs no embedding call and an anonymous submission leaves no text behind.
 // retrievalTokenDays: the tokens retrieval has spent per UTC day, in the file and not in a process, so a restart resets nothing. Bounded: rows past retentionDays go at every sweep and the oldest past maxRows go with them.
 //
-//   createStrangerVectorStore({ storeFilePath, maxRows, retentionDays, nowDate, xLog }, callback) → callback('', { readVectors, writeVectors, tokensSpentToday, addTokensToday, sweepNow, rowCount, close })
+//   createStrangerVectorStore({ storeFilePath, maxRows, retentionDays, nowDate, xLog }, callback) → callback('', { readVectors, writeVectors, tokensSpentToday, addTokensToday, sweepNow, rowCount, storeHandle, close })
+//     storeHandle: the one handle on this file, which the job store (rosettaJobStore.js) shares rather than opening a second writer
 //     readVectors({ textHashList, embeddingModelVersion }, done(err, vectorByTextHash))
 //     writeVectors({ vectorRowList: [{ textHash, vector }], embeddingModelVersion }, done(err))
 //
@@ -122,7 +123,7 @@ const createStrangerVectorStore = ({ storeFilePath, maxRows, retentionDays, nowD
 		done();
 	});
 
-	const storeApi = { readVectors, writeVectors, tokensSpentToday, addTokensToday, sweepNow, rowCount, close };
+	const storeApi = { readVectors, writeVectors, tokensSpentToday, addTokensToday, sweepNow, rowCount, storeHandle, close };
 };
 
 module.exports = { createStrangerVectorStore };

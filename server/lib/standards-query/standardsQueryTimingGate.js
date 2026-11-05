@@ -40,7 +40,7 @@ const encodedQueryOf = (queryText) => (queryText === '' ? '' : `?${new URLSearch
 	return [onePair.slice(0, splitAt), onePair.slice(splitAt + 1)];
 })).toString()}`);
 
-// a row with bodyJson is a POST of that body; every other row is a GET
+// a row with bodyJson is a POST of that body; every other row is a GET. This gate holds no credential, so a judged row (expectedHttpStatus) times its refusal; a job's own timing is G4.12's.
 const timedRequest = (routeText, bodyJson, done) => {
 	const startedAt = process.hrtime.bigint();
 	const bodyText = bodyJson === undefined ? undefined : JSON.stringify(bodyJson);
@@ -89,7 +89,7 @@ const measureRow = (rowIndex, done) => {
 		const warmBound = (oneRow.warmBoundSeconds || bounds.defaultWarmBoundSeconds) * boundScale;
 		const statusList = [...new Set(callList.map((one) => one.httpStatus))];
 		const faultList = [
-			...(statusList.length === 1 && statusList[0] === 200 ? [] : [`status ${statusList.join(',')}`]),
+			...(statusList.length === 1 && statusList[0] === (oneRow.expectedHttpStatus || 200) ? [] : [`status ${statusList.join(',')}`]),
 			...(firstCall.seconds > firstBound ? [`first call over ${firstBound}`] : []),
 			...(warmSeconds > warmBound ? [`warm over ${warmBound}`] : []),
 		];

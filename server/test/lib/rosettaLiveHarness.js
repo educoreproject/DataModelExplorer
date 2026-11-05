@@ -1,6 +1,7 @@
 'use strict';
 // rosettaLiveHarness — what the live Rosetta and size gates share: the real golden, the real store and forge modules, a core built as the access point builds it, and an embedder that answers from the graph's own text nodes, so a gate is free, offline and deterministic. It is the embedder, and nothing else, that stands in; runs/P3/g31 measures the real one.
-//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher? }, done(err | '', { core, rosettaRetrieval, store, session, serviceFacts..., close })) ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
+//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher?, vendorPostOnce?, judgeConfigValues?, waitMilliseconds? }, done(err | '', { core, rosettaRetrieval, rosettaJudged, runner, store, session, serviceFacts..., close }))
+//     vendorPostOnce: a fake vendor at the forge client's own network seam, so the real client, judge and store all run and nothing reaches Anthropic. judgeConfigValues: the real config instead, for a gate that spends. Neither: no judge, as demo has today. ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
 
 const fs = require('fs');
 const os = require('os');
@@ -20,6 +21,7 @@ const { openForgeAdapter } = require('../../lib/edc-resolver/forgeAdapter');
 const { createStandardsQueryCore } = require('../../lib/standards-query/standardsQueryCore');
 const { createRosettaRetrieval, rosettaFuseValuesOf } = require('../../lib/standards-query/rosetta/rosettaRetrieval');
 const { createStrangerVectorStore } = require('../../lib/standards-query/rosetta/strangerVectorStore');
+const { assembleRosettaJudged } = require('../../lib/standards-query/rosetta/assembleRosettaJudged');
 const registry = require('../../lib/standards-query/standardsQueryOperations.json');
 
 const CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
@@ -28,7 +30,9 @@ const DIRECT_BLOCK_CONFIG_VALUES = Object.freeze({ directBlockMaxBytes: 53687091
 const GATE_WAIT_MILLISECONDS = 200;
 const GATE_WAIT_LIMIT = 300;
 const LIVE_LIMIT_VALUES = Object.freeze({ publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 });
-const LIVE_FUSE_VALUES = Object.freeze({ retrievalMaxTokensPerRequest: 120000, retrievalDailyTokenCeiling: 2000000, retrievalInFlightMax: 1, maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, hitsPerText: 40, minScore: 0.3, poolCap: 40, indexWindowPerText: 5000, textsPerGraphQuery: 40, judgeUsdPerFieldEstimate: 0.053, strangerVectorCacheMaxRows: 200000, strangerVectorRetentionDays: 30 });
+const LIVE_FUSE_VALUES = Object.freeze({ retrievalMaxTokensPerRequest: 120000, retrievalDailyTokenCeiling: 2000000, retrievalInFlightMax: 1, maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, hitsPerText: 40, minScore: 0.3, poolCap: 40, indexWindowPerText: 5000, textsPerGraphQuery: 40, judgeUsdPerFieldEstimate: 0.053, strangerVectorCacheMaxRows: 200000, strangerVectorRetentionDays: 30, judgedMaxFieldListLength: 50, maxRunningJobs: 1, maxQueuedJobs: 5, perPrincipalJobsOpen: 1, perJobCeilingUsd: 8, perPrincipalDailyUsd: 10, dailyJudgeCeilingUsd: 25, jobRetentionDays: 30, jobRunnerPollSeconds: 3600, judgeRetryWaitSecondsList: '1,1' });
+const FAKE_PRICING_INI_TEXT = '[spendPrice_anthropicOpus5]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate fixture, the rate in spendPricing.ini\npriceAsOf=2026-11-05\n';
+const FAKE_VENDOR_INI_TEXT = '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\n';
 
 // the texts of the graph's own nodes become their own stored vectors. A text the graph does not hold is a fault of the fixture, said by name.
 const graphTextEmbedderFor = ({ goldenHandle, callLog }) => ({
@@ -52,7 +56,7 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', dirPath, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, nowDate: suppliedNowDate } = {}, done) => {
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'] };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -78,8 +82,9 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 			return;
 		}
 		const embedCallLog = [];
-		const nowDate = () => new Date();
-		const xLog = { status() {}, error: (errorText) => errorLineList.push(String(errorText)), verbose() {} };
+		const nowDate = suppliedNowDate || (() => new Date());
+		const logLineList = [];
+		const xLog = { status: (statusText) => logLineList.push(String(statusText)), error: (errorText) => errorLineList.push(String(errorText)), verbose() {} };
 		const errorLineList = [];
 		createStrangerVectorStore({ storeFilePath: rosettaStoreFilePath, maxRows: fuseRead.fuseValues.strangerVectorCacheMaxRows, retentionDays: fuseRead.fuseValues.strangerVectorRetentionDays, nowDate, xLog }, (storeError, strangerVectorStore) => {
 			if (storeError) {
@@ -89,10 +94,20 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 			const usedEmbedder = embedder || graphTextEmbedderFor({ goldenHandle, callLog: embedCallLog });
 			const rosettaRetrieval = createRosettaRetrieval({ fuseValues: fuseRead.fuseValues, strangerVectorStore, embedder: usedEmbedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
 			const usageCountList = [];
+			if (vendorPostOnce) {
+				fs.writeFileSync(path.join(scratchDirPath, 'fakeAnthropic.ini'), FAKE_VENDOR_INI_TEXT);
+				fs.writeFileSync(path.join(scratchDirPath, 'fakePricing.ini'), FAKE_PRICING_INI_TEXT);
+			}
+			const usedJudgeConfigValues = judgeConfigValues || (vendorPostOnce ? { judgeProviderName: 'anthropic', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'fakeAnthropic.ini'), spendPricingFilePath: path.join(scratchDirPath, 'fakePricing.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'ledger', 'rosettaSpendLedgerLifetime.jsonl') } : {});
+			assembleRosettaJudged({ fuseConfigValues: { ...LIVE_FUSE_VALUES, ...fuseOverrideValues }, judgeConfigValues: usedJudgeConfigValues, fuseValues: fuseRead.fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle, runCypher, nowDate, xLog, componentOverrides: vendorPostOnce ? { postOnce: vendorPostOnce } : undefined, ...(waitMilliseconds ? { waitMilliseconds } : {}) }, (assembleError, rosettaJudged) => {
+			if (assembleError) {
+				done(assembleError);
+				return;
+			}
 			const core = createStandardsQueryCore({
 				registry,
 				limitConfigValues: { ...LIVE_LIMIT_VALUES, ...limitOverrideValues },
-				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues, sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, ...doorOverrideValues },
+				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues, rosettaJudgedValues: rosettaJudged.judgedValues, sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, ...doorOverrideValues },
 				goldenHandle,
 				forgeAdapter,
 				dmeSearchModule,
@@ -101,11 +116,13 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				xLog,
 				nowDate,
 				rosettaRetrieval,
+				rosettaJobService: rosettaJudged.rosettaJobService,
 			});
 			let waitCount = 0;
 			const waitForGate = () => {
 				if (core.serviceState().isServing) {
-					done('', { edcConfigValues, core, rosettaRetrieval, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
+					const runner = rosettaJudged.startRunner({ getServiceFacts: core.serviceFactsForGate, runOperation: core.runOperation });
+					done('', { edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
 					return;
 				}
 				waitCount += 1;
@@ -116,6 +133,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				setTimeout(waitForGate, GATE_WAIT_MILLISECONDS);
 			};
 			waitForGate();
+			});
 		});
 	});
 };

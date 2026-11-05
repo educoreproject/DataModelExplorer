@@ -3,6 +3,7 @@
 // When graph crosses: the report says what to do; this gate only says it has.
 
 const { openHarness, holdOutSubjectsOf } = require('./lib/rosettaLiveHarness');
+const { fakeJudgeVendorFor, pickOf } = require('./lib/fakeJudgeVendor');
 
 const SUMMARY_BYTE_BOUND = 20000;
 const anonymous = { kind: 'anonymous', userRefId: '', role: '' };

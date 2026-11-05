@@ -10,6 +10,7 @@
 //       openStoreReadHandle() → { storeHandle } | { error }: one more read-only handle on the store (the standards query core's reads; never a write)
 //       routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'directBlock' | 'overCap', kind, byteSize }: a block over wholeBlockMaxBytes is sent as the store holds it by streamOneBlock.js, up to directBlockMaxBytes
 //       retrievalModules: { candidateRetrievalLib, hubEdgeType, dmeRoles }: the forge's pure vote and rank modules and the names they read (Rosetta retrieval, design 4.1); they take records by injection and read no store
+//       loadJudgeModules() → { error } | { judgeOne, renderQuestion, promptIdentifierScanFor, loadSpendPricing, spendLedgerLib, createLlmClient, hubBridgingFor }: the bridge's judging machinery, for Rosetta's judged step (design 1.8, 4.5). Loaded only when an instance configures a judge. Every call into it keeps this file's try boundary. Paths are always handed in, because the forge's own defaults name the canonical stores and a Mac.
 //
 // The store opens once, read-only, at startup. An open handle keeps the old inode, so REPLACING THE STORE FILE IS AN API RESTART. So is any change to
 // the licence hold list the block kinds obey, which stubResolver.js freezes at require time: a hold change takes a forge re-sync plus an API restart.
@@ -23,6 +24,15 @@ const path = require('path');
 const RELATIONSHIP_BLOCK_KIND = 'relationship';
 const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix', 'directBlockSqliteCommandPath', 'sizeRefusalContactAddress'];
 const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'wholeBlockMaxOldSpaceMegabytes', 'wholeBlockTimeoutMilliseconds', 'directBlockMaxBytes', 'directBlockTimeoutMilliseconds'];
+
+const JUDGE_MODULE_RELATIVE_PATH_BY_NAME = Object.freeze({
+	judgeComponentLib: ['lib', 'bridge-framework', 'judgeComponent'],
+	evidenceRendererLib: ['lib', 'bridge-framework', 'evidenceRenderer'],
+	promptIdentifierScanLib: ['lib', 'bridge-framework', 'promptIdentifierScan'],
+	spendPricingLib: ['lib', 'spend-ledger', 'spendPricing'],
+	spendLedgerLib: ['lib', 'spend-ledger', 'spendLedger'],
+	llmClientFactory: ['apps', 'graph-builder', 'apps', 'bridge-maker', 'lib', 'llmClient'],
+});
 
 // the kinds that run in the child, never in the API. Whole block text (briefing section 4), where a size rule means the byte size is read first and capped
 // without spawning; and the manifest, standard, hub and element listings, which the brief expected to be cheap: measured on the server each holds a
@@ -163,6 +173,62 @@ const configRefusalFor = (configValues) => {
 	return badNumberNameList.length ? `${moduleName}: [edc-resolver] ${badNumberNameList.join(', ')} must be positive integers` : '';
 };
 
+// a foreign call that answers by callback: a throw becomes the callback's error, once, and an answer already given is not given again
+const attemptForgeCallback = (forgeCall, whatFailed, callback) => {
+	let hasAnswered = false;
+	const answerOnce = (...answerList) => {
+		if (!hasAnswered) {
+			hasAnswered = true;
+			callback(...answerList);
+		}
+	};
+	const attempted = attemptForgeCall(() => forgeCall(answerOnce), whatFailed);
+	if (attempted.error) {
+		answerOnce(attempted.error);
+	}
+};
+
+const loadJudgeModulesFrom = (educoreForgeCodePath) => {
+	const loaded = attemptForgeCall(() => Object.keys(JUDGE_MODULE_RELATIVE_PATH_BY_NAME).reduce((soFar, moduleLabel) => ({ ...soFar, [moduleLabel]: require(path.join(educoreForgeCodePath, ...JUDGE_MODULE_RELATIVE_PATH_BY_NAME[moduleLabel])) }), {}), `loading the judge from ${educoreForgeCodePath}`);
+	if (loaded.error) {
+		return { error: loaded.error };
+	}
+	const { judgeComponentLib, evidenceRendererLib, promptIdentifierScanLib, spendPricingLib, spendLedgerLib, llmClientFactory } = loaded.result;
+	const forgesDirPath = path.join(educoreForgeCodePath, 'forges');
+	return {
+		judgeOne: (judgeInput, callback) => attemptForgeCallback((answerOnce) => judgeComponentLib.judgeOne(judgeInput, answerOnce), 'judging', callback),
+		renderQuestion: (renderInput) => {
+			const attempted = attemptForgeCall(() => evidenceRendererLib.renderQuestion(renderInput), 'rendering a question');
+			return attempted.error ? { error: { message: attempted.error } } : attempted.result;
+		},
+		// a hub's identifier scan, compiled once, and the two surfaces Rosetta asks it about
+		promptIdentifierScanFor: ({ scanDeclaration, standardKey }) => {
+			const attempted = attemptForgeCall(() => {
+				const identifierList = scanDeclaration.identifierListPath === null ? null : promptIdentifierScanLib.readIdentifierList({ filePath: promptIdentifierScanLib.identifierListFilePathFor({ identifierListPath: scanDeclaration.identifierListPath, forgesDirPath, standardKey }) });
+				return promptIdentifierScanLib.compileScan({ scanDeclaration, identifierList }).compiledScan;
+			}, `compiling the identifier scan of ${standardKey}`);
+			return attempted.error ? { error: attempted.error } : {
+				firstHitIn: (surfaceTextByName) => promptIdentifierScanLib.scanSurfaces({ compiledScan: attempted.result, surfaceTextByName }).hit,
+				surfacesOfQuestion: ({ predicateRule, question }) => promptIdentifierScanLib.questionSurfaceTextByName({ predicateRule, question }),
+			};
+		},
+		loadSpendPricing: ({ pricingFilePath }) => {
+			const attempted = attemptForgeCall(() => spendPricingLib.loadSpendPricing({ pricingFilePath }), `reading prices from ${pricingFilePath}`);
+			return attempted.error ? { error: attempted.error } : attempted.result;
+		},
+		spendLedgerLib,
+		// a configuration fault in the client is a throw at construction, by the client's own rule: here it becomes { error }. It never echoes a credential.
+		createLlmClient: (constructionOptions) => {
+			const attempted = attemptForgeCall(() => llmClientFactory(constructionOptions), 'constructing the judge client');
+			return attempted.error ? { error: attempted.error } : { judgeClient: attempted.result };
+		},
+		hubBridgingFor: ({ forgeBundleName, hubBridgingModuleName }) => {
+			const attempted = attemptForgeCall(() => require(path.join(forgesDirPath, forgeBundleName, 'lib', hubBridgingModuleName)).hubBridging, `reading the hub half of ${forgeBundleName}`);
+			return attempted.error ? { error: attempted.error } : { hubBridging: attempted.result };
+		},
+	};
+};
+
 const openForgeAdapter = ({ configValues }) => {
 	const configRefusal = configRefusalFor(configValues);
 	if (configRefusal) {
@@ -221,6 +287,7 @@ const openForgeAdapter = ({ configValues }) => {
 		edcIriFor: forgeResolver.edcIriFor,
 		edcUri: forgeResolver.edcUri,
 		retrievalModules: forgeResolver.retrievalModules,
+		loadJudgeModules: () => loadJudgeModulesFrom(educoreForgeCodePath),
 		openStoreReadHandle: () => {
 			const opened = attemptForgeCall(() => new forgeResolver.Database(uriContractFilePath, { readonly: true, fileMustExist: true }), `opening ${uriContractFilePath} read-only`);
 			return opened.error ? { error: opened.error } : { storeHandle: opened.result };

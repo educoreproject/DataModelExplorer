@@ -2,7 +2,7 @@
 
 // standardsQueryCore — one module answers every question about the standards; the Query API, MCP and later doors hold no query of their own (design, first page).
 //
-//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval? })
+//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval?, rosettaJobService? })
 //     → { runOperation({ operationName, input, principal }, callback('', { httpStatus, bodyText, cachePolicy, retryAfterSeconds })), registryRowFor, serviceState }
 //
 // An operation runs IN PROCESS on the golden handle's READ session: no spawned node, docker inspect or new driver per call (design 1.6). Query logic stays in the DME CLI module;
@@ -68,7 +68,7 @@ const STRUCTURED_INPUT_TEST_BY_TYPE = Object.freeze({
 	object: (inputValue) => inputValue !== null && typeof inputValue === 'object' && !Array.isArray(inputValue),
 });
 
-const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval }) => {
+const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval, rosettaJobService }) => {
 	const registryRowByOperationName = registry.operationList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.operationName]: registryRow }), {});
 	const refusalStatusByName = { ...registry.verbRefusalHttpStatusByName, ...registry.envelopeRefusalHttpStatusByName };
 	const limits = limitNumbersOf(limitConfigValues);
@@ -306,7 +306,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		return summaryAnswer;
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer, cachePolicy? })).
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, rowDetail, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer, cachePolicy? })).
 	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
 		verb: ({ registryRow, input, pageNumber, namedUriList, admitScan }, done) => {
@@ -359,6 +359,14 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 				return;
 			}
 			rosettaRetrieval.runRetrieval({ withReadSession: goldenHandle.withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, done);
+		},
+		// the judged step: a job, not a request. Its registry row names which of the four actions it is. The same shape on every door; none of them holds a rule of its own.
+		rosettaJobs: ({ registryRow, input, principal, pageNumber, rowDetail, namedSubjectList }, done) => {
+			if (!rosettaJobService) {
+				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', 'this instance has no judged step') });
+				return;
+			}
+			rosettaJobService[registryRow.jobActionName]({ principal, input, serviceFacts, withReadSession: goldenHandle.withReadSession, answeredFrom: answeredFromFor(registryRow.operationName), pageNumber, pageSize: registryRow.pageSize, rowDetail, namedSubjectList, answerNoteValues: registry.rosettaJudgedNote }, done);
 		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),
@@ -454,7 +462,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
 		const { page: unusedPage, [ROW_DETAIL_INPUT_NAME]: unusedRowDetail, ...unresolvedHandlerInput } = operationInput;
 		const handlerInput = registryRow.requiresUriPromise ? withUriInputsResolved({ registryRow, input: unresolvedHandlerInput }) : unresolvedHandlerInput;
-		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
+		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, rowDetail, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
 			if (isHoldingScanSlot) {
 				scanCountByOperationName[operationName] -= 1;

@@ -73,7 +73,7 @@ const shellRefusalOf = (refusalName, reason) => toolResultOf(JSON.stringify({ an
 
 const registerStandardsQueryTools = ({ server, toolSpecList, getAuth, accessPointsDotD, logToolCall, xLog }) => {
 	toolSpecList.forEach(({ toolName, operationName, registryRow, description, inputSchema }) => {
-		server.registerTool(toolName, { description, inputSchema, annotations: { readOnlyHint: true } }, (toolArguments) => new Promise((resolve) => {
+		server.registerTool(toolName, { description, inputSchema, annotations: { readOnlyHint: registryRow.mcpIsReadOnly !== false } }, (toolArguments) => new Promise((resolve) => {
 			const mcpAuth = getAuth();
 			logToolCall(toolName, mcpAuth);
 			const failedWith = (failureText) => {

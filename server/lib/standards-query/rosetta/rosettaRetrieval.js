@@ -4,7 +4,7 @@
 //
 //   rosettaFuseValuesOf(configValues) → { fuseValues } | { refusalText }
 //   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
-//     → { runRetrieval({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), stats() }
+//     → { runRetrieval({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), hubRowListFor({ withReadSession, serviceFacts }, done(err, hubRowList)), stats() }
 //   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
 //
 // WHERE A STRANGER'S TEXT GOES: to the embedding vendor, to become a vector, and into the answer it was sent for. Never to a log (an embedding failure logs the vendor's status, not its body), never to Neo4j (a vector goes, which is why the keyword leg is not fused: it would put the text in a query parameter), never to usageCounts (the hubs are counted, and no URI: a pool is what the service said, not what anyone asked). In the store: its sha256 and vector, with no text.
@@ -396,7 +396,20 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		});
 	};
 
-	return { runRetrieval, retrieveCandidates, stats: () => ({ ...retrievalStats, inFlightCount }) };
+	// the graph's hubs, for the judged step's submission, read the way retrieval reads them
+	const hubRowListFor = ({ withReadSession, serviceFacts }, done) => withReadSession((session, sessionDone) => withGraphFacts({ session, serviceFacts }, sessionDone), (factsError, graphFacts) => {
+		if (factsError) {
+			done(factsError);
+			return;
+		}
+		if (graphFacts.refusal) {
+			done(`${graphFacts.refusal.refusalName}: ${graphFacts.refusal.reason}`);
+			return;
+		}
+		done('', graphFacts.hubRowList);
+	});
+
+	return { runRetrieval, retrieveCandidates, hubRowListFor, stats: () => ({ ...retrievalStats, inFlightCount }) };
 };
 
 module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, SUBMISSION_FORM_LIST };
