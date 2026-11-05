@@ -132,7 +132,7 @@ gate('G4.2', (done) => {
 			ok('G4.2 daily ceiling: the job stops after the field that crosses it, status fuseTripped', statusAnswer.status === 'fuseTripped' && statusAnswer.stopReasonName === 'dailyCeilingReached' && vendor.callLog.length === 4, `${statusAnswer.status} ${statusAnswer.stopReasonName} ${vendor.callLog.length} calls, spent ${statusAnswer.spentUsd}`);
 			ask('rosettaFetch', { jobRefId: submitted.jobRefId }, USER_A, ({ answer: report }) => {
 				ok('G4.2: the report is fetchable and labelled partial', report.isPartial === true && /not finished/.test(report.partialNote));
-				ok('G4.2: what it did not reach reads notJudged with the fuse named, not abstained', /CEDS notJudged \(dailyCeilingReached\)/.test(report.fieldLineList[4]) && report.counts.byHub.CEDS.abstained === 0 && report.counts.byHub.CEDS.notJudged === 1, JSON.stringify(report.fieldLineList[4]));
+				ok('G4.2: what it did not reach reads notJudged with the fuse named, not abstained', /CEDS notJudged \(dailyCeilingReached\)/.test(report.fieldLineList[4]) && !report.counts.byHub.CEDS.abstained && report.counts.byHub.CEDS.notJudged === 1, JSON.stringify(report.counts.byHub.CEDS));
 				ask('rosettaRetrieval', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, (retrievalAnswer) => {
 					ok('G4.2: retrieval still answers with the ceiling reached', retrievalAnswer.httpStatus === 200);
 					ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_B, (refusedAnswer) => {

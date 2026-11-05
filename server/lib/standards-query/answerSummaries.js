@@ -282,7 +282,6 @@ const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
 		fieldLineList: fieldList.map((oneField) => [oneField.name, ...Object.keys(oneField.byHub).map((hubName) => `${hubName} ${judgedLineOf({ oneUnit: oneField.byHub[hubName], labelChars })}`)].join(' | ')),
 		leftOutOfSummary: {
 			howToAsk: summaryShape.howToAskForFullJudged,
-			strongEvidenceNotShown: true,
 			rationalesNotShown: everyUnitList.filter((oneUnit) => oneUnit.judgesRationale).length,
 			proposalUrisNotShown: proposalCount,
 			...(labelChars === 0 && proposalCount > 0 ? { proposalLabelsNotShown: proposalCount } : {}),
