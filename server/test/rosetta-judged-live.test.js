@@ -212,7 +212,10 @@ gate('G4.2ceilings', (done) => {
 						offsetMs = MILLISECONDS_PER_DAY + 3600000;
 						ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, (laterAnswer) => {
 							ok('the day rolls: 25 hours on, the same person is admitted', laterAnswer.httpStatus === 200, laterAnswer.answer.refusalName);
-							untilClosed(ask, laterAnswer.answer.jobRefId, USER_A, () => close());
+							untilClosed(ask, laterAnswer.answer.jobRefId, USER_A, (laterStatus) => {
+								ok('the day rolls for the runner too: that job is not stopped by yesterday\'s spend', laterStatus.status === 'done', `${laterStatus.status} ${laterStatus.stopReasonName}`);
+								close();
+							});
 						});
 					});
 				});
@@ -424,7 +427,7 @@ gate('G4.9restart', (done) => {
 					ok('G4.9 restart: the field under way is lostAtRestart, not abstained, and not asked again', statusOfField(2) === 'lostAtRestart' && report.counts.byHub.CEDS.abstained === 0 && !vendor.callLog.some((oneCall) => oneCall.userPrompt.includes('restartField2')), statusOfField(2));
 					ok('G4.9 restart: no field before it is paid for twice', !vendor.callLog.some((oneCall) => /restartField[01]\b/.test(oneCall.userPrompt)), `${vendor.callLog.length}`);
 					ok('G4.9 restart: the rest are judged', statusOfField(3) === 'proposed' && statusOfField(4) === 'proposed' && vendor.callLog.length === 2, `${vendor.callLog.length}`);
-					const expectedUsd = 4 * 0.0281 + 0.09; // four answered at the fake's bill; the lost one at its estimate
+					const expectedUsd = 4 * 0.0281 + 0.07; // four answered at the fake's bill; the lost one at its estimate
 					ok(`G4.9 restart: nothing spent is forgotten: ${statusAnswer.spentUsd} is four answered and one lost at its estimate`, Math.abs(statusAnswer.spentUsd - expectedUsd) < 0.001, `${statusAnswer.spentUsd} vs ${expectedUsd}`);
 					harness.rosettaJudged.jobStore.rollingSpendUsd({ sinceMs: 0 }, (rollError, rollingUsd) => {
 						ok('G4.9 restart: the rolling sum agrees', !rollError && Math.abs(rollingUsd - expectedUsd) < 0.001, `${rollingUsd}`);
@@ -498,7 +501,7 @@ gate('G4.10', (done) => {
 					ok(`G4.10 ${oneCase.caseName}: the retry is on the bill, unbilled by the vendor`, countOf('failedUnbilled') === oneCase.expectUnbilled && Math.abs(statusAnswer.spentUsd - 2 * 0.0281) < 0.001, `${countOf('failedUnbilled')} ${statusAnswer.spentUsd}`);
 				}
 				if (oneCase.expectPricedUnanswered) {
-					ok(`G4.10 ${oneCase.caseName}: the unanswered call stays priced at the estimate, and the retry adds to it`, countOf('unansweredPriced') === oneCase.expectPricedUnanswered && Math.abs(statusAnswer.spentUsd - (2 * 0.0281 + 0.09)) < 0.001, `${countOf('unansweredPriced')} ${statusAnswer.spentUsd}`);
+					ok(`G4.10 ${oneCase.caseName}: the unanswered call stays priced at the estimate, and the retry adds to it`, countOf('unansweredPriced') === oneCase.expectPricedUnanswered && Math.abs(statusAnswer.spentUsd - (2 * 0.0281 + 0.07)) < 0.001, `${countOf('unansweredPriced')} ${statusAnswer.spentUsd}`);
 				}
 				if (oneCase.expectFirstUnitStatus) {
 					ok(`G4.10 ${oneCase.caseName}: the unit is ${oneCase.expectFirstUnitStatus}, and the next is judged`, report.fieldList[0].byHub.CEDS.status === oneCase.expectFirstUnitStatus && report.fieldList[1].byHub.CEDS.status === 'proposed', `${report.fieldList[0].byHub.CEDS.status} ${report.fieldList[1].byHub.CEDS.status}`);
@@ -531,7 +534,7 @@ gate('G4.11', (done) => {
 			ok('G4.11: says a submitted text goes to the vendor', /go to Anthropic/.test(submitEntry.whatHappensToYourText));
 			ok('G4.11: the vendor sentence quotes the terms', /"Anthropic may not train models on Customer Content from Services\."/.test(submitEntry.whatHappensToYourText));
 			ok('G4.11: says how long, the number the config\'s', /for 30 days/.test(submitEntry.whatHappensToYourText) && about.limitsInForce.judgedStep.daysKept === 30);
-			ok('G4.11: says a draft is one model\'s reading, and what strong-only means', /one model's reading/.test(submitEntry.whatThisDoesNot) && /Only proposals the judge calls strong/.test(submitEntry.whatThisDoesNot));
+			ok('G4.11: says a draft is one model\'s reading, what strong-only means, that strong is not proof, and that the figures are CEDS only', /one model's reading/.test(submitEntry.whatThisDoesNot) && /Only proposals the judge calls strong/.test(submitEntry.whatThisDoesNot) && /Strong is not proof/.test(submitEntry.whatThisDoesNot) && /28 of 28/.test(submitEntry.whatThisDoesNot) && /CEDS alone/.test(submitEntry.whatThisDoesNot) && /Nothing is measured for CTDL/.test(submitEntry.whatThisDoesNot));
 			ok('G4.11: says retrieval stays open while the judged step needs sign-in', /retrieval stays open/i.test(submitEntry.whatThisDoesNot) && submitEntry.needsSignedInAccount === true);
 			ok('price: about names no price', !/\$[0-9]|estimateUsd|spentUsd|usd\b/i.test(JSON.stringify({ ...about, operationList: about.operationList.map(({ exampleShows, ...restOfEntry }) => restOfEntry) })), 'about mentions a price');
 			const runExample = (exampleEntry, exampleInput, principal, expectedFieldList, nextDone) => ask(registry.operationList.find((oneRow) => oneRow.routeName === exampleEntry.operation).operationName, exampleInput, principal, ({ httpStatus, answer }) => {
@@ -591,7 +594,7 @@ gate('judgedPoolCap', (done) => {
 	// the setting on, through the real runner: the judge sees at most cap + 1, and retrieval's public answer is byte-identical with it off
 	const field = { name: 'dischargeDate', definition: 'The date of discharge.' };
 	const vendor = fakeJudgeVendorFor();
-	withHarness({ vendorPostOnce: vendor.postOnce, fuseOverrideValues: { judgedPoolCap: 20 } }, (harness, close) => {
+	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => { // the harness holds what the inis hold: 20
 		const ask = askFor(harness);
 		ask('rosettaRetrieval', { fieldList: [field], hubList: ['CEDS'], rowDetail: 'full' }, USER_A, (onAnswer) => {
 			ok('judgedPoolCap on: retrieval\'s public pool is still whole', onAnswer.answer.fieldList[0].byHub.CEDS.poolSize === 40, `${onAnswer.answer.fieldList[0].byHub.CEDS.poolSize}`);

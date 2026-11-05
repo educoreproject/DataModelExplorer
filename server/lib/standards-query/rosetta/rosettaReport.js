@@ -87,6 +87,7 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		judge: job.judgeFacts,
 		draftNote: answerNoteValues.draftNote,
 		strongOnlyNote: answerNoteValues.strongOnlyNote,
+		strongEvidenceNote: answerNoteValues.strongEvidenceNote,
 		rationaleNote: answerNoteValues.rationaleNote,
 		...(job.status === JOB_STATUS_DONE ? {} : { isPartial: true, partialNote: answerNoteValues.partialNote }),
 		answeredFromAtSubmit: job.answeredFrom,

@@ -112,6 +112,7 @@ onUnmounted(() => store.stopPolling());
 				<template v-if="store.report">
 					<p class="mb-1"><strong>{{ store.report.draftNote }}</strong></p>
 					<p class="mb-2">{{ store.report.strongOnlyNote }}</p>
+					<p class="mb-2">{{ store.report.strongEvidenceNote }}</p>
 					<v-card v-for="hubName in hubNameList" :key="hubName" class="mb-4 pa-3">
 						<v-btn size="small" class="mb-2" @click="downloadDraft(hubName)">Download the {{ hubName }} draft</v-btn>
 						<pre class="rosettaDraft">{{ JSON.stringify(store.report.draftContextByHub[hubName], null, 2) }}</pre>
