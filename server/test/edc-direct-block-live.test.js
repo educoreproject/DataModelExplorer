@@ -34,7 +34,7 @@ const HELD_OVER_CAP_DECISION_BLOCK = '1a1e9d161672c044778dbd92862263ea9b1a852109
 
 const errorLineList = [];
 process.global = { xLog: { status() {}, verbose() {}, result() {}, error: (errorText) => errorLineList.push(String(errorText)) }, getConfig: () => configValues, rawConfig: {}, commandLineParameters: { switches: {}, values: {} } };
-let configValues = { educoreForgeCodePath: FORGE_CODE_PATH, uriContractFilePath: URI_CONTRACT_FILE_PATH, publicPathPrefix: '/edc/', wholeBlockMaxBytes: CAP_BYTES, wholeBlockMaxOldSpaceMegabytes: 768, wholeBlockTimeoutMilliseconds: 60000, directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3' };
+let configValues = { educoreForgeCodePath: FORGE_CODE_PATH, uriContractFilePath: URI_CONTRACT_FILE_PATH, publicPathPrefix: '/edc/', wholeBlockMaxBytes: CAP_BYTES, wholeBlockMaxOldSpaceMegabytes: 768, wholeBlockTimeoutMilliseconds: 60000, directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@directBlock.example' };
 
 let failedCount = 0;
 let passedCount = 0;

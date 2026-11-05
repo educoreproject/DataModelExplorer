@@ -14,6 +14,8 @@ const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus'
 const { openForgeAdapter } = require('../../../lib/edc-resolver/forgeAdapter');
 const { wholeBlockRunnerFor } = require('../../../lib/edc-resolver/wholeBlockRunner');
 const { answerTextFor, CONTENT_TYPE_BY_FORMAT } = require('../../../lib/edc-resolver/htmlAnswer');
+const { sizeRefusalContactFor } = require('../../../lib/standards-query/sizeRefusalContact');
+const standardsQueryRegistry = require('../../../lib/standards-query/standardsQueryOperations.json');
 
 const WHOLE_BLOCK_BUSY_RETRY_SECONDS = 5;
 // ⟪TQ Q39⟫ the bytes of a direct block reach the client unchecked: the client holds the hash and checks it, as the block's own name promises it can
@@ -32,6 +34,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		xLog.status(forgeAdapter.startupLine);
 	}
 	const wholeBlockRunner = forgeAdapter.refusalText ? null : wholeBlockRunnerFor({ ...forgeAdapter, xLog });
+	const sizeRefusalContact = forgeAdapter.refusalText ? null : sizeRefusalContactFor({ registry: standardsQueryRegistry, contactAddress: forgeAdapter.sizeRefusalContactAddress });
 
 	const textAnswerFor = ({ edcRequestPath, answerFormat, httpStatus, answerBody, extraHeaderByName = {} }) => ({
 		httpStatus,
@@ -56,7 +59,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				edcRequestPath,
 				answerFormat,
 				httpStatus: 413,
-				answerBody: { kind: route.kind, blockIdentity: route.blockIdentity, byteSize: route.byteSize, wholeBlockMaxBytes: forgeAdapter.wholeBlockMaxBytes, error: `${route.kind} ${route.blockIdentity} is ${route.byteSize} bytes, over this instance's cap of ${forgeAdapter.directBlockMaxBytes}; it is not served here` },
+				answerBody: { kind: route.kind, blockIdentity: route.blockIdentity, byteSize: route.byteSize, wholeBlockMaxBytes: forgeAdapter.wholeBlockMaxBytes, contact: sizeRefusalContact.contact, error: `${route.kind} ${route.blockIdentity} is ${route.byteSize} bytes, over this instance's cap of ${forgeAdapter.directBlockMaxBytes}; it is not served here. ${sizeRefusalContact.sentence}` },
 			})),
 		directBlock: ({ edcRequestPath, answerFormat, whenClientGone, route }, done) => {
 			if (wholeBlockRunner.isBusy()) {

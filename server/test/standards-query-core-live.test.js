@@ -32,7 +32,7 @@ const ok = (testName, condition, detailText) => {
 
 const configDirPath = path.join(__dirname, '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
 const allConfig = configFileProcessor.getConfig('startApiServer.ini', configDirPath, { resolve: true });
-const edcConfigValues = { directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', ...allConfig['edc-resolver'] }; // the configs tree this reads may predate them; this gate reads no block over the cap
+const edcConfigValues = { directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@coreLive.example', ...allConfig['edc-resolver'] }; // the configs tree this reads may predate them; this gate reads no block over the cap
 const LIMITS = { publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 };
 
 const VECTOR_QUESTION_LIST = [
@@ -54,7 +54,7 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 	const goldenHandle = createGoldenGraphHandle({ goldenContainerName: dmeModuleConfig.goldenContainerName, queryTimeoutMs: 30000, retryDelayMsList: GOLDEN_RETRY_DELAY_MS_LIST, resolveConnectionFresh, neo4jGen });
 	const forgeAdapter = openForgeAdapter({ configValues: edcConfigValues });
 	ok('the forge adapter opens', !forgeAdapter.refusalText, forgeAdapter.refusalText);
-	const makeCore = (limitValues) => createStandardsQueryCore({ registry, limitConfigValues: limitValues, doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
+	const makeCore = (limitValues) => createStandardsQueryCore({ registry, limitConfigValues: limitValues, doorLimitValues: { sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
 	const core = makeCore(LIMITS);
 	const ceilingCore = makeCore({ ...LIMITS, dailyEmbeddingTokenCeiling: 1 });
 	const ask = (whichCore, operationName, input, done) => whichCore.runOperation({ operationName, input, principal: { kind: 'anonymous' } }, (unusedError, answer) => done({ ...answer, body: JSON.parse(answer.bodyText) }));
@@ -224,7 +224,7 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 				}),
 			}, sessionDone), callback); },
 		};
-		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
+		const reconnectCore = createStandardsQueryCore({ registry, limitConfigValues: LIMITS, doorLimitValues: { sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/' }, goldenHandle: reconnectingHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter: { countAnswer() {}, readCounts: (done) => done('', [{ operationName: 'stubbedCounter' }]) }, xLog: process.global.xLog, nowDate: () => new Date() });
 		const waitForCacheProof = (done) => {
 			const sessionCountBefore = sessionCount;
 			let answeredCount = 0;

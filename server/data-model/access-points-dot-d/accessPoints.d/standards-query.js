@@ -80,6 +80,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					sessionCapPerSub: Number((getConfig(MCP_CONFIG_SECTION_NAME) || {}).sessionCapPerSub),
 					sessionIdleTtlSeconds: Number((getConfig(MCP_CONFIG_SECTION_NAME) || {}).sessionIdleTtlSeconds),
 					edcPublicPathPrefix: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).publicPathPrefix,
+					sizeRefusalContactAddress: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).sizeRefusalContactAddress,
 					rosettaFuseValues: fuseValues,
 				},
 				goldenHandle: neo4jDb,

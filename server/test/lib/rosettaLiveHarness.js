@@ -24,7 +24,7 @@ const registry = require('../../lib/standards-query/standardsQueryOperations.jso
 
 const CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
 const MAIN_TREE_CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configsStandardsQueryP3', 'instanceSpecific', 'qbook');
-const DIRECT_BLOCK_CONFIG_VALUES = Object.freeze({ directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3' }); // the configs tree this reads may predate them; none of these gates reads a block
+const DIRECT_BLOCK_CONFIG_VALUES = Object.freeze({ directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@harness.example' }); // the configs tree this reads may predate them; none of these gates reads a block
 const GATE_WAIT_MILLISECONDS = 200;
 const GATE_WAIT_LIMIT = 300;
 const LIVE_LIMIT_VALUES = Object.freeze({ publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 });
@@ -52,7 +52,7 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', dirPath, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery } = {}, done) => {
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'] };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -92,7 +92,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedd
 			const core = createStandardsQueryCore({
 				registry,
 				limitConfigValues: { ...LIVE_LIMIT_VALUES, ...limitOverrideValues },
-				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues },
+				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues, sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, ...doorOverrideValues },
 				goldenHandle,
 				forgeAdapter,
 				dmeSearchModule,
@@ -105,7 +105,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, embedd
 			let waitCount = 0;
 			const waitForGate = () => {
 				if (core.serviceState().isServing) {
-					done('', { core, rosettaRetrieval, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
+					done('', { edcConfigValues, core, rosettaRetrieval, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
 					return;
 				}
 				waitCount += 1;

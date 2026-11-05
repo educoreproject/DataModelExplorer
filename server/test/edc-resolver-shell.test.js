@@ -75,7 +75,7 @@ runTokenCase(0, () => {
 	ok('a value outside the scheme is not linked', !pageText.includes('href="https://elsewhere'));
 	ok('a page with no scheme known still renders its refusal', /forge is off/.test(answerTextFor({ answerFormat: 'html', httpStatus: 503, answerBody: { error: 'the forge is off' } })));
 
-	const COMPLETE_CONFIG = { educoreForgeCodePath: '/nowhere/forge', uriContractFilePath: '/nowhere/store', publicPathPrefix: '/edc/', directBlockSqliteCommandPath: '/usr/bin/sqlite3', directBlockMaxBytes: '2', directBlockTimeoutMilliseconds: '1', wholeBlockMaxBytes: '1', wholeBlockMaxOldSpaceMegabytes: '1', wholeBlockTimeoutMilliseconds: '1' };
+	const COMPLETE_CONFIG = { educoreForgeCodePath: '/nowhere/forge', uriContractFilePath: '/nowhere/store', publicPathPrefix: '/edc/', directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@shell.example', directBlockMaxBytes: '2', directBlockTimeoutMilliseconds: '1', wholeBlockMaxBytes: '1', wholeBlockMaxOldSpaceMegabytes: '1', wholeBlockTimeoutMilliseconds: '1' };
 	ok('no section at all is refused by name', /does not give educoreForgeCodePath/.test(openForgeAdapter({ configValues: { _segmentName: 'edc-resolver' } }).refusalText));
 	ok('one absent value is refused, naming it', /does not give publicPathPrefix;/.test(openForgeAdapter({ configValues: { ...COMPLETE_CONFIG, publicPathPrefix: '' } }).refusalText));
 	ok('a cap that is no number is refused, naming it', /wholeBlockMaxBytes must be positive/.test(openForgeAdapter({ configValues: { ...COMPLETE_CONFIG, wholeBlockMaxBytes: 'lots' } }).refusalText));

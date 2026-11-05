@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RELATIONSHIP_BLOCK_KIND = 'relationship';
-const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix', 'directBlockSqliteCommandPath'];
+const REQUIRED_TEXT_CONFIG_NAME_LIST = ['educoreForgeCodePath', 'uriContractFilePath', 'publicPathPrefix', 'directBlockSqliteCommandPath', 'sizeRefusalContactAddress'];
 const REQUIRED_POSITIVE_INTEGER_CONFIG_NAME_LIST = ['wholeBlockMaxBytes', 'wholeBlockMaxOldSpaceMegabytes', 'wholeBlockTimeoutMilliseconds', 'directBlockMaxBytes', 'directBlockTimeoutMilliseconds'];
 
 // the kinds that run in the child, never in the API. Whole block text (briefing section 4), where a size rule means the byte size is read first and capped
@@ -233,6 +233,7 @@ const openForgeAdapter = ({ configValues }) => {
 		directBlockMaxBytes,
 		directBlockTimeoutMilliseconds: Number(configValues.directBlockTimeoutMilliseconds),
 		directBlockSqliteCommandPath: configValues.directBlockSqliteCommandPath,
+		sizeRefusalContactAddress: configValues.sizeRefusalContactAddress,
 		wholeBlockMaxOldSpaceMegabytes: Number(configValues.wholeBlockMaxOldSpaceMegabytes),
 		wholeBlockTimeoutMilliseconds: Number(configValues.wholeBlockTimeoutMilliseconds),
 		startupLine: `${moduleName}: resolver open; forge ${educoreForgeCodePath} at commit ${forgeCommitOf(educoreForgeCodePath)}; store ${uriContractFilePath} (read-only); registry ${layerRegistry.layerList.length} layers, ${agentRegistry.agentList.length} agents`,
