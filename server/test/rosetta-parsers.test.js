@@ -20,7 +20,7 @@ dns.lookup = (hostName, ...restArgument) => { networkAttemptList.push(`dns ${hos
 const realConnect = net.Socket.prototype.connect;
 net.Socket.prototype.connect = function failingConnect(...connectArgument) { networkAttemptList.push(`socket ${JSON.stringify(connectArgument[0])}`); return realConnect.apply(this, connectArgument); };
 
-const LIMITS = { maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000 };
+const LIMITS = { maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, maxUnresolvedListLength: 50 };
 const fieldNamesOf = (parsed) => parsed.fieldList.map((oneField) => oneField.name);
 
 const CLASSROOM_FIELD_LIST = [{ name: 'id', definition: 'Identifier assigned by Classroom.', type: 'string' }, { name: 'name', definition: 'Name of the course.', type: 'string' }, { name: 'section', definition: 'Section of the course.', type: 'string' }, { name: 'room', type: 'string' }];

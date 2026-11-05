@@ -4,6 +4,10 @@
 	"defaultFirstCallBoundSeconds": 10,
 	"exemptOperationList": [{ "operationName": "usage", "why": "admin only: the gate holds no credential, and its answer costs one SQLite read" }],
 	"rowList": [
+		{ "label": "job submit, no credential", "operationName": "rosettaSubmit", "queryText": "", "expectedHttpStatus": 401, "bodyJson": { "fieldList": [{ "name": "dischargeDate" }] } },
+		{ "label": "job status, no credential", "operationName": "rosettaStatus", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
+		{ "label": "job fetch, no credential", "operationName": "rosettaFetch", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
+		{ "label": "job cancel, no credential", "operationName": "rosettaCancel", "queryText": "", "expectedHttpStatus": 404, "bodyJson": { "jobRefId": "0123456789abcdef0123456789abcdef" } },
 		{ "label": "search hybrid", "operationName": "search", "queryText": "q=date of birth" },
 		{ "label": "search keyword", "operationName": "search", "queryText": "q=race&mode=keyword" },
 		{ "label": "grep regex", "operationName": "grep", "queryText": "pattern=^birth&standard=LIF" },

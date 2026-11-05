@@ -123,8 +123,8 @@ openHarness({}, (harnessError, harness) => {
 			https.request = realRequest;
 			ok('no judge: a retrieval read no Anthropic file, loaded no judge and made no https call of its own here', httpStatus === 200 && watchedList.length === 0, watchedList.join());
 			const rosettaDirPath = path.join(__dirname, '..', 'lib', 'standards-query', 'rosetta');
-			const sourceText = [...fs.readdirSync(rosettaDirPath).filter((oneName) => oneName.endsWith('.js')).map((oneName) => path.join(rosettaDirPath, oneName))].map((filePath) => realReadFileSync(filePath, 'utf8').split('\n').filter((oneLine) => !oneLine.trim().startsWith('//')).join('\n')).join('\n');
-			ok('no judge: no code of rosetta names ANTHROPIC, judgeOne or a judge client', !/ANTHROPIC|anthropicAi|judgeOne|judgeComponent|llmClient/i.test(sourceText));
+			const sourceText = [...['rosettaRetrieval.js', 'retrieveCandidates.js', 'strangerVectorStore.js'].map((oneName) => path.join(rosettaDirPath, oneName))].map((filePath) => realReadFileSync(filePath, 'utf8').split('\n').filter((oneLine) => !oneLine.trim().startsWith('//')).join('\n')).join('\n');
+			ok('no judge: no code of retrieval names ANTHROPIC, judgeOne or a judge client; the judged step is beside it, and a mention of retrieval reaches it only through the hub list', !/ANTHROPIC|anthropicAi|judgeOne|judgeComponent|llmClient/i.test(sourceText));
 			ok('no judge: nothing here reads the Anthropic environment', environmentKeyBefore.length === 0 || !/process\.env/.test(sourceText));
 			next();
 		});

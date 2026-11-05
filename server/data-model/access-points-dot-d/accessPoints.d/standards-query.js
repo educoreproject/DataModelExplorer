@@ -15,6 +15,7 @@ const { createUsageCounter } = require('../../../lib/standards-query/usageCounts
 const registry = require('../../../lib/standards-query/standardsQueryOperations.json');
 const { createRosettaRetrieval, rosettaFuseValuesOf } = require('../../../lib/standards-query/rosetta/rosettaRetrieval');
 const { createStrangerVectorStore } = require('../../../lib/standards-query/rosetta/strangerVectorStore');
+const { assembleRosettaJudged } = require('../../../lib/standards-query/rosetta/assembleRosettaJudged');
 const { runCypherQuery } = require('../../../../cli/lib.d/data-model-explorer/lib/runCypherQuery');
 const { checkGraphEmbeddingContract } = require('../../../../cli/lib.d/data-model-explorer/lib/graphEmbeddingContract');
 const neo4jDriver = require('neo4j-driver');
@@ -24,6 +25,7 @@ const LIMIT_CONFIG_SECTION_NAME = 'standards-query-limits';
 const EDC_CONFIG_SECTION_NAME = 'edc-resolver';
 const MCP_CONFIG_SECTION_NAME = 'mcp-server';
 const ROSETTA_CONFIG_SECTION_NAME = 'rosetta-fuse';
+const ROSETTA_JUDGE_CONFIG_SECTION_NAME = 'rosetta-judge';
 const USAGE_FLUSH_MILLISECONDS = 5000;
 const SWEEP_MILLISECONDS = 86400000;
 
@@ -61,9 +63,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const sweepAndLog = () => strangerVectorStore.sweepNow((sweepError) => (sweepError ? xLog.error(`${moduleName}: the rosetta sweep failed: ${sweepError}`) : undefined));
 			sweepAndLog();
 			setInterval(sweepAndLog, SWEEP_MILLISECONDS).unref();
-			done({
-				fuseValues,
-				rosettaRetrieval: createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder: dmeModuleConfig.embedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher: runCypherQuery, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog }),
+			const rosettaRetrieval = createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder: dmeModuleConfig.embedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher: runCypherQuery, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
+			// the judged step is built beside retrieval: with no judge configured it still answers, refusing submissions by name. An absent or bad judged setting turns off that step alone, by name in the log.
+			assembleRosettaJudged({ fuseConfigValues: getConfig(ROSETTA_CONFIG_SECTION_NAME), judgeConfigValues: getConfig(ROSETTA_JUDGE_CONFIG_SECTION_NAME) || {}, fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle: neo4jDb, runCypher: runCypherQuery, nowDate, xLog }, (assembleError, rosettaJudged) => {
+				if (assembleError) {
+					xLog.error(`${moduleName}: the rosetta judged step is off: ${assembleError}`);
+				}
+				done({ fuseValues, rosettaRetrieval, rosettaJudged: assembleError ? undefined : rosettaJudged });
 			});
 		});
 	};
@@ -72,7 +78,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		if (configError) {
 			xLog.error(`${moduleName}: the DME config could not be read: ${configError}`);
 		}
-		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval }) => {
+		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval, rosettaJudged }) => {
 			standardsQueryCore = createStandardsQueryCore({
 				registry,
 				limitConfigValues,
@@ -82,6 +88,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					edcPublicPathPrefix: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).publicPathPrefix,
 					sizeRefusalContactAddress: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).sizeRefusalContactAddress,
 					rosettaFuseValues: fuseValues,
+					rosettaJudgedValues: rosettaJudged ? rosettaJudged.judgedValues : undefined,
 				},
 				goldenHandle: neo4jDb,
 				forgeAdapter,
@@ -91,7 +98,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				xLog,
 				nowDate,
 				rosettaRetrieval,
+				rosettaJobService: rosettaJudged ? rosettaJudged.rosettaJobService : undefined,
 			});
+			if (rosettaJudged) {
+				rosettaJudged.startRunner({ getServiceFacts: standardsQueryCore.serviceFactsForGate, runOperation: standardsQueryCore.runOperation });
+			}
 		});
 	});
 

@@ -134,6 +134,10 @@ dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 				return;
 			}
 			const registryRow = registry.operationList.find((row) => row.routeName === oneEntry.operation);
+			if (registryRow.coreHandlerName === 'rosettaJobs') { // a job's examples need a judge and a job: rosetta-judged-live.test.js runs these four, with a fake vendor
+				runNextExample();
+				return;
+			}
 			const exampleInput = oneEntry.exampleBody || Object.fromEntries(new URL(oneEntry.exampleUrl).searchParams.entries());
 			// a retrieval example needs a store and an embedder, which the harness gives it: the core here has none, as an instance with no [rosetta-fuse] has none
 			const withCoreForExample = (useCore) => (oneEntry.method === 'POST' ? require('./lib/rosettaLiveHarness').openHarness({}, (harnessError, harness) => useCore(harness.core)) : useCore(core));

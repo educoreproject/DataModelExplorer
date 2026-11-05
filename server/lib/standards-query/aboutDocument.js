@@ -15,6 +15,7 @@ const mayCall = (registryRow, principal) => registryRow.permissionList.includes(
 
 const GET_METHOD_NAME = 'GET';
 const RETRIEVAL_RETENTION_TOKEN = '{strangerVectorRetentionDays}';
+const JOB_RETENTION_TOKEN = '{jobRetentionDays}';
 
 // the input of a GET is the url's query; the input of a POST is its body, shown beside the url
 const exampleUrlOf = ({ registry, registryRow, publicInstanceName }) => {
@@ -35,12 +36,16 @@ const sharedInputDescriptionsOf = (registryRowList) => {
 };
 
 // an entry may say plainly what its operation does not do and what becomes of what you send. The numbers in those sentences are the config's; with no config the sentence is absent rather than a guess.
-const plainStatementsOf = ({ registryRow, rosettaFuseValues }) => ({
-	...(registryRow.aboutEntry.whatThisDoesNot ? { whatThisDoesNot: registryRow.aboutEntry.whatThisDoesNot } : {}),
-	...(registryRow.aboutEntry.whatHappensToYourText && rosettaFuseValues ? { whatHappensToYourText: registryRow.aboutEntry.whatHappensToYourText.replace(RETRIEVAL_RETENTION_TOKEN, String(rosettaFuseValues.strangerVectorRetentionDays)) } : {}),
-});
+const plainStatementsOf = ({ registryRow, rosettaFuseValues, rosettaJudgedValues }) => {
+	const whatHappensTemplate = registryRow.aboutEntry.whatHappensToYourText;
+	const whatHappensIsAnswerable = whatHappensTemplate && rosettaFuseValues && (!whatHappensTemplate.includes(JOB_RETENTION_TOKEN) || rosettaJudgedValues);
+	return {
+		...(registryRow.aboutEntry.whatThisDoesNot ? { whatThisDoesNot: registryRow.aboutEntry.whatThisDoesNot } : {}),
+		...(whatHappensIsAnswerable ? { whatHappensToYourText: whatHappensTemplate.replace(RETRIEVAL_RETENTION_TOKEN, String(rosettaFuseValues.strangerVectorRetentionDays)).replace(JOB_RETENTION_TOKEN, String(rosettaJudgedValues && rosettaJudgedValues.jobRetentionDays)) } : {}),
+	};
+};
 
-const operationEntryOf = ({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues }) => {
+const operationEntryOf = ({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues, rosettaJudgedValues }) => {
 	const ownWordingFieldList = registryRow.inputFieldList.filter((inputField) => sharedInputDescriptionByName[inputField.name] !== inputField.description);
 	const nameListWhere = (isWanted) => registryRow.inputFieldList.filter(isWanted).map((inputField) => inputField.name);
 	return {
@@ -49,7 +54,9 @@ const operationEntryOf = ({ registry, registryRow, publicInstanceName, sharedInp
 		...(registryRow.mcpToolName ? {} : { isOnMcp: false }),
 		...(registryRow.mcpToolName && registryRow.mcpToolName !== `${registry.mcpToolPrefix}${registryRow.routeName}` ? { mcpTool: registryRow.mcpToolName } : {}),
 		forWhat: registryRow.aboutEntry.forWhat,
-		...plainStatementsOf({ registryRow, rosettaFuseValues }),
+		...plainStatementsOf({ registryRow, rosettaFuseValues, rosettaJudgedValues }),
+		...(registryRow.aboutEntry.exampleNeedsSignedInAccount ? { needsSignedInAccount: true } : {}),
+		...(registryRow.aboutEntry.exampleTakesJobFromSubmit ? { exampleNote: 'the jobRefId here stands for the one rosetta_submit gave you' } : {}),
 		...(nameListWhere((inputField) => inputField.required === true).length > 0 ? { requiredInputList: nameListWhere((inputField) => inputField.required === true) } : {}),
 		...(nameListWhere((inputField) => inputField.required !== true).length > 0 ? { optionalInputList: nameListWhere((inputField) => inputField.required !== true) } : {}),
 		...(ownWordingFieldList.length > 0 ? { ownInputDescriptionByName: ownWordingFieldList.reduce((soFar, inputField) => ({ ...soFar, [inputField.name]: inputField.description }), {}) } : {}),
@@ -86,6 +93,15 @@ const limitsInForceOf = ({ registry, inputCapByName, doorLimitValues }) => ({
 		newTextTokensPerRequest: doorLimitValues.rosettaFuseValues.retrievalMaxTokensPerRequest,
 		newTextTokensPerDay: doorLimitValues.rosettaFuseValues.retrievalDailyTokenCeiling,
 	} : registry.aboutText.retrievalUnconfiguredLine,
+	// counts and days only: no answer open to the public states a price
+	judgedStep: doorLimitValues.rosettaJudgedValues ? {
+		...(doorLimitValues.rosettaJudgedValues.judgeAbsentReason ? { isOffHere: registry.aboutText.judgedUnconfiguredLine } : {}),
+		fieldsPerJob: doorLimitValues.rosettaJudgedValues.judgedMaxFieldListLength,
+		jobsRunningAtOnce: doorLimitValues.rosettaJudgedValues.maxRunningJobs,
+		jobsWaiting: doorLimitValues.rosettaJudgedValues.maxQueuedJobs,
+		openJobsPerAccount: doorLimitValues.rosettaJudgedValues.perPrincipalJobsOpen,
+		daysKept: doorLimitValues.rosettaJudgedValues.jobRetentionDays,
+	} : registry.aboutText.judgedUnconfiguredLine,
 });
 
 const aboutDocumentFor = ({ registry, inputCapByName, doorLimitValues, publicInstanceName, principal }) => {
@@ -98,7 +114,7 @@ const aboutDocumentFor = ({ registry, inputCapByName, doorLimitValues, publicIns
 			whatThisIs: registry.aboutText.whatThisIs,
 			howToReadAnAnswer: registry.aboutText.howToReadAnAnswer,
 			operationNote: registry.aboutText.operationNoteLine,
-			operationList: listedRowList.map((registryRow) => operationEntryOf({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues: doorLimitValues.rosettaFuseValues })),
+			operationList: listedRowList.map((registryRow) => operationEntryOf({ registry, registryRow, publicInstanceName, sharedInputDescriptionByName, rosettaFuseValues: doorLimitValues.rosettaFuseValues, rosettaJudgedValues: doorLimitValues.rosettaJudgedValues })),
 			sharedInputDescriptionByName,
 			limitsInForce: limitsInForceOf({ registry, inputCapByName, doorLimitValues }),
 			whereToLookNext: {
