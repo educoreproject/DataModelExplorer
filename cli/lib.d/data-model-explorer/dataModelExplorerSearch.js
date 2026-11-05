@@ -53,6 +53,7 @@ const {
 	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 	FIND_MAPPINGS_CARD_INPUT_NOTE,
+	EDC_URI_INPUT_PREFIX_LIST,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
 	HUB_TUPLE_SUMMARY_CAP,
@@ -546,13 +547,18 @@ const resolveMatchedNodes = (session, nameOrId, identifierFieldList, admitScan, 
 		}
 		scanForMatchedNodes(session, nameOrId, identifierFieldList, callback);
 	};
-	if (!nameOrId.includes(EXACT_STABLE_ID_MARK)) {
+	const isEdcUriInput = EDC_URI_INPUT_PREFIX_LIST.some((onePrefix) => nameOrId.startsWith(onePrefix));
+	if (!isEdcUriInput && !nameOrId.includes(EXACT_STABLE_ID_MARK)) {
 		scanIfAdmitted();
 		return;
 	}
 	runCypherQuery(session, `MATCH (n:ForgedNode {stableId: $name}) WHERE ${notLayerNodeText('n')} AND ${notUseCaseNodeText('n')} RETURN n.stableId AS stableId, 'HubReference' IN labels(n) AS isHubCard`, { name: nameOrId }, (exactError, exactResult) => {
 		if (exactError) {
 			callback(exactError);
+			return;
+		}
+		if (exactResult.records.length === 0 && isEdcUriInput) {
+			callback('', { matchedNodeCount: 0, matchedStableIdList: [], instancePathMatchedNodeCount: 0 });
 			return;
 		}
 		if (exactResult.records.length === 0) {
