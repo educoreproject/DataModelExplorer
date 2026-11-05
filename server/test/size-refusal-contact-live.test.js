@@ -26,7 +26,7 @@ const statusTooLargeNameList = Object.keys(allStatusByName).filter((refusalName)
 ok('every refusal answered 413 is in the size refusal list', Array.isArray(registry.sizeRefusalNameList) && statusTooLargeNameList.every((refusalName) => registry.sizeRefusalNameList.includes(refusalName)), JSON.stringify(statusTooLargeNameList));
 ok('every name in that list is a refusal the registry knows', (registry.sizeRefusalNameList || []).every((refusalName) => allStatusByName[refusalName] !== undefined));
 
-const SOURCE_PATH_LIST = ['../lib/standards-query/standardsQueryOperations.json', '../lib/standards-query/standardsQueryCore.js', '../lib/standards-query/sizeRefusalContact.js', '../data-model/access-points-dot-d/accessPoints.d/edc-resolver.js'];
+const SOURCE_PATH_LIST = ['../lib/standards-query/standardsQueryOperations.json', '../lib/standards-query/standardsQueryCore.js', '../lib/standards-query/sizeRefusalContact.js', '../data-model/access-points-dot-d/accessPoints.d/edc-resolver.js', '../endpoints-dot-d/qtDotLib.d/standards-query.js'];
 SOURCE_PATH_LIST.forEach((sourcePath) => {
 	const fullPath = path.join(__dirname, sourcePath);
 	ok(`${path.basename(sourcePath)} types no address`, fs.existsSync(fullPath) && !/[a-z0-9]@[a-z0-9-]+\.org/i.test(fs.readFileSync(fullPath, 'utf8')));

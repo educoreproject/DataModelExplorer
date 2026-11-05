@@ -19,7 +19,7 @@ const { runPair } = require('./pairOperation');
 const { runUriPromiseGate } = require('./uriPromiseGate');
 const { openApiDocumentFor } = require('./openApiEmitter');
 const { aboutDocumentFor } = require('./aboutDocument');
-const { sizeRefusalContactFor } = require('./sizeRefusalContact');
+const { refusalWithSizeContact } = require('./sizeRefusalContact');
 const { SUMMARY_SHAPER_BY_NAME } = require('./answerSummaries');
 
 const moduleName = 'standardsQueryCore';
@@ -170,8 +170,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 	};
 
 	// a refusal for size says who to write to for what the person needs
-	const sizeRefusalContact = sizeRefusalContactFor({ registry, contactAddress: doorLimitValues.sizeRefusalContactAddress });
-	const withSizeContact = (refusal) => (registry.sizeRefusalNameList.includes(refusal.refusalName) ? { ...refusal, reason: `${refusal.reason} ${sizeRefusalContact.sentence}`, contact: sizeRefusalContact.contact } : refusal);
+	const withSizeContact = (refusal) => refusalWithSizeContact({ registry, contactAddress: doorLimitValues.sizeRefusalContactAddress, refusal });
 	const refusedAnswerFor = ({ operationName, refusal, retryAfterSeconds }) => ({
 		httpStatus: refusalStatusByName[refusal.refusalName] === undefined ? 500 : refusalStatusByName[refusal.refusalName],
 		bodyText: JSON.stringify({ answeredFrom: answeredFromFor(operationName), answer: withSizeContact(refusal) }),
