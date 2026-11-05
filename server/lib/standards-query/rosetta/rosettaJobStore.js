@@ -21,6 +21,10 @@ const CREATE_STATEMENT_LIST = Object.freeze([
 	'CREATE INDEX IF NOT EXISTS rosettaForensicsByJob ON rosettaForensics (jobRefId)',
 ]);
 
+const TABLE_CREATE_PREFIX = 'CREATE TABLE IF NOT EXISTS ';
+const SCHEMA_CHECK_TABLE_PREFIX = 'schemaCheck_';
+const tableNameOfCreate = (createStatement) => createStatement.slice(TABLE_CREATE_PREFIX.length).split(' ')[0];
+
 const OPEN_STATUS_LIST = Object.freeze(['queued', 'running', 'cancelling']);
 const HALF_WRITTEN_JOB_OLDEST_MS = 3600000;
 const SPENDING_CALL_STATUS_IN_FLIGHT = 'inFlight';
@@ -74,11 +78,11 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	// a queued job ends here and now; a running one is told, and stops at its next boundary, so a call already sent is still recorded when it answers
 	const requestCancel = (jobRefId, done) => run("UPDATE jobs SET status = CASE status WHEN 'queued' THEN 'cancelled' ELSE 'cancelling' END, finishedAtMs = CASE status WHEN 'queued' THEN ? ELSE finishedAtMs END, stopReasonName = 'cancelledByOwner' WHERE jobRefId = ? AND status IN ('queued', 'running')", [nowMs(), jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
 
-	const sumOpenEstimatesUsd = (done) => all(`SELECT jobs.jobRefId, jobs.estimateUsd, (SELECT coalesce(sum(judgeCalls.usd), 0) FROM judgeCalls WHERE judgeCalls.jobRefId = jobs.jobRefId) AS spentUsd FROM jobs WHERE jobs.status IN (${openStatusSqlList})`, [], (readError, rowList) => (readError ? done(readError) : done('', rowList.reduce((soFar, oneRow) => soFar + Math.max(0, oneRow.estimateUsd - oneRow.spentUsd), 0))));
+	const sumOpenEstimatesUsd = (done) => all(`SELECT jobs.jobRefId, jobs.estimateUsd, (SELECT coalesce(sum(judgeCalls.usd), 0) FROM judgeCalls WHERE judgeCalls.jobRefId = jobs.jobRefId) AS spentUsd FROM jobs JOIN submissions ON submissions.jobRefId = jobs.jobRefId WHERE jobs.status IN (${openStatusSqlList})`, [], (readError, rowList) => (readError ? done(readError) : done('', rowList.reduce((soFar, oneRow) => soFar + Math.max(0, oneRow.estimateUsd - oneRow.spentUsd), 0))));
 
 	const openJobCountOf = (ownerPrincipalRefId, done) => one(`SELECT count(*) AS openCount FROM jobs JOIN submissions ON submissions.jobRefId = jobs.jobRefId WHERE submissions.ownerPrincipalRefId = ? AND jobs.status IN (${openStatusSqlList})`, [ownerPrincipalRefId], (readError, oneRow) => (readError ? done(readError) : done('', oneRow.openCount)));
 
-	const statusCountOf = (statusList, done) => one(`SELECT count(*) AS statusCount FROM jobs WHERE status IN (${statusList.map(() => '?').join(',')})`, statusList, (readError, oneRow) => (readError ? done(readError) : done('', oneRow.statusCount)));
+	const statusCountOf = (statusList, done) => one(`SELECT count(*) AS statusCount FROM jobs JOIN submissions ON submissions.jobRefId = jobs.jobRefId WHERE jobs.status IN (${statusList.map(() => '?').join(',')})`, statusList, (readError, oneRow) => (readError ? done(readError) : done('', oneRow.statusCount)));
 
 	const rollingSpendUsd = ({ sinceMs, ownerPrincipalRefId }, done) => {
 		const ownerClause = ownerPrincipalRefId === undefined ? '' : ' AND ownerPrincipalRefId = ?';
@@ -190,13 +194,71 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 
 	const rowCounts = (done) => one('SELECT (SELECT count(*) FROM submissions) AS submissions, (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM judgments) AS judgments, (SELECT count(*) FROM judgeCalls) AS judgeCalls, (SELECT count(*) FROM rosettaJudgmentCache) AS rosettaJudgmentCache, (SELECT count(*) FROM rosettaForensics) AS rosettaForensics', [], done);
 
-	// a swept text must leave the file, not only its row: sqlite otherwise leaves the bytes in free pages until they are reused
-	eachInTurn(['PRAGMA secure_delete = ON', ...CREATE_STATEMENT_LIST], (oneStatement, next) => storeHandle.run(oneStatement, (runError) => next(runError ? runError.message : '')), (createError) => {
+	// A STORE FROM BEFORE. CREATE TABLE IF NOT EXISTS leaves an older table as it was, so each table is compared with what this code creates, built as a temp copy on the same handle. A missing column that sqlite can add (nullable or defaulted, not a key, in no UNIQUE) is added, named in the log. Any other refuses the judged step by name, and nothing is changed.
+	const columnDefinitionOf = (columnRow) => `${columnRow.type}${columnRow.notnull ? ' NOT NULL' : ''}${columnRow.dflt_value === null ? '' : ` DEFAULT ${columnRow.dflt_value}`}`;
+	const uniqueColumnNameSetOf = (schemaName, tableName, done) => all(`PRAGMA ${schemaName}.index_list(${tableName})`, [], (listError, indexRowList) => {
+		if (listError) {
+			done(listError);
+			return;
+		}
+		const uniqueColumnNameSet = new Set();
+		eachInTurn(indexRowList.filter((indexRow) => indexRow.unique), (indexRow, next) => all(`PRAGMA ${schemaName}.index_info(${indexRow.name})`, [], (infoError, infoRowList) => {
+			(infoRowList || []).forEach((infoRow) => uniqueColumnNameSet.add(infoRow.name));
+			next(infoError);
+		}), (infoFault) => done(infoFault, uniqueColumnNameSet));
+	});
+	const bringTableUpToDate = (createStatement, done) => {
+		const tableName = tableNameOfCreate(createStatement);
+		const checkTableName = `${SCHEMA_CHECK_TABLE_PREFIX}${tableName}`;
+		run(`CREATE TEMP TABLE ${checkTableName} ${createStatement.slice(TABLE_CREATE_PREFIX.length + tableName.length + 1)}`, [], (tempError) => {
+			if (tempError) {
+				done(`the shape of ${tableName} could not be built to compare: ${tempError}`);
+				return;
+			}
+			all(`PRAGMA temp.table_info(${checkTableName})`, [], (neededError, neededColumnList) => all(`PRAGMA main.table_info(${tableName})`, [], (presentError, presentColumnList) => uniqueColumnNameSetOf('temp', checkTableName, (uniqueError, uniqueColumnNameSet) => run(`DROP TABLE temp.${checkTableName}`, [], (dropError) => {
+				const readFault = neededError || presentError || uniqueError || dropError;
+				if (readFault) {
+					done(`the columns of ${tableName} could not be read: ${readFault}`);
+					return;
+				}
+				const presentColumnNameSet = new Set(presentColumnList.map((columnRow) => columnRow.name));
+				const missingColumnList = neededColumnList.filter((columnRow) => !presentColumnNameSet.has(columnRow.name));
+				const unaddableColumnList = missingColumnList.filter((columnRow) => columnRow.pk || uniqueColumnNameSet.has(columnRow.name) || (columnRow.notnull && columnRow.dflt_value === null));
+				if (unaddableColumnList.length) {
+					done(`the store's ${tableName} table has no ${unaddableColumnList.map((columnRow) => `${tableName}.${columnRow.name}`).join(', ')}, which cannot be added in place; move ${tableName} aside and restart to have it made new`);
+					return;
+				}
+				eachInTurn(missingColumnList, (columnRow, next) => run(`ALTER TABLE ${tableName} ADD COLUMN ${columnRow.name} ${columnDefinitionOf(columnRow)}`, [], (alterError) => {
+					if (!alterError) {
+						xLog.status(`rosettaJobStore: added column ${tableName}.${columnRow.name} (${columnDefinitionOf(columnRow)}) to a store from before`);
+					}
+					next(alterError ? `${tableName}.${columnRow.name} would not add: ${alterError}` : '');
+				}), done);
+			}))));
+		});
+	};
+
+	const tableCreateList = CREATE_STATEMENT_LIST.filter((oneStatement) => oneStatement.startsWith(TABLE_CREATE_PREFIX));
+	const indexCreateList = CREATE_STATEMENT_LIST.filter((oneStatement) => !oneStatement.startsWith(TABLE_CREATE_PREFIX));
+	// a swept text must leave the file, not only its row: sqlite otherwise leaves the bytes in free pages until they are reused. Indexes come after the columns they may name.
+	eachInTurn(['PRAGMA secure_delete = ON', ...tableCreateList], (oneStatement, next) => storeHandle.run(oneStatement, (runError) => next(runError ? runError.message : '')), (createError) => {
 		if (createError) {
 			callback(`rosettaJobStore: the tables would not take: ${createError}`);
 			return;
 		}
+		eachInTurn(tableCreateList, bringTableUpToDate, (schemaError) => {
+		if (schemaError) {
+			callback(`rosettaJobStore: ${schemaError}`);
+			return;
+		}
+		eachInTurn(indexCreateList, (oneStatement, next) => storeHandle.run(oneStatement, (runError) => next(runError ? runError.message : '')), (indexError) => {
+		if (indexError) {
+			callback(`rosettaJobStore: the indexes would not take: ${indexError}`);
+			return;
+		}
 		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, addEmbeddingTokens, rowCounts });
+		});
+		});
 	});
 };
 

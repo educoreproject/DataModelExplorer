@@ -1,6 +1,6 @@
 'use strict';
 // rosettaLiveHarness — what the live Rosetta and size gates share: the real golden, the real store and forge modules, a core built as the access point builds it, and an embedder that answers from the graph's own text nodes, so a gate is free, offline and deterministic. It is the embedder, and nothing else, that stands in; runs/P3/g31 measures the real one.
-//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher?, vendorPostOnce?, judgeConfigValues?, waitMilliseconds? }, done(err | '', { core, rosettaRetrieval, rosettaJudged, runner, store, session, serviceFacts..., close }))
+//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher?, vendorPostOnce?, judgeConfigValues?, waitMilliseconds?, judgedOffAllowed? (a judged step that will not assemble is off and logged, as the access point leaves it) }, done(err | '', { core, rosettaRetrieval, rosettaJudged, runner, store, session, serviceFacts..., close }))
 //     vendorPostOnce: a fake vendor at the forge client's own network seam, so the real client, judge and store all run and nothing reaches Anthropic. judgeConfigValues: the real config instead, for a gate that spends. Neither: no judge, as demo has today. ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
 
 const fs = require('fs');
@@ -54,7 +54,7 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', CONFIG_DIR_PATH, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate, judgedOffAllowed } = {}, done) => {
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'] };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -101,15 +101,19 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				fs.writeFileSync(path.join(scratchDirPath, 'fakePricing.ini'), FAKE_PRICING_INI_TEXT);
 			}
 			const usedJudgeConfigValues = judgeConfigValues || (vendorPostOnce ? { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'fakeAnthropic.ini'), spendPricingFilePath: path.join(scratchDirPath, 'fakePricing.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'ledger', 'rosettaSpendLedgerLifetime.jsonl') } : {});
-			assembleRosettaJudged({ fuseConfigValues: { ...LIVE_FUSE_VALUES, ...fuseOverrideValues }, judgeConfigValues: usedJudgeConfigValues, fuseValues: fuseRead.fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle, runCypher, nowDate, xLog, componentOverrides: vendorPostOnce ? { postOnce: vendorPostOnce } : undefined, ...(waitMilliseconds ? { waitMilliseconds } : {}) }, (assembleError, rosettaJudged) => {
-			if (assembleError) {
+			assembleRosettaJudged({ fuseConfigValues: { ...LIVE_FUSE_VALUES, ...fuseOverrideValues }, judgeConfigValues: usedJudgeConfigValues, fuseValues: fuseRead.fuseValues, strangerVectorStore, rosettaRetrieval, forgeAdapter, goldenHandle, runCypher, nowDate, xLog, componentOverrides: vendorPostOnce ? { postOnce: vendorPostOnce } : undefined, ...(waitMilliseconds ? { waitMilliseconds } : {}) }, (assembleError, assembledJudged) => {
+			if (assembleError && !judgedOffAllowed) {
 				done(assembleError);
 				return;
 			}
+			if (assembleError) {
+				xLog.error(`rosettaLiveHarness: the rosetta judged step is off: ${assembleError}`);
+			}
+			const rosettaJudged = assembleError ? { startRunner: () => null } : assembledJudged;
 			const core = createStandardsQueryCore({
 				registry,
 				limitConfigValues: { ...LIVE_LIMIT_VALUES, ...limitOverrideValues },
-				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues, rosettaJudgedValues: rosettaJudged.judgedValues, sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, ...doorOverrideValues },
+				doorLimitValues: { sessionCapPerSub: 10, sessionIdleTtlSeconds: 1800, edcPublicPathPrefix: '/edc/', rosettaFuseValues: fuseRead.fuseValues, rosettaJudgedValues: rosettaJudged.judgedValues || {}, sizeRefusalContactAddress: edcConfigValues.sizeRefusalContactAddress, ...doorOverrideValues },
 				goldenHandle,
 				forgeAdapter,
 				dmeSearchModule,

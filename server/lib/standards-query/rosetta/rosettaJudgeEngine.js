@@ -50,9 +50,13 @@ const vendorFaultRowOf = (errorText) => FAULT_ROW_LIST.find((oneRow) => oneRow.c
 
 // the forge's scan reads identifiers as they are written: P001234, ceterms:Name. A person may type p001234, P 001234, P００１２３４ or CETERMS:Name, and a model reads all of them as the id. So each text is scanned as written and in two normal forms: full width folded, separators inside an id closed up, then each case.
 const SEPARATOR_INSIDE_IDENTIFIER_PATTERN = /([PpCc]|\d)[\s\-_.]+(?=\d)/g;
+// zero-width and other format characters (Unicode Cf) are invisible to a reader and to NFKC, so they go before anything else
+const FORMAT_CHARACTER_PATTERN = /\p{Cf}/gu;
+// a whole text upper-cased turns step123456 into an id; only a p or c standing alone before six digits is raised
+const IDENTIFIER_LETTER_PATTERN = /(?<![A-Za-z])([pc])(?=\d{6})/g;
 const normalFormListOf = (fieldText) => {
-	const closedText = String(fieldText).normalize('NFKC').replace(SEPARATOR_INSIDE_IDENTIFIER_PATTERN, '$1');
-	return [String(fieldText), closedText.toUpperCase(), closedText.toLowerCase()];
+	const closedText = String(fieldText).replace(FORMAT_CHARACTER_PATTERN, '').normalize('NFKC').replace(SEPARATOR_INSIDE_IDENTIFIER_PATTERN, '$1');
+	return [String(fieldText), closedText, closedText.replace(IDENTIFIER_LETTER_PATTERN, (identifierLetter) => identifierLetter.toUpperCase()), closedText.toLowerCase()];
 };
 const sourceSurfacesOf = (oneField) => ['name', 'definition', 'path', 'type'].reduce((soFar, partName) => {
 	const partText = oneField[partName] || '';
@@ -193,8 +197,9 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 						}
 						const callFacts = { callStatus: CALL_STATUS.answered, usd: pricedUsd, inputTokens: spendCallList.reduce((soFar, oneCall) => soFar + oneCall.inputTokens, 0), outputTokens: spendCallList.reduce((soFar, oneCall) => soFar + oneCall.outputTokens, 0) };
 						// a response cut at the client's token budget still holds its choice when the model wrote that first. It is a fact about the answer, kept with it (measured: at a pool of 40 the forge's tool asks more than fits).
-						if (clientReturn.stopReason === STOP_REASON_MAX_TOKENS) {
-							stopHolder.answerWasCut = true;
+						// set afresh on every answered attempt: a re-ask that answers whole is not cut because the first answer was
+						stopHolder.answerWasCut = clientReturn.stopReason === STOP_REASON_MAX_TOKENS;
+						if (stopHolder.answerWasCut) {
 							callFacts.faultName = 'answerCutAtMaxTokens';
 						}
 						const isIncomplete = clientReturn.category === undefined || clientReturn.rationale === undefined;

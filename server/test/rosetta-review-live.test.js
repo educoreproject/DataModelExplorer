@@ -59,7 +59,9 @@ const withHarness = (harnessOptions, useHarness, afterAll) => {
 		}
 		embedder.setGoldenHandle(harness.goldenHandle);
 		useHarness(harness, () => {
-			harness.runner.stopTicking();
+			if (harness.runner) {
+				harness.runner.stopTicking();
+			}
 			afterAll();
 		});
 	});
@@ -535,6 +537,108 @@ gate('finding19', (done) => {
 	try { attempt(); } catch (shapeError) { thrown = String(shapeError); }
 	ok('19: a card with no label does not throw in the summary', thrown === '' && summary !== null, thrown);
 	done();
+});
+
+// the outside re-check's round
+gate('roundA', (done) => {
+	const vendor = fakeJudgeVendorFor();
+	withHarness({ vendorPostOnce: vendor.postOnce, waitMilliseconds: FAST_WAIT }, (harness, close) => {
+		const ask = askFor(harness);
+		// a cut NONE with no reason, then the re-ask answers whole: the mark belongs to the cut answer, not to the one kept
+		vendor.setFaultScript([{ status: 200, body: toolBody({ choice: 'NONE', predicate: 'none' }, 'max_tokens') }, { status: 200, body: toolBody({ choice: 'NONE', category: 'none', rationale: 'None of these means that.', predicate: 'none' }) }]);
+		submitAndWait(ask, { fieldList: [{ name: 'reaskedField', definition: 'A text.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
+			const oneUnit = report.fieldList[0].byHub.CEDS;
+			ok('A: a complete answer after a cut one carries no cut mark, and a complete NONE stays abstained', oneUnit.status === 'abstained' && !oneUnit.answerWasCut && report.counts.byHub.CEDS.answersCut === 0, JSON.stringify({ status: oneUnit.status, cut: oneUnit.answerWasCut, counts: report.counts.byHub.CEDS.answersCut }));
+			close();
+		}));
+	}, done);
+});
+
+gate('roundB', (done) => {
+	const vendor = fakeJudgeVendorFor();
+	vendor.holdCalls();
+		// a job row whose text never arrived, as a kill between the two writes leaves it, queued and with a large estimate: once against the queue's room, once against the day's money
+	const halfJobThen = (harness, then) => harness.strangerVectorStore.storeHandle.run("INSERT INTO jobs (jobRefId, queueOrder, status, submittedAtMs, estimateUsd, answeredFromJson, judgeFactsJson) VALUES ('halfJob', 99, 'queued', ?, 5, '{}', '{}')", [Date.now()], then);
+	withHarness({ vendorPostOnce: vendor.postOnce, fuseOverrideValues: { maxQueuedJobs: 1 } }, (harness, close) => halfJobThen(harness, () => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1, 'roundBField'), hubList: ['CEDS'] }, USER_A, (queueAnswer) => {
+		ok('B: a job row with no submission takes no place in the queue', queueAnswer.httpStatus === 200, `${queueAnswer.answer.refusalName || queueAnswer.httpStatus}`);
+		vendor.releaseCalls();
+		close();
+	})), () => {
+		vendor.holdCalls();
+		withHarness({ vendorPostOnce: vendor.postOnce, fuseOverrideValues: { dailyJudgeCeilingUsd: 1 } }, (harness, close) => halfJobThen(harness, () => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1, 'roundBFieldTwo'), hubList: ['CEDS'] }, USER_A, (dayAnswer) => {
+			ok('B: a job row with no submission takes no share of the day\'s estimates', dayAnswer.httpStatus === 200, `${dayAnswer.answer.refusalName || dayAnswer.httpStatus}`);
+			vendor.releaseCalls();
+			close();
+		})), done);
+	});
+});
+
+gate('roundC', (done) => {
+	const vendor = fakeJudgeVendorFor();
+	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
+		const ask = askFor(harness);
+		const fieldList = [
+			{ name: 'innocentStep', definition: 'Done at step123456 of the process.' },
+			{ name: 'innocentEpic', definition: 'Tracked under epic123456 on the board.' },
+			{ name: 'realId', definition: 'This is p001234 in the hub.' },
+			{ name: 'zeroWidthId', definition: 'This is P​001234 in the hub.' },
+			{ name: 'softHyphenId', definition: 'This is P­001234 in the hub.' },
+		];
+		submitAndWait(ask, { fieldList, hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
+			const statusOf = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS.status;
+			ok('C: innocent text that only looks like an id in upper case is judged', statusOf(0) === 'proposed' && statusOf(1) === 'proposed', `${statusOf(0)} ${statusOf(1)}`);
+			ok('C: a CEDS id in lower case is still caught', statusOf(2) === 'identifierInSourceText', statusOf(2));
+			ok('14 remainder: an id broken by a zero-width or format character is caught', statusOf(3) === 'identifierInSourceText' && statusOf(4) === 'identifierInSourceText', `${statusOf(3)} ${statusOf(4)}`);
+			close();
+		}));
+	}, done);
+});
+
+// a store from before: the judged step either brings it up to what the code needs, by additive ALTER named in the log, or refuses by name
+gate('storeSchema', (done) => {
+	const sqlite3 = require('sqlite3');
+	const runList = (filePath, statementList, ranAll) => {
+		const handle = new sqlite3.Database(filePath);
+		const next = (index) => (index >= statementList.length ? handle.close(ranAll) : handle.run(statementList[index], () => next(index + 1)));
+		next(0);
+	};
+	const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rosettaSchema-'));
+	const p3StorePath = path.join(scratchDirPath, 'p3Shaped.sqlite');
+	const earlyStorePath = path.join(scratchDirPath, 'earlyP4.sqlite');
+	const P3_STATEMENT_LIST = [
+		'CREATE TABLE strangerVectorCache (textHash TEXT NOT NULL, embeddingModelVersion TEXT NOT NULL, vectorBlob BLOB NOT NULL, lastUsedAtMs INTEGER NOT NULL, PRIMARY KEY (textHash, embeddingModelVersion))',
+		'CREATE INDEX strangerVectorCacheByLastUsed ON strangerVectorCache (lastUsedAtMs)',
+		'CREATE TABLE retrievalTokenDays (utcDay TEXT PRIMARY KEY, tokenCount INTEGER NOT NULL)',
+		"INSERT INTO retrievalTokenDays VALUES ('2026-11-04', 1234)",
+	];
+	// the shape this branch wrote before the outside read: jobs and calls with fewer columns, and a cache with no owner
+	const EARLY_P4_STATEMENT_LIST = [...P3_STATEMENT_LIST,
+		'CREATE TABLE jobs (jobRefId TEXT PRIMARY KEY, queueOrder INTEGER NOT NULL, status TEXT NOT NULL, stopReasonName TEXT, stopReasonText TEXT, submittedAtMs INTEGER NOT NULL, startedAtMs INTEGER, finishedAtMs INTEGER, estimateUsd REAL NOT NULL, answeredFromJson TEXT NOT NULL, judgeFactsJson TEXT NOT NULL)',
+		'CREATE TABLE judgeCalls (callRefId INTEGER PRIMARY KEY AUTOINCREMENT, jobRefId TEXT NOT NULL, ownerPrincipalRefId TEXT NOT NULL, fieldIndex INTEGER NOT NULL, hubName TEXT NOT NULL, startedAtMs INTEGER NOT NULL, finishedAtMs INTEGER, callStatus TEXT NOT NULL, usd REAL NOT NULL, inputTokens INTEGER, outputTokens INTEGER, wireModel TEXT NOT NULL, faultName TEXT)',
+		'CREATE TABLE rosettaJudgmentCache (seq INTEGER PRIMARY KEY AUTOINCREMENT, promptHash TEXT NOT NULL, model TEXT NOT NULL, rendererVersion TEXT NOT NULL, judgmentJson TEXT NOT NULL, generation TEXT, fillingSpendCallListJson TEXT, createdAtMs INTEGER NOT NULL, UNIQUE (promptHash, model, rendererVersion))',
+	];
+	const columnNamesOf = (filePath, tableName, named) => {
+		const handle = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY);
+		handle.all(`PRAGMA table_info(${tableName})`, [], (readError, rowList) => handle.close(() => named(readError ? [] : rowList.map((oneRow) => oneRow.name))));
+	};
+	runList(p3StorePath, P3_STATEMENT_LIST, () => runList(earlyStorePath, EARLY_P4_STATEMENT_LIST, () => {
+		const vendor = fakeJudgeVendorFor();
+		withHarness({ vendorPostOnce: vendor.postOnce, storeFilePath: p3StorePath }, (harness, close) => submitAndWait(askFor(harness), { fieldList: fieldListOf(1, 'schemaField'), hubList: ['CEDS'] }, USER_A, ({ statusAnswer }) => {
+			ok('schema: a P3-shaped store takes the judged step\'s tables and runs a job', statusAnswer.status === 'done', `${statusAnswer.status}`);
+			close();
+		}), () => {
+			const uncaught = [];
+			const onUncaught = (thrown) => uncaught.push(String(thrown));
+			process.on('uncaughtException', onUncaught);
+			withHarness({ vendorPostOnce: vendor.postOnce, storeFilePath: earlyStorePath, judgedOffAllowed: true }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1, 'schemaFieldTwo'), hubList: ['CEDS'] }, USER_A, ({ httpStatus, answer }) => columnNamesOf(earlyStorePath, 'jobs', (jobColumnList) => columnNamesOf(earlyStorePath, 'judgeCalls', (callColumnList) => {
+				process.removeListener('uncaughtException', onUncaught);
+				ok('schema: an earlier store gets its missing columns by additive ALTER, named in the log', jobColumnList.includes('embeddingTokens') && callColumnList.includes('promptHash') && harness.logLineList.some((oneLine) => /added column judgeCalls\.promptHash/.test(oneLine)), `${jobColumnList.join()} ${harness.logLineList.filter((oneLine) => /column/.test(oneLine)).join(' | ').slice(0, 300)}`);
+				ok('schema: a column that cannot be added (the cache\'s owner) refuses the judged step by name, and throws nothing', uncaught.length === 0 && httpStatus === 503 && /rosettaJudgmentCache/.test(JSON.stringify(answer) + harness.errorLineList.join(' ')), `${httpStatus} ${JSON.stringify(answer).slice(0, 200)} ${harness.errorLineList.join(' ').slice(0, 200)}`);
+				fs.rmSync(scratchDirPath, { recursive: true, force: true });
+				close();
+			}))), done);
+		});
+	}));
 });
 
 // the shipped fuse: the inis parse, and what they say holds together
