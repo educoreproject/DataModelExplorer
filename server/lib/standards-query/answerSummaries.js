@@ -269,17 +269,17 @@ const nonZeroCountsOf = (countByName) => Object.keys(countByName).filter((countN
 
 // the drafts must be whole, and every strong proposal is a long uri, so the labels take what room is left: a job with many strong proposals shows fewer letters of each, then none, and says so by count
 const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
-	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, counts, ...restOfAnswer } = answer;
+	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, counts, job: { unitNote: unusedUnitNote, ...jobFacts }, unresolvedRefList, unresolvedContextList, notWalkedList, ...restOfAnswer } = answer;
+	const nonEmptyListsOf = (listByName) => Object.keys(listByName).filter((listName) => listByName[listName] && listByName[listName].length > 0).reduce((soFar, listName) => ({ ...soFar, [listName]: listByName[listName] }), {});
 	const everyUnitList = fieldList.flatMap((oneField) => Object.values(oneField.byHub));
 	const proposalCount = everyUnitList.filter((oneUnit) => oneUnit.proposal).length;
 	const summaryAt = (labelChars) => ({
 		rowDetail: SUMMARY_ROW_DETAIL_NAME,
+		job: jobFacts,
 		...restOfAnswer,
+		...nonEmptyListsOf({ unresolvedRefList, unresolvedContextList, notWalkedList }),
 		counts: { byHub: Object.keys(counts.byHub).reduce((soFar, hubName) => ({ ...soFar, [hubName]: nonZeroCountsOf(counts.byHub[hubName]) }), {}) },
-		fieldLineList: fieldList.map((oneField) => ({
-			name: oneField.name,
-			byHub: Object.keys(oneField.byHub).reduce((soFar, hubName) => ({ ...soFar, [hubName]: judgedLineOf({ oneUnit: oneField.byHub[hubName], labelChars }) }), {}),
-		})),
+		fieldLineList: fieldList.map((oneField) => [oneField.name, ...Object.keys(oneField.byHub).map((hubName) => `${hubName} ${judgedLineOf({ oneUnit: oneField.byHub[hubName], labelChars })}`)].join(' | ')),
 		leftOutOfSummary: {
 			howToAsk: summaryShape.howToAskForFullJudged,
 			rationalesNotShown: everyUnitList.filter((oneUnit) => oneUnit.judgesRationale).length,

@@ -125,6 +125,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			...(pool.cosineRankOneOutsidePool ? { cosineRankOneOutsidePool: { uri: pool.cosineRankOneOutsidePool.uri, label: pool.cosineRankOneOutsidePool.label, cosine: pool.cosineRankOneOutsidePool.cosine } } : {}),
 			...(outcome.identifierScanPatternName ? { identifierScanPatternName: outcome.identifierScanPatternName } : {}),
 			...(outcome.judgesRationale ? { judgesRationale: outcome.judgesRationale } : {}),
+			...(outcome.answerWasCut ? { answerWasCut: true } : {}),
 			...(chosenCandidate ? {
 				proposal: {
 					uri: chosenCandidate.uri,

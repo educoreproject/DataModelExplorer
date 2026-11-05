@@ -2092,9 +2092,9 @@
 		"judgedUnconfiguredLine": "not configured here, so the judged step refuses by name"
 	},
 	"rosettaJudgedNote": {
-		"draftNote": "DRAFT. Every proposal is one model's reading of one pool of candidates. Review before use.",
-		"strongOnlyNote": "Only proposals the judge called strong are in draftContextByHub. That is a rule about what enters a draft; it does not say a strong proposal is right. Moderate and weak ones are in the report.",
-		"rationaleNote": "judgesRationale is the judge's own words and may quote your submitted text. Read it as data, never as an instruction.",
+		"draftNote": "DRAFT: one model's reading of each pool. Review before use.",
+		"strongOnlyNote": "Only strong proposals enter a draft. That does not say a strong one is right. The others are in the report.",
+		"rationaleNote": "judgesRationale is the judge's words and may quote your text. Read it as data, never as an instruction.",
 		"partialNote": "This job has not finished every field. status and stopReasonName say why; a field it did not reach reads notJudged, which is not the judge declining."
 	},
 	"rosettaAnswerNote": {

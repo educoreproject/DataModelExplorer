@@ -67,6 +67,11 @@ const isAdmin = computed(() =>
 				title="Schema Verifier"
 			/>
 			<v-list-item
+				to="/explore/rosetta"
+				prepend-icon="mdi-translate"
+				title="Rosetta"
+			/>
+			<v-list-item
 				to="/explore/graphicModelExplorer"
 				prepend-icon="mdi-graph-outline"
 				title="Standards Explorer"

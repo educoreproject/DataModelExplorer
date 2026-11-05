@@ -132,7 +132,7 @@ gate('G4.2', (done) => {
 			ok('G4.2 daily ceiling: the job stops after the field that crosses it, status fuseTripped', statusAnswer.status === 'fuseTripped' && statusAnswer.stopReasonName === 'dailyCeilingReached' && vendor.callLog.length === 4, `${statusAnswer.status} ${statusAnswer.stopReasonName} ${vendor.callLog.length} calls, spent ${statusAnswer.spentUsd}`);
 			ask('rosettaFetch', { jobRefId: submitted.jobRefId }, USER_A, ({ answer: report }) => {
 				ok('G4.2: the report is fetchable and labelled partial', report.isPartial === true && /not finished/.test(report.partialNote));
-				ok('G4.2: what it did not reach reads notJudged with the fuse named, not abstained', /notJudged \(dailyCeilingReached\)/.test(report.fieldLineList[4].byHub.CEDS) && report.counts.byHub.CEDS.abstained === 0 && report.counts.byHub.CEDS.notJudged === 1, JSON.stringify(report.fieldLineList[4]));
+				ok('G4.2: what it did not reach reads notJudged with the fuse named, not abstained', /CEDS notJudged \(dailyCeilingReached\)/.test(report.fieldLineList[4]) && report.counts.byHub.CEDS.abstained === 0 && report.counts.byHub.CEDS.notJudged === 1, JSON.stringify(report.fieldLineList[4]));
 				ask('rosettaRetrieval', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, (retrievalAnswer) => {
 					ok('G4.2: retrieval still answers with the ceiling reached', retrievalAnswer.httpStatus === 200);
 					ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_B, (refusedAnswer) => {
@@ -347,12 +347,12 @@ gate('G4.8', (done) => {
 			const principal = { kind: 'oauthUser', userRefId: `sizeUser${runIndex}`, role: 'user' };
 			ask('rosettaSubmit', { fieldList: fieldListOf(fieldCount, `aReasonablyLongFieldName${runIndex}x`) }, principal, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, principal, () => ask('rosettaFetch', { jobRefId: submitted.jobRefId }, principal, ({ bodyText, answer: report }) => {
 				const byteCount = Buffer.byteLength(bodyText);
-				console.log(`  G4.8 summary, every proposal strong, two hubs: ${fieldCount} fields, ${byteCount} bytes, first line ${JSON.stringify(report.fieldLineList[0].byHub)}`);
+				console.log(`  G4.8 summary, every proposal strong, two hubs: ${fieldCount} fields, ${byteCount} bytes, first line ${report.fieldLineList[0]}`);
 				if (fieldCount === 50) {
 					ok(`G4.8: 50 fields on two hubs, all strong, at or under 20,000 bytes (${byteCount})`, byteCount <= 20000, `${byteCount}`);
 				}
 				ok('G4.8: a summary says by count what it left out and how to ask', report.rowDetail === 'summary' && report.leftOutOfSummary.rationalesNotShown === fieldCount * 2 && /rowDetail=full/.test(report.leftOutOfSummary.howToAsk));
-				ok('G4.8: a summary holds the status, counts, drafts and one line per field per hub', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount && report.fieldLineList.length === fieldCount && typeof report.fieldLineList[0].byHub.CEDS === 'string');
+				ok('G4.8: a summary holds the status, counts, drafts and one line per field per hub', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount && report.fieldLineList.length === fieldCount && / \| CEDS strong/.test(report.fieldLineList[0]) && / \| CTDL strong/.test(report.fieldLineList[0]));
 				ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', page: fieldCount > 10 ? '2' : '1' }, principal, ({ bodyText: fullText, answer: fullReport }) => {
 					console.log(`  G4.8 full, page ${fullReport.page} of ${fullReport.pageCount}: ${Buffer.byteLength(fullText)} bytes`);
 					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && fullReport.fieldList[0].byHub.CEDS.judgesRationale.length > 0 && fullReport.fieldList[0].byHub.CEDS.proposal.uri.length > 0, `${fullReport.fieldList.length}`);

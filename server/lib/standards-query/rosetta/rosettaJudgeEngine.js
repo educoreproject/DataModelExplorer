@@ -19,6 +19,7 @@ const judgedSettings = require('./rosettaJudgedSettings.json');
 const CALL_STATUS = Object.freeze({ answered: 'answered', failedUnbilled: 'failedUnbilled', unansweredPriced: 'unansweredPriced' });
 const CONFIDENCE_OF_NO_CATEGORY = null;
 const SINGLE_ATTEMPT = 1;
+const STOP_REASON_MAX_TOKENS = 'max_tokens';
 const JUDGMENT_BUDGET_PER_UNIT = Object.freeze({ maxJudgmentCount: 2 }); // one ask and judgeOne's one bounded re-ask
 
 const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds']);
@@ -152,6 +153,11 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 							return;
 						}
 						const callFacts = { callStatus: CALL_STATUS.answered, usd: pricedUsd, inputTokens: spendCallList.reduce((soFar, oneCall) => soFar + oneCall.inputTokens, 0), outputTokens: spendCallList.reduce((soFar, oneCall) => soFar + oneCall.outputTokens, 0) };
+						// a response cut at the client's token budget still holds its choice when the model wrote that first. It is a fact about the answer, kept with it (measured: at a pool of 40 the forge's tool asks more than fits).
+						if (clientReturn.stopReason === STOP_REASON_MAX_TOKENS) {
+							stopHolder.answerWasCut = true;
+							callFacts.faultName = 'answerCutAtMaxTokens';
+						}
 						const isIncomplete = clientReturn.category === undefined || clientReturn.rationale === undefined;
 						finishWith(callFacts, () => {
 							if (isIncomplete && judgedValues.judgeRetryWaitSecondsList[waitIndex] !== undefined) {
@@ -251,6 +257,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 				...(collapse ? { collapsedMemberStableIdList: collapse.memberStableIdList } : {}),
 				judgesRationale: judged.rationale,
 				choiceCount: rendered.choiceEnum.length - 1,
+				...(stopHolder.answerWasCut ? { answerWasCut: true } : {}),
 			});
 		});
 	};

@@ -57,8 +57,34 @@ openHarness({}, (harnessError, harness) => {
 			harness.core.runOperation({ operationName: 'rosettaRetrieval', input: { fieldList }, principal: anonymous }, (unusedError, answer) => {
 				const byteCount = Buffer.byteLength(answer.bodyText);
 				ok(`rosetta/retrieval, 20 fields, every hub: ${byteCount} bytes, within ${boundBytes}`, answer.httpStatus === 200 && byteCount <= boundBytes, `status ${answer.httpStatus}`);
-				console.log(`\nstandards-query-size-live: ${passedCount} passed, ${failedCount} failed`);
-				process.exit(failedCount === 0 ? 0 : 1);
+				// a judged job's summary, 50 fields on two hubs, every proposal strong: the largest a draft can be, since each strong line is a long uri. A fake vendor: nothing is spent.
+				const vendor = fakeJudgeVendorFor({ answerFor: () => pickOf('1', 'strong', 'It means the same thing.') });
+				const holder = {};
+				const anyTextEmbedder = { batchSize: 20, embed: (textList, embedDone) => holder.goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { _source: 'CEDS' }) RETURN t.textEmbedding AS vector LIMIT 1").then((queryResult) => sessionDone('', queryResult.records[0].get('vector')), (queryError) => sessionDone(String(queryError))), (vectorError, vector) => (vectorError ? embedDone(vectorError) : embedDone('', textList.map(() => vector)))) };
+				openHarness({ vendorPostOnce: vendor.postOnce, embedder: anyTextEmbedder, fuseOverrideValues: { judgeUsdPerFieldEstimate: 0.01 } }, (judgedHarnessError, judgedHarness) => holdOutSubjectsOf({ goldenHandle: (holder.goldenHandle = judgedHarness.goldenHandle), standardName: 'LIF', hubName: 'CEDS', subjectCount: 50, sampleSeed: '110526' }, (judgedFixtureError, judgedFixture) => {
+					const principal = { kind: 'oauthUser', userRefId: 'sizeGate', role: 'user' };
+					const seenNameCount = {};
+					// fifty distinct names: a draft holds a term once, and a real schema's names are its own
+					const judgedFieldList = judgedFixture.subjectList.map(({ name, definition }) => { seenNameCount[name] = (seenNameCount[name] || 0) + 1; return { name: seenNameCount[name] > 1 ? `${name}Text${seenNameCount[name]}` : name, ...(definition ? { definition } : {}) }; });
+					judgedHarness.core.runOperation({ operationName: 'rosettaSubmit', input: { fieldList: judgedFieldList }, principal }, (submitError, submitAnswer) => {
+						const { jobRefId } = JSON.parse(submitAnswer.bodyText).answer;
+						const poll = () => judgedHarness.core.runOperation({ operationName: 'rosettaStatus', input: { jobRefId }, principal }, (statusError, statusAnswer) => {
+							if (['queued', 'running'].includes(JSON.parse(statusAnswer.bodyText).answer.status)) {
+								setTimeout(poll, 200);
+								return;
+							}
+							judgedHarness.core.runOperation({ operationName: 'rosettaFetch', input: { jobRefId }, principal }, (fetchError, fetchAnswer) => {
+								const judgedByteCount = Buffer.byteLength(fetchAnswer.bodyText);
+								const judgedCounts = JSON.parse(fetchAnswer.bodyText).answer.counts.byHub;
+								ok('the job holds fifty strong on each hub, so this is the largest summary a draft allows', judgedCounts.CEDS.proposedStrong === 50 && judgedCounts.CTDL.proposedStrong === 50, JSON.stringify(judgedCounts));
+								ok(`rosetta/jobs/fetch, 50 fields, two hubs, all strong: ${judgedByteCount} bytes, within ${boundBytes}`, fetchAnswer.httpStatus === 200 && judgedByteCount <= boundBytes, `status ${fetchAnswer.httpStatus}`);
+								console.log(`\nstandards-query-size-live: ${passedCount} passed, ${failedCount} failed`);
+								process.exit(failedCount === 0 ? 0 : 1);
+							});
+						});
+						poll();
+					});
+				}));
 			});
 		});
 	});
