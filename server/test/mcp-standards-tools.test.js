@@ -47,7 +47,7 @@ taskList.push((args, next) => postRpc({ port: args.harness.port, sessionRefId: a
 	const toolList = listResult.rpcMessage.result.tools;
 	const toolByName = toolList.reduce((soFar, oneTool) => ({ ...soFar, [oneTool.name]: oneTool }), {});
 	const expectedRowList = registry.operationList.filter((registryRow) => registryRow.doorList.includes('mcp'));
-	ok('list: fourteen query tools beside the two', expectedRowList.length === 14 && toolList.length === 16, `${toolList.length}`);
+	ok('list: eighteen query and job tools beside the two', expectedRowList.length === 18 && toolList.length === 20, `${toolList.length}`);
 	ok('list: every mcp row is a tool under its registry name', expectedRowList.every((registryRow) => toolByName[registryRow.mcpToolName]));
 	ok('list: usage is no tool', !toolList.some((oneTool) => /usage/i.test(oneTool.name)));
 	ok('list: every description is the registry row', expectedRowList.every((registryRow) => toolByName[registryRow.mcpToolName].description === registryRow.description));
@@ -58,12 +58,13 @@ taskList.push((args, next) => postRpc({ port: args.harness.port, sessionRefId: a
 	ok('schema: an enum is published', JSON.stringify(searchSchema.properties.mode.enum) === '["hybrid","keyword","vector"]');
 	ok('schema: a positive integer is published', searchSchema.properties.page.type === 'integer' && searchSchema.properties.page.minimum === 1);
 	const rowDetailSchemaOf = (toolName) => toolByName[toolName].inputSchema.properties.rowDetail;
-	ok('schema: rowDetail is offered on the four that take it, with its values and default', ['standards_mappings', 'standards_element', 'standards_graph', 'rosetta_retrieve'].every((toolName) => JSON.stringify(rowDetailSchemaOf(toolName).enum) === '["summary","full"]' && rowDetailSchemaOf(toolName).default === 'summary'));
-	ok('schema: rowDetail is on no other tool', expectedRowList.filter((registryRow) => !['mappings', 'element', 'graph', 'rosettaRetrieval'].includes(registryRow.operationName)).every((registryRow) => !rowDetailSchemaOf(registryRow.mcpToolName)));
+	ok('schema: rowDetail is offered on the four that take it, with its values and default', ['standards_mappings', 'standards_element', 'standards_graph', 'rosetta_retrieve', 'rosetta_fetch'].every((toolName) => JSON.stringify(rowDetailSchemaOf(toolName).enum) === '["summary","full"]' && rowDetailSchemaOf(toolName).default === 'summary'));
+	ok('schema: rowDetail is on no other tool', expectedRowList.filter((registryRow) => !['mappings', 'element', 'graph', 'rosettaRetrieval', 'rosettaFetch'].includes(registryRow.operationName)).every((registryRow) => !rowDetailSchemaOf(registryRow.mcpToolName)));
 	ok('schema: expectManifest is offered', searchSchema.properties.expectManifest && searchSchema.properties.expectManifest.description.length > 10);
 	ok('schema: unknown fields are declared out', searchSchema.additionalProperties === false);
 	ok('schema: a tool with no inputs of its own has an object schema', toolByName.standards_stats.inputSchema.type === 'object' && Object.keys(toolByName.standards_stats.inputSchema.properties).join() === 'expectManifest');
 	ok('annotation: the tools say they only read', toolByName.standards_search.annotations.readOnlyHint === true);
+	ok('annotation: a tool that spends or stops a job does not say so', toolByName.rosetta_submit.annotations.readOnlyHint === false && toolByName.rosetta_cancel.annotations.readOnlyHint === false && toolByName.rosetta_status.annotations.readOnlyHint === true);
 	next(listError, args);
 }));
 taskList.push((args, next) => callTool(args.harness, 'standards_search', { q: 'birth', page: 2 }, (callError, toolResult) => {
