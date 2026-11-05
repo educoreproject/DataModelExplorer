@@ -12,7 +12,7 @@
 // Unknown cookie values silently fall through to the default, so a typo
 // cannot break the UI.
 
-import { backendProfiles, sameOriginProxyHosts } from '@/config/backendProfiles';
+import { backendProfiles, sameOriginProxyHosts, vercelApiProxyWsHostByHost } from '@/config/backendProfiles';
 
 export const COOKIE_NAME = 'educoreDevServer';
 
@@ -54,6 +54,20 @@ export const useBackendProfile = () => {
 			name: window.location.hostname,
 			label: `Proxied local (${window.location.host})`,
 			wsHost: '',
+			apiBase: '',
+		};
+	}
+
+	// Vercel with an /api rewrite (educore.org): the API stays relative, so vercel.json's rewrite picks the backend
+	// (a build-time NUXT_PUBLIC_API_BASE would otherwise send the browser straight to it); the websocket, which a rewrite
+	// cannot carry, opens on the host named for this page
+	const vercelWsHost = typeof window !== 'undefined' ? vercelApiProxyWsHostByHost[window.location.hostname] : undefined;
+	if (vercelWsHost) {
+		return {
+			source: 'vercelApiProxy',
+			name: window.location.hostname,
+			label: `Vercel /api rewrite (${window.location.host}), websocket ${vercelWsHost}`,
+			wsHost: vercelWsHost,
 			apiBase: '',
 		};
 	}
