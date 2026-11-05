@@ -15,9 +15,11 @@ const registry = require('../../lib/standards-query/standardsQueryOperations.jso
 const { admitRequest } = require('../../lib/standards-query/admitRequest');
 const { createRequestLimiter } = require('../../lib/standards-query/requestLimiter');
 const { largeBodyJsonParserOf } = require('../../lib/large-body-json');
+const { refusalWithSizeContact } = require('../../lib/standards-query/sizeRefusalContact');
 
 const API_DOOR_NAME = 'api';
 const LIMIT_CONFIG_SECTION_NAME = 'standards-query-limits';
+const EDC_CONFIG_SECTION_NAME = 'edc-resolver';
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const BODY_TOO_LARGE_ERROR_TYPE = 'entity.too.large';
 const INPUT_READER_BY_HTTP_METHOD = Object.freeze({ GET: (xReq) => xReq.query, POST: (xReq) => xReq.body });
@@ -61,7 +63,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const shellRefusal = ({ refusalName, reason, retryAfterSeconds, extraFields = {} }) => ({
 		httpStatus: registry.envelopeRefusalHttpStatusByName[refusalName],
-		bodyText: JSON.stringify({ answer: { refusedByName: moduleName, refusalName, reason, ...extraFields } }),
+		bodyText: JSON.stringify({ answer: refusalWithSizeContact({ registry, contactAddress: (getConfig(EDC_CONFIG_SECTION_NAME) || {}).sizeRefusalContactAddress, refusal: { refusedByName: moduleName, refusalName, reason, ...extraFields } }) }),
 		cachePolicy: 'noStore',
 		retryAfterSeconds,
 	});

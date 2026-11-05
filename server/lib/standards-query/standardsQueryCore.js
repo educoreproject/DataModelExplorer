@@ -19,6 +19,7 @@ const { runPair } = require('./pairOperation');
 const { runUriPromiseGate } = require('./uriPromiseGate');
 const { openApiDocumentFor } = require('./openApiEmitter');
 const { aboutDocumentFor } = require('./aboutDocument');
+const { refusalWithSizeContact } = require('./sizeRefusalContact');
 const { SUMMARY_SHAPER_BY_NAME } = require('./answerSummaries');
 
 const moduleName = 'standardsQueryCore';
@@ -168,9 +169,11 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		};
 	};
 
+	// a refusal for size says who to write to for what the person needs
+	const withSizeContact = (refusal) => refusalWithSizeContact({ registry, contactAddress: doorLimitValues.sizeRefusalContactAddress, refusal });
 	const refusedAnswerFor = ({ operationName, refusal, retryAfterSeconds }) => ({
 		httpStatus: refusalStatusByName[refusal.refusalName] === undefined ? 500 : refusalStatusByName[refusal.refusalName],
-		bodyText: JSON.stringify({ answeredFrom: answeredFromFor(operationName), answer: refusal }),
+		bodyText: JSON.stringify({ answeredFrom: answeredFromFor(operationName), answer: withSizeContact(refusal) }),
 		cachePolicy: 'noStore',
 		...(retryAfterSeconds ? { retryAfterSeconds } : {}),
 		isRefusal: true,

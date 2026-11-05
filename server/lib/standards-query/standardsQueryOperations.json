@@ -22,6 +22,8 @@
 		"Each standards_* answer is JSON: answeredFrom names the graph and manifest that answered, answer holds the result. Every element and card carries uri; quote it, it is permanent.",
 		"A refused answer arrives as a tool error whose answer carries refusedByName, refusalName and reason: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". A refusal named busy says how long to wait: retry after that."
 	],
+	"sizeRefusalNameList": ["inputTooLong", "patternTooLong", "fieldTextTooLong", "maxFieldListLength", "retrievalTokensPerRequestExceeded", "depthExceeded", "refExpansionsExceeded"],
+	"sizeRefusalContactText": "If you need more than this, write to {contactAddress} and say what you need.",
 	"envelopeRefusalHttpStatusByName": {
 		"manifestMismatch": 409,
 		"rateLimited": 429,
