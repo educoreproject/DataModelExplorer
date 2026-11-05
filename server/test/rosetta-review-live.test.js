@@ -220,6 +220,48 @@ gate('finding8', (done) => {
 	}, done);
 });
 
+gate('finding8midJob', (done) => {
+	const vendor = fakeJudgeVendorFor();
+	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
+		const ask = askFor(harness);
+		const realFacts = harness.core.serviceFactsForGate;
+		const uncaught = [];
+		const onUncaught = (thrown) => uncaught.push(String(thrown));
+		process.on('uncaughtException', onUncaught);
+		vendor.holdCalls();
+		ask('rosettaSubmit', { fieldList: fieldListOf(2, 'midJobField'), hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => {
+			const waitForHold = () => {
+				if (vendor.heldCallCount() === 0) { setTimeout(waitForHold, 20); return; }
+				harness.setServiceFactsForRunner(() => null);
+				vendor.releaseCalls();
+				setTimeout(() => ask('rosettaStatus', { jobRefId: submitted.jobRefId }, USER_A, ({ answer: midStatus }) => {
+					ok('8: the graph going mid-job throws nothing, and the job keeps its status and waits', uncaught.length === 0 && midStatus.status === 'running' && midStatus.unitsFinished === 1, `${uncaught.join(' ').slice(0, 160)} ${midStatus.status} ${midStatus.unitsFinished}`);
+					harness.setServiceFactsForRunner(realFacts);
+					harness.runner.tick();
+					untilClosed(ask, submitted.jobRefId, USER_A, (statusAnswer) => {
+						process.removeListener('uncaughtException', onUncaught);
+						ok('8: it goes on from its next unit when the graph is back, paying for no unit twice', statusAnswer.status === 'done' && vendor.callLog.length === 2, `${statusAnswer.status} ${vendor.callLog.length}`);
+						close();
+					});
+				}), 600);
+			};
+			waitForHold();
+		});
+	}, done);
+});
+
+gate('budgetMismatch', (done) => {
+	const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rosettaBudget-'));
+	fs.writeFileSync(path.join(scratchDirPath, 'a.ini'), '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\nmaxTokens=64\n');
+	fs.writeFileSync(path.join(scratchDirPath, 'p.ini'), '[spendPrice_x]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate\npriceAsOf=2026-11-05\n');
+	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'l', 'l.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ httpStatus, answer }) => {
+		ok('budget: a judge ini whose budget is not the stated one is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /judgeOutputTokenBudget/.test(answer.reason), `${httpStatus} ${answer.reason}`);
+		ok('budget: and the refusal names no path', !/\/private|\/tmp|\/var|\/Users/.test(answer.reason), answer.reason);
+		fs.rmSync(scratchDirPath, { recursive: true, force: true });
+		close();
+	}), done);
+});
+
 // 5
 gate('finding5', (done) => {
 	const cutResponseFor = (toolInput) => ({ status: 200, body: toolBody(toolInput, 'max_tokens') });
