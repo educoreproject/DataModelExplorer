@@ -29,6 +29,7 @@ const DIRECT_BLOCK_CONFIG_VALUES = Object.freeze({ directBlockMaxBytes: 53687091
 const GATE_WAIT_MILLISECONDS = 200;
 const GATE_WAIT_LIMIT = 300;
 const LIVE_LIMIT_VALUES = Object.freeze({ publicInstanceName: 'liveTest', usageUriRowCap: 1000, usageUriRetentionDays: 90, requestsPerMinute: 60, burstPerSecond: 20, inFlightMax: 20, maxQueryChars: 500, maxPatternChars: 200, dailyEmbeddingTokenCeiling: 2000000 });
+const IDLE_POLL_MILLISECONDS = 20;
 const LIVE_FUSE_VALUES = Object.freeze({ retrievalMaxTokensPerRequest: 120000, retrievalDailyTokenCeiling: 2000000, retrievalInFlightMax: 1, judgedDailyTokenCeiling: 2000000, maxUnresolvedListLength: 50, maxFieldListLength: 200, maxFieldNameChars: 200, maxFieldDefinitionChars: 2000, maxFieldPathChars: 500, maxDocumentDepth: 32, maxRefExpansions: 1000, hitsPerText: 40, minScore: 0.3, poolCap: 40, indexWindowPerText: 5000, textsPerGraphQuery: 40, judgeUsdPerFieldEstimate: 0.07, strangerVectorCacheMaxRows: 200000, strangerVectorRetentionDays: 30, judgedMaxFieldListLength: 50, maxRunningJobs: 1, maxQueuedJobs: 5, perPrincipalJobsOpen: 1, perJobCeilingUsd: 8, perPrincipalDailyUsd: 10, dailyJudgeCeilingUsd: 25, jobRetentionDays: 30, jobRunnerPollSeconds: 3600, judgeRetryWaitSecondsList: '1,1', judgedPoolCap: 20 });
 const FAKE_PRICING_INI_TEXT = '[spendPrice_anthropicOpus5]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate fixture, the rate in spendPricing.ini\npriceAsOf=2026-11-05\n[spendPrice_voyage4Large]\nprovider=voyage\nmodel=voyage-4-large\ninputUsdPerMillionTokens=0.12\noutputUsdPerMillionTokens=0\npriceSource=gate fixture\npriceAsOf=2026-11-05\n';
 const FAKE_VENDOR_INI_TEXT = '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\nmaxTokens=2500\n';
@@ -109,7 +110,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 			if (assembleError) {
 				xLog.error(`rosettaLiveHarness: the rosetta judged step is off: ${assembleError}`);
 			}
-			const rosettaJudged = assembleError ? { startRunner: () => null } : assembledJudged;
+			const rosettaJudged = assembleError ? { startRunner: (unusedRunnerOptions, startedDone) => startedDone('', null) } : assembledJudged;
 			const core = createStandardsQueryCore({
 				registry,
 				limitConfigValues: { ...LIVE_LIMIT_VALUES, ...limitOverrideValues },
@@ -129,8 +130,9 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				if (core.serviceState().isServing) {
 					// a gate can stand in for the graph's facts, to change the manifest or lose the graph under a running job
 					const factsHolder = { getServiceFacts: core.serviceFactsForGate };
-					const runner = rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation });
-					done('', { setServiceFactsForRunner: (getServiceFacts) => { factsHolder.getServiceFacts = getServiceFacts; }, edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
+					// handed over only once the runner's start-up reconcile has run AND its first tick has read the empty queue: a gate that seeds open jobs otherwise races that read (it flaked 1 run in 3; handing over at start-up alone made it fail every time)
+					const whenIdle = (runner, idleDone) => (!runner || runner.isIdle() ? idleDone() : setTimeout(() => whenIdle(runner, idleDone), IDLE_POLL_MILLISECONDS));
+					rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation }, (startError, runner) => whenIdle(runner, () => done(startError ? `the job runner would not start: ${startError}` : '', { setServiceFactsForRunner: (getServiceFacts) => { factsHolder.getServiceFacts = getServiceFacts; }, edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) })));
 					return;
 				}
 				waitCount += 1;
