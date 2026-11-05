@@ -581,14 +581,17 @@ gate('roundC', (done) => {
 			{ name: 'innocentStep', definition: 'Done at step123456 of the process.' },
 			{ name: 'innocentEpic', definition: 'Tracked under epic123456 on the board.' },
 			{ name: 'realId', definition: 'This is p001234 in the hub.' },
-			{ name: 'zeroWidthId', definition: 'This is P​001234 in the hub.' },
-			{ name: 'softHyphenId', definition: 'This is P­001234 in the hub.' },
+			{ name: 'zeroWidthId', definition: 'This is P00\u200B1234 in the hub.' },
+			{ name: 'softHyphenId', definition: 'This is P001\u00AD234 in the hub.' },
 		];
 		submitAndWait(ask, { fieldList, hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
 			const statusOf = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS.status;
 			ok('C: innocent text that only looks like an id in upper case is judged', statusOf(0) === 'proposed' && statusOf(1) === 'proposed', `${statusOf(0)} ${statusOf(1)}`);
 			ok('C: a CEDS id in lower case is still caught', statusOf(2) === 'identifierInSourceText', statusOf(2));
-			ok('14 remainder: an id broken by a zero-width or format character is caught', statusOf(3) === 'identifierInSourceText' && statusOf(4) === 'identifierInSourceText', `${statusOf(3)} ${statusOf(4)}`);
+			const unitOf = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS;
+			// caught as the CEDS id itself: a break before the digits leaves a bare number the hub's identifier list also holds, which proves nothing about the strip
+			const caughtAsCedsId = (fieldIndex) => unitOf(fieldIndex).status === 'identifierInSourceText' && unitOf(fieldIndex).identifierScanPatternName === 'cedsPropertyId';
+			ok('14 remainder: an id broken by a zero-width or format character is caught', caughtAsCedsId(3) && caughtAsCedsId(4), `${statusOf(3)}/${unitOf(3).identifierScanPatternName} ${statusOf(4)}/${unitOf(4).identifierScanPatternName}`);
 			close();
 		}));
 	}, done);
