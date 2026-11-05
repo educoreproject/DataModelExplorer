@@ -1,6 +1,6 @@
 'use strict';
 // rosettaLiveHarness — what the live Rosetta and size gates share: the real golden, the real store and forge modules, a core built as the access point builds it, and an embedder that answers from the graph's own text nodes, so a gate is free, offline and deterministic. It is the embedder, and nothing else, that stands in; runs/P3/g31 measures the real one.
-//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher?, vendorPostOnce?, judgeConfigValues?, waitMilliseconds?, judgedOffAllowed? (a judged step that will not assemble is off and logged, as the access point leaves it) }, done(err | '', { core, rosettaRetrieval, rosettaJudged, runner, store, session, serviceFacts..., close }))
+//   openHarness({ fuseOverrideValues, limitOverrideValues, embedder?, storeFilePath?, runCypher?, vendorPostOnce?, judgeConfigValues?, waitMilliseconds?, judgedOffAllowed? (a judged step that will not assemble is off and logged, as the access point leaves it), quietRunner? (handed over only once the runner is idle after start-up) }, done(err | '', { core, rosettaRetrieval, rosettaJudged, runner, store, session, serviceFacts..., close }))
 //     vendorPostOnce: a fake vendor at the forge client's own network seam, so the real client, judge and store all run and nothing reaches Anthropic. judgeConfigValues: the real config instead, for a gate that spends. Neither: no judge, as demo has today. ; answers 'noGraph' through done when no graph is reachable, for the caller to skip by name.
 
 const fs = require('fs');
@@ -55,7 +55,7 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', CONFIG_DIR_PATH, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate, judgedOffAllowed } = {}, done) => {
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate, judgedOffAllowed, quietRunner } = {}, done) => {
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'] };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
 		if (configError) {
@@ -110,7 +110,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 			if (assembleError) {
 				xLog.error(`rosettaLiveHarness: the rosetta judged step is off: ${assembleError}`);
 			}
-			const rosettaJudged = assembleError ? { startRunner: (unusedRunnerOptions, startedDone) => startedDone('', null) } : assembledJudged;
+			const rosettaJudged = assembleError ? { startRunner: (unusedRunnerOptions, startedDone) => (startedDone ? startedDone('', null) : null) } : assembledJudged;
 			const core = createStandardsQueryCore({
 				registry,
 				limitConfigValues: { ...LIVE_LIMIT_VALUES, ...limitOverrideValues },
@@ -130,9 +130,14 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				if (core.serviceState().isServing) {
 					// a gate can stand in for the graph's facts, to change the manifest or lose the graph under a running job
 					const factsHolder = { getServiceFacts: core.serviceFactsForGate };
-					// handed over only once the runner's start-up reconcile has run AND its first tick has read the empty queue: a gate that seeds open jobs otherwise races that read (it flaked 1 run in 3; handing over at start-up alone made it fail every time)
+					// quietRunner: handed over only once the runner's start-up reconcile has run AND its first tick has read the empty queue, for a gate that seeds open jobs and must not race that read (finding10 flaked 1 run in 3; handing over at start-up alone made it fail every time). Not the default: a gate that reopens a store with a job in it must be handed over while that job runs.
 					const whenIdle = (runner, idleDone) => (!runner || runner.isIdle() ? idleDone() : setTimeout(() => whenIdle(runner, idleDone), IDLE_POLL_MILLISECONDS));
-					rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation }, (startError, runner) => whenIdle(runner, () => done(startError ? `the job runner would not start: ${startError}` : '', { setServiceFactsForRunner: (getServiceFacts) => { factsHolder.getServiceFacts = getServiceFacts; }, edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) })));
+					const handOver = (startError, runner) => done(startError ? `the job runner would not start: ${startError}` : '', { setServiceFactsForRunner: (getServiceFacts) => { factsHolder.getServiceFacts = getServiceFacts; }, edcConfigValues, core, rosettaRetrieval, rosettaJudged, runner, forgeAdapter, scratchDirPath, logLineList, strangerVectorStore, goldenHandle, embedCallLog, usageCountList, errorLineList, rosettaStoreFilePath, usedEmbedder, dmeModuleConfig, close: (closed) => strangerVectorStore.close(() => { fs.rmSync(scratchDirPath, { recursive: true, force: true }); closed(); }) });
+					if (quietRunner) {
+						rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation }, (startError, runner) => whenIdle(runner, () => handOver(startError, runner)));
+						return;
+					}
+					handOver('', rosettaJudged.startRunner({ getServiceFacts: () => factsHolder.getServiceFacts(), runOperation: core.runOperation }));
 					return;
 				}
 				waitCount += 1;

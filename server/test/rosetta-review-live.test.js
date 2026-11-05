@@ -381,7 +381,8 @@ gate('finding9', (done) => {
 // 10
 gate('finding10', (done) => {
 	const vendor = fakeJudgeVendorFor();
-	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
+	// the seeded jobs are open with an empty manifest: a runner whose first read lands after them takes them and stops them as moved (finding10Race.txt)
+	withHarness({ vendorPostOnce: vendor.postOnce, quietRunner: true }, (harness, close) => {
 		const { jobStore } = harness.rosettaJudged;
 		const noCacheRefId = 'b'.repeat(32);
 		const withCacheRefId = 'c'.repeat(32);
