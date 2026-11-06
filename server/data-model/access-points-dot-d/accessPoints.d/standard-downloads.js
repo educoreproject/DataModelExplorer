@@ -14,9 +14,10 @@
 //   ⟪ML3.1c⟫ publicationFile  { downloadId }             → { downloadId, fileName, contentType, byteSize, sha256, contentBuffer }
 //
 // Every request first proves the downloads belong to the golden: the manifest at
-// [standardDownloads] downloadArtifactsRootDirPath / <[dataModelExplorerSearch] goldenContainerName> / downloads.json must
-// name that graph AND the graphContractSha256 of the golden's own passport (read on the golden READ-ONLY handle), or the
-// request is refused (downloadsManifestMismatch). Stale downloads are never served.
+// [standardDownloads] downloadArtifactsRootDirPath / <the golden passport's graphName> / downloads.json must name that graph
+// AND the passport's graphContractSha256 (the passport read on the golden READ-ONLY handle), or the request is refused
+// (downloadsManifestMismatch). Stale downloads are never served. The passport is the graph's identity; the container name
+// ([dataModelExplorerSearch] goldenContainerName) is only where the handle connects (P5, 2026-11-06).
 //
 // A file is served only by a downloadId the manifest lists as available; the path read is the manifest's own bare
 // fileName in the golden's directory, never anything from the request. Its sha256 is computed before it is answered and
@@ -49,34 +50,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// ================================================================================
 	// THE GOLDEN'S DOWNLOADS — located, read and proved against the golden on every request
 
+	// THE GRAPH'S IDENTITY IS ITS PASSPORT (P5, 2026-11-06): the folder is named for the passport's graphName, and the manifest must
+	// name that graph. The container name is only where the handle connects; a byte copy of a golden under another container name
+	// carries the original's passport, and serves the original's downloads.
 	const readVerifiedManifest = (callback) => {
 		const rootDirPath = (getConfig(CONFIG_SECTION_NAME) || {}).downloadArtifactsRootDirPath;
-		const goldenContainerName = (getConfig('dataModelExplorerSearch') || {}).goldenContainerName;
-		const absentSettingList = [
-			[`[${CONFIG_SECTION_NAME}] downloadArtifactsRootDirPath`, rootDirPath],
-			['[dataModelExplorerSearch] goldenContainerName', goldenContainerName],
-		].filter(([, settingValue]) => typeof settingValue !== 'string' || settingValue === '').map(([settingName]) => settingName);
-		if (absentSettingList.length) {
-			callback(refusalOf('downloadsNotConfigured', `this server declares no ${absentSettingList.join(' and no ')}`));
-			return;
-		}
-		const downloadsDirPath = path.join(rootDirPath, goldenContainerName);
-		const manifestFilePath = path.join(downloadsDirPath, mapper.MANIFEST_FILE_NAME);
-		if (!fs.existsSync(manifestFilePath)) {
-			callback(refusalOf('downloadsAbsentForGolden', `no downloads have been generated for the golden '${goldenContainerName}' (no ${mapper.MANIFEST_FILE_NAME} in ${downloadsDirPath})`));
-			return;
-		}
-		let manifest;
-		// the manifest is a file from outside this process: a parse fault is turned into a named refusal here
-		try {
-			manifest = JSON.parse(fs.readFileSync(manifestFilePath, 'utf8'));
-		} catch (parseError) {
-			callback(refusalOf('downloadsManifestUnreadable', `${manifestFilePath}: ${parseError.message}`));
-			return;
-		}
-		const shapeFault = mapper.manifestShapeFaultOf(manifest);
-		if (shapeFault) {
-			callback(refusalOf('downloadsManifestUnreadable', `${manifestFilePath}: ${shapeFault}`));
+		if (typeof rootDirPath !== 'string' || rootDirPath === '') {
+			callback(refusalOf('downloadsNotConfigured', `this server declares no [${CONFIG_SECTION_NAME}] downloadArtifactsRootDirPath`));
 			return;
 		}
 		if (!neo4jDb) {
@@ -96,9 +76,32 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			const goldenPassport = passportRowList[0];
+			if (typeof goldenPassport.graphName !== 'string' || goldenPassport.graphName === '') {
+				callback(refusalOf('downloadsManifestMismatch', `the golden's passport carries no graphName (${JSON.stringify(goldenPassport.graphName)}), so no downloads can be proved its own`));
+				return;
+			}
+			const downloadsDirPath = path.join(rootDirPath, goldenPassport.graphName);
+			const manifestFilePath = path.join(downloadsDirPath, mapper.MANIFEST_FILE_NAME);
+			if (!fs.existsSync(manifestFilePath)) {
+				callback(refusalOf('downloadsAbsentForGolden', `no downloads have been generated for the golden '${goldenPassport.graphName}' (no ${mapper.MANIFEST_FILE_NAME} in ${downloadsDirPath})`));
+				return;
+			}
+			let manifest;
+			// the manifest is a file from outside this process: a parse fault is turned into a named refusal here
+			try {
+				manifest = JSON.parse(fs.readFileSync(manifestFilePath, 'utf8'));
+			} catch (parseError) {
+				callback(refusalOf('downloadsManifestUnreadable', `${manifestFilePath}: ${parseError.message}`));
+				return;
+			}
+			const shapeFault = mapper.manifestShapeFaultOf(manifest);
+			if (shapeFault) {
+				callback(refusalOf('downloadsManifestUnreadable', `${manifestFilePath}: ${shapeFault}`));
+				return;
+			}
 			const mismatchList = [];
-			if (manifest.graphName !== goldenContainerName || manifest.graphName !== goldenPassport.graphName) {
-				mismatchList.push(`the manifest is for graph '${manifest.graphName}', this server serves '${goldenContainerName}' (passport graphName '${goldenPassport.graphName}')`);
+			if (manifest.graphName !== goldenPassport.graphName) {
+				mismatchList.push(`the manifest is for graph '${manifest.graphName}', the golden's passport names '${goldenPassport.graphName}'`);
 			}
 			if (manifest.graphContractSha256 !== goldenPassport.graphContractSha256) {
 				mismatchList.push(`the manifest's graphContractSha256 ${manifest.graphContractSha256} is not the golden's ${goldenPassport.graphContractSha256}`);

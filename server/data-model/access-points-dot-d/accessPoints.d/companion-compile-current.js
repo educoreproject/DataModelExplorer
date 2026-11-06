@@ -5,7 +5,7 @@
 //
 // The current compile of a compiled companion page (SPEC-companionPages-102826, gates G3.2 and G3.3). A compile is
 // current only while its four stamps equal the live values:
-//   graphName            [dataModelExplorerSearch] goldenContainerName, which the golden's passport must also name
+//   graphName            the golden passport's graphName (the graph's identity; the container name is only its address, P5)
 //   graphContractSha256  the golden passport's
 //   sourceSetSha256      sha256 over the page's current sources, one line 'sourceRole TAB sourcePart TAB sha256' each,
 //                        sorted (lib/companion-pages/companion-source-set.js; read through companion-source-list)
@@ -37,7 +37,7 @@ const QUIET = { suppressStatementLog: true };
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
-	const { xLog, getConfig } = process.global;
+	const { xLog } = process.global;
 	const { sqlDb, dataMapping, neo4jDb, accessPointsDotD } = passThroughParameters;
 	const pageMapper = dataMapping['companion-page'];
 	const compileMapper = dataMapping['companion-compile'];
@@ -65,15 +65,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const readLiveStamps = ({ pageSlug, compilerEntry }, callback) => {
 		const taskList = new taskListPlus();
 
-		taskList.push((args, next) => {
-			const goldenContainerName = (getConfig('dataModelExplorerSearch') || {}).goldenContainerName;
-			if (typeof goldenContainerName !== 'string' || !goldenContainerName) {
-				next('this server declares no [dataModelExplorerSearch] goldenContainerName', args);
-				return;
-			}
-			next('', { ...args, goldenContainerName });
-		});
-
 		taskList.push((args, next) =>
 			runGoldenQuery('goldenPassport', (queryError, passportRowList) => {
 				if (queryError) {
@@ -84,8 +75,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					next(`the golden holds ${passportRowList.length} passport(s); one is needed to stamp a compile`, args);
 					return;
 				}
-				if (passportRowList[0].graphName !== args.goldenContainerName) {
-					next(`the golden's passport names graph '${passportRowList[0].graphName}', this server serves '${args.goldenContainerName}'`, args);
+				// the passport is the graph's identity; the container name is only where the handle connects (P5, 2026-11-06)
+				if (typeof passportRowList[0].graphName !== 'string' || !passportRowList[0].graphName) {
+					next(`the golden's passport carries no graphName (${JSON.stringify(passportRowList[0].graphName)}); a compile cannot be stamped`, args);
 					return;
 				}
 				next('', { ...args, goldenPassport: passportRowList[0] });
@@ -100,7 +92,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			callback('', {
-				liveStampByName: { graphName: args.goldenContainerName, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sourceSetSha256Of(args.sourceRecordList), compilerVersion: compilerEntry.compilerVersion },
+				liveStampByName: { graphName: args.goldenPassport.graphName, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sourceSetSha256Of(args.sourceRecordList), compilerVersion: compilerEntry.compilerVersion },
 				sourceRecordList: args.sourceRecordList,
 			});
 		});

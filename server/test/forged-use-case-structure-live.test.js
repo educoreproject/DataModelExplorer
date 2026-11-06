@@ -204,13 +204,13 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			ok(`S2 ${sourceCaseStableId}: the source JSON is valid JSON`, (() => { const parsedSource = JSON.parse(sourceFile.sourceText); return Boolean(parsedSource && typeof parsedSource === 'object'); })(), '');
 			done();
 		})),
-		// the extracted document names its graph: a server that declares no golden is refused by name, never given a null
+		// the extracted document names its graph, as the PASSPORT names it (P5, 2026-11-06: the passport is the identity, the container
+		// name only the address): a golden whose passport cannot be read as one named graph is refused by name, never given a null
 		(done) => {
-			const declaredSection = configBySection.dataModelExplorerSearch;
-			configBySection.dataModelExplorerSearch = {};
-			useCaseAccessPoint({ action: 'caseStructure', caseStableId: CASE_STABLE_ID }, (structureError) => {
-				configBySection.dataModelExplorerSearch = declaredSection;
-				ok('S2 caseStructure on a server that declares no golden name is refused by name', /cannot name its graph/.test(`${structureError}`), `${structureError}`);
+			const passportlessGolden = { runQuery: (cypher, params, callback) => (/GraphProvenance/.test(cypher) ? callback('', []) : goldenDb.runQuery(cypher, params, callback)) };
+			const passportlessAccessPoint = loadAccessPoint('forged-use-cases.js', { neo4jDb: passportlessGolden, dataMapping: { 'forged-use-cases': useCaseMapper }, accessPointsDotD: { 'standard-downloads': downloadsAccessPoint } });
+			passportlessAccessPoint({ action: 'caseStructure', caseStableId: CASE_STABLE_ID }, (structureError) => {
+				ok('S2 caseStructure on a golden with no passport is refused by name', /cannot name its graph/.test(`${structureError}`), `${structureError}`);
 				done();
 			});
 		},
