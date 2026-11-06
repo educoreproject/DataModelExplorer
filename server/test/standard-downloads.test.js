@@ -7,7 +7,9 @@
 //   2. a file whose sha256 matches is answered as an attachment, the bytes and the X-Download-Sha256 header equal to
 //      the manifest's sha256; the same for the REAL College Transcript 1.8.0 graph zip;
 //   3. refusals by name: an unknown id; a path-traversal id; an unavailable entry; a file whose bytes no longer match;
-//      a manifest whose graphContractSha256 or graphName is not the golden's; no downloads for the golden; not configured;
+//      a manifest whose graphContractSha256 is not the golden's; an index entry for another build only; no index; not configured;
+//      (since WORKORDER-downloadsByIdentity-110626 each fixture root carries downloadsIdentityIndex.json, binding the golden's
+//      content identity to the fixture folder and its downloads.json bytes; a manifest's graphName is shown, never compared);
 //   4. the endpoints, public (2026-10-30): answered without a user, 400 with the refusal's text, [result] for the manifest;
 //   5. where each source came from (WORKORDER-sourceUrls-101526): the five sourceUrl fields carried out verbatim, null
 //      when not recorded; a manifest of the earlier format /1 refused by name; the REAL manifest's CEDS, CT 1.8.0 and
@@ -55,6 +57,7 @@ const mapper = require(MAPPER_PATH)({});
 const goldenContainerName = readGoldenContainerName();
 const sha256Of = (contentBuffer) => crypto.createHash('sha256').update(contentBuffer).digest('hex');
 const scratchRootPath = fs.mkdtempSync(path.join(os.tmpdir(), 'standard-downloads-test-'));
+const { graphIdentityOf } = require(path.join(CODE_ROOT_PATH, 'server/data-model/lib/graph-identity.js'));
 
 const loadAccessPoint = (neo4jDb) => {
 	const accessPointByName = {};
@@ -93,7 +96,8 @@ const runInOrder = (stepList, callback) => {
 };
 
 // a fixture downloads directory for the golden: three entries, one file intact, one file whose bytes were changed
-const writeFixture = ({ fixtureName, graphName, graphContractSha256 }) => {
+// (manifestEdit changes the manifest before it is written; indexedPassport is the passport the index binds the folder to)
+const writeFixture = ({ fixtureName, graphName, graphContractSha256, indexedPassport, manifestEdit = (manifest) => manifest }) => {
 	const rootDirPath = path.join(scratchRootPath, fixtureName);
 	const downloadsDirPath = path.join(rootDirPath, goldenContainerName);
 	fs.mkdirSync(downloadsDirPath, { recursive: true });
@@ -115,7 +119,10 @@ const writeFixture = ({ fixtureName, graphName, graphContractSha256 }) => {
 			entryOf({ downloadId: 'held-source', family: 'EdFi', group: 'Toy Ed-Fi', standardKey: 'held', facet: 'source', fileName: null, byteSize: null, sha256: null, available: false, unavailableReason: 'held under the toy licence', ...notRecorded }),
 		],
 	};
-	fs.writeFileSync(path.join(downloadsDirPath, 'downloads.json'), JSON.stringify(manifest));
+	const manifestText = JSON.stringify(manifestEdit(manifest));
+	fs.writeFileSync(path.join(downloadsDirPath, 'downloads.json'), manifestText);
+	const indexEntry = { graphIdentitySha256: graphIdentityOf(indexedPassport).graphIdentitySha256, manifestRefId: indexedPassport.manifestRefId, graphContractSha256: indexedPassport.graphContractSha256, folderName: goldenContainerName, downloadsManifestSha256: sha256Of(Buffer.from(manifestText, 'utf8')), recordedAt: '2026-11-06T00:00:00.000Z', recordedFromGraphName: graphName };
+	fs.writeFileSync(path.join(rootDirPath, 'downloadsIdentityIndex.json'), JSON.stringify({ indexFormat: 'educoreDownloadsIdentityIndex/1', entryList: [indexEntry] }));
 	return { rootDirPath, intactBuffer };
 };
 
@@ -140,15 +147,16 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		configBySection.dataModelExplorerSearch = { goldenContainerName };
 	};
 
-	goldenDb.runQuery('MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.graphContractSha256 AS graphContractSha256', {}, (passportError, passportRowList) => {
+	goldenDb.runQuery('MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.manifestRefId AS manifestRefId, p.graphContractSha256 AS graphContractSha256', {}, (passportError, passportRowList) => {
 		if (passportError || passportRowList.length !== 1) {
 			console.log(`  FAIL: this test's passport read: ${passportError || passportRowList.length}`);
 			process.exit(1);
 		}
 		const goldenPassport = passportRowList[0];
-		const goodFixture = writeFixture({ fixtureName: 'good', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 });
-		const staleShaFixture = writeFixture({ fixtureName: 'staleSha', graphName: goldenContainerName, graphContractSha256: 'f'.repeat(64) });
-		const otherGraphFixture = writeFixture({ fixtureName: 'otherGraph', graphName: 'GOLD_EVAL_someOtherGraph', graphContractSha256: goldenPassport.graphContractSha256 });
+		const goodFixture = writeFixture({ fixtureName: 'good', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport });
+		const staleShaFixture = writeFixture({ fixtureName: 'staleSha', graphName: goldenContainerName, graphContractSha256: 'f'.repeat(64), indexedPassport: goldenPassport });
+		const otherGraphFixture = writeFixture({ fixtureName: 'otherGraph', graphName: 'GOLD_EVAL_someOtherGraph', graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport });
+		const otherBuildFixture = writeFixture({ fixtureName: 'otherBuild', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: { ...goldenPassport, manifestRefId: 'a'.repeat(64) } });
 
 		runInOrder([
 			// ---- 1. the manifest and its filters
@@ -175,14 +183,11 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 			(done) => ask({ action: 'file', downloadId: 'toy-graph' }, (err) => { ok('a file whose bytes changed is refused by name', /^downloadChecksumMismatch: toy-graph: the file's sha256 is [0-9a-f]{64}, the manifest says/.test(err), err); done(); }),
 			(done) => { configureRoot(staleShaFixture.rootDirPath); ask({ action: 'manifest' }, (err) => { ok('a manifest for another graph contract is refused by name', /^downloadsManifestMismatch: the manifest's graphContractSha256 f{64} is not the golden's/.test(err), err); done(); }); },
 			(done) => ask({ action: 'file', downloadId: 'toy-source' }, (err) => { ok('...and no file is served from it', /^downloadsManifestMismatch/.test(err), err); done(); }),
-			(done) => { configureRoot(otherGraphFixture.rootDirPath); ask({ action: 'manifest' }, (err) => { ok('a manifest for another graph name is refused by name', /^downloadsManifestMismatch: the manifest is for graph 'GOLD_EVAL_someOtherGraph'/.test(err), err); done(); }); },
-			(done) => { configureRoot(path.join(scratchRootPath, 'nothingHere')); ask({ action: 'manifest' }, (err) => { ok('no downloads for the golden is refused by name', new RegExp(`^downloadsAbsentForGolden: no downloads have been generated for the golden '${goldenContainerName}'`).test(err), err); done(); }); },
+			(done) => { configureRoot(otherGraphFixture.rootDirPath); ask({ action: 'manifest' }, (err, result) => { ok('a manifest bound to the golden\'s identity is served whatever graph name it carries (the name is never compared)', !err && result.graphName === 'GOLD_EVAL_someOtherGraph' && result.graphIdentitySha256 === graphIdentityOf(goldenPassport).graphIdentitySha256, err); done(); }); },
+			(done) => { configureRoot(otherBuildFixture.rootDirPath); ask({ action: 'manifest' }, (err) => { ok('an index recording only another build (same name, same contract) is refused by name', new RegExp(`^downloadsAbsentForGolden: no downloads are recorded for the golden '${goldenContainerName}'`).test(err), err); done(); }); },
+			(done) => { configureRoot(path.join(scratchRootPath, 'nothingHere')); ask({ action: 'manifest' }, (err) => { ok('a root with no index is refused by name', /^downloadsIdentityIndexAbsent: /.test(err), err); done(); }); },
 			(done) => {
-				const incompleteRootPath = writeFixture({ fixtureName: 'incomplete', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 }).rootDirPath;
-				const incompleteManifestPath = path.join(incompleteRootPath, goldenContainerName, 'downloads.json');
-				const incompleteManifest = JSON.parse(fs.readFileSync(incompleteManifestPath, 'utf8'));
-				delete incompleteManifest.entryList[1].unavailableReason;
-				fs.writeFileSync(incompleteManifestPath, JSON.stringify(incompleteManifest));
+				const incompleteRootPath = writeFixture({ fixtureName: 'incomplete', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport, manifestEdit: (incompleteManifest) => { delete incompleteManifest.entryList[1].unavailableReason; return incompleteManifest; } }).rootDirPath;
 				configureRoot(incompleteRootPath);
 				ask({ action: 'manifest' }, (err) => { ok('a manifest entry lacking a field is refused by name, never filled in', /^downloadsManifestUnreadable: .*toy-source \(lacks unavailableReason\)/.test(err), err); done(); });
 			},
@@ -195,20 +200,12 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 				done();
 			}); },
 			(done) => {
-				const earlierRootPath = writeFixture({ fixtureName: 'earlierFormat', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 }).rootDirPath;
-				const earlierManifestPath = path.join(earlierRootPath, goldenContainerName, 'downloads.json');
-				const earlierManifest = JSON.parse(fs.readFileSync(earlierManifestPath, 'utf8'));
-				earlierManifest.manifestFormat = 'educoreStandardDownloads/1';
-				fs.writeFileSync(earlierManifestPath, JSON.stringify(earlierManifest));
+				const earlierRootPath = writeFixture({ fixtureName: 'earlierFormat', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport, manifestEdit: (earlierManifest) => ({ ...earlierManifest, manifestFormat: 'educoreStandardDownloads/1' }) }).rootDirPath;
 				configureRoot(earlierRootPath);
 				ask({ action: 'manifest' }, (err) => { ok('source URL: a manifest of the earlier format /1 is refused by name', /^downloadsManifestUnreadable: .*its manifestFormat is 'educoreStandardDownloads\/1', not 'educoreStandardDownloads\/2'/.test(err), err); done(); });
 			},
 			(done) => {
-				const noNoteRootPath = writeFixture({ fixtureName: 'noNote', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 }).rootDirPath;
-				const noNoteManifestPath = path.join(noNoteRootPath, goldenContainerName, 'downloads.json');
-				const noNoteManifest = JSON.parse(fs.readFileSync(noNoteManifestPath, 'utf8'));
-				delete noNoteManifest.entryList[2].sourceUrlNote;
-				fs.writeFileSync(noNoteManifestPath, JSON.stringify(noNoteManifest));
+				const noNoteRootPath = writeFixture({ fixtureName: 'noNote', graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport, manifestEdit: (noNoteManifest) => { delete noNoteManifest.entryList[2].sourceUrlNote; return noNoteManifest; } }).rootDirPath;
 				configureRoot(noNoteRootPath);
 				ask({ action: 'manifest' }, (err) => { ok('source URL: an entry lacking sourceUrlNote is refused, never filled in', /^downloadsManifestUnreadable: .*held-source \(lacks sourceUrlNote\)/.test(err), err); done(); });
 			},
@@ -231,8 +228,8 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 
 			// ---- 2b. the REAL artifacts for this golden
 			(done) => {
-				if (typeof realRootDirPath !== 'string' || !fs.existsSync(path.join(realRootDirPath, goldenContainerName, 'downloads.json'))) {
-					ok('the real downloads for the golden exist (qbook [standardDownloads])', false, `${realRootDirPath}/${goldenContainerName}/downloads.json is absent: run educoreForge downloadArtifacts for this golden`);
+				if (typeof realRootDirPath !== 'string' || !fs.existsSync(path.join(realRootDirPath, 'downloadsIdentityIndex.json'))) {
+					ok('the real downloads for the golden are recorded (qbook [standardDownloads] downloadsIdentityIndex.json)', false, `${realRootDirPath}/downloadsIdentityIndex.json is absent: run educoreForge downloadArtifacts for this golden, then recordDownloadsIdentity.js`);
 					done();
 					return;
 				}

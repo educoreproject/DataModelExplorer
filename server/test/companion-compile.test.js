@@ -12,7 +12,7 @@
 //         resolved, 123 distinct JEDx properties, 145 with a match, AND each element equals joinProbe.json's (status,
 //         property, match set); a difference is printed by element. Also: a second view answers the same compile;
 //         the explorer roles may read it, no token and the lookalike role may not
-//   G3.2  a stored compile whose graphName, graphContractSha256, sourceSetSha256 or compilerVersion differs from the
+//   G3.2  a stored compile whose graphIdentitySha256, graphContractSha256, sourceSetSha256 or compilerVersion differs from the
 //         live value is never answered as current: the request recompiles (a new compile, current, live stamps).
 //         sourceSetSha256 changes by a real upload; the other three by changing the stored stamp
 //   G3.3  a failed recompile answers the last good compile marked NOT current, with the stale stamp and the reason:
@@ -43,7 +43,8 @@ const SEED_SOURCE_DIR_PATH = path.join(PROJECT_SYSTEM_PATH, SEED_MANIFEST.source
 const JOIN_PROBE_FILE_PATH = path.join(PROJECT_SYSTEM_PATH, 'management', 'zNotesPlansDocs', 'companionPages-102826', 'joinProbe', 'joinProbe.json');
 const PAGE_SLUG = SEED_MANIFEST.pageRecord.pageSlug;
 const EXPECTED_COUNT_SUMMARY = { elementCount: 422, resolvedCount: 290, distinctPropertyCount: 123, matchedElementCount: 145 };
-const STAMP_NAME_LIST = ['graphName', 'graphContractSha256', 'sourceSetSha256', 'compilerVersion'];
+// graphName is stored for display only since WORKORDER-downloadsByIdentity-110626; the graph's identity stamp replaced it
+const STAMP_NAME_LIST = ['graphIdentitySha256', 'graphContractSha256', 'sourceSetSha256', 'compilerVersion'];
 
 const results = [];
 const ok = (name, condition, detail) => {

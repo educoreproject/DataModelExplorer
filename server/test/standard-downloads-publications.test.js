@@ -51,6 +51,7 @@ const TOKEN_TOOLS_PATH = path.join(CODE_ROOT_PATH, 'server/lib/access-token-head
 const mapper = require(MAPPER_PATH)({});
 const goldenContainerName = readGoldenContainerName();
 const sha256Of = (contentBuffer) => crypto.createHash('sha256').update(contentBuffer).digest('hex');
+const { graphIdentityOf } = require(path.join(CODE_ROOT_PATH, 'server/data-model/lib/graph-identity.js'));
 const scratchRootPath = fs.mkdtempSync(path.join(os.tmpdir(), 'standard-downloads-test-'));
 
 const loadAccessPoint = (neo4jDb) => {
@@ -90,7 +91,9 @@ const runInOrder = (stepList, callback) => {
 };
 
 
-const writeFixture = ({ fixtureName, graphName, graphContractSha256, publicationGraphName, extraEntryList = [] }) => {
+// every fixture root carries downloadsIdentityIndex.json binding indexedPassport's content identity to the fixture folder and the
+// bytes of its downloads.json (WORKORDER-downloadsByIdentity-110626)
+const writeFixture = ({ fixtureName, graphName, graphContractSha256, indexedPassport, publicationGraphName, extraEntryList = [] }) => {
 	const rootDirPath = path.join(scratchRootPath, fixtureName);
 	const downloadsDirPath = path.join(rootDirPath, goldenContainerName);
 	fs.mkdirSync(path.join(downloadsDirPath, 'mappingLayers', 'layer', 'toyLayer', 'v1'), { recursive: true });
@@ -99,7 +102,10 @@ const writeFixture = ({ fixtureName, graphName, graphContractSha256, publication
 	const cardBuffer = Buffer.from('meaningUri,definition\r\nhttps://w3id.org/EDUcore/ToyHub/hub/1.0/aaaa,a card\r\n');
 	fs.writeFileSync(path.join(downloadsDirPath, 'mappingLayers', 'layer', 'toyLayer', 'v1', 'set.sssom.tsv'), setBuffer);
 	fs.writeFileSync(path.join(downloadsDirPath, 'hubCards', 'ToyHub', '1.0', 'cards.csv'), Buffer.from('changed after the listing was written'));
-	fs.writeFileSync(path.join(downloadsDirPath, 'downloads.json'), JSON.stringify({ manifestFormat: 'educoreStandardDownloads/2', graphName, graphContractSha256, generatedAt: '2026-10-26', entryList: [] }));
+	const manifestText = JSON.stringify({ manifestFormat: 'educoreStandardDownloads/2', graphName, graphContractSha256, generatedAt: '2026-10-26', entryList: [] });
+	fs.writeFileSync(path.join(downloadsDirPath, 'downloads.json'), manifestText);
+	const indexEntry = { graphIdentitySha256: graphIdentityOf(indexedPassport).graphIdentitySha256, manifestRefId: indexedPassport.manifestRefId, graphContractSha256: indexedPassport.graphContractSha256, folderName: goldenContainerName, downloadsManifestSha256: sha256Of(Buffer.from(manifestText, 'utf8')), recordedAt: '2026-11-06T00:00:00.000Z', recordedFromGraphName: graphName };
+	fs.writeFileSync(path.join(rootDirPath, 'downloadsIdentityIndex.json'), JSON.stringify({ indexFormat: 'educoreDownloadsIdentityIndex/1', entryList: [indexEntry] }));
 	const entryOf = (overrideObject) => ({ layerKey: null, versionTag: null, standardKey: null, hubSegment: null, hubReleaseSegment: null, layerTitle: null, registrationStatus: null, hubName: null, hubVersion: null, cardCount: null, ...overrideObject });
 	const publication = {
 		manifestFormat: 'educorePublicationDownloads/1',
@@ -138,18 +144,18 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		configBySection.dataModelExplorerSearch = { goldenContainerName };
 	};
 
-	goldenDb.runQuery('MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.graphContractSha256 AS graphContractSha256', {}, (passportError, passportRowList) => {
+	goldenDb.runQuery('MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.manifestRefId AS manifestRefId, p.graphContractSha256 AS graphContractSha256', {}, (passportError, passportRowList) => {
 		if (passportError || passportRowList.length !== 1) {
 			console.log(`  FAIL: this test's passport read: ${passportError || passportRowList.length}`);
 			process.exit(1);
 		}
 		const goldenPassport = passportRowList[0];
-		const stamped = { graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256 };
+		const stamped = { graphName: goldenContainerName, graphContractSha256: goldenPassport.graphContractSha256, indexedPassport: goldenPassport };
 		const goodFixture = writeFixture({ fixtureName: 'good', ...stamped });
 		const otherGraphFixture = writeFixture({ fixtureName: 'otherGraph', ...stamped, publicationGraphName: 'GOLD_EVAL_someOtherGraph' });
 		const traversalFixture = writeFixture({ fixtureName: 'traversal', ...stamped, extraEntryList: [{ downloadId: 'escape', kind: 'mappingSet', format: 'x', relativePath: 'mappingLayers/../downloads.json', byteSize: 1, sha256: 'b'.repeat(64) }] });
 		const unknownKindFixture = writeFixture({ fixtureName: 'unknownKind', ...stamped, extraEntryList: [{ downloadId: 'odd', kind: 'executable', format: 'x', relativePath: 'mappingLayers/run.sh', byteSize: 1, sha256: 'b'.repeat(64) }] });
-		const staleDownloadsFixture = writeFixture({ fixtureName: 'staleDownloads', graphName: goldenContainerName, graphContractSha256: 'f'.repeat(64) });
+		const staleDownloadsFixture = writeFixture({ fixtureName: 'staleDownloads', graphName: goldenContainerName, graphContractSha256: 'f'.repeat(64), indexedPassport: goldenPassport });
 
 		runInOrder([
 			// ---- 1. the listing
