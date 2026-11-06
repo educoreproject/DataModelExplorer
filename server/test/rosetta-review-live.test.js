@@ -651,7 +651,7 @@ gate('finding21inis', (done) => {
 	const { rosettaFuseValuesOf } = require('../lib/standards-query/rosetta/rosettaRetrieval');
 	const configFileProcessor = require('qtools-config-file-processor');
 	const configRootPath = process.env.ROSETTA_CONFIGS_DIR || path.join(__dirname, '..', '..', '..', 'configs');
-	['qbook', 'demo.educore.dev'].forEach((instanceName) => {
+	['qbook', 'demo.educore.dev', 'educore.tqtmp.org'].forEach((instanceName) => {
 		const instancePath = path.join(configRootPath, 'instanceSpecific', instanceName);
 		const iniText = fs.existsSync(path.join(instancePath, 'startApiServer.ini')) ? fs.readFileSync(path.join(instancePath, 'startApiServer.ini'), 'utf8') : '';
 		if (!iniText.includes('[rosetta-judge]')) {
@@ -666,8 +666,13 @@ gate('finding21inis', (done) => {
 		const { judgedValues } = judgedRead;
 		ok(`inis ${instanceName}: a full job's estimate fits under the job's ceiling, and the ceilings are in order`, judgedValues.judgedMaxFieldListLength * 2 * judgedValues.judgeUsdPerFieldEstimate <= judgedValues.perJobCeilingUsd && judgedValues.perJobCeilingUsd <= judgedValues.perPrincipalDailyUsd && judgedValues.perPrincipalDailyUsd <= judgedValues.dailyJudgeCeilingUsd);
 		ok(`inis ${instanceName}: the pool cap ships on`, judgedValues.judgedPoolCap === 20, `${judgedValues.judgedPoolCap}`);
-		if (instanceName === 'demo.educore.dev') {
-			ok('inis demo: no judge credential is named until TQ rules', Boolean(judgedValues.judgeAbsentReason) && !section['rosetta-judge'].anthropicConfigFilePath);
+		// TQ's rulings (2026-11-06): demo has its own judge key (Q49), production the same key in its own file (Q54). Each instance names a
+		// credential file in its OWN dataStores, never in configs (the configs rsync --delete would reach it, and the repo would hold it),
+		// and each caps itself at 25 dollars a day.
+		if (instanceName === 'demo.educore.dev' || instanceName === 'educore.tqtmp.org') {
+			const credentialFilePath = String(section['rosetta-judge'].anthropicConfigFilePath || '');
+			ok(`inis ${instanceName}: a judge credential file is named, in its own dataStores and not in configs`, credentialFilePath.endsWith('/dataStores/rosettaAnthropic.ini') && !credentialFilePath.includes('/configs/'), credentialFilePath ? 'named elsewhere' : 'not named');
+			ok(`inis ${instanceName}: the instance caps its judging at 25 dollars a day`, judgedValues.dailyJudgeCeilingUsd === 25, `${judgedValues.dailyJudgeCeilingUsd}`);
 		}
 	});
 	done();
