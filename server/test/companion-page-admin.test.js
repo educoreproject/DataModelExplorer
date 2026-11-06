@@ -221,7 +221,7 @@ const insertUnprovenCompileStep = (state, next) => {
 	const compileMapper = state.server.dataMapping['companion-compile'];
 	state.server.sqlDb.getTable('companionCompile', (tableError, compileTable) => {
 		if (tableError) abort('compile table', tableError);
-		const compileRow = { refId: 'unprovenCompile00001', pageSlug: PAGE_SLUG, graphName: goldenContainerName, graphContractSha256: 'unproven', sourceSetSha256: UNPROVEN_SOURCE_SET_SHA256, compiledAt: new Date(Date.now() + 1000).toISOString(), compilerVersion: 'unproven', payloadJson: '{}', statusText: 'compiled' };
+		const compileRow = { refId: 'unprovenCompile00001', pageSlug: PAGE_SLUG, graphName: goldenContainerName, graphIdentitySha256: 'unproven', graphContractSha256: 'unproven', sourceSetSha256: UNPROVEN_SOURCE_SET_SHA256, compiledAt: new Date(Date.now() + 1000).toISOString(), compilerVersion: 'unproven', payloadJson: '{}', statusText: 'compiled' };
 		compileTable.runStatement(compileMapper.getSql('insert', compileMapper.map(compileRow, 'reverse')), { suppressStatementLog: true }, (insertError) => {
 			if (insertError) abort('insert unproven compile', insertError);
 			next(state);

@@ -5,11 +5,14 @@
 //
 // The current compile of a compiled companion page (SPEC-companionPages-102826, gates G3.2 and G3.3). A compile is
 // current only while its four stamps equal the live values:
-//   graphName            the golden passport's graphName (the graph's identity; the container name is only its address, P5)
+//   graphIdentitySha256  the golden's CONTENT identity, sha256(manifestRefId|graphContractSha256) of its passport
+//                        (graph-identity.js; WORKORDER-downloadsByIdentity-110626): the same graph under another name, a byte
+//                        copy or a zero-spend replay, keeps its compiles current; another build under the same name does not
 //   graphContractSha256  the golden passport's
 //   sourceSetSha256      sha256 over the page's current sources, one line 'sourceRole TAB sourcePart TAB sha256' each,
 //                        sorted (lib/companion-pages/companion-source-set.js; read through companion-source-list)
 //   compilerVersion      the page's compiler's (compilers/compiler-registry.js)
+// The passport's graphName is stored and answered with each compile, for display only; it is never compared.
 // When the newest stored compile is not current, the page is recompiled before answering and the compile stored. The
 // sources' bytes are read only through the companion-source-file access point (which checks them against their row),
 // and the golden only through the READ-ONLY handle (neo4jDb). If the recompile fails, or the live stamps cannot be read
@@ -19,7 +22,7 @@
 //
 //   inputData: { pageSlug }
 //   -> callback(errText, { pageSlug, isCurrent, staleStampList [{ stampName, compileValue, liveValue }],
-//                          recompileErrorText, compileRecord { refId, graphName, graphContractSha256, sourceSetSha256,
+//                          recompileErrorText, compileRecord { refId, graphName, graphIdentitySha256, graphContractSha256, sourceSetSha256,
 //                          compiledAt, compilerVersion }, payload })
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
@@ -31,6 +34,7 @@ const { getCompanionTables } = require('../../lib/companion-pages/companion-tabl
 const { sourceSetSha256Of } = require('../../lib/companion-pages/companion-source-set');
 const { compilerByName } = require('../../lib/companion-pages/compilers/compiler-registry');
 const { namePatternByField } = require('../../lib/companion-pages/companion-source-rules.json');
+const { graphIdentityOf } = require('../../lib/graph-identity');
 
 const QUIET = { suppressStatementLog: true };
 
@@ -75,12 +79,17 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					next(`the golden holds ${passportRowList.length} passport(s); one is needed to stamp a compile`, args);
 					return;
 				}
-				// the passport is the graph's identity; the container name is only where the handle connects (P5, 2026-11-06)
+				// the graph's identity is its content (manifestRefId and contract); graphName is kept for display, so it is required too
 				if (typeof passportRowList[0].graphName !== 'string' || !passportRowList[0].graphName) {
 					next(`the golden's passport carries no graphName (${JSON.stringify(passportRowList[0].graphName)}); a compile cannot be stamped`, args);
 					return;
 				}
-				next('', { ...args, goldenPassport: passportRowList[0] });
+				const identity = graphIdentityOf(passportRowList[0]);
+				if (identity.refusalText) {
+					next(`${identity.refusalText}; a compile cannot be stamped`, args);
+					return;
+				}
+				next('', { ...args, goldenPassport: passportRowList[0], graphIdentitySha256: identity.graphIdentitySha256 });
 			}),
 		);
 
@@ -92,7 +101,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			callback('', {
-				liveStampByName: { graphName: args.goldenPassport.graphName, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sourceSetSha256Of(args.sourceRecordList), compilerVersion: compilerEntry.compilerVersion },
+				liveStampByName: { graphName: args.goldenPassport.graphName, graphIdentitySha256: args.graphIdentitySha256, graphContractSha256: args.goldenPassport.graphContractSha256, sourceSetSha256: sourceSetSha256Of(args.sourceRecordList), compilerVersion: compilerEntry.compilerVersion },
 				sourceRecordList: args.sourceRecordList,
 			});
 		});
@@ -165,7 +174,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		isCurrent,
 		staleStampList,
 		recompileErrorText,
-		compileRecord: compileRow.qtSelectProperties(['refId', ...compileMapper.FRESHNESS_STAMP_NAME_LIST, 'compiledAt']),
+		compileRecord: compileRow.qtSelectProperties(['refId', ...compileMapper.DISPLAY_STAMP_NAME_LIST, ...compileMapper.FRESHNESS_STAMP_NAME_LIST, 'compiledAt']),
 		payload: JSON.parse(compileRow.payloadJson),
 	});
 

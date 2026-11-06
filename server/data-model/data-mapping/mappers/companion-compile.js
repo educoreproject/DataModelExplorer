@@ -4,8 +4,11 @@
 // @concept: [[MapperPattern]]
 //
 // A companion compile is one build of a compiled companion page's data (SPEC-companionPages-102826, Phase 3), stamped
-// with what it was built from: the golden's name and graph contract, the hash of the page's current sources, and the
-// compiler's version. A compile is current only while all four stamps equal the live values. Only successful compiles
+// with what it was built from: the golden's CONTENT identity and graph contract, the hash of the page's current sources, and
+// the compiler's version. A compile is current only while all four stamps equal the live values. The golden's graphName is
+// stored beside them for display only (WORKORDER-downloadsByIdentity-110626: a name is an address, never compared).
+// graphIdentitySha256 was ADDED to tables that already held rows (ADDED_COLUMN_NAME_LIST): a row compiled before it reads it as
+// null, so it can never be answered as current, and the page recompiles once. Only successful compiles
 // are stored (statusText 'compiled'); the newest row for a page is therefore also its last good compile.
 //
 // Declared schema, written with insert and runStatement (not saveObject), as companion-page and companion-source are:
@@ -33,6 +36,7 @@ const moduleFunction =
 			['refId']: 'refId',
 			['pageSlug']: 'pageSlug',
 			['graphName']: 'graphName',
+			['graphIdentitySha256']: 'graphIdentitySha256',
 			['graphContractSha256']: 'graphContractSha256',
 			['sourceSetSha256']: 'sourceSetSha256',
 			['compiledAt']: 'compiledAt',
@@ -46,7 +50,12 @@ const moduleFunction =
 		const dataColumnList = Object.keys(inputNameMapping).filter((columnName) => !['refId', 'createdAt', 'updatedAt'].includes(columnName));
 
 		// the stamps a compile is judged current by, in the order a stale answer names them
-		const FRESHNESS_STAMP_NAME_LIST = ['graphName', 'graphContractSha256', 'sourceSetSha256', 'compilerVersion'];
+		const FRESHNESS_STAMP_NAME_LIST = ['graphIdentitySha256', 'graphContractSha256', 'sourceSetSha256', 'compilerVersion'];
+		// stored with every compile and answered with it, never part of freshness
+		const DISPLAY_STAMP_NAME_LIST = ['graphName'];
+		// declared columns a table that already holds rows may be given (nullable, by ALTER TABLE ADD COLUMN in companion-tables.js);
+		// any other declared column a populated table lacks is still refused
+		const ADDED_COLUMN_NAME_LIST = Object.freeze(['graphIdentitySha256']);
 
 		// ================================================================================
 		// TRANSFORMATION
@@ -76,6 +85,7 @@ const moduleFunction =
 						[pageSlug] TEXT NOT NULL,
 						[graphName] TEXT NOT NULL,
 						[graphContractSha256] TEXT NOT NULL,
+						[graphIdentitySha256] TEXT,
 						[sourceSetSha256] TEXT NOT NULL,
 						[compiledAt] TEXT NOT NULL,
 						[compilerVersion] TEXT NOT NULL,
@@ -91,7 +101,7 @@ const moduleFunction =
 						END;`,
 				newestForPage: `SELECT * FROM <!tableName!> WHERE pageSlug = <!pageSlug!> ORDER BY compiledAt DESC, rowid DESC LIMIT 1`,
 				// every compile of a page, newest first, WITHOUT its payload (the compile history an admin reads)
-				historyForPage: `SELECT [refId], [pageSlug], [graphName], [graphContractSha256], [sourceSetSha256], [compiledAt], [compilerVersion], [statusText] FROM <!tableName!> WHERE pageSlug = <!pageSlug!> ORDER BY compiledAt DESC, rowid DESC`,
+				historyForPage: `SELECT [refId], [pageSlug], [graphName], [graphIdentitySha256], [graphContractSha256], [sourceSetSha256], [compiledAt], [compilerVersion], [statusText] FROM <!tableName!> WHERE pageSlug = <!pageSlug!> ORDER BY compiledAt DESC, rowid DESC`,
 				insert: `INSERT INTO <!tableName!> ([refId], ${columnListText}) VALUES (<!refId!>, ${valueListText})`,
 			};
 
@@ -107,7 +117,7 @@ const moduleFunction =
 		// NAMED CYPHER (golden, read only)
 
 		const CYPHER_BY_NAME = Object.freeze({
-			goldenPassport: 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.graphContractSha256 AS graphContractSha256',
+			goldenPassport: 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.manifestRefId AS manifestRefId, p.graphContractSha256 AS graphContractSha256',
 			jedxRootList: 'MATCH (r:JedxRoot) RETURN r.version AS jedxVersion',
 			jedxPropertyList: `MATCH (s:JedxSchema)-[:HAS_PROPERTY]->(p:JedxProperty)
 				OPTIONAL MATCH (p)-[:REFERENCES]->(t:JedxSchema)
@@ -138,6 +148,8 @@ const moduleFunction =
 			getCypher,
 			dataColumnList,
 			FRESHNESS_STAMP_NAME_LIST,
+			DISPLAY_STAMP_NAME_LIST,
+			ADDED_COLUMN_NAME_LIST,
 		};
 	};
 
