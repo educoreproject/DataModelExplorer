@@ -389,6 +389,11 @@ ${err.toString()}
 			// registered here (inside the pipeline callback) so sqlDb is in scope.
 			require('./lib/askmilo-utility')({ expressApp, sqlDb });
 
+			// LAST, after every route above: an error no route answered (a body over the JSON parser's limit, a body that is
+			// not JSON, a route passing an error on) is answered in JSON by name with an errorId, never Express's HTML page with
+			// the stack and the server's paths in it (todo 794a45ec). Nothing may be mounted after this line.
+			expressApp.use(require('./lib/json-error-answer'));
+
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
 			// Multi-tenant DME: build the golden snapshot + warm clone pool ONCE at startup so
