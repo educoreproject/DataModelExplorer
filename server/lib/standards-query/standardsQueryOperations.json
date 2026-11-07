@@ -716,7 +716,7 @@
 			"cliVerb": "compareCodesets",
 			"cachePolicy": "publicShort",
 			"reportsRowStableIds": true,
-			"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a value-tier hub card (each row names its hubName; hubList names the graph's hubs); values from other standards on the same card are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the hub value and its identifier (hubValue, hubValueKey), and the list of other standards' values on the same hub value card (equivalent only when both are EXACT_MATCH). RETURNS AN OBJECT: verdict, valueTierJudgmentCount, matchedOptionSetCount, valueRowList (cap 100) and totalRowCount / returnedRowCount / truncatedRowCount. matchType null means the value was NOT JUDGED when verdict is 'valuesNotJudgedInThisBuild' (the build holds no value-tier judgments; verdictText says so — report it that way); only when verdict is 'judged' does a null show non-alignment. A name matching no option set is refused by name (noOptionSetMatched); SIF code sets carry no name in this build and cannot be found by name. It does NOT compute alignment types or coverage percentages. Every element and card carries uri; quote it, it is permanent.",
+			"description": "Compare a codeset's allowed values across standards via the equivalence model: each source option value resolves to a hub value card, a value-tier tuple card or a term card minted for a value (each row names its hubName; hubList names the graph's hubs); values from other standards on the same card are its cross-standard equivalents. Returns one row PER VALUE — sourceValue, matchType (EXACT_MATCH / CLOSE_MATCH / BROAD_MATCH / NARROW_MATCH / null when unmatched), confidence (plus mappingConfidence, mappingKind and mappingSource when the graph records them — every match is a judgment; mappingSource 'bridge-debug' marks a debug placeholder), the hub value and its identifier (hubValue, hubValueKey: the card's canonicalKey, or its termIri for a term card), and the list of other standards' values on the same hub value card (equivalent only when both are EXACT_MATCH). RETURNS AN OBJECT: verdict, valueTierJudgmentCount, graphWideValueTierJudgmentCount, matchedOptionSetCount, valueRowList (cap 100) and totalRowCount / returnedRowCount / truncatedRowCount. verdict and valueTierJudgmentCount describe the option sets THIS answer matched; graphWideValueTierJudgmentCount is the whole graph's figure and says nothing about these sets. verdict is 'judged' (a value of the matched sets carries a judgment), 'noValueJudgments' (the sets matched, but none of their values is judged; the build judges values only in other sets) or 'valuesNotJudgedInThisBuild' (the build holds no value-tier judgments). Under either of the last two, matchType null means the value was NOT JUDGED (verdictText says so — report it that way); only when verdict is 'judged' does a null show non-alignment. A name matching no option set is refused by name (noOptionSetMatched); SIF code sets carry no name in this build and cannot be found by name. It does NOT compute alignment types or coverage percentages. Every element and card carries uri; quote it, it is permanent.",
 			"inputFieldList": [
 				{
 					"name": "name",
@@ -775,7 +775,7 @@
 				"exampleInput": {
 					"name": "Race"
 				},
-				"exampleShows": "Race codes per standard, and their cards.",
+				"exampleShows": "Race codes per standard, and the verdict for the sets it matched (noValueJudgments while no Race value is judged; each judged row names its card).",
 				"expectedAnswerFieldList": [
 					"valueRowList"
 				]
@@ -1761,13 +1761,13 @@
 				"inputTooLong",
 				"loopbackNotAdmitted"
 			],
-			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full. Every card carries uri; quote it, it is permanent.",
+			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full. Every proposal names its hub element by that element's own identifier, the one to cite (CEDS: cedsId, e.g. P002040; a hub's declared identifier, e.g. CTDL's uri): in the summary line as [cedsId P002040], in the full proposal as hubElementNativeIdentifier and hubElementNativeIdentifierPropertyName; where there is none, hubElementNativeIdentifierAbsentName says why. Every card carries uri; quote it, it is permanent.",
 			"aboutEntry": {
 				"forWhat": "Read a judged job's drafts and report, whole or as far as it got.",
 				"exampleInput": {
 					"jobRefId": "0123456789abcdef0123456789abcdef"
 				},
-				"exampleShows": "Status, counts per hub, the draft @context per hub and one line per field per hub, with leftOutOfSummary.",
+				"exampleShows": "Status, counts per hub, the draft @context per hub and one line per field per hub, each proposal naming its hub element's own identifier, with leftOutOfSummary.",
 				"expectedAnswerFieldList": [
 					"job",
 					"counts",
@@ -2055,7 +2055,7 @@
 		"judgedLineLabelChars": 40,
 		"judgedLineLabelCharsMin": 8,
 		"judgedLineNameCharsWhenShort": 40,
-		"judgedFieldLineNote": "First member: the name as sent. Then each hub.",
+		"judgedFieldLineNote": "First member: the name as sent. Then each hub: its category, the hub element's own identifier in brackets (CEDS [cedsId P002040]; or, by name, why it has none), then the card's label when it fits.",
 		"judgedDraftsNotShownText": "These names and URIs are too long to fit here. Ask rowDetail=full: every page holds the drafts whole.",
 		"judgedAnswerByteBudget": 18950,
 		"howToAskForFullJudged": "Ask rowDetail=full and page for proposals, rationales and runner-ups.",

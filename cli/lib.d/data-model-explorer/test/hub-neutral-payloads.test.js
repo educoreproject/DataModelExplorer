@@ -94,6 +94,7 @@ taskList.push((args, next) => {
 const COMPARE_RESPONDER_LIST = [
 	ONE_HUB_RESPONDER,
 	{ pattern: /RETURN count\(os\) AS matchedOptionSetCount/, rowList: [{ matchedOptionSetCount: 1 }] },
+	{ pattern: /AS graphWideValueTierJudgmentCount/, rowList: [{ graphWideValueTierJudgmentCount: 1 }] },
 	{ pattern: /AS valueTierJudgmentCount/, rowList: [{ valueTierJudgmentCount: 1 }] },
 	{ pattern: /AS valueRowList/, rowList: [{ valueRowList: [{ sourceStandard: 'EdFi', optionSetName: 'Sex', sourceValue: 'F', matchType: 'EXACT_MATCH', confidence: 0.9, hubName: 'HUBX', hubValue: 'Female', hubValueKey: 'HXV1', crossStandardEquivalents: [] }], totalRowCount: 1 }] },
 ];

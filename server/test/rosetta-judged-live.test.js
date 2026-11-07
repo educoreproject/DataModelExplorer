@@ -41,8 +41,36 @@ const anyTextEmbedderFor = () => {
 	};
 };
 
+// ⟪P7⟫ a text that IS a CEDS element's own text gets that text's vector, so the element ranks first; any other text gets the one vector above
+const exactTextEmbedderFor = () => {
+	const holder = {};
+	const vectorOf = (oneText, done) => holder.goldenHandle.withReadSession((session, sessionDone) => session.run("OPTIONAL MATCH (t:DmeEmbedText { _source: 'CEDS', text: $oneText }) WITH t LIMIT 1 CALL { MATCH (anyText:DmeEmbedText { _source: 'CEDS' }) RETURN anyText.textEmbedding AS anyVector LIMIT 1 } RETURN coalesce(t.textEmbedding, anyVector) AS vector", { oneText }).then((queryResult) => sessionDone('', queryResult.records[0].get('vector')), (queryError) => sessionDone(String(queryError))), done);
+	return {
+		batchSize: 20,
+		setGoldenHandle: (goldenHandle) => { holder.goldenHandle = goldenHandle; },
+		embed: (textList, done) => {
+			const vectorList = [];
+			const nextText = (textIndex) => {
+				if (textIndex >= textList.length) {
+					done('', vectorList);
+					return;
+				}
+				vectorOf(textList[textIndex], (vectorError, vector) => {
+					if (vectorError) {
+						done(vectorError);
+						return;
+					}
+					vectorList.push(vector);
+					nextText(textIndex + 1);
+				});
+			};
+			nextText(0);
+		},
+	};
+};
+
 const withHarness = (harnessOptions, useHarness, afterAll) => {
-	const embedder = anyTextEmbedderFor();
+	const embedder = harnessOptions.embedder || anyTextEmbedderFor();
 	openHarness({ embedder, ...harnessOptions }, (harnessError, harness) => {
 		if (harnessError === 'noGraph') {
 			console.log('SKIP: rosetta-judged-live: no graph is reachable, so nothing here ran');
@@ -622,6 +650,41 @@ gate('judgedPoolCap', (done) => {
 				close();
 			}));
 		});
+	}, done);
+});
+
+// ⟪P7⟫ WORKORDER-P7-apiAnswerFixes-110726 fix 1: a proposal names its hub element by that element's OWN identifier (CEDS cedsId P002040), in the summary line and in the full
+// proposal, through the core both doors call; a CTDL proposal names its element by CTDL's declared identifier (uri). The expected identifiers come from this test's own Cypher.
+const P7_FIELD_NAME = 'Military Discharge Date';
+const P7_ORACLE_CYPHER = `MATCH (card:HubReference { stableId: $cardStableId })-[slotEdge]->(element:ForgedNode) WHERE type(slotEdge) = $slotEdgeType
+MATCH (declaration:StandardDefinition { sourceKey: element._source })
+RETURN declaration.nativeIdentifierPropertyName AS propertyName, element[declaration.nativeIdentifierPropertyName] AS nativeIdentifier`;
+gate('P7nativeIdentifier', (done) => {
+	// the prompt lists each candidate as 'CANDIDATE INDEX NUMBER: [n]' followed by its indented fields, its name among them; where the label is not offered (CTDL) the first is picked
+	const candidateNumberFor = (promptText, labelText) => promptText.split('\n').reduce((soFar, oneLine) => {
+		const indexMatch = oneLine.match(/CANDIDATE INDEX NUMBER: \[(\d+)\]/);
+		if (indexMatch) return { ...soFar, currentNumber: indexMatch[1] };
+		return !soFar.chosenNumber && soFar.currentNumber && oneLine.trim() === `name: ${labelText}` ? { ...soFar, chosenNumber: soFar.currentNumber } : soFar;
+	}, {}).chosenNumber || '1';
+	const vendor = fakeJudgeVendorFor({ answerFor: ({ payload }) => pickOf(candidateNumberFor(payload.messages[0].content, P7_FIELD_NAME), 'strong', 'It means the same thing.') });
+	withHarness({ vendorPostOnce: vendor.postOnce, embedder: exactTextEmbedderFor() }, (harness, close) => {
+		const ask = askFor(harness);
+		const principal = { kind: 'oauthUser', userRefId: 'p7NativeIdentifierUser', role: 'user' };
+		ask('rosettaSubmit', { fieldList: [{ name: P7_FIELD_NAME, definition: 'The date a person was discharged from military service.' }] }, principal, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, principal, () => ask('rosettaFetch', { jobRefId: submitted.jobRefId }, principal, ({ answer: report }) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full' }, principal, ({ answer: fullReport }) => {
+			const [fieldName, cedsLine, ctdlLine] = report.fieldLineList[0];
+			console.log(`  P7 summary line: ${JSON.stringify(report.fieldLineList[0])}`);
+			const cedsProposal = fullReport.fieldList[0].byHub.CEDS.proposal || {};
+			const ctdlProposal = fullReport.fieldList[0].byHub.CTDL.proposal || {};
+			console.log(`  P7 full CEDS proposal: ${JSON.stringify(cedsProposal)}`);
+			harness.goldenHandle.withReadSession((session, sessionDone) => session.run(P7_ORACLE_CYPHER, { cardStableId: cedsProposal.uri || '', slotEdgeType: 'HAS_CEDS_PROPERTY' }).then((cedsResult) => session.run(P7_ORACLE_CYPHER, { cardStableId: ctdlProposal.uri || '', slotEdgeType: 'HAS_CTDL_PROPERTY' }).then((ctdlResult) => sessionDone('', { cedsOracle: cedsResult.records.map((oneRecord) => oneRecord.toObject())[0] || {}, ctdlOracle: ctdlResult.records.map((oneRecord) => oneRecord.toObject())[0] || {} }), (queryError) => sessionDone(String(queryError))), (queryError) => sessionDone(String(queryError))), (oracleError, { cedsOracle, ctdlOracle } = {}) => {
+				ok('P7: the oracle read the chosen cards', !oracleError && cedsOracle.propertyName === 'cedsId' && ctdlOracle.propertyName === 'uri', oracleError || JSON.stringify({ cedsOracle, ctdlOracle }));
+				ok(`P7: the judge chose the CEDS card for ${P7_FIELD_NAME}, whose element is P002040 by the test's own Cypher`, cedsProposal.label === P7_FIELD_NAME && cedsOracle.nativeIdentifier === 'P002040', JSON.stringify(cedsProposal));
+				ok('P7: the summary line carries the CEDS id: CEDS strong [cedsId P002040]: Military Discharge Date', fieldName === P7_FIELD_NAME && cedsLine === `CEDS strong [cedsId ${cedsOracle.nativeIdentifier}]: ${P7_FIELD_NAME}`, cedsLine);
+				ok('P7: the full proposal carries the element\'s native identifier and the property that holds it', cedsProposal.hubElementNativeIdentifier === cedsOracle.nativeIdentifier && cedsProposal.hubElementNativeIdentifierPropertyName === 'cedsId' && !('hubElementNativeIdentifierAbsentName' in cedsProposal), JSON.stringify(cedsProposal));
+				ok(`P7: a CTDL proposal names its element by CTDL's own identifier (uri ${ctdlOracle.nativeIdentifier})`, ctdlProposal.hubElementNativeIdentifier === ctdlOracle.nativeIdentifier && ctdlProposal.hubElementNativeIdentifierPropertyName === 'uri' && ctdlLine.startsWith(`CTDL strong [uri ${ctdlOracle.nativeIdentifier}]`), `${ctdlLine} ${JSON.stringify(ctdlProposal)}`);
+				close();
+			});
+		}))));
 	}, done);
 });
 

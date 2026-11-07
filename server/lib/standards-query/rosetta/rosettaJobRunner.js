@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const { unitNameOf, OPEN_STATUS_LIST } = require('./rosettaJobStore');
 const { judgedSettings } = require('./rosettaJudgeEngine');
+const { hubElementIdentityFor, absentOf } = require('./hubElementIdentity');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const MILLISECONDS_PER_SECOND = 1000;
@@ -137,7 +138,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 	const runnerUpListOf = ({ candidateList, chosenCardStableId }) => candidateList.filter((oneCandidate) => oneCandidate.stableId !== chosenCardStableId).slice(0, judgedSettings.runnerUpListLength).map(({ uri, label, cosine }) => ({ uri, label, cosine }));
 
 	// a field with a pool comes out as one row, whichever way the judge went. A vendor fault writes no row here: the caller ends the job and the report reads notJudged.
-	const unitRowOf = ({ outcome, pool, alreadyMappedFrom }) => {
+	const unitRowOf = ({ outcome, pool, alreadyMappedFrom, hubElementIdentityFields }) => {
 		const chosenCandidate = outcome.chosenCardStableId ? pool.candidateList.find((oneCandidate) => oneCandidate.stableId === outcome.chosenCardStableId) : undefined;
 		return {
 			poolSize: pool.poolSize,
@@ -157,6 +158,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					confidence: outcome.confidence,
 					...(outcome.predicate ? { predicate: outcome.predicate } : {}),
 					...(outcome.collapsedMemberStableIdList ? { collapsedMemberList: outcome.collapsedMemberStableIdList } : {}),
+					...hubElementIdentityFields,
 				},
 				alreadyMappedFrom,
 			} : {}),
@@ -227,7 +229,16 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					}
 					// asked only after the judge has answered, so a published mapping can never reach a prompt
 					const withEnrichment = (afterEnrichment) => (outcome.chosenCardStableId ? alreadyMappedFromFor({ cardUri: judgedCandidateList.find((oneCandidate) => oneCandidate.stableId === outcome.chosenCardStableId).uri }, afterEnrichment) : afterEnrichment(undefined));
-					withEnrichment((alreadyMappedFrom) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom }) }, () => unitDone('', null)));
+					// ⟪P7⟫ the chosen card's hub element by its OWN identifier, read in a session of its own; a read that fails is named in the row, never lost with it
+					const withHubElementIdentity = (afterIdentity) => (outcome.chosenCardStableId ? withReadSession((identitySession, identitySessionDone) => hubElementIdentityFor({ runCypher, session: identitySession, cardStableId: outcome.chosenCardStableId, hubName, tierName: TIER_OFFERED }, identitySessionDone), (identityError, hubElementIdentityFields) => {
+						if (identityError) {
+							xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the chosen card's element would not read: ${identityError}`);
+							afterIdentity(absentOf('hubElementUnreadable'));
+							return;
+						}
+						afterIdentity(hubElementIdentityFields);
+					}) : afterIdentity(undefined));
+					withEnrichment((alreadyMappedFrom) => withHubElementIdentity((hubElementIdentityFields) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom, hubElementIdentityFields }) }, () => unitDone('', null))));
 				});
 			});
 		});

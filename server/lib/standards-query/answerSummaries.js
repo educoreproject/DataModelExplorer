@@ -258,12 +258,18 @@ const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
 };
 
 // one short line per field per hub: the category and the card's label, or the unit's status. A notJudged line carries its reason, so it never reads as the judge declining, and a cut answer says so. URIs outside a draft stay in full: a line a reader might quote as a mapping should be asked for whole.
+// ⟪P7⟫ a proposal's line names its hub element by the element's OWN identifier, the one a reader cites (CEDS strong [cedsId P002040]: Military Discharge Date), or says by name
+// why it has none. It is short and never gives way to the budget: the labels go first.
+const hubElementIdentityTextOf = (proposal) => (proposal.hubElementNativeIdentifier
+	? `[${proposal.hubElementNativeIdentifierPropertyName} ${proposal.hubElementNativeIdentifier}]`
+	: `[no native identifier: ${proposal.hubElementNativeIdentifierAbsentName}]`);
 const judgedLineOf = ({ hubName, oneUnit, labelChars }) => {
 	const cutMark = oneUnit.answerWasCut ? ' (cut)' : '';
 	if (oneUnit.proposal) {
 		const { category, label } = oneUnit.proposal;
 		const labelText = label || '';
-		return `${hubName} ${labelChars === 0 || !labelText ? category : `${category}: ${labelText.length > labelChars ? `${labelText.slice(0, labelChars)}…` : labelText}`}${cutMark}`;
+		const categoryText = `${category} ${hubElementIdentityTextOf(oneUnit.proposal)}`;
+		return `${hubName} ${labelChars === 0 || !labelText ? categoryText : `${categoryText}: ${labelText.length > labelChars ? `${labelText.slice(0, labelChars)}…` : labelText}`}${cutMark}`;
 	}
 	return `${hubName} ${oneUnit.notJudgedReason ? `${oneUnit.status} (${oneUnit.notJudgedReason})` : oneUnit.status}${cutMark}`;
 };

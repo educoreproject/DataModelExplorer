@@ -9,6 +9,7 @@
 // A UNIT WITH NO ROW SAYS WHY. notJudged carries notJudgedReason, the job's stop reason when it has one, so a dead credential reads as that and never as an abstention. judgesRationale is the judge's own words, which can quote a stranger's text: it is a labelled field, and a reader must treat it as data.
 
 const { judgedSettings } = require('./rosettaJudgeEngine');
+const { absentOf } = require('./hubElementIdentity');
 
 const STATUS_NOT_JUDGED = 'notJudged';
 const JOB_STATUS_DONE = 'done';
@@ -75,6 +76,12 @@ const draftsByHubOf = ({ job, fieldList, rowByUnitName }) => {
 	return { draftContextByHub, leftOutTermList };
 };
 
+// ⟪P7⟫ a proposal judged before the runner recorded its hub element's identifier says so by name: a blank would read as an element with none
+const IDENTITY_FIELD_NAME_LIST = Object.freeze(['hubElementNativeIdentifier', 'hubElementNativeIdentifierAbsentName']);
+const judgmentWithIdentityNamed = (judgment) => (judgment.proposal && !IDENTITY_FIELD_NAME_LIST.some((fieldName) => fieldName in judgment.proposal)
+	? { ...judgment, proposal: { ...judgment.proposal, ...absentOf('judgedBeforeNativeIdentifierRecorded') } }
+	: judgment);
+
 const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail }) => {
 	const { fieldList, submissionNote } = submission;
 	const rowByUnitName = new Map(judgmentRowList.map((oneRow) => [`${oneRow.fieldIndex}\u0000${oneRow.hubName}`, oneRow]));
@@ -87,7 +94,7 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
 		byHub: job.hubNameList.reduce((soFar, hubName) => {
 			const oneRow = rowByUnitName.get(`${fieldIndex}\u0000${hubName}`);
-			return { ...soFar, [hubName]: oneRow ? { status: oneRow.unitStatus, ...oneRow.judgment } : { status: STATUS_NOT_JUDGED, notJudgedReason: stoppedReason, runnerUpList: [] } };
+			return { ...soFar, [hubName]: oneRow ? { status: oneRow.unitStatus, ...judgmentWithIdentityNamed(oneRow.judgment) } : { status: STATUS_NOT_JUDGED, notJudgedReason: stoppedReason, runnerUpList: [] } };
 		}, {}),
 	}));
 	const { draftContextByHub, leftOutTermList } = draftsByHubOf({ job, fieldList, rowByUnitName });
