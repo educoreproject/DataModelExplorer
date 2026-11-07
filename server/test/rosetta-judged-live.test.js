@@ -384,7 +384,12 @@ gate('G4.8', (done) => {
 					ok(`G4.8: 50 fields on two hubs, all strong, at or under 20,000 bytes (${byteCount})`, byteCount <= 20000, `${byteCount}`);
 				}
 				ok('G4.8: a summary says by count what it left out and how to ask', report.rowDetail === 'summary' && report.leftOutOfSummary.rationalesNotShown === fieldCount * 2 && /rowDetail=full/.test(report.leftOutOfSummary.howToAsk));
-				ok('G4.8: a summary holds the status, counts, drafts and one line per field per hub', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount && report.fieldLineList.length === fieldCount && /^CEDS strong/.test(report.fieldLineList[0][1]) && /^CTDL strong/.test(report.fieldLineList[0][2]));
+				// ⟪P7, ruled by ROMANTIC_PARASOL 2026-11-07⟫ each proposal's hub element identifier never gives way; the drafts give way by the documented ladder (main: 50 fields kept them at
+				// 19,904 bytes with ~96 to spare; the identifiers add ~40 bytes a field, so a big summary now drops the drafts, which the full pages hold whole)
+				const draftsHeldOrNamed = report.draftContextByHub ? Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount : typeof report.leftOutOfSummary.draftsNotShown === 'string';
+				const everyLineKeepsItsIdentifier = report.fieldLineList.every((oneLine) => /^CEDS strong \[cedsId [^\]]+\]/.test(oneLine[1]) && /^CTDL strong \[uri [^\]]+\]/.test(oneLine[2]));
+				console.log(`  G4.8 ${fieldCount} fields: drafts ${report.draftContextByHub ? 'kept' : 'given way (draftsNotShown)'}`);
+				ok('G4.8: a summary holds the status, counts, one line per field per hub with its identifier, and the drafts or draftsNotShown', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && draftsHeldOrNamed && report.fieldLineList.length === fieldCount && everyLineKeepsItsIdentifier, JSON.stringify(report.fieldLineList[0]));
 				ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', page: fieldCount > 10 ? '2' : '1' }, principal, ({ bodyText: fullText, answer: fullReport }) => {
 					console.log(`  G4.8 full, page ${fullReport.page} of ${fullReport.pageCount}: ${Buffer.byteLength(fullText)} bytes`);
 					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && fullReport.fieldList[0].byHub.CEDS.judgesRationale.length > 0 && fullReport.fieldList[0].byHub.CEDS.proposal.uri.length > 0 && fullReport.fieldList.length === 10 && fullReport.fieldList[0].name.endsWith(`x${fieldCount > 10 ? 10 : 0}`), `${fullReport.fieldList.length}`);
