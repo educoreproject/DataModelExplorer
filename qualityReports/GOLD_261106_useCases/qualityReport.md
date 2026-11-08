@@ -5,7 +5,7 @@
 - **Graph built:** 2026-11-06T21:23:29.132Z
 - **Graph contract:** `f65db22ad184…`
 - **Human judgments:** CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)
-- **Generator:** `cli/lib.d/quality-report` at `ebeb6dbfe6`
+- **Generator:** `cli/lib.d/quality-report` at `fc81b82f49`
 
 This is the first published measurement of the mappings in EDUcore, for one build: `GOLD_261106_useCases`, manifest educore-2026-10-30. It reports what can be counted today and states the size of every sample beside the figure drawn from it. Most of the graph's mappings were proposed by an AI judge and have not been reviewed by people; a first sample of human judgments exists, and it is reported here as a baseline to measure against as the human gold set grows, ahead of the evaluation harness that is the next step.
 
@@ -241,7 +241,7 @@ The sample is 150 elements, 50 each from Ed-Fi, PESC, SIF: per standard 40 eleme
 | same card, or both say no match | 60 of 101 (59.4%) | 50% to 68% |
 | same CEDS property (class aside), or both say no match | 61 of 101 (60.4%) | 51% to 69% |
 
-Seen from the graph's side: where the graph maps the element (82 scored answers), the rater chose the graph's card 47 of 82 (57.3%) of the time, and accepted it as Best or Same in 53 of 82 (64.6%). Where the graph maps nothing (19 scored answers), the rater agreed nothing fits in 13 of 19 (68.4%).
+Seen from the graph's side: where the graph maps the element (82 scored answers), the rater chose the graph's card in 47 of 82 (57.3%) and accepted it as Best or Same in 53 of 82 (64.6%). Where the graph maps nothing (19 scored answers), the rater agreed nothing fits in 13 of 19 (68.4%).
 
 ### 5.4 Agreement follows the judge's confidence
 
