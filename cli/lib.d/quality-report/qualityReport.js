@@ -33,9 +33,10 @@ DESCRIPTION
     stamp names the graph's build and each input's sha256, and there is no wall-clock time in the output.
 
 ACTIONS
-    -build            Read, compute and WRITE: qualityReport.md, qualityReport.html, qualityReportData.json and
-                      certificates/<standard>.md and .html (one per loaded standard, hubs included) into the output
-                      directory, replacing files of those names.
+    -build            Read, compute and WRITE: qualityReport.md, qualityReport.html, qualityReportData.json,
+                      qualityReportPage.json (the report and certificates as blocks, for the website's Certification
+                      page) and certificates/<standard>.md and .html (one per loaded standard, hubs included) into the
+                      output directory, replacing files of those names.
     -help, --help, -h Print this page and exit 0.
 
 OPTIONS

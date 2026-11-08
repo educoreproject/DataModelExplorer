@@ -10,6 +10,9 @@
 //   Q4 reportDataBuilder: a standard the sample drew from gets its family's human figures; a sibling release it was not
 //      drawn from is refused them by name (familySampledFromOtherReleases); a standard with no sample says so
 //   Q5 the CLI: every help spelling prints the page and exits 0; missing required values exit 1 without the full page
+//   Q7 reportPageBuilder, on the committed GOLD_261106_useCases data: the page file carries the same blocks the markdown
+//      is rendered from (so the website cannot say what the report does not), one certificate per standard, the stamp the
+//      server identifies the graph by, and the rater data's date; with no rater date it throws rather than writing one
 //   Q6 LIVE (only with QUALITY_REPORT_LIVE_GOLDEN=<container> and QUALITY_REPORT_LIVE_RATER_STORE=<file>): two builds
 //      of the same inputs are byte-identical, and the report's headline coverage is the MCP stats handler's figure
 //
@@ -159,6 +162,21 @@ const missingRun = runCli(['-build', '--goldenContainerName=GOLD_NOT_NEEDED']);
 check('Q5.2 a missing --raterStoreFilePath exits 1 with the synopsis, not the page', missingRun.status === 1 && /missing --raterStoreFilePath/.test(missingRun.stderr) && !/DESCRIPTION/.test(missingRun.stderr + missingRun.stdout), `${missingRun.status} ${missingRun.stderr}`);
 const noActionRun = runCli(['--goldenContainerName=X']);
 check('Q5.3 no action exits 1', noActionRun.status === 1 && /name the action -build/.test(noActionRun.stderr));
+
+// ---------------------------------------------------------------- Q7
+console.log('Q7 reportPageBuilder');
+const { buildReportPage, REPORT_PAGE_FORMAT } = require('../lib/reportPageBuilder');
+const { buildReportDocument } = require('../lib/reportBuilder');
+const { BLOCK_KIND_LIST } = require('../lib/documentRenderer');
+const committedReportData = JSON.parse(fs.readFileSync(path.join(TOOL_DIR_PATH, '..', '..', '..', 'qualityReports', 'GOLD_261106_useCases', rules.outputFileNameByRole.reportData), 'utf8'));
+const reportPage = buildReportPage({ reportData: committedReportData, rules });
+const markdownOfBlocks = (documentPart) => renderDocument({ formatName: 'markdown', titleText: documentPart.titleText, blockList: documentPart.blockList, pageKindName: 'report' });
+check('Q7.1 the page names its format and carries the graph stamp the server identifies it by', reportPage.pageFormat === REPORT_PAGE_FORMAT && reportPage.graphStamp.manifestRefId === committedReportData.graphStamp.manifestRefId && reportPage.graphStamp.graphContractSha256 === committedReportData.graphStamp.graphContractSha256);
+check('Q7.2 the page\'s report blocks render to the same markdown as the report', markdownOfBlocks(reportPage.report) === markdownOfBlocks(buildReportDocument({ reportData: committedReportData, rules })));
+check('Q7.3 one certificate per standard, each with a stem and only known block kinds', reportPage.certificateList.length === committedReportData.standardList.length && reportPage.certificateList.every((oneCertificate) => oneCertificate.certificateStem && oneCertificate.blockList.every((block) => BLOCK_KIND_LIST.includes(block.blockKind))), `${reportPage.certificateList.length}`);
+check('Q7.4 the rater data date is the store\'s last saved answer', reportPage.raterDataLastSavedAt === committedReportData.humanAgreement.storeFacts.lastSavedAt);
+const noRaterDateData = { ...committedReportData, humanAgreement: { ...committedReportData.humanAgreement, storeFacts: { ...committedReportData.humanAgreement.storeFacts, lastSavedAt: undefined } } };
+check('Q7.5 no rater date throws, never writes a page without one', throwsWith(() => buildReportPage({ reportData: noRaterDateData, rules }), /no lastSavedAt/));
 
 // ---------------------------------------------------------------- Q6
 const liveGoldenName = process.env.QUALITY_REPORT_LIVE_GOLDEN;

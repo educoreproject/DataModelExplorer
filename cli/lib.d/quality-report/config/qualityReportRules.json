@@ -60,6 +60,7 @@
 		"reportMarkdown": "qualityReport.md",
 		"reportHtml": "qualityReport.html",
 		"reportData": "qualityReportData.json",
+		"reportPage": "qualityReportPage.json",
 		"certificateDirectory": "certificates"
 	}
 }

@@ -1,7 +1,7 @@
 'use strict';
 
-// reportWriter.js — writes the report's files from reportData: the data file, the report in both formats, and one
-// certificate per standard in both formats. File names come from qualityReportRules.json outputFileNameByRole.
+// reportWriter.js — writes the report's files from reportData: the data file, the report in both formats, one
+// certificate per standard in both formats, and the page file the website renders (reportPageBuilder.js). File names come from qualityReportRules.json outputFileNameByRole.
 //
 //   writeReportFiles({ reportData, rules, outputDirPath }, callback(errText, summaryText))
 
@@ -10,6 +10,7 @@ const path = require('path');
 const { renderDocument } = require('./documentRenderer');
 const { buildReportDocument } = require('./reportBuilder');
 const { buildCertificateDocument, certificateFileStemOf } = require('./certificateBuilder');
+const { buildReportPage } = require('./reportPageBuilder');
 
 const FORMAT_EXTENSION_BY_NAME = Object.freeze({ markdown: '.md', html: '.html' });
 
@@ -34,7 +35,8 @@ const writeReportFiles = ({ reportData, rules, outputDirPath }, callback) => {
 			writeText(path.join(certificateDirPath, `${certificateFileStemOf(standardEntry)}${FORMAT_EXTENSION_BY_NAME[formatName]}`), renderDocument({ formatName, ...certificateDocument, pageKindName: 'certificate' }));
 		});
 	});
-	callback('', `qualityReport: wrote ${writtenPathList.length} files into ${outputDirPath} (report, data file, ${reportData.standardList.length} certificates in two formats)`);
+	writeText(path.join(outputDirPath, fileNameByRole.reportPage), `${JSON.stringify(buildReportPage({ reportData, rules }), null, '\t')}\n`);
+	callback('', `qualityReport: wrote ${writtenPathList.length} files into ${outputDirPath} (report, data file, page file, ${reportData.standardList.length} certificates in two formats)`);
 };
 
 module.exports = { writeReportFiles };
