@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quality certificate: EdFi (version 5.2.0)</title><style>
+:root { --ink: #1d2430; --muted: #5b6573; --line: #d8dde4; --panel: #f5f7fa; --accent: #2f5d8a; --page: #ffffff; --callout: #fff8e6; --calloutLine: #e0b84f; }
+@media (prefers-color-scheme: dark) { :root { --ink: #e6e9ee; --muted: #a3adbb; --line: #3a4350; --panel: #20262f; --accent: #8cb4e0; --page: #14181e; --callout: #2b2618; --calloutLine: #9c7d2c; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.9rem; margin: 0 0 8px; } h2 { font-size: 1.35rem; margin: 36px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+h3 { font-size: 1.1rem; margin: 24px 0 6px; } h4 { font-size: 1rem; margin: 18px 0 4px; color: var(--muted); }
+.tableWrap { overflow-x: auto; margin: 8px 0 16px; }
+table { border-collapse: collapse; font-size: 0.9rem; min-width: 60%; }
+th, td { border-bottom: 1px solid var(--line); padding: 5px 10px; vertical-align: top; } th { background: var(--panel); text-align: left; }
+td.right, th.right { text-align: right; font-variant-numeric: tabular-nums; }
+code { font: 0.85em ui-monospace, Menlo, monospace; background: var(--panel); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+.callout { background: var(--callout); border-left: 4px solid var(--calloutLine); padding: 10px 14px; margin: 12px 0; }
+.stamp { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; font-size: 0.88rem; }
+.stamp dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0; } .stamp dt { color: var(--muted); } .stamp dd { margin: 0; overflow-wrap: anywhere; }
+.certificate main { max-width: 820px; } .certificate h1 { color: var(--accent); }
+@media print { body { background: #fff; color: #000; } .certificate main { padding-top: 0; } }
+</style></head>
+<body class="certificate"><main><h1>Quality certificate: EdFi (version 5.2.0)</h1>
+<p>How EdFi is represented and mapped in one EDUcore build, measured from the graph itself. 9,617 nodes of this standard are loaded.</p>
+
+<h2>Coverage</h2>
+
+<div class="tableWrap"><table><thead><tr><th class="left">Measure</th><th class="right">Figure</th></tr></thead><tbody><tr><td class="left">Properties in this standard</td><td class="right">1,904</td></tr><tr><td class="left">Mapped to at least one hub</td><td class="right">1,190 of 1,904 (62.5%)</td></tr><tr><td class="left">Mapped to CEDS</td><td class="right">1,106 of 1,904 (58.1%)</td></tr><tr><td class="left">Mapped to CTDL</td><td class="right">283 of 1,904 (14.9%)</td></tr></tbody></table></div>
+
+<h2>How it is mapped</h2>
+
+<p>Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place.</p>
+
+<div class="tableWrap"><table><thead><tr><th class="left">Hub</th><th class="right">Edges</th><th class="right">exact</th><th class="right">close</th><th class="right">broad</th><th class="right">narrow</th></tr></thead><tbody><tr><td class="left">CEDS</td><td class="right">1,106</td><td class="right">179 (16%)</td><td class="right">644 (58%)</td><td class="right">153 (14%)</td><td class="right">130 (12%)</td></tr><tr><td class="left">CTDL</td><td class="right">283</td><td class="right">10 (4%)</td><td class="right">146 (52%)</td><td class="right">111 (39%)</td><td class="right">16 (6%)</td></tr></tbody></table></div>
+
+<p>Who made them, and the judge's confidence in the machine-proposed ones:</p>
+
+<div class="tableWrap"><table><thead><tr><th class="left">Hub</th><th class="right">Publisher-stated</th><th class="right">Machine-proposed</th><th class="right">Human-reviewed</th><th class="right">strong</th><th class="right">moderate</th><th class="right">weak but real</th></tr></thead><tbody><tr><td class="left">CEDS</td><td class="right">0</td><td class="right">1,106</td><td class="right">0</td><td class="right">494 (45%)</td><td class="right">374 (34%)</td><td class="right">238 (22%)</td></tr><tr><td class="left">CTDL</td><td class="right">0</td><td class="right">283</td><td class="right">0</td><td class="right">84 (30%)</td><td class="right">117 (41%)</td><td class="right">82 (29%)</td></tr></tbody></table></div>
+
+<h2>Agreement with human judgment</h2>
+
+<p>From the first CEDS Rater sample, CEDS hub only: the rater and the graph chose the same card, or both said nothing fits, in <strong>17 of 35 (48.6%)</strong> scored answers (95% interval 33% to 64%). The same CEDS property, class aside: 17 of 35 (48.6%).</p>
+
+<div class="callout">A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings.</div>
+
+<h2>Measured on</h2>
+
+<div class="stamp"><dl><dt>Graph</dt><dd><code>GOLD_261106_useCases</code></dd><dt>Manifest</dt><dd>educore-2026-10-30 (<code>783aef401faf…</code>)</dd><dt>Graph built</dt><dd>2026-11-06T21:23:29.132Z</dd><dt>Graph contract</dt><dd><code>f65db22ad184…</code></dd><dt>Human judgments</dt><dd>CEDS Rater store snapshot <code>raterTool-20261108-031501.sqlite3</code> (sha256 <code>7d5cbc07545f…</code>)</dd><dt>Generator</dt><dd><code>cli/lib.d/quality-report</code> at <code>01c3f790c2</code></dd></dl></div>
+
+<p>Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (<code>qualityReport.md</code>).</p>
+</main></body></html>
