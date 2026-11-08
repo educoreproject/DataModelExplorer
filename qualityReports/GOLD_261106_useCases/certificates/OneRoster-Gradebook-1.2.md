@@ -38,6 +38,6 @@ Not yet measured: no human rater sample covers this standard yet. A rater survey
 - **Graph built:** 2026-11-06T21:23:29.132Z
 - **Graph contract:** `f65db22ad184…`
 - **Human judgments:** CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)
-- **Generator:** `cli/lib.d/quality-report` at `9f7603aeda`
+- **Generator:** `cli/lib.d/quality-report` at `ebeb6dbfe6`
 
 Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`).

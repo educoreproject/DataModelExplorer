@@ -5,7 +5,7 @@
 - **Graph built:** 2026-11-06T21:23:29.132Z
 - **Graph contract:** `f65db22ad184…`
 - **Human judgments:** CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)
-- **Generator:** `cli/lib.d/quality-report` at `9f7603aeda`
+- **Generator:** `cli/lib.d/quality-report` at `ebeb6dbfe6`
 
 This is the first published measurement of the mappings in EDUcore, for one build: `GOLD_261106_useCases`, manifest educore-2026-10-30. It reports what can be counted today and states the size of every sample beside the figure drawn from it. Most of the graph's mappings were proposed by an AI judge and have not been reviewed by people; a first sample of human judgments exists, and it is reported here as a baseline to measure against as the human gold set grows, ahead of the evaluation harness that is the next step.
 
@@ -328,12 +328,13 @@ Where an element maps to a card on one hub and a card on the other, the hubs' ow
 
 ## 7. Earlier measurements (not of this graph)
 
-Two earlier experiments compared the judge with a publisher's own crosswalk. They measured earlier builds and earlier judge configurations, and are cited for their method, not as this graph's accuracy.
+3 earlier experiments checked the judge against a reference: a publisher's own crosswalk, or another AI reading its picks. They measured earlier builds, earlier judge configurations or mappings not in this graph, and are cited for their method, not as this graph's accuracy.
 
 | When | What was measured | Result | Build | Source |
 |:---|:---|:---|:---|:---|
 | 2026-08-03 | Ed-Fi to CEDS, property tier: the AI judge, run blind, against Ed-Fi's own published CEDS crosswalk, on the 65 sampled Ed-Fi elements that crosswalk maps | the judge chose Ed-Fi's mapped CEDS property for 47 of the 65 (72.3%) | blind-evaluation build DEV_edfiBlindEvalV2_080326 (an earlier hub and judge configuration) | `educoreForge/system/management/zNotesPlansDocs/REPORT-blindEvalVsProduction-080326.md` |
 | 2026-08-17 | Ed-Fi to CEDS, every element: the AI judge's mappings against Ed-Fi's published crosswalk (666 authored mappings) | 421 agreed; precision 80.96% (of the judge's 520 mappings), recall 63.2% (of the crosswalk's 666) | DEV_edfiDerived_260817 against GOLD_EVAL_260817_edfiBridge (an earlier build) | `educore/system/management/zNotesPlansDocs/continuityArchive-preCollapse-103126.json (topFindings.recallNeverMeasured)` |
+| 2026-11-03 | A peer bridge pilot, Ed-Fi to LIF directly (no hub): the judge's 49 picks from 300 Ed-Fi subjects, each ruled by a separate AI agent working blind, NOT by people (the pilot's report says so) | 19 of 49 picks ruled same or close (2 same, 17 close), 10 of 10 at confidence 0.8 and above; the supervisor's stand-down, removing rulings that rest on an undefined LIF element, puts it at 13 of 49 and 7 of 10 | peer bridge pilot run; peer mappings are not part of this graph | `educoreForge/system/management/zNotesPlansDocs/peerBridgePilot-110326/REPORT-peerBridgePilot-110326.md and STANDDOWN-RAFFISH_TRINKET-110326.md` |
 
 ## 8. Method and limits
 
