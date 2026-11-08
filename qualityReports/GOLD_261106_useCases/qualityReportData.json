@@ -40,7 +40,7 @@
 		]
 	},
 	"generatorCommit": {
-		"commitRefId": "fc81b82f49ca761d99acb3153e6d8a785a352ee3",
+		"commitRefId": "a0dc4985baadfe08646fea4901fa821baf9d6702",
 		"isWorkingTreeClean": true
 	},
 	"inputFingerprintList": [
@@ -61,8 +61,8 @@
 		},
 		{
 			"fileName": "qualityReportRules.json",
-			"byteCount": 5603,
-			"sha256": "f160994a6c3ce0b99f9fe513a6788d58122463cdc2f27b2a72ac9359e7ebc6be"
+			"byteCount": 5645,
+			"sha256": "545c798e458319a7f1b48b46423c79023650e9b54c520f50624a3c47e4e9c440"
 		}
 	],
 	"overall": {

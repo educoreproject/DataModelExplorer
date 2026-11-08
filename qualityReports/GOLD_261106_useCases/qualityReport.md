@@ -5,7 +5,7 @@
 - **Graph built:** 2026-11-06T21:23:29.132Z
 - **Graph contract:** `f65db22ad184…`
 - **Human judgments:** CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)
-- **Generator:** `cli/lib.d/quality-report` at `fc81b82f49`
+- **Generator:** `cli/lib.d/quality-report` at `a0dc4985ba`
 
 This is the first published measurement of the mappings in EDUcore, for one build: `GOLD_261106_useCases`, manifest educore-2026-10-30. It reports what can be counted today and states the size of every sample beside the figure drawn from it. Most of the graph's mappings were proposed by an AI judge and have not been reviewed by people; a first sample of human judgments exists, and it is reported here as a baseline to measure against as the human gold set grows, ahead of the evaluation harness that is the next step.
 
