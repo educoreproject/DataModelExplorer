@@ -1,0 +1,58 @@
+{
+	"_comment": "qualityReport's rules as data (WORKORDER-qualityReport-110826). Every list the report walks, and every label it prints for a stored value, is here; the code refuses a stored value this file does not name rather than printing it under a guessed label.",
+	"reportFormatVersion": 1,
+	"relationList": [
+		{ "edgeTypeName": "EXACT_MATCH", "relationLabel": "exact", "meaningText": "the hub card means the same thing as the element" },
+		{ "edgeTypeName": "CLOSE_MATCH", "relationLabel": "close", "meaningText": "nearly the same, differing slightly in scope or detail" },
+		{ "edgeTypeName": "BROAD_MATCH", "relationLabel": "broad", "meaningText": "the hub card is BROADER than the element" },
+		{ "edgeTypeName": "NARROW_MATCH", "relationLabel": "narrow", "meaningText": "the hub card is NARROWER than the element" }
+	],
+	"_confidenceBandComment": "mappingConfidence is written by the forge from the judge's pick confidence (educoreForge configs jevJudge.ini: strongMinConfidence 0.8, moderateMinConfidence 0.5). Measured on GOLD_261106_useCases: 0.9 carries judgePickConfidence 0.80-1.00, 0.7 carries 0.50-0.79, 0.5 carries 0.15-0.49.",
+	"confidenceBandList": [
+		{ "mappingConfidence": 0.9, "bandLabel": "strong", "meaningText": "the judge's own confidence in its pick was 0.8 or more" },
+		{ "mappingConfidence": 0.7, "bandLabel": "moderate", "meaningText": "the judge's confidence was 0.5 to under 0.8" },
+		{ "mappingConfidence": 0.5, "bandLabel": "weak but real", "meaningText": "the judge's confidence was under 0.5" }
+	],
+	"_mappingOriginComment": "how much is publisher-stated, machine-proposed or human-reviewed, read from mappingKind on each edge. A kind not listed here is refused by name.",
+	"mappingOriginList": [
+		{ "mappingKind": "authored", "originLabel": "publisher-stated", "meaningText": "the standard's own published document names the hub element (matchBasis declaredIdentity)" },
+		{ "mappingKind": "inferred", "originLabel": "machine-proposed", "meaningText": "an AI judge chose the hub card from ranked candidates (matchBasis derived)" }
+	],
+	"humanReviewedNoteText": "No edge in the graph records a human review: the graph's vocabulary has no such mapping kind yet. Human judgments are kept apart, in the CEDS Rater's store, and are compared with the graph in the agreement section.",
+	"judgeCertaintyBucketWidth": 0.1,
+	"agreementIntervalZScore": 1.96,
+	"humanJudgment": {
+		"_comment": "The CEDS Rater's sample is drawn for the CEDS hub only, so every human-agreement figure is a CEDS-hub figure. hubName names the hub the graph's answer is read from.",
+		"hubName": "CEDS",
+		"suggestRulesFileName": "suggestRules.json",
+		"answerKindList": ["cards", "noMatch", "unsure"],
+		"excludedRaterUserNameList": ["tqtest"],
+		"_graphFamilyComment": "the sample names its standards by family; a certificate shows the family's pooled human figures and says they are pooled",
+		"graphFamilyBySampleStandard": { "Ed-Fi": "EdFi", "SIF": "SIF", "PESC": "PESC" },
+		"_drawSourceComment": "which graph sources the sample drew each standard from, read from the rater tool's raterDraw.json by these field names; a standard with no field here was drawn from every source of its family",
+		"drawSourceFieldBySampleStandard": { "SIF": "sifSourceName", "PESC": "pescLatestReleaseList" }
+	},
+	"_priorMeasurementComment": "Earlier measurements, cited with their date, build and source so a reader can tell them from this report's own figures. They measured EARLIER builds and judge configurations, never this graph; the report never presents them as this graph's accuracy.",
+	"priorMeasurementList": [
+		{
+			"measuredOn": "2026-08-03",
+			"measuredWhatText": "Ed-Fi to CEDS, property tier: the AI judge, run blind, against Ed-Fi's own published CEDS crosswalk, on the 65 sampled Ed-Fi elements that crosswalk maps",
+			"resultText": "the judge chose Ed-Fi's mapped CEDS property for 47 of the 65 (72.3%)",
+			"buildText": "blind-evaluation build DEV_edfiBlindEvalV2_080326 (an earlier hub and judge configuration)",
+			"sourceText": "educoreForge/system/management/zNotesPlansDocs/REPORT-blindEvalVsProduction-080326.md"
+		},
+		{
+			"measuredOn": "2026-08-17",
+			"measuredWhatText": "Ed-Fi to CEDS, every element: the AI judge's mappings against Ed-Fi's published crosswalk (666 authored mappings)",
+			"resultText": "421 agreed; precision 80.96% (of the judge's 520 mappings), recall 63.2% (of the crosswalk's 666)",
+			"buildText": "DEV_edfiDerived_260817 against GOLD_EVAL_260817_edfiBridge (an earlier build)",
+			"sourceText": "educore/system/management/zNotesPlansDocs/continuityArchive-preCollapse-103126.json (topFindings.recallNeverMeasured)"
+		}
+	],
+	"outputFileNameByRole": {
+		"reportMarkdown": "qualityReport.md",
+		"reportHtml": "qualityReport.html",
+		"reportData": "qualityReportData.json",
+		"certificateDirectory": "certificates"
+	}
+}
