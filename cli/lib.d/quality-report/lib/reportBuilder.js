@@ -233,7 +233,7 @@ const consistencyBlocks = ({ reportData, rules }) => {
 
 const priorBlocks = ({ reportData }) => [
 	heading(2, '7. Earlier measurements (not of this graph)'),
-	paragraph('Two earlier experiments compared the judge with a publisher\'s own crosswalk. They measured earlier builds and earlier judge configurations, and are cited for their method, not as this graph\'s accuracy.'),
+	paragraph(`${countText(reportData.priorMeasurementList.length)} earlier experiments checked the judge against a reference: a publisher\'s own crosswalk, or another AI reading its picks. They measured earlier builds, earlier judge configurations or mappings not in this graph, and are cited for their method, not as this graph\'s accuracy.`),
 	table([['When', 'left'], ['What was measured', 'left'], ['Result', 'left'], ['Build', 'left'], ['Source', 'left']],
 		reportData.priorMeasurementList.map((onePrior) => [onePrior.measuredOn, onePrior.measuredWhatText, onePrior.resultText, onePrior.buildText, `\`${onePrior.sourceText}\``])),
 ];

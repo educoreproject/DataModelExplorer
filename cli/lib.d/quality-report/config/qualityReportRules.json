@@ -47,6 +47,13 @@
 			"resultText": "421 agreed; precision 80.96% (of the judge's 520 mappings), recall 63.2% (of the crosswalk's 666)",
 			"buildText": "DEV_edfiDerived_260817 against GOLD_EVAL_260817_edfiBridge (an earlier build)",
 			"sourceText": "educore/system/management/zNotesPlansDocs/continuityArchive-preCollapse-103126.json (topFindings.recallNeverMeasured)"
+		},
+		{
+			"measuredOn": "2026-11-03",
+			"measuredWhatText": "A peer bridge pilot, Ed-Fi to LIF directly (no hub): the judge's 49 picks from 300 Ed-Fi subjects, each ruled by a separate AI agent working blind, NOT by people (the pilot's report says so)",
+			"resultText": "19 of 49 picks ruled same or close (2 same, 17 close), 10 of 10 at confidence 0.8 and above; the supervisor's stand-down, removing rulings that rest on an undefined LIF element, puts it at 13 of 49 and 7 of 10",
+			"buildText": "peer bridge pilot run; peer mappings are not part of this graph",
+			"sourceText": "educoreForge/system/management/zNotesPlansDocs/peerBridgePilot-110326/REPORT-peerBridgePilot-110326.md and STANDDOWN-RAFFISH_TRINKET-110326.md"
 		}
 	],
 	"outputFileNameByRole": {
