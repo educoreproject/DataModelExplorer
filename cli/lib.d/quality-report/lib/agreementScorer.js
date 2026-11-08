@@ -91,7 +91,11 @@ const scoreAgreement = ({ elementList, graphAnswerByElementStableId, propertyIde
 			problemList.push(`an answer for ${oneAnswer.elementStableId} has answerKind ${JSON.stringify(oneAnswer.answer.answerKind)}, which no verdict rule reads`);
 			return null;
 		}
-		const acceptedTupleIdList = oneAnswer.answer.answerKind === 'cards' ? [oneAnswer.answer.bestCedsTupleId].concat(oneAnswer.answer.sameCedsTupleIdList || []) : [];
+		if (oneAnswer.answer.answerKind === 'cards' && !Array.isArray(oneAnswer.answer.sameCedsTupleIdList)) {
+			problemList.push(`a cards answer for ${oneAnswer.elementStableId} has no sameCedsTupleIdList (every saved cards answer carries one, empty when nothing was ticked)`);
+			return null;
+		}
+		const acceptedTupleIdList = oneAnswer.answer.answerKind === 'cards' ? [oneAnswer.answer.bestCedsTupleId].concat(oneAnswer.answer.sameCedsTupleIdList) : [];
 		return {
 			elementStableId: oneAnswer.elementStableId,
 			standard: element.standard,

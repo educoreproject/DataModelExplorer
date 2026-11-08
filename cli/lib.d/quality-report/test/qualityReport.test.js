@@ -86,6 +86,8 @@ check('Q1.9 an unknown answer kind is refused by name', /answerKind "maybe"/.tes
 const noIdentityScored = scoreAgreement({ elementList: fixtureElementList, graphAnswerByElementStableId: fixtureGraph, propertyIdentityByTupleId: {}, raterList: fixtureRaterList, answerList: [fixtureAnswerList[1]], zScore: 1.96 });
 check('Q1.10 a card with no property identity is refused, never scored', /no property identity/.test(noIdentityScored.problemText || ''), noIdentityScored.problemText);
 const knownInterval = wilsonIntervalOf({ successCount: 60, trialCount: 101, zScore: 1.96 });
+const noSameListScored = scoreAgreement({ elementList: fixtureElementList, graphAnswerByElementStableId: fixtureGraph, propertyIdentityByTupleId: fixtureIdentity, raterList: fixtureRaterList, answerList: [{ raterUserName: 'r1', elementStableId: 'E1', answer: { answerKind: 'cards', bestCedsTupleId: 't1' } }], zScore: 1.96 });
+check('Q1.13 a cards answer with no sameCedsTupleIdList is refused by name (never read as an empty list)', /sameCedsTupleIdList/.test(noSameListScored.problemText || ''), noSameListScored.problemText);
 check('Q1.11 Wilson interval for 60 of 101 is 0.4965 to 0.6847', Math.abs(knownInterval.lowerRate - 0.4965) < 0.0005 && Math.abs(knownInterval.upperRate - 0.6847) < 0.0005, JSON.stringify(knownInterval));
 check('Q1.12 no interval for zero trials', wilsonIntervalOf({ successCount: 0, trialCount: 0, zScore: 1.96 }) === null);
 

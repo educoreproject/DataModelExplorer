@@ -11,7 +11,7 @@
 //   certificateFileStemOf(standardEntry) -> a file-name-safe stem (the standard's source)
 
 const { countText, percentText, shareWithCountText, intervalText } = require('./numberText');
-const { stampBlockOf, heading, paragraph, callout, table, relationLabelList, bandLabelList } = require('./reportBuilder');
+const { stampBlockOf, machineLabelOf, publisherLabelOf, heading, paragraph, callout, table, relationLabelList, bandLabelList } = require('./reportBuilder');
 
 const HUMAN_ABSENT_TEXT_BY_REASON = Object.freeze({
 	noSampleOfThisStandard: () => 'Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it.',
@@ -36,8 +36,8 @@ const mappedStandardBlocks = ({ reportData, standardEntry, rules }) => {
 	const instanceRowList = reportData.consistency.instanceAgreementRowList.filter((oneRow) => oneRow.standardSource === standardEntry.source);
 	const originRowList = hubNameList.filter((hubName) => standardEntry.edgeMixByHub[hubName].edgeCount > 0).map((hubName) => {
 		const edgeMix = standardEntry.edgeMixByHub[hubName];
-		const machineCount = edgeMix.originCount['machine-proposed'];
-		return [hubName, countText(edgeMix.originCount['publisher-stated']), countText(machineCount), '0', ...bandLabelList(rules).map((bandLabel) => (machineCount > 0 ? `${countText(edgeMix.confidenceCount[bandLabel])} (${percentText(edgeMix.confidenceCount[bandLabel] / machineCount, 0)})` : '–'))];
+		const machineCount = edgeMix.originCount[machineLabelOf(rules)];
+		return [hubName, countText(edgeMix.originCount[publisherLabelOf(rules)]), countText(machineCount), '0', ...bandLabelList(rules).map((bandLabel) => (machineCount > 0 ? `${countText(edgeMix.confidenceCount[bandLabel])} (${percentText(edgeMix.confidenceCount[bandLabel] / machineCount, 0)})` : '–'))];
 	});
 	const blockList = [
 		heading(2, 'Coverage'),

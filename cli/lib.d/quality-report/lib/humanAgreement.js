@@ -147,13 +147,18 @@ const readHumanAgreement = ({ session, raterStoreFilePath, frozenInputDirPath, r
 		callback(`humanAgreement: a stored answer has answerKind ${JSON.stringify(unknownKindAnswer.answer.answerKind)}, not one of ${humanRules.answerKindList.join(', ')}`);
 		return;
 	}
+	const sameListAbsentAnswer = answerList.find((oneAnswer) => oneAnswer.answer.answerKind === 'cards' && !Array.isArray(oneAnswer.answer.sameCedsTupleIdList));
+	if (sameListAbsentAnswer) {
+		callback(`humanAgreement: a cards answer for ${sameListAbsentAnswer.elementStableId} has no sameCedsTupleIdList; it is not read as an empty list`);
+		return;
+	}
 	const elementList = sampleDocument.elementList;
 	const raterGraph = raterGraphOver(session);
 
 	const taskList = new taskListPlus();
 	taskList.push((args, next) => readGraphAnswerByElement({ raterGraph, elementList, suggestRules, hubName: humanRules.hubName, edgeTypeNameList }, mergeArgs(args, next, 'graphAnswerByElementStableId')));
 	taskList.push((args, next) => {
-		const pickedTupleIdList = answerList.filter((oneAnswer) => oneAnswer.answer.answerKind === 'cards').reduce((soFar, oneAnswer) => soFar.concat([oneAnswer.answer.bestCedsTupleId], oneAnswer.answer.sameCedsTupleIdList || []), []);
+		const pickedTupleIdList = answerList.filter((oneAnswer) => oneAnswer.answer.answerKind === 'cards').reduce((soFar, oneAnswer) => soFar.concat([oneAnswer.answer.bestCedsTupleId], oneAnswer.answer.sameCedsTupleIdList), []);
 		const graphTupleIdList = Object.values(args.graphAnswerByElementStableId).reduce((soFar, graphAnswer) => soFar.concat(graphAnswer.cedsTupleIdList), []);
 		readCardsByTupleIdList({ raterGraph, cedsTupleIdList: [...new Set(pickedTupleIdList.concat(graphTupleIdList))] }, mergeArgs(args, next, 'cardList'));
 	});

@@ -35,6 +35,11 @@ const stampBlockOf = (reportData) => {
 	};
 };
 
+// an origin's printed label, looked up by the graph's own mappingKind (the stored vocabulary), never by the label text
+const originLabelOfKind = (rules, mappingKind) => rules.mappingOriginList.find((oneOrigin) => oneOrigin.mappingKind === mappingKind).originLabel;
+const machineLabelOf = (rules) => originLabelOfKind(rules, 'inferred');
+const publisherLabelOf = (rules) => originLabelOfKind(rules, 'authored');
+
 const relationLabelList = (rules) => rules.relationList.map((oneRelation) => oneRelation.relationLabel);
 const bandLabelList = (rules) => rules.confidenceBandList.map((oneBand) => oneBand.bandLabel);
 const hubNamesText = (hubList) => hubList.map((oneHub) => `${oneHub.hubName} ${oneHub.hubVersion}`).join(' and ');
@@ -53,8 +58,8 @@ const bandLabelOfConfidence = (rules, mappingConfidence) => {
 const atAGlanceBlocks = ({ reportData, rules }) => {
 	const { overall, humanAgreement, consistency } = reportData;
 	const { scored } = humanAgreement;
-	const machineCount = overall.edgeMixAll.originCount['machine-proposed'];
-	const publisherCount = overall.edgeMixAll.originCount['publisher-stated'];
+	const machineCount = overall.edgeMixAll.originCount[machineLabelOf(rules)];
+	const publisherCount = overall.edgeMixAll.originCount[publisherLabelOf(rules)];
 	const strongGroup = scored.ratesByGraphConfidence.find((oneGroup) => oneGroup.groupValue === rules.confidenceBandList[0].mappingConfidence);
 	const weakGroup = scored.ratesByGraphConfidence.find((oneGroup) => oneGroup.groupValue === rules.confidenceBandList[rules.confidenceBandList.length - 1].mappingConfidence);
 	return [
@@ -128,7 +133,7 @@ const originBlocks = ({ reportData, rules }) => {
 	const confidenceRowList = [];
 	standardList.forEach((oneStandard) => hubNameList.forEach((hubName) => {
 		const edgeMix = oneStandard.edgeMixByHub[hubName];
-		const machineCount = edgeMix.originCount['machine-proposed'];
+		const machineCount = edgeMix.originCount[machineLabelOf(rules)];
 		if (machineCount > 0) {
 			confidenceRowList.push([oneStandard.source, hubName, countText(machineCount), ...bandLabelList(rules).map((bandLabel) => `${countText(edgeMix.confidenceCount[bandLabel])} (${percentText(edgeMix.confidenceCount[bandLabel] / machineCount, 0)})`)]);
 		}
@@ -146,7 +151,7 @@ const originBlocks = ({ reportData, rules }) => {
 		heading(3, '4.3 The judge\'s confidence'),
 		paragraph(`Publisher-stated edges carry no confidence (${countText(overall.edgeMixAll.confidenceNotApplicableCount)} edges); the machine-proposed ones, by band:`),
 		table([['Band', 'left'], ...hubNameList.map((hubName) => [hubName, 'right']), ['All machine-proposed', 'right']],
-			rules.confidenceBandList.map((oneBand) => [`${oneBand.bandLabel} (${oneBand.mappingConfidence})`, ...hubNameList.map((hubName) => shareWithCountText(overall.edgeMixByHub[hubName].confidenceCount[oneBand.bandLabel], overall.edgeMixByHub[hubName].originCount['machine-proposed'])), shareWithCountText(overall.edgeMixAll.confidenceCount[oneBand.bandLabel], overall.edgeMixAll.originCount['machine-proposed'])])),
+			rules.confidenceBandList.map((oneBand) => [`${oneBand.bandLabel} (${oneBand.mappingConfidence})`, ...hubNameList.map((hubName) => shareWithCountText(overall.edgeMixByHub[hubName].confidenceCount[oneBand.bandLabel], overall.edgeMixByHub[hubName].originCount[machineLabelOf(rules)])), shareWithCountText(overall.edgeMixAll.confidenceCount[oneBand.bandLabel], overall.edgeMixAll.originCount[machineLabelOf(rules)])])),
 		paragraph('Per standard and hub, machine-proposed edges by band:'),
 		table([['Standard', 'left'], ['Hub', 'left'], ['Machine edges', 'right'], ...bandLabelList(rules).map((bandLabel) => [bandLabel, 'right'])], confidenceRowList),
 	];
@@ -295,4 +300,4 @@ const buildReportDocument = ({ reportData, rules }) => {
 	};
 };
 
-module.exports = { buildReportDocument, stampBlockOf, heading, paragraph, bulletList, callout, table, bandLabelOfConfidence, relationLabelList, bandLabelList, graphMappedScoredCountOf, sumOf };
+module.exports = { buildReportDocument, machineLabelOf, publisherLabelOf, stampBlockOf, heading, paragraph, bulletList, callout, table, bandLabelOfConfidence, relationLabelList, bandLabelList, graphMappedScoredCountOf, sumOf };
