@@ -357,8 +357,10 @@ const manifestSectionHtmlOf = ({ answerBody, linkHtmlOf }) => {
 	if (manifestList.length === 0) {
 		return '';
 	}
-	const rowHtml = manifestList.map((oneManifest) => `<li>${linkHtmlOf(oneManifest.manifest, oneManifest.publicLabel)}<span class="row-meta">${escapedHtmlOf(oneManifest.latestStatus ? `${oneManifest.latestStatus.registrationStatus} since ${oneManifest.latestStatus.changedAt}` : '')}</span></li>`).join('');
-	return detailsHtmlOf({ summaryText: 'Published in', countText: `${manifestList.length} releases`, innerHtml: `<ul class="rows">${rowHtml}</ul>` });
+	// the status date reads as a date on the page (TQ, 2026-11-09); the JSON keeps the full timestamp
+	const statusDateOf = (changedAt) => String(changedAt || '').slice(0, 10);
+	const rowHtml = manifestList.map((oneManifest) => `<li>${linkHtmlOf(oneManifest.manifest, oneManifest.publicLabel)}<span class="row-meta">${escapedHtmlOf(oneManifest.latestStatus ? `${oneManifest.latestStatus.registrationStatus} since ${statusDateOf(oneManifest.latestStatus.changedAt)}` : '')}</span></li>`).join('');
+	return detailsHtmlOf({ summaryText: 'Published in', countText: `${manifestList.length} releases`, innerHtml: `<p class="note">The EDUcore releases (manifests) this meaning appears in.</p><ul class="rows">${rowHtml}</ul>` });
 };
 
 const meaningMainHtmlOf = (pageParts) => [

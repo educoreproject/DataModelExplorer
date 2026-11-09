@@ -101,7 +101,10 @@ ok('4. CTDL Has Proxy is used on the 53 classes the graph holds, every one liste
 ok('4. CTDL Has Proxy shows no incompleteness note', !/incomplete|investigation/i.test(hasProxyPage));
 const meaningPage = pageOf(meaningCase);
 ok('4. the Military Discharge Date card shows its bracket', meaningPage.includes('[C200296 · P002040]'));
-ok('4. its tuple parts link their element pages', meaningPage.includes('href="/edc/CEDS/14.0.0.0/ceds:C200296"') && meaningPage.includes('href="/edc/CEDS/14.0.0.0/ceds:P002040"'));
+const publishedInHtml = (meaningPage.split('Published in')[1] || '').split('</details>')[0];
+ok('4. Published in says its releases are manifests', publishedInHtml.includes('The EDUcore releases (manifests) this meaning appears in.'));
+ok('4. Published in shows the status as a plain date, never the raw timestamp', /since \d{4}-\d{2}-\d{2}</.test(publishedInHtml) && !/since \d{4}-\d{2}-\d{2}T/.test(publishedInHtml));
+ok('4. its tuple parts link their element pages',meaningPage.includes('href="/edc/CEDS/14.0.0.0/ceds:C200296"') && meaningPage.includes('href="/edc/CEDS/14.0.0.0/ceds:P002040"'));
 const valueCardPage = pageOf(caseFor('/CEDStandards/hub/14.0.0.0/0000'));
 ok('4. the CEDS value card shows its four-part bracket and its option set range', valueCardPage.includes('[C200010 · P001637 · OS001637 · OV001637175776]') && valueCardPage.includes('ISO 639-3 Language Code'));
 const ctdlCardPage = pageOf(caseFor('/CTDL/hub/'));
