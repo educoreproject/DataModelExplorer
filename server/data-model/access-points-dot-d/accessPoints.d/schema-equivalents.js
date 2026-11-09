@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 'use strict';
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[Neo4jAbstraction]]
 // @concept: [[AccessPointPattern]]
 
-// schema-equivalents — the Schema Verifier's graph lookup on the CURRENT graph (campaign P4b, A11 / W-E-8). Input
+// schema-equivalents — the Specification Viewer's graph lookup on the CURRENT graph (campaign P4b, A11 / W-E-8). Input
 // { wordList }: the significant words of one property name, already tokenized by the browser store (the same words
 // its HR Open crosswalk matching uses). Output: the mapper's equivalent rows (see mappers/schema-equivalents.js).
 // Runs on the golden READ-ONLY handle; refuses by name when the graph lacks a label the query reads, and when the
@@ -25,7 +25,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		neo4jDb,
 		ownerName: moduleName,
 		requiredLabelList: mapper.requiredLabelList,
-		absentReason: 'the Schema Verifier reads the forged standards and their hub cards',
+		absentReason: 'the Specification Viewer reads the forged standards and their hub cards',
 	});
 
 	// ================================================================================

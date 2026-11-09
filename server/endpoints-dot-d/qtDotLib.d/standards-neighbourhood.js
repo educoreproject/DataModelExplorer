@@ -4,7 +4,8 @@
 // @concept: [[SecurityFirstPattern]]
 
 // standards-neighbourhood — POST /api/standards-neighbourhood { action, ... } for the PESC Explorer page (DEV-123).
-// Logged-in users only. The browser sends an action and its parameters (a family name, a stableId, a list of
+// Public (BD 2026-11-04: "let people view the standards explorer without logging in"; it was logged-in users only, a
+// ruling of 2026-10-30): the walk reads only the published standards, on the read-only handle. The browser sends an action and its parameters (a family name, a stableId, a list of
 // stableIds), never Cypher: the queries are the standards-neighbourhood mapper's, run on the golden read-only handle.
 // A refusal (an unknown action or stableId, a family the graph does not hold, a graph lacking a required label) is
 // answered 400 with its text, so the page shows why instead of a blank screen. Answers [result].
@@ -65,7 +66,9 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 	const method = 'post';
 	const routePath = `${routingPrefix}${moduleName}`;
-	const permissionValidator = accessTokenHeaderTools.getValidator(['user', 'client', 'admin']);
+	// public; a stale or garbled token is read as no token on this route, as on the downloads
+	const permissionValidator = accessTokenHeaderTools.getValidator(['public']);
+	accessTokenHeaderTools.declareTokenTolerantRoute(routePath);
 
 	expressApp[method](routePath, serviceFunction(permissionValidator));
 	endpointsDotD.logList.push(routePath);

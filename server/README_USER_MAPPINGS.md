@@ -1,6 +1,6 @@
 # User-proposed mappings (`dme_user_mappings`)
 
-Schema Verifier users accept cross-specification equivalences ("mappings") and
+Specification Viewer users accept cross-specification equivalences ("mappings") and
 attach a transformation rule to each. This document is the operator's view:
 where they are stored, how to test the server side without the UI, how to
 review them, and how to pull them into the EDUcore graph.
@@ -90,7 +90,7 @@ sqlite3 -header -column "$DB" "SELECT refId, status, sourceStandard, sourceName,
 
 ## Review, then ingest into the graph
 
-1. In the UI (Explore → Schema Verifier → View all → Everyone) an admin sees every proposal with Accept / Reject buttons. Or via curl:
+1. In the UI (Explore → Specification Viewer → View all → Everyone) an admin sees every proposal with Accept / Reject buttons. Or via curl:
 
    ```bash
    curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \

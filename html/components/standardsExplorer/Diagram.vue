@@ -45,6 +45,11 @@ const drawnRowList = computed(() => {
 });
 const hiddenRowCount = computed(() => store.levelRowList.length - drawnRowList.value.length);
 
+const diagramLabelText = computed(() => {
+	const focusName = store.focusNode ? displayNameOf(store.focusNode) : 'this level';
+	return `Bubble diagram of ${drawnRowList.value.length} of the ${store.levelRowList.length} items in ${focusName}. The same items are listed after the diagram as buttons and links, and as rows in the Table view.`;
+});
+
 const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' && store.crossing ? store.crossing.homeStandardKey : null));
 
 // ================================================================================
@@ -324,7 +329,9 @@ onMounted(() => {
 
 <template>
 	<div class="diagram-frame">
-		<div ref="canvasElement" class="diagram-canvas" data-testid="explorer-diagram" />
+		<!-- a canvas is a picture to anything that reads the page: it is named as one, and its items are listed under it
+		     as named chips and links (LevelItemList.vue) -->
+		<div ref="canvasElement" class="diagram-canvas" role="img" :aria-label="diagramLabelText" data-testid="explorer-diagram" />
 		<p v-if="hiddenRowCount > 0" class="diagram-note" data-testid="diagram-sample-note">
 			Showing {{ drawnRowList.length }} of {{ store.levelRowList.length }}. The dashed bubble opens the full list in the table.
 		</p>

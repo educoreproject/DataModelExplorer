@@ -5,12 +5,34 @@
 // catalogue (the GitHub-issue matrix and its editor) goes away and is replaced by these, so this page reads the graph only.
 
 import { useForgedUseCaseStore } from '@/stores/forgedUseCaseStore';
+import { useJsonLd, absoluteUrlOf } from '@/composables/useJsonLd';
 
 const forgedUseCaseStore = useForgedUseCaseStore();
 onMounted(() => {
 	forgedUseCaseStore.fetchCaseList();
 });
 const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
+
+useHead({
+	title: 'Use Cases',
+	meta: [{ name: 'description', content: 'The EDUcore use-case standard: vetted education data use cases, each with its steps in order and the elements of CEDS and other standards each step reads or writes.' }],
+});
+
+// the published use cases as Schema.org: each a CreativeWork at its own page
+useJsonLd('use-case-list', () =>
+	forgedUseCaseStore.caseList.length
+		? {
+				'@type': 'ItemList',
+				name: 'EDUcore use cases',
+				numberOfItems: forgedUseCaseStore.caseList.length,
+				itemListElement: forgedUseCaseStore.caseList.map((oneCase, caseIndex) => ({
+					'@type': 'ListItem',
+					position: caseIndex + 1,
+					item: { '@type': 'CreativeWork', name: oneCase.shortName || oneCase.longName, alternateName: oneCase.longName, identifier: oneCase.caseStableId, url: absoluteUrlOf(forgedCaseLinkOf(oneCase.caseStableId)) },
+				})),
+			}
+		: null,
+);
 </script>
 
 <template>

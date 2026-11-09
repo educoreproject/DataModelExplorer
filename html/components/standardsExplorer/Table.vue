@@ -4,15 +4,18 @@
 
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick } from '@/components/standardsExplorer/explorerVocabulary';
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
+import { explorerLinkOf, familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
+const specStore = useSpecificationMetadataStore();
 const emit = defineEmits(['drill']);
 
 // the Info column says what it holds, from the kinds on this level
 const infoTextOf = (oneRow) => {
 	const infoByKind = {
-		family: () => familyHoldingTextOf(oneRow),
+		// a family the specification catalog describes leads with the catalog's full title
+		family: () => [specStore.specByGraphFamily(oneRow.standardFamily)?.title, familyHoldingTextOf(oneRow)].filter(Boolean).join(' · '),
 		class: () => oneRow.description,
 		property: () => (oneRow.mapping ? oneRow.mapping.anchor.name : oneRow.description),
 		instance: () => oneRow.path || oneRow.description,
@@ -90,8 +93,12 @@ watch(
 
 const rowPropsOf = ({ item }) => ({
 	class: { 'explorer-row-selected': item.stableId === store.selectedStableId, 'explorer-row-home': item.isHome },
+	'aria-selected': item.stableId === store.selectedStableId ? 'true' : 'false',
 	'data-testid': `row-${item.name}`,
 });
+
+// a row's Open is a link to the walk one step further, so it has an href to follow, share or read
+const openLinkOf = (item) => explorerLinkOf([...store.pathStableIdList, item.stableId]);
 
 const selectRow = (clickEvent, { item }) => {
 	if (isOpenAtOnceClick(clickEvent) && item.hasChildren) {
@@ -121,8 +128,13 @@ const drillRow = (clickEvent, { item }) => {
 			@click:row="selectRow"
 			@dblclick:row="drillRow"
 		>
+			<template #header.openAction>
+				<span class="d-sr-only">Open</span>
+			</template>
 			<template #item.displayName="{ item }">
-				<span class="explorer-row-name">{{ item.displayName }}</span>
+				<!-- a named control per row, so the row's selection is reachable by keyboard and by an agent; its click
+				     reaches the row's own click:row (select) -->
+				<button type="button" class="explorer-row-name" :aria-label="`Select ${item.displayName} (${kindDisplayNameOf(item.kind, item.hubName)}) to see its details`" :aria-pressed="item.stableId === store.selectedStableId ? 'true' : 'false'" :data-testid="`select-${item.name}`">{{ item.displayName }}</button>
 				<span v-if="item.isHome" class="explorer-home-chip" data-testid="home-chip">You started here</span>
 				<span v-if="item.isSecondary" class="explorer-row-group">{{ item.groupName }}</span>
 			</template>
@@ -144,7 +156,7 @@ const drillRow = (clickEvent, { item }) => {
 				<StandardsExplorerVersionBadge v-if="item.versionBadge" :version-badge="item.versionBadge" />
 			</template>
 			<template #item.openAction="{ item }">
-				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :data-testid="`open-${item.name}`" @click.stop="emit('drill', item.stableId)">Open ›</v-btn>
+				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :to="openLinkOf(item)" :aria-label="`Open ${item.displayName}`" :data-testid="`open-${item.name}`" @click.stop>Open ›</v-btn>
 			</template>
 		</v-data-table>
 	</div>
@@ -157,8 +169,18 @@ const drillRow = (clickEvent, { item }) => {
 	overflow-x: auto;
 }
 .explorer-row-name {
+	font: inherit;
 	font-weight: 700;
 	color: #111827;
+	background: none;
+	border: none;
+	padding: 0;
+	text-align: left;
+	cursor: pointer;
+}
+.explorer-row-name:focus-visible {
+	outline: 2px solid #072a6c;
+	outline-offset: 2px;
 }
 .explorer-row-group {
 	margin-left: 8px;
