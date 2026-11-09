@@ -3,7 +3,8 @@
 // rosettaReport — what a job's rows become: the report across all hubs, and one draft @context per hub (design 4.4). Pure: rows in, answer out.
 //
 //   reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) → the fetch answer. rowDetail full pages its fieldList; summary is shaped from the whole by answerSummaries.
-//   usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) → the answer's using block: which judge, what this job spent, and whether it came wholly from the cache.
+//   usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) → the answer's using block: which prompt version judged, the provider and model, what this job spent, and whether it came wholly from the cache.
+//   promptVersionFieldsOf({ judgmentRowList }) → { promptVersion } | { promptVersionList } | { promptVersionAbsentName }: the renderer version the job's judged units recorded, its common prefix stripped (TQ Q66).
 //   ownerJobFactsOf({ job, spentUsd, unitsFinished }) → what the owner is told of a job, in status and in the report.
 //
 // ⟪P7a, TQ Q61-Q64⟫ TWO FORMS, ONE ANSWER. detail 'lean' (the default, declared in the registry) is what a reader needs: each field by requestName and requestDefinition, its
@@ -14,7 +15,11 @@
 const { judgedSettings } = require('./rosettaJudgeEngine');
 const { absentOf } = require('./hubElementIdentity');
 const { tupleAbsentOf } = require('../hubCardTuple');
+const { DETAIL_LEAN, DETAIL_AUDIT, DETAIL_LIST } = require('./rosettaAnswerDetail');
 
+if (typeof judgedSettings.rendererVersionPrefix !== 'string' || judgedSettings.rendererVersionPrefix === '') {
+	throw new Error('rosettaReport: rosettaJudgedSettings.json must give rendererVersionPrefix, the prefix every forge renderer version carries');
+}
 const STATUS_NOT_JUDGED = 'notJudged';
 const JOB_STATUS_DONE = 'done';
 const OPEN_STATUS_LIST = Object.freeze(['queued', 'running', 'cancelling']);
@@ -91,10 +96,8 @@ const proposalWithAbsencesNamed = (proposal) => ({
 });
 
 // ⟪P7a⟫ WHAT THE LEAN FORM LEAVES OUT. Each name here is shown again by detail=audit, so the two lists are the whole difference between the forms.
-const DETAIL_LEAN = 'lean';
-const DETAIL_AUDIT = 'audit';
-const DETAIL_LIST = Object.freeze([DETAIL_LEAN, DETAIL_AUDIT]);
-const AUDIT_ONLY_RESULT_FIELD_NAME_LIST = Object.freeze(['poolSize', 'admittedCount']);
+// ⟪P7b⟫ a unit's rendererVersion is said once for the job, in using.promptVersion; audit keeps each unit's own
+const AUDIT_ONLY_RESULT_FIELD_NAME_LIST = Object.freeze(['poolSize', 'admittedCount', 'rendererVersion']);
 // the card's domain label is the tuple's domain part; the P7 identifier fields are the tuple's property part; a hub's descriptive ranges and a datatype range ride beside the tuple
 const AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST = Object.freeze(['domain', 'hubElementNativeIdentifier', 'hubElementNativeIdentifierPropertyName', 'hubElementNativeIdentifierAbsentName', 'rangeList', 'rangeDatatypeList']);
 const UNIT_STATUS_PROPOSED = 'proposed';
@@ -126,10 +129,37 @@ const resultOf = ({ hubName, oneRow, stoppedReason, isAudit }) => {
 
 const graphChangedSince = ({ answeredFromAtSubmit, answeredFromNow }) => GRAPH_IDENTITY_FIELD_NAME_LIST.some((fieldName) => answeredFromAtSubmit[fieldName] !== answeredFromNow[fieldName]);
 
+// ⟪P7b, TQ Q66⟫ WHICH PROMPT JUDGED: the renderer version each judged unit recorded from its own rendered question (the version that keys its promptHash), never the
+// variant the engine was configured with. Every forge renderer version begins with one prefix (rosettaJudgedSettings.rendererVersionPrefix); the rest is the prompt version.
+// Where it cannot be said, a declared name says why: a unit judged before units recorded it, a version without the prefix (never shown raw), or a job that judged nothing.
+const PROMPT_VERSION_ABSENT_NAME_LIST = Object.freeze(['nothingJudged', 'judgedBeforePromptVersionRecorded', 'rendererVersionUnrecognised']);
+const promptVersionAbsentOf = (absentName) => {
+	if (!PROMPT_VERSION_ABSENT_NAME_LIST.includes(absentName)) {
+		throw new Error(`rosettaReport: '${absentName}' is not a declared prompt version absence (${PROMPT_VERSION_ABSENT_NAME_LIST.join(', ')})`);
+	}
+	return { promptVersionAbsentName: absentName };
+};
+const promptVersionFieldsOf = ({ judgmentRowList }) => {
+	const { rendererVersionPrefix } = judgedSettings;
+	const judgedRowList = judgmentRowList.filter((oneRow) => oneRow.promptHash);
+	if (judgedRowList.length === 0) {
+		return promptVersionAbsentOf('nothingJudged');
+	}
+	const rendererVersionList = judgedRowList.map((oneRow) => oneRow.judgment.rendererVersion);
+	if (rendererVersionList.some((rendererVersion) => typeof rendererVersion !== 'string')) {
+		return promptVersionAbsentOf('judgedBeforePromptVersionRecorded');
+	}
+	if (rendererVersionList.some((rendererVersion) => !rendererVersion.startsWith(rendererVersionPrefix) || rendererVersion.length === rendererVersionPrefix.length)) {
+		return promptVersionAbsentOf('rendererVersionUnrecognised');
+	}
+	const promptVersionList = [...new Set(rendererVersionList.map((rendererVersion) => rendererVersion.slice(rendererVersionPrefix.length)))].sort();
+	return promptVersionList.length === 1 ? { promptVersion: promptVersionList[0] } : { promptVersionList };
+};
+
 const usingOf = ({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) => {
 	const judgedUnitCount = judgmentRowList.filter((oneRow) => oneRow.promptHash).length;
 	return {
-		judge: job.judgeFacts.promptVariant,
+		...promptVersionFieldsOf({ judgmentRowList }),
 		provider: job.judgeFacts.provider,
 		model: job.judgeFacts.model,
 		costUsd: roundedUsdOf(spentUsd),
@@ -148,7 +178,7 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 	const stoppedReason = job.stopReasonName || (OPEN_STATUS_LIST.includes(job.status) ? 'jobStillOpen' : undefined);
 	const reportedFieldList = fieldList.map((oneField, fieldIndex) => ({
 		requestName: oneField.name,
-		...(oneField.path === undefined ? {} : { path: oneField.path }),
+		...(oneField.path === undefined ? {} : { requestPath: oneField.path }),
 		...(oneField.definition === undefined ? {} : { requestDefinition: oneField.definition }),
 		...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
 		...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
@@ -179,4 +209,4 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 	};
 };
 
-module.exports = { reportOf, usingOf, ownerJobFactsOf, DETAIL_LIST, DETAIL_LEAN, DETAIL_AUDIT, AUDIT_ONLY_RESULT_FIELD_NAME_LIST, AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST };
+module.exports = { reportOf, usingOf, promptVersionFieldsOf, ownerJobFactsOf, PROMPT_VERSION_ABSENT_NAME_LIST, DETAIL_LIST, DETAIL_LEAN, DETAIL_AUDIT, AUDIT_ONLY_RESULT_FIELD_NAME_LIST, AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST };

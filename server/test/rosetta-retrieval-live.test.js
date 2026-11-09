@@ -24,6 +24,8 @@ const HOLD_OUT_BOUND = 0.8;
 const HOLD_OUT_SEED = '110426';
 const HOLD_OUT_SIZE = 200;
 const anonymous = { kind: 'anonymous', userRefId: '', role: '' };
+// ⟪P7b⟫ a field's pools are its resultList, one item per hub naming its hub
+const poolOfHub = (oneField, hubName) => oneField.resultList.find((onePool) => onePool.hub === hubName);
 
 openHarness({}, (harnessError, harness) => {
 	if (harnessError === 'noGraph') {
@@ -50,7 +52,7 @@ openHarness({}, (harnessError, harness) => {
 	// ---- the hold-out, standing
 	steps.push((next) => retrieve({ fieldList: shared.fieldList, hubList: ['CEDS'], rowDetail: 'full' }, ({ httpStatus, body }) => {
 		ok('hold-out: answers 200', httpStatus === 200, JSON.stringify(body.answer).slice(0, 300));
-		const poolList = body.answer.fieldList.map((oneField) => oneField.byHub.CEDS);
+		const poolList = body.answer.fieldList.map((oneField) => poolOfHub(oneField, 'CEDS'));
 		const hitCount = poolList.filter((onePool, poolIndex) => onePool.candidateList.some((oneCandidate) => shared.subjectList[poolIndex].trueCardStableIdList.includes(oneCandidate.uri))).length;
 		const recall = hitCount / HOLD_OUT_SIZE;
 		const sortedSizeList = poolList.map((onePool) => onePool.poolSize).sort((left, right) => left - right);
@@ -69,7 +71,7 @@ openHarness({}, (harnessError, harness) => {
 		const { name } = shared.fieldList.find((oneField) => oneField.name === 'dischargeDate') || shared.fieldList[0];
 		goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { text: $name }) WITH t.textEmbedding AS vector LIMIT 1 MATCH (hub:DmeEmbedText { _source: 'CEDS' }) WITH max(vector.similarity.cosine(hub.textEmbedding, vector)) AS bestSimilarity RETURN 2 * bestSimilarity - 1 AS bestRawCosine", { name }).then((queryResult) => sessionDone('', queryResult.records[0].get('bestRawCosine')), (queryError) => sessionDone(queryError.message)), (scanError, bestRawCosine) => {
 			retrieve({ fieldList: [{ name }], hubList: ['CEDS'], rowDetail: 'full' }, ({ body }) => {
-				const bestReported = Math.max(...body.answer.fieldList[0].byHub.CEDS.candidateList.map((oneCandidate) => oneCandidate.cosine));
+				const bestReported = Math.max(...poolOfHub(body.answer.fieldList[0], 'CEDS').candidateList.map((oneCandidate) => oneCandidate.cosine));
 				ok(`a reported cosine is raw: ${bestReported} is no more than the scan's ${bestRawCosine && bestRawCosine.toFixed(4)}`, !scanError && bestReported <= bestRawCosine + 0.005, scanError);
 				next();
 			});
@@ -77,7 +79,7 @@ openHarness({}, (harnessError, harness) => {
 	});
 	// ---- the window reaches the hub's own hits: a window of 40 across every standard left pools of a few (the G2 probe's), and recall alone does not show it
 	steps.push((next) => retrieve({ fieldList: shared.fieldList.slice(0, 40), hubList: ['CTDL'], rowDetail: 'full' }, ({ body }) => {
-		const sortedSizeList = body.answer.fieldList.map((oneField) => oneField.byHub.CTDL.poolSize).sort((left, right) => left - right);
+		const sortedSizeList = body.answer.fieldList.map((oneField) => poolOfHub(oneField, 'CTDL').poolSize).sort((left, right) => left - right);
 		ok(`the window reaches the hub: median CTDL pool ${sortedSizeList[20]} of 40 fields is at the cap`, sortedSizeList[20] === 40, `${sortedSizeList[20]}`);
 		next();
 	}));
@@ -138,8 +140,8 @@ openHarness({}, (harnessError, harness) => {
 				const summary = summaryAnswer.body.answer;
 				const full = fullAnswer.body.answer;
 				ok('summary is the default, and says so', summary.rowDetail === 'summary' && summary.leftOutOfSummary.howToAsk.includes('rowDetail=full'));
-				ok('summary: every field and every hub is there', summary.fieldList.length === 20 && summary.fieldList.every((oneField) => Object.keys(oneField.byHub).join() === 'CEDS,CTDL'));
-				const everyPoolPair = full.fieldList.flatMap((oneField, fieldIndex) => Object.keys(oneField.byHub).map((hubName) => ({ fullPool: oneField.byHub[hubName], summaryPool: summary.fieldList[fieldIndex].byHub[hubName] })));
+				ok('summary: every field and every hub is there', summary.fieldList.length === 20 && summary.fieldList.every((oneField) => oneField.resultList.map((onePool) => onePool.hub).join() === 'CEDS,CTDL'));
+				const everyPoolPair = full.fieldList.flatMap((oneField, fieldIndex) => oneField.resultList.map((fullPool) => ({ fullPool, summaryPool: poolOfHub(summary.fieldList[fieldIndex], fullPool.hub) })));
 				ok('summary: each pool keeps its size', everyPoolPair.every(({ fullPool, summaryPool }) => summaryPool.poolSize === fullPool.poolSize));
 				ok('summary: each shown candidate has uri, label and cosine', everyPoolPair.flatMap(({ summaryPool }) => summaryPool.topCandidateList).every((oneCandidate) => oneCandidate.uri && oneCandidate.label && typeof oneCandidate.cosine === 'number'));
 				ok('the answer says why rank and cosine differ', /a lower rank can carry a higher cosine/.test(summary.rankNote) && /a lower rank can carry a higher cosine/.test(full.rankNote));
@@ -151,7 +153,7 @@ openHarness({}, (harnessError, harness) => {
 				const summaryBytes = Buffer.byteLength(summaryAnswer.bodyText);
 				ok('summary: 20 fields on two hubs, at or under 20 KB', summaryBytes <= 20000, `${summaryBytes}`);
 				console.log(`  bytes, 20 fields, two hubs: summary ${summaryBytes}, full ${Buffer.byteLength(fullAnswer.bodyText)}`);
-				ok('the answer names the graph, and nothing was judged', summaryAnswer.body.answeredFrom.operation === 'rosettaRetrieval' && /Nothing here is judged/.test(summary.nothingJudgedNote));
+				ok('the answer names the graph, and nothing was judged', summaryAnswer.body.answeredFrom.graphName && summaryAnswer.body.answeredFrom.manifest && /Nothing here is judged/.test(summary.nothingJudgedNote));
 				ok('no answer quotes a price: nothing judged is offered, and the price policy is TQ\'s', !/costEstimate|usdEstimate|judgeUsd/i.test(fullAnswer.bodyText) && !/costEstimate|usdEstimate|judgeUsd/i.test(summaryAnswer.bodyText));
 				next();
 			});
@@ -172,7 +174,7 @@ openHarness({}, (harnessError, harness) => {
 		const plainList = uniqueByName.map(({ name, definition }) => ({ name, ...(definition ? { definition } : {}) }));
 		const schemaDocument = { type: 'object', properties: Object.fromEntries(plainList.map(({ name, definition }) => [name, definition ? { description: definition } : {}])), $defs: {}, additionalProperties: { $ref: 'https://example.org/never' } };
 		const contextDocument = { '@context': ['https://example.org/never.jsonld', Object.fromEntries(plainList.map(({ name, definition }) => [name, { '@id': `https://example.org/${name}`, ...(definition ? { 'rdfs:comment': definition } : {}) }]))] };
-		const poolsOf = (answerBody) => JSON.stringify(answerBody.answer.fieldList.map(({ name, byHub }) => ({ name, byHub })));
+		const poolsOf = (answerBody) => JSON.stringify(answerBody.answer.fieldList.map(({ requestName, resultList }) => ({ requestName, resultList })));
 		// a resolver that fails any lookup but the graph's own, for the length of these three: a remote $ref or @context must never reach it
 		const dns = require('dns');
 		const realLookup = dns.lookup;

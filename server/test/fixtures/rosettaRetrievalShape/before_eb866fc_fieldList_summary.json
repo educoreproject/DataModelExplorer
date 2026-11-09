@@ -1,0 +1,315 @@
+{
+	"input": {
+		"fieldList": [
+			{
+				"name": "informationSourceId",
+				"definition": "An identifier key that represents a combination of informationSourceOrganization and informationSourceSystem from which this entity data came. Typically, this value is configured in the orchestrator and applied to the LIF record as it is generated. This could be a human or machine-readable value.\n",
+				"type": "string"
+			},
+			{
+				"name": "identifier",
+				"definition": "The primary key identifier for this entity data in the LIF data model. This value should uniquely identify this particular instance of the entity. The identifier can be created based on external identifiers, a newly created identifier unique to LIF, or a composite of other attributes related to the entity."
+			},
+			{
+				"name": "idSystem"
+			}
+		],
+		"hubList": [
+			"CEDS",
+			"CTDL"
+		]
+	},
+	"httpStatus": 200,
+	"body": {
+		"answeredFrom": {
+			"graphName": "GOLD_261030_useCases",
+			"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+			"manifestLabel": "educore-2026-10-30",
+			"manifest": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+			"manifestByContent": "https://w3id.org/EDUcore/manifest/sha256/783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+			"manifestStandardList": "https://w3id.org/EDUcore/manifest/educore-2026-10-30/standards",
+			"builtAt": "2026-10-30T04:44:59.262Z",
+			"graphContractSha256": "f65db22ad18450dade497b56d8298002591dc47bcb9a568500fd2abcf6f2426d",
+			"structuralVersion": "V.09",
+			"embeddingModelVersion": "voyage-4-large",
+			"instance": "liveTest",
+			"apiVersion": "v1",
+			"operation": "rosettaRetrieval"
+		},
+		"answer": {
+			"rowDetail": "summary",
+			"submissionFormat": "fieldList",
+			"fieldCount": 3,
+			"hubList": [
+				"CEDS",
+				"CTDL"
+			],
+			"nothingJudgedNote": "Nothing here is judged. A pool is a list of candidates ranked by how close their text is to yours: never an answer, and the first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists.",
+			"rankNote": "rank orders a pool by how many of your texts, name and definition, reached the card, then by your text against the card as a whole. cosine is the best match of one of your texts to one of the card's own texts. So a lower rank can carry a higher cosine, and the best cosine is always shown.",
+			"retrievalSetting": {
+				"hitsPerText": 40,
+				"minCosine": 0.3,
+				"poolCap": 40,
+				"tier": "property"
+			},
+			"poolCountByHub": {
+				"CEDS": {
+					"fieldsWithCandidates": 3,
+					"emptyPools": 0
+				},
+				"CTDL": {
+					"fieldsWithCandidates": 3,
+					"emptyPools": 0
+				}
+			},
+			"unresolvedRefList": [],
+			"unresolvedContextList": [],
+			"notWalkedList": [],
+			"fieldList": [
+				{
+					"name": "informationSourceId",
+					"byHub": {
+						"CEDS": {
+							"poolSize": 40,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7da49524072ff0b99fbc504a525e59fdf27c66594395042e24ab48e0504b8d46",
+									"label": "Has Organization Identification System",
+									"cosine": 0.6232,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2b09fee4f42a20a4d9bc934af1faa2f04cb4d7a5f21df3ae5d5ef158b30c92dc",
+									"label": "Organization Identifier",
+									"cosine": 0.6232,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd517a6b4e13f43b2bf615dcedc9798033836160e6fd22009fdf132b9716d9fb",
+									"label": "State Agency Identifier",
+									"cosine": 0.6232,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/eeb0412d4b8d171a222477500e7a18d48344e2c409c288c264db4896bc9b4a8b",
+									"label": "Has Organization Identifier Type",
+									"cosine": 0.6232,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d73c4b692a0d1a90d8133fe4f866494c32d199aac5d474c9781b18795eaeddb5",
+									"label": "Source System Data Collection Identifier",
+									"cosine": 0.6602,
+									"rank": 6
+								}
+							]
+						},
+						"CTDL": {
+							"poolSize": 40,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/e2c0ba7b7cab2d0687f90ee4d51cba7eaad259da8b1f1d66a84caf0a92c9481f",
+									"label": "Identifier",
+									"cosine": 0.5124,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/ca84119acd14d81d8fa3cf6fbf6be4244003e8361bb1569f65b3f672edcd8b22",
+									"label": "Identifier",
+									"cosine": 0.5124,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/a22e0308ffbf34433a8bbe7c4fac55f4295fe4da27adb37289c3fd98249c4ae2",
+									"label": "Identifier",
+									"cosine": 0.5124,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/1fc150d6b59d7c2731499b966efe78201eb5867c85aa5b0cb8dd52401d55e82a",
+									"label": "Identifier",
+									"cosine": 0.5124,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/019503e861932cfc37e2ed68236427a25678086183e2eb01115a57dbc0fb7247",
+									"label": "Version Identifier",
+									"cosine": 0.5644,
+									"rank": 89
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "identifier",
+					"byHub": {
+						"CEDS": {
+							"poolSize": 40,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e401943cd39e8e531f30f2a413be14ee9f383aaef5301771a610c1597e39d7e4",
+									"label": "Has Organization Identifier",
+									"cosine": 0.6773,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/af3d394c2ff6b956d98ffe62782b8e7753636d7b20c61b61d6ae60d1bd9b5fe1",
+									"label": "Has Organization Identifier",
+									"cosine": 0.6773,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cd95a22069b7f0f9cf40bd5f7e44e32ddf329910f7fc8fcc5d9924a3f6ad941d",
+									"label": "Has Organization Identifier",
+									"cosine": 0.6773,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3570b6e7dd48949222483c0bfbb316c1ea6635f8d4c4931d359850503229a4e4",
+									"label": "Has Organization Identifier",
+									"cosine": 0.6773,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c2c18398b2b622d0591a9f4d35667dfe8770962ac77545e3d44ed83f15ae4db8",
+									"label": "Longitude",
+									"cosine": 0.7224,
+									"rank": 98
+								}
+							]
+						},
+						"CTDL": {
+							"poolSize": 40,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/4eaa846a7e0dc0078193c3e32a51e5d20bbf14285b125f66d032da230fd27bf6",
+									"label": "Identifier",
+									"cosine": 0.8899,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/78df43f469c6d3d90ec37429d07bededa099eedbd4a84e51ba27f6ccf5ed588f",
+									"label": "Identifier",
+									"cosine": 0.8899,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/05df68772509e8aebba55fa93f96df5bc1ec1e6cfb2cac0fb8cd2425c7333e95",
+									"label": "Identifier",
+									"cosine": 0.8899,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/5f6b79c1f08ba8fa86e01b74cd0d619f371143d621a86f9a977dda2cfa1b6db6",
+									"label": "Identifier",
+									"cosine": 0.8899,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/006a363b5dd4b736893be5ce9c00b14affe7fbf37de36da425025c9cd443ebca",
+									"label": "Identifier",
+									"cosine": 0.8899,
+									"rank": 41
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "idSystem",
+					"definitionAbsent": true,
+					"byHub": {
+						"CEDS": {
+							"poolSize": 35,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/484790fa563b30d5810eed4a708c7832a57af0d75ecf9efadd880a1de3441b16",
+									"label": "Has Person Identification System",
+									"cosine": 0.4959,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e40ddbcd8f5a451c274e4327b2e1892cd6b90d6e9c89b4a49ceff6af658b7c69",
+									"label": "Has State Agency Identification System",
+									"cosine": 0.4725,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7da49524072ff0b99fbc504a525e59fdf27c66594395042e24ab48e0504b8d46",
+									"label": "Has Organization Identification System",
+									"cosine": 0.5297,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/0b706bbd36f65f62d33196833ccc97bb97159c45ecb111c898abaec83095f797",
+									"label": "Person Identifier",
+									"cosine": 0.4831,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/907d35359ca36476d32f6e28b05cc61b18760881ca1747c62c731782c54e5e31",
+									"label": "Has Credential Definition Identifier System",
+									"cosine": 0.5514,
+									"rank": 8
+								}
+							]
+						},
+						"CTDL": {
+							"poolSize": 40,
+							"topCandidateList": [
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/26e396cd079d8cd7ce30be994214540108b09425102c33288d25f7f5f0f040b7",
+									"label": "IPEDS ID",
+									"cosine": 0.5402,
+									"rank": 1
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/14ba5e143679cbc29fbf15daa416977d614084904795abc5456e1609297d47a9",
+									"label": "IPEDS ID",
+									"cosine": 0.5402,
+									"rank": 2
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/b48a8c279a41d96c51d32df7704dc0bed8013d668e26e873a7bfe31519e100d2",
+									"label": "Identifier Value Code",
+									"cosine": 0.4372,
+									"rank": 3
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/4ac30dd6d5db72f9b33b557adecef12c63502def97a4b956f9b177279b8e3d5c",
+									"label": "Version Identifier",
+									"cosine": 0.4372,
+									"rank": 4
+								},
+								{
+									"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/05617d0202bf8a2103cd9b30c2c96b820cf4530fbdfa2bf264524f53f91431e3",
+									"label": "IPEDS ID",
+									"cosine": 0.5402,
+									"rank": 5
+								}
+							]
+						}
+					}
+				}
+			],
+			"leftOutOfSummary": {
+				"howToAsk": "Ask rowDetail=full for every candidate of every pool, with its votes, card cosine, both ranks and domain.",
+				"shownPerPool": 5,
+				"candidatesNotShown": 208,
+				"candidateFieldNameList": [
+					"admittedBy",
+					"cardTextCosine",
+					"domain",
+					"ownVotes",
+					"rankByCosine",
+					"stableId"
+				],
+				"fieldFieldNameList": [
+					"type"
+				]
+			}
+		},
+		"uriNote": "every element and card carries uri, and a row says uriKind and resolvesHere only when its uri does not resolve on this instance's /edc/ route. mappings summaries show assertion on an element's own rows; leftOutOfSummary counts the rest."
+	}
+}

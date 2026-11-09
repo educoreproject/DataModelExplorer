@@ -6,6 +6,8 @@
 	},
 	"subjectRenderingAllowList": ["name", "path", "description", "dataType"],
 	"judgePredicateRule": "judgeSlot-v1",
+	"_rendererVersionPrefixComment": "P7b (TQ Q66): every forge renderer version begins with this (educoreForge lib/bridge-framework/evidenceRenderer.js, RENDERER_VERSION and its siblings). The fetch answer's using.promptVersion is a unit's recorded rendererVersion less this prefix; a version without it is named rendererVersionUnrecognised, never shown raw.",
+	"rendererVersionPrefix": "bridgeEvidenceRenderer-",
 	"proposalCategoryCountNameByCategory": { "strong": "proposedStrong", "moderate": "proposedModerate", "weakButReal": "proposedWeak" },
 	"draftCategoryList": ["strong"],
 	"runnerUpListLength": 5,

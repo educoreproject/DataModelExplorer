@@ -71,10 +71,10 @@ onUnmounted(() => store.stopPolling());
 					<v-table density="compact">
 						<thead><tr><th>Field</th><th>Hub</th><th>Pool</th><th>Top candidates</th></tr></thead>
 						<tbody>
-							<template v-for="oneField in store.retrievalAnswer.fieldList" :key="oneField.name">
-								<tr v-for="(onePool, hubName) in oneField.byHub" :key="hubName">
-									<td>{{ oneField.name }}</td>
-									<td>{{ hubName }}</td>
+							<template v-for="oneField in store.retrievalAnswer.fieldList" :key="oneField.requestName">
+								<tr v-for="onePool in oneField.resultList" :key="onePool.hub">
+									<td>{{ oneField.requestName }}</td>
+									<td>{{ onePool.hub }}</td>
 									<td>{{ onePool.poolSize }}</td>
 									<td>{{ (onePool.topCandidateList || []).map((oneCandidate) => oneCandidate.label).join('; ') }}</td>
 								</tr>

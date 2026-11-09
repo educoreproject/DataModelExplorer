@@ -229,18 +229,18 @@ const shownCandidatesOf = ({ onePool, shownPerPool, summaryShape }) => {
 	return shownList.map((oneCandidate) => pickFields(oneCandidate, summaryShape.retrievalCandidateFieldList));
 };
 
+// ⟪P7b⟫ each field's resultList keeps fetch's form: one item per hub, naming its hub
 const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
-	const poolRowList = answer.fieldList.flatMap((oneField) => Object.values(oneField.byHub));
+	const poolRowList = answer.fieldList.flatMap((oneField) => oneField.resultList);
 	const shownPerPool = shownPerPoolOf({ poolCount: poolRowList.length, summaryShape });
 	let candidatesShownCount = 0;
 	const fieldList = answer.fieldList.map((oneField) => ({
 		...pickFields(oneField, summaryShape.retrievalFieldFieldList),
-		byHub: Object.keys(oneField.byHub).reduce((soFar, hubName) => {
-			const onePool = oneField.byHub[hubName];
+		resultList: oneField.resultList.map((onePool) => {
 			const topCandidateList = shownCandidatesOf({ onePool, shownPerPool, summaryShape });
 			candidatesShownCount += topCandidateList.length;
-			return { ...soFar, [hubName]: { ...pickFields(onePool, summaryShape.retrievalPoolFieldList), topCandidateList } };
-		}, {}),
+			return { hub: onePool.hub, ...pickFields(onePool, summaryShape.retrievalPoolFieldList), topCandidateList };
+		}),
 	}));
 	const everyCandidateList = poolRowList.flatMap((onePool) => onePool.candidateList);
 	const { fieldList: unusedFieldList, ...restOfAnswer } = answer;
@@ -253,7 +253,7 @@ const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
 			shownPerPool,
 			candidatesNotShown: everyCandidateList.length + poolRowList.filter((onePool) => onePool.cosineRankOneOutsidePool).length - candidatesShownCount,
 			candidateFieldNameList: fieldNamesOutside(everyCandidateList, summaryShape.retrievalCandidateFieldList),
-			fieldFieldNameList: fieldNamesOutside(answer.fieldList, [...summaryShape.retrievalFieldFieldList, 'byHub']),
+			fieldFieldNameList: fieldNamesOutside(answer.fieldList, [...summaryShape.retrievalFieldFieldList, 'resultList']),
 			...(answer.fieldList.length > summaryShape.retrievalReadableFieldCount ? { sizeAdvice: summaryShape.retrievalOverReadableAdvice.replace('{readableFieldCount}', String(summaryShape.retrievalReadableFieldCount)) } : {}),
 		},
 	};
