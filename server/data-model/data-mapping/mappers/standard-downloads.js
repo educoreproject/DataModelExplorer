@@ -2,9 +2,12 @@
 'use strict';
 
 // standard-downloads.js (mapper) — the standard downloads (WORKORDER-standardDownloads-101526 §3b). The downloads are
-// generated in educoreForge (apps/graph-builder/tools/downloadArtifacts.js) as one directory per golden graph:
-//   <downloadArtifactsRootDirPath>/<graphName>/downloads.json   the manifest (manifestFormat educoreStandardDownloads/2)
-//   <downloadArtifactsRootDirPath>/<graphName>/<fileName>.zip   one zip per available entry
+// generated in educoreForge (apps/graph-builder/tools/downloadArtifacts.js) as one directory per golden graph, named for the graph
+// that generated them; the server finds it by the graph's content identity through the folder index (downloads-identity.js,
+// WORKORDER-downloadsByIdentity-110626), never by that name:
+//   <downloadArtifactsRootDirPath>/downloadsIdentityIndex.json  identity -> folderName and the sha256 of its downloads.json
+//   <downloadArtifactsRootDirPath>/<folderName>/downloads.json   the manifest (manifestFormat educoreStandardDownloads/2)
+//   <downloadArtifactsRootDirPath>/<folderName>/<fileName>.zip   one zip per available entry
 // This mapper holds what the access point must not invent: the manifest's declared shape, the fields a browser may
 // filter on, the fields an entry carries out to a browser (a whitelist, never renamed), and the one Cypher it runs (the
 // golden's passport, read-only).
@@ -28,7 +31,7 @@ const moduleFunction =
 		const ZIP_FILE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/;
 
 		const CYPHER_BY_NAME = Object.freeze({
-			goldenPassport: 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.graphContractSha256 AS graphContractSha256',
+			goldenPassport: 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName, p.manifestRefId AS manifestRefId, p.graphContractSha256 AS graphContractSha256',
 		});
 		const getCypher = (queryName) => {
 			if (!CYPHER_BY_NAME[queryName]) {

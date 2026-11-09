@@ -205,6 +205,10 @@ const FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST = Object.freeze(['direction', 'fromS
 // graph holds 71 match edges into P000033. Both were right about different UNITS. Every count field findMappings answers is
 // named here with its unit, the payload carries this table as countUnitByField, and test/find-mappings-count-units.test.js
 // fails on any count field it does not name.
+// ⟪cardUriAnswers⟫ an input of these shapes is an edc: name: the graph holds one only as a stableId (test/find-mappings-uri-no-scan-live.test.js checks that on the golden it runs against), so one the index misses names nothing and no scan can find it
+const EDC_URI_INPUT_PREFIX_LIST = Object.freeze(['https://w3id.org/EDUcore/', 'edc:']);
+// ⟪cardUriAnswers⟫ what the rows are when the input is a hub card's exact uri, and how they stand against the counts the card's own uri answers
+const FIND_MAPPINGS_CARD_INPUT_NOTE = "This input is a hub card, so the rows are the elements that map to it, from the one graph this instance serves. A standard's element used in many places appears once, as its declaration, with instanceCount saying in how many. The card's own uri counts differently: distinctElementCount counts each place once, and mappedElementCount counts each place once per manifest, so both can exceed totalRowCount here.";
 const FIND_MAPPINGS_COUNT_UNIT_BY_FIELD = Object.freeze({
 	matchedNodeCount: 'NODES the input matched (by name, by identifier, or by a segment of an instance context path); a SIF Question and each of its Fields are separate nodes',
 	instancePathMatchedNodeCount: 'NODES (instances) matched ONLY by a segment of their context path, not by name or identifier — e.g. SIF …/RaceList/Race/Code for race',
@@ -405,6 +409,8 @@ module.exports = Object.freeze({
 	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_ROW_IDENTITY_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+	FIND_MAPPINGS_CARD_INPUT_NOTE,
+	EDC_URI_INPUT_PREFIX_LIST,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
 	HUB_TUPLE_SUMMARY_CAP,

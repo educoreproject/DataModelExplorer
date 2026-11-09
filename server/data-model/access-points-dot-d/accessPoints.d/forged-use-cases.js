@@ -36,7 +36,6 @@ const { renderUseCaseDiagram } = require('../../lib/use-case-diagram/render-use-
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
-	const { getConfig } = process.global;
 	const { neo4jDb, dataMapping, accessPointsDotD } = passThroughParameters;
 	const mapper = dataMapping[moduleName];
 
@@ -134,14 +133,21 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(`${moduleName}: no use case in this graph has stableId '${caseStableId}'`);
 				return;
 			}
-			// the extracted document names the graph it came from; a server that declares none is refused, never guessed
-			const graphName = (getConfig('dataModelExplorerSearch') || {}).goldenContainerName;
-			if (typeof graphName !== 'string' || graphName === '') {
-				callback(`${moduleName}: caseStructure cannot name its graph: this server declares no [dataModelExplorerSearch] goldenContainerName`);
-				return;
-			}
-			const structure = mapper.mapStructureRecord(structureRecordList[0]);
-			callback('', { ...structure, graphName, extractedDocument: { graphName, ...structure.extractedDocument }, extractedFileName: mapper.extractedFileNameOf(structure.sourceFileName, caseStableId) });
+			// the extracted document names the graph it came from, as the graph's passport names it (the identity; the container
+			// name is only the address, P5 2026-11-06); a graph with no single named passport is refused, never guessed
+			runNamedQuery('goldenPassport', {}, (passportError, passportRecordList) => {
+				if (passportError) {
+					callback(passportError);
+					return;
+				}
+				const graphName = passportRecordList.length === 1 ? passportRecordList[0].graphName : undefined;
+				if (typeof graphName !== 'string' || graphName === '') {
+					callback(`${moduleName}: caseStructure cannot name its graph: the golden holds ${passportRecordList.length} passport(s)${passportRecordList.length === 1 ? ' and it carries no graphName' : ''}`);
+					return;
+				}
+				const structure = mapper.mapStructureRecord(structureRecordList[0]);
+				callback('', { ...structure, graphName, extractedDocument: { graphName, ...structure.extractedDocument }, extractedFileName: mapper.extractedFileNameOf(structure.sourceFileName, caseStableId) });
+			});
 		});
 	};
 

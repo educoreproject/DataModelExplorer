@@ -199,7 +199,7 @@ const moduleFunction =
 		taskList.push((args, next) => {
 			const localCallback = (
 				err,
-				{ accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb },
+				{ accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb, neo4jDb },
 			) => {
 				if (err) {
 					next(err, args); //next('skipRestOfPipe', args);
@@ -207,7 +207,7 @@ const moduleFunction =
 				}
 
 				// dmeMcpOAuth Phase 2: forward sqlDb for the Authorization Server mount.
-				next('', { ...args, accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb });
+				next('', { ...args, accessPointsDotD, dataModelLogInfoList, slackAccess, sqlDb, neo4jDb });
 			};
 
 			require('./data-model')(
@@ -352,7 +352,7 @@ const moduleFunction =
 
 		const initialData = { expressApp };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb } = args;
+			const { endpointsDotD, accessPointsDotD, dataModelLogInfoList, sqlDb, neo4jDb } = args;
 
 			if (err) {
 				xLog.error(
@@ -389,26 +389,25 @@ ${err.toString()}
 			// registered here (inside the pipeline callback) so sqlDb is in scope.
 			require('./lib/askmilo-utility')({ expressApp, sqlDb });
 
+			// LAST, after every route above: an error no route answered (a body over the JSON parser's limit, a body that is
+			// not JSON, a route passing an error on) is answered in JSON by name with an errorId, never Express's HTML page with
+			// the stack and the server's paths in it (todo 794a45ec). Nothing may be mounted after this line.
+			expressApp.use(require('./lib/json-error-answer'));
+
 			xLog.status(xLog.color.magentaBright(`\nMagic happens on ${apiPort}`));
 
 			// Multi-tenant DME: build the golden snapshot + warm clone pool ONCE at startup so
 			// user opens claim a pre-booted clone instead of paying the cold cp+boot. Background
 			// and non-blocking. Docker/disk-aware: adopts an existing snapshot + idle warm
 			// containers across restarts; only a cold machine pays the full build.
-			try {
-				const dmeCfg = (typeof getConfig === 'function' && getConfig('dataModelExplorerSearch')) || {};
-				const warmDepth = Number(dmeCfg.warmPoolDepth != null ? dmeCfg.warmPoolDepth : 2);
-				if (warmDepth > 0) {
-					const warmPool = require('./data-model/lib/user-graph/warm-pool');
-					xLog.status(`[dmeOpenTrace] startup: priming DME warm pool to depth ${warmDepth} (background)...`);
-					warmPool.reconcileAndPrime(warmDepth, (e, res) => {
-						if (e) { xLog.error(`[dmeOpenTrace] startup: warm pool prime FAILED: ${e}`); return; }
-						xLog.status(`[dmeOpenTrace] startup: warm pool priming started — adopted ${res.adopted}, target ${res.target}; filling in background (serialized, one boot at a time)`);
-					});
-				}
-			} catch (e) {
-				xLog.error(`[dmeOpenTrace] startup: warm pool init error: ${e.message}`);
-			}
+			// The pool is built from the golden, so priming waits for the golden's FIRST connection: a graph or Docker that is
+			// late would otherwise cost every spare one failed refill, and nothing asks again until a user's claim.
+			// Only the first: priming can quiesce the golden to cut a snapshot, and re-priming on each reconnect could loop.
+			// neo4jDb is null only for a configuration fault, and priming then reports its own named refusal, as it always has.
+			require('./data-model/lib/user-graph/warm-pool').primeWhenGoldenConnects({
+				goldenGraphHandle: neo4jDb,
+				warmPoolDepth: ((typeof getConfig === 'function' && getConfig('dataModelExplorerSearch')) || {}).warmPoolDepth,
+			});
 
 			//callback(err, {localResult1Value, localResult2});
 		});

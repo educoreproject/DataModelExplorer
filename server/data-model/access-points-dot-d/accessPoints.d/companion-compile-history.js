@@ -24,7 +24,7 @@ const { sourceSetSha256Of, sourceRecordListCurrentAt } = require('../../lib/comp
 const { namePatternByField } = require('../../lib/companion-pages/companion-source-rules.json');
 
 const QUIET = { suppressStatementLog: true };
-const COMPILE_PROPERTY_LIST = ['refId', 'pageSlug', 'graphName', 'graphContractSha256', 'sourceSetSha256', 'compiledAt', 'compilerVersion'];
+const COMPILE_PROPERTY_LIST = ['refId', 'pageSlug', 'graphName', 'graphIdentitySha256', 'graphContractSha256', 'sourceSetSha256', 'compiledAt', 'compilerVersion'];
 
 //START OF moduleFunction() ============================================================
 

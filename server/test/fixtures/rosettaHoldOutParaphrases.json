@@ -1,0 +1,1263 @@
+{
+	"_comment": "G4.1 frozen fixture. Written before any judging. Truth for lif is the published layer at this manifest; for sif, the CEDS ID column SIF authors wrote. Scoring reads trueCardStableIdList; a judge never does. No two subjects share a source text.",
+	"builtAt": "2026-11-05T15:09:58.011Z",
+	"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+	"seed": "110526",
+	"paraphraseModel": "claude-haiku-5-5",
+	"paraphrasePrompt": "You rewrite one data field from an education data standard, as a different author at a different organization would have written it for their own system.\n\nKeep the meaning exactly. Do not add facts and do not drop any.\nWrite a NEW field name, in the same casing style, using different words wherever a natural synonym exists. A name with no natural synonym may stay close.\nWrite a NEW definition in your own words and a different sentence structure. Do not copy any run of four or more words from the original.\nDo not include any identifier, code, URL or standard's name that the original does not need. Never write anything like P000123 or C000123.\n\nAnswer with JSON only: {\"name\": \"...\", \"definition\": \"...\"}\n\nOriginal name: {name}\nOriginal definition: {definition}",
+	"copiedRunWords": 5,
+	"droppedList": [
+		{
+			"stableId": "lif:Person/Demographics/inline/migrantStatus",
+			"fault": "not the JSON asked for"
+		}
+	],
+	"lifSubjectList": [
+		{
+			"stableId": "lif:Organization/name",
+			"name": "name",
+			"definition": "The name of a non-person entity such as an organization, institution, agency or business.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2ca056edc3c077d2bbf2e6c2651b0d409317964d306667a016c342b846a4a529"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "label",
+				"definition": "The designation given to a non-individual body, including a company, school, government office or commercial enterprise."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/shortName",
+			"name": "shortName",
+			"definition": "An abbreviated title for an assessment.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3dac115d13db147c067b21746181b992883f588ac3fd343f66dcdfe7844aaa84"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "abbrevAssessmentLabel",
+				"definition": "A condensed label used to refer to an evaluation."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/MilitaryLearningExperience/inline/startingRank",
+			"name": "startingRank",
+			"definition": "The rank which the person held in the military service at the beginning of the service period.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/691c3e4b09dfaaff04dc843f6c302beb4f0a0df2d6cfc2d6a2fdf37348554de7"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "initialMilitaryGrade",
+				"definition": "The grade or position a individual had within the armed forces when their period of enlistment or duty first commenced."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Contact/inline/Address/inline/addressCity",
+			"name": "addressCity",
+			"definition": "The name of the city in which an address is located.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/07ebdfab0910a8401238c1be8670891e953b6104fecb04d5a94475014f197c2a"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "locality",
+				"definition": "Name of the municipality where a given mailing location lies."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/courseDepartmentName",
+			"name": "courseDepartmentName",
+			"definition": "Department with jurisdiction over this course.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4a6843363d39e769eddfb1aac74d13fa0f8997e07c99d2157f475a6d4d3c6c9c"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "classOversightDivision",
+				"definition": "The organizational unit that holds authority over this class."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/contentStandardStatus",
+			"name": "contentStandardStatus",
+			"definition": "A contentStandard status, which provide details about whether it is missing at will or not applicable.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/588dce3f75b4b1506739c941cd8008b868c3df4fbcdeb161a37de85125758bcc"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "curriculumBenchmarkState",
+				"definition": "Indicator conveying whether a curriculum benchmark may be omitted by choice or does not apply."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Birth/inline/birthInternationalProvince",
+			"name": "birthInternationalProvince",
+			"definition": "For students born outside of the U.S., the Province or jurisdiction in which an individual is born.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9afa91e9e4b6f908acd4e796e4a2dcf3c4d1660c4907c0e62cb78b8b5a249672"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "abroadBirthJurisdiction",
+				"definition": "For learners whose birthplace lies beyond the United States, this records the province or other jurisdictional division where the person was born."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Position/positionEmploymentStatus",
+			"name": "positionEmploymentStatus",
+			"definition": "An indication of the employment status of an employee holding this position. For example, Volunteer, SelfEmployed, Employed, Freelancer, Intern, Contractor, or Other.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ae6f8ebfa550a514d2b6d9bd62f9c7b5fb9830c30240d3c167e56e855e524672"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "incumbentEngagementType",
+				"definition": "Categorizes the nature of the working relationship held by whoever fills this role. Possible classifications include Intern, Freelancer, Other, Employed, Contractor, SelfEmployed, and Volunteer."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Birth/inline/visa",
+			"name": "visa",
+			"definition": "An indicator of a non-US citizen's Visa type.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e5c4172947fb9fd044750badde9096c7e2a7e6e8a8a380a971b49826c365789"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "immigrationStatusCode",
+				"definition": "Designates the category of entry permit held by a student who is not a citizen of the United States."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/Identifier/inline/deletedDate",
+			"name": "deletedDate",
+			"definition": "The date when the object with deleted.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2be5c2e82391bd16eb86b722c7d63d9063d3e5fc5c2e99151257d8d9d9f48535"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "removalDate",
+				"definition": "Calendar day on which the entity was flagged as removed from the system."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/EmploymentLearningExperience/inline/RefPosition/inline/name",
+			"name": "name",
+			"definition": "The descriptive name of a person's position.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/73c69392cf50a41cc465bb1382f804e0aa0ec9272841d7dc3da8a7776e66a668"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "designation",
+				"definition": "A human-readable label describing the job a person fills."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:CompetencyFramework/Association/inline/offeredByRefOrganization/inline/identifier",
+			"name": "identifier",
+			"definition": "The primary key identifier for this entity data in the LIF data model. This value should uniquely identify this particular instance of the entity. The identifier can be created based on external identifiers, a newly created identifier unique to LIF, or a composite of other attributes related to the entity.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/dd11e67afa4ec99dd0d2ba3b9e01f2469945644d262a56653ede1d4f9ce11fe4"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "recordKey",
+				"definition": "The main key used to tell each record of this entity apart within the LIF schema. Every instance must be distinguishable by this value. It may be assembled from outside codes, minted fresh for LIF, or built by combining several properties linked to the entity."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/CredentialAward/inline/Evidence/inline/narrative",
+			"name": "narrative",
+			"definition": "A narrative that describes the evidence and process that led to an assertion of the credential.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/58af06765912725d0b85205cfab55dc6b713acbe9046ddfde0c5ea57ec2d85ae"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "rationale",
+				"definition": "A written account of the proof and steps behind a credential being awarded."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Position/hoursWorkedPerWeek",
+			"name": "hoursWorkedPerWeek",
+			"definition": "The average number of hours anticipated by the employer to be worked in this postion per week.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3765c1e051e96df22b5dca16563f3b4ee4ddf251bb223a52ff9c227a3890342f"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "avgWeeklyHoursExpected",
+				"definition": "The mean weekly workload, in hours, that the hiring organization projects for this job role."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Credential/Requirements/inline/maximumDuration",
+			"name": "maximumDuration",
+			"definition": "Maximum duration of time allowed in order to earn the credential.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1abcdb38365df9a58ce7a2a2e53b3014bb907c4646af256c5347d592304a478f"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "maxTimeToComplete",
+				"definition": "Longest period permitted for a learner to finish the requirements needed to obtain the certification."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Position/fullTimeEquivalentRatio",
+			"name": "fullTimeEquivalentRatio",
+			"definition": "The number of total hours worked divided by the maximum number of compensable hours in a full-time schedule as defined by law, or determined by civil or organizational policies.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3e37aec1eea0f2a42a9959a04244f9cc603707e75c590d7cd5f72a30a68978a2"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "workloadFractionOfFullTime",
+				"definition": "Quotient obtained by dividing aggregate hours actually performed by the ceiling of payable hours within a standard full-time timetable, where that ceiling is set either by legislation or by public-sector or institutional regulations."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/purpose",
+			"name": "purpose",
+			"definition": "The reason for which an assessment is designed or delivered",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fca3f077513c8b08c966b62d260162c2d94022852d88ca469d9349b394e48166"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "assessment_objective",
+				"definition": "The rationale behind why a test is created or administered."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/goalSuccessCriteria",
+			"name": "goalSuccessCriteria",
+			"definition": "One or more statements that describes the criteria used by teachers and students to check for attainment of a goal.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/88df73e69db17ee7497d7253e885c4a2dc15d87b8298136d08451e44457e47c2"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "objectiveMeasureOfAchievement",
+				"definition": "Any number of descriptions that specify the benchmarks educators and learners apply to confirm that a target has been reached."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Organization/Contact/inline/Telephone/inline/informationSourceSystem",
+			"name": "informationSourceSystem",
+			"definition": "The specific information system, application, or pipeline from which this entity data came. Examples include SIS, LMS, HR Systems, CRMs, and data warehouses. Typically, this value is configured in the orchestrator and applied to the LIF record as it is generated. This value may be visible to students, instructors, or staff via external applications or an LLM advisor, so it should be something easily identifiable. This field should help users identify which system to refer to if they have questions about the data associated with this field.\n",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a9e851bc65c75c3b8c4445a7a66785bca6b1c22fada4ab50b89cfd701d4919e8"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "recordOriginSystem",
+				"definition": "The particular software, application, or data pipeline that produced this record. Commonly cited sources include student information systems, learning management platforms, human resources software, customer relationship management tools, and data warehouses. An orchestrator usually sets this attribute and links it with the LIF record during creation. Students, teachers, or employees might see it through third-party tools or an AI assistant, so the label ought to be readily recognizable. It points people toward the correct source when they need clarification on the associated data."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Contact/inline/Address/inline/addressCountyName",
+			"name": "addressCountyName",
+			"definition": "The name of the county, parish, borough, or comparable unit (within a state) in which an address is located.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b7c97ca2a04b805601fe7f30c17e0021e7a2f45218a83ed1ffd11e134f6d7f06"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "siteCountyTitle",
+				"definition": "Designation for the administrative division inside a state, such as a county, parish, or borough, or an equivalent, that contains the given street location."
+			},
+			"paraphraseTries": 2
+		},
+		{
+			"stableId": "lif:Person/MilitaryLearningExperience/inline/RefMilitaryLearningExperience/inline/informationSourceId",
+			"name": "informationSourceId",
+			"definition": "An identifier key that represents a combination of informationSourceOrganization and informationSourceSystem from which this entity data came. Typically, this value is configured in the orchestrator and applied to the LIF record as it is generated. This could be a human or machine-readable value.\n",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d73c4b692a0d1a90d8133fe4f866494c32d199aac5d474c9781b18795eaeddb5"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "dataOriginKey",
+				"definition": "A lookup key pairing the organization and the system responsible for supplying this record's data. The orchestration component generally assigns it and attaches it while the record is being created. Its content may be readable by people or by machines."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/CredentialAward/inline/revoked",
+			"name": "revoked",
+			"definition": "Indicates if the assertion of the credential has been revoked, thus invalidating the award.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f7f22bb05c34d8b55c9cd6c29c864ae81fbc05a9d76c771d4c44644643806921"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "isWithdrawn",
+				"definition": "Flags whether the issuer has withdrawn the credential's claim, which renders the granted recognition no longer valid."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Credential/industryCode",
+			"name": "industryCode",
+			"definition": "Numeric, and usually a NAICS code for industry for an employer (North American Industry Classification System).",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9c6aa82437700e59dac77e9a812b387de95ea90d07875a68c106cb5bba73e1b3"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "sectorIdentifier",
+				"definition": "Digits denoting the business sector in which an employing organization operates; most often drawn from the continental North American sector taxonomy."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/EmploymentLearningExperience/inline/employedWhileEnrolled",
+			"name": "employedWhileEnrolled",
+			"definition": "An individual who is a paid employee or works in his or her own business, profession, or farm, as reported through the State Unemployment Insurance Wage Report, FEDES, or WRIS, and at the same time is enrolled in secondary, postsecondary, or adult education or workforce programs.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8191b4157cd0f21d2d1b7ec9e177bb90e72470cda9661660435e2dd3b9b86398"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "workingWhileStudying",
+				"definition": "Refers to a person who earns wages as an employee or operates their own enterprise, practice, or agricultural operation, documented via the state UI wage filing, FEDES, or WRIS, while also attending secondary, postsecondary, adult-schooling, or workforce training courses."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/targetLearningResource",
+			"name": "targetLearningResource",
+			"definition": "Learning object or resource that is used as part of an learning activity.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e9532e6181f0bd3d69beb894e23ba7f03131630738c80ad6417097b22b931598"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "aimedLearningMaterial",
+				"definition": "A study item or material employed while carrying out an instructional task."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Position/Wage/inline/startDate",
+			"name": "startDate",
+			"definition": "Date the validity or usefulness of the information in this resource begins.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/6ea4323f532fb0ee4d621daa910784c0594581b7e5ef8fdac390ef5b9df8b313"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "validFrom",
+				"definition": "The calendar day on which the content of this record becomes applicable or relevant."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/courseCreditLevelType",
+			"name": "courseCreditLevelType",
+			"definition": "The level of credit associated with the credit hours earned for the course.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9920a3fbdcfa354254e4726475df71b1a0a72d1922bc952b63825ef24bd1e4d3"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "courseCreditTierCategory",
+				"definition": "Classification indicating the tier that applies to the academic units a learner receives upon completing this class."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Birth/inline/birthVerification",
+			"name": "birthVerification",
+			"definition": "The evidence by which a child's date of birth is confirmed.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/017327fce846726fcf00cd14f62a2f3ab9e0493f98a27ed5927dcc3a036cd8b5"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "dobProofType",
+				"definition": "The kind of documentation that substantiates a learner's recorded birth date."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Program/normalTimeCompletionUnits",
+			"name": "normalTimeCompletionUnits",
+			"definition": "The unit of measurement for length of time for completion.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7dcf138d10437517bdde1d8aae421aa1c512effdb2420d0de948367b3483c86e"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "standardDurationUnitOfMeasure",
+				"definition": "The measurement unit used to express the expected elapsed time needed to finish the program under regular, non-accelerated conditions."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Residency/inline/proofOfResidency",
+			"name": "proofOfResidency",
+			"definition": "An accepted form of proof of residency in the district/county/other locality.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b6d49c201d44700ba79f220f10005af778479b5e91cc2b47c07ff864e8ab32f8"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "domicileVerification",
+				"definition": "A recognized type of document that may be submitted to demonstrate residence inside the district, county, or other local area."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/RelationshipContacts/inline/livingRelationship",
+			"name": "livingRelationship",
+			"definition": "Indicates whether or not the learner lives with the related person.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8e3385b2ec818940ebc01412e7105f11551dff9e74d8e9f5ad6f7a332f9c7bc7"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "cohabitsWithContact",
+				"definition": "States if the student resides in the same household as the associated individual, yes or no."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Organization/Accreditation/inline/seekingAccreditationDate",
+			"name": "seekingAccreditationDate",
+			"definition": "The date in which accreditation process was started (but not officially approved or denied).",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3fe0af2390505cf58c5aa0c96e063d4976abef36dbc7942adb028f1907e7b65d"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "accreditationReviewStartedOn",
+				"definition": "The day on which an institution or program formally entered the accreditation review, before any final decision to grant or refuse recognition had been reached."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/assessmentReportingMethod",
+			"name": "assessmentReportingMethod",
+			"definition": "The method that the instructor of the course uses to report the performance and achievement of all persons. It may be a qualitative method such as individualized teacher comments or a quantitative method such as a letter or a numerical grade. In some cases, more than one type of reporting method may be used.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/36d21b3c7410a46cec47e5fea19718e26c7085fc749d041bfdd1a576077bb992"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "evaluationOutcomeFormat",
+				"definition": "The style a course facilitator relies on to convey learners' results and proficiency. It can be descriptive, such as personalized narrative feedback, or numeric/symbolic, such as a letter mark or a score. Sometimes several such styles are combined."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Course/Identifier/inline/identifierVerification",
+			"name": "identifierVerification",
+			"definition": "The evidence by which a persons name, address, date of birth, etc. is confirmed.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/acb960f0ca8a4677b4665f2222821c327f58e3ed84504525c29321946f7c0fb4"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "identityProofing",
+				"definition": "The documentation or check used to validate a person's legal name, residential location, birth date, and similar personal attributes."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/AssessmentPerformanceLevel/inline/informationSourceOrganization",
+			"name": "informationSourceOrganization",
+			"definition": "The organization from which this entity data came, such as a school, college, employer, agency, or vendor. Typically, this value is configured in the orchestrator and applied to the LIF record as it is generated. This could be the organization’s name or another preferred way to indicate the organization. This value may be visible to students or instructors via external applications or an LLM advisor, so it should be something easily identifiable. This field should help users identify which system to refer to if they have questions about the data associated with this field.\n",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2d93455f575265bc8cf7d9578257b4d123bf996ad6c03329c8f81126e8eec107"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "originatingBodyLabel",
+				"definition": "Name of the institution or entity that supplied a given record, such as a school, university, company, government office, or supplier. The orchestrator usually sets this value as the record is produced. It may be the formal name or an alternate label chosen for clarity. Because students and teachers can see it in outside tools or an AI assistant, it should be recognizable at a glance. It directs people to the right system when they need clarification about the record's contents."
+			},
+			"paraphraseTries": 2
+		},
+		{
+			"stableId": "lif:Credential/Accreditation/inline/ctdlOrganizationType",
+			"name": "ctdlOrganizationType",
+			"definition": "The type of credentialing organization or entity as defined by the Credential Transparency Description Language.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f86a3a3c478fdf2f3f0161c87e0d757831bf7df69f4d57ab6630f8c48daa6627"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "credentialingBodyCategory",
+				"definition": "Classification applied to an organization or body that issues or manages credentials, drawn from the value set of the CTDL vocabulary."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Organization/shortName",
+			"name": "shortName",
+			"definition": "The name of the institution, which may be the abbreviated form of the full legally accepted name.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/46c2cf04b4f0974f0314009d656c6a311c43ef2e92d8155595c037ec606de374"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "condensedInstitutionLabel",
+				"definition": "A brief label for an organization, which can be a contracted version of its officially recognized complete title."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/AssessmentPerformanceLevel/inline/performanceLowerLevel",
+			"name": "performanceLowerLevel",
+			"definition": "Lowest possible score for the performance level.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7a05b66fe15a8baa9266b4d2802c41e04ca2cf86a61245e7ea206b779961b94d"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "achievementBandMinimum",
+				"definition": "The smallest value a score can hold while still falling within this achievement tier."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Demographics/inline/highestLevelEducation",
+			"name": "highestLevelEducation",
+			"definition": "The extent of formal instruction a person has received (e.g., the highest grade in school completed or its equivalent or the highest degree received).",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/444a67fdffb1d88b2ec70c9947b566cf825f7e4aa10d38e64590288bad9e8f45"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "peakSchoolingLevel",
+				"definition": "The degree of academic training an individual has finished, such as the last school year passed, a comparable standing, or the top academic credential earned."
+			},
+			"paraphraseTries": 2
+		},
+		{
+			"stableId": "lif:Person/CourseLearningExperience/inline/courseSectionExitWithdrawalDate",
+			"name": "courseSectionExitWithdrawalDate",
+			"definition": "The year, month and day of the first day after the date of a person's last enrollment in a course section.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/53c7cf5fa54704362706f3fc1ef590f5ed058e5b3bc0e0ded0f0484a2287a402"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "classSectionDepartureDate",
+				"definition": "Calendar date falling on the day immediately after a learner's final registration in a class section."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/CourseLearningExperience/inline/courseGradeStatusCode",
+			"name": "courseGradeStatusCode",
+			"definition": "Additional information regarding the context of the given grade.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/657858b2bee961caad2237587a6e208632ccfc0324b41c0c3f2d81996cacc58f"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "courseMarkConditionCode",
+				"definition": "Supplementary detail describing the circumstances surrounding the assigned mark."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Demographics/inline/qualifyingMoveCity",
+			"name": "qualifyingMoveCity",
+			"definition": "The name of the city in which the child resided prior to the qualifying move.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ef2cba905ecbd67f3ffda1fcc1c6ca6c3810c40ec54fa7c1c85e0f4ecc9ab007"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "eligibilityMoveOriginTown",
+				"definition": "Municipality where the learner was living before the relocation that made them eligible."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/MilitaryLearningExperience/inline/branch",
+			"name": "branch",
+			"definition": "A branch of the U.S. Military applicable for specifying more details when using Military Connected Student Indicator, Military Active Student Indicator, Military Veteran Student Indicator, and Military Enlistment After Exit elements.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/53305792fc0f81b2c3e8b601453961c773b0bda386c12c8aecca05648ce675dd"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "service",
+				"definition": "Which U.S. armed service a learner is tied to, adding specificity to the flags that mark a student as military-connected, currently serving, a former service member, or enlisting after leaving school."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Program/estimatedDuration",
+			"name": "estimatedDuration",
+			"definition": "Estimated time it will take to complete a program. [=>DurationProfile]",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5d4a9d3b45b4ce076ec6d08b124c35299d9dfbb22c3af8d959da154dc75cc522"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "projectedTimeToComplete",
+				"definition": "Forecast amount of time required for a program to be finished. Linked to the DurationProfile entity."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Person/Name/inline/lastName",
+			"name": "lastName",
+			"definition": "The last name of a person or individual",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9c2dcb0b2f8d124940696596f81292ccae00c07514eda3c83f720aed8445334f"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "surname",
+				"definition": "Family name belonging to a human being."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Credential/humanCode",
+			"name": "humanCode",
+			"definition": "A human-readable, locally unique string identifier of the Credential.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/967da37366ed360107bf76209e78440fdf9b7e2edcc9127f3ed733a27329b508"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "readableLabel",
+				"definition": "A text tag for a qualification that people can easily read, and which is unique within the originating system."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Program/recognizedBy",
+			"name": "recognizedBy",
+			"definition": "Agent that acknowledges the validity of the program.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/69ee50b7a67b6cd9c9faeb7a8c30f9bcd5bcada9d5e7a75fc0a2fc5e69bc26ab"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "validatedBy",
+				"definition": "Party that affirms that this program is legitimate."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Assessment/provider",
+			"name": "provider",
+			"definition": "Identifies the provider or publisher of the assessment.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/93bf04ec5137b283161bc61ef55107fe22847f1b08a7d9e38c054a50ba0df7a9"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "vendor",
+				"definition": "Names the organization that supplies or releases the evaluation."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:CompetencyFramework/publicationDate",
+			"name": "publicationDate",
+			"definition": "The date on which this content was first published.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/68a18da0c4da02c19169cf30b823ebf742647bbb054913d8cd4a620af02e8d70"
+			],
+			"matchTypeList": [
+				"EXACT_MATCH"
+			],
+			"paraphrase": {
+				"name": "releaseDate",
+				"definition": "The calendar day when this material first became available to the public."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "lif:Position/contractLength",
+			"name": "contractLength",
+			"definition": "The contracted period for the person.",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4a4245a76cb61975e528b9780fe998e359d79b90be1fd14b05e4c598ea4e34cb"
+			],
+			"matchTypeList": [
+				"CLOSE_MATCH"
+			],
+			"paraphrase": {
+				"name": "engagementDuration",
+				"definition": "The span of time covered by an individual's employment agreement."
+			},
+			"paraphraseTries": 1
+		}
+	],
+	"sifSubjectList": [
+		{
+			"stableId": "sif260928:question/2d6146615737d03cbbf08c57850fc01d545bc8348c782b986656b7a9ce3a3532",
+			"name": "ProgressLevel",
+			"definition": "The amount of progress shown in academic subjects.",
+			"sifCedsElementId": "P000561",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1e756a38434877fdd61f73eac9b6b730794f77760cd92cd1ad7af9d5fef0ce61",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/70963c96fa4bda59520d4176e44586e37bce636b003fb534a21c379de9435782"
+			],
+			"paraphrase": {
+				"name": "AchievementStage",
+				"definition": "The degree of advancement a learner has reached within their coursework."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/a072dad609a8e8cfef79ea51726d6bd6c058b9b9d646989704ce9d6d8a33b312",
+			"name": "explanation",
+			"definition": "Description of the changes made to the individualized program service plan.",
+			"sifCedsElementId": "P001689",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1b531c27a15450025c7349daecc9ad8e74d9d5a6a1751b9256410aa05dda811b"
+			],
+			"paraphrase": {
+				"name": "elaboration",
+				"definition": "Written account of amendments introduced into the personalized service scheme."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/15f5a082231cb5bf7ed23c90f9a34afe3666e5a44817141be136cae2413ec900",
+			"name": "MiddleName",
+			"definition": "The middle name or initial.",
+			"sifCedsElementId": "P000184",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ee830aee551838d1b348692f86d0c3e3df131e29e70cff063acdd60fe51d1fd3"
+			],
+			"paraphrase": {
+				"name": "SecondGivenName",
+				"definition": "A person's additional given name or its abbreviated letter, placed between the first given name and the family name."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/312f8a2d26db878dcbde3267d44e46e7332a626a30c69756074731cd181dc3fa",
+			"name": "responsibleSchoolType",
+			"definition": "The type of services/instruction the school is responsible for providing to the student.",
+			"sifCedsElementId": "P000595",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1d34ff2238d41c83a8f773bf816ed0f6750857ee359f7babd1d1790eb6895dc1",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5286f78315847561b559d4c45b7becd85ecd90f159d95ce22cf05c0815bef87a"
+			],
+			"paraphrase": {
+				"name": "accountableSchoolCategory",
+				"definition": "Category of educational support or teaching that a learner's school is accountable for delivering to that learner."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/1ebe4ea2a65183e985bdf7e4fc3543137b8dfb8bf6e4d4f24ad7ace448a4c116",
+			"name": "CourseCreditsEarned",
+			"definition": "Number of course credits earned.",
+			"sifCedsElementId": "P000200",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4db5a5efcdca44b5976ef9373c8d8942892d022d0798dfbd1f5bfb1f5d838a09",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5e19156ce55ea639b9828a13d91de5aaf954a87c94ad8e5824fab07879e4d473",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/6d7449721d810cc1a24108f4513cd27b34053816bda1fd28c3594d2283e1cf75",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7309f13d861a67a2e0258e74c0a74e58489aaf7510e83db2806dd42d6a46d0f7",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9278655ed64b74176d031a1d5349806e30ebd8c124d4b745f8079d58d7954700",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b15e639096124ceb3d12d15ce7937bde498da7d92aa1243c5d91227c2a2a3dfe",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/bdea8b21a83213d9e653e03d979a44339ba388a8517146478a5758f3377c0588"
+			],
+			"paraphrase": {
+				"name": "EarnedCourseCredit",
+				"definition": "Total count of credits a student has accrued from completed courses."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/00a4f452ced48e82f9bdbaa2aa11d2efb60e1e9259358f64dac86e7d393b8e1f",
+			"name": "countryCode",
+			"definition": "The unique two character International Organization for Standardization (ISO) code for the country in which an address is located.",
+			"sifCedsElementId": "P000050",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/73ae5d7d0a8588a830bb8b5b96fa8856a226e95279db69456462849c61b73c21",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cf376f4d83df2327057dc605310b52aaf0a9671dfccfc7f51cf9a3ec28ce9348"
+			],
+			"paraphrase": {
+				"name": "nationCode",
+				"definition": "A two-letter identifier drawn from the ISO country list, specifying the nation where a given postal location lies."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/15418f58409acb0b23c0ef2ae410f2a5f3dd11b24eb941f116a16dd75af0c6fb",
+			"name": "Code",
+			"definition": "Code representing the grade level.",
+			"sifCedsElementId": "P000100",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/697dceb1c377e9e2e4e5f9dea775619944d85ed6f3f3bc6f1397d42b9581c376"
+			],
+			"paraphrase": {
+				"name": "GradeLevelIndicator",
+				"definition": "Symbol that identifies a student's year or tier of schooling."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/43c27a3f3890284a21b883b204da4901bcf179d8e34d3883f8a045789bdd8517",
+			"name": "primaryIndicator",
+			"definition": "An indication that the telephone number should be used as the principal number for a person or organization.",
+			"sifCedsElementId": "P000219",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/880887d02b1bd82b71ddb8557bfb115e43f9af1bfec37faa117730300d7dd6b1"
+			],
+			"paraphrase": {
+				"name": "mainContactFlag",
+				"definition": "A marker showing that this phone number is the one to dial first when reaching an individual or an institution."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/3ade44315b795a3cc05061b28859b2301a0d9c313238b0879218e87810ccd398",
+			"name": "emergencyContactIndicator",
+			"definition": "Indicates whether or not the person is a designated emergency contact for the learner.",
+			"sifCedsElementId": "P001341",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/27ac8801c30f1ef70e8b30285b171a14a681ed875f090d4b977e4a93604aab53"
+			],
+			"paraphrase": {
+				"name": "pupilUrgentContactFlag",
+				"definition": "States yes or no: has this individual been formally named as a go-to contact to be reached in urgent situations involving the student."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/a1bbf99924e1c4124d2c36aaabe62f254b1d0a6f6b95dbf117ea8846fb7ed887",
+			"name": "parentConcernDescription",
+			"definition": "Parent's explanation of their interest in student's participation in special education",
+			"sifCedsElementId": "P001710",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cc33eab40bd91c9f60be4151727fa63e74d15b8c4b2734929f7cf3817cea5f2e"
+			],
+			"paraphrase": {
+				"name": "caregiverConcernNarrative",
+				"definition": "A guardian's narrative clarifying why they are invested in the pupil's engagement within special education."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/c7804a850b9b520759b59ec9a2931dd266791ea0222e190ff63b2ac2e016bac4",
+			"name": "nonInclusionMinutesPerWeek",
+			"definition": "The number of minutes per week that a student with disabilities is served in a regular classroom with his or her non-disabled peers.",
+			"sifCedsElementId": "P001233",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cfebfa8b82f4ecb0841322ced1881cd44244955da61712821f1797e3a31725d4"
+			],
+			"paraphrase": {
+				"name": "weeklyMainstreamClassMinutes",
+				"definition": "Weekly duration, in minutes, that a learner with a disability spends in a standard classroom together with classmates who do not have disabilities."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/fe6055cabe6f90d259d2b3ff8eae19bcfe1a29037c131756a3b9570178e7cb5e",
+			"name": "category",
+			"definition": "Legal category for an IEP annual goal or short-term objectives.",
+			"sifCedsElementId": "P001698",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ccb7c612af2fc83ef10851ab33a74d76d7bedb17ba5324fc31ba89f56325bcd2"
+			],
+			"paraphrase": {
+				"name": "classification",
+				"definition": "Statutory grouping that determines how an Individualized Education Program's yearly target or interim benchmarks are classed."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/78d079d6bd05986e5b54d2fd61fb45bc6af1acf631977232c538a9a2b85380d5",
+			"name": "line2",
+			"definition": "The second line of the address.",
+			"sifCedsElementId": "P000019",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5f5f26aa14a87e1aeeb152ff9b0310f26a6f16dadb5bcc29545007b42c5c5515"
+			],
+			"paraphrase": {
+				"name": "addrseg2",
+				"definition": "Supplementary row of a postal location block, positioned immediately after the first row."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/c83b005b2d41729cfc38b3d93cb500204b7fdcb69e3471eb4cc6df5684dc1c08",
+			"name": "StateProvince",
+			"definition": "The state or province code.",
+			"sifCedsElementId": "P000267",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/0baac1be38e31d15a119c12b3bee2b30eb1aba7485a45c3b1bc5f6c803efe258"
+			],
+			"paraphrase": {
+				"name": "RegionCode",
+				"definition": "Abbreviated designation identifying the administrative subdivision of a country, such as a state or province."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/401a4c1a081a8ab1c3ed1c3eaf6854d6d4203bc392753dada4f8b33ba6dc67ac",
+			"name": "lifecyclePurpose",
+			"definition": "Purpose within the IEP lifecycle for which the eligibility evaluation is conducted.",
+			"sifCedsElementId": "P001728",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/58d837677acb90a1efa0736983a8b8875220eaa262abf6238e362ebb980f9eba"
+			],
+			"paraphrase": {
+				"name": "iepPhaseObjective",
+				"definition": "The reason, within the stage of an Individualized Education Program process, that motivates carrying out the eligibility assessment."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/7ae4cbaa5a86f26e4638d053dd4b725ea172870a7952d9ae26be89b51bf479f7",
+			"name": "code",
+			"definition": "The code for the specific language or dialect that a person uses to communicate.",
+			"sifCedsElementId": "P000317",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1dd9759fdcd055bca0628a7237f12b74fff7fdb4091fe0b56a2dc1d092a1e54d",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/531183ec5acd852872377fa6bcba21f941df05e2a0ab02965750eb598f32c9ea",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5a44a4e7524e1586f5b6757299851b40e8a6c890610014f260d9f645303efb4d",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8a96e372be5c511bf9548e48cbf77aa98af94465dcb0c6d3d94b652b8539bf9b",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e002b7fd64f5744b917870e1b5378c68f6cf956f4c49260b838d3e1058bc90b9",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e5077413afa49026cd74ebeb4997e6c3ada9e76742209dccba7181a73e5f0e55",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fed2bf2b770f0232bdcb144ed321ec7a48326a06995bafb2382fe24ea4b68f7d"
+			],
+			"paraphrase": {
+				"name": "langIdentifier",
+				"definition": "The identifier assigned to the particular tongue or regional variety through which an individual conveys meaning."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/d495f469a5f9bd47e05dcf64dd131503a958a61d0e73c7910d65c31498886a3b",
+			"name": "LastName",
+			"definition": "The last name.",
+			"sifCedsElementId": "P000172",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9c2dcb0b2f8d124940696596f81292ccae00c07514eda3c83f720aed8445334f"
+			],
+			"paraphrase": {
+				"name": "FamilyName",
+				"definition": "The surname of the individual."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/0cf9627516932c3c4fc6142a0a14312db46ee5d6d34b91adf168f9dd09e3a080",
+			"name": "type",
+			"definition": "The specific accommodation necessary for assessment or instruction.",
+			"sifCedsElementId": "P000385",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e8d7a54e4d4b7b3c00a8c38630dfda80d38a69f167bdce81d2ff4de2b9a40f4e"
+			],
+			"paraphrase": {
+				"name": "kind",
+				"definition": "The particular adjustment required to support testing or teaching."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/192e11e3a7fddae7b42119e187a43e872f33a817cf39f37241dff2dc466a10da",
+			"name": "NeglectedOrDelinquentProgramType",
+			"definition": "The year, month and day on which the person began to participate in a program.The type of program under ESEA Title I, Part D, Subpart 1 (state programs) or Subpart 2 (LEA).",
+			"sifCedsElementId": "P000194",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/0a181e9d5672f3c61cd74b2b231d0dbc9da6c9c74c317c307bfd103035a84413"
+			],
+			"paraphrase": {
+				"name": "NeglectedOrDelinquentSchemeKind",
+				"definition": "Calendar date (year, month, and day) when the individual first took part in the scheme. Classification of the scheme under the federal statute's neglected-and-delinquent provisions: the state-administered variant (Subpart 1) or the district-administered variant (Subpart 2)."
+			},
+			"paraphraseTries": 2
+		},
+		{
+			"stableId": "sif260928:question/d693781cd61b27da3270ad5ff90ebbff6343536f758b9ae88c9176520f392743",
+			"name": "classEndingTime",
+			"definition": "An indication of the time of day the class ends.",
+			"sifCedsElementId": "P000520",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4b65a5092dd14c1f3f2329eb023ab11b3525d1abb0e6c32086ca3d8e8e7089f5"
+			],
+			"paraphrase": {
+				"name": "sessionFinishClock",
+				"definition": "The clock time at which a scheduled instructional session concludes each day."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/63b81e3717d4db0710fc2c7b9bd2ff445b94370364c5729be8da19a18cfd12f6",
+			"name": "CTEGraduationRateInclusion",
+			"definition": "An indication of how CTE concentrators are included in the state's computation of its graduation rate.",
+			"sifCedsElementId": "P000075",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/67a0db8342b8a74521f4d23f01a639fff3c75ceb1ee7c648aecbb11f8549da7b"
+			],
+			"paraphrase": {
+				"name": "CareerTechGradRateCountingIndicator",
+				"definition": "A marker showing the manner in which career and technical education concentrators are counted within the state's calculation of graduation rates."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/23f6863951e8c45b7f361f44e53be306afa7b15dea07eec6446da5809fff35c6",
+			"name": "givenName",
+			"definition": "The full legal first name given to a person at birth, baptism, or through legal change.",
+			"sifCedsElementId": "P000115",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/bc372d9309829958cc8548447b243a077a579dddb3b3260a016ea2c4ff8086ec"
+			],
+			"paraphrase": {
+				"name": "forenameLegal",
+				"definition": "The complete, officially recorded forename assigned to an individual at birth or baptism, or subsequently altered through a legal procedure."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/1b2e1d0ea68aeeb7fa1a666a864e3636de57c6fd71fdcfac0d5c5f11ca841b87",
+			"name": "Code",
+			"definition": "Identifies the specific accommodation.  At least one required if the repeating group is sent.",
+			"sifCedsElementId": "P000383",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b40810964543e9e904a15044f30e3ced52371eb6148c997d47d3cc85d0acbb42"
+			],
+			"paraphrase": {
+				"name": "Designator",
+				"definition": "Names the particular accommodation in question. A minimum of one occurrence must be included whenever the enclosing repetition set is transmitted."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/cc22d232484cd80ee0ebc4b9174e9c8f92309cdf993f576a6f6772e384f16530",
+			"name": "explanation",
+			"definition": "Description of the reason changes were made to the individualized program service plan.",
+			"sifCedsElementId": "P001688",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/588ba967d5d8fb8d390673919bd86317a2283ca914f92f3cb51c17eb6950b297"
+			],
+			"paraphrase": {
+				"name": "rationale_for_iep_amendment",
+				"definition": "Narrative stating why modifications were introduced into the student's individualized education program or service agreement."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/9ee91b3f1c9101c67d23bd2181e53d61b583e4a0127646fb4e3fcd72f37ba372",
+			"name": "@Type",
+			"definition": "The type of credit.",
+			"sifCedsElementId": "P000650",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1039b12ae750cd4bc63ae1a56866cd1bb49c66b04175541a17b67581fafc5111"
+			],
+			"paraphrase": {
+				"name": "@CreditCategory",
+				"definition": "Classifies the credit by its kind."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/12eec68973999c3adda856e7af3d392d39b31e62eca6e46e3fb16ee33695bd78",
+			"name": "postalCode",
+			"definition": "A number that identifies each postal delivery area in the locale used as a portion of an address.",
+			"sifCedsElementId": "P000214",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/eb32825807d6e601cdb25a94bcf8744ae6d0987af5a4292d773596715d4dac32"
+			],
+			"paraphrase": {
+				"name": "zipCode",
+				"definition": "A numeric value assigned to a mail-sorting region within a country, forming part of a street address."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/607e9dd80c7065166507994923853e09eef2df79c4dbd2cbf461cd18545bfed0",
+			"name": "DaysAbsent",
+			"definition": "Number of days absent.",
+			"sifCedsElementId": "P000201",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3cfb0fbf2764901b1b3e2b014ff8f8e1e51d6111ec9401e52829813002a2779d"
+			],
+			"paraphrase": {
+				"name": "AbsenceDayCount",
+				"definition": "Total count of school days on which the student was not present."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/9efc2e8d9915b8dccea70305285edbe26ea9ca8d6361bd4ca59a0a2e71237b7f",
+			"name": "HighSchoolGraduationRateIndicatorStatus",
+			"definition": "An indication of whether the school or district met the High School Graduation Rate requirement in accordance with state definition for the purposes of determining AYP.",
+			"sifCedsElementId": "P000140",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d12114f7d149ef63d00ce29f7911ea2baa791bc0f0e318f442cc56d30ac43c50"
+			],
+			"paraphrase": {
+				"name": "SecondaryCompletionBenchmarkOutcome",
+				"definition": "Shows whether a campus or local education agency reached the secondary diploma-attainment threshold as the state defines it, used to decide AYP."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/d581d2643d233b84d5f581e57c721157e56604dacf17526609a9055e460fddee",
+			"name": "@Type",
+			"definition": "Code that specifies what type of phone number this is.  Note: A subset of valid values may be specified in data objects.",
+			"sifCedsElementId": "P000280",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/65e2adb43dc849786a05a1dc8665b2b9c27fe41114e578fbdad32bfb8b920eb4"
+			],
+			"paraphrase": {
+				"name": "@PhoneCategory",
+				"definition": "Coded value denoting the category of a telephone number. Certain data objects may limit this to a smaller set of acceptable entries."
+			},
+			"paraphraseTries": 1
+		},
+		{
+			"stableId": "sif260928:question/78ae0b5b3f2d5a34bbe82b37376b0ef25d5a8d53843cbe746c12b4a9ca9e8331",
+			"name": "Code",
+			"definition": "Code representing the language of instruction.",
+			"sifCedsElementId": "P000448",
+			"trueCardStableIdList": [
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/af16e8061f40652fd476211c8e8378dcf2bf2a728f3a730da9767a35ae2f430f",
+				"https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/be1078f55d8ded98fb551a0cf8899f4c56837ee116467ce12323819b29508d20"
+			],
+			"paraphrase": {
+				"name": "InstructionLanguageIdentifier",
+				"definition": "Identifier denoting the tongue in which teaching is delivered."
+			},
+			"paraphraseTries": 1
+		}
+	],
+	"paraphraseUsage": {
+		"input": 23669,
+		"output": 31526,
+		"calls": 87
+	},
+	"paraphraseUsdUpperBound": 0.9065,
+	"paraphraseUsdNote": "an upper bound: priced at the Opus row of spendPricing.ini. This model is cheaper, and its own row is not in that table."
+}

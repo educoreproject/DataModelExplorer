@@ -143,6 +143,8 @@ const moduleFunction =
 		const citationWalkText = `${citationWalkEdgeTypeList.join('|')}*1..${CITATION_WALK_DEPTH}`;
 
 		const queryBuilderByQueryName = {
+			// the graph's identity (P5, 2026-11-06): an extracted document names the graph its passport names, never the container's name
+			goldenPassport: () => ({ cypher: 'MATCH (p:GraphProvenance) RETURN p.graphName AS graphName', params: {} }),
 			// every forged case, with its step and citation counts
 			caseList: () => ({
 				cypher: `

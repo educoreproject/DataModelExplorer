@@ -52,6 +52,8 @@ const {
 	declaredCorrespondenceCypherFor,
 	FIND_MAPPINGS_FIXED_IDENTIFIER_FIELD_LIST,
 	FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
+	FIND_MAPPINGS_CARD_INPUT_NOTE,
+	EDC_URI_INPUT_PREFIX_LIST,
 	INSTANCE_CONTEXT_PATH_RULE_LIST,
 	MATCHED_INSTANCE_GROUP_LIST_CAP,
 	HUB_TUPLE_SUMMARY_CAP,
@@ -94,9 +96,9 @@ const moduleName = path.basename(__filename).replace(/.js$/, '');
 // CONFIG
 // =====================================================================
 
-const loadConfig = (callback) => {
+// the ini section and the query embedder, with no graph connection: the API holds its own (the golden handle) and asks only this
+const loadModuleConfig = (callback) => {
 	const configFileProcessor = require('qtools-config-file-processor');
-	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
 
 	const findProjectRoot = ({ rootFolderName = 'system', closest = true } = {}) =>
 		__dirname.replace(new RegExp(`^(.*${closest ? '' : '?'}\\/${rootFolderName}).*$`), "$1");
@@ -112,23 +114,6 @@ const loadConfig = (callback) => {
 		return;
 	}
 	const moduleConfig = config[moduleName];
-
-	// Single source of truth: derive the bolt connection {boltUri,user,password} from the golden
-	// container NAME (goldenContainerName) instead of reading redundant neo4j* fields. The
-	// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
-	const { goldenContainerName } = moduleConfig;
-	if (!goldenContainerName) {
-		callback(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
-		return;
-	}
-	const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
-	if (error) {
-		callback(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
-		return;
-	}
-	moduleConfig.neo4jBoltUri = boltUri;
-	moduleConfig.neo4jUser = user;
-	moduleConfig.neo4jPassword = password;
 
 	// Create provider-agnostic embedder from config
 	// An unresolved ini token ('<!voyageApiKey!>') means the Voyage API key is absent — no embedder
@@ -146,6 +131,33 @@ const loadConfig = (callback) => {
 	}
 
 	callback('', moduleConfig);
+};
+
+const loadConfig = (callback) => {
+	const { resolveContainerConnection } = require('../../../server/data-model/lib/user-graph/container-connection-resolver');
+	loadModuleConfig((moduleConfigError, moduleConfig) => {
+		if (moduleConfigError) {
+			callback(moduleConfigError);
+			return;
+		}
+		// Single source of truth: derive the bolt connection {boltUri,user,password} from the golden
+		// container NAME (goldenContainerName) instead of reading redundant neo4j* fields. The
+		// neo4j* properties below are the RESOLVED values consumed by withNeo4jSession.
+		const { goldenContainerName } = moduleConfig;
+		if (!goldenContainerName) {
+			callback(`Config [${moduleName}] is missing goldenContainerName (the DME connection source of truth)`);
+			return;
+		}
+		const { boltUri, user, password, error } = resolveContainerConnection(goldenContainerName);
+		if (error) {
+			callback(`Cannot resolve DME connection from goldenContainerName '${goldenContainerName}': ${error}`);
+			return;
+		}
+		moduleConfig.neo4jBoltUri = boltUri;
+		moduleConfig.neo4jUser = user;
+		moduleConfig.neo4jPassword = password;
+		callback('', moduleConfig);
+	});
 };
 
 // =====================================================================
@@ -217,6 +229,11 @@ const serializeValue = (val) => {
 	}
 	return val;
 };
+
+// ⟪standardsQueryService P1⟫ the rows of one page. params.pageNumber is never a CLI flag: only the standards query core sets it, and
+// a verb without it answers its first page, which is the row list the CLI has always answered.
+const rowOffsetOfPage = (params, pageSize) => ((params.pageNumber === undefined ? 1 : params.pageNumber) - 1) * pageSize;
+const pageRowsOf = (rowList, params, pageSize) => rowList.slice(rowOffsetOfPage(params, pageSize), rowOffsetOfPage(params, pageSize) + pageSize);
 
 // L7 output bounds — a popular hub or a graph-wide rawCypher would otherwise explode the
 // JSON output (the known output-cap failure mode for LLM consumers).
@@ -299,7 +316,7 @@ const searchAllStandards = (session, query, config, params, callback) => {
 		}
 		const { fusedRowList, legHitCountByName } = args.searchResult;
 		const { sourceList } = args.standardFilter;
-		const resultList = fusedRowList.slice(0, SEARCH_PAGE_SIZE).map((oneRow) => ({
+		const resultList = pageRowsOf(fusedRowList, params, SEARCH_PAGE_SIZE).map((oneRow) => ({
 			...serializeValue(oneRow),
 			labels: oneRow.labels.filter((labelName) => labelName !== 'ForgedNode' && labelName !== 'golden'),
 		}));
@@ -497,7 +514,62 @@ const instanceContextPathPredicateFor = (nodeVariable) =>
 	`(${nodeVariable}.role = 'DmeInstance' AND any(contextSegment IN ${instanceContextSegmentListOf(nodeVariable)} WHERE toLower(contextSegment) CONTAINS toLower($name)))`;
 const findMappingsMatchPredicateFor = (nodeVariable, identifierFieldList) => `(${notLayerNodeText(nodeVariable)} AND ${notUseCaseNodeText(nodeVariable)} AND (${findMappingsNameOrIdentifierPredicateFor(nodeVariable, identifierFieldList)} OR ${instanceContextPathPredicateFor(nodeVariable)}))`;
 
-const findMappings = (session, nameOrId, callback) => {
+// ⟪standardsQueryService P1.1⟫ AN EXACT STABLEID NEEDS NO SCAN. The predicate above reads every node, 8 to 10 s a time on the demo server's vCPU and three times a call (CPU-bound, measured: no disk reads
+// during a scan). An input carrying '/' that IS a stableId answers by the index instead: a context segment cannot hold a '/', and on this graph no name or other identifier holds such a stableId
+// (test/find-mappings-exact-lookup-live.test.js checks that on the golden it runs against, so a golden where it stops being true fails a gate). A no-slash stableId can be inside a name ('ceterms:Credential' is).
+// TRAP: A NAME SEARCH KEEPS THE PREDICATE IN EVERY QUERY. Reusing the first scan's list by stableId looks free and is not: which row a tie keeps (head(collect)) and the order of a capped group
+// list follow the order the PLAN delivers nodes in, stated nowhere. Tried, and 'race' and 'name' changed bytes: IN with an index, ORDER BY id(n), and IN with USING SCAN. So only the exact form changes plan.
+const EXACT_STABLE_ID_MARK = '/';
+const matchedNodeByStableIdPredicateFor = (nodeVariable) => `${nodeVariable}.stableId IN $matchedStableIdList`;
+const scanForMatchedNodes = (session, nameOrId, identifierFieldList, callback) => {
+	runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', identifierFieldList)}
+		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n', identifierFieldList)} THEN null ELSE 1 END) AS instancePathMatchedNodeCount, collect(n.stableId) AS matchedStableIdList`,
+		{ name: nameOrId }, (scanError, scanResult) => {
+			if (scanError) {
+				callback(scanError);
+				return;
+			}
+			const scanRecord = scanResult.records[0];
+			callback('', {
+				matchedNodeCount: toNumber(scanRecord.get('matchedNodeCount')),
+				instancePathMatchedNodeCount: toNumber(scanRecord.get('instancePathMatchedNodeCount')),
+				matchedStableIdList: scanRecord.get('matchedStableIdList'),
+			});
+		});
+};
+// admitScan, when given (the standards query core), is asked before a scan and may refuse it: an exact element never scans, so it never counts against the core's cap on scans.
+const SCAN_NOT_ADMITTED_TEXT = 'scanNotAdmitted';
+const resolveMatchedNodes = (session, nameOrId, identifierFieldList, admitScan, callback) => {
+	const scanIfAdmitted = () => {
+		if (admitScan && !admitScan()) {
+			callback(SCAN_NOT_ADMITTED_TEXT);
+			return;
+		}
+		scanForMatchedNodes(session, nameOrId, identifierFieldList, callback);
+	};
+	const isEdcUriInput = EDC_URI_INPUT_PREFIX_LIST.some((onePrefix) => nameOrId.startsWith(onePrefix));
+	if (!isEdcUriInput && !nameOrId.includes(EXACT_STABLE_ID_MARK)) {
+		scanIfAdmitted();
+		return;
+	}
+	runCypherQuery(session, `MATCH (n:ForgedNode {stableId: $name}) WHERE ${notLayerNodeText('n')} AND ${notUseCaseNodeText('n')} RETURN n.stableId AS stableId, 'HubReference' IN labels(n) AS isHubCard`, { name: nameOrId }, (exactError, exactResult) => {
+		if (exactError) {
+			callback(exactError);
+			return;
+		}
+		if (exactResult.records.length === 0 && isEdcUriInput) {
+			callback('', { matchedNodeCount: 0, matchedStableIdList: [], instancePathMatchedNodeCount: 0 });
+			return;
+		}
+		if (exactResult.records.length === 0) {
+			scanIfAdmitted();
+			return;
+		}
+		callback('', { matchedNodeCount: 1, matchedStableIdList: [exactResult.records[0].get('stableId')], instancePathMatchedNodeCount: 0, isExactStableId: true, isExactHubCard: exactResult.records[0].get('isHubCard') });
+	});
+};
+
+const findMappings = (session, nameOrId, reportMatchedStableIdList, admitScan, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(nameOrId, '-findMappings'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('findMappings', 'emptyName', emptyNameRefusal));
@@ -519,25 +591,29 @@ const findMappings = (session, nameOrId, callback) => {
 		}
 		next('', { ...args, identifierFieldList: findMappingsIdentifierFieldListFor(verdict.declarationList) });
 	}));
-	taskList.push((args, next) => runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', args.identifierFieldList)}
-		RETURN count(n) AS matchedNodeCount, count(CASE WHEN ${findMappingsNameOrIdentifierPredicateFor('n', args.identifierFieldList)} THEN null ELSE 1 END) AS instancePathMatchedNodeCount`,
-		{ name: nameOrId }, (err, countResult) => {
-			if (err) {
-				next(err, args);
-				return;
-			}
-			next('', {
-				...args,
-				matchedNodeCount: toNumber(countResult.records[0].get('matchedNodeCount')),
-				instancePathMatchedNodeCount: toNumber(countResult.records[0].get('instancePathMatchedNodeCount')),
-			});
-		}));
+	taskList.push((args, next) => resolveMatchedNodes(session, nameOrId, args.identifierFieldList, admitScan, (resolveError, matched) => {
+		if (resolveError) {
+			next(resolveError, args);
+			return;
+		}
+		if (reportMatchedStableIdList) {
+			reportMatchedStableIdList(matched.matchedStableIdList);
+		}
+		next('', {
+			...args,
+			matchPredicateFor: matched.isExactStableId ? matchedNodeByStableIdPredicateFor : (nodeVariable) => findMappingsMatchPredicateFor(nodeVariable, args.identifierFieldList),
+			matchQueryParameters: matched.isExactStableId ? { matchedStableIdList: matched.matchedStableIdList } : { name: nameOrId },
+			matchedNodeCount: matched.matchedNodeCount,
+			instancePathMatchedNodeCount: matched.instancePathMatchedNodeCount,
+			isExactHubCard: matched.isExactHubCard === true,
+		});
+	}));
 	taskList.push((args, next) => {
 		if (args.matchedNodeCount === 0) {
 			next('', args);
 			return;
 		}
-		runFindMappingsQuery(session, nameOrId, args.hubInventory.hubList, args.identifierFieldList, mergeArgs(args, next, 'mappingResult'));
+		runFindMappingsQuery(session, args.matchPredicateFor, args.matchQueryParameters, args.hubInventory.hubList, args.isExactHubCard, mergeArgs(args, next, 'mappingResult'));
 	});
 	// ⟪campaign P4a, Q9⟫ where the matched instances sit: per standard, the groups (SIF objects, PESC sections) holding an
 	// instance the input matched directly or through its declaration, whether or not it carries a mapping
@@ -547,7 +623,7 @@ const findMappings = (session, nameOrId, callback) => {
 			return;
 		}
 		runCypherQuery(session, `
-			MATCH (n:ForgedNode) WHERE ${findMappingsMatchPredicateFor('n', args.identifierFieldList)}
+			MATCH (n:ForgedNode) WHERE ${args.matchPredicateFor('n')}
 			OPTIONAL MATCH (n)-[:HAS_INSTANCE]->(declaredInstance:ForgedNode)
 			WITH n, collect(declaredInstance) AS declaredInstanceList
 			WITH CASE WHEN n.role = 'DmeInstance' THEN [n] ELSE declaredInstanceList END AS instanceList
@@ -557,7 +633,7 @@ const findMappings = (session, nameOrId, callback) => {
 			WITH source, count(*) AS matchedInstanceCount, collect(DISTINCT groupName) AS groupList
 			RETURN source, matchedInstanceCount, size(groupList) AS matchedInstanceGroupCount, groupList[..$groupListCap] AS groupList
 			ORDER BY source
-		`, { name: nameOrId, groupListCap: neo4j.int(MATCHED_INSTANCE_GROUP_LIST_CAP) }, mergeArgs(args, next, 'matchedInstanceGroupResult'));
+		`, { ...args.matchQueryParameters, groupListCap: neo4j.int(MATCHED_INSTANCE_GROUP_LIST_CAP) }, mergeArgs(args, next, 'matchedInstanceGroupResult'));
 	});
 	// ⟪campaign P4a, Q1⟫ the EDGES and ELEMENTS behind every tuple the rows reach, counted from the graph: rows are views
 	taskList.push((args, next) => {
@@ -574,7 +650,7 @@ const findMappings = (session, nameOrId, callback) => {
 			next('', args);
 			return;
 		}
-		runCypherQuery(session, declaredCorrespondenceCypherFor(findMappingsMatchPredicateFor('focus', args.identifierFieldList)), { name: nameOrId, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
+		runCypherQuery(session, declaredCorrespondenceCypherFor(args.matchPredicateFor('focus')), { ...args.matchQueryParameters, declaredCorrespondenceCap: neo4j.int(DECLARED_CORRESPONDENCE_LIST_CAP) }, mergeArgs(args, next, 'declaredCorrespondenceResult'));
 	});
 	// ⟪lane R6⟫ nothing matched: what each hub's card identifier looks like, read from its own cards
 	taskList.push((args, next) => {
@@ -611,6 +687,7 @@ const findMappings = (session, nameOrId, callback) => {
 			})),
 			countUnitByField: FIND_MAPPINGS_COUNT_UNIT_BY_FIELD,
 			hubList: hubListFieldOf(args.hubInventory.hubList),
+			...(args.isExactHubCard ? { cardInputNote: FIND_MAPPINGS_CARD_INPUT_NOTE } : {}),
 			...declaredCorrespondenceFieldsOf(args.declaredCorrespondenceResult.records[0]),
 		});
 	});
@@ -660,19 +737,41 @@ const HUB_CARD_IDENTIFIER_TEXT = 'coalesce(hub.canonicalKey, hub.termIri)';
 const hubDecompositionMatchTextFor = (hubNameList) => [['DOMAIN', 'cd'], ['PROPERTY', 'cp'], ['RANGE', 'cr'], ['VALUE', 'cv'], ['QUALIFIER', 'cq']]
 	.map(([slotName, leafVariableName]) => `OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(hubNameList, slotName).join('|')}]->(${leafVariableName}:ForgedNode)`)
 	.join('\n\t\t\t');
-const runFindMappingsQuery = (session, nameOrId, hubList, identifierFieldList, callback) => {
+const runFindMappingsQuery = (session, matchPredicateFor, matchQueryParameters, hubList, isExactHubCard, callback) => {
 	const hubNameList = hubList.map((hubRow) => hubRow.hubName);
 	const incomingHubEdgePattern = allHubDecompositionEdgeTypeList(hubNameList).join('|');
 	const hubDecompositionMatchText = hubDecompositionMatchTextFor(hubNameList);
+	const incomingRowText = `			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
+			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
+			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource, m.mappingRationale AS srcMappingRationale,
+			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
+			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
+			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
+			${hubDecompositionMatchText}
+			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
+			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
+			       srcMatchType AS mappingType, srcConfidence AS confidence,
+			       srcPredicate AS matchPredicate,
+			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
+			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
+			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
+			       cd.name AS hubDomain, cp.name AS hubProperty,
+			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
+			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
+			       null AS instanceOf,
+			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
+			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
+			       null AS viaInstanceGroupList, null AS viaInstanceCount
+`;
 	runCypherQuery(session, `
 		MATCH (n:ForgedNode)
-		WHERE ${findMappingsMatchPredicateFor('n', identifierFieldList)}
+		WHERE ${matchPredicateFor('n')}
 		// An instance whose declaration ALSO matched is reported through that declaration (the
 		// outgoingViaInstance arm, grouped), not again as one loose same-named row per instance.
 		WITH n
 		WHERE NOT EXISTS {
 			MATCH (matchedDeclaration:ForgedNode)-[:HAS_INSTANCE]->(n)
-			WHERE ${findMappingsMatchPredicateFor('matchedDeclaration', identifierFieldList)}
+			WHERE ${matchPredicateFor('matchedDeclaration')}
 		}
 		CALL {
 			WITH n
@@ -736,29 +835,12 @@ const runFindMappingsQuery = (session, nameOrId, hubList, identifierFieldList, c
 			// elements that resolve to a tuple containing it. The hub decomposes like every other arm (no n.name stand-ins).
 			// A source INSTANCE is reported as its declaration, its instances grouped and counted.
 			MATCH (n)<-[:${incomingHubEdgePattern}]-(hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode)
-			WITH n, hub, m, src, ${declarationOf('src')} AS srcDeclaration
-			WITH n, hub, coalesce(srcDeclaration, src) AS sourceElement, srcDeclaration IS NOT NULL AS sourceIsInstanced,
-			     type(m) AS srcMatchType, m.mappingConfidence AS srcConfidence, m.predicate AS srcPredicate, m.mappingConfidence AS srcMappingConfidence, m.mappingKind AS srcMappingKind, m.mappingSource AS srcMappingSource, m.mappingRationale AS srcMappingRationale,
-			     CASE WHEN srcDeclaration IS NULL THEN null ELSE ${instanceGroupOf('src')} END AS srcGroupName
-			WITH n, hub, sourceElement, sourceIsInstanced, srcMatchType, srcConfidence, srcPredicate, srcMappingConfidence, srcMappingKind, srcMappingSource, srcMappingRationale,
-			     collect(DISTINCT srcGroupName) AS srcGroupList, count(*) AS srcInstanceCount
-			${hubDecompositionMatchText}
-			RETURN 'incoming' AS direction, sourceElement._source AS fromSource, sourceElement.name AS fromName, sourceElement.stableId AS fromStableId,
-			       hub.hubName AS toSource, hub.hubName AS hubName, hub.name AS toName, ${HUB_CARD_IDENTIFIER_TEXT} AS toId,
-			       srcMatchType AS mappingType, srcConfidence AS confidence,
-			       srcPredicate AS matchPredicate,
-			       srcMappingConfidence AS mappingConfidence, srcMappingKind AS mappingKind, srcMappingSource AS mappingSource, srcMappingRationale AS mappingRationale,
-			       null AS viaMatchType, null AS viaConfidence, null AS viaPredicate,
-			       null AS viaMappingConfidence, null AS viaMappingKind, null AS viaMappingSource, null AS viaMappingRationale,
-			       cd.name AS hubDomain, cp.name AS hubProperty,
-			       coalesce(cr.name, hub.rangeDatatype) AS hubRange, cv.name AS hubValue, cq.name AS hubQualifier,
-			       CASE WHEN sourceIsInstanced THEN sourceElement._id ELSE null END AS fromElementId,
-			       null AS instanceOf,
-			       CASE WHEN sourceIsInstanced THEN srcGroupList ELSE null END AS instanceGroupList,
-			       CASE WHEN sourceIsInstanced THEN srcInstanceCount ELSE null END AS instanceCount,
-			       null AS viaInstanceGroupList, null AS viaInstanceCount
-	UNION
-			WITH n
+${incomingRowText}	UNION
+			${isExactHubCard ? `WITH n
+			// ⟪cardUriAnswers⟫ n IS the hub card, asked for by its exact uri: the source elements mapped to this one card
+			MATCH (hub:HubReference)<-[m:${MATCH_EDGE_PATTERN}]-(src:ForgedNode) WHERE hub = n
+${incomingRowText}	UNION
+			` : ''}WITH n
 			// outgoingViaInstance: n is a declaration (SIF Question, PESC element) whose mappings
 			// live on its instances. One row per hub tuple and verdict, carrying the instance
 			// groups (SIF objects / PESC sections) that hold it and how many instances do.
@@ -870,7 +952,7 @@ const runFindMappingsQuery = (session, nameOrId, hubList, identifierFieldList, c
 		RETURN rowHub, rowRelation, rowStandard, standardRowList[..$findMappingsRowCap] AS topRowList, size(standardRowList) AS standardRowCount,
 		       [standardRow IN standardRowList | standardRow.direction] AS directionList, [standardRow IN standardRowList | standardRow.toId] AS toIdList
 	`, {
-		name: nameOrId,
+		...matchQueryParameters,
 		composingMatchEdgeTypeList: COMPOSING_MATCH_EDGE_TYPE_LIST,
 		nonComposingMatchEdgeTypeList: MATCH_EDGE_TYPE_LIST.filter((edgeType) => !COMPOSING_MATCH_EDGE_TYPE_LIST.includes(edgeType)),
 		findMappingsRowCap: neo4j.int(FIND_MAPPINGS_ROW_CAP),
@@ -1019,7 +1101,7 @@ const shapeHubTupleSummary = (hubTupleResult) => {
 // verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hubs are read from
 // :HubDefinition (it was the literal 'CEDS'); ⟪ctdlHub P7⟫ every hub standard is excluded, and each row names its value
 // card's hub (a cross-standard equivalent is another standard's value on the SAME card, so never across hubs).
-const compareCodesets = (session, name, callback) => {
+const compareCodesets = (session, name, reportRowStableIdList, callback) => {
 	const emptyNameRefusal = emptyArgumentRefusal(name, '-compareCodesets'); // L8
 	if (emptyNameRefusal) {
 		callback('', refusalFor('compareCodesets', 'emptyName', emptyNameRefusal));
@@ -1065,9 +1147,20 @@ const compareCodesets = (session, name, callback) => {
 			WITH collect({ sourceStandard: os._source, optionSetName: os.name, sourceValue: v.name, matchType: type(m),
 			               confidence: m.mappingConfidence, mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind,
 			               mappingSource: m.mappingSource, hubName: hub.hubName, hubValue: cv.name, hubValueKey: hub.canonicalKey,
-			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList
-			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount
-		`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList), rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, mergeArgs(args, next, 'valueResult'));
+			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList,
+			     collect([v.stableId, hub.stableId, m.assertionId]) AS identityRowList
+			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount, identityRowList[..$rowCap] AS valueIdentityRowList
+		`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList), rowCap: neo4j.int(COMPARE_CODESETS_ROW_CAP) }, (valueError, valueResult) => {
+			if (valueError) {
+				next(valueError, args);
+				return;
+			}
+			// ⟪standardsQueryService⟫ each row's [option value, card, assertion] for the core; the verb's answer does not carry them
+			if (reportRowStableIdList) {
+				reportRowStableIdList(valueResult.records[0].get('valueIdentityRowList'));
+			}
+			next('', { ...args, valueResult });
+		});
 	});
 	pipeRunner(taskList.getList(), {}, (err, args) => {
 		if (err) {
@@ -1160,14 +1253,18 @@ const unmappedFields = (session, params, callback) => {
 				  AND NOT (f)-[:HAS_INSTANCE]->(:ForgedNode)-->(:HubReference)
 				WITH f ORDER BY f._source, f.name
 				WITH collect({ standard: f._source, fieldName: f.name, path: f.path, description: f.description,
-				               isHubStandard: f._source IN $hubSourceList }) AS rowList
-				RETURN rowList[..$limit] AS unmappedRowList, size(rowList) AS totalRowCount
-			`, { limit: neo4j.int(limit), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
+				               isHubStandard: f._source IN $hubSourceList }) AS rowList, collect(f.stableId) AS stableIdList
+				RETURN rowList[$rowOffset..($rowOffset + $limit)] AS unmappedRowList, size(rowList) AS totalRowCount, stableIdList[$rowOffset..($rowOffset + $limit)] AS unmappedStableIdList
+			`, { limit: neo4j.int(limit), rowOffset: neo4j.int(rowOffsetOfPage(params, limit)), sourceList: standardFilter.sourceList, hubSourceList }, (err, result) => {
 				if (err) {
 					callback(err);
 					return;
 				}
 				const unmappedRecord = result.records[0];
+				// ⟪standardsQueryService⟫ a row's stableId is not in the verb's answer, whose fields are fixed; the core takes it here rather than reading the graph again per row
+				if (params.reportRowStableIdList) {
+					params.reportRowStableIdList(unmappedRecord.get('unmappedStableIdList'));
+				}
 				callback('', {
 					...listEnvelopeFor('unmappedFields', unmappedRecord.get('unmappedRowList').map(serializeValue), toNumber(unmappedRecord.get('totalRowCount'))),
 					...legacyHubStandardFieldOf(hubInventory.hubList),
@@ -1762,7 +1859,7 @@ const grep = (session, params, callback) => {
 			next('', args);
 			return;
 		}
-		const stableIdList = args.matchOutcome.matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => oneRow.stableId);
+		const stableIdList = pageRowsOf(args.matchOutcome.matchedRowList, params, GREP_PAGE_SIZE).map((oneRow) => oneRow.stableId);
 		runCypherQuery(session, GREP_PAGE_DETAIL_CYPHER, { stableIdList }, (detailError, detailResult) => {
 			if (detailError) {
 				next(`grep reading the page's nodes failed: ${detailError}`, args);
@@ -1783,7 +1880,7 @@ const grep = (session, params, callback) => {
 			return;
 		}
 		const { scannedNodeCount, matchedRowList } = args.matchOutcome;
-		const resultList = matchedRowList.slice(0, GREP_PAGE_SIZE).map((oneRow) => {
+		const resultList = pageRowsOf(matchedRowList, params, GREP_PAGE_SIZE).map((oneRow) => {
 			const detailRow = args.detailRowByStableId[oneRow.stableId];
 			return {
 				standard: oneRow.standard,
@@ -1962,8 +2059,8 @@ const calculate = (params, callback) => {
 const QUERY_HANDLER_BY_QUERY_TYPE = {
 	search: (session, params, config, callback) => searchAllStandards(session, params.query, config, params, callback),
 	graphRetriever: (session, params, config, callback) => graphRetriever(session, params.query, config, params, callback),
-	findMappings: (session, params, config, callback) => findMappings(session, params.name, callback),
-	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, callback),
+	findMappings: (session, params, config, callback) => findMappings(session, params.name, params.reportMatchedStableIdList, params.admitScan, callback),
+	compareCodesets: (session, params, config, callback) => compareCodesets(session, params.name, params.reportRowStableIdList, callback),
 	unmappedFields: (session, params, config, callback) => unmappedFields(session, params, callback),
 	stats: (session, params, config, callback) => getStats(session, callback),
 	listStandards: (session, params, config, callback) => getListStandards(session, callback),
@@ -2014,6 +2111,40 @@ const search = (queryType, params, callback) => {
 			callback(null, result);
 		});
 	});
+};
+
+// ⟪standardsQueryService P1⟫ THE SESSION SEAM is QUERY_HANDLER_BY_QUERY_TYPE, exported below: a handler takes any session and config, so the API runs a verb in process on its golden
+// handle's READ session with no docker inspect and no new driver. Paging (pageNumber), the matched nodes below and loadModuleConfig serve it too; the CLI path above is unchanged.
+// What the core needs of the nodes findMappings matched, by stableId. It hands the verb reportMatchedStableIdList, so the verb's one scan serves these too.
+const FIND_MAPPINGS_MATCHED_NODE_CAP = 200;
+const findMappingsMatchedNodeDetailList = (session, matchedStableIdList, callback) => {
+	runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${matchedNodeByStableIdPredicateFor('n')}
+		RETURN n.stableId AS stableId, n._source AS standardName, n.name AS elementName, n.role AS role, 'HubReference' IN labels(n) AS isHubCard ORDER BY stableId LIMIT $nodeCap`,
+		{ matchedStableIdList, nodeCap: neo4j.int(FIND_MAPPINGS_MATCHED_NODE_CAP) }, (nodeError, nodeResult) => (nodeError ? callback(nodeError) : callback('', nodeResult.records.map((oneRecord) => oneRecord.toObject()))));
+};
+
+// the same, for a caller that has not run the verb (the pair operation): one resolve, then the details
+const findMappingsMatchedNodeList = (session, nameOrId, admitScan, callback) => {
+	runCypherQuery(session, NATIVE_IDENTIFIER_DECLARATION_CYPHER, {}, (declarationError, declarationResult) => {
+		if (declarationError) {
+			callback(declarationError);
+			return;
+		}
+		const verdict = nativeIdentifierDeclarationVerdictFor(declarationResult.records.map((oneRecord) => ({ sourceKey: oneRecord.get('sourceKey'), nativeIdentifierPropertyName: oneRecord.get('nativeIdentifierPropertyName') })));
+		if (verdict.refusalName) {
+			callback(verdict.reason);
+			return;
+		}
+		resolveMatchedNodes(session, nameOrId, findMappingsIdentifierFieldListFor(verdict.declarationList), admitScan, (resolveError, matched) => (resolveError ? callback(resolveError) : findMappingsMatchedNodeDetailList(session, matched.matchedStableIdList, callback)));
+	});
+};
+
+// Which hubs any matched node reaches by a match edge, itself or through an instance. Over EVERY matched node, where the detail list stops at its cap, and outgoing only: the verb's
+// totalRowCountByHub also counts rows INTO a hub's own card, which would call CEDS's own Birthdate mapped to CEDS.
+const findMappingsMappedHubNameList = (session, matchedStableIdList, callback) => {
+	runCypherQuery(session, `MATCH (n:ForgedNode) WHERE ${matchedNodeByStableIdPredicateFor('n')}
+		MATCH (n)-[:HAS_INSTANCE*0..1]->(edgeOwner:ForgedNode)-[:${MATCH_EDGE_PATTERN}]->(card:HubReference)
+		RETURN DISTINCT card.hubName AS hubName`, { matchedStableIdList }, (hubError, hubResult) => (hubError ? callback(hubError) : callback('', hubResult.records.map((oneRecord) => oneRecord.get('hubName')))));
 };
 
 // =====================================================================
@@ -2111,4 +2242,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { search, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };
+module.exports = { search, SCAN_NOT_ADMITTED_TEXT, findMappingsMatchedNodeList, findMappingsMatchedNodeDetailList, findMappingsMappedHubNameList, resolveVerbInvocation, loadModuleConfig, VERB_INPUT_CONTRACT, withNeo4jSession, sessionAccessModeFor, QUERY_HANDLER_BY_QUERY_TYPE, WRITE_CAPABLE_QUERY_TYPE_LIST };

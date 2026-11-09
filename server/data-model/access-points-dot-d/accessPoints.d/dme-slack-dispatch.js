@@ -53,6 +53,8 @@ const buildHelpText = (slashCommand) =>
 
 const SPEND_TABLE_NAME = 'dmeSlackSpend';
 
+const { GOLDEN_GRAPH_NOT_READY_REFUSAL_NAME } = require('../../lib/neo4j-instance/golden-graph-handle');
+
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
@@ -404,7 +406,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			if (err && err !== 'skipRestOfPipe') {
-				const graphDown = /Neo4j database is not available/i.test(String(err));
+				const graphDown = /Neo4j database is not available/i.test(String(err)) || String(err).includes(GOLDEN_GRAPH_NOT_READY_REFUSAL_NAME);
 				xLog.error(`dme-slack LOOKUP-FAIL (${refId}) ${err}`);
 				deliver(
 					{

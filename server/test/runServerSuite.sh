@@ -1,6 +1,6 @@
 #!/bin/bash
 # runServerSuite.sh — runs every *.test.js under server/, cli/lib.d/data-model-explorer/test/ and cli/lib.d/rater-tool/test/, one node process each,
-# and prints one PASS/FAIL line per file plus the totals. A file passes when node exits 0.
+# and prints one PASS/FAIL line per file plus the totals. A file passes when node exits 0. A file that exits 0 and printed a line beginning SKIP: is counted apart, since it ran less than it looks: a live test with no graph runs nothing.
 # The multiTenant/ scripts are not *.test.js (they need a running server and live user graphs) and are not included.
 #
 #   bash server/test/runServerSuite.sh [outputDirPath]
@@ -14,12 +14,18 @@ mkdir -p "$OUTPUT_DIR_PATH"
 NODE_BIN_PATH="${SUITE_NODE_BIN_PATH:-/usr/local/bin/node}"
 passCount=0
 failCount=0
+skipCount=0
 failList=""
 cd "$CODE_ROOT_PATH" || exit 2
 for testFilePath in $(find server cli/lib.d/data-model-explorer/test cli/lib.d/rater-tool/test -name '*.test.js' -not -path '*/node_modules/*' | sort); do
 	logFileName="$(echo "$testFilePath" | tr '/' '_').log"
 	if "$NODE_BIN_PATH" "$testFilePath" >"$OUTPUT_DIR_PATH/$logFileName" 2>&1; then
 		passCount=$((passCount + 1))
+		if grep -qE '^[[:space:]]*SKIP:' "$OUTPUT_DIR_PATH/$logFileName"; then
+			skipCount=$((skipCount + 1))
+			echo "SKIPPED $testFilePath: $(grep -m1 -E '^[[:space:]]*SKIP:' "$OUTPUT_DIR_PATH/$logFileName" | cut -c1-120)"
+			continue
+		fi
 		echo "PASS $testFilePath"
 	else
 		failCount=$((failCount + 1))
@@ -27,6 +33,6 @@ for testFilePath in $(find server cli/lib.d/data-model-explorer/test cli/lib.d/r
 		echo "FAIL $testFilePath"
 	fi
 done
-echo "SUITE TOTAL: $((passCount + failCount)) files, $passCount passed, $failCount failed (logs in $OUTPUT_DIR_PATH)"
+echo "SUITE TOTAL: $((passCount + failCount)) files, $passCount passed, of which $skipCount SKIPPED all or part by name and proved less, $failCount failed (logs in $OUTPUT_DIR_PATH)"
 for failedFilePath in $failList; do echo "  failed: $failedFilePath"; done
 [ "$failCount" -eq 0 ]

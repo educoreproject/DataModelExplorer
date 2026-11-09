@@ -66,6 +66,11 @@ const isAdmin = computed(() =>
 				data-testid="menu-standards"
 			/>
 			<v-list-item
+				to="/explore/rosetta"
+				prepend-icon="mdi-translate"
+				title="Rosetta"
+			/>
+			<v-list-item
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
 				title="Access Guide"

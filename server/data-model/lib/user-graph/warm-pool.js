@@ -116,6 +116,34 @@ const reconcileAndPrime = (depth, callback) => {
 	cb('', { adopted, pool: pool.length, target: targetDepth });
 };
 
+// primeWhenGoldenConnects({ goldenGraphHandle, warmPoolDepth }) — STARTUP. Builds the pool ONCE, at the golden handle's first
+// connection (a spare is cut from the golden, so before that every refill only fails). A null handle is a configuration
+// fault: priming runs at once and refuses by name. warmPoolDepth absent means 2 and 0 turns the pool off, as it always has.
+const primeWhenGoldenConnects = ({ goldenGraphHandle, warmPoolDepth }) => {
+	const { xLog } = process.global;
+	const warmDepth = Number(warmPoolDepth != null ? warmPoolDepth : 2);
+	if (!(warmDepth > 0)) {
+		return;
+	}
+	const primeNow = () => {
+		xLog.status(`[dmeOpenTrace] startup: priming DME warm pool to depth ${warmDepth} (background)...`);
+		// a boundary, not control flow: this now runs on its own tick, where a throw from docker tooling would end the process
+		try {
+			reconcileAndPrime(warmDepth, (primeError, primeResult) => {
+				if (primeError) { xLog.error(`[dmeOpenTrace] startup: warm pool prime FAILED: ${primeError}`); return; }
+				xLog.status(`[dmeOpenTrace] startup: warm pool priming started — adopted ${primeResult.adopted}, target ${primeResult.target}; filling in background (serialized, one boot at a time)`);
+			});
+		} catch (primeThrow) {
+			xLog.error(`[dmeOpenTrace] startup: warm pool init error: ${primeThrow.message}`);
+		}
+	};
+	if (goldenGraphHandle) {
+		goldenGraphHandle.whenFirstConnected(primeNow);
+		return;
+	}
+	primeNow();
+};
+
 // claimWarm() — synchronously hand back the OLDEST warm clone (or null on a spike).
 // Triggers an async refill toward N. The claimed clone becomes the caller's to own.
 const claimWarm = () => {
@@ -144,6 +172,7 @@ const drainPool = (callback) => {
 module.exports = {
 	primePool,
 	reconcileAndPrime,
+	primeWhenGoldenConnects,
 	claimWarm,
 	refillAsync,
 	poolDepth,

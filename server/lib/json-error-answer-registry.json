@@ -1,0 +1,14 @@
+{
+	"_comment": "What json-error-answer.js says for an error no route answered, keyed by the error's type as body-parser and raw-body name it (err.type). A type listed here is the client's fault and keeps the status the parser gave it; any other error is answered as unknownErrorAnswer with status 500. Every answer is JSON, by name, with an errorId, and never carries the error's own message, stack or a path (todo 794a45ec). The detail goes to the server log under the same errorId.",
+	"answerByErrorType": {
+		"entity.too.large": { "refusalName": "bodyTooLarge", "reason": "the request body is larger than this route accepts" },
+		"entity.parse.failed": { "refusalName": "bodyNotParsable", "reason": "the request body could not be read as the content type it declares" },
+		"entity.verify.failed": { "refusalName": "bodyNotVerified", "reason": "the request body failed this route's check" },
+		"encoding.unsupported": { "refusalName": "bodyEncodingUnsupported", "reason": "the request body's content encoding is not one this server reads" },
+		"charset.unsupported": { "refusalName": "bodyCharsetUnsupported", "reason": "the request body's character set is not one this server reads" },
+		"request.aborted": { "refusalName": "requestAborted", "reason": "the request ended before its body arrived" },
+		"request.size.invalid": { "refusalName": "bodyLengthMismatch", "reason": "the request body's length does not match its Content-Length" },
+		"parameters.too.many": { "refusalName": "tooManyParameters", "reason": "the request body has more parameters than this server reads" }
+	},
+	"unknownErrorAnswer": { "refusalName": "internalError", "reason": "the server could not answer this request" }
+}

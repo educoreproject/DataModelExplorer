@@ -1,0 +1,31 @@
+{
+	"_comment": "DATA for Rosetta's judged step (design 4.1, 4.4, 4.5). hubRowByName: which forge bundle holds the hub half of a bridge toward each hub; a hub in the graph with no row is refused at submit by name. subjectRenderingAllowList: what the judge is shown of a stranger's field, LIF's list less what a stranger's field never has. vendorFaultRowList: what a failed judge call means, first match wins, tested against the client's error text; retriable rows are waited on within [rosetta-fuse] judgeRetryWaitSecondsList; billedWhenUnanswered says the vendor may have billed a call that never answered, so it stays priced at the estimate. attemptLimit: fewer attempts than the wait list allows, for a fault where a retry mostly buys the same answer again. endsUnitOnly: past the bound that one unit is judgeRefused and the job goes on, because the vendor is answering, only not usefully. A client error matching no row is unnamedVendorFault, and stops the job. judgeOne refusing what the vendor answered is judgeAnswerRefusalPattern: that unit is judgeRefused and the job goes on; anything else judgeOne says is a fault of this service, and stops the job. draftRefusedTermPatternList: names a @context must not hold.",
+	"hubRowByName": {
+		"CEDS": { "forgeBundleName": "ceds", "hubBridgingModuleName": "cedsHubBridging" },
+		"CTDL": { "forgeBundleName": "ctdl", "hubBridgingModuleName": "ctdlHubBridging" }
+	},
+	"subjectRenderingAllowList": ["name", "path", "description", "dataType"],
+	"judgePredicateRule": "judgeSlot-v1",
+	"proposalCategoryCountNameByCategory": { "strong": "proposedStrong", "moderate": "proposedModerate", "weakButReal": "proposedWeak" },
+	"draftCategoryList": ["strong"],
+	"runnerUpListLength": 5,
+	"alreadyMappedFromLength": 10,
+	"unnamedVendorFault": { "faultName": "judgeVendorFaultUnnamed", "reason": "the judge's vendor failed in a way this service does not name, so it stopped rather than ask again" },
+	"judgeAnswerRefusalPattern": "(the judge returned|the judge abstained|the judge picked|the judge's rationale|names no rendered candidate|predicate|judge summary)",
+	"draftRefusedTermPatternList": [
+		{ "pattern": "^@", "reason": "a name beginning @ is a JSON-LD keyword, and would change how every other term reads" },
+		{ "pattern": ":", "reason": "a name with a colon reads as a compact IRI" },
+		{ "pattern": "^(__proto__|constructor|prototype|toString|valueOf|hasOwnProperty|isPrototypeOf|propertyIsEnumerable|toLocaleString|__defineGetter__|__defineSetter__|__lookupGetter__|__lookupSetter__)$", "reason": "this name means something to the programs that read JSON, so it is kept out of a draft" }
+	],
+	"vendorFaultRowList": [
+		{ "faultName": "judgeOutOfCredit", "pattern": "API error \\(40[02]\\):.*(credit|billing)", "retriable": false, "reason": "the judge's vendor says this service's account is out of credit" },
+		{ "faultName": "judgeCredentialRefused", "pattern": "API error \\(40[13]\\)", "retriable": false, "reason": "the judge's vendor refused this service's credential" },
+		{ "faultName": "judgeModelRefused", "pattern": "API error \\(404\\)", "retriable": false, "reason": "the judge's vendor does not serve the configured model" },
+		{ "faultName": "judgeRequestRefused", "pattern": "API error \\(4(00|13|22)\\)", "retriable": false, "reason": "the judge's vendor refused the request" },
+		{ "faultName": "judgeRateLimited", "pattern": "API error \\(429\\)", "retriable": true, "reason": "the judge's vendor is limiting this service's rate" },
+		{ "faultName": "judgeServerFault", "pattern": "API error \\(5\\d\\d\\)", "retriable": true, "reason": "the judge's vendor answered with a server fault" },
+		{ "faultName": "judgeNoAnswer", "pattern": "(request error|timeout|timed out|response not JSON)", "retriable": true, "billedWhenUnanswered": true, "reason": "the judge's vendor did not answer" },
+		{ "faultName": "judgeUnpricedAnswer", "pattern": "(could not extract a choice|cannot be priced)", "retriable": true, "billedWhenUnanswered": true, "endsUnitOnly": true, "attemptLimit": 2, "reason": "the judge's vendor answered with something that could not be read" },
+		{ "faultName": "judgeModelUnpriced", "pattern": "(spendPricing|no price|unpriced|not priced)", "retriable": false, "reason": "the configured model has no price in this service's table" }
+	]
+}
