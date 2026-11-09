@@ -3,7 +3,8 @@
 // fields by requestName and requestDefinition, resultList naming each hub, every proposal naming its card's TUPLE, and detail=audit giving back everything the lean form leaves out.
 //   1. hubCardTuple: every branch of the pure reader (cardTupleFactsOf) on stub rows; the bracket text; the refusals.
 //   2. the lean full answer: the exact shape for a property, value, qualified, term and CTDL card (fixtures/rosettaFetchShape/tupledJobFixture.json, read from GOLD_261030_useCases
-//      by runs/P7a/makeTupledFixture.js; rosetta-fetch-shape-live.test.js re-reads the golden and checks this fixture still matches it).
+//      by runs/P7a/makeTupledFixture.js. Nothing re-checks this fixture against a later golden: regenerate it when the golden changes. The live gate P7aFetchShape in
+//      rosetta-judged-live.test.js checks a real job's tuple against its own Cypher).
 //   3. detail=audit loses nothing: every leaf the code at 0c1f86f answered (fixtures/rosettaFetchShape/before_0c1f86f_*.json, captured from that tree) is in the audit answer, under
 //      its new name; and every lean leaf is in the audit answer.
 //   4. the summary: the tuple bracket, the lean summary has no job or judge block, and the bracket survives a 1-byte budget.
