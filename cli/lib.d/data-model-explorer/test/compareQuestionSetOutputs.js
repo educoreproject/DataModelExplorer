@@ -34,7 +34,7 @@ const ALLOWED_ADDED_FIELD_NAME_LIST = Object.freeze([
 	'hubStandardList', 'mappedPropertyCountByHub',
 	// listStandards rows: their match edges per hub
 	'hubMatchEdgeCountByHub',
-	// Schema Verifier rows: whether the row's own standard is a hub (the name unmappedFields rows already use)
+	// Specification Viewer rows: whether the row's own standard is a hub (the name unmappedFields rows already use)
 	'isHubStandard',
 	// findMappings / explore: published cross-IRI assertions, listed apart and never a mapping (ruling 2026-10-21)
 	'declaredCorrespondenceList', 'declaredCorrespondenceCount', 'declaredCorrespondenceRowUnit',

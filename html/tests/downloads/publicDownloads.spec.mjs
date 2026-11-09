@@ -1,11 +1,11 @@
 // publicDownloads.spec.mjs — D2 of PLAN-publicDownloadsAndEditorRemoval-103026 in a real browser against a running site.
-// The downloads are public (TQ, 2026-10-30: "all public"); the Standards Explorer stays signed-in (SHADOW_MEADOW's
-// ruling the same day), so its Downloads section is checked signed IN, to prove it still works.
-//   D2a signed out, /explore/downloads opens (no redirect to /login), lists the standards, and a source zip and a graph
+// The downloads are public (TQ, 2026-10-30: "all public"), and since 2026-11-04 so is the Standards Explorer (it was
+// signed-in only, SHADOW_MEADOW's ruling of 2026-10-30); its Downloads section is checked signed out and signed in.
+//   D2a signed out, /explore/standards/downloads opens (no redirect to /login), lists the standards, and a source zip and a graph
 //       zip each download; the publications section answers (a listing, or the gold's own "none published")
 //   D2b signed out, a forged use case's Structure tab offers the whole standard's zips (no "once you sign in" text) and
 //       one downloads
-//   D2c signed out, the Standards Explorer still sends a visitor to /login (it was not opened)
+//   D2c signed out, the Standards Explorer opens (public since 2026-11-04) and its Downloads section offers the CEDS zips
 //   D2d signed in, the Standards Explorer's Downloads section offers the CEDS zips and one downloads
 // A download counts only when the browser fires its download event and the saved file is not empty.
 //
@@ -59,8 +59,8 @@ try {
 	const visitorContext = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1100 } });
 	const visitorPage = await visitorContext.newPage();
 
-	console.log('D2a signed out: /explore/downloads');
-	await visitorPage.goto(`${baseUrl}/explore/downloads`);
+	console.log('D2a signed out: /explore/standards/downloads');
+	await visitorPage.goto(`${baseUrl}/explore/standards/downloads`);
 	await visitorPage.waitForTimeout(1500);
 	check('the Downloads page opens without a redirect to /login', !/\/login/.test(visitorPage.url()), visitorPage.url());
 	const manifestShown = await visitorPage.waitForSelector('[data-testid="downloads-stamp"]', { timeout: 30000 }).then(() => true, () => false);
@@ -109,21 +109,23 @@ try {
 		await structureDownloads.screenshot({ path: shotPath('D2b-structureTab-signedOut') });
 	}
 
-	console.log('D2c signed out: the Standards Explorer still asks for sign-in');
-	await visitorPage.goto(`${baseUrl}/explore/graphicModelExplorer`);
-	await visitorPage.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {});
-	check('the Standards Explorer sends a visitor to /login', /\/login/.test(visitorPage.url()), visitorPage.url());
+	console.log('D2c signed out: the Standards Explorer is public (BD 2026-11-04)');
+	await visitorPage.goto(`${baseUrl}/explore/standards?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`);
+	await visitorPage.waitForSelector('[data-testid="standards-explorer"]', { timeout: 30000 }).catch(() => {});
+	check('signed out: the Standards Explorer opens, no sign-in asked', (await visitorPage.locator('[data-testid="standards-explorer"]').count()) === 1 && !/\/login/.test(visitorPage.url()), visitorPage.url());
+	await visitorPage.waitForSelector('[data-testid="downloads-section"] [data-testid^="download-entry-"]', { timeout: 60000 }).catch(() => {});
+	check('signed out: the explorer\'s Downloads section offers the CEDS zips', (await visitorPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').count()) > 0);
 	await visitorContext.close();
 
 	// ---- signed in
 	console.log('D2d signed in: the Standards Explorer\'s Downloads section');
 	const memberContext = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1100 } });
 	const memberPage = await memberContext.newPage();
-	await memberPage.goto(`${baseUrl}/login?redirect=${encodeURIComponent(`/explore/graphicModelExplorer?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`)}`);
+	await memberPage.goto(`${baseUrl}/login?redirect=${encodeURIComponent(`/explore/standards?path=${encodeURIComponent(CEDS_ROOT_PATH_TEXT)}`)}`);
 	await memberPage.getByLabel('User Name').fill(argumentByName.userName);
 	await memberPage.getByLabel('Password', { exact: true }).fill(userPassword);
 	await memberPage.getByRole('button', { name: 'Login' }).click();
-	await memberPage.waitForURL(/graphicModelExplorer/, { timeout: 30000 });
+	await memberPage.waitForURL(/\/explore\/standards\?path=/, { timeout: 30000 });
 	await memberPage.waitForSelector('[data-testid="downloads-section"] [data-testid^="download-entry-"]', { timeout: 60000 }).catch(() => {});
 	const sectionButton = memberPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').first();
 	const sectionButtonCount = await memberPage.locator('[data-testid="downloads-section"] button[data-testid^="download-"]:not([disabled])').count();

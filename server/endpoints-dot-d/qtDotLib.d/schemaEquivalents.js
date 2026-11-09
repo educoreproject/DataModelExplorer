@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict';
-// @concept: [[SchemaVerifier]]
+// @concept: [[SpecificationViewer]]
 // @concept: [[SecurityFirstPattern]]
 
-// schemaEquivalents — POST /api/schemaEquivalents { wordList } for the Schema Verifier page (campaign P4b, A11 /
+// schemaEquivalents — POST /api/schemaEquivalents { wordList } for the Specification Viewer page (campaign P4b, A11 /
 // W-E-8). Logged-in users only. The browser sends WORDS, never Cypher: the query is the schema-equivalents mapper's,
 // run on the golden read-only handle. A refusal (an empty word list, a graph lacking a required label) is answered
 // 400 with its text, so the page shows why instead of an empty result.

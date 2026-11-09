@@ -8,7 +8,7 @@
 //   3. detail=audit loses nothing: every leaf the code at 0c1f86f answered (fixtures/rosettaFetchShape/before_0c1f86f_*.json, captured from that tree) is in the audit answer, under
 //      its new name; and every lean leaf is in the audit answer.
 //   4. the summary: the tuple bracket, the lean summary has no job or judge block, and the bracket survives a 1-byte budget.
-//   5. the registry: rosettaFetch declares detail (lean | audit, default lean) and an envelopeRule; no other row does.
+//   5. the registry: rosettaFetch declares detail (lean | audit, default lean) and an envelopeRule; of the others only rosettaRetrieval does (P7b).
 //   node server/test/rosetta-fetch-shape.test.js
 
 const path = require('path');
@@ -172,7 +172,8 @@ const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) 
 	ok('the graph changed since submit: graphChangedSinceSubmit holds the graph the job was submitted on', sameJson(changedGraph.graphChangedSinceSubmit, storedFixture.job.answeredFrom));
 	ok('detail must be lean or audit: anything else throws, never read as the default', threwMatching(() => reportOf(reportArgumentsOf(storedFixture, { rowDetail: 'full', detail: undefined })), /detail must be one of lean, audit/) && threwMatching(() => reportOf(reportArgumentsOf(storedFixture, { rowDetail: 'full', detail: 'full' })), /detail must be one of/));
 	const usingLean = usingOf({ job: storedFixture.job, spentUsd: 0, judgmentRowList: storedFixture.judgmentRowList, judgeCallCount: 0, detail: 'lean' });
-	ok('using names the judge by promptVariant, the provider, the model, what it cost and that it came from the cache', sameJson(usingLean, { judge: 'derivedJudgeSlot', provider: 'anthropic', model: 'claude-opus-5', costUsd: 0, cached: true }), JSON.stringify(usingLean));
+	// ⟪P7b, TQ Q66⟫ the judge is named by promptVersion, which this fixture (judged before units recorded it) names absent; rosetta-vocabulary.test.js covers the rest
+	ok('using names the prompt version (absent here, by name), the provider, the model, what it cost and that it came from the cache', sameJson(usingLean, { promptVersionAbsentName: 'judgedBeforePromptVersionRecorded', provider: 'anthropic', model: 'claude-opus-5', costUsd: 0, cached: true }), JSON.stringify(usingLean));
 	ok('one vendor call makes cached false', usingOf({ job: storedFixture.job, spentUsd: 0.07, judgmentRowList: storedFixture.judgmentRowList, judgeCallCount: 1, detail: 'lean' }).cached === false);
 	ok('a job that judged nothing is not cached', usingOf({ job: storedFixture.job, spentUsd: 0, judgmentRowList: [], judgeCallCount: 0, detail: 'lean' }).cached === false);
 	ok('audit adds the counts behind cached', sameJson(Object.keys(usingOf({ job: storedFixture.job, spentUsd: 0, judgmentRowList: storedFixture.judgmentRowList, judgeCallCount: 0, detail: 'audit' })).slice(5), ['judgedUnitCount', 'judgeCallCount']));
@@ -190,6 +191,7 @@ const leafMapOf = (sourceObject, prefixText = '') => {
 const renamedPathOf = (oldPath, hubNameList) => oldPath
 	.replace(/^fieldList\.(\d+)\.name$/, 'fieldList.$1.requestName')
 	.replace(/^fieldList\.(\d+)\.definition$/, 'fieldList.$1.requestDefinition')
+	.replace(/^fieldList\.(\d+)\.path$/, 'fieldList.$1.requestPath') // ⟪P7b, TQ Q67a⟫
 	.replace(/^fieldList\.(\d+)\.byHub\.([A-Za-z0-9]+)\./, (unusedMatch, fieldIndex, hubName) => `fieldList.${fieldIndex}.resultList.${hubNameList.indexOf(hubName)}.`);
 [[beforeFullPage1, 1], [beforeFullPage2, 2]].forEach(([beforeEnvelope, pageNumber]) => {
 	const auditAnswer = reportOf(reportArgumentsOf(storedFixture, { rowDetail: 'full', detail: 'audit', pageNumber }));
@@ -250,7 +252,8 @@ console.log('- 6. the registry');
 	const detailField = fetchRow.inputFieldList.find((oneField) => oneField.name === 'detail');
 	ok('rosettaFetch takes detail: lean or audit, default lean', detailField && sameJson(detailField.enum, ['lean', 'audit']) && detailField.defaultValue === 'lean');
 	ok('its envelopeRule keeps graphName and manifest in the lean answeredFrom and drops the uriNote', fetchRow.envelopeRule && sameJson(fetchRow.envelopeRule.leanAnsweredFromFieldNameList, ['graphName', 'manifest']) && fetchRow.envelopeRule.omitsUriNote === true && fetchRow.envelopeRule.detailInputName === 'detail');
-	ok('no other operation has an envelopeRule or a detail input', registry.operationList.filter((oneRow) => oneRow.envelopeRule || oneRow.inputFieldList.some((oneField) => oneField.name === 'detail')).map((oneRow) => oneRow.operationName).join() === 'rosettaFetch');
+	// ⟪P7b⟫ retrieval takes fetch's envelope too (rosetta-vocabulary.test.js)
+	ok('no operation but retrieval and fetch has an envelopeRule or a detail input', registry.operationList.filter((oneRow) => oneRow.envelopeRule || oneRow.inputFieldList.some((oneField) => oneField.name === 'detail')).map((oneRow) => oneRow.operationName).join() === 'rosettaRetrieval,rosettaFetch');
 	ok('the description tells a reader to cite the tuple', /cite the tuple/.test(fetchRow.description) && /requestName/.test(fetchRow.description) && /resultList/.test(fetchRow.description));
 }
 

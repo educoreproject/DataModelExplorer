@@ -11,7 +11,7 @@
 //      drilling the SIF group lists exactly its elements;
 //   5. an Ed-Fi element reached through the anchor resolves, with property-level mappings and an EdFi ancestor chain;
 //   6. refusals by name: no action, unknown action, empty / unknown stableId, unknown family, malformed group id,
-//      an unknown id in a path summary; the endpoint is logged-in only and answers 401 / 400;
+//      an unknown id in a path summary; the endpoint is public (since PR #27) and answers 400 to a refusal;
 //   7. RED TWINS (no graph): a version-identity collision is reported; the spec's key without the position strip
 //      misreads moved properties; an unknown action is refused before any query runs; a digest that moved with
 //      nothing visible reads 'unexplained'; a QName's namespace version alone is not a difference;
@@ -122,7 +122,8 @@ loadAccessPoint({ runQuery: (cypher, params, callback) => { twinQueryCount++; ca
 
 // ---- 6. the endpoint, read as text and run with the real validator
 const endpointText = fs.readFileSync(ENDPOINT_PATH, 'utf8');
-ok('endpoint: logged-in roles only (user/client/admin, never public)', /getValidator\(\['user', 'client', 'admin'\]\)/.test(endpointText) && !/getValidator\(\[[^\]]*'public'/.test(endpointText));
+// the Standards Explorer is public since PR #27 (0ed74f5): the endpoint admits the public role
+ok('endpoint: open to the public role (the Explorer needs no sign-in)', /getValidator\(\['public'\]\)/.test(endpointText));
 ok('endpoint: the browser sends no Cypher (no cypher field read from the body)', !/body\.cypher|requestBody\.cypher/.test(endpointText));
 
 const runEndpoint = ({ authclaims, requestBody, accessPoint }, callback) => {
@@ -467,7 +468,7 @@ neo4jGen.initDatabaseInstance({ neo4jBoltUri: goldenConnection.boltUri, neo4jUse
 		(done) => ask({ action: 'node', stableId: 'standardGroup:nogroup' }, (refusalText) => { ok('refusal: malformed standard group id', /is not a standard group id/.test(refusalText || ''), refusalText); done(); }),
 		(done) => ask({ action: 'pathSummary', stableIdList: [found.ct18RootStableId, 'no:such:node'] }, (refusalText) => { ok('refusal: a path with an unknown id', /no node in this graph has stableId 'no:such:node'/.test(refusalText || ''), refusalText); done(); }),
 		(done) => runEndpoint({ authclaims: { user: { role: 'public' } }, requestBody: { action: 'catalog', standardFamily: 'PESC' }, accessPoint }, (answer) => {
-			ok('endpoint: a public (not logged-in) caller is answered 401', answer.statusCode === 401, `${answer.statusCode}`);
+			ok('endpoint: a public (not logged-in) caller is answered 200 as [result]', answer.statusCode === 200 && Array.isArray(answer.body), `${answer.statusCode}`);
 			done();
 		}),
 		(done) => runEndpoint({ authclaims: { user: { role: 'user' } }, requestBody: { action: 'node', stableId: 'no:such:node' }, accessPoint }, (answer) => {

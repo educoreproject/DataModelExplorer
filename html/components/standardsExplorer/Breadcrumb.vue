@@ -1,14 +1,18 @@
 <script setup>
-// The walk so far, each crumb clickable, with its family's colour. A long walk keeps its first two and last three
+// The walk so far, each crumb a link (an href to that point of the walk), with its family's colour. A long walk keeps its first two and last three
 // crumbs and folds the middle into one '…' that names what it hides.
 
 import { computed } from 'vue';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerLinkOf, familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 
 const props = defineProps({
 	crumbList: { type: Array, required: true },
 });
-const emit = defineEmits(['go-to-crumb']);
+const store = useStandardsNeighbourhoodStore();
+
+// the walk up to and including a crumb, as a link
+const crumbLinkOf = (oneCrumb) => explorerLinkOf(store.pathStableIdList.slice(0, oneCrumb.pathIndex + 1));
 
 const FOLD_ABOVE_CRUMB_COUNT = 6;
 
@@ -30,18 +34,18 @@ const lastPathIndex = computed(() => props.crumbList.length - 1);
 		<ol class="crumb-list">
 			<li v-for="(oneCrumb, crumbIndex) in shownCrumbList" :key="`${oneCrumb.stableId}-${crumbIndex}`" class="crumb-item">
 				<span v-if="crumbIndex > 0" aria-hidden="true" class="crumb-divider">›</span>
-				<button
-					type="button"
+				<NuxtLink
+					:to="crumbLinkOf(oneCrumb)"
 					class="crumb-button"
 					:class="{ 'crumb-current': oneCrumb.pathIndex === lastPathIndex && !oneCrumb.isFold }"
 					:aria-current="oneCrumb.pathIndex === lastPathIndex && !oneCrumb.isFold ? 'page' : undefined"
 					:title="oneCrumb.titleText || oneCrumb.displayName"
+					:aria-label="oneCrumb.isFold ? `${oneCrumb.titleText} (hidden steps of the walk)` : undefined"
 					:data-testid="`crumb-${crumbIndex}`"
-					@click="emit('go-to-crumb', oneCrumb.pathIndex)"
 				>
 					<span v-if="!oneCrumb.isFold" aria-hidden="true" class="crumb-dot" :style="{ background: familyStyleOf(oneCrumb.standardFamily).fill || familyStyleOf(oneCrumb.standardFamily).color }" />
 					{{ oneCrumb.displayName }}
-				</button>
+				</NuxtLink>
 			</li>
 		</ol>
 	</nav>
@@ -86,6 +90,7 @@ const lastPathIndex = computed(() => props.crumbList.length - 1);
 	cursor: pointer;
 	background: transparent;
 	color: #072a6c;
+	text-decoration: none;
 }
 .crumb-button:hover {
 	background: #f3f5fa;

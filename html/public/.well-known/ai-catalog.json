@@ -1,0 +1,139 @@
+{
+  "$comment": "EDUcore's catalog for AI agents: what the site offers and how to reach it. Human-readable twin: /llms.txt.",
+  "schemaVersion": "1.0",
+  "name": "EDUcore",
+  "url": "https://educore.org",
+  "description": "A knowledge graph of education data standards (CEDS, PESC, SIF, Ed-Fi, CTDL, CASE, CLR, Open Badges, Ed-API, LIF, JEDx, CIP and more): their classes and properties, how each maps to the shared hub elements, and vetted use cases whose steps cite the elements they read or write.",
+  "contact": {
+    "email": "support@educore.org"
+  },
+  "llmsTxt": "https://educore.org/llms.txt",
+  "sitemap": "https://educore.org/sitemap.xml",
+  "documentation": "https://educore.org/explore/access-guide",
+  "mcpServers": [
+    {
+      "name": "educore-standards",
+      "description": "Read-only access to the EDUcore standards graph. Call getSchema first, then cypherQuery with parameterised read-only Cypher.",
+      "url": "https://ed-core.org/mcp",
+      "transport": "streamable-http",
+      "authentication": {
+        "type": "oauth2",
+        "note": "educore.org login required; request credentials from support@educore.org"
+      },
+      "tools": [
+        "getSchema",
+        "cypherQuery"
+      ],
+      "declaration": "https://educore.org/.well-known/mcp.json"
+    }
+  ],
+  "apis": [
+    {
+      "name": "Graph schema",
+      "method": "GET",
+      "url": "https://educore.org/api/dme-cypher-query?action=schema",
+      "authentication": "none"
+    },
+    {
+      "name": "Read-only Cypher query",
+      "method": "POST",
+      "url": "https://educore.org/api/dme-cypher-query",
+      "authentication": "none",
+      "description": "The engine behind the MCP cypherQuery tool.",
+      "requestBody": {
+        "action": "query",
+        "query": "MATCH (hub:HubDefinition) RETURN hub.hubName",
+        "params": {}
+      }
+    },
+    {
+      "name": "Specifications",
+      "method": "GET",
+      "url": "https://educore.org/api/dme-specifications",
+      "authentication": "none",
+      "description": "Every specification the graph holds, with element, class and property counts."
+    },
+    {
+      "name": "Specification elements",
+      "method": "GET",
+      "url": "https://educore.org/api/dme-spec-elements",
+      "authentication": "none",
+      "description": "One specification's elements, searchable."
+    },
+    {
+      "name": "Use cases",
+      "method": "POST",
+      "url": "https://educore.org/api/forged-use-cases",
+      "authentication": "none",
+      "requestBody": {
+        "action": [
+          "list",
+          "byCitedStandard",
+          "case",
+          "caseStructure",
+          "useCaseDiagram"
+        ],
+        "caseStableId": "for every action but list and byCitedStandard"
+      },
+      "description": "The EDUcore use-case standard; useCaseDiagram answers one case's map (steps to the CEDS elements they read or write) as SVG."
+    },
+    {
+      "name": "Downloads manifest",
+      "method": "POST",
+      "url": "https://educore.org/api/standard-downloads-manifest",
+      "authentication": "none",
+      "requestBody": {},
+      "description": "Every standard's source and graph downloads; fetch one with POST /api/standard-downloads-file { downloadId }."
+    },
+    {
+      "name": "Standards Explorer node",
+      "method": "POST",
+      "url": "https://educore.org/api/standards-neighbourhood",
+      "authentication": "none",
+      "requestBody": {
+        "action": "node",
+        "stableId": "families:all to start"
+      }
+    },
+    {
+      "name": "Standards with hub coverage",
+      "method": "GET",
+      "url": "https://educore.org/api/dme-list-standards",
+      "authentication": "educore.org login (Bearer token)"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Use cases",
+      "url": "https://educore.org/explore/use-cases",
+      "access": "public"
+    },
+    {
+      "name": "One use case",
+      "urlTemplate": "https://educore.org/explore/use-cases/forged/{caseStableId}",
+      "access": "public"
+    },
+    {
+      "name": "Standards Explorer (with the specification catalog)",
+      "url": "https://educore.org/explore/standards",
+      "urlTemplate": "https://educore.org/explore/standards?path={walk}",
+      "access": "public"
+    },
+    {
+      "name": "Specification Viewer",
+      "url": "https://educore.org/explore/standards/specifications",
+      "access": "public"
+    },
+    {
+      "name": "Downloads",
+      "url": "https://educore.org/explore/standards/downloads",
+      "urlTemplate": "https://educore.org/explore/standards/downloads?family={family}",
+      "access": "public"
+    },
+    {
+      "name": "Access guide",
+      "url": "https://educore.org/explore/access-guide",
+      "access": "public"
+    }
+  ]
+}

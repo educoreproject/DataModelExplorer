@@ -1,204 +1,74 @@
 <script setup>
-import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-const specStore = useSpecificationMetadataStore();
+// @concept: [[DataModelExplorer]]
+// Explore → Standards: the one standards view. One sidebar entry, three tabs, each its own child route so a tab is a
+// link to share and each tab keeps its own query (the explorer's ?path=, the downloads' ?family=…):
+//   Explorer        /explore/standards                 the specification catalog and the Standards Explorer as one view:
+//                                                      the walk, with each family's catalog card (public since
+//                                                      2026-11-04; it was signed-in only)
+//   Specifications  /explore/standards/specifications  the Specification Viewer (public)
+//   Downloads       /explore/standards/downloads       every standard's source and graph zips (public)
+// The old routes (/explore/graphicModelExplorer, /explore/standards/explorer, /explore/specification-viewer,
+// /explore/schema-verifier, /explore/downloads, /explore/pesc) redirect here with their query, so shared links still
+// land on their screen.
 
-// Group by category
-const categories = computed(() => {
-	const grouped = specStore.specsByCategory;
-	return Object.entries(grouped).map(([category, items]) => ({ category, items }));
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+
+const STANDARDS_TAB_LIST = [
+	{ tabKey: 'explorer', title: 'Explorer', icon: 'mdi-graph-outline', to: '/explore/standards' },
+	{ tabKey: 'specifications', title: 'Specifications', icon: 'mdi-table-search', to: '/explore/standards/specifications' },
+	{ tabKey: 'downloads', title: 'Downloads', icon: 'mdi-download-box-outline', to: '/explore/standards/downloads' },
+];
+
+const activeTabKey = computed(() => {
+	const trailingSegment = route.path.replace(/\/$/, '').split('/').pop();
+	return STANDARDS_TAB_LIST.find((oneTab) => oneTab.tabKey === trailingSegment)?.tabKey || 'explorer';
 });
-
-const burdenColor = (burden) => {
-	if (burden === 'low') return 'success';
-	if (burden === 'medium') return 'warning';
-	return 'error';
-};
-
-const expandedCards = ref([]);
 </script>
 
 <template>
-	<v-container class="py-8" style="max-width: 1100px;">
-		<h1 class="text-h4 font-weight-bold text-primary mb-2">Interoperability Specifications</h1>
-		<p class="text-body-1 text-medium-emphasis mb-8">
-			{{ specStore.specCount }} education data specifications with implementation guidance, equity considerations, and cross-spec relationships.
-		</p>
-
-		<div v-for="group in categories" :key="group.category" class="mb-10">
-			<h2 class="text-h6 font-weight-bold mb-4">{{ group.category }}</h2>
-			<v-row>
-				<v-col
-					v-for="spec in group.items"
-					:key="spec.id"
-					cols="12"
+	<div class="standards-view" data-testid="standards-view">
+		<div class="standards-view-bar">
+			<h1 class="standards-view-title">Standards</h1>
+			<v-tabs :model-value="activeTabKey" color="primary" density="comfortable" show-arrows class="standards-view-tabs" aria-label="Standards sections">
+				<v-tab
+					v-for="oneTab in STANDARDS_TAB_LIST"
+					:key="oneTab.tabKey"
+					:value="oneTab.tabKey"
+					:to="oneTab.to"
+					:exact="oneTab.tabKey === 'explorer'"
+					:prepend-icon="oneTab.icon"
+					:data-testid="`standards-tab-${oneTab.tabKey}`"
 				>
-					<v-card variant="outlined" class="mb-2">
-						<v-card-title class="d-flex align-center flex-wrap ga-2 pb-1">
-							<span class="text-subtitle-1 font-weight-bold" style="flex: 1; min-width: 200px;">{{ spec.title }}</span>
-							<v-chip size="x-small" :color="burdenColor(spec.implementationBurden)" variant="tonal">
-								{{ spec.implementationBurden }} burden
-							</v-chip>
-							<v-chip size="x-small" :color="spec.accessLevel === 'open' ? 'success' : 'warning'" variant="tonal">
-								{{ spec.accessLevel }}
-							</v-chip>
-						</v-card-title>
-
-						<v-card-subtitle class="pb-2">
-							{{ spec.owner }} &mdash; {{ /^\d/.test(spec.version) ? 'v' + spec.version : spec.version }}
-							<template v-if="spec.governanceBody"> &middot; Governance: {{ spec.governanceBody }}</template>
-							<template v-if="spec.lastUpdated"> &middot; Updated {{ spec.lastUpdated }}</template>
-						</v-card-subtitle>
-
-						<v-card-text class="pt-0">
-							<p class="text-body-2 mb-3">{{ spec.description }}</p>
-
-							<!-- Tags -->
-							<div class="mb-3">
-								<v-chip
-									v-for="tag in spec.tags.slice(0, 8)"
-									:key="tag"
-									size="x-small"
-									variant="tonal"
-									class="mr-1 mb-1"
-								>
-									{{ tag }}
-								</v-chip>
-							</div>
-
-							<!-- Expandable details -->
-							<v-expansion-panels variant="accordion" flat>
-								<v-expansion-panel>
-									<v-expansion-panel-title class="text-caption font-weight-bold px-0">
-										Implementation Details
-									</v-expansion-panel-title>
-									<v-expansion-panel-text>
-										<!-- Burden Rubric -->
-										<div v-if="spec.burdenRubric" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-2">Burden Rubric</h4>
-											<v-table density="compact">
-												<tbody>
-													<tr v-for="(val, key) in spec.burdenRubric" :key="key">
-														<td class="text-capitalize font-weight-medium" style="width: 120px;">{{ key }}</td>
-														<td>
-															<v-chip size="x-small" :color="burdenColor(val.level === 'moderate' ? 'medium' : val.level)" variant="tonal" class="mr-2">
-																{{ val.level }}
-															</v-chip>
-															{{ val.note }}
-														</td>
-													</tr>
-												</tbody>
-											</v-table>
-										</div>
-
-										<!-- Required Capabilities -->
-										<div v-if="spec.requiredCapabilities?.length" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Required Capabilities</h4>
-											<ul class="text-body-2 pl-4">
-												<li v-for="cap in spec.requiredCapabilities" :key="cap">{{ cap }}</li>
-											</ul>
-										</div>
-
-										<!-- Implementation Guidance -->
-										<div v-if="spec.implementationGuidance" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Guidance</h4>
-											<p class="text-body-2">{{ spec.implementationGuidance }}</p>
-										</div>
-
-										<!-- Commonly Paired With -->
-										<div v-if="spec.commonlyPairedWith?.length" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Commonly Paired With</h4>
-											<div>
-												<v-chip
-													v-for="pairedId in spec.commonlyPairedWith"
-													:key="pairedId"
-													size="x-small"
-													variant="outlined"
-													class="mr-1 mb-1"
-												>
-													{{ specStore.specById(pairedId)?.title || pairedId }}
-												</v-chip>
-											</div>
-										</div>
-
-										<!-- Known Adopters -->
-										<div v-if="spec.knownAdopters?.length" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Known Adopters</h4>
-											<div>
-												<v-chip
-													v-for="adopter in spec.knownAdopters"
-													:key="adopter"
-													size="x-small"
-													variant="outlined"
-													class="mr-1 mb-1"
-												>
-													{{ adopter }}
-												</v-chip>
-											</div>
-										</div>
-
-										<!-- Privacy Considerations -->
-										<div v-if="spec.privacyConsiderations" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Privacy Considerations</h4>
-											<p class="text-body-2">
-												<v-chip size="x-small" variant="tonal" class="mr-1"
-													:color="spec.privacyConsiderations.level === 'low-concern' ? 'success' : spec.privacyConsiderations.level === 'medium-concern' ? 'warning' : 'error'"
-												>
-													{{ spec.privacyConsiderations.level }}
-												</v-chip>
-												{{ spec.privacyConsiderations.notes }}
-											</p>
-											<div v-if="spec.privacyConsiderations.regulations?.length" class="mt-1">
-												<v-chip v-for="reg in spec.privacyConsiderations.regulations" :key="reg" size="x-small" variant="outlined" class="mr-1">{{ reg }}</v-chip>
-											</div>
-										</div>
-
-										<!-- Equity Considerations -->
-										<div v-if="spec.equityConsiderations" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-1">Equity Considerations</h4>
-											<p class="text-body-2">
-												<v-chip size="x-small" variant="tonal" class="mr-1"
-													:color="spec.equityConsiderations.level === 'low-concern' ? 'success' : 'warning'"
-												>
-													{{ spec.equityConsiderations.level }}
-												</v-chip>
-												{{ spec.equityConsiderations.notes }}
-											</p>
-										</div>
-
-										<!-- Sample Payloads -->
-										<div v-if="spec.samplePayloads?.length" class="mb-4">
-											<h4 class="text-caption font-weight-bold mb-2">Sample Payloads</h4>
-											<div v-for="payload in spec.samplePayloads" :key="payload.label" class="mb-2">
-												<div class="text-caption text-medium-emphasis mb-1">{{ payload.label }}</div>
-												<pre class="pa-3 rounded" style="background: #2d2d2d; color: #f8f8f2; font-size: 0.8rem; overflow-x: auto; max-height: 300px;">{{ payload.code }}</pre>
-											</div>
-										</div>
-
-										<!-- Technical Doc Links -->
-										<div v-if="spec.technicalDocLinks?.length">
-											<h4 class="text-caption font-weight-bold mb-1">Documentation</h4>
-											<div>
-												<v-btn
-													v-for="link in spec.technicalDocLinks"
-													:key="link.url"
-													:href="link.url"
-													target="_blank"
-													size="small"
-													variant="text"
-													class="mr-2"
-													prepend-icon="mdi-open-in-new"
-												>
-													{{ link.label }}
-												</v-btn>
-											</div>
-										</div>
-									</v-expansion-panel-text>
-								</v-expansion-panel>
-							</v-expansion-panels>
-						</v-card-text>
-					</v-card>
-				</v-col>
-			</v-row>
+					{{ oneTab.title }}
+				</v-tab>
+			</v-tabs>
 		</div>
-	</v-container>
+		<NuxtPage />
+	</div>
 </template>
+
+<style scoped>
+.standards-view-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 8px 24px;
+	padding: 16px clamp(16px, 3vw, 40px) 0;
+	background: var(--edu-surface, #fff);
+	border-bottom: 1px solid #e3e7ef;
+}
+.standards-view-title {
+	margin: 0 0 8px;
+	font-family: 'DM Serif Display', Georgia, serif;
+	font-weight: 400;
+	font-size: 30px;
+	color: #072a6c;
+}
+.standards-view-tabs {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+</style>

@@ -18,10 +18,10 @@
 // CEDS element), approved the same way.
 
 import { ref, computed, watch } from 'vue';
-import { useSchemaVerifierStore, elementCurationKey } from '@/stores/schemaVerifierStore';
+import { useSpecificationViewerStore, elementCurationKey } from '@/stores/specificationViewerStore';
 import { matchDescriptionOf } from '@/components/standardsExplorer/explorerVocabulary';
 
-const store = useSchemaVerifierStore();
+const store = useSpecificationViewerStore();
 
 const props = defineProps({
 	// { source, name, path, standard, description, sourceId, kind }

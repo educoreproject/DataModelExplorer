@@ -157,6 +157,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			...(outcome.judgesRationale ? { judgesRationale: outcome.judgesRationale } : {}),
 			...(outcome.answerWasCut ? { answerWasCut: true } : {}),
 			...(outcome.notJudgedReason ? { notJudgedReason: outcome.notJudgedReason } : {}),
+			...(outcome.rendererVersion ? { rendererVersion: outcome.rendererVersion } : {}),
 			...(chosenCandidate ? {
 				proposal: {
 					uri: chosenCandidate.uri,

@@ -37,6 +37,10 @@ const citationWalkEdgeTypeList = Object.freeze([
 const CITATION_WALK_DEPTH = 3;
 // the edges a story names its data by
 const storyDataEdgeTypeList = Object.freeze(['CONSUMES', 'PRODUCES']);
+// ⟪Overview diagram⟫ the edges a story's data reaches its parts by (a produced package COMPRISES the references it holds), and how
+// many of them the diagram follows from a step: the 4-hop fs002 path is HAS_STEP → PRODUCES → COMPRISES → reference
+const dataPartEdgeTypeList = Object.freeze(['COMPRISES', 'HAS_CONSTITUENT']);
+const DATA_PART_WALK_DEPTH = 2;
 
 // ⟪Phase C3, TQ 2026-10-30: the old pages had swimlanes and t-charts⟫ the case's own context edges, each with the page section
 // that shows it (data, not a branch): who takes part, what it assumes and guarantees, what starts it, what it serves, what it
@@ -283,6 +287,21 @@ const moduleFunction =
 				params: { caseStableId },
 			}),
 
+			// ⟪Overview diagram⟫ which data each step reads (CONSUMES) or writes (PRODUCES): the reference the story names, and the
+			// references that reference is made of (COMPRISES / HAS_CONSTITUENT, up to DATA_PART_WALK_DEPTH hops), each with the
+			// hops it took. A story's data that is no reference (and holds none) is answered with referenceStableId null.
+			caseStepDataLinkList: ({ caseStableId }) => ({
+				cypher: `
+					MATCH (:UcUseCase {stableId: $caseStableId})-[step:HAS_STEP]->(story)-[dataEdge:${storyDataEdgeTypeList.join('|')}]->(namedData)
+					OPTIONAL MATCH partWalk = (namedData)-[:${dataPartEdgeTypeList.join('|')}*0..${DATA_PART_WALK_DEPTH}]->(reference:UcDataReference)
+					RETURN DISTINCT step.codedNotation AS codedNotation, type(dataEdge) AS dataEdgeType,
+					       namedData.stableId AS namedDataStableId, namedData.name AS namedDataName,
+					       reference.stableId AS referenceStableId, CASE WHEN partWalk IS NULL THEN 0 ELSE length(partWalk) END AS partHopCount
+					ORDER BY codedNotation, dataEdgeType, partHopCount
+				`,
+				params: { caseStableId },
+			}),
+
 			// every data reference the case reaches, with the element it cites when the graph holds one
 			caseCitationList: ({ caseStableId }) => ({
 				cypher: `
@@ -484,6 +503,7 @@ const moduleFunction =
 			caseContextSectionList,
 			mapContextRecordList,
 			mapImplementationGuideRecordList,
+			dataPartEdgeTypeList,
 		};
 	};
 

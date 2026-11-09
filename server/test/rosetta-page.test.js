@@ -11,6 +11,8 @@ const faultList = [
 	// ⟪P7a⟫ a field's results are a resultList, each naming its hub: the page reads one through resultFor
 	/judgesRationale/.test(templateText) && !/\{\{ resultFor\(oneField, hubName\)\.judgesRationale \}\}/.test(templateText) ? 'the rationale is not shown by interpolation' : '',
 	/The judge's words/.test(templateText) ? '' : 'the rationale is not labelled as the judge\'s words',
+	// ⟪P7b⟫ retrieval speaks fetch's words: the Candidates tab reads requestName and each resultList item's hub, never byHub or a field's bare name
+	/byHub|oneField\.name\b/.test(templateText) || !/oneField\.resultList/.test(templateText) || !/\{\{ oneField\.requestName \}\}[\s\S]*\{\{ onePool\.hub \}\}/.test(templateText) ? 'the Candidates tab does not read requestName and resultList' : '',
 ].filter(Boolean);
 faultList.forEach((oneFault) => console.log(`  FAIL: ${oneFault}`));
 console.log(faultList.length === 0 ? '  PASS: the page shows every answer by interpolation, and labels the rationale\nrosetta-page: 1 passed, 0 failed' : `rosetta-page: 0 passed, ${faultList.length} failed`);

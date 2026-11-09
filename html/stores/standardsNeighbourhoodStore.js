@@ -35,6 +35,9 @@ const standardsNeighbourhoodStoreInitObject = {
 };
 
 const NEIGHBOURHOOD_URL = '/api/standards-neighbourhood';
+// the walk is public (BD 2026-11-04): a visitor without a token sends no Authorization header (a 'Bearer undefined' would be
+// refused as a malformed token), a signed-in one sends theirs
+const authHeadersOf = (loginStore) => (loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {});
 
 const refusalTextOf = (error, operationName) =>
 	(typeof error.response?.data === 'string' && error.response.data) || error.message || `the ${operationName} request failed`;
@@ -144,7 +147,20 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		},
 
 		// a large level opens in the table unless the person asked for the diagram of THIS level
+		// ⟪Schema Viewer, BD 2026-11-04⟫ the standard the walk is in: the focus's own family, else the family the walk began
+		// in; none at the families catalog, where there is no one standard to show the schema of
+		walkStandard() {
+			const focusNode = this.focusNode;
+			if (!focusNode || focusNode.kind === 'familyCatalog') return null;
+			const standardFamily = focusNode.standardFamily || (this.pathStableIdList.find((oneStableId) => oneStableId.indexOf('family:') === 0) || '').slice('family:'.length);
+			if (!standardFamily) return null;
+			return { standardFamily, standardKey: focusNode.standardKey || null, releaseLabel: focusNode.releaseLabel || null, version: focusNode.version || null };
+		},
+
+		// the view shown: the choice, except that a large level opens as a table (unless its diagram was asked for), and the
+		// Schema Viewer needs a standard to show (at the families catalog it falls back to the diagram)
 		effectiveViewMode() {
+			if (this.viewModeChoice === 'schema') return this.walkStandard ? 'schema' : 'diagram';
 			if (this.isLargeLevel && this.diagramRequestedForStableId !== this.focusNode?.stableId) return 'table';
 			return this.viewModeChoice;
 		},
@@ -210,7 +226,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			this.neighbourhoodLoading = true;
 			this.statusMsg = '';
 			try {
-				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'node', stableId, compareVersion: true }, { headers: { ...loginStore.getAuthTokenProperty } });
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'node', stableId, compareVersion: true }, { headers: authHeadersOf(loginStore) });
 				const neighbourhood = Array.isArray(response.data) ? response.data[0] : null;
 				if (!neighbourhood || !neighbourhood.node) {
 					this.statusMsg = 'the server answered without a neighbourhood';
@@ -232,7 +248,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		async fetchPathSummary(stableIdList) {
 			const loginStore = useLoginStore();
 			try {
-				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'pathSummary', stableIdList }, { headers: { ...loginStore.getAuthTokenProperty } });
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'pathSummary', stableIdList }, { headers: authHeadersOf(loginStore) });
 				const pathSummary = Array.isArray(response.data) ? response.data[0] : null;
 				(pathSummary?.nodeSummaryList || []).forEach((oneSummary) => {
 					this.nodeSummaryByStableId[oneSummary.stableId] = oneSummary;
@@ -286,7 +302,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			const loginStore = useLoginStore();
 			this.versionTileStateByStableId[stableId] = { loading: true, statusMsg: '', versionCounterparts: null };
 			try {
-				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'versionCounterparts', stableId }, { headers: { ...loginStore.getAuthTokenProperty } });
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'versionCounterparts', stableId }, { headers: authHeadersOf(loginStore) });
 				const versionCounterparts = Array.isArray(response.data) ? response.data[0] : null;
 				if (!versionCounterparts || !Array.isArray(versionCounterparts.counterpartList)) {
 					this.versionTileStateByStableId[stableId] = { loading: false, statusMsg: 'the server answered without version counterparts', versionCounterparts: null };

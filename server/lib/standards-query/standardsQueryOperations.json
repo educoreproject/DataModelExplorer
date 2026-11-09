@@ -1400,6 +1400,16 @@
 			"isCounted": true,
 			"cachePolicy": "noStore",
 			"summaryShaperName": "rosettaRetrieval",
+			"envelopeRule": {
+				"_comment": "P7b (TQ Q67b; ROMANTIC_PARASOL Q-B, Q-C 2026-11-09): fetch's envelope, by the same rule. detail chooses it: lean keeps answeredFrom to the graph and manifest, audit keeps it whole. No uriNote: a retrieval candidate carries no uriKind or resolvesHere, so the note would promise what the rows do not hold.",
+				"detailInputName": "detail",
+				"leanDetailValue": "lean",
+				"leanAnsweredFromFieldNameList": [
+					"graphName",
+					"manifest"
+				],
+				"omitsUriNote": true
+			},
 			"inputFieldList": [
 				{
 					"name": "fieldList",
@@ -1464,6 +1474,18 @@
 					"defaultValue": "summary",
 					"maxLengthConfigName": "maxQueryChars",
 					"description": "summary (the default) suits a model: each pool's size and top candidates, with leftOutOfSummary saying by count what it left out. full carries every candidate."
+				},
+				{
+					"name": "detail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"lean",
+						"audit"
+					],
+					"defaultValue": "lean",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "lean (the default): each field's results, one per hub. audit adds what lean leaves out: a job's clock, estimate, notes, zero counts, pool sizes, graph at submit and descriptive ranges (rangeList); retrieval's counts (fieldCount, poolCountList); and the whole answeredFrom."
 				}
 			],
 			"refusalNameList": [
@@ -1494,7 +1516,7 @@
 			"usageSubjectInputNameList": [],
 			"uriFieldRuleList": [],
 			"coreAddedFieldList": [],
-			"description": "Submit your own fields, as a field list, a JSON Schema or a JSON-LD @context, and get for every field and every hub the hub cards whose text is closest to yours: a pool of candidates with cosines. Nothing is judged: a pool is candidates, never an answer, and its first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists. Each answer holds each pool's size and top candidates unless rowDetail=full; about 20 fields at a time keeps it readable. Your text goes to the embedding vendor, Voyage AI, to become a vector, under that vendor's terms; this service keeps a hash and the vector, not the text. Every element and card carries uri; quote it, it is permanent.",
+			"description": "Submit your own fields, as a field list, a JSON Schema or a JSON-LD @context, and get for every field and every hub the hub cards whose text is closest to yours: a pool of candidates with cosines. A field reads as sent (requestName, requestPath, requestDefinition, requestType) and holds resultList, one pool per hub. detail=audit adds the counts and the whole answeredFrom. Nothing is judged: a pool is candidates, never an answer, and its first candidate is not a mapping. An empty pool means nothing came close enough, not that no equivalent exists. Each answer holds each pool's size and top candidates unless rowDetail=full; about 20 fields at a time keeps it readable. Your text goes to the embedding vendor, Voyage AI, to become a vector, under that vendor's terms; this service keeps a hash and the vector, not the text. Every element and card carries uri; quote it, it is permanent.",
 			"aboutEntry": {
 				"forWhat": "Find which hub cards come closest to your own fields, for you to read and decide on.",
 				"whatThisDoesNot": "Nothing is judged. A pool is candidates ranked by how close their text is to yours, never an answer: its first candidate is not a mapping, and an empty pool does not mean no equivalent exists.",
@@ -1516,7 +1538,6 @@
 					"fieldList",
 					"nothingJudgedNote",
 					"rankNote",
-					"poolCountByHub",
 					"leftOutOfSummary"
 				]
 			},
@@ -1782,7 +1803,7 @@
 					],
 					"defaultValue": "lean",
 					"maxLengthConfigName": "maxQueryChars",
-					"description": "lean (the default): each field's results, each proposal's card and tuple. audit adds what lean leaves out: the job's clock and estimate, the notes, zero counts, pool sizes, the graph at submit, the whole answeredFrom, and a card's descriptive ranges (rangeList)."
+					"description": "lean (the default): each field's results, one per hub. audit adds what lean leaves out: a job's clock, estimate, notes, zero counts, pool sizes, graph at submit and descriptive ranges (rangeList); retrieval's counts (fieldCount, poolCountList); and the whole answeredFrom."
 				}
 			],
 			"refusalNameList": [
@@ -1792,7 +1813,7 @@
 				"inputTooLong",
 				"loopbackNotAdmitted"
 			],
-			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full, and lean unless detail=audit. A field is named as you sent it (requestName) and holds resultList, one result per hub. A proposal names its card and the card's tuple, the elements it stands for (domain, property and so on, only those the card has), each with its kind, its own standard's identifier (nativeId, e.g. { cedsId: P002040 }), label and uri: to cite the idea, cite the tuple. The summary line shows the tuple's identifiers, e.g. [C200296 · P002040]. answeredFrom.using names the judge, its cost and whether it came from the cache. Every card carries uri; quote it, it is permanent.",
+			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full, and lean unless detail=audit. A field is named as you sent it (requestName, and requestPath where it sat in your document) and holds resultList, one result per hub. A proposal names its card and the card's tuple, the elements it stands for (domain, property and so on, only those the card has), each with its kind, its own standard's identifier (nativeId, e.g. { cedsId: P002040 }), label and uri: to cite the idea, cite the tuple. The summary line shows the tuple's identifiers, e.g. [C200296 · P002040]. answeredFrom.using names the prompt version that judged (promptVersion), the provider and model, its cost and whether it came from the cache. Every card carries uri; quote it, it is permanent.",
 			"aboutEntry": {
 				"forWhat": "Read a judged job's drafts and report, whole or as far as it got.",
 				"exampleInput": {
@@ -2072,7 +2093,7 @@
 			"rank"
 		],
 		"retrievalFieldFieldList": [
-			"name",
+			"requestName",
 			"definitionAbsent",
 			"valueTierNotOffered"
 		],
@@ -2091,7 +2112,7 @@
 		"judgedAnswerByteBudget": 18950,
 		"howToAskForFullJudged": "Ask rowDetail=full and page for proposals with their tuples, rationales and runner-ups; add detail=audit for everything the lean form leaves out.",
 		"retrievalReadableFieldCount": 20,
-		"howToAskForFullRetrieval": "Ask rowDetail=full for every candidate of every pool, with its votes, card cosine, both ranks and domain.",
+		"howToAskForFullRetrieval": "Ask rowDetail=full for every candidate of every pool, with its votes, card cosine, both ranks and domain; add detail=audit for the whole-answer counts and the whole answeredFrom.",
 		"retrievalOverReadableAdvice": "This answer is over what a model client may read. To read every field, submit about {readableFieldCount} fields at a time: text already submitted costs nothing to send again."
 	},
 	"aboutText": {
@@ -2121,7 +2142,7 @@
 			"targetKind": "What a mapping row points at: card. element is reserved for mappings between elements, which no manifest holds yet.",
 			"refusal": "An HTTP 4xx or 503 (a tool error on MCP) whose answer carries refusedByName, refusalName, reason and sometimes validValueList. The question was not answered; that does not mean no such data exists."
 		},
-		"uriResolvesToLine": "A uri is a permanent name; w3id.org does not forward these names yet. To read one, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. It answers in JSON.",
+		"uriResolvesToLine": "A uri is a permanent name; at w3id.org it forwards to the production service. To read one here, replace https://w3id.org/EDUcore/ with {edcBaseUrl}. It answers in JSON.",
 		"operationNoteLine": "Each operation answers at its exampleUrl's path, by GET unless method says otherwise, and on MCP as the tool mcpTool names, or standards_<operation> where that is absent, unless isOnMcp is false. Each is quick unless slowWhen says otherwise. Inputs are in sharedInputDescriptionByName unless the operation words one itself.",
 		"uriNotResolvedHereLine": "A uri is a permanent name. This instance has no route that reads one.",
 		"retrievalUnconfiguredLine": "not configured here, so retrieval refuses by name",

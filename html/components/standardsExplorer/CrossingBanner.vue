@@ -3,12 +3,16 @@
 // offers the way back to the element the person started from.
 
 import { computed } from 'vue';
-import { familyStyleOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerLinkOf, familyStyleOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 
 const props = defineProps({
 	crossing: { type: Object, required: true },
 });
-const emit = defineEmits(['go-home']);
+const store = useStandardsNeighbourhoodStore();
+
+// the way back is a link to the walk as it stood at the home crumb
+const homeLink = computed(() => explorerLinkOf(store.pathStableIdList.slice(0, props.crossing.homeCrumb.pathIndex + 1)));
 
 const crossedStyle = computed(() => familyStyleOf(props.crossing.crossedFamily));
 const homeStyle = computed(() => familyStyleOf(props.crossing.homeCrumb.standardFamily));
@@ -20,7 +24,7 @@ const homeStyle = computed(() => familyStyleOf(props.crossing.homeCrumb.standard
 			<b :style="{ color: crossedStyle.color }">You have crossed into {{ crossedStyle.displayName }}</b>
 			through the {{ kindDisplayNameOf('hubAnchor', crossing.anchorCrumb.hubName) }} {{ crossing.anchorCrumb.displayName }}. Everything below is {{ crossedStyle.displayName }}, not {{ homeStyle.displayName }}.
 		</span>
-		<v-btn size="small" variant="outlined" color="primary" data-testid="crossing-back" @click="emit('go-home')">Back to {{ crossing.homeCrumb.displayName }}</v-btn>
+		<v-btn size="small" variant="outlined" color="primary" data-testid="crossing-back" :to="homeLink">Back to {{ crossing.homeCrumb.displayName }}</v-btn>
 	</div>
 </template>
 

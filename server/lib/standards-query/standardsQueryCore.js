@@ -382,12 +382,12 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 			}), done);
 		},
 		// nothing here is judged: rosettaRetrieval has no way to reach a judge. An instance with no [rosetta-fuse] refuses this one operation by name; the others are untouched.
-		rosettaRetrieval: ({ registryRow, input, namedSubjectList }, done) => {
+		rosettaRetrieval: ({ registryRow, input, detail, namedSubjectList }, done) => {
 			if (!rosettaRetrieval) {
 				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', 'this instance has no [rosetta-fuse] settings, so retrieval is off here') });
 				return;
 			}
-			rosettaRetrieval.runRetrieval({ withReadSession: goldenHandle.withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, done);
+			rosettaRetrieval.runRetrieval({ withReadSession: goldenHandle.withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, done);
 		},
 		// the judged step: a job, not a request. Its registry row names which of the four actions it is. The same shape on every door; none of them holds a rule of its own.
 		rosettaJobs: ({ registryRow, input, principal, pageNumber, rowDetail, detail, namedSubjectList }, done) => {

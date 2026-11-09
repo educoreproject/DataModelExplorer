@@ -6,7 +6,7 @@
 //   createRosettaJudgeEngine({ judgedValues, judgeModules, jobStore, componentOverrides?, nowMs, waitMilliseconds, xLog }) → { refusalText } | engine
 //   engine.judgeFieldAgainstPool({ jobRefId, ownerPrincipalRefId, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, done(errText, outcome))
 //     candidateCardList: the cards the judge is offered, each { stableId, ...its text }. THE MASKED TEST'S HOOK IS THIS ARGUMENT: a gate takes a true card out of the list before calling. No route, tool, config or request holds it, because the runner always passes what retrieval gave.
-//     outcome: { unitStatus: 'proposed' | 'abstained' | 'identifierInSourceText' | 'identifierInCandidateText' | 'judgeRefused', chosenCardStableId?, collapsedMemberStableIdList?, category?, confidence?, judgesRationale?, predicate?, promptHash?, cacheHit? }
+//     outcome: { unitStatus: 'proposed' | 'abstained' | 'identifierInSourceText' | 'identifierInCandidateText' | 'judgeRefused', chosenCardStableId?, collapsedMemberStableIdList?, category?, confidence?, judgesRationale?, predicate?, promptHash?, rendererVersion?, cacheHit? }
 //            | { vendorStop: { faultName, reason } } (the job must end: nothing about the field was learned) | { stoppedBy: { stopReasonName, ... } } (stopReasonNow said so between attempts)
 //   engine.hubFactsFor(hubName) → { refusalText } | { candidateFieldNameList }. engine.judgeFacts, engine.spendPricer.
 //
@@ -296,13 +296,15 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					return;
 				}
 				xLog.status(`rosettaJudgeEngine: job ${jobRefId}: judgeOne refused one answer`);
-				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash });
+				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash, rendererVersion: rendered.rendererVersion });
 				return;
 			}
 			const collapse = (rendered.cardCollapseList || []).find((oneEntry) => oneEntry.renderedStableId === judged.chosenCardStableId);
 			done('', {
 				unitStatus: unitStatusOfJudged({ chosenCardStableId: judged.chosenCardStableId, answerWasCut: stopHolder.answerWasCut }),
 				promptHash: question.promptHash,
+				// ⟪P7b, TQ Q66⟫ the version this unit's question was rendered with, which keys its promptHash: what the fetch answer names as using.promptVersion
+				rendererVersion: rendered.rendererVersion,
 				cacheHit: judged.cacheHit,
 				...(judged.chosenCardStableId === null ? {} : { chosenCardStableId: judged.chosenCardStableId, category: judged.category, confidence: judged.confidence === undefined ? CONFIDENCE_OF_NO_CATEGORY : judged.confidence, ...(judged.predicate ? { predicate: judged.predicate } : {}) }),
 				...(collapse ? { collapsedMemberStableIdList: collapse.memberStableIdList } : {}),

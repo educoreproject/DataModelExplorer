@@ -652,7 +652,7 @@ gate('judgedPoolCap', (done) => {
 	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => { // the harness holds what the inis hold: 20
 		const ask = askFor(harness);
 		ask('rosettaRetrieval', { fieldList: [field], hubList: ['CEDS'], rowDetail: 'full' }, USER_A, (onAnswer) => {
-			ok('judgedPoolCap on: retrieval\'s public pool is still whole', onAnswer.answer.fieldList[0].byHub.CEDS.poolSize === 40, `${onAnswer.answer.fieldList[0].byHub.CEDS.poolSize}`);
+			ok('judgedPoolCap on: retrieval\'s public pool is still whole', resultOfHub(onAnswer.answer.fieldList[0], 'CEDS').poolSize === 40, `${resultOfHub(onAnswer.answer.fieldList[0], 'CEDS').poolSize}`);
 			ask('rosettaSubmit', { fieldList: [field], hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, () => {
 				const offeredCount = Number((vendor.callLog[vendor.callLog.length - 1].userPrompt.match(/CANDIDATE ELEMENTS \((\d+)\)/) || [])[1]);
 				ok(`judgedPoolCap on: the judge is offered at most 21, not 40 (${offeredCount})`, offeredCount >= 15 && offeredCount <= 21, `${offeredCount}`);
@@ -709,13 +709,14 @@ const p7aCandidateNumberFor = (promptText, labelText) => promptText.split('\n').
 	return !soFar.chosenNumber && soFar.currentNumber && oneLine.trim() === `name: ${labelText}` ? { ...soFar, chosenNumber: soFar.currentNumber } : soFar;
 }, {}).chosenNumber || '1';
 // the MCP door's own handler, registered on a stand-in server, calling the core as the access point does
-const mcpFetchFor = (harness) => {
+const mcpToolFor = (harness, mcpToolName) => {
 	const { toolFactsFromRegistry, registerStandardsQueryTools } = require('../lib/mcp-server/standardsQueryTools');
 	const handlerByToolName = {};
 	const { toolSpecList } = toolFactsFromRegistry({ registry, providerToolList: [] });
 	registerStandardsQueryTools({ server: { registerTool: (toolName, unusedSpec, handler) => { handlerByToolName[toolName] = handler; } }, toolSpecList, getAuth: () => ({ sub: P7A_USER_REF_ID, role: 'user' }), accessPointsDotD: { 'standards-query': (accessArguments, accessDone) => harness.core.runOperation(accessArguments, accessDone) }, logToolCall: () => {}, xLog: { error: () => {} } });
-	return (input, done) => handlerByToolName.rosetta_fetch(input).then((toolResult) => done(toolResult.content[0].text));
+	return (input, done) => handlerByToolName[mcpToolName](input).then((toolResult) => done(toolResult.content[0].text));
 };
+const mcpFetchFor = (harness) => mcpToolFor(harness, 'rosetta_fetch');
 // the API door: its admission, as endpoints-dot-d/qtDotLib.d/standards-query.js makes it, then the core
 const apiAskFor = (harness) => (operationName, input, done) => admitRequest({ door: 'api', credential: { user: { refId: P7A_USER_REF_ID, role: 'user' } }, operationName, registryRow: registry.operationList.find((oneRow) => oneRow.operationName === operationName) }, (unusedError, admission) => harness.core.runOperation({ operationName, input, principal: admission.principal }, (unusedRunError, answer) => done(answer)));
 gate('P7aFetchShape', (done) => {
@@ -746,7 +747,8 @@ gate('P7aFetchShape', (done) => {
 					console.log(`  P7a lean CEDS result: ${JSON.stringify(cedsResult)}`);
 					console.log(`  P7a lean envelope answeredFrom: ${JSON.stringify(leanFull.answeredFrom)}`);
 					ok('P7a: lean answeredFrom is graphName, manifest and using, nothing else', JSON.stringify(Object.keys(leanFull.answeredFrom)) === JSON.stringify(['graphName', 'manifest', 'using']) && JSON.stringify(Object.keys(leanSummary.answeredFrom)) === JSON.stringify(['graphName', 'manifest', 'using']), JSON.stringify(leanFull.answeredFrom));
-					ok('P7a: using names judge, provider, model, costUsd and cached, read from the job', JSON.stringify(Object.keys(leanFull.answeredFrom.using)) === JSON.stringify(['judge', 'provider', 'model', 'costUsd', 'cached']) && leanFull.answeredFrom.using.judge === 'derivedJudgeSlot' && leanFull.answeredFrom.using.model === 'claude-opus-5' && leanFull.answeredFrom.using.cached === false && leanFull.answeredFrom.using.costUsd > 0, JSON.stringify(leanFull.answeredFrom.using));
+					// ⟪P7b, TQ Q66⟫ the judge is named by promptVersion, read from what each unit recorded
+					ok('P7a: using names promptVersion, provider, model, costUsd and cached, read from the job', JSON.stringify(Object.keys(leanFull.answeredFrom.using)) === JSON.stringify(['promptVersion', 'provider', 'model', 'costUsd', 'cached']) && leanFull.answeredFrom.using.promptVersion === 'derivedJudgeSlot-v1' && leanFull.answeredFrom.using.model === 'claude-opus-5' && leanFull.answeredFrom.using.cached === false && leanFull.answeredFrom.using.costUsd > 0, JSON.stringify(leanFull.answeredFrom.using));
 					ok('P7a: no uriNote in any form (no Rosetta row carries uriKind or resolvesHere)', [leanSummary, leanFull, auditSummary, auditFull].every((oneBody) => !('uriNote' in oneBody)));
 					ok('P7a: audit answeredFrom is whole, with using and the counts behind cached', ['graphName', 'manifestRefId', 'manifestLabel', 'manifest', 'manifestByContent', 'builtAt', 'graphContractSha256', 'instance', 'apiVersion', 'operation'].every((fieldName) => fieldName in auditFull.answeredFrom) && auditFull.answeredFrom.using.judgeCallCount === vendor.callLog.length && auditFull.answeredFrom.using.judgedUnitCount === 2, JSON.stringify(auditFull.answeredFrom));
 					ok('P7a: the lean answer leads jobRefId, status, fieldList; no job, judge, notes or answeredFromAtSubmit', leanFull.answer.jobRefId === jobRefId && leanFull.answer.status === 'done' && ['job', 'judge', 'strongOnlyNote', 'strongEvidenceNote', 'rationaleNote', 'answeredFromAtSubmit', 'page'].every((fieldName) => !(fieldName in leanFull.answer)), JSON.stringify(Object.keys(leanFull.answer)));
@@ -784,6 +786,70 @@ gate('P7aFetchShape', (done) => {
 					});
 				};
 				compareForm(0);
+			});
+		});
+	}, done);
+});
+
+// ⟪P7b⟫ WORKORDER-P7b-rosettaVocabulary-110926: one vocabulary across the family, through BOTH doors' own code. Q66: using.promptVersion is what the job's units recorded
+// (the renderer version less its prefix); audit keeps each unit's rendererVersion. Q67a: requestPath. Q67b: retrieval speaks fetch's words, in all four forms, and its two doors
+// agree byte for byte. Gate 2's side-by-side (one field through retrieval and fetch) is printed for the evidence file.
+const P7B_PATH_TEXT = '$.person.military.dischargeDate';
+const SHARED_FIELD_NAME_LIST = Object.freeze(['requestName', 'requestPath', 'requestDefinition', 'resultList']);
+gate('P7bVocabulary', (done) => {
+	const vendor = fakeJudgeVendorFor({ answerFor: ({ payload }) => pickOf(p7aCandidateNumberFor(payload.messages[0].content, P7_FIELD_NAME), 'strong', 'It means the same thing.') });
+	withHarness({ vendorPostOnce: vendor.postOnce, embedder: exactTextEmbedderFor() }, (harness, close) => {
+		const ask = askFor(harness);
+		const apiAsk = apiAskFor(harness);
+		const mcpFetch = mcpFetchFor(harness);
+		const mcpRetrieve = mcpToolFor(harness, 'rosetta_retrieve');
+		const sentField = { name: P7_FIELD_NAME, definition: 'The date a person was discharged from military service.', path: P7B_PATH_TEXT };
+		const submission = { fieldList: [sentField] };
+		const apiPrincipal = { kind: 'siteUser', userRefId: P7A_USER_REF_ID, role: 'user' };
+		const sameBytesThroughBothDoors = ({ operationName, mcpAsk, formList, labelText }, allDone) => {
+			const bodyByForm = [];
+			const compareForm = (formIndex) => {
+				if (formIndex >= formList.length) {
+					allDone(bodyByForm);
+					return;
+				}
+				apiAsk(operationName, formList[formIndex], (apiAnswer) => mcpAsk(formList[formIndex], (mcpText) => {
+					ok(`P7b gate 4: ${labelText}: the MCP tool and the API answer the same bytes for ${JSON.stringify(formList[formIndex]).replace(/"jobRefId":"[0-9a-f]+"/, '"jobRefId":"<job>"').slice(0, 160)}`, apiAnswer.httpStatus === 200 && apiAnswer.bodyText === mcpText, `${apiAnswer.httpStatus} ${apiAnswer.bodyText.slice(0, 300)} vs ${mcpText.slice(0, 300)}`);
+					bodyByForm.push(JSON.parse(apiAnswer.bodyText));
+					compareForm(formIndex + 1);
+				}));
+			};
+			compareForm(0);
+		};
+		apiAsk('rosettaSubmit', submission, (submitAnswer) => {
+			const { jobRefId } = JSON.parse(submitAnswer.bodyText).answer;
+			untilClosed(ask, jobRefId, apiPrincipal, () => {
+				const fetchFormList = [{ jobRefId }, { jobRefId, rowDetail: 'full' }, { jobRefId, detail: 'audit' }, { jobRefId, rowDetail: 'full', detail: 'audit' }];
+				sameBytesThroughBothDoors({ operationName: 'rosettaFetch', mcpAsk: mcpFetch, formList: fetchFormList, labelText: 'fetch' }, ([unusedLeanSummary, leanFull, auditSummary, auditFull]) => {
+					ok('P7b Q66: lean using.promptVersion is derivedJudgeSlot-v1, read from the units, and no judge', leanFull.answeredFrom.using.promptVersion === 'derivedJudgeSlot-v1' && !('judge' in leanFull.answeredFrom.using), JSON.stringify(leanFull.answeredFrom.using));
+					ok('P7b Q66: audit keeps each unit\'s rendererVersion and the job\'s judge block with promptVariant', auditFull.answer.fieldList[0].resultList.every((oneResult) => oneResult.rendererVersion === 'bridgeEvidenceRenderer-derivedJudgeSlot-v1') && auditFull.answer.judge.promptVariant === 'derivedJudgeSlot' && auditSummary.answeredFrom.using.promptVersion === 'derivedJudgeSlot-v1', JSON.stringify(auditFull.answer.judge));
+					ok('P7b Q67a: the fetch field carries requestPath as sent, and no path', leanFull.answer.fieldList[0].requestPath === P7B_PATH_TEXT && !('path' in leanFull.answer.fieldList[0]), JSON.stringify(Object.keys(leanFull.answer.fieldList[0])));
+					const retrievalFormList = [{ ...submission }, { ...submission, rowDetail: 'full' }, { ...submission, detail: 'audit' }, { ...submission, rowDetail: 'full', detail: 'audit' }];
+					sameBytesThroughBothDoors({ operationName: 'rosettaRetrieval', mcpAsk: mcpRetrieve, formList: retrievalFormList, labelText: 'retrieval' }, ([leanSummaryRetrieval, leanFullRetrieval, auditSummaryRetrieval, auditFullRetrieval]) => {
+						const retrievalField = leanFullRetrieval.answer.fieldList[0];
+						const fetchField = leanFull.answer.fieldList[0];
+						ok('P7b gate 2: retrieval and fetch name the field\'s shared concepts alike: requestName, requestPath, requestDefinition, resultList', SHARED_FIELD_NAME_LIST.every((fieldName) => fieldName in retrievalField && fieldName in fetchField) && SHARED_FIELD_NAME_LIST.slice(0, 3).every((fieldName) => retrievalField[fieldName] === fetchField[fieldName]), JSON.stringify({ retrieval: Object.keys(retrievalField), fetch: Object.keys(fetchField) }));
+						ok('P7b gate 2: each resultList item names its hub, in the same order in both', JSON.stringify(retrievalField.resultList.map((oneResult) => oneResult.hub)) === JSON.stringify(fetchField.resultList.map((oneResult) => oneResult.hub)));
+						const notAmongList = retrievalField.resultList.filter((oneResult) => { const fetchResult = resultOfHub(fetchField, oneResult.hub); return fetchResult.proposal && !oneResult.candidateList.some((oneCandidate) => oneCandidate.uri === fetchResult.proposal.uri); }).map((oneResult) => oneResult.hub);
+						console.log(`  P7b observation: hubs whose fetch proposal is not among retrieval's public candidates: ${JSON.stringify(notAmongList)}`);
+						console.log(`  P7b SIDE BY SIDE, retrieval (lean full) field 0: ${JSON.stringify({ ...retrievalField, resultList: retrievalField.resultList.map(({ candidateList, ...poolFacts }) => ({ ...poolFacts, candidateList: candidateList.slice(0, 1), candidatesNotPrinted: candidateList.length - 1 })) })}`);
+						console.log(`  P7b SIDE BY SIDE, fetch (lean full) field 0: ${JSON.stringify(fetchField)}`);
+						ok('P7b Q67b: no retrieval form carries byHub or poolCountByHub, or a field\'s name, path or type', [leanSummaryRetrieval, leanFullRetrieval, auditSummaryRetrieval, auditFullRetrieval].every((oneBody) => !/"byHub"|"poolCountByHub"/.test(JSON.stringify(oneBody)) && oneBody.answer.fieldList.every((oneField) => ['name', 'path', 'type'].every((fieldName) => !(fieldName in oneField)))));
+						ok('P7b Q-C: lean retrieval answeredFrom is graphName and manifest, in summary and full', [leanSummaryRetrieval, leanFullRetrieval].every((oneBody) => JSON.stringify(Object.keys(oneBody.answeredFrom)) === JSON.stringify(['graphName', 'manifest'])), JSON.stringify(leanFullRetrieval.answeredFrom));
+						ok('P7b Q-C: audit retrieval answeredFrom is whole (it names the operation)', [auditSummaryRetrieval, auditFullRetrieval].every((oneBody) => oneBody.answeredFrom.operation === 'rosettaRetrieval' && 'graphContractSha256' in oneBody.answeredFrom), JSON.stringify(auditFullRetrieval.answeredFrom).slice(0, 300));
+						ok('P7b Q-B: no retrieval form carries uriNote', [leanSummaryRetrieval, leanFullRetrieval, auditSummaryRetrieval, auditFullRetrieval].every((oneBody) => !('uriNote' in oneBody)));
+						ok('P7b Q-A: lean retrieval has no fieldCount or poolCountList; audit has both, poolCountList naming each hub', ['fieldCount', 'poolCountList'].every((fieldName) => !(fieldName in leanFullRetrieval.answer) && !(fieldName in leanSummaryRetrieval.answer)) && auditFullRetrieval.answer.fieldCount === 1 && JSON.stringify(auditFullRetrieval.answer.poolCountList.map((oneCount) => oneCount.hub)) === JSON.stringify(auditFullRetrieval.answer.hubList), JSON.stringify(auditFullRetrieval.answer.poolCountList));
+						apiAsk('rosettaRetrieval', { ...submission, detail: 'full' }, (badDetailAnswer) => {
+							ok('P7b: a retrieval detail other than lean or audit is refused by name', JSON.parse(badDetailAnswer.bodyText).answer.refusalName === 'invalidInput' && /detail must be one of lean, audit/.test(JSON.parse(badDetailAnswer.bodyText).answer.reason), badDetailAnswer.bodyText.slice(0, 200));
+							close();
+						});
+					});
+				});
 			});
 		});
 	}, done);

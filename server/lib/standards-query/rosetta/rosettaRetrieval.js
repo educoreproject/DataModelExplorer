@@ -3,8 +3,9 @@
 // rosettaRetrieval — POST rosetta/retrieval and rosetta_retrieve: a submission in, pools per field per hub out (design 4.1 to 4.3, 4.9). Nothing is judged and the judge is never reached: this module cannot reach it. The fuse is separate from search's (design 4.2): its own token ceiling, its own in-flight count, and tripping it never touches search's vector leg, because search's counting embedder is not the one used here.
 //
 //   rosettaFuseValuesOf(configValues) → { fuseValues } | { refusalText }
+//   retrievalAnswerOf({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, facts, fuseValues, detail }) → the answer (pure; detail lean | audit)
 //   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
-//     → { runRetrieval({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), hubRowListFor({ withReadSession, serviceFacts }, done(err, hubRowList)), stats() }
+//     → { runRetrieval({ withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), hubRowListFor({ withReadSession, serviceFacts }, done(err, hubRowList)), stats() }
 //   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
 //
 // WHERE A STRANGER'S TEXT GOES: to the embedding vendor, to become a vector, and into the answer it was sent for. Never to a log (an embedding failure logs the vendor's status, not its body), never to Neo4j (a vector goes, which is why the keyword leg is not fused: it would put the text in a query parameter), never to usageCounts (the hubs are counted, and no URI: a pool is what the service said, not what anyone asked). In the store: its sha256 and vector, with no text.
@@ -16,6 +17,7 @@ const { createRetrievalDriver } = require('./retrieveCandidates');
 const { parseFieldList } = require('./parsers/fieldListParser');
 const { parseJsonSchema } = require('./parsers/jsonSchemaParser');
 const { parseJsonLdContext } = require('./parsers/jsonLdContextParser');
+const { DETAIL_LIST, DETAIL_AUDIT } = require('./rosettaAnswerDetail');
 
 const moduleName = 'rosettaRetrieval';
 const OPERATION_NAME = 'rosettaRetrieval';
@@ -37,6 +39,47 @@ const SUBMISSION_FORM_LIST = Object.freeze([
 	{ inputName: 'jsonSchema', formatName: 'jsonSchema', parser: parseJsonSchema },
 	{ inputName: 'jsonLdContext', formatName: 'jsonLdContext', parser: parseJsonLdContext },
 ]);
+
+// ⟪P7b, TQ Q67b⟫ THE ANSWER, in fetch's words: a field is named as it was sent (requestName, requestPath, requestDefinition, requestType) and holds resultList, one
+// item per hub naming its hub, each the pool as it was made. detail is fetch's (ROMANTIC_PARASOL Q-A, Q-C, 2026-11-09): lean (the default, declared in the registry)
+// leaves the whole-answer counts out; audit gives them back, fieldCount and poolCountList, a list naming each hub. Pure: arguments in, answer out.
+const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, facts, fuseValues, detail }) => {
+	if (!DETAIL_LIST.includes(detail)) {
+		throw new Error(`${moduleName}: detail must be one of ${DETAIL_LIST.join(', ')} (got ${JSON.stringify(detail)}); the registry row declares the default`);
+	}
+	const isAudit = detail === DETAIL_AUDIT;
+	return {
+		submissionFormat: submissionForm.formatName,
+		...(isAudit ? { fieldCount: parsed.fieldList.length } : {}),
+		hubList: hubRowList.map((oneHub) => oneHub.hubName),
+		nothingJudgedNote: facts.nothingJudgedNote,
+		rankNote: facts.rankNote,
+		retrievalSetting: { hitsPerText: fuseValues.hitsPerText, minCosine: fuseValues.minScore, poolCap: fuseValues.poolCap, tier: TIER_OFFERED },
+		fieldList: parsed.fieldList.map((oneField, fieldIndex) => {
+			const { fieldRefId } = fieldVectorList[fieldIndex];
+			return {
+				requestName: oneField.name,
+				...(oneField.path === undefined ? {} : { requestPath: oneField.path }),
+				...(oneField.definition === undefined ? {} : { requestDefinition: oneField.definition }),
+				...(oneField.type === undefined ? {} : { requestType: oneField.type }),
+				...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
+				...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
+				resultList: hubRowList.map(({ hubName }) => ({ hub: hubName, ...poolByTargetName[hubName][fieldRefId] })),
+			};
+		}),
+		...(isAudit ? {
+			poolCountList: hubRowList.map(({ hubName }) => {
+				const poolList = Object.values(poolByTargetName[hubName]);
+				const nonEmptyCount = poolList.filter((onePool) => onePool.poolSize > 0).length;
+				return { hub: hubName, fieldsWithCandidates: nonEmptyCount, emptyPools: poolList.length - nonEmptyCount };
+			}),
+		} : {}),
+		unresolvedRefList: parsed.unresolvedRefList,
+		unresolvedContextList: parsed.unresolvedContextList,
+		notWalkedList: parsed.notWalkedList,
+		...OMITTED_COUNT_NAME_LIST.reduce((soFar, countName) => (parsed[countName] ? { ...soFar, [countName]: parsed[countName] } : soFar), {}),
+	};
+};
 
 const INTEGER_SETTING_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'maxUnresolvedListLength', 'maxFieldListLength', 'maxFieldNameChars', 'maxFieldDefinitionChars', 'maxFieldPathChars', 'maxDocumentDepth', 'maxRefExpansions', 'retrievalMaxTokensPerRequest', 'retrievalDailyTokenCeiling', 'retrievalInFlightMax', 'hitsPerText', 'poolCap', 'indexWindowPerText', 'textsPerGraphQuery', 'strangerVectorCacheMaxRows', 'strangerVectorRetentionDays']);
 const NUMBER_SETTING_NAME_LIST = Object.freeze(['minScore', 'judgeUsdPerFieldEstimate']);
@@ -242,42 +285,13 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 
 	const submissionFormOf = (input) => SUBMISSION_FORM_LIST.filter((oneForm) => input[oneForm.inputName] !== undefined);
 
-	const answerOf = ({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, facts }) => ({
-		submissionFormat: submissionForm.formatName,
-		fieldCount: parsed.fieldList.length,
-		hubList: hubRowList.map((oneHub) => oneHub.hubName),
-		nothingJudgedNote: facts.nothingJudgedNote,
-		rankNote: facts.rankNote,
-		retrievalSetting: { hitsPerText: fuseValues.hitsPerText, minCosine: fuseValues.minScore, poolCap: fuseValues.poolCap, tier: TIER_OFFERED },
-		fieldList: parsed.fieldList.map((oneField, fieldIndex) => {
-			const { fieldRefId } = fieldVectorList[fieldIndex];
-			return {
-				name: oneField.name,
-				...(oneField.path === undefined ? {} : { path: oneField.path }),
-				...(oneField.type === undefined ? {} : { type: oneField.type }),
-				...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
-				...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
-				byHub: hubRowList.reduce((soFar, { hubName }) => ({ ...soFar, [hubName]: poolByTargetName[hubName][fieldRefId] }), {}),
-			};
-		}),
-		poolCountByHub: hubRowList.reduce((soFar, { hubName }) => {
-			const poolList = Object.values(poolByTargetName[hubName]);
-			const nonEmptyCount = poolList.filter((onePool) => onePool.poolSize > 0).length;
-			return { ...soFar, [hubName]: { fieldsWithCandidates: nonEmptyCount, emptyPools: poolList.length - nonEmptyCount } };
-		}, {}),
-		unresolvedRefList: parsed.unresolvedRefList,
-		unresolvedContextList: parsed.unresolvedContextList,
-		notWalkedList: parsed.notWalkedList,
-		...OMITTED_COUNT_NAME_LIST.reduce((soFar, countName) => (parsed[countName] ? { ...soFar, [countName]: parsed[countName] } : soFar), {}),
-	});
-
 	const finished = (done) => (doneError, doneResult) => {
 		inFlightCount -= 1;
 		done(doneError, doneResult);
 	};
 
 	// THE ONE DOOR-INDEPENDENT RUN. Every cap here holds on MCP, which has no per-address limiter.
-	const runRetrieval = ({ withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues }, callback) => {
+	const runRetrieval = ({ withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues }, callback) => {
 		if (inFlightCount >= fuseValues.retrievalInFlightMax) {
 			callback('', { answer: refusalOf('busy', `${inFlightCount} retrievals are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`), retryAfterSeconds: BUSY_RETRY_SECONDS });
 			return;
@@ -363,7 +377,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 				return;
 			}
 			args.askedHubRowList.forEach(({ hubName }) => namedSubjectList.push({ subjectKind: 'hub', subjectText: hubName }));
-			done('', { answer: answerOf({ submissionForm: args.submissionForm, parsed: args.parsed, hubRowList: args.askedHubRowList, poolByTargetName: args.poolByTargetName, fieldVectorList: args.fieldVectorList, facts: answerNoteValues }) });
+			done('', { answer: retrievalAnswerOf({ submissionForm: args.submissionForm, parsed: args.parsed, hubRowList: args.askedHubRowList, poolByTargetName: args.poolByTargetName, fieldVectorList: args.fieldVectorList, facts: answerNoteValues, fuseValues, detail }) });
 		});
 	};
 
@@ -424,4 +438,4 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 	return { runRetrieval, retrieveCandidates, hubRowListFor, stats: () => ({ ...retrievalStats, inFlightCount }) };
 };
 
-module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, SUBMISSION_FORM_LIST };
+module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, retrievalAnswerOf, SUBMISSION_FORM_LIST };

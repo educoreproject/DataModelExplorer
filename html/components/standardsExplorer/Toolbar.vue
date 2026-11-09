@@ -1,6 +1,8 @@
 <script setup>
-// Diagram / Table switch, filter, legend toggle and the level summary. The switch writes the store's view choice,
-// which outlives drilling; a large level still opens in the table (the store's effectiveViewMode decides).
+// Diagram / Table / Schema Viewer switch, filter, legend toggle and the level summary. The switch writes the store's view
+// choice, which outlives drilling; a large level still opens in the table (the store's effectiveViewMode decides). Schema
+// Viewer is offered once the walk is inside one standard (store.walkStandard); the filter, legend and summary are about the
+// level's items, so they step aside while it shows.
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
@@ -41,7 +43,10 @@ const levelSummaryText = computed(() => {
 		>
 			<v-btn value="diagram" data-testid="view-diagram">Diagram</v-btn>
 			<v-btn value="table" data-testid="view-table">Table</v-btn>
+			<!-- the standard being walked, in the Specification Viewer: only once the walk is inside one standard -->
+			<v-btn v-if="store.walkStandard" value="schema" data-testid="view-schema">Schema Viewer</v-btn>
 		</v-btn-toggle>
+		<template v-if="store.effectiveViewMode !== 'schema'">
 		<v-text-field
 			:model-value="store.filterText"
 			label="Filter"
@@ -58,6 +63,7 @@ const levelSummaryText = computed(() => {
 			{{ store.legendVisible ? 'Hide legend' : 'Show legend' }}
 		</v-btn>
 		<span class="explorer-level-summary" data-testid="level-summary">{{ levelSummaryText }}</span>
+		</template>
 	</div>
 </template>
 
