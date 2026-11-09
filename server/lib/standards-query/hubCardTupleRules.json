@@ -1,0 +1,22 @@
+{
+	"_comment": "hubCardTuple's rules (WORKORDER-P7a-rosettaPayloadShape-110926, Q61-Q65): which card edges are the tuple's slots and in what order, which graph label names a part's kind, and which card fields carry a datatype range. Hub-neutral: an edge type is HAS_<hubName>_<edgeSlotName> (toolPayloadContract.hubEdgeTypeFor); whether a hub's range is part of what a card names is read from the hub's own slotProfile, never from its name.",
+	"slotList": [
+		{ "slotName": "domain", "edgeSlotName": "DOMAIN" },
+		{ "slotName": "property", "edgeSlotName": "PROPERTY" },
+		{ "slotName": "range", "edgeSlotName": "RANGE" },
+		{ "slotName": "value", "edgeSlotName": "VALUE" },
+		{ "slotName": "qualifier", "edgeSlotName": "QUALIFIER" },
+		{ "slotName": "term", "edgeSlotName": "TERM" }
+	],
+	"rangeSlotName": "range",
+	"partKindByGraphLabel": {
+		"DmeClass": "class",
+		"DmeProperty": "property",
+		"DmeOptionSet": "optionSet",
+		"DmeOptionValue": "option"
+	},
+	"_rangeAsMeaningAddressingName": "a slotProfile field carrying this rangeAddressing makes the hub's range descriptive, not part of what its cards name (CTDL today: rangeClassIdList and its siblings)",
+	"rangeAsMeaningAddressingName": "rangeAsMeaning",
+	"_datatypeRangeFieldNameList": "card fields that hold a datatype range (not an element, so no part and no uri); read only when the hub's slotProfile declares the field",
+	"datatypeRangeFieldNameList": ["rangeDatatype", "rangeDatatypeList"]
+}

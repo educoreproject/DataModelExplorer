@@ -7,6 +7,8 @@
 //   THE SHAPER INTERFACE: shaper({ answer, summaryShape }) → the summary object. A registry row names its shaper in summaryShaperName; a new kind of summary is one line in SUMMARY_SHAPER_BY_NAME.
 //   A full answer's row names the same field the same way here (fromName, fromUri, toId): a reader moving between the two forms learns one vocabulary.
 
+const { tupleBracketTextOf } = require('./hubCardTuple');
+
 const OWN_ROW_DIRECTION_LIST = Object.freeze(['outgoing', 'outgoingViaInstance']);
 const EDGE_TYPE_OF_MATCH_PATTERN = /_MATCH$/;
 const SUMMARY_ROW_DETAIL_NAME = 'summary';
@@ -258,17 +260,14 @@ const rosettaRetrievalSummaryOf = ({ answer, summaryShape }) => {
 };
 
 // one short line per field per hub: the category and the card's label, or the unit's status. A notJudged line carries its reason, so it never reads as the judge declining, and a cut answer says so. URIs outside a draft stay in full: a line a reader might quote as a mapping should be asked for whole.
-// ⟪P7⟫ a proposal's line names its hub element by the element's OWN identifier, the one a reader cites (CEDS strong [cedsId P002040]: Military Discharge Date), or says by name
-// why it has none. It is short and never gives way to the budget: the labels go first.
-const hubElementIdentityTextOf = (proposal) => (proposal.hubElementNativeIdentifier
-	? `[${proposal.hubElementNativeIdentifierPropertyName} ${proposal.hubElementNativeIdentifier}]`
-	: `[no native identifier: ${proposal.hubElementNativeIdentifierAbsentName}]`);
+// ⟪P7a, TQ Q61⟫ a proposal's line names the CARD'S TUPLE by its elements' own identifiers in slot order (CEDS moderate [C200296 · P002040]: Military Discharge Date), or says by name
+// why it has none (hubCardTuple.tupleBracketTextOf). It is short and never gives way to the budget: the labels go first.
 const judgedLineOf = ({ hubName, oneUnit, labelChars }) => {
 	const cutMark = oneUnit.answerWasCut ? ' (cut)' : '';
 	if (oneUnit.proposal) {
 		const { category, label } = oneUnit.proposal;
 		const labelText = label || '';
-		const categoryText = `${category} ${hubElementIdentityTextOf(oneUnit.proposal)}`;
+		const categoryText = `${category} ${tupleBracketTextOf(oneUnit.proposal)}`;
 		return `${hubName} ${labelChars === 0 || !labelText ? categoryText : `${categoryText}: ${labelText.length > labelChars ? `${labelText.slice(0, labelChars)}…` : labelText}`}${cutMark}`;
 	}
 	return `${hubName} ${oneUnit.notJudgedReason ? `${oneUnit.status} (${oneUnit.notJudgedReason})` : oneUnit.status}${cutMark}`;
@@ -278,7 +277,13 @@ const LIST_COUNT_NAME_BY_LIST_NAME = Object.freeze({ unresolvedRefList: 'unresol
 
 // A SUMMARY MUST HOLD ITS BOUND, WHATEVER WAS SUBMITTED. The drafts come first and each strong line is a long uri, so what gives way, in order: the labels' length, the labels, then the drafts, then the length of the names. Each step says so in leftOutOfSummary, and a list of what the walk could not read is a count here and whole in the full form. A line is a list, its first member the field's name exactly as sent, so a name cannot write a verdict.
 const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
-	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, strongEvidenceNote: unusedEvidenceNote, rationaleNote: unusedRationaleNote, counts, job: { unitNote: unusedUnitNote, hubList: unusedHubList, submittedAt: unusedSubmittedAt, startedAt: unusedStartedAt, ...jobFacts }, judge: { promptVariant: unusedPromptVariant, ...judgeFacts }, draftContextByHub, leftOutOfDraftList = [], ...restOfAnswer } = answer;
+	// ⟪P7a⟫ shaped from the answer as it was asked: the lean form has no job or judge block, the audit form keeps them as the summary always showed them
+	const { fieldList, answeredFromAtSubmit: unusedAnsweredFrom, strongEvidenceNote: unusedEvidenceNote, rationaleNote: unusedRationaleNote, counts, job, judge, draftContextByHub, leftOutOfDraftList = [], ...restOfAnswer } = answer;
+	const auditFacts = job ? (() => {
+		const { unitNote: unusedUnitNote, hubList: unusedHubList, submittedAt: unusedSubmittedAt, startedAt: unusedStartedAt, ...jobFacts } = job;
+		const { promptVariant: unusedPromptVariant, ...judgeFacts } = judge;
+		return { job: jobFacts, judge: judgeFacts };
+	})() : {};
 	const reportBody = Object.keys(LIST_COUNT_NAME_BY_LIST_NAME).reduce((soFar, listName) => {
 		const { [listName]: unusedList, [LIST_COUNT_NAME_BY_LIST_NAME[listName]]: unusedCount, ...withoutList } = soFar;
 		return withoutList;
@@ -287,17 +292,16 @@ const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
 		const rowCount = (answer[listName] || []).length + (answer[LIST_COUNT_NAME_BY_LIST_NAME[listName]] || 0);
 		return rowCount > 0 ? { ...soFar, [listName.replace('List', 'Count')]: rowCount } : soFar;
 	}, {});
-	const everyUnitList = fieldList.flatMap((oneField) => Object.values(oneField.byHub));
+	const everyUnitList = fieldList.flatMap((oneField) => oneField.resultList);
 	const proposalCount = everyUnitList.filter((oneUnit) => oneUnit.proposal).length;
 	const summaryAt = ({ labelChars, showDrafts, nameChars }) => ({
 		rowDetail: SUMMARY_ROW_DETAIL_NAME,
-		job: jobFacts,
-		judge: judgeFacts,
+		...auditFacts,
 		...reportBody,
 		counts: { byHub: Object.keys(counts.byHub).reduce((soFar, hubName) => ({ ...soFar, [hubName]: nonZeroCountsOf(counts.byHub[hubName]) }), {}) },
 		...(showDrafts ? { draftContextByHub } : {}),
 		fieldLineNote: summaryShape.judgedFieldLineNote,
-		fieldLineList: fieldList.map((oneField) => [nameChars && oneField.name.length > nameChars ? `${oneField.name.slice(0, nameChars)}…` : oneField.name, ...Object.keys(oneField.byHub).map((hubName) => judgedLineOf({ hubName, oneUnit: oneField.byHub[hubName], labelChars }))]),
+		fieldLineList: fieldList.map((oneField) => [nameChars && oneField.requestName.length > nameChars ? `${oneField.requestName.slice(0, nameChars)}…` : oneField.requestName, ...oneField.resultList.map((oneUnit) => judgedLineOf({ hubName: oneUnit.hub, oneUnit, labelChars }))]),
 		leftOutOfSummary: {
 			howToAsk: summaryShape.howToAskForFullJudged,
 			rationalesNotShown: everyUnitList.filter((oneUnit) => oneUnit.judgesRationale).length,
@@ -308,7 +312,7 @@ const rosettaFetchSummaryOf = ({ answer, summaryShape }) => {
 			...(leftOutOfDraftList.length ? { termsLeftOutOfDrafts: leftOutOfDraftList.length } : {}),
 			...listCountByName,
 			runnerUpsNotShown: everyUnitList.reduce((soFar, oneUnit) => soFar + (oneUnit.runnerUpList || []).length, 0),
-			definitionsNotShown: fieldList.filter((oneField) => oneField.definition).length,
+			definitionsNotShown: fieldList.filter((oneField) => oneField.requestDefinition).length,
 		},
 	});
 	const bytesOf = (summaryForm) => Buffer.byteLength(JSON.stringify(summaryForm));

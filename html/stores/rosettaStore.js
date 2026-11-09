@@ -106,9 +106,10 @@ export const useRosettaStore = defineStore('rosettaStore', {
 			}
 			await this.fetchReport(1);
 		},
+		// detail=audit: the page shows the judge's notes and reads the job's hub list, which the lean answer leaves out (P7a)
 		async fetchReport(pageNumber) {
 			try {
-				const reply = await axios.get(`${ROUTE_BASE_PATH}/jobs/fetch`, { params: { jobRefId: this.jobRefId, rowDetail: 'full', page: String(pageNumber) }, headers: this.headers() });
+				const reply = await axios.get(`${ROUTE_BASE_PATH}/jobs/fetch`, { params: { jobRefId: this.jobRefId, rowDetail: 'full', detail: 'audit', page: String(pageNumber) }, headers: this.headers() });
 				this.report = reply.data.answer;
 				this.reportPage = pageNumber;
 			} catch (requestError) {

@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const { unitNameOf, OPEN_STATUS_LIST } = require('./rosettaJobStore');
 const { judgedSettings } = require('./rosettaJudgeEngine');
 const { hubElementIdentityFor, absentOf } = require('./hubElementIdentity');
+const { hubCardTupleFor, tupleAbsentOf } = require('../hubCardTuple');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const MILLISECONDS_PER_SECOND = 1000;
@@ -33,6 +34,13 @@ const judgedCandidateListOf = ({ pool, judgedPoolCap }) => {
 	const cosineRankOne = pool.cosineRankOneOutsidePool || pool.candidateList.find((oneCandidate) => oneCandidate.rankByCosine === 1);
 	return cosineRankOne && !firstList.some((oneCandidate) => oneCandidate.stableId === cosineRankOne.stableId) ? [...firstList, cosineRankOne] : firstList;
 };
+
+// ⟪P7a⟫ what a proposal stores of its card's tuple read: the tuple or why there is none; a hub's descriptive ranges (only for a hub whose range is not identity); a datatype range as written
+const cardTupleFieldsOf = ({ tuple, tupleAbsentName, rangePartList, rangeIsIdentity, rangeDatatypeList }) => ({
+	...(tuple ? { tuple } : { tupleAbsentName }),
+	...(rangeIsIdentity === false ? { rangeList: rangePartList } : {}),
+	...(rangeDatatypeList && rangeDatatypeList.length ? { rangeDatatypeList } : {}),
+});
 
 // the forge's loader writes a one-element list as a plain string (SIF certificate, note 3); the renderer takes a list
 const cardOfFacts = (cardFacts) => ({ ...cardFacts, ...(typeof cardFacts.qualifierNames === 'string' ? { qualifierNames: [cardFacts.qualifierNames] } : {}), ...(cardFacts.qualifierNames === null ? { qualifierNames: undefined } : {}) });
@@ -138,7 +146,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 	const runnerUpListOf = ({ candidateList, chosenCardStableId }) => candidateList.filter((oneCandidate) => oneCandidate.stableId !== chosenCardStableId).slice(0, judgedSettings.runnerUpListLength).map(({ uri, label, cosine }) => ({ uri, label, cosine }));
 
 	// a field with a pool comes out as one row, whichever way the judge went. A vendor fault writes no row here: the caller ends the job and the report reads notJudged.
-	const unitRowOf = ({ outcome, pool, alreadyMappedFrom, hubElementIdentityFields }) => {
+	const unitRowOf = ({ outcome, pool, alreadyMappedFrom, hubElementIdentityFields, cardTupleFields }) => {
 		const chosenCandidate = outcome.chosenCardStableId ? pool.candidateList.find((oneCandidate) => oneCandidate.stableId === outcome.chosenCardStableId) : undefined;
 		return {
 			poolSize: pool.poolSize,
@@ -159,6 +167,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					...(outcome.predicate ? { predicate: outcome.predicate } : {}),
 					...(outcome.collapsedMemberStableIdList ? { collapsedMemberList: outcome.collapsedMemberStableIdList } : {}),
 					...hubElementIdentityFields,
+					...cardTupleFields,
 				},
 				alreadyMappedFrom,
 			} : {}),
@@ -238,7 +247,17 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 						}
 						afterIdentity(hubElementIdentityFields);
 					}) : afterIdentity(undefined));
-					withEnrichment((alreadyMappedFrom) => withHubElementIdentity((hubElementIdentityFields) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom, hubElementIdentityFields }) }, () => unitDone('', null))));
+					// ⟪P7a⟫ the chosen card as the tuple of elements it names (hubCardTuple), read once here so a fetch stays a store read. A hub whose range is description, not
+					// identity, keeps its ranges beside the tuple (rangeList); a datatype range is kept as written. A read that fails is named, and the judgment is still written.
+					const withCardTuple = (afterTuple) => (outcome.chosenCardStableId ? withReadSession((tupleSession, tupleSessionDone) => hubCardTupleFor({ runCypher, session: tupleSession, hubName, cardStableId: outcome.chosenCardStableId, uriForElement: serviceFacts.uriMinter.uriForNode }, tupleSessionDone), (tupleError, cardTupleFacts) => {
+						if (tupleError) {
+							xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the chosen card's tuple would not read: ${tupleError}`);
+							afterTuple(tupleAbsentOf('hubCardTupleUnreadable'));
+							return;
+						}
+						afterTuple(cardTupleFieldsOf(cardTupleFacts));
+					}) : afterTuple(undefined));
+					withEnrichment((alreadyMappedFrom) => withHubElementIdentity((hubElementIdentityFields) => withCardTuple((cardTupleFields) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom, hubElementIdentityFields, cardTupleFields }) }, () => unitDone('', null)))));
 				});
 			});
 		});
@@ -425,4 +444,4 @@ const spendLedgerWriterFor = ({ jobStore, judgeEngine, judgedValues, xLog }) => 
 	}));
 };
 
-module.exports = { createRosettaJobRunner, spendLedgerWriterFor, readCandidateCardsFor, judgedCandidateListOf, OPEN_STATUS_LIST };
+module.exports = { cardTupleFieldsOf, createRosettaJobRunner, spendLedgerWriterFor, readCandidateCardsFor, judgedCandidateListOf, OPEN_STATUS_LIST };

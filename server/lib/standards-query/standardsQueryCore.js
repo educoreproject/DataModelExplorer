@@ -70,6 +70,14 @@ const STRUCTURED_INPUT_TEST_BY_TYPE = Object.freeze({
 
 const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval, rosettaJobService }) => {
 	const registryRowByOperationName = registry.operationList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.operationName]: registryRow }), {});
+	// ⟪P7a⟫ a row's envelopeRule must name a detail input the row declares with an enum holding the lean value and a default: a registry that does not is a build fault, said at startup
+	registry.operationList.filter((registryRow) => registryRow.envelopeRule).forEach((registryRow) => {
+		const { detailInputName, leanDetailValue, leanAnsweredFromFieldNameList } = registryRow.envelopeRule;
+		const detailField = registryRow.inputFieldList.find((oneField) => oneField.name === detailInputName);
+		if (!detailField || detailField.defaultValue === undefined || !Array.isArray(detailField.enum) || !detailField.enum.includes(leanDetailValue) || !Array.isArray(leanAnsweredFromFieldNameList)) {
+			throw new Error(`${moduleName}: ${registryRow.operationName}'s envelopeRule needs detail input '${detailInputName}' declared with an enum holding '${leanDetailValue}' and a defaultValue, and a leanAnsweredFromFieldNameList`);
+		}
+	});
 	const refusalStatusByName = { ...registry.verbRefusalHttpStatusByName, ...registry.envelopeRefusalHttpStatusByName };
 	const limits = limitNumbersOf(limitConfigValues);
 	const setupRefusalText = limits.refusalText || (forgeAdapter.refusalText ? `${moduleName}: the URI store is not open: ${forgeAdapter.refusalText}` : (goldenHandle ? '' : `${moduleName}: this instance names no golden graph`));
@@ -297,6 +305,27 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		const rowDetailField = registryRow.inputFieldList.find((oneField) => oneField.name === ROW_DETAIL_INPUT_NAME);
 		return rowDetailField ? (input[ROW_DETAIL_INPUT_NAME] || rowDetailField.defaultValue) : '';
 	};
+	// ⟪P7a⟫ a row with an envelopeRule takes a detail input that chooses the envelope's form (lean or audit); its default is the input field's own, declared in the registry.
+	// A row without one has no detail and its envelope is as it always was.
+	const detailOf = ({ registryRow, input }) => {
+		if (!registryRow.envelopeRule) {
+			return '';
+		}
+		const detailInputName = registryRow.envelopeRule.detailInputName;
+		const detailField = registryRow.inputFieldList.find((oneField) => oneField.name === detailInputName); // checked at startup, above
+		return input[detailInputName] === undefined ? detailField.defaultValue : input[detailInputName];
+	};
+	// the envelope: answeredFrom (in full, or the lean field list the row names, plus whatever the handler adds, such as Rosetta's using block), the answer, and the uriNote unless the row omits it
+	const envelopeOf = ({ registryRow, operationName, detail, answer, answeredFromAddition, isSummary }) => {
+		const envelopeRule = registryRow.envelopeRule;
+		const answeredFromWhole = answeredFromFor(operationName);
+		const answeredFrom = envelopeRule && detail === envelopeRule.leanDetailValue ? envelopeRule.leanAnsweredFromFieldNameList.reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: answeredFromWhole[fieldName] }), {}) : answeredFromWhole;
+		return {
+			answeredFrom: { ...answeredFrom, ...answeredFromAddition },
+			answer,
+			...(envelopeRule && envelopeRule.omitsUriNote ? {} : { uriNote: isSummary ? registry.summaryUriNote : registry.uriNote }),
+		};
+	};
 	// a summary names fewer URIs than the verb's answer did, and the usage counters count what a caller was told about
 	const summaryAnswerOf = ({ registryRow, answer, namedUriList }) => {
 		const summaryAnswer = SUMMARY_SHAPER_BY_NAME[registryRow.summaryShaperName]({ answer, summaryShape: registry.summaryShape });
@@ -306,7 +335,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		return summaryAnswer;
 	};
 
-	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, rowDetail, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer, cachePolicy? })).
+	// one handler per kind of operation (DATA: the registry row names it). THE HANDLER INTERFACE: handler({ registryRow, input, pageNumber, rowDetail, detail, namedUriList, namedSubjectList, admitScan, principal }, done(errText, { answer, cachePolicy?, answeredFromAddition? })). detail is '' unless the row has an envelopeRule; answeredFromAddition joins the envelope's answeredFrom.
 	// An answer carrying refusedByName is a refusal; anything else is the operation's answer. A new kind of operation is one line here and one registry row.
 	const HANDLER_BY_NAME = Object.freeze({
 		verb: ({ registryRow, input, pageNumber, namedUriList, admitScan }, done) => {
@@ -361,12 +390,12 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 			rosettaRetrieval.runRetrieval({ withReadSession: goldenHandle.withReadSession, serviceFacts, input, namedSubjectList, answerNoteValues: registry.rosettaAnswerNote }, done);
 		},
 		// the judged step: a job, not a request. Its registry row names which of the four actions it is. The same shape on every door; none of them holds a rule of its own.
-		rosettaJobs: ({ registryRow, input, principal, pageNumber, rowDetail, namedSubjectList }, done) => {
+		rosettaJobs: ({ registryRow, input, principal, pageNumber, rowDetail, detail, namedSubjectList }, done) => {
 			if (!rosettaJobService) {
 				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', 'this instance has no judged step') });
 				return;
 			}
-			rosettaJobService[registryRow.jobActionName]({ principal, input, serviceFacts, withReadSession: goldenHandle.withReadSession, answeredFrom: answeredFromFor(registryRow.operationName), pageNumber, pageSize: registryRow.pageSize, rowDetail, namedSubjectList, answerNoteValues: registry.rosettaJudgedNote }, done);
+			rosettaJobService[registryRow.jobActionName]({ principal, input, serviceFacts, withReadSession: goldenHandle.withReadSession, answeredFrom: answeredFromFor(registryRow.operationName), pageNumber, pageSize: registryRow.pageSize, rowDetail, detail, namedSubjectList, answerNoteValues: registry.rosettaJudgedNote }, done);
 		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),
@@ -412,6 +441,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		}
 		const { expectManifest, ...operationInput } = input;
 		const rowDetail = rowDetailOf({ registryRow, input: operationInput });
+		const detail = detailOf({ registryRow, input: operationInput });
 		const answerCacheName = `${operationName}\u0000${rowDetail}`; // standards has one form; graph has two, each kept once it is read
 		const firstRefusal = registryRow.requiresUriPromise ? (manifestRefusalFor({ operationName, expectManifest }) || embeddingRefusalFor({ registryRow, operationName, input: operationInput })) : null;
 		if (firstRefusal) {
@@ -460,9 +490,10 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		const namedUriList = [];
 		const namedSubjectList = [];
 		const pageNumber = operationInput.page === undefined ? 1 : Number(operationInput.page);
-		const { page: unusedPage, [ROW_DETAIL_INPUT_NAME]: unusedRowDetail, ...unresolvedHandlerInput } = operationInput;
+		const { page: unusedPage, [ROW_DETAIL_INPUT_NAME]: unusedRowDetail, ...inputPastRowDetail } = operationInput;
+		const unresolvedHandlerInput = registryRow.envelopeRule ? Object.keys(inputPastRowDetail).filter((inputName) => inputName !== registryRow.envelopeRule.detailInputName).reduce((soFar, inputName) => ({ ...soFar, [inputName]: inputPastRowDetail[inputName] }), {}) : inputPastRowDetail;
 		const handlerInput = registryRow.requiresUriPromise ? withUriInputsResolved({ registryRow, input: unresolvedHandlerInput }) : unresolvedHandlerInput;
-		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, rowDetail, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
+		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, rowDetail, detail, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
 			inFlightCount -= 1;
 			if (isHoldingScanSlot) {
 				scanCountByOperationName[operationName] -= 1;
@@ -482,7 +513,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 			}
 			finishOperation({
 				httpStatus: 200,
-				bodyText: JSON.stringify(registryRow.bodyForm === 'envelope' ? { answeredFrom: answeredFromFor(operationName), answer, uriNote: isSummary ? registry.summaryUriNote : registry.uriNote } : answer),
+				bodyText: JSON.stringify(registryRow.bodyForm === 'envelope' ? envelopeOf({ registryRow, operationName, detail, answer, answeredFromAddition: handlerResult.answeredFromAddition, isSummary }) : answer),
 				cachePolicy: handlerResult.cachePolicy || registryRow.cachePolicy,
 			});
 		});

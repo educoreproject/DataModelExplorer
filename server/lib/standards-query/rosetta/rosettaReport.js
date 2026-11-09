@@ -2,14 +2,18 @@
 
 // rosettaReport — what a job's rows become: the report across all hubs, and one draft @context per hub (design 4.4). Pure: rows in, answer out.
 //
-//   reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail }) → the fetch answer. rowDetail full pages its fieldList; summary is shaped from the whole by answerSummaries.
+//   reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) → the fetch answer. rowDetail full pages its fieldList; summary is shaped from the whole by answerSummaries.
+//   usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) → the answer's using block: which judge, what this job spent, and whether it came wholly from the cache.
 //   ownerJobFactsOf({ job, spentUsd, unitsFinished }) → what the owner is told of a job, in status and in the report.
 //
-// ONLY strong ENTERS A DRAFT (R2; judgedSettings.draftCategoryList). Everything else is in the report. A term a draft cannot hold twice is left out and named, never overwritten.
-// A UNIT WITH NO ROW SAYS WHY. notJudged carries notJudgedReason, the job's stop reason when it has one, so a dead credential reads as that and never as an abstention. judgesRationale is the judge's own words, which can quote a stranger's text: it is a labelled field, and a reader must treat it as data.
-
+// ⟪P7a, TQ Q61-Q64⟫ TWO FORMS, ONE ANSWER. detail 'lean' (the default, declared in the registry) is what a reader needs: each field by requestName and requestDefinition, its
+// resultList naming each hub, and each proposal naming its card and the tuple of elements the card stands for. detail 'audit' is the same answer with everything the lean form
+// leaves out put back (AUDIT_ONLY_..._NAME_LIST below): the job's clock and units, the notes, the zero counts, the pool sizes, the state of the graph at submit. Nothing is
+// dropped from the store; the forms differ only in what they show. A graph that changed since submit is said in the lean form too (graphChangedSinceSubmit).
+//
 const { judgedSettings } = require('./rosettaJudgeEngine');
 const { absentOf } = require('./hubElementIdentity');
+const { tupleAbsentOf } = require('../hubCardTuple');
 
 const STATUS_NOT_JUDGED = 'notJudged';
 const JOB_STATUS_DONE = 'done';
@@ -78,46 +82,101 @@ const draftsByHubOf = ({ job, fieldList, rowByUnitName }) => {
 
 // ⟪P7⟫ a proposal judged before the runner recorded its hub element's identifier says so by name: a blank would read as an element with none
 const IDENTITY_FIELD_NAME_LIST = Object.freeze(['hubElementNativeIdentifier', 'hubElementNativeIdentifierAbsentName']);
-const judgmentWithIdentityNamed = (judgment) => (judgment.proposal && !IDENTITY_FIELD_NAME_LIST.some((fieldName) => fieldName in judgment.proposal)
-	? { ...judgment, proposal: { ...judgment.proposal, ...absentOf('judgedBeforeNativeIdentifierRecorded') } }
-	: judgment);
+// ⟪P7a⟫ and one judged before the runner recorded its card's tuple says that, by name, never a partial tuple
+const TUPLE_FIELD_NAME_LIST = Object.freeze(['tuple', 'tupleAbsentName']);
+const proposalWithAbsencesNamed = (proposal) => ({
+	...proposal,
+	...(IDENTITY_FIELD_NAME_LIST.some((fieldName) => fieldName in proposal) ? {} : absentOf('judgedBeforeNativeIdentifierRecorded')),
+	...(TUPLE_FIELD_NAME_LIST.some((fieldName) => fieldName in proposal) ? {} : tupleAbsentOf('judgedBeforeTupleRecorded')),
+});
 
-const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail }) => {
+// ⟪P7a⟫ WHAT THE LEAN FORM LEAVES OUT. Each name here is shown again by detail=audit, so the two lists are the whole difference between the forms.
+const DETAIL_LEAN = 'lean';
+const DETAIL_AUDIT = 'audit';
+const DETAIL_LIST = Object.freeze([DETAIL_LEAN, DETAIL_AUDIT]);
+const AUDIT_ONLY_RESULT_FIELD_NAME_LIST = Object.freeze(['poolSize', 'admittedCount']);
+// the card's domain label is the tuple's domain part; the P7 identifier fields are the tuple's property part; a hub's descriptive ranges and a datatype range ride beside the tuple
+const AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST = Object.freeze(['domain', 'hubElementNativeIdentifier', 'hubElementNativeIdentifierPropertyName', 'hubElementNativeIdentifierAbsentName', 'rangeList', 'rangeDatatypeList']);
+const UNIT_STATUS_PROPOSED = 'proposed';
+// the answeredFrom fields that say WHICH graph answered: a difference in any of them between submit and now is a changed graph
+const GRAPH_IDENTITY_FIELD_NAME_LIST = Object.freeze(['graphName', 'manifestRefId', 'graphContractSha256', 'builtAt']);
+const omitFields = (sourceObject, fieldNameList) => Object.keys(sourceObject).filter((fieldName) => !fieldNameList.includes(fieldName)).reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: sourceObject[fieldName] }), {});
+const nonZeroCountsOf = (countByName) => Object.keys(countByName).filter((countName) => countByName[countName] > 0).reduce((soFar, countName) => ({ ...soFar, [countName]: countByName[countName] }), {});
+
+// one hub's result for one field. Lean: a proposal speaks for itself, so its unit carries no status; any other unit says its status.
+// a proposal reads in the order TQ approved: what the card is, what it names, then how the judge related it
+const PROPOSAL_FIELD_ORDER_LIST = Object.freeze(['uri', 'label', 'tuple', 'tupleAbsentName', 'predicate', 'category', 'confidence']);
+const inProposalOrder = (proposal) => [...PROPOSAL_FIELD_ORDER_LIST.filter((fieldName) => fieldName in proposal), ...Object.keys(proposal).filter((fieldName) => !PROPOSAL_FIELD_ORDER_LIST.includes(fieldName))].reduce((soFar, fieldName) => ({ ...soFar, [fieldName]: proposal[fieldName] }), {});
+
+const resultOf = ({ hubName, oneRow, stoppedReason, isAudit }) => {
+	if (!oneRow) {
+		return { hub: hubName, status: STATUS_NOT_JUDGED, ...(stoppedReason === undefined ? {} : { notJudgedReason: stoppedReason }), runnerUpList: [] };
+	}
+	const { proposal, judgesRationale, ...judgmentFacts } = oneRow.judgment;
+	const shownProposal = proposal ? inProposalOrder(proposalWithAbsencesNamed(proposal)) : undefined;
+	const showsStatus = isAudit || oneRow.unitStatus !== UNIT_STATUS_PROPOSED || !proposal;
+	return {
+		hub: hubName,
+		...(showsStatus ? { status: oneRow.unitStatus } : {}),
+		...(shownProposal ? { proposal: isAudit ? shownProposal : omitFields(shownProposal, AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST) } : {}),
+		...(judgesRationale === undefined ? {} : { judgesRationale }),
+		...(isAudit ? judgmentFacts : omitFields(judgmentFacts, AUDIT_ONLY_RESULT_FIELD_NAME_LIST)),
+	};
+};
+
+const graphChangedSince = ({ answeredFromAtSubmit, answeredFromNow }) => GRAPH_IDENTITY_FIELD_NAME_LIST.some((fieldName) => answeredFromAtSubmit[fieldName] !== answeredFromNow[fieldName]);
+
+const usingOf = ({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) => {
+	const judgedUnitCount = judgmentRowList.filter((oneRow) => oneRow.promptHash).length;
+	return {
+		judge: job.judgeFacts.promptVariant,
+		provider: job.judgeFacts.provider,
+		model: job.judgeFacts.model,
+		costUsd: roundedUsdOf(spentUsd),
+		cached: judgedUnitCount > 0 && judgeCallCount === 0,
+		...(detail === DETAIL_AUDIT ? { judgedUnitCount, judgeCallCount } : {}),
+	};
+};
+
+const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) => {
+	if (!DETAIL_LIST.includes(detail)) {
+		throw new Error(`rosettaReport: detail must be one of ${DETAIL_LIST.join(', ')} (got ${JSON.stringify(detail)}); the registry row declares the default`);
+	}
+	const isAudit = detail === DETAIL_AUDIT;
 	const { fieldList, submissionNote } = submission;
 	const rowByUnitName = new Map(judgmentRowList.map((oneRow) => [`${oneRow.fieldIndex}\u0000${oneRow.hubName}`, oneRow]));
 	const stoppedReason = job.stopReasonName || (OPEN_STATUS_LIST.includes(job.status) ? 'jobStillOpen' : undefined);
 	const reportedFieldList = fieldList.map((oneField, fieldIndex) => ({
-		name: oneField.name,
+		requestName: oneField.name,
 		...(oneField.path === undefined ? {} : { path: oneField.path }),
-		...(oneField.definition === undefined ? {} : { definition: oneField.definition }),
+		...(oneField.definition === undefined ? {} : { requestDefinition: oneField.definition }),
 		...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
 		...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
-		byHub: job.hubNameList.reduce((soFar, hubName) => {
-			const oneRow = rowByUnitName.get(`${fieldIndex}\u0000${hubName}`);
-			return { ...soFar, [hubName]: oneRow ? { status: oneRow.unitStatus, ...judgmentWithIdentityNamed(oneRow.judgment) } : { status: STATUS_NOT_JUDGED, notJudgedReason: stoppedReason, runnerUpList: [] } };
-		}, {}),
+		resultList: job.hubNameList.map((hubName) => resultOf({ hubName, oneRow: rowByUnitName.get(`${fieldIndex}\u0000${hubName}`), stoppedReason, isAudit })),
 	}));
 	const { draftContextByHub, leftOutTermList } = draftsByHubOf({ job, fieldList, rowByUnitName });
 	const counts = countsByHubOf({ job, fieldList, rowByUnitName });
 	const hasUnitNotJudged = Object.values(counts).some((hubCounts) => STATUS_NAME_LIST_NOT_JUDGED.some((statusName) => hubCounts[statusName] > 0));
 	const isFullDetail = rowDetail === 'full';
 	const pageCount = Math.max(1, Math.ceil(reportedFieldList.length / pageSize));
+	const isGraphChanged = graphChangedSince({ answeredFromAtSubmit: job.answeredFrom, answeredFromNow });
 	return {
-		job: ownerJobFactsOf({ job, spentUsd, unitsFinished: judgmentRowList.length }),
-		judge: job.judgeFacts,
-		draftNote: answerNoteValues.draftNote,
-		strongOnlyNote: answerNoteValues.strongOnlyNote,
-		strongEvidenceNote: answerNoteValues.strongEvidenceNote,
-		rationaleNote: answerNoteValues.rationaleNote,
+		jobRefId: job.jobRefId,
+		status: job.status,
+		...(job.stopReasonName ? { stopReasonName: job.stopReasonName, stopReasonText: job.stopReasonText } : {}),
 		...(job.status === JOB_STATUS_DONE && !hasUnitNotJudged ? {} : { isPartial: true, partialNote: answerNoteValues.partialNote }),
-		answeredFromAtSubmit: job.answeredFrom,
-		counts: { byHub: counts },
+		...(isAudit ? { job: ownerJobFactsOf({ job, spentUsd, unitsFinished: judgmentRowList.length }), judge: job.judgeFacts } : {}),
+		fieldList: isFullDetail ? reportedFieldList.slice((pageNumber - 1) * pageSize, pageNumber * pageSize) : reportedFieldList,
+		draftNote: answerNoteValues.draftNote,
+		...(isAudit ? { strongOnlyNote: answerNoteValues.strongOnlyNote, strongEvidenceNote: answerNoteValues.strongEvidenceNote, rationaleNote: answerNoteValues.rationaleNote } : {}),
 		draftContextByHub,
 		...(leftOutTermList.length ? { leftOutOfDraftList: leftOutTermList } : {}),
 		...submissionNote,
-		fieldList: isFullDetail ? reportedFieldList.slice((pageNumber - 1) * pageSize, pageNumber * pageSize) : reportedFieldList,
-		...(isFullDetail ? { page: pageNumber, pageCount, totalFieldCount: reportedFieldList.length } : {}),
+		counts: { byHub: isAudit ? counts : Object.keys(counts).reduce((soFar, hubName) => ({ ...soFar, [hubName]: nonZeroCountsOf(counts[hubName]) }), {}) },
+		...(isAudit ? { answeredFromAtSubmit: job.answeredFrom } : {}),
+		...(isGraphChanged ? { graphChangedSinceSubmit: job.answeredFrom } : {}),
+		...(isFullDetail && (isAudit || pageCount > 1) ? { page: pageNumber, pageCount, totalFieldCount: reportedFieldList.length } : {}),
 	};
 };
 
-module.exports = { reportOf, ownerJobFactsOf };
+module.exports = { reportOf, usingOf, ownerJobFactsOf, DETAIL_LIST, DETAIL_LEAN, DETAIL_AUDIT, AUDIT_ONLY_RESULT_FIELD_NAME_LIST, AUDIT_ONLY_PROPOSAL_FIELD_NAME_LIST };

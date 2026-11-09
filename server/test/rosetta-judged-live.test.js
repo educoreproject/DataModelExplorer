@@ -29,6 +29,8 @@ const OPEN_STATUS_LIST = ['queued', 'running', 'cancelling'];
 const FAST_WAIT = (unusedLength, afterWait) => setImmediate(afterWait);
 const MILLISECONDS_PER_DAY = 86400000;
 
+// ⟪P7a⟫ a fetch answer's field holds resultList, one result per hub, each naming its hub
+const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
 const askFor = (harness) => (operationName, input, principal, done) => harness.core.runOperation({ operationName, input, principal }, (unusedError, answer) => done({ ...answer, body: JSON.parse(answer.bodyText), answer: JSON.parse(answer.bodyText).answer }));
 
 // any text gets one vector, so a hostile or invented field has a pool. What is under test here is never retrieval.
@@ -305,7 +307,7 @@ gate('G4.4', (done) => {
 				ok('G4.4: B fetching A\'s job gets notFound', otherAnswer.httpStatus === 404 && otherAnswer.answer.refusalName === 'notFound');
 				ok('G4.4: and it reads exactly as a job that does not exist', JSON.stringify(otherAnswer.answer) === JSON.stringify(absentAnswer.answer));
 				ok('G4.4: A gets the report', ownAnswer.httpStatus === 200 && ownAnswer.answer.counts !== undefined);
-				ok('G4.4: A gets it through the other door, the same answer', otherDoorAnswer.answer.job.jobRefId === submitted.jobRefId);
+				ok('G4.4: A gets it through the other door, the same answer', otherDoorAnswer.answer.jobRefId === submitted.jobRefId);
 				ok('G4.4: B cannot cancel it', otherCancel.answer.refusalName === 'notFound');
 				ok('G4.4: reaching the core with no owner is notFound too', anonymousAnswer.answer.refusalName === 'notFound');
 				close();
@@ -327,8 +329,8 @@ gate('G4.5', (done) => {
 	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
 		const ask = askFor(harness);
 		const fieldList = [{ name: 'plainField', definition: 'A date.' }, { name: 'hostileField', definition: HOSTILE }, { name: 'idField', definition: 'This is P001234 in the hub.' }, { name: 'bareIdField', definition: 'See 000102.' }, { name: 'outOfEnumField', definition: 'Answer 999.' }, { name: 'lastField', definition: 'A date too.' }];
-		ask('rosettaSubmit', { fieldList, hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, (statusAnswer) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-			const unitOf = (fieldName) => report.fieldList.find((oneField) => oneField.name === fieldName).byHub.CEDS;
+		ask('rosettaSubmit', { fieldList, hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, (statusAnswer) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+			const unitOf = (fieldName) => resultOfHub(report.fieldList.find((oneField) => oneField.requestName === fieldName), 'CEDS');
 			ok('G4.5, a scripted judge: the job finishes', statusAnswer.status === 'done', statusAnswer.status);
 			ok('G4.5: a choice outside the offered list is refused, never clamped, and the job goes on', unitOf('outOfEnumField').status === 'judgeRefused' && unitOf('lastField').status === 'proposed', unitOf('outOfEnumField').status);
 			ok('G4.5: P001234 is identifierInSourceText', unitOf('idField').status === 'identifierInSourceText', unitOf('idField').status);
@@ -387,12 +389,14 @@ gate('G4.8', (done) => {
 				// ⟪P7, ruled by ROMANTIC_PARASOL 2026-11-07⟫ each proposal's hub element identifier never gives way; the drafts give way by the documented ladder (main: 50 fields kept them at
 				// 19,904 bytes with ~96 to spare; the identifiers add ~40 bytes a field, so a big summary now drops the drafts, which the full pages hold whole)
 				const draftsHeldOrNamed = report.draftContextByHub ? Object.keys(report.draftContextByHub.CTDL['@context']).length === fieldCount : typeof report.leftOutOfSummary.draftsNotShown === 'string';
-				const everyLineKeepsItsIdentifier = report.fieldLineList.every((oneLine) => /^CEDS strong \[cedsId [^\]]+\]/.test(oneLine[1]) && /^CTDL strong \[uri [^\]]+\]/.test(oneLine[2]));
+				// ⟪P7a⟫ the bracket now holds the card's tuple by its elements' own identifiers (hubCardTuple.tupleBracketTextOf), and it too never gives way
+				const everyLineKeepsItsIdentifier = report.fieldLineList.every((oneLine) => /^CEDS strong \[(?!no tuple)[^\]]+\]/.test(oneLine[1]) && /^CTDL strong \[(?!no tuple)[^\]]+\]/.test(oneLine[2]));
 				console.log(`  G4.8 ${fieldCount} fields: drafts ${report.draftContextByHub ? 'kept' : 'given way (draftsNotShown)'}`);
-				ok('G4.8: a summary holds the status, counts, one line per field per hub with its identifier, and the drafts or draftsNotShown', report.job.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && draftsHeldOrNamed && report.fieldLineList.length === fieldCount && everyLineKeepsItsIdentifier, JSON.stringify(report.fieldLineList[0]));
-				ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', page: fieldCount > 10 ? '2' : '1' }, principal, ({ bodyText: fullText, answer: fullReport }) => {
+				ok('G4.8: a summary holds the status, counts, one line per field per hub with its identifier, and the drafts or draftsNotShown', report.status === 'done' && report.counts.byHub.CEDS.proposedStrong === fieldCount && draftsHeldOrNamed && report.fieldLineList.length === fieldCount && everyLineKeepsItsIdentifier, JSON.stringify(report.fieldLineList[0]));
+				// detail=audit: a one-page lean answer leaves out page and totalFieldCount, which this gate reads; audit is also the larger form, so the size it logs is the upper one
+				ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', detail: 'audit', page: fieldCount > 10 ? '2' : '1' }, principal, ({ bodyText: fullText, answer: fullReport }) => {
 					console.log(`  G4.8 full, page ${fullReport.page} of ${fullReport.pageCount}: ${Buffer.byteLength(fullText)} bytes`);
-					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && fullReport.fieldList[0].byHub.CEDS.judgesRationale.length > 0 && fullReport.fieldList[0].byHub.CEDS.proposal.uri.length > 0 && fullReport.fieldList.length === 10 && fullReport.fieldList[0].name.endsWith(`x${fieldCount > 10 ? 10 : 0}`), `${fullReport.fieldList.length}`);
+					ok('G4.8: full comes in pages and carries the rest', fullReport.page === (fieldCount > 10 ? 2 : 1) && fullReport.totalFieldCount === fieldCount && resultOfHub(fullReport.fieldList[0], 'CEDS').judgesRationale.length > 0 && resultOfHub(fullReport.fieldList[0], 'CEDS').proposal.uri.length > 0 && fullReport.fieldList.length === 10 && fullReport.fieldList[0].requestName.endsWith(`x${fieldCount > 10 ? 10 : 0}`), `${fullReport.fieldList.length}`);
 					sizeNext(restList, runIndex + 1);
 				});
 			})));
@@ -453,8 +457,8 @@ gate('G4.9restart', (done) => {
 			const vendor = fakeJudgeVendorFor();
 			withHarness({ vendorPostOnce: vendor.postOnce, storeFilePath }, (harness, close) => {
 				const ask = askFor(harness);
-				untilClosed(ask, jobRefId, principal, (statusAnswer) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, principal, ({ answer: report }) => {
-					const statusOfField = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS.status;
+				untilClosed(ask, jobRefId, principal, (statusAnswer) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, principal, ({ answer: report }) => {
+					const statusOfField = (fieldIndex) => resultOfHub(report.fieldList[fieldIndex], 'CEDS').status;
 					ok('G4.9 restart: the call under way at the kill is named at startup', harness.logLineList.some((oneLine) => /1 judge calls were under way/.test(oneLine)), harness.logLineList.join(' | ').slice(0, 300));
 					ok('G4.9 restart: no job is left running: it resumed and finished', statusAnswer.status === 'done', statusAnswer.status);
 					ok('G4.9 restart: the two answered before the kill keep their answers', statusOfField(0) === 'proposed' && statusOfField(1) === 'proposed');
@@ -530,12 +534,12 @@ gate('G4.10', (done) => {
 		vendor.setFaultScript(oneCase.faultList);
 		withHarness({ vendorPostOnce: vendor.postOnce, waitMilliseconds: FAST_WAIT }, (harness, close) => {
 			const ask = askFor(harness);
-			ask('rosettaSubmit', { fieldList: fieldListOf(2), hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, (statusAnswer) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full' }, USER_A, ({ bodyText, answer: report }) => harness.rosettaJudged.jobStore.judgeCallTotalsOf(submitted.jobRefId, (totalsError, totalsRowList) => {
+			ask('rosettaSubmit', { fieldList: fieldListOf(2), hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, (statusAnswer) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ bodyText, answer: report }) => harness.rosettaJudged.jobStore.judgeCallTotalsOf(submitted.jobRefId, (totalsError, totalsRowList) => {
 				const countOf = (callStatus) => totalsRowList.filter((oneRow) => oneRow.callStatus === callStatus).reduce((soFar, oneRow) => soFar + oneRow.callCount, 0);
 				ok(`G4.10 ${oneCase.caseName}: the job ends ${oneCase.expectStatus}${oneCase.expectStopName ? ` ${oneCase.expectStopName}` : ''}`, statusAnswer.status === oneCase.expectStatus && (!oneCase.expectStopName || statusAnswer.stopReasonName === oneCase.expectStopName), `${statusAnswer.status} ${statusAnswer.stopReasonName}`);
 				ok(`G4.10 ${oneCase.caseName}: nothing reads as an abstention, in any answer`, report.counts.byHub.CEDS.abstained === 0 && !/"status":"abstained"/.test(bodyText), JSON.stringify(report.counts.byHub.CEDS));
 				if (oneCase.expectStatus === 'vendorStopped') {
-					const unjudgedUnit = report.fieldList[0].byHub.CEDS;
+					const unjudgedUnit = resultOfHub(report.fieldList[0], 'CEDS');
 					ok(`G4.10 ${oneCase.caseName}: the unit reads notJudged, naming the fault`, unjudgedUnit.status === 'notJudged' && unjudgedUnit.notJudgedReason === oneCase.expectStopName, JSON.stringify(unjudgedUnit).slice(0, 200));
 					ok(`G4.10 ${oneCase.caseName}: the report is partial and nothing is spent`, report.isPartial === true && statusAnswer.spentUsd === 0, `${statusAnswer.spentUsd}`);
 				}
@@ -546,7 +550,7 @@ gate('G4.10', (done) => {
 					ok(`G4.10 ${oneCase.caseName}: the unanswered call stays priced at the estimate, and the retry adds to it`, countOf('unansweredPriced') === oneCase.expectPricedUnanswered && Math.abs(statusAnswer.spentUsd - (2 * 0.0281 + 0.07)) < 0.001, `${countOf('unansweredPriced')} ${statusAnswer.spentUsd}`);
 				}
 				if (oneCase.expectFirstUnitStatus) {
-					ok(`G4.10 ${oneCase.caseName}: the unit is ${oneCase.expectFirstUnitStatus}, and the next is judged`, report.fieldList[0].byHub.CEDS.status === oneCase.expectFirstUnitStatus && report.fieldList[1].byHub.CEDS.status === 'proposed', `${report.fieldList[0].byHub.CEDS.status} ${report.fieldList[1].byHub.CEDS.status}`);
+					ok(`G4.10 ${oneCase.caseName}: the unit is ${oneCase.expectFirstUnitStatus}, and the next is judged`, resultOfHub(report.fieldList[0], 'CEDS').status === oneCase.expectFirstUnitStatus && resultOfHub(report.fieldList[1], 'CEDS').status === 'proposed', `${resultOfHub(report.fieldList[0], 'CEDS').status} ${resultOfHub(report.fieldList[1], 'CEDS').status}`);
 				}
 				if (oneCase.expectVendorCalls) {
 					ok(`G4.10 ${oneCase.caseName}: asked ${oneCase.expectVendorCalls} times in all`, vendor.callLog.length === oneCase.expectVendorCalls, `${vendor.callLog.length}`);
@@ -675,23 +679,153 @@ gate('P7nativeIdentifier', (done) => {
 	withHarness({ vendorPostOnce: vendor.postOnce, embedder: exactTextEmbedderFor() }, (harness, close) => {
 		const ask = askFor(harness);
 		const principal = { kind: 'oauthUser', userRefId: 'p7NativeIdentifierUser', role: 'user' };
-		ask('rosettaSubmit', { fieldList: [{ name: P7_FIELD_NAME, definition: 'The date a person was discharged from military service.' }] }, principal, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, principal, () => ask('rosettaFetch', { jobRefId: submitted.jobRefId }, principal, ({ answer: report }) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full' }, principal, ({ answer: fullReport }) => {
+		ask('rosettaSubmit', { fieldList: [{ name: P7_FIELD_NAME, definition: 'The date a person was discharged from military service.' }] }, principal, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, principal, () => ask('rosettaFetch', { jobRefId: submitted.jobRefId }, principal, ({ answer: report }) => ask('rosettaFetch', { jobRefId: submitted.jobRefId, rowDetail: 'full', detail: 'audit' }, principal, ({ answer: fullReport }) => {
 			const [fieldName, cedsLine, ctdlLine] = report.fieldLineList[0];
 			console.log(`  P7 summary line: ${JSON.stringify(report.fieldLineList[0])}`);
-			const cedsProposal = fullReport.fieldList[0].byHub.CEDS.proposal || {};
-			const ctdlProposal = fullReport.fieldList[0].byHub.CTDL.proposal || {};
+			const cedsProposal = resultOfHub(fullReport.fieldList[0], 'CEDS').proposal || {};
+			const ctdlProposal = resultOfHub(fullReport.fieldList[0], 'CTDL').proposal || {};
 			console.log(`  P7 full CEDS proposal: ${JSON.stringify(cedsProposal)}`);
 			harness.goldenHandle.withReadSession((session, sessionDone) => session.run(P7_ORACLE_CYPHER, { cardStableId: cedsProposal.uri || '', slotEdgeType: 'HAS_CEDS_PROPERTY' }).then((cedsResult) => session.run(P7_ORACLE_CYPHER, { cardStableId: ctdlProposal.uri || '', slotEdgeType: 'HAS_CTDL_PROPERTY' }).then((ctdlResult) => sessionDone('', { cedsOracle: cedsResult.records.map((oneRecord) => oneRecord.toObject())[0] || {}, ctdlOracle: ctdlResult.records.map((oneRecord) => oneRecord.toObject())[0] || {} }), (queryError) => sessionDone(String(queryError))), (queryError) => sessionDone(String(queryError))), (oracleError, { cedsOracle, ctdlOracle } = {}) => {
 				ok('P7: the oracle read the chosen cards', !oracleError && cedsOracle.propertyName === 'cedsId' && ctdlOracle.propertyName === 'uri', oracleError || JSON.stringify({ cedsOracle, ctdlOracle }));
 				ok(`P7: the judge chose the CEDS card for ${P7_FIELD_NAME}, whose element is P002040 by the test's own Cypher`, cedsProposal.label === P7_FIELD_NAME && cedsOracle.nativeIdentifier === 'P002040', JSON.stringify(cedsProposal));
-				ok('P7: the summary line carries the CEDS id: CEDS strong [cedsId P002040]: Military Discharge Date', fieldName === P7_FIELD_NAME && cedsLine === `CEDS strong [cedsId ${cedsOracle.nativeIdentifier}]: ${P7_FIELD_NAME}`, cedsLine);
+				// ⟪P7a⟫ the bracket holds the card's tuple, the property's id last for a property card: CEDS strong [C200296 · P002040]
+				ok('P7: the summary line carries the CEDS id: CEDS strong [<domain> · P002040]: Military Discharge Date', fieldName === P7_FIELD_NAME && new RegExp(`^CEDS strong \\[C\\d+ · ${cedsOracle.nativeIdentifier}\\]: ${P7_FIELD_NAME}$`).test(cedsLine), cedsLine);
 				ok('P7: the full proposal carries the element\'s native identifier and the property that holds it', cedsProposal.hubElementNativeIdentifier === cedsOracle.nativeIdentifier && cedsProposal.hubElementNativeIdentifierPropertyName === 'cedsId' && !('hubElementNativeIdentifierAbsentName' in cedsProposal), JSON.stringify(cedsProposal));
-				ok(`P7: a CTDL proposal names its element by CTDL's own identifier (uri ${ctdlOracle.nativeIdentifier})`, ctdlProposal.hubElementNativeIdentifier === ctdlOracle.nativeIdentifier && ctdlProposal.hubElementNativeIdentifierPropertyName === 'uri' && ctdlLine.startsWith(`CTDL strong [uri ${ctdlOracle.nativeIdentifier}]`), `${ctdlLine} ${JSON.stringify(ctdlProposal)}`);
+				ok(`P7: a CTDL proposal names its element by CTDL's own identifier (uri ${ctdlOracle.nativeIdentifier})`, ctdlProposal.hubElementNativeIdentifier === ctdlOracle.nativeIdentifier && ctdlProposal.hubElementNativeIdentifierPropertyName === 'uri' && ctdlLine.includes(` · ${ctdlOracle.nativeIdentifier}]`), `${ctdlLine} ${JSON.stringify(ctdlProposal)}`);
 				close();
 			});
 		}))));
 	}, done);
 });
+
+// ⟪P7a⟫ WORKORDER-P7a-rosettaPayloadShape-110926: the fetch answer in the shape TQ approved, through BOTH doors' own code (the MCP tool handler and the API's admission), on a
+// real judged job. The tuple's expected identifiers come from this test's own Cypher, not from hubCardTuple. Gate 4: the two doors give the same bytes, in every form.
+const P7A_USER_REF_ID = 'p7aShapeUser';
+const P7A_TUPLE_ORACLE_CYPHER = `MATCH (card:HubReference { stableId: $cardStableId })-[:HAS_CEDS_DOMAIN]->(domainElement) MATCH (card)-[:HAS_CEDS_PROPERTY]->(propertyElement)
+RETURN domainElement.cedsId AS domainCedsId, domainElement.name AS domainName, propertyElement.cedsId AS propertyCedsId, propertyElement.name AS propertyName`;
+const p7aCandidateNumberFor = (promptText, labelText) => promptText.split('\n').reduce((soFar, oneLine) => {
+	const indexMatch = oneLine.match(/CANDIDATE INDEX NUMBER: \[(\d+)\]/);
+	if (indexMatch) return { ...soFar, currentNumber: indexMatch[1] };
+	return !soFar.chosenNumber && soFar.currentNumber && oneLine.trim() === `name: ${labelText}` ? { ...soFar, chosenNumber: soFar.currentNumber } : soFar;
+}, {}).chosenNumber || '1';
+// the MCP door's own handler, registered on a stand-in server, calling the core as the access point does
+const mcpFetchFor = (harness) => {
+	const { toolFactsFromRegistry, registerStandardsQueryTools } = require('../lib/mcp-server/standardsQueryTools');
+	const handlerByToolName = {};
+	const { toolSpecList } = toolFactsFromRegistry({ registry, providerToolList: [] });
+	registerStandardsQueryTools({ server: { registerTool: (toolName, unusedSpec, handler) => { handlerByToolName[toolName] = handler; } }, toolSpecList, getAuth: () => ({ sub: P7A_USER_REF_ID, role: 'user' }), accessPointsDotD: { 'standards-query': (accessArguments, accessDone) => harness.core.runOperation(accessArguments, accessDone) }, logToolCall: () => {}, xLog: { error: () => {} } });
+	return (input, done) => handlerByToolName.rosetta_fetch(input).then((toolResult) => done(toolResult.content[0].text));
+};
+// the API door: its admission, as endpoints-dot-d/qtDotLib.d/standards-query.js makes it, then the core
+const apiAskFor = (harness) => (operationName, input, done) => admitRequest({ door: 'api', credential: { user: { refId: P7A_USER_REF_ID, role: 'user' } }, operationName, registryRow: registry.operationList.find((oneRow) => oneRow.operationName === operationName) }, (unusedError, admission) => harness.core.runOperation({ operationName, input, principal: admission.principal }, (unusedRunError, answer) => done(answer)));
+gate('P7aFetchShape', (done) => {
+	const vendor = fakeJudgeVendorFor({ answerFor: ({ payload }) => pickOf(p7aCandidateNumberFor(payload.messages[0].content, P7_FIELD_NAME), 'strong', 'It means the same thing.') });
+	withHarness({ vendorPostOnce: vendor.postOnce, embedder: exactTextEmbedderFor() }, (harness, close) => {
+		const ask = askFor(harness);
+		const apiAsk = apiAskFor(harness);
+		const mcpFetch = mcpFetchFor(harness);
+		const submission = { fieldList: [{ name: P7_FIELD_NAME, definition: 'The date a person was discharged from military service.' }] };
+		const apiPrincipal = { kind: 'siteUser', userRefId: P7A_USER_REF_ID, role: 'user' };
+		apiAsk('rosettaSubmit', submission, (submitAnswer) => {
+			const { jobRefId } = JSON.parse(submitAnswer.bodyText).answer;
+			untilClosed(ask, jobRefId, apiPrincipal, () => {
+				const formList = [{ jobRefId }, { jobRefId, rowDetail: 'full' }, { jobRefId, detail: 'audit' }, { jobRefId, rowDetail: 'full', detail: 'audit' }];
+				const bodyTextByForm = {};
+				const compareForm = (formIndex) => {
+					if (formIndex < formList.length) {
+						apiAsk('rosettaFetch', formList[formIndex], (apiAnswer) => mcpFetch(formList[formIndex], (mcpText) => {
+							ok(`P7a gate 4: the MCP tool and the API answer the same bytes for ${JSON.stringify(formList[formIndex]).replace(jobRefId, '<job>')}`, apiAnswer.httpStatus === 200 && apiAnswer.bodyText === mcpText, `${apiAnswer.httpStatus} ${apiAnswer.bodyText.length} vs ${mcpText.length}`);
+							bodyTextByForm[formIndex] = apiAnswer.bodyText;
+							compareForm(formIndex + 1);
+						}));
+						return;
+					}
+					const [leanSummary, leanFull, auditSummary, auditFull] = formList.map((unusedForm, formIndex) => JSON.parse(bodyTextByForm[formIndex]));
+					const cedsResult = resultOfHub(leanFull.answer.fieldList[0], 'CEDS');
+					const ctdlResult = resultOfHub(leanFull.answer.fieldList[0], 'CTDL');
+					console.log(`  P7a lean CEDS result: ${JSON.stringify(cedsResult)}`);
+					console.log(`  P7a lean envelope answeredFrom: ${JSON.stringify(leanFull.answeredFrom)}`);
+					ok('P7a: lean answeredFrom is graphName, manifest and using, nothing else', JSON.stringify(Object.keys(leanFull.answeredFrom)) === JSON.stringify(['graphName', 'manifest', 'using']) && JSON.stringify(Object.keys(leanSummary.answeredFrom)) === JSON.stringify(['graphName', 'manifest', 'using']), JSON.stringify(leanFull.answeredFrom));
+					ok('P7a: using names judge, provider, model, costUsd and cached, read from the job', JSON.stringify(Object.keys(leanFull.answeredFrom.using)) === JSON.stringify(['judge', 'provider', 'model', 'costUsd', 'cached']) && leanFull.answeredFrom.using.judge === 'derivedJudgeSlot' && leanFull.answeredFrom.using.model === 'claude-opus-5' && leanFull.answeredFrom.using.cached === false && leanFull.answeredFrom.using.costUsd > 0, JSON.stringify(leanFull.answeredFrom.using));
+					ok('P7a: no uriNote in any form (no Rosetta row carries uriKind or resolvesHere)', [leanSummary, leanFull, auditSummary, auditFull].every((oneBody) => !('uriNote' in oneBody)));
+					ok('P7a: audit answeredFrom is whole, with using and the counts behind cached', ['graphName', 'manifestRefId', 'manifestLabel', 'manifest', 'manifestByContent', 'builtAt', 'graphContractSha256', 'instance', 'apiVersion', 'operation'].every((fieldName) => fieldName in auditFull.answeredFrom) && auditFull.answeredFrom.using.judgeCallCount === vendor.callLog.length && auditFull.answeredFrom.using.judgedUnitCount === 2, JSON.stringify(auditFull.answeredFrom));
+					ok('P7a: the lean answer leads jobRefId, status, fieldList; no job, judge, notes or answeredFromAtSubmit', leanFull.answer.jobRefId === jobRefId && leanFull.answer.status === 'done' && ['job', 'judge', 'strongOnlyNote', 'strongEvidenceNote', 'rationaleNote', 'answeredFromAtSubmit', 'page'].every((fieldName) => !(fieldName in leanFull.answer)), JSON.stringify(Object.keys(leanFull.answer)));
+					ok('P7a: the audit answer has them all back', ['job', 'judge', 'strongOnlyNote', 'strongEvidenceNote', 'rationaleNote', 'answeredFromAtSubmit', 'page', 'pageCount', 'totalFieldCount'].every((fieldName) => fieldName in auditFull.answer) && 'poolSize' in resultOfHub(auditFull.answer.fieldList[0], 'CEDS'));
+					ok('P7a: the field is named as sent: requestName, requestDefinition, resultList naming each hub', leanFull.answer.fieldList[0].requestName === P7_FIELD_NAME && /discharged/.test(leanFull.answer.fieldList[0].requestDefinition) && JSON.stringify(leanFull.answer.fieldList[0].resultList.map((oneResult) => oneResult.hub)) === JSON.stringify(['CEDS', 'CTDL']));
+					harness.goldenHandle.withReadSession((session, sessionDone) => session.run(P7A_TUPLE_ORACLE_CYPHER, { cardStableId: cedsResult.proposal.uri }).then((oracleResult) => sessionDone('', oracleResult.records.map((oneRecord) => oneRecord.toObject())[0] || {}), (queryError) => sessionDone(String(queryError))), (oracleError, oracle = {}) => {
+						const { tuple } = cedsResult.proposal;
+						ok(`P7a: the CEDS proposal's tuple is the card's domain and property, by the test's own Cypher (${oracle.domainCedsId} · ${oracle.propertyCedsId})`, !oracleError && oracle.propertyCedsId === 'P002040' && JSON.stringify(Object.keys(tuple)) === JSON.stringify(['domain', 'property']) && tuple.domain.nativeId.cedsId === oracle.domainCedsId && tuple.property.nativeId.cedsId === oracle.propertyCedsId && tuple.domain.label === oracle.domainName && tuple.domain.kind === 'class' && tuple.property.kind === 'property', oracleError || JSON.stringify({ oracle, tuple }));
+						ok('P7a: the proposal is uri, label, tuple, predicate, category, confidence, in that order', JSON.stringify(Object.keys(cedsResult.proposal)) === JSON.stringify(['uri', 'label', 'tuple', 'predicate', 'category', 'confidence']), JSON.stringify(Object.keys(cedsResult.proposal)));
+						ok('P7a: the CTDL proposal has a tuple with no range, and its ranges (if any) only in audit', ctdlResult.proposal && ctdlResult.proposal.tuple && !('range' in ctdlResult.proposal.tuple) && !('rangeList' in ctdlResult.proposal) && Array.isArray(resultOfHub(auditFull.answer.fieldList[0], 'CTDL').proposal.rangeList), JSON.stringify(ctdlResult.proposal).slice(0, 400));
+						ok(`P7a: the summary line brackets the tuple: CEDS strong [${oracle.domainCedsId} · P002040]: ${P7_FIELD_NAME}`, leanSummary.answer.fieldLineList[0][1] === `CEDS strong [${oracle.domainCedsId} · P002040]: ${P7_FIELD_NAME}`, leanSummary.answer.fieldLineList[0][1]);
+						const partUriList = [...Object.values(cedsResult.proposal.tuple), ...Object.values(ctdlResult.proposal.tuple)].map((onePart) => onePart.uri);
+						const resolveNext = (uriIndex, resolvedList) => {
+							if (uriIndex < partUriList.length) {
+								harness.forgeAdapter.resolveInProcess(partUriList[uriIndex], ({ httpStatus, body }) => resolveNext(uriIndex + 1, [...resolvedList, { uri: partUriList[uriIndex], httpStatus, kind: body.kind }]));
+								return;
+							}
+							ok(`P7a: every tuple part's uri resolves on the store as an element (${resolvedList.length})`, resolvedList.length === 4 && resolvedList.every((oneResolved) => oneResolved.httpStatus === 200 && oneResolved.kind === 'element'), JSON.stringify(resolvedList));
+							const callCountBefore = vendor.callLog.length;
+							apiAsk('rosettaSubmit', submission, (againAnswer) => {
+								const againRefId = JSON.parse(againAnswer.bodyText).answer.jobRefId;
+								untilClosed(ask, againRefId, apiPrincipal, () => apiAsk('rosettaFetch', { jobRefId: againRefId, rowDetail: 'full' }, (cachedAnswer) => {
+									const cachedBody = JSON.parse(cachedAnswer.bodyText);
+									ok('P7a: the same text again is judged from the cache: cached true, costUsd 0, no vendor call', cachedBody.answeredFrom.using.cached === true && cachedBody.answeredFrom.using.costUsd === 0 && vendor.callLog.length === callCountBefore, `${JSON.stringify(cachedBody.answeredFrom.using)} ${vendor.callLog.length - callCountBefore} calls`);
+									ok('P7a: a cached judgment still carries the tuple (read after the cache answered)', JSON.stringify(resultOfHub(cachedBody.answer.fieldList[0], 'CEDS').proposal.tuple) === JSON.stringify(cedsResult.proposal.tuple));
+									apiAsk('rosettaFetch', { jobRefId, detail: 'full' }, (badDetailAnswer) => apiAsk('rosettaStatus', { jobRefId, detail: 'audit' }, (statusDetailAnswer) => {
+										ok('P7a: a detail other than lean or audit is refused by name', JSON.parse(badDetailAnswer.bodyText).answer.refusalName === 'invalidInput' && /detail must be one of lean, audit/.test(JSON.parse(badDetailAnswer.bodyText).answer.reason), badDetailAnswer.bodyText.slice(0, 200));
+										ok('P7a: detail is rosettaFetch\'s alone: status refuses it as unknownInput', JSON.parse(statusDetailAnswer.bodyText).answer.refusalName === 'unknownInput', statusDetailAnswer.bodyText.slice(0, 200));
+										close();
+									}));
+								}));
+							});
+						};
+						resolveNext(0, []);
+					});
+				};
+				compareForm(0);
+			});
+		});
+	}, done);
+});
+
+// ⟪P7a Addendum 1, TQ Q65⟫ a card's /edc meaning answer lists its ranges: the real edc-resolver access point, given the golden as the server gives it, answers the
+// "Has Proxy" CTDL card with its 12 ranges, each a part whose uri resolves; a CEDS value card with its one; a property card with a datatype range only, as written.
+const HAS_PROXY_CARD_URI = 'https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2';
+const CEDS_VALUE_CARD_URI = 'https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1f1f7d790e02f4ec61c2e120f893d15a7cee322a6d685b52c0122bce876f1177';
+const CEDS_DATATYPE_CARD_URI = 'https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d';
+gate('P7aMeaningRanges', (done) => withHarness({ vendorPostOnce: fakeJudgeVendorFor().postOnce }, (harness, close) => {
+	const library = {};
+	const errorLineList = [];
+	const harnessGlobal = process.global;
+	process.global = { ...harnessGlobal, getConfig: () => harness.edcConfigValues, xLog: { status() {}, verbose() {}, result() {}, error: (errorText) => errorLineList.push(String(errorText)) } };
+	require('../data-model/access-points-dot-d/accessPoints.d/edc-resolver')({ dotD: { library: { add: (unusedName, serviceFunction) => { library.serviceFunction = serviceFunction; } } }, passThroughParameters: { neo4jDb: harness.goldenHandle } });
+	process.global = harnessGlobal;
+	const resolveOne = (edcRequestPath, answerFormat, resolved) => library.serviceFunction({ edcRequestPath, answerFormat, whenClientGone: () => {} }, (unusedError, resolverAnswer) => resolved(resolverAnswer));
+	resolveOne(HAS_PROXY_CARD_URI, 'json', (hasProxyAnswer) => resolveOne(CEDS_VALUE_CARD_URI, 'json', (valueAnswer) => resolveOne(CEDS_DATATYPE_CARD_URI, 'json', (datatypeAnswer) => resolveOne(HAS_PROXY_CARD_URI, 'html', (htmlAnswer) => {
+		const hasProxyBody = JSON.parse(hasProxyAnswer.bodyText);
+		const rangeList = hasProxyBody.rangeList || [];
+		console.log(`  P7a meaning Has Proxy: ${rangeList.length} ranges, first ${JSON.stringify(rangeList[0])}`);
+		ok('P7a addendum: the Has Proxy card answers with its 12 ranges', hasProxyAnswer.httpStatus === 200 && hasProxyBody.kind === 'meaning' && rangeList.length === 12, `${hasProxyAnswer.httpStatus} ${errorLineList.join(' | ').slice(0, 300)} ${JSON.stringify(Object.keys(hasProxyBody))}`);
+		ok('P7a addendum: each range is a part: kind class, nativeId { uri }, label, uri', rangeList.every((onePart) => JSON.stringify(Object.keys(onePart)) === JSON.stringify(['kind', 'nativeId', 'label', 'uri']) && onePart.kind === 'class' && /^ceterms:/.test(onePart.nativeId.uri)), JSON.stringify(rangeList.slice(0, 2)));
+		ok('P7a addendum: the ranges sit after the domain, and the forge\'s answer is otherwise unchanged', Object.keys(hasProxyBody).indexOf('rangeList') === Object.keys(hasProxyBody).indexOf('domain') + 1 && hasProxyBody.label === 'Has Proxy' && Array.isArray(hasProxyBody.manifestList));
+		const valueBody = JSON.parse(valueAnswer.bodyText);
+		ok('P7a addendum: a CEDS value card lists its one (addressed) range, an optionSet', valueBody.rangeList && valueBody.rangeList.length === 1 && valueBody.rangeList[0].kind === 'optionSet' && valueBody.rangeList[0].nativeId.cedsId === 'OS000258', JSON.stringify(valueBody.rangeList));
+		const datatypeBody = JSON.parse(datatypeAnswer.bodyText);
+		ok('P7a addendum: a card whose range is a datatype says so as written, never cardHasNoRange', JSON.stringify(datatypeBody.rangeList) === '[]' && JSON.stringify(datatypeBody.rangeDatatypeList) === JSON.stringify(['dateTime']) && !('rangeListAbsentName' in datatypeBody), JSON.stringify({ rangeList: datatypeBody.rangeList, rangeDatatypeList: datatypeBody.rangeDatatypeList, absent: datatypeBody.rangeListAbsentName }));
+		ok('P7a addendum: the html form links every range uri', rangeList.every((onePart) => htmlAnswer.bodyText.includes(`/edc/${onePart.uri.slice('https://w3id.org/EDUcore/'.length)}`)), htmlAnswer.bodyText.slice(0, 200));
+		const resolveRange = (rangeIndex, resolvedList) => {
+			if (rangeIndex < rangeList.length) {
+				harness.forgeAdapter.resolveInProcess(rangeList[rangeIndex].uri, ({ httpStatus, body }) => resolveRange(rangeIndex + 1, [...resolvedList, { uri: rangeList[rangeIndex].uri, httpStatus, kind: body.kind, label: (body.node && body.node.properties && body.node.properties.name || [])[0] }]));
+				return;
+			}
+			console.log(`  P7a meaning range uris resolved: ${JSON.stringify(resolvedList.map((oneResolved) => `${oneResolved.httpStatus} ${oneResolved.kind} ${oneResolved.label}`))}`);
+			ok('P7a addendum: every one of the 12 range uris resolves as an element, its name the part\'s label', resolvedList.length === 12 && resolvedList.every((oneResolved, rangeIndex) => oneResolved.httpStatus === 200 && oneResolved.kind === 'element' && oneResolved.label === rangeList[rangeIndex].label), JSON.stringify(resolvedList.filter((oneResolved) => oneResolved.httpStatus !== 200)));
+			close();
+		};
+		resolveRange(0, []);
+	}))));
+}, done));
 
 const finish = () => {
 	console.log(`\nrosetta-judged-live: ${passedCount} passed, ${failedCount} failed`);

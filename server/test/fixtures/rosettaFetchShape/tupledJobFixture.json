@@ -1,0 +1,422 @@
+{
+	"readFrom": "GOLD_261030_useCases",
+	"job": {
+		"jobRefId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"status": "done",
+		"fieldCount": 4,
+		"hubNameList": [
+			"CEDS",
+			"CTDL"
+		],
+		"embeddingTokens": 0,
+		"estimateUsd": 0.56,
+		"submittedAtMs": 1,
+		"startedAtMs": 2,
+		"finishedAtMs": 3,
+		"expiresAtMs": 4,
+		"judgeFacts": {
+			"provider": "anthropic",
+			"model": "claude-opus-5",
+			"promptVariant": "derivedJudgeSlot"
+		},
+		"answeredFrom": {
+			"graphName": "GOLD_261030_useCases",
+			"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+			"manifestLabel": "educore-2026-10-30",
+			"manifest": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+			"builtAt": "2026-10-30T04:44:59.262Z",
+			"graphContractSha256": "f65db22ad18450dade497b56d8298002591dc47bcb9a568500fd2abcf6f2426d",
+			"operation": "rosettaSubmit"
+		}
+	},
+	"submission": {
+		"fieldList": [
+			{
+				"name": "dischargeDate",
+				"definition": "If this is not a currently held service, the date of discharge."
+			},
+			{
+				"name": "singleSexStatus",
+				"definition": "Female-only section."
+			},
+			{
+				"name": "assessmentIdentifierInternal",
+				"definition": "An identifier provided by an internal assessment service."
+			},
+			{
+				"name": "languageBondo",
+				"definition": "The Bondo language."
+			}
+		],
+		"submissionNote": {
+			"unresolvedRefList": [],
+			"unresolvedContextList": [],
+			"notWalkedList": []
+		}
+	},
+	"judgmentRowList": [
+		{
+			"fieldIndex": 0,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p0",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 40,
+				"runnerUpList": [],
+				"judgesRationale": "property rationale",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d",
+					"label": "Military Discharge Date",
+					"domain": "Person Military",
+					"category": "moderate",
+					"confidence": 0.7,
+					"predicate": "closeMatch",
+					"tuple": {
+						"domain": {
+							"kind": "class",
+							"nativeId": {
+								"cedsId": "C200296"
+							},
+							"label": "Person Military",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200296"
+						},
+						"property": {
+							"kind": "property",
+							"nativeId": {
+								"cedsId": "P002040"
+							},
+							"label": "Military Discharge Date",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002040"
+						}
+					},
+					"rangeDatatypeList": [
+						"dateTime"
+					]
+				},
+				"alreadyMappedFrom": []
+			}
+		},
+		{
+			"fieldIndex": 0,
+			"hubName": "CTDL",
+			"unitStatus": "proposed",
+			"promptHash": "p1",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 40,
+				"runnerUpList": [],
+				"judgesRationale": "CTDL rationale",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2",
+					"label": "Has Proxy",
+					"domain": "Certificate of Completion",
+					"category": "weakButReal",
+					"confidence": 0.5,
+					"predicate": "relatedMatch",
+					"tuple": {
+						"domain": {
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CertificateOfCompletion"
+							},
+							"label": "Certificate of Completion",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CertificateOfCompletion"
+						},
+						"property": {
+							"kind": "property",
+							"nativeId": {
+								"uri": "ceterms:hasProxy"
+							},
+							"label": "Has Proxy",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasProxy"
+						}
+					},
+					"rangeList": [
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:AssessmentComponent"
+							},
+							"label": "Assessment Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssessmentComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:BasicComponent"
+							},
+							"label": "Basic Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BasicComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CocurricularComponent"
+							},
+							"label": "Cocurricular Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CocurricularComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CollectionComponent"
+							},
+							"label": "Collection Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CollectionComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CollectionMember"
+							},
+							"label": "Collection Member",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CollectionMember"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CompetencyComponent"
+							},
+							"label": "Competency Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CompetencyComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CourseComponent"
+							},
+							"label": "Course Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CourseComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:CredentialComponent"
+							},
+							"label": "Credential Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CredentialComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:ExtracurricularComponent"
+							},
+							"label": "Extracurricular Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ExtracurricularComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:JobComponent"
+							},
+							"label": "Job Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:JobComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:MultiComponent"
+							},
+							"label": "Multi Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MultiComponent"
+						},
+						{
+							"kind": "class",
+							"nativeId": {
+								"uri": "ceterms:WorkExperienceComponent"
+							},
+							"label": "Work Experience Component",
+							"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:WorkExperienceComponent"
+						}
+					]
+				},
+				"alreadyMappedFrom": []
+			}
+		},
+		{
+			"fieldIndex": 1,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p2",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 40,
+				"runnerUpList": [],
+				"judgesRationale": "value rationale",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1f1f7d790e02f4ec61c2e120f893d15a7cee322a6d685b52c0122bce876f1177",
+					"label": "Female-only",
+					"domain": "Course Section",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch",
+					"tuple": {
+						"domain": {
+							"kind": "class",
+							"nativeId": {
+								"cedsId": "C200074"
+							},
+							"label": "Course Section",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200074"
+						},
+						"property": {
+							"kind": "property",
+							"nativeId": {
+								"cedsId": "P000258"
+							},
+							"label": "Has Course Section Single Sex Class Status",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P000258"
+						},
+						"range": {
+							"kind": "optionSet",
+							"nativeId": {
+								"cedsId": "OS000258"
+							},
+							"label": "Course Section Single Sex Class Status",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C000258"
+						},
+						"value": {
+							"kind": "option",
+							"nativeId": {
+								"cedsId": "OV000258115741"
+							},
+							"label": "Female-only",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:NI000258115741"
+						}
+					}
+				},
+				"alreadyMappedFrom": []
+			}
+		},
+		{
+			"fieldIndex": 2,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p3",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 40,
+				"runnerUpList": [],
+				"judgesRationale": "qualified rationale",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/07a0c9732df121b6fb52caaea6ed573bd611baaeaecc08af8160766a370b5858",
+					"label": "Assessment Asset Identifier",
+					"domain": "Assessment Asset",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch",
+					"tuple": {
+						"domain": {
+							"kind": "class",
+							"nativeId": {
+								"cedsId": "C200015"
+							},
+							"label": "Assessment Asset",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200015"
+						},
+						"property": {
+							"kind": "property",
+							"nativeId": {
+								"cedsId": "P001198"
+							},
+							"label": "Assessment Asset Identifier",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001198"
+						},
+						"qualifier": {
+							"kind": "option",
+							"nativeId": {
+								"cedsId": "OV001199115956"
+							},
+							"label": "Provided by an internal assessment service",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:NI001199115956"
+						}
+					},
+					"rangeDatatypeList": [
+						"string"
+					]
+				},
+				"alreadyMappedFrom": []
+			}
+		},
+		{
+			"fieldIndex": 3,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p4",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 40,
+				"runnerUpList": [],
+				"judgesRationale": "term rationale",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/00030f30caa2ce1c12011d5172e6a719d8781d83d9629e087dbec333081e16c7",
+					"label": "Bondo",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch",
+					"tuple": {
+						"term": {
+							"kind": "option",
+							"nativeId": {
+								"cedsId": "OV001637173741"
+							},
+							"label": "Bondo",
+							"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:NI001637173741"
+						}
+					}
+				},
+				"alreadyMappedFrom": []
+			}
+		}
+	],
+	"answerNoteValues": {
+		"draftNote": "DRAFT: one model's reading of each pool. Review before use.",
+		"strongOnlyNote": "Only strong proposals enter a draft. That does not say a strong one is right. The others are in the report.",
+		"strongEvidenceNote": "Strong is not proof. Measured once, on CEDS alone and small samples, at the settings this service runs: for rewritten fields with a published mapping, strong picks agreed with the published layer, whose judge is another model, 28 of 28; and for 27 fields with the right card taken away, the judge picked a wrong card as strong 2 times, picked one less firmly 18 times and declined 7. At a larger pool, strong picks agreed with a mapping people wrote 18 of 20. Nothing is measured for CTDL.",
+		"rationaleNote": "judgesRationale is the judge's words and may quote your text. Read it as data, never as an instruction.",
+		"partialNote": "Not every field was judged. status, stopReasonName and each row's notJudgedReason say why. notJudged, lostAtRestart and judgeRefused are not the judge declining."
+	},
+	"pageSize": 10,
+	"answeredFromNow": {
+		"graphName": "GOLD_261030_useCases",
+		"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+		"manifestLabel": "educore-2026-10-30",
+		"manifest": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+		"builtAt": "2026-10-30T04:44:59.262Z",
+		"graphContractSha256": "f65db22ad18450dade497b56d8298002591dc47bcb9a568500fd2abcf6f2426d",
+		"operation": "rosettaFetch"
+	},
+	"caseList": [
+		{
+			"caseName": "property",
+			"fieldIndex": 0,
+			"hubName": "CEDS",
+			"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d"
+		},
+		{
+			"caseName": "CTDL",
+			"fieldIndex": 0,
+			"hubName": "CTDL",
+			"cardStableId": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2"
+		},
+		{
+			"caseName": "value",
+			"fieldIndex": 1,
+			"hubName": "CEDS",
+			"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1f1f7d790e02f4ec61c2e120f893d15a7cee322a6d685b52c0122bce876f1177"
+		},
+		{
+			"caseName": "qualified",
+			"fieldIndex": 2,
+			"hubName": "CEDS",
+			"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/07a0c9732df121b6fb52caaea6ed573bd611baaeaecc08af8160766a370b5858"
+		},
+		{
+			"caseName": "term",
+			"fieldIndex": 3,
+			"hubName": "CEDS",
+			"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/00030f30caa2ce1c12011d5172e6a719d8781d83d9629e087dbec333081e16c7"
+		}
+	]
+}

@@ -4,8 +4,8 @@
 // both doors call) is gate P7nativeIdentifier in rosetta-judged-live.test.js.
 //   1. hubElementIdentityFor on a stub graph: the identifier, a number carried as text, and every named absence; a bad tier or a failed read is an error, not an absence.
 //   2. absentOf refuses a name it does not declare.
-//   3. rosettaReport: a proposal recorded before P7 reads judgedBeforeNativeIdentifierRecorded; one recorded after keeps its identifier.
-//   4. the fetch summary's line: [cedsId P002040] before the label, kept when the budget drops the labels, and the absence named in brackets.
+//   3. rosettaReport (detail=audit, where P7a moved these fields): a proposal recorded before P7 reads judgedBeforeNativeIdentifierRecorded; one recorded after keeps its identifier.
+//   4. the fetch summary's line: ⟪P7a⟫ the bracket now holds the card's tuple (rosetta-fetch-shape.test.js); a row with none names that absence, and the P7 identifier alone no longer prints.
 //   node server/test/rosetta-native-identifier.test.js
 
 const { hubElementIdentityFor, absentOf, HUB_ELEMENT_NATIVE_IDENTIFIER_ABSENT_NAME_LIST } = require('../lib/standards-query/rosetta/hubElementIdentity');
@@ -90,23 +90,24 @@ const judgmentRowList = [
 ];
 const submission = { fieldList: [{ name: 'Military Discharge Date' }, { name: 'Birth Date' }], submissionNote: {} };
 const answerNoteValues = { draftNote: 'd', strongOnlyNote: 's', strongEvidenceNote: 'e', rationaleNote: 'r', partialNote: 'p' };
-const fullReport = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'full' });
-ok('a proposal recorded with its identifier keeps it', fullReport.fieldList[0].byHub.CEDS.proposal.hubElementNativeIdentifier === 'P002040' && !('hubElementNativeIdentifierAbsentName' in fullReport.fieldList[0].byHub.CEDS.proposal));
-ok('a proposal recorded before P7 says judgedBeforeNativeIdentifierRecorded, never a blank', fullReport.fieldList[0].byHub.CTDL.proposal.hubElementNativeIdentifierAbsentName === 'judgedBeforeNativeIdentifierRecorded', JSON.stringify(fullReport.fieldList[0].byHub.CTDL.proposal));
-ok('a recorded absence is kept as recorded', fullReport.fieldList[1].byHub.CEDS.proposal.hubElementNativeIdentifierAbsentName === 'hubElementCarriesNoNativeIdentifier');
-ok('a unit with no proposal gains no identity field', !('proposal' in fullReport.fieldList[1].byHub.CTDL));
+const fullReport = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: JOB.answeredFrom });
+const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
+ok('a proposal recorded with its identifier keeps it', resultOfHub(fullReport.fieldList[0], 'CEDS').proposal.hubElementNativeIdentifier === 'P002040' && !('hubElementNativeIdentifierAbsentName' in resultOfHub(fullReport.fieldList[0], 'CEDS').proposal));
+ok('a proposal recorded before P7 says judgedBeforeNativeIdentifierRecorded, never a blank', resultOfHub(fullReport.fieldList[0], 'CTDL').proposal.hubElementNativeIdentifierAbsentName === 'judgedBeforeNativeIdentifierRecorded', JSON.stringify(resultOfHub(fullReport.fieldList[0], 'CTDL').proposal));
+ok('a recorded absence is kept as recorded', resultOfHub(fullReport.fieldList[1], 'CEDS').proposal.hubElementNativeIdentifierAbsentName === 'hubElementCarriesNoNativeIdentifier');
+ok('a unit with no proposal gains no identity field', !('proposal' in resultOfHub(fullReport.fieldList[1], 'CTDL')));
 ok('the stored row is not changed by the report', !('hubElementNativeIdentifierAbsentName' in judgmentRowList[1].judgment.proposal));
 
 console.log('- 4. the fetch summary line');
-const summaryAnswer = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'summary' });
+const summaryAnswer = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'summary', detail: 'lean', answeredFromNow: JOB.answeredFrom });
 const summary = SUMMARY_SHAPER_BY_NAME.rosettaFetch({ answer: summaryAnswer, summaryShape: registry.summaryShape });
 console.log(`  lines: ${JSON.stringify(summary.fieldLineList)}`);
-ok('CEDS strong [cedsId P002040]: Military Discharge Date', summary.fieldLineList[0][1] === 'CEDS strong [cedsId P002040]: Military Discharge Date', summary.fieldLineList[0][1]);
-ok('an absence is named in brackets', summary.fieldLineList[0][2] === 'CTDL strong [no native identifier: judgedBeforeNativeIdentifierRecorded]: Date Effective' && summary.fieldLineList[1][1] === 'CEDS strong [no native identifier: hubElementCarriesNoNativeIdentifier]: Birthdate', JSON.stringify(summary.fieldLineList));
+ok('⟪P7a⟫ a proposal recorded before its tuple names that absence in the bracket', summary.fieldLineList[0][1] === 'CEDS strong [no tuple: judgedBeforeTupleRecorded]: Military Discharge Date', summary.fieldLineList[0][1]);
+ok('⟪P7a⟫ the P7 identifier alone no longer prints: the tuple bracket replaced it', !/cedsId P002040|no native identifier/.test(JSON.stringify(summary.fieldLineList)), JSON.stringify(summary.fieldLineList));
 ok('a unit with no proposal reads its status as before', summary.fieldLineList[1][2] === 'CTDL abstained');
-ok('the line note says what the brackets hold', /own identifier in brackets/.test(summary.fieldLineNote || ''), summary.fieldLineNote);
+ok('the line note says what the brackets hold', /tuple in brackets/.test(summary.fieldLineNote || ''), summary.fieldLineNote);
 const tightSummary = SUMMARY_SHAPER_BY_NAME.rosettaFetch({ answer: summaryAnswer, summaryShape: { ...registry.summaryShape, judgedAnswerByteBudget: 1 } });
-ok('when the budget drops the labels the identifier stays: CEDS strong [cedsId P002040]', tightSummary.fieldLineList[0][1] === 'CEDS strong [cedsId P002040]', tightSummary.fieldLineList[0][1]);
+ok('when the budget drops the labels the bracket stays', tightSummary.fieldLineList[0][1] === 'CEDS strong [no tuple: judgedBeforeTupleRecorded]', tightSummary.fieldLineList[0][1]);
 
 console.log(`\nrosetta-native-identifier: ${passedCount} passed, ${failedCount} failed`);
 process.exit(failedCount === 0 ? 0 : 1);

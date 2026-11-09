@@ -8,7 +8,8 @@ const templateText = pageText.slice(pageText.indexOf('<template>'));
 const faultList = [
 	/v-html/.test(templateText) ? 'the template uses v-html' : '',
 	/innerHTML|outerHTML|insertAdjacentHTML/.test(pageText) ? 'the page writes HTML by hand' : '',
-	/judgesRationale/.test(templateText) && !/\{\{ oneField\.byHub\[hubName\]\.judgesRationale \}\}/.test(templateText) ? 'the rationale is not shown by interpolation' : '',
+	// ⟪P7a⟫ a field's results are a resultList, each naming its hub: the page reads one through resultFor
+	/judgesRationale/.test(templateText) && !/\{\{ resultFor\(oneField, hubName\)\.judgesRationale \}\}/.test(templateText) ? 'the rationale is not shown by interpolation' : '',
 	/The judge's words/.test(templateText) ? '' : 'the rationale is not labelled as the judge\'s words',
 ].filter(Boolean);
 faultList.forEach((oneFault) => console.log(`  FAIL: ${oneFault}`));

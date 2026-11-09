@@ -12,7 +12,7 @@
 const crypto = require('crypto');
 const { SUBMISSION_FORM_LIST } = require('./rosettaRetrieval');
 const { OPEN_STATUS_LIST } = require('./rosettaJobStore');
-const { reportOf, ownerJobFactsOf } = require('./rosettaReport');
+const { reportOf, usingOf, ownerJobFactsOf } = require('./rosettaReport');
 const { judgedSettings } = require('./rosettaJudgeEngine');
 
 const MILLISECONDS_PER_DAY = 86400000;
@@ -240,7 +240,8 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 		});
 	}), done);
 
-	const fetch = ({ principal, input, pageNumber, pageSize, rowDetail, answerNoteValues }, done) => ownedJobOr({ operationName: 'rosettaFetch', principal, input }, (job) => jobStore.jobSpendUsd(job.jobRefId, (spendError, spentUsd) => {
+	// ⟪P7a⟫ the answer, and the using block the core puts in answeredFrom: the judge, what this job spent, and whether every judgment came from the cache (no vendor call at all)
+	const fetch = ({ principal, input, pageNumber, pageSize, rowDetail, detail, answeredFrom, answerNoteValues }, done) => ownedJobOr({ operationName: 'rosettaFetch', principal, input }, (job) => jobStore.jobSpendUsd(job.jobRefId, (spendError, spentUsd) => {
 		if (spendError) {
 			done(`the job store would not read: ${spendError}`);
 			return;
@@ -255,7 +256,17 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					done(`the job store would not read: ${judgmentError}`);
 					return;
 				}
-				done('', { answer: reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail }) });
+				jobStore.judgeCallTotalsOf(job.jobRefId, (callTotalsError, callTotalsRowList) => {
+					if (callTotalsError) {
+						done(`the job store would not read: ${callTotalsError}`);
+						return;
+					}
+					const judgeCallCount = callTotalsRowList.reduce((soFar, oneRow) => soFar + oneRow.callCount, 0);
+					done('', {
+						answer: reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow: answeredFrom }),
+						answeredFromAddition: { using: usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) },
+					});
+				});
 			});
 		});
 	}), done);

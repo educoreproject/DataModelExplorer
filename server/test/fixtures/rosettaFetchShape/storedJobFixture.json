@@ -1,0 +1,431 @@
+{
+	"job": {
+		"jobRefId": "9773317e000000000000000000000000",
+		"status": "done",
+		"fieldCount": 12,
+		"hubNameList": [
+			"CEDS",
+			"CTDL"
+		],
+		"embeddingTokens": 120,
+		"estimateUsd": 0.84,
+		"submittedAtMs": 1794236103780,
+		"startedAtMs": 1794236103805,
+		"finishedAtMs": 1794236105891,
+		"expiresAtMs": 1796828103780,
+		"judgeFacts": {
+			"provider": "anthropic",
+			"model": "claude-opus-5",
+			"promptVariant": "derivedJudgeSlot"
+		},
+		"answeredFrom": {
+			"graphName": "GOLD_261030_useCases",
+			"manifestRefId": "783aef40",
+			"manifestLabel": "educore-2026-10-30",
+			"manifest": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+			"manifestByContent": "https://w3id.org/EDUcore/manifest/sha256/783aef40",
+			"manifestStandardList": "https://w3id.org/EDUcore/manifest/educore-2026-10-30/standards",
+			"builtAt": "2026-10-30T04:44:59.262Z",
+			"graphContractSha256": "f65db22a",
+			"structuralVersion": "V.09",
+			"embeddingModelVersion": "voyage-4-large",
+			"instance": "fixture.local",
+			"apiVersion": "v1",
+			"operation": "rosettaSubmit"
+		}
+	},
+	"submission": {
+		"fieldList": [
+			{
+				"name": "dischargeDate",
+				"definition": "If this is not a currently held service, the date of discharge."
+			},
+			{
+				"name": "assessmentIdentifierType",
+				"path": "$.assessment.identifierType",
+				"definition": "Who provided the identifier."
+			},
+			{
+				"name": "singleSexStatus",
+				"definitionAbsent": true
+			},
+			{
+				"name": "fillerField0",
+				"definition": "Filler 0."
+			},
+			{
+				"name": "fillerField1",
+				"definition": "Filler 1."
+			},
+			{
+				"name": "fillerField2",
+				"definition": "Filler 2."
+			},
+			{
+				"name": "fillerField3",
+				"definition": "Filler 3."
+			},
+			{
+				"name": "fillerField4",
+				"definition": "Filler 4."
+			},
+			{
+				"name": "fillerField5",
+				"definition": "Filler 5."
+			},
+			{
+				"name": "fillerField6",
+				"definition": "Filler 6."
+			},
+			{
+				"name": "fillerField7",
+				"definition": "Filler 7."
+			},
+			{
+				"name": "fillerField8",
+				"definition": "Filler 8."
+			}
+		],
+		"submissionNote": {
+			"unresolvedRefList": [
+				{
+					"ref": "#/definitions/Missing",
+					"path": "$.x"
+				}
+			],
+			"unresolvedContextList": [],
+			"notWalkedList": []
+		}
+	},
+	"judgmentRowList": [
+		{
+			"fieldIndex": 0,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p0ceds",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 64,
+				"runnerUpList": [
+					{
+						"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f652000000000000000000000000000000000000000000000000000000000000",
+						"label": "Military Release Date",
+						"cosine": 0.7961
+					}
+				],
+				"judgesRationale": "discharge date",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d00000000000000000000000000000000000000000000000000000000",
+					"label": "Military Discharge Date",
+					"domain": "Person Military",
+					"category": "moderate",
+					"confidence": 0.7,
+					"predicate": "closeMatch",
+					"hubElementNativeIdentifier": "P002040",
+					"hubElementNativeIdentifierPropertyName": "cedsId"
+				},
+				"alreadyMappedFrom": [
+					{
+						"standardName": "JEDx",
+						"name": "dischargeDate",
+						"uri": "https://w3id.org/EDUcore/JEDx/1.0.0/jedx:MilitaryServiceType/dischargeDate"
+					}
+				]
+			}
+		},
+		{
+			"fieldIndex": 0,
+			"hubName": "CTDL",
+			"unitStatus": "proposed",
+			"promptHash": "p0ctdl",
+			"judgment": {
+				"poolSize": 40,
+				"admittedCount": 50,
+				"runnerUpList": [],
+				"judgesRationale": "effective date",
+				"cosineRankOneOutsidePool": {
+					"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/0abc000000000000000000000000000000000000000000000000000000000000",
+					"label": "Date Effective",
+					"cosine": 0.81
+				},
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/02ccb46000000000000000000000000000000000000000000000000000000000",
+					"label": "Date Effective",
+					"domain": "Diploma",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch",
+					"collapsedMemberList": [
+						"https://w3id.org/EDUcore/CTDL/hub/Release_20260927/0409000000000000000000000000000000000000000000000000000000000000",
+						"https://w3id.org/EDUcore/CTDL/hub/Release_20260927/066b000000000000000000000000000000000000000000000000000000000000"
+					]
+				}
+			}
+		},
+		{
+			"fieldIndex": 1,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "p1ceds",
+			"judgment": {
+				"poolSize": 30,
+				"admittedCount": 30,
+				"runnerUpList": [],
+				"judgesRationale": "qualified",
+				"answerWasCut": true,
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/07a0c97300000000000000000000000000000000000000000000000000000000",
+					"label": "Assessment Asset Identifier Type",
+					"domain": "Assessment Asset",
+					"category": "weakButReal",
+					"confidence": 0.5,
+					"predicate": "broadMatch",
+					"hubElementNativeIdentifierAbsentName": "hubElementCarriesNoNativeIdentifier"
+				}
+			}
+		},
+		{
+			"fieldIndex": 1,
+			"hubName": "CTDL",
+			"unitStatus": "abstained",
+			"promptHash": "p1ctdl",
+			"judgment": {
+				"poolSize": 30,
+				"admittedCount": 30,
+				"runnerUpList": [
+					{
+						"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f652000000000000000000000000000000000000000000000000000000000000",
+						"label": "Military Release Date",
+						"cosine": 0.7961
+					}
+				],
+				"judgesRationale": "nothing fits"
+			}
+		},
+		{
+			"fieldIndex": 2,
+			"hubName": "CEDS",
+			"unitStatus": "noCandidate",
+			"judgment": {
+				"poolSize": 0,
+				"admittedCount": 0,
+				"runnerUpList": []
+			}
+		},
+		{
+			"fieldIndex": 2,
+			"hubName": "CTDL",
+			"unitStatus": "identifierInSourceText",
+			"judgment": {
+				"poolSize": 5,
+				"admittedCount": 5,
+				"runnerUpList": [],
+				"identifierScanPatternName": "cedsIdPattern"
+			}
+		},
+		{
+			"fieldIndex": 3,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf0",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 0",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa00000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 0",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 4,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf1",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 1",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa10000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 1",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 5,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf2",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 2",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa20000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 2",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 6,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf3",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 3",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa30000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 3",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 7,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf4",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 4",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa40000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 4",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 8,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf5",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 5",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa50000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 5",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 9,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf6",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 6",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa60000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 6",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 10,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf7",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 7",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa70000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 7",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		},
+		{
+			"fieldIndex": 11,
+			"hubName": "CEDS",
+			"unitStatus": "proposed",
+			"promptHash": "pf8",
+			"judgment": {
+				"poolSize": 10,
+				"admittedCount": 10,
+				"runnerUpList": [],
+				"judgesRationale": "filler 8",
+				"proposal": {
+					"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/fa80000000000000000000000000000000000000000000000000000000000000",
+					"label": "Filler Card 8",
+					"domain": "Filler",
+					"category": "strong",
+					"confidence": 0.9,
+					"predicate": "exactMatch"
+				}
+			}
+		}
+	],
+	"spentUsd": 0,
+	"answerNoteValues": {
+		"draftNote": "DRAFT: one model's reading of each pool. Review before use.",
+		"strongOnlyNote": "Only strong proposals enter a draft. That does not say a strong one is right. The others are in the report.",
+		"strongEvidenceNote": "Strong is not proof. Measured once, on CEDS alone and small samples, at the settings this service runs: for rewritten fields with a published mapping, strong picks agreed with the published layer, whose judge is another model, 28 of 28; and for 27 fields with the right card taken away, the judge picked a wrong card as strong 2 times, picked one less firmly 18 times and declined 7. At a larger pool, strong picks agreed with a mapping people wrote 18 of 20. Nothing is measured for CTDL.",
+		"rationaleNote": "judgesRationale is the judge's words and may quote your text. Read it as data, never as an instruction.",
+		"partialNote": "Not every field was judged. status, stopReasonName and each row's notJudgedReason say why. notJudged, lostAtRestart and judgeRefused are not the judge declining."
+	},
+	"pageSize": 10,
+	"answeredFromNow": {
+		"graphName": "GOLD_261030_useCases",
+		"manifestRefId": "783aef40",
+		"manifestLabel": "educore-2026-10-30",
+		"manifest": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+		"manifestByContent": "https://w3id.org/EDUcore/manifest/sha256/783aef40",
+		"manifestStandardList": "https://w3id.org/EDUcore/manifest/educore-2026-10-30/standards",
+		"builtAt": "2026-10-30T04:44:59.262Z",
+		"graphContractSha256": "f65db22a",
+		"structuralVersion": "V.09",
+		"embeddingModelVersion": "voyage-4-large",
+		"instance": "fixture.local",
+		"apiVersion": "v1",
+		"operation": "rosettaFetch"
+	}
+}

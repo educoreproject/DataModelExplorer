@@ -22,7 +22,16 @@
 		"Each standards_* answer is JSON: answeredFrom names the graph and manifest that answered, answer holds the result. Every element and card carries uri; quote it, it is permanent.",
 		"A refused answer arrives as a tool error whose answer carries refusedByName, refusalName and reason: read its reason (and validValueList when present) and say what was refused; it is NOT \"no such data\". A refusal named busy says how long to wait: retry after that."
 	],
-	"sizeRefusalNameList": ["inputTooLong", "patternTooLong", "fieldTextTooLong", "maxFieldListLength", "retrievalTokensPerRequestExceeded", "depthExceeded", "refExpansionsExceeded", "perJobCeilingReached"],
+	"sizeRefusalNameList": [
+		"inputTooLong",
+		"patternTooLong",
+		"fieldTextTooLong",
+		"maxFieldListLength",
+		"retrievalTokensPerRequestExceeded",
+		"depthExceeded",
+		"refExpansionsExceeded",
+		"perJobCeilingReached"
+	],
 	"sizeRefusalContactText": "If you need more than this, write to {contactAddress} and say what you need.",
 	"envelopeRefusalHttpStatusByName": {
 		"manifestMismatch": 409,
@@ -1708,6 +1717,16 @@
 			"jobActionName": "fetch",
 			"anonymousRefusalName": "notFound",
 			"summaryShaperName": "rosettaFetch",
+			"envelopeRule": {
+				"_comment": "P7a (TQ Q61-Q64): detail chooses the envelope. lean keeps answeredFrom to the graph and manifest (the handler adds using); audit keeps it whole. No uriNote: a Rosetta row does not carry uriKind or resolvesHere, so that note would promise what the rows do not hold.",
+				"detailInputName": "detail",
+				"leanDetailValue": "lean",
+				"leanAnsweredFromFieldNameList": [
+					"graphName",
+					"manifest"
+				],
+				"omitsUriNote": true
+			},
 			"pageSize": 10,
 			"mcpDoorRefusesLoopback": true,
 			"coreHandlerName": "rosettaJobs",
@@ -1752,6 +1771,18 @@
 					"type": "positiveInteger",
 					"required": false,
 					"description": "With rowDetail=full, which page of fields. From 1."
+				},
+				{
+					"name": "detail",
+					"type": "text",
+					"required": false,
+					"enum": [
+						"lean",
+						"audit"
+					],
+					"defaultValue": "lean",
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "lean (the default): each field's results, each proposal's card and tuple. audit adds what lean leaves out: the job's clock and estimate, the notes, zero counts, pool sizes, the graph at submit, the whole answeredFrom, and a card's descriptive ranges (rangeList)."
 				}
 			],
 			"refusalNameList": [
@@ -1761,15 +1792,15 @@
 				"inputTooLong",
 				"loopbackNotAdmitted"
 			],
-			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full. Every proposal names its hub element by that element's own identifier, the one to cite (CEDS: cedsId, e.g. P002040; a hub's declared identifier, e.g. CTDL's uri): in the summary line as [cedsId P002040], in the full proposal as hubElementNativeIdentifier and hubElementNativeIdentifierPropertyName; where there is none, hubElementNativeIdentifierAbsentName says why. Every card carries uri; quote it, it is permanent.",
+			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full, and lean unless detail=audit. A field is named as you sent it (requestName) and holds resultList, one result per hub. A proposal names its card and the card's tuple, the elements it stands for (domain, property and so on, only those the card has), each with its kind, its own standard's identifier (nativeId, e.g. { cedsId: P002040 }), label and uri: to cite the idea, cite the tuple. The summary line shows the tuple's identifiers, e.g. [C200296 · P002040]. answeredFrom.using names the judge, its cost and whether it came from the cache. Every card carries uri; quote it, it is permanent.",
 			"aboutEntry": {
 				"forWhat": "Read a judged job's drafts and report, whole or as far as it got.",
 				"exampleInput": {
 					"jobRefId": "0123456789abcdef0123456789abcdef"
 				},
-				"exampleShows": "Status, counts per hub, the draft @context per hub and one line per field per hub, each proposal naming its hub element's own identifier, with leftOutOfSummary.",
+				"exampleShows": "Status, counts per hub, the draft @context per hub and one line per field per hub, each proposal naming its card's tuple, with leftOutOfSummary.",
 				"expectedAnswerFieldList": [
-					"job",
+					"status",
 					"counts",
 					"draftContextByHub",
 					"fieldLineList",
@@ -2055,10 +2086,10 @@
 		"judgedLineLabelChars": 40,
 		"judgedLineLabelCharsMin": 8,
 		"judgedLineNameCharsWhenShort": 40,
-		"judgedFieldLineNote": "First member: the name as sent. Then each hub: its category, the hub element's own identifier in brackets (CEDS [cedsId P002040]; or, by name, why it has none), then the card's label when it fits.",
+		"judgedFieldLineNote": "First member: the name as sent. Then each hub: its category, the card's tuple in brackets by its elements' own identifiers in slot order (CEDS [C200296 · P002040]; or, by name, why there is none), then the card's label when it fits.",
 		"judgedDraftsNotShownText": "These names and URIs are too long to fit here. Ask rowDetail=full: every page holds the drafts whole.",
 		"judgedAnswerByteBudget": 18950,
-		"howToAskForFullJudged": "Ask rowDetail=full and page for proposals, rationales and runner-ups.",
+		"howToAskForFullJudged": "Ask rowDetail=full and page for proposals with their tuples, rationales and runner-ups; add detail=audit for everything the lean form leaves out.",
 		"retrievalReadableFieldCount": 20,
 		"howToAskForFullRetrieval": "Ask rowDetail=full for every candidate of every pool, with its votes, card cosine, both ranks and domain.",
 		"retrievalOverReadableAdvice": "This answer is over what a model client may read. To read every field, submit about {readableFieldCount} fields at a time: text already submitted costs nothing to send again."
