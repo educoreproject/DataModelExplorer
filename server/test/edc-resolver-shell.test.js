@@ -2,7 +2,8 @@
 // edc-resolver-shell.test.js — the parts of the edc: resolver endpoint that need no store (edcResolverEndpoint-110226). The resolver's answers themselves are gate G2, against a store copy.
 //   1. declareTokenTolerantPathPrefix: under '/api/edc/' a bad token reads as no token; on '/api/edcOther', and on every other route, it is still refused;
 //      a malformed prefix is refused by name.
-//   2. htmlAnswer: json is the stub's exact bytes; every value on a page is escaped; a w3id link is rewritten under the public prefix, its query kept.
+//   2. htmlAnswer: json is the stub's exact bytes; every value on a page is escaped; a w3id link is rewritten under the public prefix, its query kept (an html page now
+//      needs its request path, for its JSON link: WORKORDER-edcHumanPages-110926; the human pages are edc-human-pages.test.js).
 //   3. forgeAdapter: every absent or bad config value is refused by name, with no forge tree needed.
 // No server, no database. Run: node server/test/edc-resolver-shell.test.js
 
@@ -66,14 +67,14 @@ runTokenCase(0, () => {
 
 	const baseIri = 'https://w3id.org/EDUcore/';
 	const hostileBody = { kind: '<script>alert(1)</script>', next: `${baseIri}manifests?page=2`, nested: { listed: [`${baseIri}layer/jev"><img src=x>`] }, error: '<b>refused</b>', other: 'https://elsewhere.example/x' };
-	const pageText = answerTextFor({ answerFormat: 'html', httpStatus: 451, answerBody: hostileBody, edcIri: `${baseIri}a<script>`, publicPathPrefix: '/edc/', baseIri });
+	const pageText = answerTextFor({ answerFormat: 'html', httpStatus: 451, answerBody: hostileBody, edcIri: `${baseIri}a<script>`, publicPathPrefix: '/edc/', baseIri, requestPath: '/a<script>', humanPageFacts: null });
 	ok('json is the stub\'s exact text', answerTextFor({ answerFormat: 'json', answerBody: { a: 1 } }) === '{\n  "a": 1\n}\n');
 	ok('no raw markup from a value reaches the page', !/<script>|<img |<b>refused/.test(pageText));
 	ok('the status is on the page', pageText.includes('HTTP 451'));
 	ok('a w3id link is rewritten under the public prefix, its query kept', pageText.includes('<a href="/edc/manifests?page=2">'));
 	ok('a nested w3id value is linked, escaped', pageText.includes('href="/edc/layer/jev&quot;&gt;&lt;img src=x&gt;"'));
 	ok('a value outside the scheme is not linked', !pageText.includes('href="https://elsewhere'));
-	ok('a page with no scheme known still renders its refusal', /forge is off/.test(answerTextFor({ answerFormat: 'html', httpStatus: 503, answerBody: { error: 'the forge is off' } })));
+	ok('a page with no scheme known still renders its refusal', /forge is off/.test(answerTextFor({ answerFormat: 'html', httpStatus: 503, answerBody: { error: 'the forge is off' }, requestPath: '/scheme' })));
 
 	const COMPLETE_CONFIG = { educoreForgeCodePath: '/nowhere/forge', uriContractFilePath: '/nowhere/store', publicPathPrefix: '/edc/', directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@shell.example', directBlockMaxBytes: '2', directBlockTimeoutMilliseconds: '1', wholeBlockMaxBytes: '1', wholeBlockMaxOldSpaceMegabytes: '1', wholeBlockTimeoutMilliseconds: '1' };
 	ok('no section at all is refused by name', /does not give educoreForgeCodePath/.test(openForgeAdapter({ configValues: { _segmentName: 'edc-resolver' } }).refusalText));
