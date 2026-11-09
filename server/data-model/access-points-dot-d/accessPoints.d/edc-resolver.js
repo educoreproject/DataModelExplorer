@@ -8,12 +8,15 @@
 // refusal the resolver or this module makes is an ANSWER, never a pipe error: its status and its words are the contract.
 // The store and the forge load once, here, at startup. A failure is logged once and every request answers 503 with the same cause until a restart;
 // nothing retries. Replacing the store file or changing the licence hold list means an API restart (see forgeAdapter.js).
+// An html answer for an element or a meaning is a human page (WORKORDER-edcHumanPages-110926): its graph facts are read here, before the answer, and handed to the page,
+// in this process or in the child's input. A json answer reads no facts, so its bytes are the resolver's alone.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const { openForgeAdapter } = require('../../../lib/edc-resolver/forgeAdapter');
 const { wholeBlockRunnerFor } = require('../../../lib/edc-resolver/wholeBlockRunner');
-const { answerTextFor, CONTENT_TYPE_BY_FORMAT } = require('../../../lib/edc-resolver/htmlAnswer');
+const { answerTextFor, CONTENT_TYPE_BY_FORMAT, HUMAN_PAGE_KIND_LIST } = require('../../../lib/edc-resolver/htmlAnswer');
+const { humanPageFactsFor } = require('../../../lib/edc-resolver/humanPageFacts');
 const { sizeRefusalContactFor } = require('../../../lib/standards-query/sizeRefusalContact');
 const standardsQueryRegistry = require('../../../lib/standards-query/standardsQueryOperations.json');
 const { meaningRangeListFieldsFor, withMeaningRangeList } = require('../../../lib/edc-resolver/meaningRangeList');
@@ -24,6 +27,7 @@ const WHOLE_BLOCK_BUSY_RETRY_SECONDS = 5;
 // ⟪TQ Q39⟫ the bytes of a direct block reach the client unchecked: the client holds the hash and checks it, as the block's own name promises it can
 const DIRECT_BLOCK_CONTENT_TYPE = 'text/plain; charset=utf-8';
 const MEANING_KIND = 'meaning';
+const HUMAN_PAGE_FORMAT = 'html';
 const DIRECT_BLOCK_VERIFICATION_TEXT = 'This block is read directly from the store and is not checked before it is sent: check that the sha256 of these bytes equals X-Edc-Expected-Sha256, which is also the name in its URI.';
 
 //START OF moduleFunction() ============================================================
@@ -55,6 +59,20 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		}
 		return uriForElementByHubRelease.get(hubReleaseName);
 	};
+	// a standard's element minted at one release: the same minter, named for what it is asked here
+	const uriForElementInRelease = ({ standardName, standardVersion }) => uriForElementFor({ hubName: standardName, hubVersion: standardVersion });
+
+	// null when the request is not a human page (json, or a kind with none); else the facts, absent by name when the graph cannot say
+	const humanPageFactsWhenPageFor = ({ edcRequestPath, answerFormat }, done) => {
+		const edcIri = forgeAdapter.edcIriFor(edcRequestPath);
+		const parsed = forgeAdapter.edcUri.parse(edcIri);
+		if (answerFormat !== HUMAN_PAGE_FORMAT || !HUMAN_PAGE_KIND_LIST.includes(parsed.kind)) {
+			done(null);
+			return;
+		}
+		humanPageFactsFor({ kind: parsed.kind, partByName: parsed.partByName, edcIri, withReadSession: neo4jDb ? neo4jDb.withReadSession : null, runCypher: runCypherQuery, uriForElementInRelease, storeIsOpen: !meaningStoreOpened.error, xLog }, done);
+	};
+
 	const withRangesWhenMeaning = ({ httpStatus, body }, done) => {
 		if (httpStatus !== 200 || !body || body.kind !== MEANING_KIND || meaningStoreOpened.error) {
 			done({ httpStatus, body });
@@ -63,7 +81,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		meaningRangeListFieldsFor({ withReadSession: neo4jDb ? neo4jDb.withReadSession : null, runCypher: runCypherQuery, uriForElementFor, meaningBody: body, xLog }, (rangeFields) => done({ httpStatus, body: withMeaningRangeList(body, rangeFields) }));
 	};
 
-	const textAnswerFor = ({ edcRequestPath, answerFormat, httpStatus, answerBody, extraHeaderByName = {} }) => ({
+	// humanPageFacts: what humanPageFactsWhenPageFor read, or null for an answer that is no human page (every refusal this module makes)
+	const textAnswerFor = ({ edcRequestPath, answerFormat, httpStatus, answerBody, humanPageFacts, extraHeaderByName = {} }) => ({
 		httpStatus,
 		contentType: CONTENT_TYPE_BY_FORMAT[answerFormat],
 		extraHeaderByName,
@@ -74,30 +93,33 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			edcIri: forgeAdapter.refusalText ? edcRequestPath : forgeAdapter.edcIriFor(edcRequestPath),
 			publicPathPrefix: forgeAdapter.publicPathPrefix,
 			baseIri: forgeAdapter.baseIri,
+			requestPath: edcRequestPath,
+			humanPageFacts,
 		}),
 	});
 
 	// one answer per route (DATA, no branch); each calls done(answer)
 	const ANSWER_BY_ROUTE_NAME = Object.freeze({
-		inProcess: ({ edcRequestPath, answerFormat }, done) =>
-			forgeAdapter.resolveInProcess(edcRequestPath, (resolved) => withRangesWhenMeaning(resolved, ({ httpStatus, body }) => done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus, answerBody: body })))),
+		inProcess: ({ edcRequestPath, answerFormat, humanPageFacts }, done) =>
+			forgeAdapter.resolveInProcess(edcRequestPath, (resolved) => withRangesWhenMeaning(resolved, ({ httpStatus, body }) => done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus, answerBody: body, humanPageFacts })))),
 		overCap: ({ edcRequestPath, answerFormat, route }, done) =>
 			done(textAnswerFor({
 				edcRequestPath,
 				answerFormat,
+				humanPageFacts: null,
 				httpStatus: 413,
 				answerBody: { kind: route.kind, blockIdentity: route.blockIdentity, byteSize: route.byteSize, wholeBlockMaxBytes: forgeAdapter.wholeBlockMaxBytes, contact: sizeRefusalContact.contact, error: `${route.kind} ${route.blockIdentity} is ${route.byteSize} bytes, over this instance's cap of ${forgeAdapter.directBlockMaxBytes}; it is not served here. ${sizeRefusalContact.sentence}` },
 			})),
 		directBlock: ({ edcRequestPath, answerFormat, whenClientGone, route }, done) => {
 			if (wholeBlockRunner.isBusy()) {
-				done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another long read is running; this instance runs one at a time. Retry after ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
+				done(textAnswerFor({ edcRequestPath, answerFormat, humanPageFacts: null, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another long read is running; this instance runs one at a time. Retry after ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
 				return;
 			}
 			const { educoreForgeCodePath, uriContractFilePath, publicPathPrefix, directBlockSqliteCommandPath } = forgeAdapter;
 			wholeBlockRunner.runOneChild({ childPlanName: 'directBlock', whenClientGone, childInput: { educoreForgeCodePath, uriContractFilePath, sqliteCommandPath: directBlockSqliteCommandPath, kind: route.kind, blockIdentity: route.blockIdentity, answerFormat, publicPathPrefix } }, (childFault, childAnswer) => {
 				if (childFault) {
 					xLog.error(childFault.errorText);
-					done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: childFault.httpStatus, answerBody: { kind: route.kind, error: childFault.errorText } }));
+					done(textAnswerFor({ edcRequestPath, answerFormat, humanPageFacts: null, httpStatus: childFault.httpStatus, answerBody: { kind: route.kind, error: childFault.errorText } }));
 					return;
 				}
 				if (childAnswer.httpStatus !== 200) {
@@ -107,16 +129,16 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				done({ httpStatus: 200, contentType: DIRECT_BLOCK_CONTENT_TYPE, extraHeaderByName: { 'Content-Length': String(route.byteSize), 'X-Edc-Expected-Sha256': route.blockIdentity, 'X-Edc-Verification': DIRECT_BLOCK_VERIFICATION_TEXT }, deliverTo: childAnswer.deliverTo });
 			});
 		},
-		wholeBlockChild: ({ edcRequestPath, answerFormat, whenClientGone, route }, done) => {
+		wholeBlockChild: ({ edcRequestPath, answerFormat, whenClientGone, route, humanPageFacts }, done) => {
 			if (wholeBlockRunner.isBusy()) {
-				done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another long read is running; this instance runs one at a time. Retry in ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
+				done(textAnswerFor({ edcRequestPath, answerFormat, humanPageFacts: null, httpStatus: 503, extraHeaderByName: { 'Retry-After': String(WHOLE_BLOCK_BUSY_RETRY_SECONDS) }, answerBody: { kind: route.kind, error: `another long read is running; this instance runs one at a time. Retry in ${WHOLE_BLOCK_BUSY_RETRY_SECONDS} seconds` } }));
 				return;
 			}
 			const { educoreForgeCodePath, uriContractFilePath, publicPathPrefix } = forgeAdapter;
-			wholeBlockRunner.runOneChild({ childPlanName: 'wholeBlock', whenClientGone, childInput: { educoreForgeCodePath, uriContractFilePath, uriOrPath: edcRequestPath, answerFormat, publicPathPrefix } }, (childFault, childAnswer) => {
+			wholeBlockRunner.runOneChild({ childPlanName: 'wholeBlock', whenClientGone, childInput: { educoreForgeCodePath, uriContractFilePath, uriOrPath: edcRequestPath, answerFormat, publicPathPrefix, humanPageFacts } }, (childFault, childAnswer) => {
 				if (childFault) {
 					xLog.error(childFault.errorText);
-					done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus: childFault.httpStatus, answerBody: { kind: route.kind, error: childFault.errorText } }));
+					done(textAnswerFor({ edcRequestPath, answerFormat, humanPageFacts: null, httpStatus: childFault.httpStatus, answerBody: { kind: route.kind, error: childFault.errorText } }));
 					return;
 				}
 				done({ httpStatus: childAnswer.httpStatus, contentType: CONTENT_TYPE_BY_FORMAT[answerFormat], extraHeaderByName: {}, deliverTo: childAnswer.deliverTo });
@@ -133,7 +155,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// the store is not open: the same cause the startup log gave
 		taskList.push((args, next) => {
 			if (forgeAdapter.refusalText) {
-				next('skipRestOfPipe', { ...args, resolverAnswer: textAnswerFor({ edcRequestPath, answerFormat, httpStatus: 503, answerBody: { error: forgeAdapter.refusalText } }) });
+				next('skipRestOfPipe', { ...args, resolverAnswer: textAnswerFor({ edcRequestPath, answerFormat, humanPageFacts: null, httpStatus: 503, answerBody: { error: forgeAdapter.refusalText } }) });
 				return;
 			}
 			next('', args);
@@ -141,8 +163,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 		taskList.push((args, next) => next('', { ...args, route: forgeAdapter.routeFor(edcRequestPath) }));
 
+		taskList.push((args, next) => humanPageFactsWhenPageFor({ edcRequestPath, answerFormat }, (humanPageFacts) => next('', { ...args, humanPageFacts })));
+
 		taskList.push((args, next) => {
-			ANSWER_BY_ROUTE_NAME[args.route.routeName]({ edcRequestPath, answerFormat, whenClientGone, route: args.route }, (resolverAnswer) => next('', { ...args, resolverAnswer }));
+			ANSWER_BY_ROUTE_NAME[args.route.routeName]({ edcRequestPath, answerFormat, whenClientGone, route: args.route, humanPageFacts: args.humanPageFacts }, (resolverAnswer) => next('', { ...args, resolverAnswer }));
 		});
 
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {

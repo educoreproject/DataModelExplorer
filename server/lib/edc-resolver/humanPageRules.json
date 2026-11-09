@@ -1,0 +1,46 @@
+{
+	"_comment": "The /edc human pages' rules as data (WORKORDER-edcHumanPages-110926, TQ Q68 and Q70): which kinds get a human page, how the graph is read for it, how a node's properties are split, and the educore.dev chrome. A kind not listed keeps the plain page. Read by humanPageFacts.js and humanPage.js.",
+
+	"humanPageKindList": ["element", "meaning"],
+
+	"_ownerEdgeTypeList": "the structural edges by which an element is held by another of its own standard: a class holds a property (HAS_PROPERTY), an option set holds a value (HAS_VALUE). Read incoming to the element; the holders are its 'Used on' list.",
+	"ownerEdgeTypeList": ["HAS_PROPERTY", "HAS_VALUE"],
+
+	"_matchEdgeTypeList": "the four SKOS match edges from an element to a hub card (the graph's own schema: one per SKOS relation)",
+	"matchEdgeTypeList": ["EXACT_MATCH", "CLOSE_MATCH", "BROAD_MATCH", "NARROW_MATCH"],
+
+	"_listCap": "the most rows one page section shows; a longer list says how many it holds and how many it shows",
+	"listCap": 60,
+
+	"_standardOwnIriRuleByStandardName": "where a standard publishes its own IRI for an element. prefixExpansion: the stableId's prefix is replaced by the standard's namespace (CTDL publishes ceterms: terms at purl.org/ctdl/terms/). nodePropertyName: the node carries the IRI as the standard wrote it (CEDS: its uri property). statusPropertyName: where the standard's own term status is carried. A standard not listed shows 'not recorded' by name.",
+	"standardOwnIriRuleByStandardName": {
+		"CEDS": { "nodePropertyName": "uri" },
+		"CTDL": { "prefixExpansion": { "ceterms:": "https://purl.org/ctdl/terms/" }, "statusPropertyName": "status" }
+	},
+
+	"_propertyProvenanceByStandardName": "a node's properties split into what the standard wrote and what EDUcore added. CTDL, CTDL-ASN and CTDL-QData are forged by one walk, educoreForge lib/ctdl-family-forge/jsonLdVocabularyWalk.js: it carries name, description, status, usageNote, the secondary texts (rdfsComment, skosDefinition, changeHistoryUrl), the verbatim references (crossRefs, declaredCorrespondenceList) and the term IRI (uri) from the source; the framework stamps role, searchText, parentId, path and depth, the embed pass stamps embeddingModelVersion, and the walk itself computes domainCount, rangeDatatypeList (its reading of the datatype ranges) and nativeDeclarationAnomalyList (its judgement of the source). A standard not listed is shown unsplit, by name. A property a listed standard carries that neither list names is shown as not classified, by name.",
+	"propertyProvenanceByStandardName": {
+		"CTDL": "ctdlFamilyWalk",
+		"CTDLASN": "ctdlFamilyWalk",
+		"CTDLQData": "ctdlFamilyWalk"
+	},
+	"propertyProvenanceByWalkName": {
+		"ctdlFamilyWalk": {
+			"sourcePropertyNameList": ["name", "description", "status", "usageNote", "rdfsComment", "skosDefinition", "changeHistoryUrl", "crossRefs", "declaredCorrespondenceList", "uri"],
+			"addedPropertyNameList": ["role", "searchText", "parentId", "path", "depth", "embeddingModelVersion", "domainCount", "rangeDatatypeList", "nativeDeclarationAnomalyList"],
+			"sourceNoteText": "Split as educoreForge's CTDL-family walk (jsonLdVocabularyWalk.js) forges it."
+		}
+	},
+
+	"_propertyNameNotShownList": "properties a page never lists in its property sections (they stay in the JSON): domainCount counts repeated domain declarations on 101 CTDL properties, so the page shows the length of the Used on list it reads instead (ROMANTIC_PARASOL, 2026-11-09)",
+	"propertyNameNotShownList": ["domainCount"],
+
+	"_siteChrome": "the educore.dev look (html/assets/css/global.css and html/pages/index.vue): the logo and home link resolve on the site's own host, beside /edc/",
+	"siteChrome": {
+		"homeHref": "/",
+		"logoPath": "/educore-logo.png",
+		"logoAltText": "EDUcore",
+		"fontStylesheetHref": "https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&family=DM+Serif+Display&display=swap",
+		"footerText": "© 2026 EduCore Project. Building interoperability for education, together."
+	}
+}

@@ -1,0 +1,1654 @@
+{
+	"capturedAt": "2026-11-09T19:36:53.976Z",
+	"graphName": "GOLD_261030_useCases",
+	"caseList": [
+		{
+			"casePath": "/CEDS/14.0.0.0/ceds:P002040",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "element",
+				"element": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002040",
+				"partByName": {
+					"standardName": "CEDS",
+					"standardVersion": "14.0.0.0",
+					"elementStableId": "https://w3id.org/CEDStandards/terms/P002040"
+				},
+				"definitionText": "The date when a person was released from further military obligations.",
+				"node": {
+					"stableId": "https://w3id.org/CEDStandards/terms/P002040",
+					"labels": [
+						"CedsProperty",
+						"DmeProperty",
+						"ForgedNode",
+						"StandardBase"
+					],
+					"properties": {
+						"allDomainIds": [
+							"C200296"
+						],
+						"allDomainNames": [
+							"Person Military"
+						],
+						"canonicalKey": [
+							"P002040"
+						],
+						"cedsId": [
+							"P002040"
+						],
+						"cedsOriginalAnchorPropertyName": [
+							"dc:identifier"
+						],
+						"comment": [
+							"This element is applicable for specifying more details when using indicators related to U.S. Military service, such as Military Connected Student Indicator, Active Military Status Indicator, Military Veteran Status Indicator and Military Enlistment After Exit elements."
+						],
+						"creator": [
+							"Common Education Data Standards"
+						],
+						"crossRefs": [
+							"[{\"system\":\"ceds\",\"id\":\"P002040\",\"raw\":\"P002040\",\"locator\":\"dc:identifier\"}]"
+						],
+						"dataType": [
+							"dateTime"
+						],
+						"definition": [
+							"The date when a person was released from further military obligations."
+						],
+						"depth": [
+							2
+						],
+						"description": [
+							"The date when a person was released from further military obligations."
+						],
+						"domainId": [
+							"C200296"
+						],
+						"embeddingModelVersion": [
+							"voyage-4-large"
+						],
+						"hubName": [
+							"CEDS"
+						],
+						"hubVersion": [
+							"14.0.0.0"
+						],
+						"name": [
+							"Military Discharge Date"
+						],
+						"notation": [
+							"MilitaryDischargeDate"
+						],
+						"parentId": [
+							"https://w3id.org/CEDStandards/terms/C200296"
+						],
+						"path": [
+							"Person Military.Military Discharge Date"
+						],
+						"rangeDatatype": [
+							"dateTime"
+						],
+						"role": [
+							"DmeProperty"
+						],
+						"searchText": [
+							"Person Military | Military Discharge Date"
+						],
+						"textFormat": [
+							"YYYY-MM-DD or YYYY-MM"
+						],
+						"uri": [
+							"https://w3id.org/CEDStandards/terms/P002040"
+						]
+					}
+				},
+				"schemaBlock": "https://w3id.org/EDUcore/schemaBlock/sha256/fa44bccf2a36c7da27775d97f4de75e6f2b8867f7df4f1ea7ac0b874ec3853fa",
+				"parent": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200296",
+				"siblingList": [
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001576",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001577",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001578",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001640",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002034",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002039",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002041",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002044",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002045",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002046",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002047",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002048",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002057",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P600057",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P600058",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P600099",
+					"https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P600100"
+				],
+				"interpretationList": [],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"usedOnList": [
+					{
+						"label": "Person Military",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200296"
+					}
+				],
+				"usedOnCount": 1,
+				"meaningAsPartList": [
+					{
+						"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/92586579701fd9afcb5496187523edfba067275d434dea7334e3f9e91fbaaff5",
+						"hubName": "CEDS",
+						"hubVersion": "14.0.0.0",
+						"label": "Military Discharge Date",
+						"referenceTier": "term",
+						"tupleBracketText": "[P002040]",
+						"slotName": "term"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d",
+						"hubName": "CEDS",
+						"hubVersion": "14.0.0.0",
+						"label": "Military Discharge Date",
+						"referenceTier": "property",
+						"tupleBracketText": "[C200296 · P002040]",
+						"slotName": "property"
+					}
+				],
+				"meaningAsPartCount": 2,
+				"meaningMappedList": [],
+				"meaningMappedCount": 0
+			}
+		},
+		{
+			"casePath": "/CTDL/Release%2020260927/ceterms:hasProxy",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "element",
+				"element": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasProxy",
+				"partByName": {
+					"standardName": "CTDL",
+					"standardVersion": "Release 20260927",
+					"elementStableId": "ceterms:hasProxy"
+				},
+				"definitionText": "Indicates a resource that acts as a stand-in for the resource.",
+				"node": {
+					"stableId": "ceterms:hasProxy",
+					"labels": [
+						"CtdlProperty",
+						"DmeProperty",
+						"ForgedNode",
+						"StandardBase"
+					],
+					"properties": {
+						"changeHistoryUrl": [
+							"https://credreg.net/ctdl/termhistory/ceterms/hasProxy/json"
+						],
+						"crossRefs": [
+							"[{\"raw\":\"ceterms:WorkbasedLearningCertificate\",\"locator\":\"schema:domainIncludes\"}]"
+						],
+						"depth": [
+							2
+						],
+						"description": [
+							"Indicates a resource that acts as a stand-in for the resource."
+						],
+						"domainCount": [
+							69
+						],
+						"embeddingModelVersion": [
+							"voyage-4-large"
+						],
+						"name": [
+							"Has Proxy"
+						],
+						"parentId": [
+							"ceterms:AcademicCertificate"
+						],
+						"path": [
+							"Academic Certificate.Has Proxy"
+						],
+						"role": [
+							"DmeProperty"
+						],
+						"searchText": [
+							"Academic Certificate | Has Proxy"
+						],
+						"status": [
+							"unstable"
+						],
+						"uri": [
+							"ceterms:hasProxy"
+						]
+					}
+				},
+				"schemaBlock": "https://w3id.org/EDUcore/schemaBlock/sha256/58d2e3928feffab62911126f55c287c5d04991827344eb15821d96c651732d3c",
+				"parent": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AcademicCertificate",
+				"siblingList": [
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:accreditedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:accreditedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:administrationProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:advancedStandingFrom",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:aggregateData",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:alternateName",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:appealProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:approvedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:approvedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:approximateDateEffective",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:approximateExpirationDate",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:assessmentDeliveryType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:atLevel",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:audienceLevelType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:audienceType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:availabilityListing",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:availableAt",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:availableOnlineAt",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:broadAlignment",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:classification",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:coPrerequisite",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:commonConditions",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:commonCosts",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:complaintProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:copyrightHolder",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:corequisite",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:credentialId",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:credentialStatusType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:credentialType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ctid",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:dateEffective",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:description",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:developmentProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:earnings",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:employmentOutcome",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:estimatedCost",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:estimatedDuration",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:exactAlignment",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:expirationDate",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:financialAssistance",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasPart",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasRegulatoryInformation",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasRubric",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasSupportService",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:holders",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:identifier",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:image",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:inCatalog",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:inLanguage",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:industryType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:instructionalProgramType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isAdvancedStandingFor",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isNonCredit",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isPartOf",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isPreparationFor",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isRecommendedFor",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isRequiredFor",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isSimilarTo",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:isicV4",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:jurisdiction",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:keyword",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:latestVersion",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:learningDeliveryDescription",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:learningDeliveryType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:learningMethodDescription",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:learningMethodType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:maintenanceProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:majorAlignment",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:minorAlignment",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:naics",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:name",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:narrowAlignment",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:nextVersion",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:objectOfAction",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:occupationType",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:offeredBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:offeredIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ownedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:preparationFrom",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:previousVersion",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:processStandards",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:processStandardsDescription",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:providesTransferValueFor",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:receivesTransferValueFrom",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:recognizedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:recognizedForIndustry",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:recognizedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:recommends",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:region",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:regulatedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:regulatedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:relatedAction",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:renewal",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:renewalFrequency",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:renewedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:renewedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:requires",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:reviewProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:revocation",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:revocationProcess",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:revokedBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:revokedIn",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:sameAs",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:specialistSubject",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:subject",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:subjectWebpage",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:supersededBy",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:supersedes",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:targetPathway",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:usesVerificationService",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:versionCode",
+					"https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:versionIdentifier"
+				],
+				"interpretationList": [],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"usedOnList": [
+					{
+						"label": "Academic Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AcademicCertificate"
+					},
+					{
+						"label": "Apprentice Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ApprenticeshipCertificate"
+					},
+					{
+						"label": "Assessment Profile",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssessmentProfile"
+					},
+					{
+						"label": "Associate Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssociateDegree"
+					},
+					{
+						"label": "Associate of Applied Arts Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssociateOfAppliedArtsDegree"
+					},
+					{
+						"label": "Associate of Applied Science Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssociateOfAppliedScienceDegree"
+					},
+					{
+						"label": "Associate of Arts Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssociateOfArtsDegree"
+					},
+					{
+						"label": "Associate of Science Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssociateOfScienceDegree"
+					},
+					{
+						"label": "Bachelor of Arts Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BachelorOfArtsDegree"
+					},
+					{
+						"label": "Bachelor of Science Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BachelorOfScienceDegree"
+					},
+					{
+						"label": "Bachelor's Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BachelorDegree"
+					},
+					{
+						"label": "Badge",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Badge"
+					},
+					{
+						"label": "Basic Technical Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BasicTechnicalCertificate"
+					},
+					{
+						"label": "Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Certificate"
+					},
+					{
+						"label": "Certificate of Completion",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CertificateOfCompletion"
+					},
+					{
+						"label": "Certificate of Participation",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CertificateOfParticipation"
+					},
+					{
+						"label": "Certification",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Certification"
+					},
+					{
+						"label": "Course",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Course"
+					},
+					{
+						"label": "Credential Type",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CredentialType"
+					},
+					{
+						"label": "Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Degree"
+					},
+					{
+						"label": "Digital Badge",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:DigitalBadge"
+					},
+					{
+						"label": "Diploma",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:Diploma"
+					},
+					{
+						"label": "Doctoral Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:DoctoralDegree"
+					},
+					{
+						"label": "General Education Development (GED)",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:GeneralEducationDevelopment"
+					},
+					{
+						"label": "General Education Level 1 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:GeneralEducationLevel1Certificate"
+					},
+					{
+						"label": "General Education Level 2 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:GeneralEducationLevel2Certificate"
+					},
+					{
+						"label": "Higher Education Level 1 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:HigherEducationLevel1Certificate"
+					},
+					{
+						"label": "Higher Education Level 2 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:HigherEducationLevel2Certificate"
+					},
+					{
+						"label": "Journeyman Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:JourneymanCertificate"
+					},
+					{
+						"label": "Learning Opportunity Profile",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:LearningOpportunityProfile"
+					},
+					{
+						"label": "Learning Program",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:LearningProgram"
+					},
+					{
+						"label": "License",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:License"
+					},
+					{
+						"label": "Master Trade Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MasterCertificate"
+					},
+					{
+						"label": "Master of Arts Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MasterOfArtsDegree"
+					},
+					{
+						"label": "Master of Science Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MasterOfScienceDegree"
+					},
+					{
+						"label": "Master's Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MasterDegree"
+					},
+					{
+						"label": "Micro-Credential",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MicroCredential"
+					},
+					{
+						"label": "Open Badge",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:OpenBadge"
+					},
+					{
+						"label": "Post-Baccalaureate Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:PostBaccalaureateCertificate"
+					},
+					{
+						"label": "Post-Master Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:PostMasterCertificate"
+					},
+					{
+						"label": "Pre-Apprenticeship Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:PreApprenticeshipCertificate"
+					},
+					{
+						"label": "Professional Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ProfessionalCertificate"
+					},
+					{
+						"label": "Professional Doctorate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ProfessionalDoctorate"
+					},
+					{
+						"label": "Proficiency Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ProficiencyCertificate"
+					},
+					{
+						"label": "Quality Assurance Credential",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:QualityAssuranceCredential"
+					},
+					{
+						"label": "Research Doctorate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ResearchDoctorate"
+					},
+					{
+						"label": "Secondary Education Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:SecondaryEducationCertificate"
+					},
+					{
+						"label": "Secondary School Diploma",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:SecondarySchoolDiploma"
+					},
+					{
+						"label": "Specialist Degree",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:SpecialistDegree"
+					},
+					{
+						"label": "Technical Level 1 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:TechnicalLevel1Certificate"
+					},
+					{
+						"label": "Technical Level 2 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:TechnicalLevel2Certificate"
+					},
+					{
+						"label": "Technical Level 3 Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:TechnicalLevel3Certificate"
+					},
+					{
+						"label": "Work-Based Learning Certificate",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:WorkBasedLearningCertificate"
+					}
+				],
+				"usedOnCount": 53,
+				"meaningAsPartList": [
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:CertificateOfCompletion · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/01091c75ce1033563a3f7edd0305a32204c6a5ea01b43291cb663f82ed9cef3f",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/02517bf51105296caaeebfeecd441965bace2cf24940fe8e08060b7d14ed409f",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssociateOfAppliedScienceDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/02a17d94801da400aea055ce6d614ff6d5863428a5423b32d0a64d00e601b2d5",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:CredentialType · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/06edc59be0e85f2ad155c75a5ad265ccdce14ada0fa78ededff791b929a7a71d",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:QualityAssuranceCredential · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/07c1b998e54e27514029f6e5d27f362e621f46b2546380545a3ae0377cc19ce5",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:SpecialistDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/0ef2dbd852c65a12e02f288cc188a500c684500d4cd8010979b9f0192cc5f89a",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Course · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/18f3cb5ce25eafdfb07d92f894aed26516432ec6660326cdc85e9eeb792066be",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Diploma · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/1dd2c2087447c81f575603a82894c81f76d453170cec2e7233863a136ca9afa3",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:MicroCredential · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/1df21c558ca5d155fce1f09509b8842c47e6af8b58519c6abbb7c11e8940d9e0",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:HigherEducationLevel1Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/1e2362b7d596a09e3d9887071046a2763272dfe29be78d54e3751240f0c10bc3",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:HigherEducationLevel2Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/20247d8006ae8b24de13b55f54d7635db7d707a719a970619e5e34236a60f232",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:BachelorOfScienceDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/23c3b255f87ec4dbf39997fe88e7161ff59aaa91ee1325ee88fe1fe6d988e515",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:DigitalBadge · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/2d15fcd4287229da6d8bd90542c95661f45e8b4edd5b07a56686e8165fd648ad",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:ProfessionalDoctorate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/32f07705803df9243344ba5bdfd529500d3f5482ad2c5ae64b1b0c2117175daf",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Certification · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/3548d7620993b7628347587f656f81e018f65d0ab00d345ffe68e70792c45648",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:GeneralEducationDevelopment · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/3a4fb3be5a9c130f9f678bcffba0039eed82eb77ee862bf51d1825cadb9e1e41",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:CertificateOfParticipation · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/3ea0c5e2768889825ff77c91c2076e7d8bf9346b1dd5c1f9358349cf2d14c34e",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:MasterOfArtsDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/415439d5bd05c08ae5857e3cca1024720b15b4a1d62f8fa4385e385a3a82b914",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Badge · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/4e135b3fc065770a93d743780d624a01b18c5683606171a6bc1da2afc4fdbe98",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "term",
+						"tupleBracketText": "[ceterms:hasProxy]",
+						"slotName": "term"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/590476266beb08045de3632ea107c2d2cccb27a95939b30d719958050a62a6c6",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:SecondaryEducationCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/62563b6c9c7de29ff7e7de36d81d5e0ceb31129f8fdb8b401507dfb6ebbf3d64",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:PostBaccalaureateCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/6716b60c0901d1d7c92f2adb7e79cf87127657328195ba14bf81ad500754aaf0",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:PreApprenticeshipCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/6aac4a64dbe42e8ad737983a87d294f3ff76200a44905330333905fbcb12c4fc",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:LearningOpportunityProfile · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/6c01ce6c8c0eee48a6795cc18050bfbd902b4131c0b8c4fbefee46d9595f83e5",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:TechnicalLevel2Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/6c55499fa9a9151c6e91d68668f785aa9aa39d16748f9c088cefee5ddbba5581",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:ProficiencyCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/7c3f40c9ff3419d7fa2725049b4fc746e4f69e30e5d48ce581eda1afc26569a7",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:BasicTechnicalCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/81e91e22fc59c15ab61679ca0a0e32bcc04dbcef147b63faec7844467bb7c862",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:MasterDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/851a95cdb85f0df900652ca444af172860c10dc72b1c6def448c9f2437c05892",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssociateOfAppliedArtsDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/852e53d60f8ee9a77ad70649455140520d5f6392433c9e66138e1a3777ac5ef5",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:DoctoralDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/87489502a386be18c0febd3896e4cb093156151bc15626605894f581db14ae71",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssociateDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/897b80db61f8fab1bdc299bfeadf12328de8298fe772dbf47851dde78cf090ca",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:GeneralEducationLevel1Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/898e3cac7c497ea6558cced8a873f5621df18029de7efeff0699b5a4ca8b9fca",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:ProfessionalCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/8ad01ebfbd3ca57e4d63e9cd6526d90431b611d9fd51f30c34f925cbb1bd9272",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:BachelorOfArtsDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/97939a0412406362793cd54213018c4d8f9c4a8d1a3e1003afc3153446ef3600",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssociateOfArtsDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/9ecf01b11572fc23371e9c6227910c5ae34fc5a540e1becfef53d8ca419fa0a8",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:TechnicalLevel1Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/b13409f4b244892536ac1abbafe1bc7525acdfa3790fee688b10df6060194a47",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:ResearchDoctorate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/c0c2db046ca39a35d5c4dcc89240fd6e1732e1c00fbb4a0a2ca2ffe0f2116ea4",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:LearningProgram · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/c8ba766dd48a8524fee40d014d267d90a2bb031defa80ef2f38cd4e379539a15",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:GeneralEducationLevel2Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/ca392e6719ff1e0bdaeac3644b2e1a9974a7eb0a9411d7c387735440ce882186",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:JourneymanCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/ca9a14cbbb6f6e17577259383150eca940c4c9dfb1828e143f62b813cb310804",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:ApprenticeshipCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/cdf41af20ac643fd6f83d5199b43fa1f35ff9f4ee5aad602951579f651d993e3",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:OpenBadge · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/d4a7e3e323373fa2cc2d7df012ac938fb342b695e5fb9f0375d7f96c1d86733c",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Degree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/d8eec565ebc665cbbdb248c5790d162487c7f99290bb93bab323bc3ce6dc5632",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:MasterOfScienceDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/d901ea8fa7f4467e1bf72c176c3f8efa70f3a79e6503c233a385b31575782519",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AcademicCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/dcbec3732e240ebd07557b6fe57da664638b152beeeaa9e896f09616616baa4a",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:BachelorDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/dcc1ced72231dafc469644ee5258be939a2911f0ed8e222b6c3e655c5d9d24af",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssessmentProfile · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/e80f81bbf6f5f775c8235040c0eef5d60f8967d3a696e4ad3c12d63d8dad866d",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:TechnicalLevel3Certificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/e920f7475205c5235d1d5dba95d78ea286fd2080b65b59cbeea1ce15f32df5e1",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:SecondarySchoolDiploma · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/ed13bae936a09ea1336f88f591346aefa004fcce46cf82b648f23acc2e778a91",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:MasterCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/ef39fa4dbc17c56d38164fa1afe103ba3e383f6aa05faaa5e901fb7772d1fe2b",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:WorkBasedLearningCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/f2e1cb5db1f25f9f50e97e0613368d66c3cd6b7f3dcc8c122ec8917523f44749",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:PostMasterCertificate · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/fac6dbbc2dbc47f937aea1d1343c97c4e10fc6a5caeb56ff30c41134eee21158",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:AssociateOfScienceDegree · ceterms:hasProxy]",
+						"slotName": "property"
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/fd603be05733a5991027b9038c242f6f7c51f950992a3413d5bdab170c762d2b",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Has Proxy",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:License · ceterms:hasProxy]",
+						"slotName": "property"
+					}
+				],
+				"meaningAsPartCount": 54,
+				"meaningMappedList": [],
+				"meaningMappedCount": 0
+			}
+		},
+		{
+			"casePath": "/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "element",
+				"element": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution",
+				"partByName": {
+					"standardName": "EdFi",
+					"standardVersion": "5.2.0",
+					"elementStableId": "edfi:property/abstractEntity.EducationOrganization.NameOfInstitution"
+				},
+				"definitionText": "The full, legally accepted name of the institution.",
+				"node": {
+					"stableId": "edfi:property/abstractEntity.EducationOrganization.NameOfInstitution",
+					"labels": [
+						"DmeProperty",
+						"EdfiProperty",
+						"ForgedNode",
+						"StandardBase"
+					],
+					"properties": {
+						"annotationKind": [
+							"required"
+						],
+						"crossRefs": [
+							"[]"
+						],
+						"depth": [
+							2
+						],
+						"description": [
+							"The full, legally accepted name of the institution."
+						],
+						"edfiStableId": [
+							"edfi:property/abstractEntity.EducationOrganization.NameOfInstitution"
+						],
+						"embeddingModelVersion": [
+							"voyage-4-large"
+						],
+						"isQueryableField": [
+							true
+						],
+						"metaEdId": [
+							"1386"
+						],
+						"name": [
+							"NameOfInstitution"
+						],
+						"owningConstructName": [
+							"EducationOrganization"
+						],
+						"owningConstructType": [
+							"abstractEntity"
+						],
+						"parentId": [
+							"edfi:abstractEntity/EducationOrganization"
+						],
+						"path": [
+							"EducationOrganization.NameOfInstitution"
+						],
+						"propertyType": [
+							"sharedString"
+						],
+						"role": [
+							"DmeProperty"
+						],
+						"searchText": [
+							"EducationOrganization | NameOfInstitution"
+						],
+						"sharedTypeName": [
+							"NameOfInstitution"
+						],
+						"sourceFileRelativePath": [
+							"metaEdModel/DomainEntity/EducationOrganization.metaed"
+						],
+						"sourceInputName": [
+							"metaEdModel"
+						],
+						"sourceLineNumber": [
+							12
+						]
+					}
+				},
+				"schemaBlock": "https://w3id.org/EDUcore/schemaBlock/sha256/a7ca7aa2b8ec1b310d72e5239be6d1edfc8d93eca3f17dc23f5567083695126b",
+				"parent": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:abstractEntity/EducationOrganization",
+				"siblingList": [
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.Address",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.EducationOrganizationCategory",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.EducationOrganizationId",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.EducationOrganizationIdentificationCode",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.EducationOrganizationIndicator",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.InstitutionTelephone",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.InternationalAddress",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.OperationalStatus",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.ShortNameOfInstitution",
+					"https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.WebSite"
+				],
+				"interpretationList": [
+					{
+						"layerKey": "jev",
+						"versionTag": "cfg-03f64470322c",
+						"registrationStatus": "Standard",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@jev/cfg-03f64470322c",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@jev"
+					},
+					{
+						"layerKey": "rater-02",
+						"versionTag": "r1",
+						"registrationStatus": "Candidate",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-02/r1",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-02"
+					},
+					{
+						"layerKey": "rater-04",
+						"versionTag": "r1",
+						"registrationStatus": "Candidate",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-04/r1",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-04"
+					},
+					{
+						"layerKey": "rater-05",
+						"versionTag": "r1",
+						"registrationStatus": "Candidate",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-05/r1",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@rater-05"
+					},
+					{
+						"layerKey": "raters",
+						"versionTag": "r1",
+						"registrationStatus": "Candidate",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@raters/r1",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@raters"
+					},
+					{
+						"layerKey": "jev-cfg-03f64470322c",
+						"versionTag": "base",
+						"registrationStatus": "Standard",
+						"pinned": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@jev-cfg-03f64470322c/base",
+						"floating": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:property/abstractEntity.EducationOrganization.NameOfInstitution@jev-cfg-03f64470322c"
+					}
+				],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"usedOnList": [
+					{
+						"label": "EducationOrganization",
+						"uri": "https://w3id.org/EDUcore/EdFi/5.2.0/edfi:abstractEntity/EducationOrganization"
+					}
+				],
+				"usedOnCount": 1,
+				"meaningAsPartList": [],
+				"meaningAsPartCount": 0,
+				"meaningMappedList": [
+					{
+						"uri": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/99b1ffc275e8c02b5fe25db3b006bfe3d5f11f9acfc70bb631ba0ad9a5c698e9",
+						"hubName": "CEDS",
+						"hubVersion": "14.0.0.0",
+						"label": "Name of Institution",
+						"referenceTier": "property",
+						"tupleBracketText": "[C200246 · P000191]",
+						"relationType": "EXACT_MATCH",
+						"matchBasis": "derived",
+						"mappingConfidence": 0.9
+					},
+					{
+						"uri": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/5bc8e06a306ecaeb67efbcb90d64c3ed1c7272d2f867bd4836098f1024243be6",
+						"hubName": "CTDL",
+						"hubVersion": "Release 20260927",
+						"label": "Legal Name",
+						"referenceTier": "property",
+						"tupleBracketText": "[ceterms:Organization · ceterms:legalName]",
+						"relationType": "CLOSE_MATCH",
+						"matchBasis": "derived",
+						"mappingConfidence": 0.5
+					}
+				],
+				"meaningMappedCount": 2
+			}
+		},
+		{
+			"casePath": "/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "meaning",
+				"listing": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d",
+				"meaning": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d",
+				"partByName": {
+					"hubSegment": "CEDStandards",
+					"hubReleaseSegment": "14.0.0.0",
+					"addressSignature": "ab39501d8fb28c316fc72ba39c1658cc369796ffd35ec2a4a446e5eb0e0c013d"
+				},
+				"label": "Military Discharge Date",
+				"definition": "The date when a person was released from further military obligations.",
+				"propertyName": "Military Discharge Date",
+				"propertyKey": "P002040",
+				"referenceTier": "property",
+				"hubName": "CEDS",
+				"hubVersion": "14.0.0.0",
+				"domain": {
+					"domainId": "C200296",
+					"domainName": "Person Military",
+					"domainUri": "https://w3id.org/CEDStandards/terms/C200296",
+					"domainDefinition": "Information about a person's connections to the military."
+				},
+				"rangeList": [],
+				"rangeDatatypeList": [
+					"dateTime"
+				],
+				"manifestList": [
+					{
+						"publicLabel": "educore-2026-10-26",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/3a5e87cb899cbc65e94c79f0134328f1193b6d4ebc6a943510055e4736d4750d",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-26T20:24:36.482Z"
+						}
+					},
+					{
+						"publicLabel": "educore-2026-10-30",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-30T18:41:30.407Z"
+						}
+					}
+				],
+				"mappedElementCount": 8,
+				"distinctElementCount": 4,
+				"countNote": "distinctElementCount counts each element once. mappedElementCount counts an element once per manifest holding its mapping, so it grows with each manifest published. An element a standard uses in many places is counted once per place; an answer that rolls places up into one declaration, as standards_mappings does, shows fewer rows.",
+				"mappingList": [
+					{
+						"standardName": "JEDx",
+						"standardVersion": "1.0.0",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024",
+						"relationType": "EXACT_MATCH",
+						"elementCount": 1
+					},
+					{
+						"standardName": "LIF",
+						"standardVersion": "2.0",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024",
+						"relationType": "BROAD_MATCH",
+						"elementCount": 1
+					},
+					{
+						"standardName": "LIF",
+						"standardVersion": "2.0",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024",
+						"relationType": "EXACT_MATCH",
+						"elementCount": 1
+					},
+					{
+						"standardName": "PESC-AcademicEportfolio-1.0.0",
+						"standardVersion": "1.0.0",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-03f64470322c",
+						"relationType": "CLOSE_MATCH",
+						"elementCount": 1
+					}
+				],
+				"totalCount": 4,
+				"pageSize": 15,
+				"pageNumber": 1,
+				"pageCount": 1,
+				"next": null,
+				"previous": null,
+				"mappedElementList": [
+					{
+						"element": "https://w3id.org/EDUcore/JEDx/1.0.0/jedx:MilitaryServiceType/dischargeDate",
+						"name": "dischargeDate",
+						"standardName": "JEDx",
+						"relationType": "EXACT_MATCH",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024"
+					},
+					{
+						"element": "https://w3id.org/EDUcore/LIF/2.0/lif:Person/MilitaryLearningExperience/inline/dischargeDate",
+						"name": "dischargeDate",
+						"standardName": "LIF",
+						"relationType": "EXACT_MATCH",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024"
+					},
+					{
+						"element": "https://w3id.org/EDUcore/LIF/2.0/lif:Person/MilitaryLearningExperience/inline/dischargeDateStatus",
+						"name": "dischargeDateStatus",
+						"standardName": "LIF",
+						"relationType": "BROAD_MATCH",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-cf8d41f82791.wave1-261024"
+					},
+					{
+						"element": "https://w3id.org/EDUcore/PESC-AcademicEportfolio-1.0.0/1.0.0/pescacademiceportfolio1v0v0:type/urn:org:pesc:message:AcademicEportfolio:v1.0.0%23ServicePeriodType/el/2:EndDate/at/AcademicEPortfolio/MilitaryHistory/MilitaryServicePeriod/EndDate",
+						"name": "EndDate",
+						"standardName": "PESC-AcademicEportfolio-1.0.0",
+						"relationType": "CLOSE_MATCH",
+						"layerVersion": "https://w3id.org/EDUcore/layer/jev/cfg-03f64470322c"
+					}
+				],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"tuple": {
+					"domain": {
+						"kind": "class",
+						"nativeId": {
+							"cedsId": "C200296"
+						},
+						"label": "Person Military",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200296"
+					},
+					"property": {
+						"kind": "property",
+						"nativeId": {
+							"cedsId": "P002040"
+						},
+						"label": "Military Discharge Date",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P002040"
+					}
+				},
+				"rangeIsIdentity": true,
+				"tupleBracketText": "[C200296 · P002040]"
+			}
+		},
+		{
+			"casePath": "/CEDStandards/hub/14.0.0.0/000039bfcc4d28b301e45c367ab73c7e6659edb5f47f94cbc8931d9297314aa4",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "meaning",
+				"listing": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/000039bfcc4d28b301e45c367ab73c7e6659edb5f47f94cbc8931d9297314aa4",
+				"meaning": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/000039bfcc4d28b301e45c367ab73c7e6659edb5f47f94cbc8931d9297314aa4",
+				"partByName": {
+					"hubSegment": "CEDStandards",
+					"hubReleaseSegment": "14.0.0.0",
+					"addressSignature": "000039bfcc4d28b301e45c367ab73c7e6659edb5f47f94cbc8931d9297314aa4"
+				},
+				"label": "Yankunytjatjara",
+				"definition": "The code for the specific language or dialect that a person uses to communicate.",
+				"propertyName": "Has ISO 639-3 Language Code",
+				"propertyKey": "P001637",
+				"referenceTier": "value",
+				"hubName": "CEDS",
+				"hubVersion": "14.0.0.0",
+				"domain": {
+					"domainId": "C200010",
+					"domainName": "Assessment",
+					"domainUri": "https://w3id.org/CEDStandards/terms/C200010",
+					"domainDefinition": "An instrument used to evaluate a person typically having at-least one AssessmentForm, AssessmentSection, and AssessmentItem."
+				},
+				"rangeList": [
+					{
+						"kind": "optionSet",
+						"nativeId": {
+							"cedsId": "OS001637"
+						},
+						"label": "ISO 639-3 Language Code",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C001637"
+					}
+				],
+				"manifestList": [
+					{
+						"publicLabel": "educore-2026-10-26",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/3a5e87cb899cbc65e94c79f0134328f1193b6d4ebc6a943510055e4736d4750d",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-26T20:24:36.482Z"
+						}
+					},
+					{
+						"publicLabel": "educore-2026-10-30",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-30T18:41:30.407Z"
+						}
+					}
+				],
+				"mappedElementCount": 0,
+				"distinctElementCount": 0,
+				"countNote": "distinctElementCount counts each element once. mappedElementCount counts an element once per manifest holding its mapping, so it grows with each manifest published. An element a standard uses in many places is counted once per place; an answer that rolls places up into one declaration, as standards_mappings does, shows fewer rows.",
+				"mappingList": [],
+				"totalCount": 0,
+				"pageSize": 15,
+				"pageNumber": 1,
+				"pageCount": 1,
+				"next": null,
+				"previous": null,
+				"mappedElementList": [],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"tuple": {
+					"domain": {
+						"kind": "class",
+						"nativeId": {
+							"cedsId": "C200010"
+						},
+						"label": "Assessment",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200010"
+					},
+					"property": {
+						"kind": "property",
+						"nativeId": {
+							"cedsId": "P001637"
+						},
+						"label": "Has ISO 639-3 Language Code",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:P001637"
+					},
+					"range": {
+						"kind": "optionSet",
+						"nativeId": {
+							"cedsId": "OS001637"
+						},
+						"label": "ISO 639-3 Language Code",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C001637"
+					},
+					"value": {
+						"kind": "option",
+						"nativeId": {
+							"cedsId": "OV001637175776"
+						},
+						"label": "Yankunytjatjara",
+						"uri": "https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:NI001637175776"
+					}
+				},
+				"rangeIsIdentity": true,
+				"tupleBracketText": "[C200010 · P001637 · OS001637 · OV001637175776]"
+			}
+		},
+		{
+			"casePath": "/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2",
+			"httpStatus": 200,
+			"answerBody": {
+				"kind": "meaning",
+				"listing": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2",
+				"meaning": "https://w3id.org/EDUcore/CTDL/hub/Release_20260927/00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2",
+				"partByName": {
+					"hubSegment": "CTDL",
+					"hubReleaseSegment": "Release_20260927",
+					"addressSignature": "00439ffd3adbfc8c7f5afa834dbe272b36422d7e9e8aad35f9c8f33c08d883b2"
+				},
+				"label": "Has Proxy",
+				"definition": "Indicates a resource that acts as a stand-in for the resource.",
+				"propertyName": "Has Proxy",
+				"propertyKey": "ceterms:hasProxy",
+				"referenceTier": "property",
+				"hubName": "CTDL",
+				"hubVersion": "Release 20260927",
+				"domain": {
+					"domainId": "ceterms:CertificateOfCompletion",
+					"domainName": "Certificate of Completion",
+					"domainUri": "ceterms:CertificateOfCompletion",
+					"domainDefinition": "A record of the activity may or may not exist, and the credential may or may not be designed as preparation for another resource such as a credential, assessment, or learning opportunity."
+				},
+				"rangeList": [
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:AssessmentComponent"
+						},
+						"label": "Assessment Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:AssessmentComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:BasicComponent"
+						},
+						"label": "Basic Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:BasicComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CocurricularComponent"
+						},
+						"label": "Cocurricular Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CocurricularComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CollectionComponent"
+						},
+						"label": "Collection Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CollectionComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CollectionMember"
+						},
+						"label": "Collection Member",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CollectionMember"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CompetencyComponent"
+						},
+						"label": "Competency Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CompetencyComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CourseComponent"
+						},
+						"label": "Course Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CourseComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CredentialComponent"
+						},
+						"label": "Credential Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CredentialComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:ExtracurricularComponent"
+						},
+						"label": "Extracurricular Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:ExtracurricularComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:JobComponent"
+						},
+						"label": "Job Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:JobComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:MultiComponent"
+						},
+						"label": "Multi Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:MultiComponent"
+					},
+					{
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:WorkExperienceComponent"
+						},
+						"label": "Work Experience Component",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:WorkExperienceComponent"
+					}
+				],
+				"manifestList": [
+					{
+						"publicLabel": "educore-2026-10-26",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/3a5e87cb899cbc65e94c79f0134328f1193b6d4ebc6a943510055e4736d4750d",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-26T20:24:36.482Z"
+						}
+					},
+					{
+						"publicLabel": "educore-2026-10-30",
+						"manifest": "https://w3id.org/EDUcore/manifest/sha256/783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+						"latestStatus": {
+							"registrationStatus": "Standard",
+							"changedAt": "2026-10-30T18:41:30.407Z"
+						}
+					}
+				],
+				"mappedElementCount": 0,
+				"distinctElementCount": 0,
+				"countNote": "distinctElementCount counts each element once. mappedElementCount counts an element once per manifest holding its mapping, so it grows with each manifest published. An element a standard uses in many places is counted once per place; an answer that rolls places up into one declaration, as standards_mappings does, shows fewer rows.",
+				"mappingList": [],
+				"totalCount": 0,
+				"pageSize": 15,
+				"pageNumber": 1,
+				"pageCount": 1,
+				"next": null,
+				"previous": null,
+				"mappedElementList": [],
+				"stubNote": "w3id.org does not forward these names yet; this instance reads them at /edc/."
+			},
+			"humanPageFacts": {
+				"tuple": {
+					"domain": {
+						"kind": "class",
+						"nativeId": {
+							"uri": "ceterms:CertificateOfCompletion"
+						},
+						"label": "Certificate of Completion",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:CertificateOfCompletion"
+					},
+					"property": {
+						"kind": "property",
+						"nativeId": {
+							"uri": "ceterms:hasProxy"
+						},
+						"label": "Has Proxy",
+						"uri": "https://w3id.org/EDUcore/CTDL/Release%2020260927/ceterms:hasProxy"
+					}
+				},
+				"rangeIsIdentity": false,
+				"tupleBracketText": "[ceterms:CertificateOfCompletion · ceterms:hasProxy]"
+			}
+		}
+	]
+}

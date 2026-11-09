@@ -7,11 +7,13 @@
 // 501), never the house 401 + text; this shell adds 405 and 406 and the access point adds 413, 503 and 504, each refused by name. It passes the request's
 // path VERBATIM, never a decoded parameter: an edc: path may carry %XX, and the resolver reads ?page=N itself. Every status has a page for a browser.
 // A stale token is read as no token here, since a public read must not refuse a visitor for what their browser remembers.
+// ?format=json or ?format=html wins over Accept (WORKORDER-edcHumanPages-110926); it is taken out of the path before the resolver sees it, and a bad value is a 400 by name.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const makeRefId = require('../../lib/make-ref-id');
 const { pipeRunner, taskListPlus, forwardArgs } = new require('qtools-asynchronous-pipe-plus')();
 const { answerTextFor, CONTENT_TYPE_BY_FORMAT } = require('../../lib/edc-resolver/htmlAnswer');
+const { formatOverrideOf } = require('../../lib/edc-resolver/formatOverride');
 
 const ANSWER_FORMAT_LIST = Object.keys(CONTENT_TYPE_BY_FORMAT);
 const ROUTE_NAME = 'edc';
@@ -43,11 +45,11 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 	};
 
 	// a refusal this shell makes itself, in the negotiated form
-	const refusalAnswerFor = ({ httpStatus, errorText, answerFormat, extraHeaderByName = {} }) => ({
+	const refusalAnswerFor = ({ httpStatus, errorText, answerFormat, requestPath, extraHeaderByName = {} }) => ({
 		httpStatus,
 		contentType: CONTENT_TYPE_BY_FORMAT[answerFormat],
 		extraHeaderByName,
-		bodyText: answerTextFor({ answerFormat, httpStatus, answerBody: { error: errorText } }),
+		bodyText: answerTextFor({ answerFormat, httpStatus, answerBody: { error: errorText }, requestPath }),
 	});
 
 	// ================================================================================
@@ -59,20 +61,29 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		xRes.vary('Accept');
 		xRes.set('Access-Control-Allow-Origin', '*'); // public, read-only, GET only (ruling R5); this overrides the global cors() origin list
 
-		// the first entry is the form when the client states no preference (*/*); no acceptable form is refused, never guessed
-		const negotiatedFormat = xReq.accepts(ANSWER_FORMAT_LIST);
+		// originalUrl with the route's own prefix cut off by length (routing is case-insensitive); an empty remainder is the root
+		const urlRemainder = xReq.originalUrl.slice(routeBasePath.length);
+		const formatOverride = formatOverrideOf({ edcRequestPath: urlRemainder.startsWith('/') ? urlRemainder : `/${urlRemainder}`, answerFormatList: ANSWER_FORMAT_LIST });
+		const requestPath = formatOverride.refusalText === undefined ? formatOverride.edcRequestPath : `/${urlRemainder.replace(/^\//, '').split('?')[0]}`;
+
+		// ?format= wins; else the first entry is the form when the client states no preference (*/*); no acceptable form is refused, never guessed
+		const negotiatedFormat = formatOverride.overrideFormat || xReq.accepts(ANSWER_FORMAT_LIST);
 
 		taskList.push((args, next) =>
 			args.permissionValidator(xReq.appValueGetter('authclaims'), forwardArgs({ next, args })),
 		);
 
 		taskList.push((args, next) => {
+			if (formatOverride.refusalText !== undefined) {
+				next('skipRestOfPipe', { ...args, resolverAnswer: refusalAnswerFor({ httpStatus: 400, answerFormat: negotiatedFormat || ANSWER_FORMAT_LIST[0], requestPath, errorText: formatOverride.refusalText }) });
+				return;
+			}
 			if (negotiatedFormat === false) {
-				next('skipRestOfPipe', { ...args, resolverAnswer: refusalAnswerFor({ httpStatus: 406, answerFormat: ANSWER_FORMAT_LIST[0], errorText: `this resolver answers ${ANSWER_FORMAT_LIST.join(' or ')}; the Accept header '${xReq.get('Accept')}' takes neither` }) });
+				next('skipRestOfPipe', { ...args, resolverAnswer: refusalAnswerFor({ httpStatus: 406, answerFormat: ANSWER_FORMAT_LIST[0], requestPath, errorText: `this resolver answers ${ANSWER_FORMAT_LIST.join(' or ')}; the Accept header '${xReq.get('Accept')}' takes neither` }) });
 				return;
 			}
 			if (xReq.method !== 'GET') {
-				next('skipRestOfPipe', { ...args, resolverAnswer: refusalAnswerFor({ httpStatus: 405, answerFormat: negotiatedFormat, extraHeaderByName: { Allow: 'GET' }, errorText: `${xReq.method} is not served; the resolver answers GET` }) });
+				next('skipRestOfPipe', { ...args, resolverAnswer: refusalAnswerFor({ httpStatus: 405, answerFormat: negotiatedFormat, requestPath, extraHeaderByName: { Allow: 'GET' }, errorText: `${xReq.method} is not served; the resolver answers GET` }) });
 				return;
 			}
 			next('', args);
@@ -84,19 +95,17 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			});
 		});
 
-		// originalUrl with the route's own prefix cut off by length (routing is case-insensitive); an empty remainder is the root
-		const urlRemainder = xReq.originalUrl.slice(routeBasePath.length);
 		const initialData = {
 			accessPointsDotD,
 			permissionValidator,
-			edcRequestPath: urlRemainder.startsWith('/') ? urlRemainder : `/${urlRemainder}`,
+			edcRequestPath: requestPath,
 		};
 
 		pipeRunner(taskList.getList(), initialData, (pipeError, args) => {
 			if (pipeError && pipeError !== 'skipRestOfPipe') {
 				const errorId = makeRefId(12);
 				xLog.error(`${moduleName} error (${errorId}): ${pipeError}`);
-				sendAnswer(xRes, refusalAnswerFor({ httpStatus: 500, answerFormat: negotiatedFormat || ANSWER_FORMAT_LIST[0], errorText: `${moduleName}: the request failed (${errorId})` }));
+				sendAnswer(xRes, refusalAnswerFor({ httpStatus: 500, answerFormat: negotiatedFormat || ANSWER_FORMAT_LIST[0], requestPath, errorText: `${moduleName}: the request failed (${errorId})` }));
 				return;
 			}
 			sendAnswer(xRes, args.resolverAnswer);

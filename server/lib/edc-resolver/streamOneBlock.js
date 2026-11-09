@@ -79,7 +79,7 @@ const sendHeader = (httpStatus) => process.stdout.write(`${JSON.stringify({ http
 const withheldAnswerOf = (standardKeyList) => withheldAnswerFor({ standardKeyList, metadata: { kind, ...storeHandle.prepare(blockRead.metadataSql).get(blockIdentity) } });
 const sendWithheldAnswer = ({ httpStatus, body }) => {
 	sendHeader(httpStatus);
-	process.stdout.write(answerTextFor({ answerFormat, httpStatus, answerBody: body, edcIri: `${forgeResolver.edcUri.URI_SCHEME.baseIri}${kind}/sha256/${blockIdentity}`, publicPathPrefix, baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri }));
+	process.stdout.write(answerTextFor({ answerFormat, httpStatus, answerBody: body, edcIri: `${forgeResolver.edcUri.URI_SCHEME.baseIri}${kind}/sha256/${blockIdentity}`, publicPathPrefix, baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri, requestPath: `/${kind}/sha256/${blockIdentity}` }));
 };
 
 // a decision block's subjects, read from its derived rows: every prefix a whole read of the block would find (runs/a1_holdSubjectsCompare.txt checks this over every block in the store)

@@ -5,7 +5,8 @@
 // TEXT column blocks a whole process, so these kinds read here, under a heap cap, and never in the API.
 //
 //   node --max-old-space-size=<megabytes> resolveOneUri.js < <one JSON object>
-//   stdin:  { educoreForgeCodePath, uriContractFilePath, uriOrPath, answerFormat, publicPathPrefix }  every part required
+//   stdin:  { educoreForgeCodePath, uriContractFilePath, uriOrPath, answerFormat, publicPathPrefix, humanPageFacts }  every part required; humanPageFacts is null unless the
+//           answer is a human page, when it is what the API read from the graph for it (this child has no graph: WORKORDER-edcHumanPages-110926)
 //   stdout: one line {"httpStatus":N}, then the answer's bytes
 // Reads the store read-only, changes nothing. Exit 0 with an answer; exit 2 on bad input, with the refusal on stderr. The input arrives on stdin, not
 // argv, because a URI path is hostile text and must never be read as a flag. -help, --help and -h print this header.
@@ -35,15 +36,18 @@ const absentNameList = REQUIRED_INPUT_NAME_LIST.filter((inputName) => !inputObje
 if (absentNameList.length) {
 	refuseAndExit(`stdin lacks ${absentNameList.join(', ')}`);
 }
+if (!('humanPageFacts' in inputObject)) {
+	refuseAndExit('stdin lacks humanPageFacts (null when the answer is not a human page)');
+}
 
-const { educoreForgeCodePath, uriContractFilePath, uriOrPath, answerFormat, publicPathPrefix } = inputObject;
+const { educoreForgeCodePath, uriContractFilePath, uriOrPath, answerFormat, publicPathPrefix, humanPageFacts } = inputObject;
 const forgeResolver = loadForgeResolver({ educoreForgeCodePath, uriContractFilePath });
 if (forgeResolver.error) {
 	refuseAndExit(forgeResolver.error);
 }
 
 resolveThroughForge({ forgeResolver, uriOrPath, uriContractReader: readerForRequest({ forgeResolver, uriOrPath, uriContractFilePath }) }, ({ httpStatus, body }) => {
-	const answerText = answerTextFor({ answerFormat, httpStatus, answerBody: body, edcIri: forgeResolver.edcIriFor(uriOrPath), publicPathPrefix, baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri });
+	const answerText = answerTextFor({ answerFormat, httpStatus, answerBody: body, edcIri: forgeResolver.edcIriFor(uriOrPath), publicPathPrefix, baseIri: forgeResolver.edcUri.URI_SCHEME.baseIri, requestPath: uriOrPath, humanPageFacts });
 	process.stdout.write(`${JSON.stringify({ httpStatus })}\n`);
 	process.stdout.write(answerText);
 });
