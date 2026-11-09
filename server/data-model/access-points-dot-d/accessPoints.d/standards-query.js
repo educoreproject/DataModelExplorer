@@ -19,6 +19,7 @@ const { assembleRosettaJudged } = require('../../../lib/standards-query/rosetta/
 const { runCypherQuery } = require('../../../../cli/lib.d/data-model-explorer/lib/runCypherQuery');
 const { checkGraphEmbeddingContract } = require('../../../../cli/lib.d/data-model-explorer/lib/graphEmbeddingContract');
 const neo4jDriver = require('neo4j-driver');
+const { URI_MINTER_ACCESS_POINT_NAME } = require('../../lib/explorer-uri-fields');
 
 const DME_SEARCH_MODULE_PATH = path.join(__dirname, '..', '..', '..', '..', 'cli', 'lib.d', 'data-model-explorer', 'dataModelExplorerSearch');
 const LIMIT_CONFIG_SECTION_NAME = 'standards-query-limits';
@@ -27,6 +28,7 @@ const MCP_CONFIG_SECTION_NAME = 'mcp-server';
 const ROSETTA_CONFIG_SECTION_NAME = 'rosetta-fuse';
 const ROSETTA_JUDGE_CONFIG_SECTION_NAME = 'rosetta-judge';
 const USAGE_FLUSH_MILLISECONDS = 5000;
+const URI_SERVICE_NOT_READY_NAME = 'uriServiceNotReady';
 const SWEEP_MILLISECONDS = 86400000;
 
 //START OF moduleFunction() ============================================================
@@ -114,11 +116,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		standardsQueryCore.runOperation({ operationName, input, principal }, callback);
 	};
 
+	// ⟪explorerUris, ROMANTIC_PARASOL ruling 2026-11-09⟫ the core's PROVED minter, for the pages that show what the answers cite (the Standards Explorer, the use
+	// cases): { uriMinter } once the URI promise gate has passed on this graph, else { uriAbsentName: 'uriServiceNotReady' }. Read at each request, so a new golden's gate is seen.
+	const uriMinterService = (unusedQuery, callback) => {
+		const serviceFacts = standardsQueryCore ? standardsQueryCore.serviceFactsForGate() : null;
+		callback('', serviceFacts ? { uriMinter: serviceFacts.uriMinter } : { uriAbsentName: URI_SERVICE_NOT_READY_NAME });
+	};
+
 	// ================================================================================
 	// ACCESS POINT REGISTRATION
 
 	dotD.logList.push(moduleName);
 	dotD.library.add(moduleName, serviceFunction);
+	dotD.library.add(URI_MINTER_ACCESS_POINT_NAME, uriMinterService);
 	return {};
 };
 

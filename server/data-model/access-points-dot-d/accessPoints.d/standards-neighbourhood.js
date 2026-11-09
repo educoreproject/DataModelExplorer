@@ -27,11 +27,13 @@ const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
 // ⟪ctdlHub P7, Q1 approved by SCARLET_ARROW 2026-10-21⟫ an anchor page names its context groups by the anchor's OWN hub's slot
 // edges (they were the literals HAS_CEDS_PROPERTY / HAS_CEDS_DOMAIN, wrong on a CTDL anchor)
 const { hubEdgeTypeFor } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+// ⟪explorerUris⟫ the URI each citable thing carries, from the standards query core's proved minter
+const { readUriMinter, uriFieldsOf, elementListUriFieldsOf } = require('../../lib/explorer-uri-fields');
 
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
-	const { neo4jDb, dataMapping } = passThroughParameters;
+	const { neo4jDb, dataMapping, accessPointsDotD } = passThroughParameters;
 	const mapper = dataMapping[moduleName];
 
 	const probeRequiredLabels = makeRequiredLabelProbe({
@@ -683,6 +685,79 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	};
 
 	// ================================================================================
+	// URIS — ⟪explorerUris, WORKORDER-explorerUris-110926⟫ every object of an answer that names a graph node by its stableId (the node, its children, its
+	// ancestors, a mapping's hub card, a breadcrumb's nodes, a version counterpart) gains { uri, uriKind } or, when no URI can be minted, { uriAbsentName };
+	// a standard's root also gains its manifest listing of elements (elementListUri). A synthetic id (families:all, family:, release:, standardGroup:) names no
+	// graph node and gains nothing. The minter names a node by the standard it belongs to (its _source), read here in one query. Nothing else changes.
+
+	const isPlainObject = (answerValue) => answerValue !== null && typeof answerValue === 'object' && Object.getPrototypeOf(answerValue) === Object.prototype;
+	const isCitableObject = (answerValue) => isPlainObject(answerValue) && typeof answerValue.stableId === 'string' && answerValue.stableId !== '' && !mapper.parseSyntheticId(answerValue.stableId);
+
+	const collectCitableStableIds = (answerValue, stableIdSet) => {
+		if (Array.isArray(answerValue)) {
+			answerValue.forEach((oneValue) => collectCitableStableIds(oneValue, stableIdSet));
+			return stableIdSet;
+		}
+		if (!isPlainObject(answerValue)) {
+			return stableIdSet;
+		}
+		if (isCitableObject(answerValue)) {
+			stableIdSet.add(answerValue.stableId);
+		}
+		Object.values(answerValue).forEach((oneValue) => collectCitableStableIds(oneValue, stableIdSet));
+		return stableIdSet;
+	};
+
+	// a copy of the answer with each citable object's URI fields added
+	const withUriFieldsAdded = (answerValue, uriFieldsByStableId) => {
+		if (Array.isArray(answerValue)) {
+			return answerValue.map((oneValue) => withUriFieldsAdded(oneValue, uriFieldsByStableId));
+		}
+		if (!isPlainObject(answerValue)) {
+			return answerValue;
+		}
+		const copiedObject = Object.fromEntries(Object.entries(answerValue).map(([fieldName, fieldValue]) => [fieldName, withUriFieldsAdded(fieldValue, uriFieldsByStableId)]));
+		return isCitableObject(answerValue) ? { ...copiedObject, ...uriFieldsByStableId[answerValue.stableId] } : copiedObject;
+	};
+
+	const withUriFields = (actionResult, callback) => {
+		const stableIdList = [...collectCitableStableIds(actionResult, new Set())];
+		if (!stableIdList.length) {
+			callback('', actionResult);
+			return;
+		}
+		const taskList = new taskListPlus();
+
+		taskList.push((args, next) => readUriMinter({ accessPointsDotD }, (minterError, minterAnswer) => next(minterError, { ...args, minterAnswer })));
+
+		// with no minter every node says why the same way, and the standards need not be read
+		taskList.push((args, next) => {
+			if (!args.minterAnswer.uriMinter) {
+				next('', { ...args, sourceRecordList: [] });
+				return;
+			}
+			runNamedQuery('sourceNameByStableIdList', { stableIdList }, (queryError, sourceRecordList) => next(queryError, { ...args, sourceRecordList }));
+		});
+
+		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
+				return;
+			}
+			const sourceRecordByStableId = Object.fromEntries(args.sourceRecordList.map((sourceRecord) => [sourceRecord.stableId, sourceRecord]));
+			const uriFieldsByStableId = Object.fromEntries(
+				stableIdList.map((stableId) => {
+					const sourceRecord = sourceRecordByStableId[stableId] || {};
+					const uriFields = uriFieldsOf({ minterAnswer: args.minterAnswer, stableId, standardSourceName: sourceRecord.standardSourceName });
+					const elementListFields = sourceRecord.isStandardRoot ? elementListUriFieldsOf({ minterAnswer: args.minterAnswer, standardSourceName: sourceRecord.standardSourceName }) : {};
+					return [stableId, { ...uriFields, ...elementListFields }];
+				}),
+			);
+			callback('', withUriFieldsAdded(actionResult, uriFieldsByStableId));
+		});
+	};
+
+	// ================================================================================
 	// SERVICE FUNCTION
 
 	const handlerByActionName = {
@@ -716,6 +791,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 		// STAGE 3: the action
 		taskList.push((args, next) => args.actionHandler(args.xQuery, (actionError, actionResult) => next(actionError, { ...args, actionResult })));
+
+		// STAGE 4: ⟪explorerUris⟫ every citable thing in the answer carries its EDUcore URI
+		taskList.push((args, next) => withUriFields(args.actionResult, (uriError, actionResult) => next(uriError, { ...args, actionResult })));
 
 		pipeRunner(taskList.getList(), { xQuery: xQuery || {} }, (pipeError, args) => {
 			if (pipeError) {

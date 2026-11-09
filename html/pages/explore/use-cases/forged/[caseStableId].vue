@@ -13,7 +13,8 @@
 //                        each with the data it uses (IN) and produces (OUT)
 //   Structure            ⟪PLAN-useCaseStructureTab-103026⟫ the case as the graph holds it: an outline of its nodes and edges,
 //                        with the source and extracted JSON downloads (components/forgedUseCases/CaseStructureTab.vue)
-//   Steps and citations  the steps table and every data reference with its state, linked into the Standards Explorer
+//   Steps and citations  the steps table and every data reference with its state, linked into the Standards Explorer and
+//                        (⟪explorerUris⟫) to the cited element's EDUcore URI, which is also its DefinedTerm's @id in the page's JSON-LD
 //   Implementation Guide the standards a judge mapped to each cited element's hub card, and an Ask DME roadmap
 
 import { computed, ref, watch, nextTick } from 'vue';
@@ -112,8 +113,10 @@ useHead(() => ({
 	meta: useCase.value ? [{ name: 'description', content: `${useCase.value.longName}: an EDUcore use case, with its steps and the CEDS and other standards' elements each step reads or writes.` }] : [],
 }));
 
+// ⟪explorerUris⟫ a cited element's @id is its EDUcore URI (or its own IRI), so an agent can follow the term to its definition
 const definedTermOf = (citationRow) => ({
 	'@type': 'DefinedTerm',
+	'@id': citationRow.citedUri || undefined,
 	name: citationRow.citedName || citationRow.referenceName,
 	termCode: citationRow.citedIdentifier || undefined,
 	inDefinedTermSet: citationRow.citedSource || citationRow.citedStandard || undefined,
@@ -459,6 +462,7 @@ const createImplementationPlan = () => {
 							<td><v-chip size="x-small" variant="tonal" :color="CITATION_STATE_COLOUR_BY_STATE[oneCitation.citationState]">{{ oneCitation.citationStateLabel }}</v-chip></td>
 							<td class="text-body-2">
 								<NuxtLink v-if="oneCitation.citedStableId" :to="explorerLinkOf(oneCitation.citedStableId)" :data-testid="`citation-link-${oneCitation.citedIdentifier}`">{{ oneCitation.citedSource }} {{ oneCitation.citedName }}</NuxtLink>
+								<a v-if="oneCitation.citedUri" :href="oneCitation.citedUri" target="_blank" rel="noopener" class="cited-uri-link" :title="oneCitation.citedUri" :aria-label="`Open the page of ${oneCitation.citedSource} ${oneCitation.citedName}: ${oneCitation.citedUri}`" :data-testid="`citation-uri-${oneCitation.citedIdentifier}`">URI ↗</a>
 							</td>
 						</tr>
 					</tbody>
@@ -494,6 +498,7 @@ const createImplementationPlan = () => {
 							<td class="text-body-2">
 								<div v-for="oneHolding in oneStandard.citedElementList" :key="oneHolding.citedStableId">
 									<NuxtLink :to="explorerLinkOf(oneHolding.citedStableId)">{{ oneHolding.citedName }}</NuxtLink>
+									<a v-if="oneHolding.citedUri" :href="oneHolding.citedUri" target="_blank" rel="noopener" class="cited-uri-link" :title="oneHolding.citedUri" :aria-label="`Open the page of ${oneHolding.citedName}: ${oneHolding.citedUri}`">URI ↗</a>
 									<span class="text-medium-emphasis">: {{ relationTextOf(oneHolding.relationCountList) }}</span>
 								</div>
 							</td>
@@ -580,4 +585,7 @@ const createImplementationPlan = () => {
 .plan-response-body :deep(th), .plan-response-body :deep(td) { border: 1px solid var(--edu-gray-100, #EEF1F7); padding: 0.4em 0.6em; text-align: left; }
 .plan-response-body :deep(th) { background: var(--edu-gray-50, #F8F9FC); font-weight: 700; }
 .plan-response-body :deep(code) { font-size: 0.85em; background: rgba(7,42,108,0.06); padding: 0.15em 0.3em; border-radius: 3px; }
+
+/* ⟪explorerUris⟫ the small link from a cited element to its EDUcore URI */
+.cited-uri-link { margin-left: 0.5em; font-size: 0.8em; font-weight: 600; white-space: nowrap; }
 </style>

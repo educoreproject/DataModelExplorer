@@ -32,6 +32,8 @@ const crypto = require('crypto');
 const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
 const { readZipEntry } = require('../../../lib/zip-entry-reader');
 const { renderUseCaseDiagram } = require('../../lib/use-case-diagram/render-use-case-diagram');
+// ⟪explorerUris⟫ each cited element's EDUcore URI, from the standards query core's proved minter
+const { readUriMinter, uriFieldsOf, prefixedUriFieldsOf } = require('../../lib/explorer-uri-fields');
 
 //START OF moduleFunction() ============================================================
 
@@ -67,6 +69,25 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const readCaseListByCitedStandard = (callback) =>
 		runNamedQuery('caseListByCitedStandard', {}, (queryError, standardRecordList) => callback(queryError, queryError ? undefined : { citedStandardList: standardRecordList }));
 
+	// ⟪explorerUris⟫ a row that cites an element of a standard gains { citedUri, citedUriKind } or { citedUriAbsentName }; a row that cites nothing gains nothing
+	const withCitedUriFields = (minterAnswer, citingRow) =>
+		citingRow.citedStableId ? { ...citingRow, ...prefixedUriFieldsOf('cited', uriFieldsOf({ minterAnswer, stableId: citingRow.citedStableId, standardSourceName: citingRow.citedSource })) } : citingRow;
+
+	// the guide's cited elements carry their standard (citedSource); its per-standard holdings name the same elements by stableId
+	const withGuideCitedUriFields = (minterAnswer, implementationGuide) => {
+		if (!implementationGuide.citedElementList) {
+			return implementationGuide;
+		}
+		const citedElementList = implementationGuide.citedElementList.map((oneElement) => withCitedUriFields(minterAnswer, oneElement));
+		const citedElementByStableId = Object.fromEntries(citedElementList.map((oneElement) => [oneElement.citedStableId, oneElement]));
+		const uriFieldsOfStableId = (citedStableId) => Object.fromEntries(Object.entries(citedElementByStableId[citedStableId] || {}).filter(([fieldName]) => fieldName.startsWith('citedUri')));
+		return {
+			...implementationGuide,
+			citedElementList,
+			standardList: implementationGuide.standardList.map((oneStandard) => ({ ...oneStandard, citedElementList: oneStandard.citedElementList.map((oneHolding) => ({ ...oneHolding, ...uriFieldsOfStableId(oneHolding.citedStableId) })) })),
+		};
+	};
+
 	const readCase = ({ caseStableId }, callback) => {
 		if (typeof caseStableId !== 'string' || caseStableId.trim() === '') {
 			callback(`${moduleName}: case requires caseStableId as a non-empty string (received ${JSON.stringify(caseStableId)})`);
@@ -101,19 +122,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		taskList.push((args, next) =>
 			runNamedQuery('caseImplementationGuide', { caseStableId }, (queryError, guideRecordList) => next(queryError, { ...args, implementationGuide: queryError ? {} : mapper.mapImplementationGuideRecordList(guideRecordList) })),
 		);
+		// ⟪explorerUris⟫ the minter that names each cited element's URI
+		taskList.push((args, next) => readUriMinter({ accessPointsDotD }, (minterError, minterAnswer) => next(minterError, { ...args, minterAnswer })));
 
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
 			if (pipeError) {
 				callback(pipeError);
 				return;
 			}
+			const citationList = args.citationList.map((oneCitation) => withCitedUriFields(args.minterAnswer, oneCitation));
 			callback('', {
 				contextBySection: args.contextBySection,
-				implementationGuide: args.implementationGuide,
+				implementationGuide: withGuideCitedUriFields(args.minterAnswer, args.implementationGuide),
 				useCase: args.useCase,
 				stepList: args.stepList,
-				citationList: args.citationList,
-				citationStateCountList: mapper.citationStateCountListOf(args.citationList),
+				citationList,
+				citationStateCountList: mapper.citationStateCountListOf(citationList),
 			});
 		});
 	};

@@ -230,6 +230,12 @@ const moduleFunction =
 				params: { stableIdList },
 			}),
 
+			// ⟪explorerUris⟫ the standard each shown node belongs to (its _source), which is what the URI minter names it by, and whether it is a standard's root
+			sourceNameByStableIdList: ({ stableIdList }) => ({
+				cypher: `MATCH (node:ForgedNode) WHERE node.stableId IN $stableIdList RETURN node.stableId AS stableId, node._source AS standardSourceName, node:DmeStandardRoot AS isStandardRoot`,
+				params: { stableIdList },
+			}),
+
 			// children by relationship type: the true count, the first GROUP_ITEM_CAP by name, and each item's summary
 			childGroupsByStableId: ({ stableId }) => ({
 				cypher: `

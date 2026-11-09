@@ -6,6 +6,7 @@
 // sections for the standard being visited (CompanionPagesSection.vue, DownloadsSection.vue).
 // For a family, a release or a standard, the specification catalog's card for that family (SpecificationCard.vue);
 // at the families catalog, the catalog's specifications the graph does not hold yet.
+// ⟪explorerUris⟫ Beneath the definition, the Cite as line (CiteAs.vue) for a node the server sent a uri.
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
@@ -127,6 +128,8 @@ const definitionText = computed(() => {
 		</div>
 		<h2 class="detail-name" data-testid="detail-name" aria-live="polite">{{ shownNode.displayName }}</h2>
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
+		<!-- ⟪explorerUris⟫ the node's EDUcore URI, as the /edc page cites it; none for a node the server sent no uri -->
+		<StandardsExplorerCiteAs v-if="shownNode.uri" :uri="shownNode.uri" :uri-kind="shownNode.uriKind" :element-list-uri="shownNode.elementListUri || ''" />
 
 		<div v-if="mappingList.length" class="detail-box" data-testid="detail-mapping">
 			<span class="detail-box-head">Maps to {{ mappingHubText }}</span>

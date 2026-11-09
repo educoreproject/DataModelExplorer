@@ -45,6 +45,10 @@ const refusalTextOf = (error, operationName) =>
 // the hub a group of a hub's own items is said of: its items name it (hubName); a group of no hub's items names none
 const groupHubNameOf = (oneGroup) => ((oneGroup.itemList || []).find((oneItem) => oneItem.hubName) || {}).hubName || null;
 
+// ⟪explorerUris⟫ the URI fields an item carries, copied only when present, so a row says no more than the server did
+const URI_FIELD_NAME_LIST = ['uri', 'uriKind', 'uriAbsentName', 'elementListUri'];
+const uriFieldsOfItem = (oneItem) => Object.fromEntries(URI_FIELD_NAME_LIST.filter((fieldName) => oneItem[fieldName] !== undefined).map((fieldName) => [fieldName, oneItem[fieldName]]));
+
 // one table/diagram row from one child item
 const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	stableId: oneItem.stableId,
@@ -79,6 +83,8 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	versionList: oneItem.versionList || null,
 	version: oneItem.version || null,
 	releaseLabel: oneItem.releaseLabel || null,
+	// ⟪explorerUris⟫ its EDUcore URI as the server minted it, or why there is none (a synthetic row has neither)
+	...uriFieldsOfItem(oneItem),
 });
 
 // a mapping of the focus is a row too: the hub element it points at, in its hub's family (both named by the server)
@@ -100,6 +106,7 @@ const rowOfMapping = ({ oneMapping }) => ({
 	versionBadge: null,
 	hasChildren: true,
 	occurrenceCount: oneMapping.occurrenceCount,
+	...uriFieldsOfItem(oneMapping.anchor),
 });
 
 export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoodStore', {
