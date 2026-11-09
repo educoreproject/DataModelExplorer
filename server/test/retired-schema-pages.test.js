@@ -85,7 +85,8 @@ const NAV_FILE_LIST = Object.freeze(listBrowserSourceFiles('html'));
 // literal anywhere under server/test, and this test must not be the file that trips it
 const RETIRED_EDGE_NAME_LIST = Object.freeze([['MAPS', 'TO'].join('_'), ['IMPLIED', 'MAPPING'].join('_')]);
 const RETIRED_SCHEMA_TEXT_PATTERN = new RegExp(`\\b(${['SifField', 'CtdlProperty', 'EdfiField', 'LifProperty', 'JedxField', 'EduApiProperty'].concat(RETIRED_EDGE_NAME_LIST).join('|')})\\b`);
-const SCHEMA_VERIFIER_STORE_PATH = 'html/stores/schemaVerifierStore.js';
+// the Schema Verifier became the Specification Viewer (3394e8d, merged with PR #27); its store moved with the rename
+const SCHEMA_VERIFIER_STORE_PATH = 'html/stores/specificationViewerStore.js';
 
 const fileExistsAt = (relativePath) => fs.existsSync(path.join(CODE_ROOT_PATH, relativePath));
 const readTextAt = (relativePath) => (fileExistsAt(relativePath) ? fs.readFileSync(path.join(CODE_ROOT_PATH, relativePath), 'utf8') : '');
