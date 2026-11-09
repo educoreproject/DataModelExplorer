@@ -110,6 +110,20 @@ assert('the structure paragraph is byte-identical in both prompt files', structu
 const rawCypherTool = providerToolList.find((oneTool) => oneTool.definition.name === 'dme_raw_cypher');
 assert('dme_raw_cypher description ends with the A4 edit-2 sentence', /Use this for any count, total or average you need to state; do not compute numbers yourself\.$/.test(rawCypherTool.definition.description.replace(/ If the result is an object carrying refusedByName[\s\S]*$/, '')) || rawCypherTool.definition.description.endsWith('Use this for any count, total or average you need to state; do not compute numbers yourself.'));
 
+// ---- P7 (WORKORDER-P7-apiAnswerFixes-110726, fix 2): compareCodesets' verdict is scoped to the matched option sets
+{
+	const verdictOf = toolPayloadContract.compareCodesetsVerdictOf;
+	assert('P7: verdict list is judged, noValueJudgments, valuesNotJudgedInThisBuild', JSON.stringify(toolPayloadContract.COMPARE_CODESETS_VERDICT_LIST) === '["judged","noValueJudgments","valuesNotJudgedInThisBuild"]');
+	assert('P7: a judgment in the matched sets -> judged', verdictOf({ valueTierJudgmentCount: 19, graphWideValueTierJudgmentCount: 140 }) === 'judged');
+	assert('P7: none in the matched sets, some in the graph -> noValueJudgments (Race on production)', verdictOf({ valueTierJudgmentCount: 0, graphWideValueTierJudgmentCount: 140 }) === 'noValueJudgments');
+	assert('P7: none anywhere -> valuesNotJudgedInThisBuild', verdictOf({ valueTierJudgmentCount: 0, graphWideValueTierJudgmentCount: 0 }) === 'valuesNotJudgedInThisBuild');
+	let absentCountThrew = false;
+	try { verdictOf({ valueTierJudgmentCount: 0 }); } catch (absentError) { absentCountThrew = /both counts must be integers/.test(absentError.message); }
+	assert('P7: an absent count is refused by name, never read as zero', absentCountThrew);
+	assert('P7: every state but judged carries verdictText saying NOT JUDGED', toolPayloadContract.COMPARE_CODESETS_VERDICT_LIST.every((verdictName) => (verdictName === 'judged') === !toolPayloadContract.COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT[verdictName] && (verdictName === 'judged' || /NOT JUDGED/.test(toolPayloadContract.COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT[verdictName]))));
+	assert('P7: one value-card rule: a value-tier card, or a term card of termKind value', toolPayloadContract.valueCardPredicateTextFor('hub') === "(hub.referenceTier = 'value' OR (hub.referenceTier = 'term' AND hub.termKind = 'value'))");
+}
+
 // ---- LIVE: refusals on stdout, exit 0
 console.log(`\n--- live (dev graph; ${configName || 'default config'}; nothing written) ---`);
 const runVerb = (argumentList) => {

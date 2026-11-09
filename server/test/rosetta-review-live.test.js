@@ -32,6 +32,8 @@ const FAST_WAIT = (unusedLength, afterWait) => setImmediate(afterWait);
 const MILLISECONDS_PER_DAY = 86400000;
 const MANIFEST_OTHER = 'a manifest that is not this one';
 
+// ⟪P7a⟫ a fetch answer's field holds resultList, one result per hub, each naming its hub
+const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
 const askFor = (harness) => (operationName, input, principal, done) => harness.core.runOperation({ operationName, input, principal }, (unusedError, answer) => done({ ...answer, body: JSON.parse(answer.bodyText), answer: JSON.parse(answer.bodyText).answer }));
 const anyTextEmbedderFor = () => {
 	const holder = { callCount: 0 };
@@ -105,9 +107,9 @@ gate('finding2', (done) => {
 		vendor.setFaultScript(faultList);
 		withHarness({ vendorPostOnce: vendor.postOnce, waitMilliseconds: FAST_WAIT }, (harness, close) => {
 			const ask = askFor(harness);
-			submitAndWait(ask, { fieldList: fieldListOf(3), hubList: ['CEDS'] }, USER_A, ({ jobRefId, statusAnswer }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
+			submitAndWait(ask, { fieldList: fieldListOf(3), hubList: ['CEDS'] }, USER_A, ({ jobRefId, statusAnswer }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
 				ok(`2 ${caseName}: an unnamed vendor fault stops the job, by name`, statusAnswer.status === 'vendorStopped' && statusAnswer.stopReasonName === 'judgeVendorFaultUnnamed' && vendor.callLog.length === 1, `${statusAnswer.status} ${statusAnswer.stopReasonName} ${vendor.callLog.length}`);
-				ok(`2 ${caseName}: and reads notJudged, partial`, report.isPartial === true && report.fieldList[0].byHub.CEDS.status === 'notJudged' && report.fieldList[0].byHub.CEDS.notJudgedReason === 'judgeVendorFaultUnnamed');
+				ok(`2 ${caseName}: and reads notJudged, partial`, report.isPartial === true && resultOfHub(report.fieldList[0], 'CEDS').status === 'notJudged' && resultOfHub(report.fieldList[0], 'CEDS').notJudgedReason === 'judgeVendorFaultUnnamed');
 				close();
 			}));
 		}, () => runCase(caseList, index + 1));
@@ -122,11 +124,11 @@ gate('finding2partial', (done) => {
 	const vendor = fakeJudgeVendorFor({ answerFor: ({ payload }) => (payload.messages[0].content.includes('refusedField') ? { choice: '999', category: 'strong', rationale: 'chosen', predicate: 'exactMatch' } : pickOf('1', 'strong', 'It means the same thing.')) });
 	withHarness({ vendorPostOnce: vendor.postOnce, waitMilliseconds: FAST_WAIT }, (harness, close) => {
 		const ask = askFor(harness);
-		submitAndWait(ask, { fieldList: [{ name: 'refusedField', definition: 'Answer 999.' }, { name: 'plainField', definition: 'A date.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId, statusAnswer }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-			const refusedUnit = report.fieldList[0].byHub.CEDS;
+		submitAndWait(ask, { fieldList: [{ name: 'refusedField', definition: 'Answer 999.' }, { name: 'plainField', definition: 'A date.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId, statusAnswer }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+			const refusedUnit = resultOfHub(report.fieldList[0], 'CEDS');
 			ok('2: a job holding a refused unit ends done, and says it is partial', statusAnswer.status === 'done' && report.isPartial === true, `${statusAnswer.status} ${report.isPartial}`);
 			ok('2: the refused row carries a reason', refusedUnit.status === 'judgeRefused' && Boolean(refusedUnit.notJudgedReason), JSON.stringify(refusedUnit).slice(0, 200));
-			const lostReport = reportOf({ job: { jobRefId: 'x', status: 'done', fieldCount: 1, hubNameList: ['CEDS'], estimateUsd: 0, judgeFacts: {}, answeredFrom: {} }, submission: { fieldList: [{ name: 'x' }], submissionNote: {} }, judgmentRowList: [{ fieldIndex: 0, hubName: 'CEDS', unitStatus: 'lostAtRestart', judgment: { notJudgedReason: 'lostAtRestart' } }], spentUsd: 0, answerNoteValues: registry.rosettaJudgedNote, pageNumber: 1, pageSize: 10, rowDetail: 'full' });
+			const lostReport = reportOf({ job: { jobRefId: 'x', status: 'done', fieldCount: 1, hubNameList: ['CEDS'], estimateUsd: 0, judgeFacts: {}, answeredFrom: {} }, submission: { fieldList: [{ name: 'x' }], submissionNote: {} }, judgmentRowList: [{ fieldIndex: 0, hubName: 'CEDS', unitStatus: 'lostAtRestart', judgment: { notJudgedReason: 'lostAtRestart' } }], spentUsd: 0, answerNoteValues: registry.rosettaJudgedNote, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: {} });
 			ok('2: a job that survived a restart with a lost unit says it is partial', lostReport.isPartial === true);
 			close();
 		}));
@@ -272,12 +274,12 @@ gate('finding5', (done) => {
 		const ask = askFor(harness);
 		vendor.setFaultScript([cutResponseFor(abstentionOf('None of these, and then the words stop')), cutResponseFor(pickOf('1', 'strong', 'It means the same thing, and then the words stop'))]);
 		const input = { fieldList: [{ name: 'cutNoneField', definition: 'A text.' }, { name: 'cutStrongField', definition: 'Another text.' }], hubList: ['CEDS'] };
-		submitAndWait(ask, input, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => ask('rosettaFetch', { jobRefId }, USER_A, ({ answer: summary }) => {
-			ok('5: a cut NONE has its own status, and is not counted as an abstention', report.fieldList[0].byHub.CEDS.status === 'abstainedOnCutAnswer' && report.counts.byHub.CEDS.abstained === 0 && report.counts.byHub.CEDS.abstainedOnCutAnswer === 1, JSON.stringify(report.fieldList[0].byHub.CEDS).slice(0, 200));
-			ok('5: a cut pick keeps its mark in full', report.fieldList[1].byHub.CEDS.answerWasCut === true);
+		submitAndWait(ask, input, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => ask('rosettaFetch', { jobRefId }, USER_A, ({ answer: summary }) => {
+			ok('5: a cut NONE has its own status, and is not counted as an abstention', resultOfHub(report.fieldList[0], 'CEDS').status === 'abstainedOnCutAnswer' && report.counts.byHub.CEDS.abstained === 0 && report.counts.byHub.CEDS.abstainedOnCutAnswer === 1, JSON.stringify(resultOfHub(report.fieldList[0], 'CEDS')).slice(0, 200));
+			ok('5: a cut pick keeps its mark in full', resultOfHub(report.fieldList[1], 'CEDS').answerWasCut === true);
 			ok('5: the summary line shows the mark, and the counts count it', /cut/.test(JSON.stringify(summary.fieldLineList[1])) && summary.counts.byHub.CEDS.answersCut === 2, JSON.stringify(summary.fieldLineList) + JSON.stringify(summary.counts));
-			submitAndWait(ask, input, USER_A, ({ jobRefId: secondRefId, statusAnswer: secondStatus }) => ask('rosettaFetch', { jobRefId: secondRefId, rowDetail: 'full' }, USER_A, ({ answer: secondReport }) => {
-				ok('5: a replay is free, and the mark survives the cache', secondStatus.spentUsd === 0 && secondReport.fieldList[1].byHub.CEDS.answerWasCut === true && secondReport.fieldList[0].byHub.CEDS.status === 'abstainedOnCutAnswer', `${secondStatus.spentUsd} ${JSON.stringify(secondReport.fieldList[1].byHub.CEDS).slice(0, 120)}`);
+			submitAndWait(ask, input, USER_A, ({ jobRefId: secondRefId, statusAnswer: secondStatus }) => ask('rosettaFetch', { jobRefId: secondRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: secondReport }) => {
+				ok('5: a replay is free, and the mark survives the cache', secondStatus.spentUsd === 0 && resultOfHub(secondReport.fieldList[1], 'CEDS').answerWasCut === true && resultOfHub(secondReport.fieldList[0], 'CEDS').status === 'abstainedOnCutAnswer', `${secondStatus.spentUsd} ${JSON.stringify(resultOfHub(secondReport.fieldList[1], 'CEDS')).slice(0, 120)}`);
 				close();
 			}));
 		})));
@@ -310,7 +312,7 @@ gate('finding6summary', (done) => {
 			console.log(`  6: fifty names of 195 characters, all strong: ${Buffer.byteLength(bodyText)} bytes`);
 			ok(`6: a summary holds its bound for long names (${Buffer.byteLength(bodyText)})`, Buffer.byteLength(bodyText) <= 20000);
 			ok('6: the drafts could not fit, so the summary says so and points at the full form', summary.draftContextByHub === undefined && /rowDetail=full/.test(summary.leftOutOfSummary.draftsNotShown || ''), JSON.stringify(summary.leftOutOfSummary).slice(0, 300));
-			ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: fullReport }) => {
+			ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: fullReport }) => {
 				ok('6: the full form holds the drafts whole', Object.keys(fullReport.draftContextByHub.CEDS['@context']).length === 50);
 				close();
 			});
@@ -420,7 +422,7 @@ gate('finding12', (done) => {
 	withHarness({ vendorPostOnce: vendor.postOnce, fuseOverrideValues: { judgeUsdPerFieldEstimate: 0.01 } }, (harness, close) => {
 		const ask = askFor(harness);
 		const nameList = ['@vocab', '@context', 'foaf:name', '__proto__', 'constructor', 'toString', 'plainTerm'];
-		submitAndWait(ask, { fieldList: nameList.map((name) => ({ name, definition: `Definition of ${name.replace(/[^a-z]/gi, '')}.` })), hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ bodyText, answer: report }) => {
+		submitAndWait(ask, { fieldList: nameList.map((name) => ({ name, definition: `Definition of ${name.replace(/[^a-z]/gi, '')}.` })), hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ bodyText, answer: report }) => {
 			const context = report.draftContextByHub.CEDS['@context'];
 			ok('12: a keyword, a compact IRI and a prototype name stay out of a draft', Object.keys(context).join() === 'plainTerm', Object.keys(context).join());
 			const reasonOf = (term) => (report.leftOutOfDraftList.find((one) => one.term === term) || {}).reason || '';
@@ -451,17 +453,17 @@ gate('finding14', (done) => {
 	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
 		const ask = askFor(harness);
 		const formList = ['p001234', 'P 001234', 'P-001234', 'P００１２３４', 'p_001234', 'see 000 102'];
-		submitAndWait(ask, { fieldList: [...formList.map((form, formIndex) => ({ name: `form${formIndex}`, definition: `This is ${form} in the hub.` })), { name: 'fineField', definition: 'A date of 2024 and a code.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-			formList.forEach((form, formIndex) => ok(`14: ${form} is caught`, report.fieldList[formIndex].byHub.CEDS.status === 'identifierInSourceText', report.fieldList[formIndex].byHub.CEDS.status));
-			ok('14: a plain field is not', report.fieldList[formList.length].byHub.CEDS.status === 'proposed', report.fieldList[formList.length].byHub.CEDS.status);
+		submitAndWait(ask, { fieldList: [...formList.map((form, formIndex) => ({ name: `form${formIndex}`, definition: `This is ${form} in the hub.` })), { name: 'fineField', definition: 'A date of 2024 and a code.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+			formList.forEach((form, formIndex) => ok(`14: ${form} is caught`, resultOfHub(report.fieldList[formIndex], 'CEDS').status === 'identifierInSourceText', resultOfHub(report.fieldList[formIndex], 'CEDS').status));
+			ok('14: a plain field is not', resultOfHub(report.fieldList[formList.length], 'CEDS').status === 'proposed', resultOfHub(report.fieldList[formList.length], 'CEDS').status);
 			close();
 		}));
 	}, () => {
 		const vendorCtdl = fakeJudgeVendorFor();
 		withHarness({ vendorPostOnce: vendorCtdl.postOnce }, (harness, close) => {
 			const ask = askFor(harness);
-			submitAndWait(ask, { fieldList: [{ name: 'upperCurie', definition: 'Same as CETERMS:Credential here.' }], hubList: ['CTDL'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-				ok('14: a CTDL term in another case is caught', report.fieldList[0].byHub.CTDL.status === 'identifierInSourceText', report.fieldList[0].byHub.CTDL.status);
+			submitAndWait(ask, { fieldList: [{ name: 'upperCurie', definition: 'Same as CETERMS:Credential here.' }], hubList: ['CTDL'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+				ok('14: a CTDL term in another case is caught', resultOfHub(report.fieldList[0], 'CTDL').status === 'identifierInSourceText', resultOfHub(report.fieldList[0], 'CTDL').status);
 				close();
 			}));
 		}, done);
@@ -530,7 +532,7 @@ gate('finding18', (done) => {
 
 // 19
 gate('finding19', (done) => {
-	const answer = { fieldList: [{ name: 'x', byHub: { CEDS: { status: 'proposed', proposal: { uri: 'u', label: null, category: 'strong' }, runnerUpList: [] } } }], job: {}, judge: {}, counts: { byHub: { CEDS: { proposedStrong: 1 } } }, draftContextByHub: { CEDS: { '@context': {} } } };
+	const answer = { fieldList: [{ requestName: 'x', resultList: [{ hub: 'CEDS', status: 'proposed', proposal: { uri: 'u', label: null, category: 'strong', tupleAbsentName: 'judgedBeforeTupleRecorded' }, runnerUpList: [] }] }], job: {}, judge: {}, counts: { byHub: { CEDS: { proposedStrong: 1 } } }, draftContextByHub: { CEDS: { '@context': {} } } };
 	let thrown = '';
 	let summary = null;
 	const shaper = SUMMARY_SHAPER_BY_NAME.rosettaFetch;
@@ -547,8 +549,8 @@ gate('roundA', (done) => {
 		const ask = askFor(harness);
 		// a cut NONE with no reason, then the re-ask answers whole: the mark belongs to the cut answer, not to the one kept
 		vendor.setFaultScript([{ status: 200, body: toolBody({ choice: 'NONE', predicate: 'none' }, 'max_tokens') }, { status: 200, body: toolBody({ choice: 'NONE', category: 'none', rationale: 'None of these means that.', predicate: 'none' }) }]);
-		submitAndWait(ask, { fieldList: [{ name: 'reaskedField', definition: 'A text.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-			const oneUnit = report.fieldList[0].byHub.CEDS;
+		submitAndWait(ask, { fieldList: [{ name: 'reaskedField', definition: 'A text.' }], hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+			const oneUnit = resultOfHub(report.fieldList[0], 'CEDS');
 			ok('A: a complete answer after a cut one carries no cut mark, and a complete NONE stays abstained', oneUnit.status === 'abstained' && !oneUnit.answerWasCut && report.counts.byHub.CEDS.answersCut === 0, JSON.stringify({ status: oneUnit.status, cut: oneUnit.answerWasCut, counts: report.counts.byHub.CEDS.answersCut }));
 			close();
 		}));
@@ -585,11 +587,11 @@ gate('roundC', (done) => {
 			{ name: 'zeroWidthId', definition: 'This is P00\u200B1234 in the hub.' },
 			{ name: 'softHyphenId', definition: 'This is P001\u00AD234 in the hub.' },
 		];
-		submitAndWait(ask, { fieldList, hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full' }, USER_A, ({ answer: report }) => {
-			const statusOf = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS.status;
+		submitAndWait(ask, { fieldList, hubList: ['CEDS'] }, USER_A, ({ jobRefId }) => ask('rosettaFetch', { jobRefId, rowDetail: 'full', detail: 'audit' }, USER_A, ({ answer: report }) => {
+			const statusOf = (fieldIndex) => resultOfHub(report.fieldList[fieldIndex], 'CEDS').status;
 			ok('C: innocent text that only looks like an id in upper case is judged', statusOf(0) === 'proposed' && statusOf(1) === 'proposed', `${statusOf(0)} ${statusOf(1)}`);
 			ok('C: a CEDS id in lower case is still caught', statusOf(2) === 'identifierInSourceText', statusOf(2));
-			const unitOf = (fieldIndex) => report.fieldList[fieldIndex].byHub.CEDS;
+			const unitOf = (fieldIndex) => resultOfHub(report.fieldList[fieldIndex], 'CEDS');
 			// caught as the CEDS id itself: a break before the digits leaves a bare number the hub's identifier list also holds, which proves nothing about the strip
 			const caughtAsCedsId = (fieldIndex) => unitOf(fieldIndex).status === 'identifierInSourceText' && unitOf(fieldIndex).identifierScanPatternName === 'cedsPropertyId';
 			ok('14 remainder: an id broken by a zero-width or format character is caught', caughtAsCedsId(3) && caughtAsCedsId(4), `${statusOf(3)}/${unitOf(3).identifierScanPatternName} ${statusOf(4)}/${unitOf(4).identifierScanPatternName}`);

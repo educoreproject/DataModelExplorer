@@ -144,13 +144,16 @@ taskList.push((args, next) => {
 	const compareResponderList = [
 		HUB_LIST_RESPONDER,
 		{ pattern: /RETURN count\(os\) AS matchedOptionSetCount/, rowList: [{ matchedOptionSetCount: 1 }] },
+		{ pattern: /AS graphWideValueTierJudgmentCount/, rowList: [{ graphWideValueTierJudgmentCount: 3 }] },
 		{ pattern: /AS valueTierJudgmentCount/, rowList: [{ valueTierJudgmentCount: 3 }] },
 		{ pattern: /AS valueRowList/, rowList: [{ valueRowList: [{ sourceStandard: 'CTDLASN', optionSetName: 'Sex', sourceValue: 'F', matchType: 'EXACT_MATCH', confidence: 0.9, mappingConfidence: 0.9, mappingKind: 'inferred', mappingSource: 'bridge-test', hubName: 'CTDL', hubValue: 'Female', hubValueKey: 'x:F', crossStandardEquivalents: [] }], totalRowCount: 1 }] },
 	];
 	runVerbOn(realSearchModule, 'compareCodesets', { name: 'Sex' }, compareResponderList, (compareError, comparePayload, compareQueryLog) => {
 		const valueQuery = compareQueryLog.find((oneQuery) => /AS valueRowList/.test(oneQuery.cypherText)) || { cypherText: '', cypherParameters: {} };
 		assert('compareCodesets: every hub standard is excluded ($hubSourceList = CEDS, CTDL)', JSON.stringify(valueQuery.cypherParameters.hubSourceList) === '["CEDS","CTDL"]' && /NOT os\._source IN \$hubSourceList/.test(valueQuery.cypherText));
-		assert('compareCodesets: the value card decomposes through both hubs\' VALUE edges', valueQuery.cypherText.includes('[:HAS_CEDS_VALUE|HAS_CTDL_VALUE]->(cv:ForgedNode)'));
+		// ⟪P7⟫ a value card is a tuple card (VALUE slot) or a term card minted for a value (TERM slot): both, for both hubs
+		assert('compareCodesets: the value card decomposes through both hubs\' VALUE and TERM edges', valueQuery.cypherText.includes('[:HAS_CEDS_VALUE|HAS_CTDL_VALUE|HAS_CEDS_TERM|HAS_CTDL_TERM]->(cv:ForgedNode)'));
+		assert('compareCodesets: verdict judged with the scoped count and the graph-wide count apart', comparePayload && comparePayload.verdict === 'judged' && comparePayload.valueTierJudgmentCount === 3 && comparePayload.graphWideValueTierJudgmentCount === 3, JSON.stringify(comparePayload && { verdict: comparePayload.verdict, valueTierJudgmentCount: comparePayload.valueTierJudgmentCount, graphWideValueTierJudgmentCount: comparePayload.graphWideValueTierJudgmentCount }));
 		const valueRow = ((comparePayload || {}).valueRowList || [])[0] || {};
 		assert('compareCodesets: the row names its hub; no legacy cedsValue on two hubs', !compareError && valueRow.hubName === 'CTDL' && valueRow.hubValue === 'Female' && !('cedsValue' in valueRow), compareError || JSON.stringify(valueRow));
 		const unmappedResponderList = [HUB_LIST_RESPONDER, { pattern: /AS unmappedRowList/, rowList: [{ unmappedRowList: [], totalRowCount: 0 }] }];

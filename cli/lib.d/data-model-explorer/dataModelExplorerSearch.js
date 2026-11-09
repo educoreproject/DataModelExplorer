@@ -59,7 +59,11 @@ const {
 	HUB_TUPLE_SUMMARY_CAP,
 	HUB_TUPLE_SUMMARY_CYPHER,
 	COMPARE_CODESETS_ROW_CAP,
-	VALUE_TIER_JUDGMENT_COUNT_CYPHER,
+	GRAPH_WIDE_VALUE_TIER_JUDGMENT_COUNT_CYPHER,
+	HUB_TERM_SLOT_LIST,
+	compareCodesetsVerdictOf,
+	COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT,
+	valueCardPredicateTextFor,
 	SEARCH_PAGE_SIZE,
 	SEARCH_OVER_FETCH_FACTOR,
 	SEARCH_OVER_FETCH_CAP,
@@ -1096,9 +1100,18 @@ const shapeHubTupleSummary = (hubTupleResult) => {
 	return { hubTupleCount: summaryList.length, hubTupleSummaryList: summaryList.slice(0, HUB_TUPLE_SUMMARY_CAP) };
 };
 
-// W-D-8 (campaign P1; DME half of G9): whether the build judged option values at all is read from the graph
-// (VALUE_TIER_JUDGMENT_COUNT_CYPHER), never assumed. With none, a null matchType means NOT JUDGED — the payload's
-// verdict says which, and the rows drop crossStandardEquivalents (it can only be empty). The hubs are read from
+// the edges a value card decomposes to its hub value by: a tuple card's VALUE slot, a term card's term slot(s), every hub
+const hubValueSlotEdgeTypeListOf = (hubList) => {
+	const hubNameList = hubList.map((hubRow) => hubRow.hubName);
+	return ['VALUE', ...HUB_TERM_SLOT_LIST].flatMap((slotName) => hubSlotEdgeTypeList(hubNameList, slotName));
+};
+
+// W-D-8 (campaign P1; DME half of G9), scoped by P7: whether the MATCHED option sets' values were judged is read from the
+// graph, never assumed, and the graph's own figure (GRAPH_WIDE_VALUE_TIER_JUDGMENT_COUNT_CYPHER) travels beside it,
+// labelled. Unless the verdict is judged, a null matchType means NOT JUDGED and verdictText says so. The rows drop
+// crossStandardEquivalents only when the GRAPH holds no value judgment (it can only be empty), the rule before P7, so no
+// row field appears or disappears with the scoped verdict. The rows and both counts read one value-card rule
+// (valueCardPredicateTextFor): a value-tier card, or a term card minted for a value. The hubs are read from
 // :HubDefinition (it was the literal 'CEDS'); ⟪ctdlHub P7⟫ every hub standard is excluded, and each row names its value
 // card's hub (a cross-standard equivalent is another standard's value on the SAME card, so never across hubs).
 const compareCodesets = (session, name, reportRowStableIdList, callback) => {
@@ -1120,7 +1133,20 @@ const compareCodesets = (session, name, reportRowStableIdList, callback) => {
 		}
 		next('', { ...args, matchedOptionSetCount: toNumber(countResult.records[0].get('matchedOptionSetCount')) });
 	}));
-	taskList.push((args, next) => runCypherQuery(session, VALUE_TIER_JUDGMENT_COUNT_CYPHER, {}, (err, countResult) => {
+	taskList.push((args, next) => runCypherQuery(session, GRAPH_WIDE_VALUE_TIER_JUDGMENT_COUNT_CYPHER, {}, (err, countResult) => {
+		if (err) {
+			next(err, args);
+			return;
+		}
+		next('', { ...args, graphWideValueTierJudgmentCount: toNumber(countResult.records[0].get('graphWideValueTierJudgmentCount')) });
+	}));
+	taskList.push((args, next) => runCypherQuery(session, `
+		MATCH (os:ForgedNode {role: 'DmeOptionSet'})
+		WHERE toLower(os.name) CONTAINS toLower($name) AND NOT os._source IN $hubSourceList
+		MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})-[m:${MATCH_EDGE_PATTERN}]->(card:HubReference)
+		WHERE ${valueCardPredicateTextFor('card')}
+		RETURN count(m) AS valueTierJudgmentCount
+	`, { name, hubSourceList: hubSourceListOf(args.hubInventory.hubList) }, (err, countResult) => {
 		if (err) {
 			next(err, args);
 			return;
@@ -1138,15 +1164,16 @@ const compareCodesets = (session, name, reportRowStableIdList, callback) => {
 			MATCH (os:ForgedNode {role: 'DmeOptionSet'})
 			WHERE toLower(os.name) CONTAINS toLower($name) AND NOT os._source IN $hubSourceList
 			MATCH (os)-[:HAS_VALUE]->(v:ForgedNode {role: 'DmeOptionValue'})
-			OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference {referenceTier: 'value'})
-			OPTIONAL MATCH (hub)-[:${hubSlotEdgeTypeList(args.hubInventory.hubList.map((hubRow) => hubRow.hubName), 'VALUE').join('|')}]->(cv:ForgedNode)
+			OPTIONAL MATCH (v)-[m:${MATCH_EDGE_PATTERN}]->(hub:HubReference)
+			WHERE ${valueCardPredicateTextFor('hub')}
+			OPTIONAL MATCH (hub)-[:${hubValueSlotEdgeTypeListOf(args.hubInventory.hubList).join('|')}]->(cv:ForgedNode)
 			OPTIONAL MATCH (hub)<-[:${MATCH_EDGE_PATTERN}]-(ov:ForgedNode)
 			WHERE ov._source <> os._source
 			WITH os, v, m, hub, cv, collect(DISTINCT ov._source + ': ' + ov.name) AS crossStandardEquivalents
 			ORDER BY os._source, os.name, v.name
 			WITH collect({ sourceStandard: os._source, optionSetName: os.name, sourceValue: v.name, matchType: type(m),
 			               confidence: m.mappingConfidence, mappingConfidence: m.mappingConfidence, mappingKind: m.mappingKind,
-			               mappingSource: m.mappingSource, hubName: hub.hubName, hubValue: cv.name, hubValueKey: hub.canonicalKey,
+			               mappingSource: m.mappingSource, hubName: hub.hubName, hubValue: cv.name, hubValueKey: coalesce(hub.canonicalKey, hub.termIri),
 			               crossStandardEquivalents: crossStandardEquivalents }) AS rowList,
 			     collect([v.stableId, hub.stableId, m.assertionId]) AS identityRowList
 			RETURN rowList[..$rowCap] AS valueRowList, size(rowList) AS totalRowCount, identityRowList[..$rowCap] AS valueIdentityRowList
@@ -1176,9 +1203,10 @@ const compareCodesets = (session, name, reportRowStableIdList, callback) => {
 	});
 };
 
-const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, matchedOptionSetCount, hubInventory }) => {
+const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, graphWideValueTierJudgmentCount, matchedOptionSetCount, hubInventory }) => {
 	const valueRecord = valueResult.records[0];
-	const valuesJudged = valueTierJudgmentCount > 0;
+	const verdict = compareCodesetsVerdictOf({ valueTierJudgmentCount, graphWideValueTierJudgmentCount });
+	const graphJudgesValues = graphWideValueTierJudgmentCount > 0;
 	const valueRowList = valueRecord.get('valueRowList').map((oneRow) => {
 		const plainRow = serializeValue(oneRow);
 		const shapedRow = {
@@ -1194,15 +1222,16 @@ const shapeCompareCodesetsResult = ({ valueResult, valueTierJudgmentCount, match
 			hubValue: plainRow.hubValue,
 			hubValueKey: plainRow.hubValueKey,
 		};
-		if (valuesJudged) {
+		if (graphJudgesValues) {
 			shapedRow.crossStandardEquivalents = plainRow.crossStandardEquivalents.filter((equivalentText) => equivalentText && !equivalentText.startsWith('null'));
 		}
 		return shapedRow;
 	});
 	return {
-		verdict: valuesJudged ? 'judged' : 'valuesNotJudgedInThisBuild',
-		...(valuesJudged ? {} : { verdictText: "This build contains no value-level judgments (0 match edges leave an option value); matchType null means NOT JUDGED, not 'does not align'." }),
+		verdict,
+		...(COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT[verdict] ? { verdictText: COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT[verdict].replace('{matchedOptionSetCount}', String(matchedOptionSetCount)).replace('{graphWideValueTierJudgmentCount}', String(graphWideValueTierJudgmentCount)) } : {}),
 		valueTierJudgmentCount,
+		graphWideValueTierJudgmentCount,
 		matchedOptionSetCount,
 		...listEnvelopeFor('compareCodesets', valueRowList, toNumber(valueRecord.get('totalRowCount'))),
 		hubList: hubListFieldOf(hubInventory.hubList),

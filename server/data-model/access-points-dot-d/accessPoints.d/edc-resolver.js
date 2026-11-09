@@ -16,16 +16,21 @@ const { wholeBlockRunnerFor } = require('../../../lib/edc-resolver/wholeBlockRun
 const { answerTextFor, CONTENT_TYPE_BY_FORMAT } = require('../../../lib/edc-resolver/htmlAnswer');
 const { sizeRefusalContactFor } = require('../../../lib/standards-query/sizeRefusalContact');
 const standardsQueryRegistry = require('../../../lib/standards-query/standardsQueryOperations.json');
+const { meaningRangeListFieldsFor, withMeaningRangeList } = require('../../../lib/edc-resolver/meaningRangeList');
+const { uriMinterFor } = require('../../../lib/standards-query/uriMinter');
+const { runCypherQuery } = require('../../../../cli/lib.d/data-model-explorer/lib/runCypherQuery');
 
 const WHOLE_BLOCK_BUSY_RETRY_SECONDS = 5;
 // ⟪TQ Q39⟫ the bytes of a direct block reach the client unchecked: the client holds the hash and checks it, as the block's own name promises it can
 const DIRECT_BLOCK_CONTENT_TYPE = 'text/plain; charset=utf-8';
+const MEANING_KIND = 'meaning';
 const DIRECT_BLOCK_VERIFICATION_TEXT = 'This block is read directly from the store and is not checked before it is sent: check that the sha256 of these bytes equals X-Edc-Expected-Sha256, which is also the name in its URI.';
 
 //START OF moduleFunction() ============================================================
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog, getConfig } = process.global;
+	const { neo4jDb } = passThroughParameters; // the golden graph handle, as standards-query has it: the meaning answer's ranges are read from it (P7a Addendum 1)
 
 	const forgeAdapter = openForgeAdapter({ configValues: getConfig(moduleName) });
 	if (forgeAdapter.refusalText) {
@@ -35,6 +40,28 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	}
 	const wholeBlockRunner = forgeAdapter.refusalText ? null : wholeBlockRunnerFor({ ...forgeAdapter, xLog });
 	const sizeRefusalContact = forgeAdapter.refusalText ? null : sizeRefusalContactFor({ registry: standardsQueryRegistry, contactAddress: forgeAdapter.sizeRefusalContactAddress });
+
+	// ⟪P7a Addendum 1, TQ Q65⟫ a card's meaning answer lists its ranges. Element uris are minted at the card's own hub version, through the store, as every answer mints them.
+	const meaningStoreOpened = forgeAdapter.refusalText ? { error: forgeAdapter.refusalText } : forgeAdapter.openStoreReadHandle();
+	if (meaningStoreOpened.error) {
+		xLog.error(`${moduleName}: meaning answers will name no ranges: ${meaningStoreOpened.error}`);
+	}
+	// one minter per hub release, made on first use (a hub has a handful of releases, so this stays small)
+	const uriForElementByHubRelease = new Map();
+	const uriForElementFor = ({ hubName, hubVersion }) => {
+		const hubReleaseName = `${hubName}\u0000${hubVersion}`;
+		if (!uriForElementByHubRelease.has(hubReleaseName)) {
+			uriForElementByHubRelease.set(hubReleaseName, uriMinterFor({ edcUri: forgeAdapter.edcUri, storeHandle: meaningStoreOpened.storeHandle, manifestLabel: '', standardVersionByName: { [hubName]: hubVersion } }).uriForNode);
+		}
+		return uriForElementByHubRelease.get(hubReleaseName);
+	};
+	const withRangesWhenMeaning = ({ httpStatus, body }, done) => {
+		if (httpStatus !== 200 || !body || body.kind !== MEANING_KIND || meaningStoreOpened.error) {
+			done({ httpStatus, body });
+			return;
+		}
+		meaningRangeListFieldsFor({ withReadSession: neo4jDb ? neo4jDb.withReadSession : null, runCypher: runCypherQuery, uriForElementFor, meaningBody: body, xLog }, (rangeFields) => done({ httpStatus, body: withMeaningRangeList(body, rangeFields) }));
+	};
 
 	const textAnswerFor = ({ edcRequestPath, answerFormat, httpStatus, answerBody, extraHeaderByName = {} }) => ({
 		httpStatus,
@@ -53,7 +80,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// one answer per route (DATA, no branch); each calls done(answer)
 	const ANSWER_BY_ROUTE_NAME = Object.freeze({
 		inProcess: ({ edcRequestPath, answerFormat }, done) =>
-			forgeAdapter.resolveInProcess(edcRequestPath, ({ httpStatus, body }) => done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus, answerBody: body }))),
+			forgeAdapter.resolveInProcess(edcRequestPath, (resolved) => withRangesWhenMeaning(resolved, ({ httpStatus, body }) => done(textAnswerFor({ edcRequestPath, answerFormat, httpStatus, answerBody: body })))),
 		overCap: ({ edcRequestPath, answerFormat, route }, done) =>
 			done(textAnswerFor({
 				edcRequestPath,

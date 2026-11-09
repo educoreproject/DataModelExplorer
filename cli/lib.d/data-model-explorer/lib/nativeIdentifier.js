@@ -16,6 +16,7 @@
 //   NATIVE_IDENTIFIER_DECLARATION_CYPHER                       the one read; rows { sourceKey, nativeIdentifierPropertyName }
 //   nativeIdentifierDeclarationVerdictFor(rowList)             PURE -> { declarationList } | { refusalName, reason }
 //   sourceIdentifierCypherTextFor(nodeVariableName, declarationList)
+//   nativeIdentifierCypherTextFor(nodeVariableName, declarationList)   the native identifier alone, null when absent (P7)
 //   nativeIdentifierPropertyNameListOf(declarationList)        the distinct declared names, sorted (for lookups)
 //
 // Both names are written INTO Cypher text, so each is checked against a plain-identifier grammar first and a value outside
@@ -46,6 +47,18 @@ const nativeIdentifierDeclarationVerdictFor = (rowList) => {
 	return { declarationList: declaredRowList.map((oneRow) => Object.freeze({ sourceKey: oneRow.sourceKey, nativeIdentifierPropertyName: oneRow.nativeIdentifierPropertyName })) };
 };
 
+// nativeIdentifierCypherTextFor — a node's OWN standard's native identifier where declared and carried, else null (no
+// stand-in: a reader that must cite the element needs to know it has none). ⟪P7⟫ the Rosetta proposal reads it alone.
+const nativeIdentifierCypherTextFor = (nodeVariableName, declarationList) => {
+	if (!PROPERTY_NAME_PATTERN.test(nodeVariableName)) {
+		throw new Error(`nativeIdentifier.nativeIdentifierCypherTextFor: node variable must be a plain identifier (got ${JSON.stringify(nodeVariableName)})`);
+	}
+	if (!Array.isArray(declarationList) || declarationList.length === 0) {
+		throw new Error('nativeIdentifier.nativeIdentifierCypherTextFor: needs the graph\'s declarationList (nativeIdentifierDeclarationVerdictFor); a reader without one would assume an identifier');
+	}
+	return `CASE ${nodeVariableName}._source ${declarationList.map((oneDeclaration) => `WHEN '${oneDeclaration.sourceKey}' THEN ${nodeVariableName}.${oneDeclaration.nativeIdentifierPropertyName}`).join(' ')} END`;
+};
+
 // sourceIdentifierCypherTextFor — a node's source identifier as the endpoints and mappers return it (sourceId): its OWN
 // standard's native identifier where declared and carried, else stableId, else persistentId, else ''
 const sourceIdentifierCypherTextFor = (nodeVariableName, declarationList) => {
@@ -55,7 +68,7 @@ const sourceIdentifierCypherTextFor = (nodeVariableName, declarationList) => {
 	if (!Array.isArray(declarationList) || declarationList.length === 0) {
 		throw new Error('nativeIdentifier.sourceIdentifierCypherTextFor: needs the graph\'s declarationList (nativeIdentifierDeclarationVerdictFor); a reader without one would assume an identifier');
 	}
-	const nativeCaseText = `CASE ${nodeVariableName}._source ${declarationList.map((oneDeclaration) => `WHEN '${oneDeclaration.sourceKey}' THEN ${nodeVariableName}.${oneDeclaration.nativeIdentifierPropertyName}`).join(' ')} END`;
+	const nativeCaseText = nativeIdentifierCypherTextFor(nodeVariableName, declarationList);
 	return `coalesce(${[nativeCaseText, ...FALLBACK_IDENTIFIER_PROPERTY_NAME_LIST.map((propertyName) => `${nodeVariableName}.${propertyName}`)].join(', ')}, '')`;
 };
 
@@ -65,6 +78,7 @@ module.exports = {
 	NATIVE_IDENTIFIER_DECLARATION_CYPHER,
 	nativeIdentifierDeclarationVerdictFor,
 	sourceIdentifierCypherTextFor,
+	nativeIdentifierCypherTextFor,
 	nativeIdentifierPropertyNameListOf,
 	FALLBACK_IDENTIFIER_PROPERTY_NAME_LIST,
 };

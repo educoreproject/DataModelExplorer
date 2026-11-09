@@ -15,6 +15,8 @@ const OPEN_STATUS_LIST = ['queued', 'running', 'cancelling'];
 const jobIsOpen = computed(() => store.jobStatus && OPEN_STATUS_LIST.includes(store.jobStatus.status));
 const hubNameList = computed(() => (store.report ? store.report.job.hubList : []));
 
+// ⟪P7a⟫ a field's results are a list, each naming its hub
+const resultFor = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
 const unitLine = (oneUnit) => (oneUnit.proposal ? `${oneUnit.proposal.category}: ${oneUnit.proposal.label}` : oneUnit.notJudgedReason ? `${oneUnit.status}: ${oneUnit.notJudgedReason}` : oneUnit.status);
 
 const downloadDraft = (hubName) => {
@@ -69,10 +71,10 @@ onUnmounted(() => store.stopPolling());
 					<v-table density="compact">
 						<thead><tr><th>Field</th><th>Hub</th><th>Pool</th><th>Top candidates</th></tr></thead>
 						<tbody>
-							<template v-for="oneField in store.retrievalAnswer.fieldList" :key="oneField.name">
-								<tr v-for="(onePool, hubName) in oneField.byHub" :key="hubName">
-									<td>{{ oneField.name }}</td>
-									<td>{{ hubName }}</td>
+							<template v-for="oneField in store.retrievalAnswer.fieldList" :key="oneField.requestName">
+								<tr v-for="onePool in oneField.resultList" :key="onePool.hub">
+									<td>{{ oneField.requestName }}</td>
+									<td>{{ onePool.hub }}</td>
 									<td>{{ onePool.poolSize }}</td>
 									<td>{{ (onePool.topCandidateList || []).map((oneCandidate) => oneCandidate.label).join('; ') }}</td>
 								</tr>
@@ -100,12 +102,12 @@ onUnmounted(() => store.stopPolling());
 					<v-table density="compact">
 						<thead><tr><th>Field</th><th>Hub</th><th>Result</th><th>The judge's words</th></tr></thead>
 						<tbody>
-							<template v-for="oneField in store.report.fieldList" :key="oneField.name">
+							<template v-for="oneField in store.report.fieldList" :key="oneField.requestName">
 								<tr v-for="hubName in hubNameList" :key="hubName">
-									<td>{{ oneField.name }}</td>
+									<td>{{ oneField.requestName }}</td>
 									<td>{{ hubName }}</td>
-									<td>{{ unitLine(oneField.byHub[hubName]) }}</td>
-									<td class="rosettaRationale">{{ oneField.byHub[hubName].judgesRationale }}</td>
+									<td>{{ unitLine(resultFor(oneField, hubName)) }}</td>
+									<td class="rosettaRationale">{{ resultFor(oneField, hubName).judgesRationale }}</td>
 								</tr>
 							</template>
 						</tbody>

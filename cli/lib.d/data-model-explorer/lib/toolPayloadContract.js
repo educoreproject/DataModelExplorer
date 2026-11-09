@@ -249,10 +249,37 @@ const HUB_TUPLE_SUMMARY_CYPHER = `
 	       collect(DISTINCT coalesce(subjectDeclaration, subject).stableId) AS elementStableIdList
 	ORDER BY toId, hubName, relation`;
 
-// W-D-8: compareCodesets says whether the build judged option values at all; the verdict is read from the graph
-const COMPARE_CODESETS_VERDICT_LIST = Object.freeze(['judged', 'valuesNotJudgedInThisBuild']);
+// W-D-8, scoped by P7 (WORKORDER-P7-apiAnswerFixes-110726): compareCodesets' verdict and valueTierJudgmentCount describe
+// the option sets THIS answer matched, read from the graph; the graph's own figure travels apart, labelled graph-wide.
+//   judged                       a value of the matched sets carries a judgment
+//   noValueJudgments             the sets matched; none of their values is judged, though the graph judges values elsewhere
+//   valuesNotJudgedInThisBuild   the graph holds no value judgment at all
+const COMPARE_CODESETS_VERDICT_LIST = Object.freeze(['judged', 'noValueJudgments', 'valuesNotJudgedInThisBuild']);
 const COMPARE_CODESETS_ROW_CAP = 100;
-const VALUE_TIER_JUDGMENT_COUNT_CYPHER = "MATCH (:ForgedNode {role: 'DmeOptionValue'})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(:HubReference) RETURN count(m) AS valueTierJudgmentCount";
+// A VALUE CARD is a value-tier tuple card, or a term card minted for a value (termKind 'value'): every value judgment in
+// GOLD_261030 / GOLD_261106 lands on a CEDS term card (measured 2026-11-07), and the rows read only value-tier cards
+// until P7, so a judged set showed every row null. The rows, the scoped count and the graph-wide count read this one rule.
+const valueCardPredicateTextFor = (cardVariableName) => {
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cardVariableName)) {
+		throw new Error(`toolPayloadContract.valueCardPredicateTextFor: card variable must be a plain identifier (got ${JSON.stringify(cardVariableName)})`);
+	}
+	return `(${cardVariableName}.referenceTier = 'value' OR (${cardVariableName}.referenceTier = 'term' AND ${cardVariableName}.termKind = 'value'))`;
+};
+const GRAPH_WIDE_VALUE_TIER_JUDGMENT_COUNT_CYPHER = `MATCH (:ForgedNode {role: 'DmeOptionValue'})-[m:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(card:HubReference) WHERE ${valueCardPredicateTextFor('card')} RETURN count(m) AS graphWideValueTierJudgmentCount`;
+// what a reader is told when null cannot mean "does not align"; a judged answer carries no verdictText. {name} fills from the answer.
+const COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT = Object.freeze({
+	noValueJudgments: "No value of the {matchedOptionSetCount} matched option set(s) carries a value-level judgment in this build (it judges {graphWideValueTierJudgmentCount} option values, all in other sets); matchType null means NOT JUDGED, not 'does not align'.",
+	valuesNotJudgedInThisBuild: "This build contains no value-level judgments (0 match edges leave an option value); matchType null means NOT JUDGED, not 'does not align'.",
+});
+const compareCodesetsVerdictOf = ({ valueTierJudgmentCount, graphWideValueTierJudgmentCount }) => {
+	if (!Number.isInteger(valueTierJudgmentCount) || !Number.isInteger(graphWideValueTierJudgmentCount)) {
+		throw new Error(`toolPayloadContract.compareCodesetsVerdictOf: both counts must be integers (got ${JSON.stringify({ valueTierJudgmentCount, graphWideValueTierJudgmentCount })})`);
+	}
+	if (valueTierJudgmentCount > 0) {
+		return 'judged';
+	}
+	return graphWideValueTierJudgmentCount > 0 ? 'noValueJudgments' : 'valuesNotJudgedInThisBuild';
+};
 
 // W-D-10: a filtered search over-fetches from the vector index, then pages
 const SEARCH_PAGE_SIZE = 20;
@@ -420,8 +447,11 @@ module.exports = Object.freeze({
 	DECLARED_CORRESPONDENCE_ROW_UNIT_TEXT,
 	declaredCorrespondenceCypherFor,
 	COMPARE_CODESETS_VERDICT_LIST,
+	compareCodesetsVerdictOf,
+	COMPARE_CODESETS_VERDICT_TEXT_BY_VERDICT,
+	valueCardPredicateTextFor,
 	COMPARE_CODESETS_ROW_CAP,
-	VALUE_TIER_JUDGMENT_COUNT_CYPHER,
+	GRAPH_WIDE_VALUE_TIER_JUDGMENT_COUNT_CYPHER,
 	SEARCH_PAGE_SIZE,
 	SEARCH_OVER_FETCH_FACTOR,
 	SEARCH_OVER_FETCH_CAP,
