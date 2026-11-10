@@ -5,7 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningExpressionTextOf, meaningInfoTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -45,9 +45,8 @@ const countOf = (oneRow) => {
 		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount}` : '' }),
 		// ⟪meaningsExplorer⟫ a group of meanings counts its meanings; a meaning, the elements that express it
 		meaningHub: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaningDomain: () => ({ countValue: oneRow.mappedMeaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaningProperty: () => ({ countValue: oneRow.mappedMeaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaning: () => ({ countValue: oneRow.elementCount ?? null, countText: hubMappedTextOf(oneRow) }),
+		meaningDomain: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
+		meaning: () => ({ countValue: oneRow.elementCount ?? null, countText: meaningExpressionTextOf(oneRow) }),
 	};
 	const countReader = countByKind[oneRow.kind];
 	return countReader ? countReader() : { countValue: null, countText: '' };
@@ -152,7 +151,7 @@ const drillRow = (clickEvent, { item }) => {
 				<span class="explorer-row-info">{{ item.infoText }}</span>
 			</template>
 			<template #item.countValue="{ item }">
-				<span class="explorer-row-count">{{ item.countText }}</span>
+				<span class="explorer-row-count" :class="{ 'explorer-row-count-wraps': store.walkProfile.countTextWraps }">{{ item.countText }}</span>
 			</template>
 			<template #item.confidenceValue="{ item }">
 				<StandardsExplorerMatchSummary v-if="item.mapping" :match-kind="item.mapping.matchKind" :mapping-confidence="item.mapping.mappingConfidence" />
@@ -201,6 +200,10 @@ const drillRow = (clickEvent, { item }) => {
 .explorer-row-count {
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+}
+/* ⟪meaningsPolish⟫ a walk whose counts are phrases (the meanings walk's "113 meanings + its own term · 3 expressed in other standards") wraps them */
+.explorer-row-count-wraps {
+	white-space: normal;
 }
 .explorer-unmapped {
 	color: #6b7280;

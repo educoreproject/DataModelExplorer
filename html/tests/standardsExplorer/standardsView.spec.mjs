@@ -15,6 +15,12 @@
 //   V9 ⟪meaningsExplorer⟫ leaving the Meanings page for the Standards Explorer by an "Expressed in" link lands on that element's own path, and the two
 //      walks (one store, one WalkView) do not leak into each other: nothing asks for a meanings id afterwards (Nuxt gives each page its own route, so the
 //      outgoing walk never sees the incoming path; this checks that it stays so)
+//   V10 ⟪meaningsPolish⟫ the Meanings page: the legend says "EDC meaning"; a hub reads "<n> domain(s) · <n> meaning(s)"; the ⓘ explainer opens with its five
+//      paragraphs and its illustrative caption and closes on Escape; a meaning's URI is itself its link (no second Open link); every "Expressed in" standard
+//      is named (the Standards Explorer's own look is proven against main by runs/meaningsPolish/standardsCompare.js, not here: its fixture nodes carry no uri)
+//   V11 ⟪meaningsPolish review B1, S1-S3, S6⟫ each level's own count (the toolbar) reads exactly as the row that opened it, for a hub, a domain and a
+//      domain holding only its own term; an old property-level link shows the server's refusal in its words (naming the domain), not "did not answer";
+//      the explainer dialog is named, gives focus back to its ⓘ button, and its title reads in a dark colour scheme
 //   V8 the Schema Viewer: not offered at the families catalog; inside CEDS it is a third view beside Diagram and Table,
 //      showing the Specification Viewer opened on CEDS, full width (no detail panel, no filter); Diagram brings them back
 //
@@ -24,7 +30,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import { answerApi, isApiUrl, FIXTURE_MEANING_STABLE_ID, FIXTURE_EXPRESSED_IN_PATH } from './standardsViewFixtures.mjs';
+import { answerApi, isApiUrl, FIXTURE_MEANING_STABLE_ID, FIXTURE_EXPRESSED_IN_PATH, FIXTURE_DOMAIN_STABLE_ID, FIXTURE_TERM_ONLY_DOMAIN_STABLE_ID, FIXTURE_RETIRED_STABLE_ID, FIXTURE_RETIRED_REFUSAL_TEXT } from './standardsViewFixtures.mjs';
 
 const argumentByName = Object.fromEntries(process.argv.slice(2).filter((argumentText) => argumentText.startsWith('--')).map((argumentText) => argumentText.slice(2).split(/=(.*)/s).slice(0, 2)));
 if (!argumentByName.baseUrl) {
@@ -177,6 +183,84 @@ try {
 	check('after leaving, nothing asks for a meanings id on the Standards page', requestedAfterLeaving.length > 0 && requestedAfterLeaving.every((oneId) => !/^meaning/.test(oneId)), requestedAfterLeaving.join(' | '));
 	check('the Standards Explorer, not the Meanings walk, draws it', (await page.locator('[data-walk-profile="standards"]').count()) === 1 && (await page.locator('[data-walk-profile="meanings"]').count()) === 0);
 	await shoot(page, 'V9-expressedInToStandards');
+
+	console.log('V10 ⟪meaningsPolish⟫ the Meanings page: the ⓘ explainer, the legend, one Open link, named standards');
+	await open('/explore/meanings');
+	await page.waitForSelector('[data-walk-profile="meanings"] [data-testid="detail-panel"]', { timeout: 30000 }).catch(() => {});
+	check('V10: the legend says "EDC meaning"', (await page.locator('[data-testid="legend"]').innerText().catch(() => '')).includes('EDC meaning'));
+	check('V10: the hub\'s chip reads "2 domains · 2 meanings" (what its next level shows)', ((await page.locator('[data-testid="level-item-meaningHub:CEDS"] button').getAttribute('aria-label').catch(() => '')) || '').includes('2 domains · 2 meanings'));
+	await page.locator('[data-testid="meaning-explainer-open"]').click().catch(() => {});
+	await page.waitForSelector('[data-testid="meaning-explainer-panel"]', { state: 'visible', timeout: 10000 }).catch(() => {});
+	await page.waitForTimeout(400);
+	const explainerOpened = (await page.locator('[data-testid="meaning-explainer-paragraph"]').count()) === 5;
+	check('V10: the ⓘ button opens "What is a meaning?" with its five paragraphs', explainerOpened);
+	check('V10: its diagram is captioned as illustrative', /\(illustrative\)\.$/.test((await page.locator('[data-testid="meaning-explainer-caption"]').innerText().catch(() => '')).trim()));
+	await shoot(page, 'V10-explainer');
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(500);
+	check('V10: Escape closes it (once it was open)', explainerOpened && !(await page.locator('[data-testid="meaning-explainer-panel"]').isVisible().catch(() => false)));
+	await open(`/explore/meanings?path=${encodeURIComponent(`meanings:all,${FIXTURE_MEANING_STABLE_ID}`)}`);
+	await page.waitForSelector('[data-walk-profile="meanings"] [data-testid="meaning-section"]', { timeout: 30000 }).catch(() => {});
+	check('V10: a meaning\'s URI is itself the link, with no second "Open its page" link', (await page.locator('a[data-testid="detail-cite-uri"]').count()) === 1 && (await page.locator('[data-testid="detail-cite-open"]').count()) === 0);
+	check('V10: each "Expressed in" standard is named', (await page.locator('[data-testid="meaning-group-name"]').allInnerTexts().catch(() => [])).every((oneName) => oneName.trim() !== '') && (await page.locator('[data-testid="meaning-group-name"]').count()) === 1);
+
+	console.log('V11 ⟪meaningsPolish review⟫ every level\'s own count reads exactly as the row that opened it; a refusal is shown in the server\'s words; the explainer is named and gives focus back');
+	const meaningsPathOf = (stableIdList) => `/explore/meanings?path=${encodeURIComponent(stableIdList.join(','))}`;
+	const chipCountTextOf = async (rowStableId) => {
+		const ariaLabel = (await page.locator(`[data-testid="level-item-${rowStableId}"] button.level-item-select`).getAttribute('aria-label').catch(() => '')) || '';
+		return (/: (.*)$/.exec(ariaLabel) || ['', ''])[1];
+	};
+	const levelSummaryText = async () => (await page.locator('[data-testid="level-summary"]').innerText().catch(() => '')).trim();
+	for (const [parentPathList, rowStableId] of [
+		[['meanings:all'], 'meaningHub:CEDS'],
+		[['meanings:all', 'meaningHub:CEDS'], FIXTURE_DOMAIN_STABLE_ID],
+		[['meanings:all', 'meaningHub:CEDS'], FIXTURE_TERM_ONLY_DOMAIN_STABLE_ID],
+	]) {
+		await open(meaningsPathOf(parentPathList));
+		await page.waitForSelector(`[data-testid="level-item-${rowStableId}"]`, { timeout: 30000 }).catch(() => {});
+		const rowCountText = await chipCountTextOf(rowStableId);
+		await open(meaningsPathOf([...parentPathList, rowStableId]));
+		await page.waitForFunction((expectedText) => (document.querySelector('[data-testid="level-summary"]')?.innerText || '').trim() === expectedText, rowCountText, { timeout: 15000 }).catch(() => {});
+		const levelText = await levelSummaryText();
+		check(`V11: ${rowStableId}: the level's own count reads as its row does`, rowCountText !== '' && levelText === rowCountText, `row "${rowCountText}" / level "${levelText}"`);
+	}
+	await open(meaningsPathOf(['meanings:all', 'meaningHub:CEDS', FIXTURE_RETIRED_STABLE_ID]));
+	await page.waitForSelector('[data-testid="state-error"]', { timeout: 30000 }).catch(() => {});
+	const refusalShownText = await page.locator('[data-testid="state-error"]').innerText().catch(() => '');
+	check('V11: an old property-level link shows the server\'s refusal, naming the domain to open', refusalShownText.includes('no longer a level of the meanings walk') && refusalShownText.includes('meaningDomain:urn:fixture:domain'), refusalShownText.replace(/\s+/g, ' ').slice(0, 200));
+	check('V11: it is not framed as a failure to answer, and offers no "Try again"', !/did not answer|could not answer/.test(refusalShownText) && (await page.locator('[data-testid="retry"]').count()) === 0);
+	await open('/explore/meanings');
+	await page.waitForSelector('[data-testid="meaning-explainer-open"]', { timeout: 30000 }).catch(() => {});
+	await page.locator('[data-testid="meaning-explainer-open"]').click().catch(() => {});
+	await page.waitForSelector('[data-testid="meaning-explainer-panel"]', { state: 'visible', timeout: 10000 }).catch(() => {});
+	await page.waitForTimeout(400);
+	const dialogName = await page.evaluate(() => {
+		const dialogNode = document.querySelector('[role="dialog"]');
+		const labelId = dialogNode && dialogNode.getAttribute('aria-labelledby');
+		return (labelId && document.getElementById(labelId) ? document.getElementById(labelId).textContent : dialogNode?.getAttribute('aria-label') || '').trim();
+	});
+	check('V11: the explainer dialog has an accessible name', dialogName === 'What is a meaning?', dialogName);
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(600);
+	check('V11: closing the explainer gives focus back to the ⓘ button', await page.evaluate(() => document.activeElement?.getAttribute('data-testid') === 'meaning-explainer-open'));
+	await page.emulateMedia({ colorScheme: 'dark' });
+	await page.locator('[data-testid="meaning-explainer-open"]').click().catch(() => {});
+	await page.waitForSelector('[data-testid="meaning-explainer-panel"]', { state: 'visible', timeout: 10000 }).catch(() => {});
+	await page.waitForTimeout(400);
+	const darkTitleContrast = await page.evaluate(() => {
+		const luminanceOf = (colorText) => {
+			const [red, green, blue] = (colorText.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map((part) => Number(part) / 255).map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
+			return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+		};
+		const titleNode = document.querySelector('.meaning-explainer-title');
+		const panelNode = document.querySelector('[data-testid="meaning-explainer-panel"]');
+		if (!titleNode || !panelNode) return 0;
+		const [lighter, darker] = [luminanceOf(getComputedStyle(titleNode).color), luminanceOf(getComputedStyle(panelNode).backgroundColor)].sort((left, right) => right - left);
+		return (lighter + 0.05) / (darker + 0.05);
+	});
+	check('V11: in a dark colour scheme the explainer title reads against its panel (contrast 4.5 or more)', darkTitleContrast >= 4.5, darkTitleContrast.toFixed(2));
+	await page.keyboard.press('Escape');
+	await page.emulateMedia({ colorScheme: 'light' });
 
 	check('signed out, companion pages were never asked for', companionRequestCount === 0, `${companionRequestCount} requests`);
 	check('no page errors', pageErrorList.length === 0, pageErrorList.join(' | '));

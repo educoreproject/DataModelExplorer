@@ -1,14 +1,17 @@
 <script setup>
 // @concept: [[DataModelExplorer]]
 // ⟪meaningsExplorer, WORKORDER-meaningsExplorer-111026⟫ A meaning in the detail panel, in the order the work order sets: where it sits (its tier, and its
-// domain and property as links back up the walk); its tuple, each role-named slot linked to its EDUcore URI (a CTDL meaning's ranges are description, not
-// identity, so they sit behind a disclosure, as on the /edc page); "Expressed in", every element mapped to it, one group per standard, each element a link
-// into the Standards Explorer at the path to it; last, its Cite as line and a link to its /edc meaning page. The tuple and "Expressed in" come with the
-// meaning's own answer, so they show when the meaning is the focus; a meaning selected on a list says to open it.
+// domain as a link back up the walk); its tuple, each role-named slot linked to its EDUcore URI (a CTDL meaning's ranges are description, not identity, so
+// they sit behind a disclosure, as on the /edc page); "Expressed in", every element mapped to it, one group per standard, each element a link into the
+// Standards Explorer at the path to it. The tuple and "Expressed in" come with the meaning's own answer, so they show when the meaning is the focus; a
+// meaning selected on a list says to open it.
+// ⟪meaningsPolish, WORKORDER-meaningsPolish-111026⟫ Its EDC URI comes first, the URI itself the link to its page (one Open link in the panel: punch-list
+// item 2); every tuple slot says its id in its hub's standard ("CEDS id P000043", item 8); the walk has no property level, so the place links only the
+// domain. Every word is meaningsVocabulary's (meaningSection), filled by wordingOf.
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { edcPagePathOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { OWN_TERM_RELATIONSHIP_TYPE, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	meaningNode: { type: Object, required: true },
@@ -16,105 +19,114 @@ const props = defineProps({
 });
 
 const store = useStandardsNeighbourhoodStore();
-
-// the words a reader sees for a slot and for a part's kind; a slot or kind not listed shows as the server named it
-const SLOT_LABEL_BY_NAME = Object.freeze({ domain: 'Domain', property: 'Property', range: 'Range', value: 'Value', qualifier: 'Qualifier', term: 'Term' });
-const PART_KIND_LABEL_BY_KIND = Object.freeze({ class: 'class', property: 'property', optionSet: 'code list', option: 'code' });
-const TIER_TEXT_BY_TIER = Object.freeze({ property: 'a property in a domain', value: 'one code of a property in a domain', term: 'one term, meant on its own' });
+const sectionWords = meaningsVocabulary.meaningSection;
 
 const tierText = computed(() => {
-	const tierWords = TIER_TEXT_BY_TIER[props.meaningNode.referenceTier] || props.meaningNode.referenceTier;
-	return props.meaningNode.termKind ? `${props.meaningNode.referenceTier} tier (${tierWords}; a ${props.meaningNode.termKind})` : `${props.meaningNode.referenceTier} tier (${tierWords})`;
+	const tierWords = sectionWords.tierWordsByTier[props.meaningNode.referenceTier] || props.meaningNode.referenceTier;
+	const tierValueByName = { referenceTier: props.meaningNode.referenceTier, tierWords, termKind: props.meaningNode.termKind };
+	const tierWordText = wordingOf(props.meaningNode.termKind ? sectionWords.tierWithTermKindTemplate : sectionWords.tierTemplate, tierValueByName);
+	// ⟪review N6⟫ a row listed as the domain's own term says so in its panel too
+	return props.meaningNode.relationshipType === OWN_TERM_RELATIONSHIP_TYPE ? [meaningsVocabulary.domainOwnTermRowText, tierWordText].join(meaningsVocabulary.countPartDivider) : tierWordText;
 });
 
+// a slot's id in its hub's standard, as the standard declares it (hubCardTuple's nativeId: { <declared identifier name>: text }); none when the slot has none
+const hubIdTextOf = (slotPart) => (slotPart.nativeId ? wordingOf(sectionWords.hubIdTemplate, { hubName: props.meaningNode.hubName, nativeIdText: Object.values(slotPart.nativeId)[0] }) : '');
 // the tuple's slots in the server's order (hubCardTuple answers them in its rules' slot order)
-const tupleSlotList = computed(() => Object.entries(props.meaningNode.tuple || {}).map(([slotName, slotPart]) => ({ slotName, slotLabel: SLOT_LABEL_BY_NAME[slotName] || slotName, ...slotPart, kindText: PART_KIND_LABEL_BY_KIND[slotPart.kind] || slotPart.kind, nativeIdText: slotPart.nativeId ? Object.values(slotPart.nativeId)[0] : '' })));
+const tupleSlotList = computed(() =>
+	Object.entries(props.meaningNode.tuple || {}).map(([slotName, slotPart]) => ({
+		slotName,
+		slotLabel: sectionWords.slotLabelByName[slotName] || slotName,
+		...slotPart,
+		detailText: [sectionWords.partKindLabelByKind[slotPart.kind] || slotPart.kind, hubIdTextOf(slotPart)].filter(Boolean).join(sectionWords.partDivider),
+	})),
+);
 const rangeDisclosureList = computed(() => (props.meaningNode.rangeIsIdentity === false ? props.meaningNode.rangePartList || [] : []));
 const rangeDatatypeList = computed(() => props.meaningNode.rangeDatatypeList || []);
+const datatypeText = computed(() => rangeDatatypeList.value.join(sectionWords.datatypeDivider));
 
 // "Expressed in": one group per standard, its true count beside its (capped) list; each element links into the Standards Explorer at the path the server
 // made for it, or, when no walk reaches it from its standard's root, is shown unlinked with the reason
-const PATH_ABSENT_TEXT_BY_NAME = Object.freeze({ noClimbFromRoot: 'no walk reaches it from its standard\'s root' });
 const expressedInGroupList = computed(() =>
 	(props.meaningNode.expressedInGroupList || []).map((oneGroup) => ({
 		...oneGroup,
 		familyColor: familyStyleOf(oneGroup.standardFamily).color,
+		// ⟪meaningsPolish⟫ the standard's name as the Explorer names a standard group (the group carries no rootName; on main the summary was blank)
+		groupDisplayName: displayNameOf(oneGroup),
+		countText: oneGroup.elementsTruncated ? wordingOf(sectionWords.groupCappedTemplate, { elementCount: oneGroup.elementCount, shownCount: oneGroup.elementList.length }) : String(oneGroup.elementCount),
 		elementList: oneGroup.elementList.map((oneElement) => ({
 			...oneElement,
 			explorerLink: oneElement.standardsWalkPathStableIdList ? explorerLinkOf(oneElement.standardsWalkPathStableIdList) : null,
-			pathAbsentText: oneElement.standardsWalkPathAbsentName ? PATH_ABSENT_TEXT_BY_NAME[oneElement.standardsWalkPathAbsentName] || oneElement.standardsWalkPathAbsentName : '',
+			linkTitleText: wordingOf(sectionWords.elementLinkTitleTemplate, { elementName: oneElement.name }),
+			ownerText: oneElement.ownerName && oneElement.ownerName !== oneElement.name ? wordingOf(sectionWords.elementOwnerTemplate, { ownerName: oneElement.ownerName }) : '',
+			pathAbsentText: oneElement.standardsWalkPathAbsentName ? sectionWords.pathAbsentTextByName[oneElement.standardsWalkPathAbsentName] || oneElement.standardsWalkPathAbsentName : '',
 		})),
 	})),
 );
 // a short list opens its groups; a long one (375 elements for a CIP code) shows its standards closed, so the panel reads as a list of standards first
 const GROUPS_OPEN_UP_TO_ELEMENT_COUNT = 24;
 const shownExpressionCount = computed(() => expressedInGroupList.value.reduce((soFar, oneGroup) => soFar + oneGroup.elementList.length, 0));
+const expressionsCappedText = computed(() => wordingOf(sectionWords.expressionsCappedTemplate, { shownCount: shownExpressionCount.value, expressionCount: props.meaningNode.expressionCount, groupItemCap: props.meaningNode.expressionGroupItemCap }));
+const openNoteText = computed(() => (props.meaningNode.elementCount ? wordingOf(sectionWords.openNoteExpressedTemplate, { elementCountText: meaningElementCountTextOf(props.meaningNode.elementCount) }) : '') + sectionWords.openNoteText);
 
-const edcPagePath = computed(() => edcPagePathOf(props.meaningNode.uri));
-// its domain and its property as the walk reaches them from the top: the catalog, the meaning's group, the domain, then the property
-const domainPathStableIdList = computed(() => (props.meaningNode.meaningGroup && props.meaningNode.meaningDomain ? [store.walkProfile.rootStableId, props.meaningNode.meaningGroup.stableId, props.meaningNode.meaningDomain.stableId] : []));
-const domainLink = computed(() => store.walkLinkOf(domainPathStableIdList.value));
-const propertyLink = computed(() => store.walkLinkOf([...domainPathStableIdList.value, props.meaningNode.meaningProperty ? props.meaningNode.meaningProperty.stableId : '']));
+// its domain as the walk reaches it from the top: the catalog, the meaning's group, then the domain
+const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStableId, props.meaningNode.meaningGroup.stableId, props.meaningNode.meaningDomain.stableId]));
 </script>
 
 <template>
-	<section class="meaning" aria-label="What this meaning is" data-testid="meaning-section">
+	<section class="meaning" :aria-label="sectionWords.sectionLabel" data-testid="meaning-section">
+		<StandardsExplorerCiteAs v-if="meaningNode.uri" :uri="meaningNode.uri" :uri-kind="meaningNode.uriKind" :uri-is-the-link="store.walkProfile.citesUriAsLink" />
 		<dl class="meaning-facts">
-			<dt>Tier</dt>
+			<dt>{{ sectionWords.tierFactName }}</dt>
 			<dd data-testid="meaning-tier">{{ tierText }}</dd>
 			<template v-if="meaningNode.meaningDomain && meaningNode.meaningGroup">
 				<dt>{{ kindDisplayNameOf('meaningDomain', meaningNode.hubName) }}</dt>
 				<dd><NuxtLink :to="domainLink" data-testid="meaning-domain-link">{{ meaningNode.meaningDomain.name }}</NuxtLink></dd>
 			</template>
-			<template v-if="meaningNode.meaningProperty && meaningNode.meaningGroup">
-				<dt>{{ kindDisplayNameOf('meaningProperty', meaningNode.hubName) }}</dt>
-				<dd><NuxtLink :to="propertyLink" data-testid="meaning-property-link">{{ meaningNode.meaningProperty.name }}</NuxtLink></dd>
-			</template>
 		</dl>
 
-		<p v-if="!isFocus" class="meaning-note" data-testid="meaning-open-note">{{ meaningNode.elementCount ? `Expressed in ${meaningNode.elementCount} elements. ` : '' }}Open this meaning for its tuple and every element that expresses it.</p>
+		<p v-if="!isFocus" class="meaning-note" data-testid="meaning-open-note">{{ openNoteText }}</p>
 
 		<template v-else>
 			<div class="meaning-box" data-testid="meaning-tuple">
-				<span class="meaning-box-head">What it names</span>
-				<p v-if="meaningNode.tupleAbsentName" class="meaning-note" data-testid="meaning-tuple-absent">No citable tuple: <code>{{ meaningNode.tupleAbsentName }}</code>.</p>
+				<span class="meaning-box-head">{{ sectionWords.tupleHeadText }}</span>
+				<p v-if="meaningNode.tupleAbsentName" class="meaning-note" data-testid="meaning-tuple-absent">{{ sectionWords.tupleAbsentText }} <code>{{ meaningNode.tupleAbsentName }}</code></p>
 				<ul v-else class="meaning-slots">
 					<li v-for="oneSlot in tupleSlotList" :key="oneSlot.slotName" class="meaning-slot" :data-testid="`meaning-slot-${oneSlot.slotName}`">
 						<span class="meaning-slot-name">{{ oneSlot.slotLabel }}</span>
 						<a v-if="oneSlot.uri" :href="oneSlot.uri" target="_blank" rel="noopener" class="meaning-slot-label">{{ oneSlot.label }}</a>
 						<span v-else class="meaning-slot-label" :title="oneSlot.uriAbsentReason">{{ oneSlot.label }}</span>
-						<span class="meaning-slot-kind">{{ oneSlot.kindText }}<template v-if="oneSlot.nativeIdText"> · {{ oneSlot.nativeIdText }}</template></span>
+						<span class="meaning-slot-kind" data-testid="meaning-slot-detail">{{ oneSlot.detailText }}</span>
 					</li>
 				</ul>
 				<details v-if="rangeDisclosureList.length || (meaningNode.rangeIsIdentity === false && rangeDatatypeList.length)" class="meaning-ranges" data-testid="meaning-ranges">
-					<summary>Ranges <span class="meaning-count">{{ rangeDisclosureList.length + rangeDatatypeList.length }}</span> (description, not part of what it names)</summary>
-					<p v-if="rangeDatatypeList.length" class="meaning-note" data-testid="meaning-datatypes">Datatype: {{ rangeDatatypeList.join(', ') }}</p>
+					<summary>{{ sectionWords.rangesSummaryText }} <span class="meaning-count">{{ rangeDisclosureList.length + rangeDatatypeList.length }}</span> {{ sectionWords.rangesAsideText }}</summary>
+					<p v-if="rangeDatatypeList.length" class="meaning-note" data-testid="meaning-datatypes">{{ wordingOf(sectionWords.datatypeTemplate, { datatypeText }) }}</p>
 					<ul class="meaning-slots">
 						<li v-for="onePart in rangeDisclosureList" :key="onePart.uri || onePart.label" class="meaning-slot">
 							<a v-if="onePart.uri" :href="onePart.uri" target="_blank" rel="noopener" class="meaning-slot-label">{{ onePart.label }}</a>
 							<span v-else class="meaning-slot-label">{{ onePart.label }}</span>
-							<span class="meaning-slot-kind">{{ PART_KIND_LABEL_BY_KIND[onePart.kind] || onePart.kind }}</span>
+							<span class="meaning-slot-kind">{{ sectionWords.partKindLabelByKind[onePart.kind] || onePart.kind }}</span>
 						</li>
 					</ul>
 				</details>
-				<p v-if="rangeDatatypeList.length && meaningNode.rangeIsIdentity !== false" class="meaning-note" data-testid="meaning-datatypes">Datatype range: {{ rangeDatatypeList.join(', ') }}</p>
+				<p v-if="rangeDatatypeList.length && meaningNode.rangeIsIdentity !== false" class="meaning-note" data-testid="meaning-datatypes">{{ wordingOf(sectionWords.datatypeRangeTemplate, { datatypeText }) }}</p>
 			</div>
 
 			<div class="meaning-box" data-testid="meaning-expressed-in">
-				<span class="meaning-box-head">Expressed in <span class="meaning-count">{{ meaningNode.expressionCount }} elements</span></span>
-				<p v-if="!meaningNode.expressionCount" class="meaning-note">No element of any standard is mapped to this meaning.</p>
-				<p v-else-if="meaningNode.expressionsTruncated" class="meaning-note" data-testid="meaning-expressed-in-capped">Showing {{ shownExpressionCount }} of {{ meaningNode.expressionCount }}: each standard lists at most its first 500, strongest first.</p>
-				<details v-for="(oneGroup, groupIndex) in expressedInGroupList" :key="oneGroup.standardKey" class="meaning-group" :open="shownExpressionCount <= GROUPS_OPEN_UP_TO_ELEMENT_COUNT" :data-testid="`meaning-group-${oneGroup.standardKey}`">
+				<span class="meaning-box-head">{{ sectionWords.expressedInHeadText }} <span class="meaning-count">{{ meaningElementCountTextOf(meaningNode.expressionCount) }}</span></span>
+				<p v-if="!meaningNode.expressionCount" class="meaning-note">{{ sectionWords.unexpressedText }}</p>
+				<p v-else-if="meaningNode.expressionsTruncated" class="meaning-note" data-testid="meaning-expressed-in-capped">{{ expressionsCappedText }}</p>
+				<details v-for="oneGroup in expressedInGroupList" :key="oneGroup.standardKey" class="meaning-group" :open="shownExpressionCount <= GROUPS_OPEN_UP_TO_ELEMENT_COUNT" :data-testid="`meaning-group-${oneGroup.standardKey}`">
 					<summary>
 						<span aria-hidden="true" class="meaning-group-dot" :style="{ background: oneGroup.familyColor }" />
-						<span class="meaning-group-name">{{ oneGroup.rootName }}</span>
-						<span class="meaning-count">{{ oneGroup.elementsTruncated ? `${oneGroup.elementCount}, showing ${oneGroup.elementList.length}` : oneGroup.elementCount }}</span>
+						<span class="meaning-group-name" data-testid="meaning-group-name">{{ oneGroup.groupDisplayName }}</span>
+						<span class="meaning-count">{{ oneGroup.countText }}</span>
 					</summary>
 					<ul class="meaning-elements">
 						<li v-for="oneElement in oneGroup.elementList" :key="oneElement.stableId" class="meaning-element">
-							<NuxtLink v-if="oneElement.explorerLink" :to="oneElement.explorerLink" class="meaning-element-name" :title="`Open ${oneElement.name} in the Standards Explorer`" data-testid="meaning-element-link">{{ oneElement.name }}</NuxtLink>
+							<NuxtLink v-if="oneElement.explorerLink" :to="oneElement.explorerLink" class="meaning-element-name" :title="oneElement.linkTitleText" data-testid="meaning-element-link">{{ oneElement.name }}</NuxtLink>
 							<span v-else class="meaning-element-name" data-testid="meaning-element-unlinked">{{ oneElement.name }} <span class="meaning-element-basis">({{ oneElement.pathAbsentText }})</span></span>
-							<span v-if="oneElement.ownerName && oneElement.ownerName !== oneElement.name" class="meaning-element-owner">of {{ oneElement.ownerName }}</span>
+							<span v-if="oneElement.ownerText" class="meaning-element-owner">{{ oneElement.ownerText }}</span>
 							<StandardsExplorerMatchSummary :match-kind="oneElement.matchKind" :mapping-confidence="oneElement.mappingConfidence ?? null" />
 							<span v-if="oneElement.matchBasis" class="meaning-element-basis">{{ oneElement.matchBasis }}</span>
 						</li>
@@ -122,9 +134,6 @@ const propertyLink = computed(() => store.walkLinkOf([...domainPathStableIdList.
 				</details>
 			</div>
 		</template>
-
-		<StandardsExplorerCiteAs v-if="meaningNode.uri" :uri="meaningNode.uri" :uri-kind="meaningNode.uriKind" />
-		<a v-if="edcPagePath" :href="edcPagePath" class="meaning-edc-link" data-testid="meaning-edc-link">Its meaning page on EDUcore ›</a>
 	</section>
 </template>
 
@@ -247,9 +256,5 @@ const propertyLink = computed(() => store.walkLinkOf([...domainPathStableIdList.
 .meaning-element-basis {
 	font-size: 12px;
 	color: #6b7280;
-}
-.meaning-edc-link {
-	font-size: 14px;
-	align-self: flex-start;
 }
 </style>

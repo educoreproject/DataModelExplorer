@@ -12,6 +12,8 @@
 // The detail panel carries the specification catalog's card for the family being walked (SpecificationCard.vue).
 // ⟪meaningsExplorer⟫ The same walk draws the Meanings explorer (pages/explore/meanings.vue): the page names its walk (walkProfileName, a profile of
 // explorerVocabulary's walkProfileByName), which gives the root the path begins at, the route its links go to, and the heading's words.
+// ⟪meaningsPolish⟫ A page may put something beside the heading in the titleAside slot (the Meanings page's ⓘ explainer); with nothing there the heading is
+// drawn exactly as it was.
 
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -92,7 +94,11 @@ useHead(() => ({
 	<div class="explorer-page" data-testid="standards-explorer" :data-walk-profile="walkProfile.walkProfileName">
 		<div class="explorer-heading">
 			<div>
-				<h2 class="explorer-title">{{ walkProfile.titleText }}</h2>
+				<div v-if="$slots.titleAside" class="explorer-title-row">
+					<h2 class="explorer-title">{{ walkProfile.titleText }}</h2>
+					<slot name="titleAside" />
+				</div>
+				<h2 v-else class="explorer-title">{{ walkProfile.titleText }}</h2>
 				<p class="explorer-intro">{{ walkProfile.introText }}</p>
 			</div>
 			<div class="explorer-share">
@@ -114,7 +120,7 @@ useHead(() => ({
 		<div class="explorer-body">
 			<section class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
-				<StandardsExplorerStateNotice v-else-if="showError" state-name="error" :detail-text="store.statusMsg" @retry="store.retry()" />
+				<StandardsExplorerStateNotice v-else-if="showError" :state-name="store.walkProfile.showsRefusalsByName && store.statusIsRefusal ? 'refusal' : 'error'" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
 					<v-alert
 						v-if="store.isLargeLevel && store.effectiveViewMode === 'table'"
@@ -166,6 +172,11 @@ useHead(() => ({
 	font-weight: 400;
 	font-size: 26px;
 	color: #072a6c;
+}
+.explorer-title-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 .explorer-intro {
 	margin: 4px 0 0;

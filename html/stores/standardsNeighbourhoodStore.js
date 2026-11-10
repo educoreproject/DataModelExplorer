@@ -28,6 +28,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	nodeSummaryByStableId: {},
 	neighbourhoodLoading: false,
 	statusMsg: '',
+	// ⟪meaningsPolish review S3⟫ the last neighbourhood request was refused by the server (HTTP 4xx, its words in statusMsg), not left unanswered
+	statusIsRefusal: false,
 	viewModeChoice: 'diagram',
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
@@ -43,6 +45,10 @@ const NEIGHBOURHOOD_URL = '/api/standards-neighbourhood';
 // refused as a malformed token), a signed-in one sends theirs
 const authHeadersOf = (loginStore) => (loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {});
 
+// a 4xx answer is the server refusing what was asked, by name; anything else (no answer, 5xx) is a failure to answer
+const REFUSAL_STATUS_MINIMUM = 400;
+const REFUSAL_STATUS_LIMIT = 500;
+const isRefusalStatus = (httpStatus) => typeof httpStatus === 'number' && httpStatus >= REFUSAL_STATUS_MINIMUM && httpStatus < REFUSAL_STATUS_LIMIT;
 const refusalTextOf = (error, operationName) =>
 	(typeof error.response?.data === 'string' && error.response.data) || error.message || `the ${operationName} request failed`;
 
@@ -94,7 +100,11 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	qualifierNameList: oneItem.qualifierNameList || null,
 	meaningCount: oneItem.meaningCount,
 	mappedMeaningCount: oneItem.mappedMeaningCount,
-	tierCountList: oneItem.tierCountList || null,
+	// ⟪meaningsPolish⟫ what a hub's and a domain's next level lists: a hub's domains; a domain's own term meaning (0 or 1) beside its meanings
+	domainCount: oneItem.domainCount,
+	termMeaningCount: oneItem.termMeaningCount,
+	// ⟪review S4⟫ a domain's id in its hub's standard
+	nativeId: oneItem.nativeId || null,
 	// ⟪explorerUris⟫ its EDUcore URI as the server minted it, or why there is none (a synthetic row has neither)
 	...uriFieldsOfItem(oneItem),
 });
@@ -248,6 +258,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			const loginStore = useLoginStore();
 			this.neighbourhoodLoading = true;
 			this.statusMsg = '';
+			this.statusIsRefusal = false;
 			try {
 				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'node', stableId, compareVersion: true }, { headers: authHeadersOf(loginStore) });
 				const neighbourhood = Array.isArray(response.data) ? response.data[0] : null;
@@ -262,6 +273,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			} catch (error) {
 				this.neighbourhood = null;
 				this.statusMsg = refusalTextOf(error, 'standards graph');
+				this.statusIsRefusal = isRefusalStatus(error.response?.status);
 				return false;
 			} finally {
 				this.neighbourhoodLoading = false;

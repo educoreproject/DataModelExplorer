@@ -2,13 +2,17 @@
 // ⟪explorerUris⟫ The Cite as line, in the design of the /edc human page's: the node's EDUcore URI in monospace with a Copy button, and a link that opens
 // the URI (its w3id address) in a new tab. A standard also links its manifest listing of elements. A node whose stableId is another publisher's IRI
 // (uriKind ownIri) is cited by that IRI, and the line says it is not an EDUcore page. The panel draws this only for a node that carries a uri.
+// ⟪meaningsPolish⟫ uriIsTheLink (the walk profile's citesUriAsLink): the URI itself is the link to its page, and the separate open link is not drawn, so
+// the panel shows one Open link (punch-list item 2). The Standards Explorer passes false and draws exactly as before.
 
 import { ref } from 'vue';
+import { citeAsVocabulary } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	uri: { type: String, required: true },
 	uriKind: { type: String, required: true },
 	elementListUri: { type: String, default: '' },
+	uriIsTheLink: { type: Boolean, required: true },
 });
 
 const COPIED_SHOWN_MILLISECONDS = 1500;
@@ -28,15 +32,16 @@ const copyUri = async () => {
 <template>
 	<div class="cite" data-testid="detail-cite">
 		<div class="cite-row">
-			<span class="cite-label">Cite as</span>
-			<code class="cite-uri" data-testid="detail-cite-uri">{{ uri }}</code>
-			<button type="button" class="cite-copy" data-testid="detail-cite-copy" @click="copyUri">{{ copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy' }}</button>
+			<span class="cite-label">{{ citeAsVocabulary.citeLabel }}</span>
+			<a v-if="uriIsTheLink" :href="uri" target="_blank" rel="noopener" class="cite-uri" data-testid="detail-cite-uri"><code>{{ uri }}</code></a>
+			<code v-else class="cite-uri" data-testid="detail-cite-uri">{{ uri }}</code>
+			<button type="button" class="cite-copy" data-testid="detail-cite-copy" @click="copyUri">{{ copyState === 'copied' ? citeAsVocabulary.copiedText : copyState === 'failed' ? citeAsVocabulary.copyFailedText : citeAsVocabulary.copyText }}</button>
 		</div>
-		<div class="cite-links">
-			<a :href="uri" target="_blank" rel="noopener" data-testid="detail-cite-open">{{ uriKind === 'ownIri' ? 'Open its own IRI' : 'Open its page' }} ↗</a>
-			<a v-if="elementListUri" :href="elementListUri" target="_blank" rel="noopener" data-testid="detail-cite-element-list">List its elements ↗</a>
+		<div v-if="!uriIsTheLink || elementListUri" class="cite-links">
+			<a v-if="!uriIsTheLink" :href="uri" target="_blank" rel="noopener" data-testid="detail-cite-open">{{ uriKind === 'ownIri' ? citeAsVocabulary.openOwnIriText : citeAsVocabulary.openPageText }} ↗</a>
+			<a v-if="elementListUri" :href="elementListUri" target="_blank" rel="noopener" data-testid="detail-cite-element-list">{{ citeAsVocabulary.listElementsText }} ↗</a>
 		</div>
-		<p v-if="uriKind === 'ownIri'" class="cite-note">Another publisher's IRI: what this node is, not an EDUcore page.</p>
+		<p v-if="uriKind === 'ownIri'" class="cite-note">{{ citeAsVocabulary.ownIriNoteText }}</p>
 	</div>
 </template>
 

@@ -17,7 +17,7 @@ import {
 	isOpenAtOnceClick,
 	matchStyleByKind,
 	meaningCountTextOf,
-	meaningInfoTextOf,
+	meaningRowSubTextOf,
 	versionBadgeTextOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
@@ -72,8 +72,7 @@ const subTextOf = (oneRow) => {
 		// ⟪meaningsExplorer⟫
 		meaningHub: () => meaningCountTextOf(oneRow),
 		meaningDomain: () => meaningCountTextOf(oneRow),
-		meaningProperty: () => meaningCountTextOf(oneRow),
-		meaning: () => [meaningInfoTextOf(oneRow), hubMappedTextOf(oneRow)].filter(Boolean).join(' · '),
+		meaning: () => meaningRowSubTextOf(oneRow),
 	};
 	const subReader = subByKind[oneRow.kind];
 	return subReader ? subReader() : '';
@@ -99,6 +98,8 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		id: oneRow.stableId,
 		label: isFocus ? shortText(oneRow.displayName, 40) : labelOf(oneRow),
 		kind: oneRow.kind,
+		// ⟪meaningsPolish⟫ a meaning's tier, so the domain's own term is drawn apart from its meanings
+		referenceTier: oneRow.referenceTier || '',
 		familyColor: familyStyle.color,
 		familyTint: familyStyle.tint,
 		familyFill: familyStyle.fill || familyStyle.color,
@@ -221,7 +222,8 @@ const styleList = [
 	{ selector: 'node[kind = "meaningHub"][!isFocus]', style: { width: 76, height: 76, color: '#111827', 'text-valign': 'bottom', 'text-margin-y': 6, 'text-background-opacity': 0.9 } },
 	{ selector: 'node[kind = "meaning"]', style: { shape: 'hexagon', 'background-color': 'data(familyFill)', 'border-width': 0, color: '#072A6C', width: 70, height: 62 } },
 	{ selector: 'node[kind = "meaning"][?isFocus]', style: { width: 120, height: 104 } },
-	{ selector: 'node[kind = "meaningProperty"]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1 } },
+	// ⟪meaningsPolish⟫ the domain's own term (punch-list item 4): an outlined hexagon in its hub's tint, so it is not read as one of the domain's meanings
+	{ selector: 'node[kind = "meaning"][referenceTier = "term"][!isFocus]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 2.5, 'border-style': 'dashed' } },
 	{ selector: 'node[kind = "meaningDomain"]', style: { shape: 'round-rectangle', 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1.5, width: 74, height: 44 } },
 	{ selector: 'node[kind = "standardGroup"]', style: { 'background-color': 'data(familyTint)', 'border-width': 3, width: 'data(groupSize)', height: 'data(groupSize)' } },
 	{ selector: 'node[kind = "standardGroup"][?isFocus]', style: { width: 110, height: 110 } },

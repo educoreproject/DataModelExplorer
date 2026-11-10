@@ -1,0 +1,5 @@
+{
+	"_comment": "The Meanings walk's refusal wording (standards-neighbourhood access point), as data: TQ's standing rule NO MAGIC STRINGS (2026-11-10). {name} placeholders are filled by the access point, which refuses a missing name.",
+	"retiredPropertyLevelWithDomainTemplate": "'{stableId}' is no longer a level of the meanings walk (it is hub, domain, meaning); open its domain, meaningDomain:{domainStableId}",
+	"retiredPropertyLevelTemplate": "'{stableId}' is no longer a level of the meanings walk (it is hub, domain, meaning); open the domain it named"
+}

@@ -17,7 +17,7 @@ export const FIXTURE_MEANING_STABLE_ID = 'meaning:urn:fixture:card';
 export const FIXTURE_EXPRESSED_IN_PATH = ['families:all', 'family:CEDS'];
 const meaningNeighbourhoodOf = (stableId) => {
 	if (stableId === 'meanings:all') {
-		const itemList = [{ stableId: 'meaningHub:CEDS', name: 'CEDS', kind: 'meaningHub', hubName: 'CEDS', standardFamily: 'CEDS', description: 'Common Education Data Standards', hasChildren: true, tierCountList: [{ referenceTier: 'property', meaningCount: 1 }], meaningCount: 1 }];
+		const itemList = [{ stableId: 'meaningHub:CEDS', name: 'CEDS', kind: 'meaningHub', hubName: 'CEDS', standardFamily: 'CEDS', description: 'Common Education Data Standards', hasChildren: true, domainCount: 2, meaningCount: 2 }];
 		return { node: { stableId, name: 'Meanings', kind: 'meaningCatalog', description: '' }, ancestorList: [], childGroupList: [{ relationshipType: 'HAS_MEANING_HUB', count: 1, truncated: false, itemList }], mappingList: [] };
 	}
 	const elementList = [{ stableId: 'urn:fixture:CEDS:element', name: 'Fixture Element', kind: 'property', matchKind: 'exact', matchBasis: 'derived', mappingConfidence: 0.9, ancestorList: [], standardsWalkPathStableIdList: FIXTURE_EXPRESSED_IN_PATH }];
@@ -31,8 +31,37 @@ const meaningNeighbourhoodOf = (stableId) => {
 		ancestorList: [], childGroupList: [], mappingList: [],
 	};
 };
+// ⟪meaningsPolish review B1, S3, S6⟫ a hub with two domains (one holding two meanings and its own term, one holding its own term only), each domain's level,
+// and a retired property-level id the server refuses (HTTP 400, its words)
+export const FIXTURE_DOMAIN_STABLE_ID = 'meaningDomain:urn:fixture:domain';
+export const FIXTURE_TERM_ONLY_DOMAIN_STABLE_ID = 'meaningDomain:urn:fixture:termOnlyDomain';
+export const FIXTURE_RETIRED_STABLE_ID = 'meaningProperty:urn:fixture:domain@urn:fixture:property';
+export const FIXTURE_RETIRED_REFUSAL_TEXT = "standards-neighbourhood: 'meaningProperty:urn:fixture:domain@urn:fixture:property' is no longer a level of the meanings walk (it is hub, domain, meaning); open its domain, meaningDomain:urn:fixture:domain";
+const fixtureMeaningRowOf = (cardName, extraFields) => ({ stableId: `meaning:urn:fixture:${cardName}`, name: cardName, kind: 'meaning', hubName: 'CEDS', standardFamily: 'CEDS', description: '', hasChildren: true, referenceTier: 'property', elementCount: 0, ...extraFields });
+const fixtureDomainRowList = [
+	{ stableId: FIXTURE_DOMAIN_STABLE_ID, name: 'Fixture Domain', kind: 'meaningDomain', hubName: 'CEDS', standardFamily: 'CEDS', description: '', hasChildren: true, meaningCount: 2, mappedMeaningCount: 1, termMeaningCount: 1, nativeId: { cedsId: 'C000001' } },
+	{ stableId: FIXTURE_TERM_ONLY_DOMAIN_STABLE_ID, name: 'Fixture Term-Only Domain', kind: 'meaningDomain', hubName: 'CEDS', standardFamily: 'CEDS', description: '', hasChildren: true, meaningCount: 0, mappedMeaningCount: 0, termMeaningCount: 1, nativeId: { cedsId: 'C000002' } },
+];
+const fixtureMeaningLevelOf = (stableId) => {
+	if (stableId === 'meaningHub:CEDS') {
+		return { node: { stableId, name: 'CEDS', kind: 'meaningHub', hubName: 'CEDS', standardFamily: 'CEDS', description: 'Common Education Data Standards', domainCount: 2, meaningCount: 2 }, ancestorList: [], childGroupList: [{ relationshipType: 'HAS_MEANING_DOMAIN', count: 2, truncated: false, itemList: fixtureDomainRowList }], mappingList: [] };
+	}
+	const domainRow = fixtureDomainRowList.find((oneRow) => oneRow.stableId === stableId);
+	const meaningList = domainRow.meaningCount ? [fixtureMeaningRowOf('First Meaning', { elementCount: 3 }), fixtureMeaningRowOf('Second Meaning', {})] : [];
+	const termList = [fixtureMeaningRowOf(domainRow.name, { referenceTier: 'term', termKind: 'class', stableId: `meaning:urn:fixture:term:${domainRow.name}` })];
+	return {
+		node: { ...domainRow, hasChildren: undefined },
+		ancestorList: [],
+		childGroupList: [
+			{ relationshipType: 'HAS_MEANING', count: meaningList.length, truncated: false, itemList: meaningList },
+			{ relationshipType: 'HAS_TERM_MEANING', count: termList.length, truncated: false, itemList: termList },
+		].filter((oneGroup) => oneGroup.count > 0),
+		mappingList: [],
+	};
+};
 const neighbourhoodOf = (stableId) => {
 	if (stableId === 'meanings:all' || stableId === FIXTURE_MEANING_STABLE_ID) return meaningNeighbourhoodOf(stableId);
+	if (stableId === 'meaningHub:CEDS' || fixtureDomainRowList.some((oneRow) => oneRow.stableId === stableId)) return fixtureMeaningLevelOf(stableId);
 	if (stableId === 'families:all') {
 		const itemList = Object.keys(FAMILY_CLASS_COUNT_BY_NAME).map(familyItemOf);
 		return { node: { stableId, name: 'Standards', kind: 'familyCatalog', description: '' }, ancestorList: [], childGroupList: [{ relationshipType: 'HAS_FAMILY', count: itemList.length, truncated: false, itemList }], mappingList: [] };
@@ -56,6 +85,7 @@ export const answerApi = async (route) => {
 	const json = (payload, headers = {}) => route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(payload) });
 	if (requestUrl.pathname.endsWith('/api/login')) return json([{ username: 'fixture', first: 'Fixture', last: 'User', role: 'user' }], { authtoken: 'fixture-token', 'access-control-expose-headers': 'authtoken' });
 	if (requestUrl.pathname.endsWith('/api/standards-neighbourhood')) {
+		if ((body.stableIdList || [body.stableId]).includes(FIXTURE_RETIRED_STABLE_ID)) return route.fulfill({ status: 400, contentType: 'text/html', body: FIXTURE_RETIRED_REFUSAL_TEXT });
 		if (body.action === 'node') return json([neighbourhoodOf(body.stableId)]);
 		if (body.action === 'pathSummary') return json([{ nodeSummaryList: body.stableIdList.map((oneId) => neighbourhoodOf(oneId).node) }]);
 		if (body.action === 'versionCounterparts') return json([{ stableId: body.stableId, counterpartList: [] }]);
