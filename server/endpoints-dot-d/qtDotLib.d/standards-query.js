@@ -46,6 +46,21 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		? createRequestLimiter({ requestsPerMinute: Number(limitConfigValues.requestsPerMinute), burstPerSecond: Number(limitConfigValues.burstPerSecond), nowMs: Date.now })
 		: null;
 
+	// a row that spends per request (rosetta/interpret calls a model) declares its own per-address limit in the registry, its numbers in config: a second limiter of the same kind,
+	// keyed on req.ip as the first is. Numbers absent or bad leave that row refusing serviceNotConfigured by name, never running unlimited.
+	const perAddressLimiterByRouteName = apiDoorRowList.filter((registryRow) => registryRow.perAddressLimit).reduce((soFar, registryRow) => {
+		const { configSectionName, requestsPerMinuteSettingName, burstPerSecondSettingName } = registryRow.perAddressLimit;
+		const sectionValues = getConfig(configSectionName) || {};
+		const numberTextList = [sectionValues[requestsPerMinuteSettingName], sectionValues[burstPerSecondSettingName]];
+		if (!numberTextList.every((numberText) => /^[1-9][0-9]*$/.test(String(numberText)))) {
+			const absentReason = `[${configSectionName}] must give ${requestsPerMinuteSettingName} and ${burstPerSecondSettingName} as positive integers`;
+			xLog.error(`${moduleName}: ${registryRow.routeName} is off: ${absentReason}`);
+			return { ...soFar, [registryRow.routeName]: { absentReason } };
+		}
+		const [requestsPerMinute, burstPerSecond] = numberTextList.map(Number);
+		return { ...soFar, [registryRow.routeName]: { requestsPerMinute, burstPerSecond, requestLimiter: createRequestLimiter({ requestsPerMinute, burstPerSecond, nowMs: Date.now }) } };
+	}, {});
+
 	const sendAnswer = (xReq, xRes, { httpStatus, bodyText, cachePolicy, retryAfterSeconds }) => {
 		const entityTag = `"${crypto.createHash('sha256').update(bodyText).digest('hex')}"`;
 		xRes.set({
@@ -100,6 +115,24 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			const verdict = requestLimiter.admit(xReq.ip);
 			if (!verdict.isAdmitted) {
 				stopWith(args, next, shellRefusal({ refusalName: 'rateLimited', reason: `this address has reached the limit of ${limitConfigValues.requestsPerMinute} requests a minute and ${limitConfigValues.burstPerSecond} a second; retry after ${verdict.retryAfterSeconds} seconds`, retryAfterSeconds: verdict.retryAfterSeconds }));
+				return;
+			}
+			next('', args);
+		});
+
+		taskList.push((args, next) => {
+			const perAddressLimit = perAddressLimiterByRouteName[registryRow.routeName];
+			if (!perAddressLimit) {
+				next('', args);
+				return;
+			}
+			if (perAddressLimit.absentReason) {
+				stopWith(args, next, shellRefusal({ refusalName: 'serviceNotConfigured', reason: `${registryRow.routeName} is off here: ${perAddressLimit.absentReason}` }));
+				return;
+			}
+			const verdict = perAddressLimit.requestLimiter.admit(xReq.ip);
+			if (!verdict.isAdmitted) {
+				stopWith(args, next, shellRefusal({ refusalName: 'rateLimited', reason: `this address has reached the limit for ${registryRow.routeName} of ${perAddressLimit.requestsPerMinute} a minute and ${perAddressLimit.burstPerSecond} a second; retry after ${verdict.retryAfterSeconds} seconds`, retryAfterSeconds: verdict.retryAfterSeconds }));
 				return;
 			}
 			next('', args);

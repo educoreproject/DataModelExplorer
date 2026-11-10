@@ -10,6 +10,26 @@ import { useLoginStore } from '@/stores/loginStore';
 const store = useRosettaStore();
 const loginStore = useLoginStore();
 const activeTab = ref('submit');
+const isUndoConfirmOpen = ref(false);
+
+const TEXTAREA_LABEL = 'Your fields: plain lines, a table, a field list, a JSON Schema or a @context';
+const TEXTAREA_PLACEHOLDER = 'One field a line, with or without a description, for example:\nbirthDate: the date the person was born\nschoolName - the name of the school';
+
+// a reading stops for review; only an answer moves the page on to its tab
+const showCandidates = () => store.retrieve().then((outcomeName) => { if (outcomeName === 'sent') activeTab.value = 'pools'; });
+const askForDraft = () => store.submitJob().then((outcomeName) => { if (outcomeName === 'sent') activeTab.value = 'job'; });
+// Undo asks first only when the shown JSON was edited since it was read
+const undo = () => {
+	if (store.undoNeedsConfirmation) {
+		isUndoConfirmOpen.value = true;
+		return;
+	}
+	store.undoReview();
+};
+const confirmUndo = () => {
+	isUndoConfirmOpen.value = false;
+	store.undoReview();
+};
 
 const OPEN_STATUS_LIST = ['queued', 'running', 'cancelling'];
 const jobIsOpen = computed(() => store.jobStatus && OPEN_STATUS_LIST.includes(store.jobStatus.status));
@@ -43,9 +63,10 @@ onUnmounted(() => store.stopPolling());
 <template>
 	<v-container>
 		<h1 class="text-h4 mb-2">Rosetta</h1>
-		<p class="mb-4">Paste a field list, a JSON Schema or a JSON-LD @context. Candidates are open to anyone. A judged draft needs you to be signed in, and sends your text to the judge's vendor.</p>
+		<p class="mb-2">Paste your fields: plain lines (a name, or a name and its description), a table copied from a spreadsheet, a field list, a JSON Schema or a JSON-LD @context. Candidates are open to anyone. A judged draft needs you to be signed in.</p>
+		<p class="mb-4 text-caption" data-testid="rosetta-vendor-notice">Where your text goes: showing candidates sends your fields to Voyage AI, to turn them into vectors. If your text is neither JSON nor plain lines, pressing Show candidates or Ask for a judged draft first sends it to Anthropic, whose AI lays it out as fields for you to check; nothing is looked up until you press again. A judged draft sends your fields to Anthropic, the judge's vendor.</p>
 
-		<v-alert v-if="store.refusal" type="warning" class="mb-4" closable>
+		<v-alert v-if="store.refusal" type="warning" class="mb-4" closable data-testid="rosetta-refusal">
 			<strong>{{ store.refusal.refusalName }}</strong>: {{ store.refusal.reason }}
 		</v-alert>
 
@@ -59,9 +80,15 @@ onUnmounted(() => store.stopPolling());
 
 		<v-window v-model="activeTab">
 			<v-window-item value="submit">
-				<v-textarea v-model="store.pastedText" label='[{ "name": "...", "definition": "..." }], a JSON Schema, or a @context' rows="12" />
-				<v-btn class="mr-2" :loading="store.isBusy" @click="store.retrieve().then(() => { if (store.retrievalAnswer) activeTab = 'pools'; })">Show candidates</v-btn>
-				<v-btn color="primary" :disabled="!loginStore.validUser" :loading="store.isBusy" @click="store.submitJob().then(() => { if (store.jobStatus) activeTab = 'job'; })">Ask for a judged draft</v-btn>
+				<v-alert v-if="store.review" type="info" variant="tonal" class="mb-3" data-testid="rosetta-review-status">
+					<div class="d-flex flex-wrap align-center ga-2">
+						<span class="flex-grow-1">{{ store.review.statusText }}</span>
+						<v-btn size="small" variant="outlined" prepend-icon="mdi-undo" data-testid="rosetta-undo" @click="undo">Undo</v-btn>
+					</div>
+				</v-alert>
+				<v-textarea v-model="store.pastedText" :label="TEXTAREA_LABEL" :placeholder="TEXTAREA_PLACEHOLDER" persistent-placeholder rows="12" data-testid="rosetta-text" />
+				<v-btn class="mr-2" :loading="store.isBusy" data-testid="rosetta-show-candidates" @click="showCandidates">Show candidates</v-btn>
+				<v-btn color="primary" :disabled="!loginStore.validUser" :loading="store.isBusy" data-testid="rosetta-ask-draft" @click="askForDraft">Ask for a judged draft</v-btn>
 				<p v-if="!loginStore.validUser" class="mt-2 text-caption">Sign in to ask for a judged draft. Candidates need no account.</p>
 			</v-window-item>
 
@@ -128,6 +155,18 @@ onUnmounted(() => store.stopPolling());
 				</template>
 			</v-window-item>
 		</v-window>
+
+		<v-dialog v-model="isUndoConfirmOpen" max-width="420">
+			<v-card data-testid="rosetta-undo-confirm">
+				<v-card-title>Undo your edits too?</v-card-title>
+				<v-card-text>You have changed the fields since they were read. Undo puts back the text you pasted, and your changes are lost.</v-card-text>
+				<v-card-actions>
+					<v-spacer />
+					<v-btn data-testid="rosetta-undo-keep" @click="isUndoConfirmOpen = false">Keep my edits</v-btn>
+					<v-btn color="primary" data-testid="rosetta-undo-discard" @click="confirmUndo">Undo</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
 	</v-container>
 </template>
 

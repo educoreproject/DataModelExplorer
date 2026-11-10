@@ -63,7 +63,9 @@ ok('descriptions: none names a dme_ tool', !mcpRowList.some((row) => /dme_/.test
 ok('descriptions: none names a mode input the door does not take', !/searchMode keyword/.test(JSON.stringify(mcpRowList.map((row) => row.description))));
 // P3 adds retrieval, and only retrieval: no route or tool of the judged step exists until it does
 const registryText = JSON.stringify(registry.operationList.map(({ operationName, routeName, mcpToolName }) => ({ operationName, routeName, mcpToolName })));
-ok('no Smith in the registry; the rosetta rows are retrieval and the four of the job', !/smith/i.test(JSON.stringify(registry)) && JSON.stringify(registry.operationList.filter((row) => /rosetta/i.test(JSON.stringify([row.operationName, row.routeName, row.mcpToolName]))).map((row) => row.mcpToolName)) === '["rosetta_retrieve","rosetta_submit","rosetta_status","rosetta_fetch","rosetta_cancel"]');
+ok('no Smith in the registry; the rosetta rows are retrieval and the four of the job', !/smith/i.test(JSON.stringify(registry)) && JSON.stringify(registry.operationList.filter((row) => row.doorList.includes('mcp') && /rosetta/i.test(JSON.stringify([row.operationName, row.routeName, row.mcpToolName]))).map((row) => row.mcpToolName)) === '["rosetta_retrieve","rosetta_submit","rosetta_status","rosetta_fetch","rosetta_cancel"]');
+// ⟪rosettaFreeInput⟫ the free-text interpreter is the web page's rung 3: one route on the api door, no MCP tool
+ok('rosetta/interpret is a web route alone: the api door, no MCP tool', JSON.stringify(registry.operationList.filter((row) => row.routeName === 'rosetta/interpret').map((row) => [row.doorList, row.mcpToolName])) === '[[["api"],null]]');
 ok('a job\'s four rows need a person: none is admitted without one, each names what the anonymous are told, and each refusal has a status', registry.operationList.filter((row) => row.coreHandlerName === 'rosettaJobs').every((row) => row.admission === 'judgedStep' && row.mcpDoorRefusesLoopback === true && row.refusalNameList.includes(row.anonymousRefusalName)));
 ok('every row declares its method', registry.operationList.every((row) => ['GET', 'POST'].includes(row.httpMethod)));
 ok('a POST row names a body limit, and it is the large-body list\'s for both spellings', registry.operationList.filter((row) => row.httpMethod === 'POST').every((row) => { const limitByPath = require('../lib/large-body-route-list.json').jsonBodyLimitByRoutePath; return row.bodyLimitText && limitByPath[`/api/${registry.routeBasePath}/${row.routeName}`] === row.bodyLimitText && limitByPath[`/api/${registry.routeBasePath}/${row.routeName}/`] === row.bodyLimitText; }));
@@ -106,7 +108,7 @@ const ABOUT_LIMITS = { requestsPerMinute: 61, burstPerSecond: 23, inFlightMax: 2
 const ABOUT_DOOR_LIMITS = { sessionCapPerSub: 11, sessionIdleTtlSeconds: 1801, edcPublicPathPrefix: '/edc/', rosettaFuseValues: { maxFieldListLength: 201, maxFieldNameChars: 202, maxFieldDefinitionChars: 2003, maxDocumentDepth: 33, retrievalInFlightMax: 2, retrievalMaxTokensPerRequest: 120007, retrievalDailyTokenCeiling: 2000009, strangerVectorRetentionDays: 31 } };
 const aboutOf = (principal) => aboutDocumentFor({ registry, inputCapByName: ABOUT_LIMITS, doorLimitValues: ABOUT_DOOR_LIMITS, publicInstanceName: 'demo.educore.dev', principal });
 const anonymousAbout = aboutOf({ kind: 'anonymous', role: '' });
-const publicRowList = registry.operationList.filter((row) => row.permissionList.includes('public'));
+const publicRowList = registry.operationList.filter((row) => row.permissionList.includes('public') && row.isListedInAbout !== false);
 registry.operationList.forEach((row) => {
 	ok(`about: ${row.operationName} has an entry`, row.aboutEntry && row.aboutEntry.forWhat && row.aboutEntry.exampleShows && row.aboutEntry.exampleInput && Array.isArray(row.aboutEntry.expectedAnswerFieldList));
 	const exampleInputNameList = Object.keys((row.aboutEntry || {}).exampleInput || {});
@@ -146,6 +148,8 @@ const INTERNAL_NAME_PATTERN = /rosetta|smith|forge|golden|\bbb2\b|neo4j|cypher|\
 const aboutWithoutEnvelopeText = JSON.stringify(anonymousAbout.answer).replace(/rosetta\/retrieval|rosetta_retrieve|rosetta\/jobs\/(status|fetch|cancel)|rosetta\/jobs|rosetta_(submit|status|fetch|cancel)/g, 'publicName'); // the names a stranger is given, ruled by TQ; any other mention is internal
 const internalNameMatch = aboutWithoutEnvelopeText.match(INTERNAL_NAME_PATTERN);
 ok('about: a stranger meets no internal name', internalNameMatch === null, internalNameMatch && aboutWithoutEnvelopeText.slice(Math.max(0, internalNameMatch.index - 60), internalNameMatch.index + 40));
+// ⟪rosettaFreeInput, ROMANTIC_PARASOL 2026-11-10⟫ a row marked isListedInAbout false is told to nobody: not a stranger, not an administrator
+ok('about: rosetta/interpret is not in about, for a stranger or an administrator', ![anonymousAbout, aboutDocumentFor({ registry, inputCapByName, doorLimitValues: { edcPublicPathPrefix: '/edc/' }, publicInstanceName: 'demo.educore.dev', principal: { kind: 'siteUser', role: 'admin', userRefId: 'r' } })].some((oneAbout) => JSON.stringify(oneAbout.answer).includes('rosetta/interpret')));
 ok('about: the bare root is its alias', JSON.stringify(registry.operationList.find((row) => row.operationName === 'about').aliasRouteNameList) === '[""]');
 ok('mcp instructions: one line points at standards_about', registry.mcpInstructionLineList.some((line) => /standards_about/.test(line)));
 

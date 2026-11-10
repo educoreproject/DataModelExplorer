@@ -7,6 +7,8 @@
 		"/api/standards/v1/rosetta/jobs": "1mb",
 		"/api/standards/v1/rosetta/jobs/": "1mb",
 		"/api/standards/v1/rosetta/jobs/cancel": "10kb",
-		"/api/standards/v1/rosetta/jobs/cancel/": "10kb"
+		"/api/standards/v1/rosetta/jobs/cancel/": "10kb",
+		"/api/standards/v1/rosetta/interpret": "100kb",
+		"/api/standards/v1/rosetta/interpret/": "100kb"
 	}
 }
