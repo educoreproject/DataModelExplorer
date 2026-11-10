@@ -22,6 +22,7 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
+const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -53,6 +54,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const { userData } = args;
 			const errors = [];
 
+			// refId and username reach SQL; a non-text one (an object escapes to `column` = value) is refused before any check.
+			// An absent one is left to the required-field checks below.
+			const presentIdentifierByName = Object.fromEntries(Object.entries({ refId: userData.refId, username: userData.username }).filter(([, identifierText]) => identifierText !== undefined));
+			const identifierRefusal = textIdentifierRefusalOf(presentIdentifierByName);
+			if (identifierRefusal) {
+				next(`Validation failed: ${refusalText(identifierRefusal)}`, args);
+				return;
+			}
+
+			// every limited property within its limit, refused by name before any save (review SF-7: an over-long value
+			// re-signed into every token header locked the account)
+			const lengthRefusal = valueLengthRefusalOf(userData);
+			if (lengthRefusal) {
+				errors.push(refusalText(lengthRefusal));
+			}
+
 			// Required fields validation
 			if (!userData.refId?.trim()) {
 				errors.push('User ID (refId) is required for updates');
@@ -75,9 +92,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				errors.push('Invalid email address format');
 			}
 
-			// Username format validation (alphanumeric, underscore, hyphen only)
-			if (userData.username && !userData.username.match(/^[a-zA-Z0-9_-]+$/)) {
-				errors.push('Username can only contain letters, numbers, underscore, and hyphen');
+			// Username format validation: the rule and its refusal are in lib/user-profile-rules.json (usernamePatternText)
+			const usernameRefusal = userData.username ? usernameRefusalOf(userData.username) : '';
+			if (usernameRefusal) {
+				errors.push(refusalText(usernameRefusal));
 			}
 
 			// Password strength validation (only if password provided)
@@ -154,22 +172,20 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		taskList.push((args, next) => {
 			const { validatedUserData, userTable } = args;
 
-			const localCallback = (err, refId) => {
+			const localCallback = (err) => {
 				if (err) {
 					next(`User update failed: ${err}`, args);
 					return;
 				}
-				next('', { ...args, refId });
+				next('', { ...args, refId: validatedUserData.refId });
 			};
 
-			// The mapper will automatically hash the password during 'reverse' transformation (if provided)
+			// The mapper will automatically hash the password during 'reverse' transformation (if provided). An UPDATE by
+			// refId, not saveObject: it writes apostrophes once (review SF-6) and never inserts a row for an unknown refId
+			// (saveObject on sqlite-instance 11 did); the read-back below then refuses it as noSuchUser.
 			const dbData = dataMapping['profile-user'].map(validatedUserData, 'reverse');
 
-			userTable.saveObject(
-				dbData,
-				{ suppressStatementLog: true },
-				localCallback,
-			);
+			userTable.runStatement(dataMapping['profile-user'].getSql('updateByRefId', dbData), { suppressStatementLog: true }, localCallback);
 		});
 
 		// --------------------------------------------------------------------------------
@@ -185,13 +201,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				}
 
 				const user = users.qtLast();
+				// an update of a refId with no record changes nothing; say so by name (it used to crash mapping undefined
+				// here once the refId was escaped, and before that the interpolated query matched other rows)
+				if (!user) {
+					next(`User update failed: ${refusalText(refusalOf('noSuchUser'))}`, args);
+					return;
+				}
 				// Transform back to application format (automatically removes password)
 				const userForClient = dataMapping['profile-user'].map(user, 'forward');
-				
+
 				next('', { ...args, updatedUser: userForClient });
 			};
 
-			const query = `select * from <!tableName!> where refId='${validatedUserData.refId}'`;
+			const query = dataMapping['profile-user'].getSql('byRefId', { refId: validatedUserData.refId });
 			userTable.getData(query, { suppressStatementLog: true }, localCallback);
 		});
 

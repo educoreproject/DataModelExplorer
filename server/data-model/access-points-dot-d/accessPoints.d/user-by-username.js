@@ -10,6 +10,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const os = require('os');
+const { textIdentifierRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -43,16 +44,24 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// TASKLIST ITEM TEMPLATE
 
 		taskList.push((args, next) => {
-			const { username, userTable } = args;
+			const { username, userTable, dataMapping } = args;
+
+			// the username comes from the signed token's claims on every authenticated request; it reaches SQL only
+			// as text and only escaped (byUsernameForAuth uses safeSql)
+			const identifierRefusal = textIdentifierRefusalOf({ username });
+			if (identifierRefusal) {
+				next(refusalText(identifierRefusal), args);
+				return;
+			}
 
 			const localCallback = (err, userList = []) => {
 				const user = userList.qtLast();
 		//		delete user.password;
-				
+
 				next(err, { ...args, user });
 			};
 
-			const query = `select * from  <!tableName!> where username='${username}'`;
+			const query = dataMapping['profile-user'].getSql('byUsernameForAuth', { username });
 
 			userTable.getData(query, { suppressStatementLog: true }, localCallback);
 		});

@@ -3,11 +3,18 @@
 // @concept: [[UserDataPersistence]]
 // @concept: [[SecurityFirstPattern]]
 
+// POST /api/saveUserData — a signed-in user saves their OWN profile (WORKORDER-userSqlAndSaveHole-111026).
+// The record is keyed on the TOKEN's refId, never the body's. The body may carry only the properties in
+// lib/user-profile-rules.json selfEditablePropertyList (and its own refId, and the current password beside a new one);
+// anything else is refused by name, never dropped: 403 notOwnRecord, 400 propertyNotSelfEditable, and so on, answered
+// as JSON { refusalName, reason }. On success the token is re-signed from the saved record, which carries no password.
+
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, ''); //this just seems to come in handy a lot
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
+const { selfSaveRefusalOf, selfSaveRecordOf, refusalText } = require('../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -39,29 +46,6 @@ const moduleFunction = function ({
 		// --------------------------------------------------------------------------------
 		// TASKLIST ITEM TEMPLATE
 
-		// 		taskList.push((args, next) => {
-		// 			const claims = xReq.appValueGetter('authclaims');
-		// 			console.log(
-		// 				`\n=-=============   claims  ========================= [save-user-data.js.moduleFunction]\n`,
-		// 			);
-		//
-		//
-		// 			console.dir(
-		// 				{ ['claims']: claims },
-		// 				{ showHidden: false, depth: 4, colors: true },
-		// 			);
-		//
-		// 			console.log(
-		// 				`\n=-=============   claims  ========================= [save-user-data.js.moduleFunction]\n`,
-		// 			);
-		//
-		//
-		// 			next('', args);
-		// 		});
-
-		// --------------------------------------------------------------------------------
-		// TASKLIST ITEM TEMPLATE
-
 		taskList.push((args, next) =>
 			args.permissionValidator(
 				xReq.appValueGetter('authclaims'),
@@ -71,24 +55,35 @@ const moduleFunction = function ({
 		);
 
 		// --------------------------------------------------------------------------------
+		// THE SIGNED-IN USER'S OWN RECORD, AND ONLY THE SELF-EDITABLE PROPERTIES
+
+		taskList.push((args, next) => {
+			const signedInUserRefId = xReq.appValueGetter('authclaims').qtGetSurePath('user.refId');
+			const requestBody = xReq.body || {};
+
+			const refusal = selfSaveRefusalOf({ requestBody, signedInUserRefId });
+			if (refusal) {
+				next(refusalText(refusal), { ...args, refusal });
+				return;
+			}
+
+			next('', { ...args, saveRecord: selfSaveRecordOf({ requestBody, signedInUserRefId }) });
+		});
+
+		// --------------------------------------------------------------------------------
 		// TASKLIST ITEM TEMPLATE
 
 		taskList.push((args, next) => {
-			const { accessPointsDotD } = args;
+			const { accessPointsDotD, saveRecord } = args;
 
-			const localCallback = (err, user) => {
+			const localCallback = (err, { user, refusal } = {}) => {
 				if (err) {
-					next(`$[err.toString()}  (Q11120246254062540030)`, args); //next('skipRestOfPipe', args);
+					next(`${err}  (Q11120246254062540030)`, { ...args, refusal });
 					return;
 				}
-				next(err, { ...args, user });
+				next('', { ...args, user });
 			};
-			const revisedUser = xReq.body.qtClone();
-			revisedUser.role = revisedUser.role
-				.split(/,/)
-				.filter((item) => item != 'firstTime')
-				.join(',');
-			accessPointsDotD['user-save-data'](revisedUser, localCallback);
+			accessPointsDotD['user-save-data'](saveRecord, localCallback);
 		});
 
 		// --------------------------------------------------------------------------------
@@ -99,10 +94,10 @@ const moduleFunction = function ({
 
 			const localCallback = (err) => {
 				if (err) {
-					next(`$[err.toString()}  (Q14620245330253302478)`, args); //next('skipRestOfPipe', args);
+					next(`${err}  (Q14620245330253302478)`, args);
 					return;
 				}
-				next('', args); //next('', {...args, NAME:result});
+				next('', args);
 			};
 
 			//this is the only endpoint that allows the role, firstTime, and it always deletes it.
@@ -128,7 +123,12 @@ const moduleFunction = function ({
 			accessTokenHeaderTools,
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { user } = args;
+			const { user, refusal } = args;
+
+			if (refusal) {
+				xRes.status(refusal.httpStatus).send({ refusalName: refusal.refusalName, reason: refusal.reason });
+				return;
+			}
 
 			if (err) {
 				xRes.status(500).send(`${err.toString()}`);

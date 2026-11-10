@@ -28,6 +28,7 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
+const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -59,6 +60,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const { userData } = args;
 			const errors = [];
 
+			// a non-text username or password is refused by name before the checks below call .trim() on it (review N-3:
+			// an object username threw 'userData.username?.trim is not a function'). An absent one is left to them.
+			const presentCredentialByName = Object.fromEntries(Object.entries({ username: userData.username, password: userData.password }).filter(([, credentialText]) => credentialText !== undefined));
+			const credentialRefusal = textIdentifierRefusalOf(presentCredentialByName);
+			if (credentialRefusal) {
+				next(`Validation failed: ${refusalText(credentialRefusal)}`, args);
+				return;
+			}
+
+			// every limited property within its limit, refused by name before any save (review SF-7: an over-long value
+			// re-signed into every token header locked the account)
+			const lengthRefusal = valueLengthRefusalOf(userData);
+			if (lengthRefusal) {
+				errors.push(refusalText(lengthRefusal));
+			}
+
 			// Required fields validation
 			if (!userData.username?.trim()) {
 				errors.push('Username is required');
@@ -81,9 +98,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				errors.push('Invalid email address format');
 			}
 
-			// Username format validation (alphanumeric, underscore, hyphen only)
-			if (userData.username && !userData.username.match(/^[a-zA-Z0-9_-]+$/)) {
-				errors.push('Username can only contain letters, numbers, underscore, and hyphen');
+			// Username format validation: the rule and its refusal are in lib/user-profile-rules.json (usernamePatternText)
+			const usernameRefusal = userData.username ? usernameRefusalOf(userData.username) : '';
+			if (usernameRefusal) {
+				errors.push(refusalText(usernameRefusal));
 			}
 
 			// Password strength validation
@@ -171,11 +189,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			// The mapper will automatically hash the password during 'reverse' transformation
 			const dbData = dataMapping['profile-user'].map(validatedUserData, 'reverse');
 
-			userTable.saveObject(
-				dbData,
-				{ suppressStatementLog: true },
-				localCallback,
-			);
+			// saveObject inserts the row and makes its refId; this project's saveObject doubles apostrophes, so the same
+			// values are then written once more, exactly, by an UPDATE through updateByRefId (review SF-6)
+			userTable.saveObject(dbData, { suppressStatementLog: true }, (saveError, refId) => {
+				if (saveError) {
+					localCallback(saveError, refId);
+					return;
+				}
+				userTable.runStatement(dataMapping['profile-user'].getSql('updateByRefId', { ...dbData, refId }), { suppressStatementLog: true }, (exactWriteError) => localCallback(exactWriteError, refId));
+			});
 		});
 
 		// --------------------------------------------------------------------------------
@@ -197,7 +219,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', { ...args, createdUser: userForClient });
 			};
 
-			const query = `select * from <!tableName!> where refId='${refId}'`;
+			const query = dataMapping['profile-user'].getSql('byRefId', { refId });
 			userTable.getData(query, { suppressStatementLog: true }, localCallback);
 		});
 

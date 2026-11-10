@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
+import { profileVocabulary } from './profileVocabulary.js';
 import { useLoginStore } from '@/stores/loginStore';
 const LoginStore = useLoginStore();
 
@@ -20,6 +21,7 @@ const phoneError = ref('');
 const usernameError = ref('');
 const passwordError = ref('');
 const confirmPasswordError = ref('');
+const currentPasswordError = ref('');
 
 const firstRules = [
 	(value) => {
@@ -73,6 +75,13 @@ const passwordRules = [
 	},
 ];
 
+// the server saves a new password only beside the current one (server/lib/user-profile-rules.json)
+const currentPasswordRules = [
+	(value) => {
+		if (value?.length > 0) return true;
+		return profileVocabulary.currentPasswordRequiredText;
+	},
+];
 const confirmPasswordRules = [
 	(value) => {
 		if (value !== userEditObject.value.password)
@@ -93,7 +102,7 @@ const validateField = (value, rules, errorRef) => {
 	return true;
 };
 
-const submitButton = () => {
+const submitButton = async () => {
 	const isFirstValid = validateField(
 		userEditObject.value.first,
 		firstRules,
@@ -129,6 +138,13 @@ const submitButton = () => {
 				confirmPasswordError,
 			)
 		: true;
+	const isCurrentPasswordValid = changePasswordFlag.value
+		? validateField(
+				userEditObject.value.currentPassword,
+				currentPasswordRules,
+				currentPasswordError,
+			)
+		: true;
 
 	if (
 		isFirstValid &&
@@ -137,9 +153,19 @@ const submitButton = () => {
 		isPhoneValid &&
 		isUsernameValid &&
 		isPasswordValid &&
-		isConfirmPasswordValid
+		isConfirmPasswordValid &&
+		isCurrentPasswordValid
 	) {
-		LoginStore.updateUserInfo(userEditObject);
+		const isChangingPassword = changePasswordFlag.value;
+		const isSaved = await LoginStore.updateUserInfo(userEditObject, { isChangingPassword });
+		// once a new password is saved, the old one in Current Password is no longer this account's password: close the
+		// change-password fields and empty them, or the next save would send both again and be refused
+		if (isSaved && isChangingPassword) {
+			userEditObject.value.currentPassword = '';
+			userEditObject.value.password = '';
+			userEditObject.value.confirmPassword = '';
+			changePasswordFlag.value = false;
+		}
 	} else {
 		console.log('Form validation failed.');
 	}
@@ -279,6 +305,10 @@ watch(
 						  :error-messages="usernameError"
 						  label="User Name"
 						  autocomplete="username"
+						  readonly
+						  :hint="profileVocabulary.usernameReadOnlyHintText"
+						  persistent-hint
+						  data-testid="profile-username"
 						  v-bind="props"
 						></v-text-field>
 					  </template>
@@ -288,39 +318,37 @@ watch(
 					</v-tooltip>
 					
 					<div v-if="changePasswordFlag">
-					  <v-tooltip>
-						<template v-slot:activator="{ props }">
-						  <v-text-field
-						  	type="password"
-							v-model="userEditObject.password"
-							:rules="passwordRules"
-							:error="!!passwordError"
-							:error-messages="passwordError"
-							label="Password"
-							v-bind="props"
-						  ></v-text-field>
-						</template>
-						<template v-slot:default>
-						  <span>{{ userEditObject.password?userEditObject.password:'no value supplied' }}</span>
-						</template>
-					  </v-tooltip>
-					
-					  <v-tooltip>
-						<template v-slot:activator="{ props }">
-						  <v-text-field
-						  	type="password"
-							v-model="userEditObject.confirmPassword"
-							:rules="confirmPasswordRules"
-							:error="!!confirmPasswordError"
-							:error-messages="confirmPasswordError"
-							label="Confirm Password"
-							v-bind="props"
-						  ></v-text-field>
-						</template>
-						<template v-slot:default>
-						  <span>{{ userEditObject.confirmPassword?userEditObject.confirmPassword:'no value supplied' }}</span>
-						</template>
-					  </v-tooltip>
+					  <v-text-field
+						type="password"
+						v-model="userEditObject.currentPassword"
+						:rules="currentPasswordRules"
+						:error="!!currentPasswordError"
+						:error-messages="currentPasswordError"
+						:label="profileVocabulary.currentPasswordLabel"
+						autocomplete="current-password"
+						data-testid="profile-current-password"
+					  ></v-text-field>
+					  <!-- no tooltips on the password fields: they showed the password in clear text (review SF-3) -->
+					  <v-text-field
+						type="password"
+						v-model="userEditObject.password"
+						:rules="passwordRules"
+						:error="!!passwordError"
+						:error-messages="passwordError"
+						label="Password"
+						autocomplete="new-password"
+						data-testid="profile-new-password"
+					  ></v-text-field>
+					  <v-text-field
+						type="password"
+						v-model="userEditObject.confirmPassword"
+						:rules="confirmPasswordRules"
+						:error="!!confirmPasswordError"
+						:error-messages="confirmPasswordError"
+						label="Confirm Password"
+						autocomplete="new-password"
+						data-testid="profile-confirm-password"
+					  ></v-text-field>
 					</div>
 
 					<div v-else>

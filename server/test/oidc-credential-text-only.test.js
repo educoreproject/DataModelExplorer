@@ -13,6 +13,9 @@
 //   O1  a non-text username or password (JSON object, JSON array, urlencoded bracket form) is refused by name (400
 //       identifierNotText on the page) and no login is recorded: the flow does not move on to consent
 //   O2  the real credentials still sign in (control: the flow moves on)
+//   M1  review SF-4: an MCP bearer token issued BEFORE the user's password change is refused by the real bearer gate
+//       (user access revoked); the same token passes the gate before the change (control). The change goes through the
+//       real user-save-data access point, which stamps users.accessRevokedAfter.
 //
 // USER_HOLE_SERVER_PATH=<server dir> points it at another tree (the pinned base, to watch it fail).
 //
@@ -27,6 +30,9 @@ const crypto = require('crypto');
 const SERVER_PATH = process.env.USER_HOLE_SERVER_PATH ? path.resolve(process.env.USER_HOLE_SERVER_PATH) : path.join(__dirname, '..');
 const ALICE_PASSWORD = 'alice-Kestrel-4417';
 const BOB_PASSWORD = 'bob-Kestrel-4417';
+const BOB_NEW_PASSWORD = 'bob-Heron-5528';
+// iat is whole seconds and iat >= cutoff passes, so the change waits a little over a second after the token is minted
+const ONE_SECOND_AND_A_LITTLE_MS = 1100;
 const SEED_USER_LIST = [
 	{ username: 'alice', password: ALICE_PASSWORD, first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user' },
 	{ username: 'bob', password: BOB_PASSWORD, first: 'Bob', last: 'Boss', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'admin' },
@@ -65,6 +71,9 @@ const makeProvider = libModuleOf('oauth-provider');
 const makeInteractions = libModuleOf('oauth-interactions');
 const makeThrottle = libModuleOf('oauth-throttle');
 const makeAudit = libModuleOf('oauth-audit');
+const makeMcpVerifier = libModuleOf('oauth-mcp-verifier');
+const makeValidators = libModuleOf('oauth-token-validators');
+const makeBearerGate = libModuleOf('oauth-bearer-gate');
 
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'oidcTextOnlyTest-'));
 const b64url = (buffer) => buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -135,6 +144,45 @@ const attemptLogin = ({ issuerUrl, bodyOfCsrf, asJson }, callback) => {
 };
 // the login is accepted when the form answers a redirect back into the provider (on to consent); refused = a page again
 const isLoginAccepted = (response) => [302, 303].includes(response.statusCode);
+const refIdByUsername = {};
+
+// ---- the whole authorization-code flow for one user, as a browser would walk it: -> { accessToken } or { failureText }
+const obtainAccessToken = ({ issuerUrl, username, password }, callback) => {
+	const codeVerifier = b64url(crypto.randomBytes(32));
+	const codeChallenge = b64url(crypto.createHash('sha256').update(codeVerifier).digest());
+	const redirectUri = `${issuerUrl}/cb`;
+	const absoluteOf = (locationText) => (/^https?:/.test(locationText) ? locationText : `${issuerUrl}${locationText}`);
+	const followStep = (method, url, formText, hopCount) => sendRequest({ method, url, formText }, (response) => {
+		if (hopCount > 20) {
+			callback({ failureText: 'too many hops' });
+			return;
+		}
+		if ([302, 303].includes(response.statusCode)) {
+			const nextUrl = absoluteOf(response.headers.location);
+			if (nextUrl.startsWith(`${redirectUri}?`)) {
+				const authorizationCode = new URL(nextUrl).searchParams.get('code');
+				sendRequest({ method: 'POST', url: `${issuerUrl}/oauth/token`, formText: new URLSearchParams({ grant_type: 'authorization_code', code: authorizationCode, redirect_uri: redirectUri, client_id: CLIENT_ID, code_verifier: codeVerifier }).toString() }, (tokenResponse) => {
+					const tokenAnswer = /^\s*\{/.test(tokenResponse.bodyText) ? JSON.parse(tokenResponse.bodyText) : {};
+					callback(tokenAnswer.access_token ? { accessToken: tokenAnswer.access_token } : { failureText: `token ${tokenResponse.statusCode} ${tokenResponse.bodyText.slice(0, 160)}` });
+				});
+				return;
+			}
+			followStep('GET', nextUrl, undefined, hopCount + 1);
+			return;
+		}
+		const interactionUid = ((response.bodyText.match(/interaction\/([^/?"]+)\/(?:login|confirm)/) || [])[1]) || interactionUidOf(url);
+		if (response.statusCode === 200 && /name="password"/.test(response.bodyText)) {
+			followStep('POST', `${issuerUrl}/oauth/interaction/${interactionUid}/login`, new URLSearchParams({ username, password, csrf: csrfOf(response.bodyText) }).toString(), hopCount + 1);
+			return;
+		}
+		if (response.statusCode === 200 && /\/confirm/.test(response.bodyText)) {
+			followStep('POST', `${issuerUrl}/oauth/interaction/${interactionUid}/confirm`, new URLSearchParams({ decision: 'allow', csrf: csrfOf(response.bodyText) }).toString(), hopCount + 1);
+			return;
+		}
+		callback({ failureText: `stopped at ${response.statusCode} ${url} ${response.bodyText.replace(/<[^>]+>/g, ' ').slice(0, 160)}` });
+	});
+	followStep('GET', `${issuerUrl}/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(SCOPE_TEXT)}&code_challenge=${codeChallenge}&code_challenge_method=S256&resource=${encodeURIComponent(`${issuerUrl}/mcp`)}&state=m1`, undefined, 0);
+};
 
 const caseList = [
 	{ caseName: 'JSON object username, the newest user\'s password', asJson: true, bodyOfCsrf: (csrfToken) => ({ username: { username: 1 }, password: BOB_PASSWORD, csrf: csrfToken }), expectAccepted: false },
@@ -156,11 +204,14 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 				return;
 			}
 			const [seedUser, ...restList] = remainingList;
-			userTable.saveObject({ ...seedUser, password: passwordTools.hashPassword(seedUser.password) }, { suppressStatementLog: true }, () => seedNext(restList, seedDone));
+			userTable.saveObject({ ...seedUser, password: passwordTools.hashPassword(seedUser.password) }, { suppressStatementLog: true }, (seedError, seededRefId) => {
+				refIdByUsername[seedUser.username] = seededRefId;
+				seedNext(restList, seedDone);
+			});
 		};
 		seedNext(SEED_USER_LIST, () => {
 			const accessPointByName = {};
-			require(path.join(SERVER_PATH, 'data-model', 'access-points-dot-d', 'accessPoints.d', 'oidc-verify-credential'))({ dotD: { logList: [], library: { add: (addedName, serviceFunction) => { accessPointByName[addedName] = serviceFunction; } } }, passThroughParameters: { sqlDb, dataMapping } });
+			['oidc-verify-credential', 'user-save-data'].forEach((accessPointName) => require(path.join(SERVER_PATH, 'data-model', 'access-points-dot-d', 'accessPoints.d', accessPointName))({ dotD: { logList: [], library: { add: (addedName, serviceFunction) => { accessPointByName[addedName] = serviceFunction; } } }, passThroughParameters: { sqlDb, hxAccess: {}, dataMapping } }));
 			// the provider re-reads the account by its refId (sub); escaped here, never interpolated
 			const sqlString = require(require.resolve('sqlstring-sqlite', { paths: [SERVER_PATH] }));
 			const loadAccountBySub = (subjectRefId) => new Promise((resolve) => userTable.getData(`SELECT refId, username, role FROM <!tableName!> WHERE refId = ${sqlString.escape(String(subjectRefId))}`, { suppressStatementLog: true }, (readError, rowList = []) => resolve(rowList[0] ? { sub: rowList[0].refId, username: rowList[0].username, role: rowList[0].role } : null)));
@@ -170,13 +221,18 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 			expressApp.use(bodyParser.urlencoded({ extended: true }));
 			const httpServer = expressApp.listen(0, '127.0.0.1', () => {
 				const issuerUrl = `http://127.0.0.1:${httpServer.address().port}`;
-				makeAdapter({ sqlDb })((adapterError, { Adapter } = {}) => {
+				// as startApiServer: the OAuth schema (users.disabled, users.accessRevokedAfter, ...) before the AS mounts
+				libModuleOf('oauth-schema-init')({ sqlDb })((schemaError) => makeAdapter({ sqlDb })((adapterError, { Adapter } = {}) => {
+					if (schemaError) {
+						console.log(`FAIL oauth schema: ${schemaError}`);
+						process.exit(1);
+					}
 					makeAudit({ sqlDb })((auditError, audit) => {
 						if (adapterError || auditError) {
 							console.log(`FAIL oauth assembly: ${adapterError || auditError}`);
 							process.exit(1);
 						}
-						const { jwks } = makeKeys({ keyFilePath: path.join(scratchDirPath, 'signing-keys.json') });
+						const { jwks, resolvePublicKey } = makeKeys({ keyFilePath: path.join(scratchDirPath, 'signing-keys.json') });
 						const { provider } = makeProvider({
 							issuer: issuerUrl, mcpResource: `${issuerUrl}/mcp`, Adapter, jwks, cookieKeys: ['test-cookie-1', 'test-cookie-0'], cookieSecure: false, loadAccountBySub,
 							staticClients: [{ client_id: CLIENT_ID, client_name: 'Text-only test client', redirect_uris: [`${issuerUrl}/cb`], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none', scope: SCOPE_TEXT }],
@@ -189,10 +245,13 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 						expressApp.use((xReq, xRes, next) => (/^\/(oauth\/|\.well-known\/)/.test(xReq.path) && !xReq.path.startsWith('/oauth/interaction') ? oidcHandler(xReq, xRes) : next()));
 						const runCase = (remainingList) => {
 							if (!remainingList.length) {
-								console.log(`\n${passCount} passed, ${failCount} failed`);
-								httpServer.close();
-								fs.rmSync(scratchDirPath, { recursive: true, force: true });
-								process.exit(failCount === 0 ? 0 : 1);
+								runMcpRevocation(() => {
+									console.log(`\n${passCount} passed, ${failCount} failed`);
+									httpServer.close();
+									fs.rmSync(scratchDirPath, { recursive: true, force: true });
+									process.exit(failCount === 0 ? 0 : 1);
+								});
+								return;
 							}
 							const [oneCase, ...restList] = remainingList;
 							attemptLogin({ issuerUrl, bodyOfCsrf: oneCase.bodyOfCsrf, asJson: oneCase.asJson }, (response) => {
@@ -204,10 +263,32 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 								runCase(restList);
 							});
 						};
+						// M1: an MCP bearer token from before a password change, through the real verifier and bearer gate
+						const { verifyMcpAccessToken } = makeValidators();
+						const { verifyBearer } = makeMcpVerifier({ resolvePublicKey, expectedAudience: `${issuerUrl}/mcp`, verifyMcpAccessToken });
+						const { checkBearer } = makeBearerGate({ getOauthContext: () => ({ verifyBearer, sqlDb }) });
+						const bearerVerdictOf = (accessToken, verdictDone) => checkBearer({ headers: { authorization: `Bearer ${accessToken}` } }, (rejectReason) => verdictDone(rejectReason || ''));
+						const runMcpRevocation = (flowDone) => obtainAccessToken({ issuerUrl, username: 'bob', password: BOB_PASSWORD }, ({ accessToken, failureText }) => {
+							check('M1 setup: an MCP access token is issued to bob through the whole flow', !!accessToken, failureText);
+							if (!accessToken) {
+								flowDone();
+								return;
+							}
+							bearerVerdictOf(accessToken, (beforeReason) => {
+								check('M1 control: before the password change the bearer gate admits the token', beforeReason === '', beforeReason);
+								setTimeout(() => accessPointByName['user-save-data']({ refId: refIdByUsername.bob, password: BOB_NEW_PASSWORD, currentPassword: BOB_PASSWORD }, (saveError) => {
+									check('M1 setup: bob\'s password change saves', !saveError, saveError);
+									bearerVerdictOf(accessToken, (afterReason) => {
+										check('M1 the token from before the change is refused by the bearer gate (user access revoked)', /user access revoked/.test(afterReason), afterReason || 'admitted');
+										flowDone();
+									});
+								}), ONE_SECOND_AND_A_LITTLE_MS);
+							});
+						});
 						console.log(`server tree under test: ${SERVER_PATH}`);
 						runCase(caseList);
 					});
-				});
+				}));
 			});
 		});
 	});

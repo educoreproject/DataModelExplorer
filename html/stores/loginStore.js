@@ -3,6 +3,7 @@
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
 import { postLogin } from '../composables/postLogin.js';
+import { profileVocabulary } from '../components/profileVocabulary.js';
 
 // -------------------------------------------------------------------------
 // Define initial user fields
@@ -16,6 +17,14 @@ const userFields = {
 	emailAdr: '',
 	role: '',
 };
+
+// -------------------------------------------------------------------------
+// What a profile save may send: MUST equal selfEditablePropertyList in server/lib/user-profile-rules.json
+// (gate B1, server/test/user-sql-and-save-hole.test.js). The current password goes only beside a new password.
+
+const SELF_EDITABLE_PROPERTY_LIST = ['first', 'last', 'emailAdr', 'phone', 'password'];
+const CURRENT_PASSWORD_PROPERTY_NAME = 'currentPassword';
+const PASSWORD_PROPERTY_NAME = 'password';
 
 // -------------------------------------------------------------------------
 // Define initial state for the login store
@@ -95,6 +104,9 @@ export const useLoginStore = defineStore('loginStore', {
 				this.loggedInUser[name] = userObject[name];
 			});
 
+			// the password typed at login is not kept: it was shown back by the profile page and sent with every save (review SF-3)
+			this.loggedInUser[PASSWORD_PROPERTY_NAME] = '';
+
 			this.validUser = true;
 			return true;
 		},
@@ -130,24 +142,32 @@ export const useLoginStore = defineStore('loginStore', {
 		// ------------------------------------------------------------
 		// Update user information
 
-		async updateUserInfo(userEditObject) {
+		async updateUserInfo(userEditObject, { isChangingPassword } = {}) {
 			let error;
 			let response;
 
 			// -------------------------------------------------------------
 			// IMPORTANT:
-			// If you add fields here, you need to add them in the mapper/profile-user
+			// The server refuses, by name, any property outside its self-editable list
+			// (server/lib/user-profile-rules.json); SELF_EDITABLE_PROPERTY_LIST above must equal it.
+			// The record saved is always the signed-in user's own: no refId, username or role is sent.
 			// -------------------------------------------------------------
 
-			// Combine current user data with edited user data
-			const saveData = { ...this.userSimpleObject, ...userEditObject.value };
+			const editedUser = userEditObject.value;
 
-			// If legacy user, adjust roles
-			if (saveData.legacy === true) {
-				saveData.role = saveData.role || '';
-				const tmp = saveData.role.split(',');
-				tmp.push('client'); //someday I will move this to the server
-				saveData.role = tmp.join(',').replace(/^,/, '');
+			// the store keeps the password typed at login, so the password goes only when the user is changing it,
+			// and then with the current password, which the server verifies before saving the new one
+			const sentPropertyList = SELF_EDITABLE_PROPERTY_LIST.filter(
+				(propertyName) =>
+					editedUser[propertyName] !== undefined &&
+					(propertyName !== PASSWORD_PROPERTY_NAME || isChangingPassword),
+			);
+			const saveData = sentPropertyList.reduce(
+				(result, propertyName) => ({ ...result, [propertyName]: editedUser[propertyName] }),
+				{},
+			);
+			if (isChangingPassword) {
+				saveData[CURRENT_PASSWORD_PROPERTY_NAME] = editedUser[CURRENT_PASSWORD_PROPERTY_NAME];
 			}
 
 			// Prepare API request to save user data
@@ -171,8 +191,10 @@ export const useLoginStore = defineStore('loginStore', {
 
 			// Handle errors
 			if (error) {
-				// Improved error handling with fallback
-				if (error.response?.data) {
+				// a refusal answers { refusalName, reason }; any other error answers text
+				if (error.response?.data?.reason) {
+					this.statusMsg = error.response.data.reason;
+				} else if (error.response?.data) {
 					this.statusMsg = error.response.data;
 				} else if (error.message) {
 					this.statusMsg = error.message;
@@ -184,15 +206,23 @@ export const useLoginStore = defineStore('loginStore', {
 
 			const saveReplyRefId = response.data[0].refID;
 
-			if (saveReplyRefId == this.loggedInUser.refId) {
-				// Update state with response data
-				Object.keys(userFields).forEach((name) => {
-					if (name !== 'legacy') {
-						this.loggedInUser[name] = saveData[name];
-					}
-				});
+			// the reply carries a fresh token; after a password change every older token of this account is refused
+			// (sessionRevoked), so the store must take it
+			if (response.headers?.authtoken) {
+				this.authtoken = response.headers.authtoken;
+				this.authclaims = response.headers.authclaims;
+				this.authsecondsexpirationseconds = response.headers.authsecondsexpirationseconds;
 			}
-			this.statusMsg = 'SAVED';
+
+			if (saveReplyRefId == this.loggedInUser.refId) {
+				// Update state with what was saved (never a password)
+				sentPropertyList
+					.filter((propertyName) => propertyName !== PASSWORD_PROPERTY_NAME)
+					.forEach((propertyName) => {
+						this.loggedInUser[propertyName] = saveData[propertyName];
+					});
+			}
+			this.statusMsg = isChangingPassword ? profileVocabulary.passwordChangedText : 'SAVED';
 
 			return true;
 		},

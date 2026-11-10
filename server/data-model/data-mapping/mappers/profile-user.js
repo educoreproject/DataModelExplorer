@@ -39,7 +39,7 @@ const qt = require('qtools-functional-library'); //qt.help({printOutput:true, qu
 
 const moduleFunction =
 	({ moduleName }) =>
-	({ baseMappingProcess, pwHash, hashPassword, verifyPassword, validatePasswordStrength, safeSql }) => {
+	({ baseMappingProcess, pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash, safeSql }) => {
 		process.global = process.global ? process.global : {};
 		const xLog = process.global.xLog;
 
@@ -124,8 +124,9 @@ const moduleFunction =
 				}
 				// Hash passwords before storing in database
 				if (outObj.password) {
-					// Only hash if password is provided and not already hashed
-					if (!outObj.password.includes(':')) {
+					// Only hash if password is provided and not already in password-hash's own stored form. This was
+					// includes(':'), which stored any typed password containing a colon as typed (review SF-2).
+					if (!isStoredPasswordHash(outObj.password)) {
 						try {
 							outObj.password = hashPassword(outObj.password);
 						} catch (error) {
@@ -215,7 +216,27 @@ const moduleFunction =
 				// erroring while they don't. Auth must see the whole row.
 				'byUsernameForAuth': `
 					SELECT * FROM <!tableName!> WHERE username = <!username!>
-				`
+				`,
+				// byRefId: the whole row for one refId (user-save-data, admin-create-user,
+				// admin-update-user). These were interpolated as refId='${refId}', which a
+				// quote in the value rewrote (WORKORDER-userSqlAndSaveHole-111026).
+				'byRefId': `
+					SELECT * FROM <!tableName!> WHERE refId = <!refId!>
+				`,
+				// updateByRefId: an UPDATE of the columns present, by refId, every value escaped ONCE by safeSql. User
+				// rows are written this way, not through sqlite-instance saveObject, because this project's (pre-10.0)
+				// saveObject doubles every apostrophe before escaping it again: O'Brien was stored as O''Brien, and each
+				// later save doubled it again (review SF-6, 2026-11-10). It also never inserts: an unknown refId changes
+				// nothing, where saveObject on sqlite-instance 11 inserted a row. Column names come from
+				// inputNameMapping (code-owned); an unknown one is refused, never written.
+				'updateByRefId': (columnValueByName) => {
+					const columnNameList = Object.keys(columnValueByName).filter((columnName) => columnName !== 'refId');
+					const unknownColumnNameList = columnNameList.filter((columnName) => !Object.keys(inputNameMapping).includes(columnName));
+					if (unknownColumnNameList.length || !columnNameList.length) {
+						throw new Error(`[${moduleName}] updateByRefId: ${columnNameList.length ? `not users columns: ${unknownColumnNameList.join(', ')}` : 'no column to set'}`);
+					}
+					return `UPDATE <!tableName!> SET ${columnNameList.map((columnName) => `[${columnName}] = <!${columnName}!>`).join(', ')} WHERE refId = <!refId!>`;
+				}
 				// ADD NEW QUERIES HERE:
 				// 'byRole': `SELECT * FROM <!tableName!> WHERE role = <!role!>`,
 				// 'searchByName': `SELECT * FROM <!tableName!> WHERE first LIKE <!searchTerm!> OR last LIKE <!searchTerm!>`,
@@ -227,7 +248,8 @@ const moduleFunction =
 				return undefined;
 			}
 
-			const sql = queries[queryName];
+			// a query may be a function of the values (updateByRefId): it builds the template, safeSql still escapes every value
+			const sql = typeof queries[queryName] === 'function' ? queries[queryName](replaceObject) : queries[queryName];
 
 			// CRITICAL: Use safeSql for SQL injection protection
 			// safeSql escapes user-provided values while preserving system tokens

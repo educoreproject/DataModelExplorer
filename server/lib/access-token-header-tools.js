@@ -16,6 +16,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const { refusalOf, refusalText } = require('./user-profile-rules');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -90,6 +91,12 @@ const moduleFunction =
 				const localCallback = (err, user) => {
 					if (!user) {
 						err = `token error: User not found`; // Token specifies user not in database
+					}
+					// a token issued before the user's accessRevokedAfter cutoff (epoch seconds, stamped by a password
+					// change) is refused by name; iat >= cutoff passes, as at the MCP bearer gate (review SF-4, 2026-11-10)
+					const accessRevokedAfterSeconds = Number((user && user.accessRevokedAfter) || 0);
+					if (!err && accessRevokedAfterSeconds && Number(authclaims.iat || 0) < accessRevokedAfterSeconds) {
+						err = `token error: ${refusalText(refusalOf('sessionRevoked'))}`;
 					}
 					next(err, { ...args, user });
 				};

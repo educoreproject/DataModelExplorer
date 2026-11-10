@@ -79,7 +79,7 @@ const safeSql = (queryTemplate, replaceObject = {}) => {
 
 //START OF moduleFunction() ============================================================
 
-const moduleFunction = ({ moduleName }) => ({pwHash, hashPassword, verifyPassword, validatePasswordStrength}) => {
+const moduleFunction = ({ moduleName }) => ({pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash}) => {
 	const { xLog, getConfig, rawConfig:unused, commandLineParameters:notUsed } = process.global;
 	const {placeholder} = getConfig(moduleName); //moduleName is closure
 
@@ -115,7 +115,7 @@ const moduleFunction = ({ moduleName }) => ({pwHash, hashPassword, verifyPasswor
 
 			resultObject[
 				path.basename(file).replace(path.extname(file), '')
-			] = require(filePath)({ baseMappingProcess, pwHash, hashPassword, verifyPassword, validatePasswordStrength, safeSql });
+			] = require(filePath)({ baseMappingProcess, pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash, safeSql });
 		});
 
 	const outObj = {

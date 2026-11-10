@@ -13,14 +13,19 @@ const moduleFunction = ({ moduleName }) => () => {
 	const xLog = process.global.xLog;
 	const crypto = require('crypto');
 
+	// the stored form is '<hash hex>:<salt hex>'; both lengths follow from these byte counts
+	const HASH_BYTE_COUNT = 64;
+	const SALT_BYTE_COUNT = 16;
+	const STORED_PASSWORD_HASH_PATTERN = new RegExp(`^[0-9a-f]{${HASH_BYTE_COUNT * 2}}:[0-9a-f]{${SALT_BYTE_COUNT * 2}}$`);
+
 	const pwHash = (password, salt) => {
 
-		salt = salt ? salt : crypto.randomBytes(16).toString('hex');
+		salt = salt ? salt : crypto.randomBytes(SALT_BYTE_COUNT).toString('hex');
 
 		// Hashing user's salt and password with 1000 iterations,
 
 		const hash = crypto
-			.pbkdf2Sync(password.toString(), salt, 1000, 64, `sha512`)
+			.pbkdf2Sync(password.toString(), salt, 1000, HASH_BYTE_COUNT, `sha512`)
 			.toString(`hex`);
 
 		return { hash, salt };
@@ -114,7 +119,11 @@ const moduleFunction = ({ moduleName }) => () => {
 		};
 	};
 
-	return { pwHash, verify, hashPassword, verifyPassword, validatePasswordStrength };
+	// isStoredPasswordHash - true only for this module's own stored form. 'Contains a colon' was the old test, and a typed
+	// password with a colon was stored as typed (review SF-2, 2026-11-10): every path now hashes unless this is true.
+	const isStoredPasswordHash = (passwordText) => typeof passwordText === 'string' && STORED_PASSWORD_HASH_PATTERN.test(passwordText);
+
+	return { pwHash, verify, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash };
 };
 
 //END OF moduleFunction() ============================================================
