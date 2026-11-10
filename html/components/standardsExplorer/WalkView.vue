@@ -10,15 +10,24 @@
 // 'families:all', so a reload or a shared link lands on the same screen; this page is the only thing that reads or
 // writes it. /explore/graphicModelExplorer redirects here; /explore/pesc redirects here entered at PESC.
 // The detail panel carries the specification catalog's card for the family being walked (SpecificationCard.vue).
+// ⟪meaningsExplorer⟫ The same walk draws the Meanings explorer (pages/explore/meanings.vue): the page names its walk (walkProfileName, a profile of
+// explorerVocabulary's walkProfileByName), which gives the root the path begins at, the route its links go to, and the heading's words.
 
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { displayNameOf, explorerPathOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, walkPathOf, walkProfileOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const props = defineProps({
+	// the Standards Explorer's page passes none; any other walk names itself
+	walkProfileName: { type: String, default: 'standards' },
+});
 
 const route = useRoute();
 const router = useRouter();
 const store = useStandardsNeighbourhoodStore();
+const walkProfile = walkProfileOf(props.walkProfileName);
+store.setWalkProfileName(props.walkProfileName);
 
 // a path that does not begin at the families catalog (hand-written, or older than it) is rewritten to one that
 // does, in place, so the breadcrumb always reaches the top
@@ -26,7 +35,7 @@ watch(
 	() => route.query.path,
 	() => {
 		const routePathStableIdList = pathStableIdListOf(route.query.path);
-		const explorerPathStableIdList = explorerPathOf(routePathStableIdList);
+		const explorerPathStableIdList = walkPathOf(walkProfile.walkProfileName, routePathStableIdList);
 		if (routePathStableIdList.length && explorerPathStableIdList.length !== routePathStableIdList.length) {
 			router.replace({ path: route.path, query: { path: pathTextOf(explorerPathStableIdList) } });
 			return;
@@ -65,25 +74,26 @@ const showLevel = computed(() => !store.neighbourhoodLoading && Boolean(store.ne
 // WHERE THE WALK IS, IN WORDS — the page title, and the level's name for the region holding it, so a screen reader or
 // an AI agent reading the page knows which standard and which level it is on without seeing the diagram
 
-const focusNameText = computed(() => (store.focusNode && store.focusNode.kind !== 'familyCatalog' ? displayNameOf(store.focusNode) : ''));
+const isAtRoot = computed(() => Boolean(store.focusNode) && store.focusNode.stableId === walkProfile.rootStableId);
+const focusNameText = computed(() => (store.focusNode && !isAtRoot.value ? displayNameOf(store.focusNode) : ''));
 const levelLabelText = computed(() => {
 	if (!store.focusNode) return 'Explorer';
-	const kindText = store.focusNode.kind === 'familyCatalog' ? 'every standards family' : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
+	const kindText = isAtRoot.value ? walkProfile.rootLevelText : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
 	if (store.effectiveViewMode === 'schema') return `Explorer: the schema of ${kindText}, in the Schema Viewer`;
 	return `Explorer: ${store.levelRowList.length} items in ${kindText}, shown as a ${store.effectiveViewMode}`;
 });
 useHead(() => ({
-	title: focusNameText.value ? `${focusNameText.value} · Standards Explorer` : 'Standards Explorer',
-	meta: [{ name: 'description', content: 'Walk the education data standards in the EDUcore graph: each family, its classes and properties, the hub elements they map to, and every other standard that maps there.' }],
+	title: focusNameText.value ? `${focusNameText.value} · ${walkProfile.titleText}` : walkProfile.titleText,
+	meta: [{ name: 'description', content: walkProfile.metaDescriptionText }],
 }));
 </script>
 
 <template>
-	<div class="explorer-page" data-testid="standards-explorer">
+	<div class="explorer-page" data-testid="standards-explorer" :data-walk-profile="walkProfile.walkProfileName">
 		<div class="explorer-heading">
 			<div>
-				<h2 class="explorer-title">Standards Explorer</h2>
-				<p class="explorer-intro">Pick a standard, then walk it: click a bubble or a row to see what it is; double-click, or use Open, to go inside it.</p>
+				<h2 class="explorer-title">{{ walkProfile.titleText }}</h2>
+				<p class="explorer-intro">{{ walkProfile.introText }}</p>
 			</div>
 			<div class="explorer-share">
 				<span>Link to this view:</span>

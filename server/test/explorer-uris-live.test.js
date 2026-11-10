@@ -12,27 +12,7 @@
 // Needs the local golden and the qbook config; with no graph it SKIPs by name. Run: node server/test/explorer-uris-live.test.js
 // (SUBJECT_SERVER_PATH=<another tree's server dir> runs the same gates on that tree's access points.)
 
-const path = require('path');
-const { Writable } = require('stream');
-
-const configFileProcessor = require('qtools-config-file-processor');
-const qbookConfig = configFileProcessor.getConfig('startApiServer.ini', path.join(__dirname, '..', '..', '..', 'configs', 'instanceSpecific', 'qbook'), { resolve: true });
-const EDC_CONFIG_VALUES = { directBlockMaxBytes: 536870912, directBlockTimeoutMilliseconds: 600000, directBlockSqliteCommandPath: '/usr/bin/sqlite3', sizeRefusalContactAddress: 'contact@explorerUris.example', ...qbookConfig['edc-resolver'] }; // the configs tree may predate the block values; nothing here reads a block
-// rosetta-fuse and rosetta-judge are left empty, so the access point turns Rosetta off by name and opens no Rosetta store
-const configValuesBySection = { 'edc-resolver': EDC_CONFIG_VALUES, 'standards-query-limits': qbookConfig['standards-query-limits'], 'mcp-server': qbookConfig['mcp-server'], 'rosetta-fuse': {}, 'rosetta-judge': {} };
-process.global = {
-	getConfig: (sectionName) => configValuesBySection[sectionName] || {},
-	xLog: { status: () => {}, error: () => {}, verbose: () => {}, result: () => {}, color: {} },
-	rawConfig: {},
-	commandLineParameters: { switches: {}, values: {} },
-};
-
-const { readGoldenContainerName } = require('./lib/goldenContainerName');
-const { resolveContainerConnection } = require('../data-model/lib/user-graph/container-connection-resolver');
-const neo4jInstanceFactory = require('../data-model/lib/neo4j-instance/neo4j-instance');
-const { createGoldenGraphHandle, GOLDEN_RETRY_DELAY_MS_LIST } = require('../data-model/lib/neo4j-instance/golden-graph-handle');
-const { openForgeAdapter } = require('../lib/edc-resolver/forgeAdapter');
-const { URI_MINTER_ACCESS_POINT_NAME } = require('../data-model/lib/explorer-uri-fields');
+const { goldenHandle, forgeAdapter, branchLibrary, baselineLibrary, resolveUri, GATE_WAIT_MILLISECONDS, GATE_WAIT_LIMIT, URI_MINTER_ACCESS_POINT_NAME } = require('./lib/explorerLiveHarness');
 
 let passed = 0;
 let failed = 0;
@@ -46,61 +26,12 @@ const finish = () => {
 	process.exit(failed ? 1 : 0);
 };
 
-const GATE_WAIT_MILLISECONDS = 250;
-const GATE_WAIT_LIMIT = 480;
 const FAMILY_NAME_LIST = ['CEDS', 'CTDL', 'EdFi'];
 const ELEMENT_KIND_LIST = ['property', 'instance', 'hubProperty', 'optionValue'];
 const URI_FIELD_NAME_LIST = ['uri', 'uriKind', 'uriAbsentName', 'elementListUri'];
 const withoutUriFields = (answerValue) => JSON.parse(JSON.stringify(answerValue, (fieldName, fieldValue) => (URI_FIELD_NAME_LIST.includes(fieldName) ? undefined : fieldValue)));
 
-const goldenContainerName = readGoldenContainerName();
-if (resolveContainerConnection(goldenContainerName).error) {
-	console.log(`  SKIP: no reachable golden (${goldenContainerName}); this live test proved nothing`);
-	process.exit(0);
-}
-const goldenHandle = createGoldenGraphHandle({ goldenContainerName, queryTimeoutMs: 60000, retryDelayMsList: GOLDEN_RETRY_DELAY_MS_LIST, resolveConnectionFresh: (containerName, callback) => callback('', resolveContainerConnection(containerName)), neo4jGen: neo4jInstanceFactory({ unused: true }) });
-const forgeAdapter = openForgeAdapter({ configValues: EDC_CONFIG_VALUES });
-if (forgeAdapter.refusalText) {
-	console.log(`  FAIL: the forge adapter would not open: ${forgeAdapter.refusalText}`);
-	process.exit(1);
-}
-
-// the access points as access-points-dot-d builds them, into one library
-const accessPointLibraryFor = (serverPath) => {
-	const accessPointByName = {};
-	const dotD = { logList: [], library: { add: (accessPointName, serviceFunction) => { accessPointByName[accessPointName] = serviceFunction; } } };
-	const dataMapping = {
-		'standards-neighbourhood': require(path.join(serverPath, 'data-model/data-mapping/mappers/standards-neighbourhood.js'))({}),
-		'forged-use-cases': require(path.join(serverPath, 'data-model/data-mapping/mappers/forged-use-cases.js'))({}),
-	};
-	const passThroughParameters = { neo4jDb: goldenHandle, dataMapping, sqlDb: { getTable: (tableName, callback) => callback('explorer-uris-live: no usage table in this test') }, accessPointsDotD: accessPointByName };
-	['standards-query', 'standards-neighbourhood', 'forged-use-cases', 'edc-resolver'].forEach((fileName) => require(path.join(serverPath, 'data-model/access-points-dot-d/accessPoints.d', `${fileName}.js`))({ dotD, passThroughParameters }));
-	return accessPointByName;
-};
-// SUBJECT_SERVER_PATH runs these gates on another tree (eg the branch base, to watch them fail there)
-const branchLibrary = accessPointLibraryFor(process.env.SUBJECT_SERVER_PATH || path.join(__dirname, '..'));
-const baselineLibrary = process.env.BASELINE_SERVER_PATH ? accessPointLibraryFor(process.env.BASELINE_SERVER_PATH) : null;
-
 const explorerNode = (stableId, callback) => branchLibrary['standards-neighbourhood']({ action: 'node', stableId }, callback);
-// the local resolver asked a URI's own path, as the /edc/ route hands it: { httpStatus, body }
-const resolveUri = (uriText, callback) => {
-	if (!uriText.startsWith(forgeAdapter.baseIri)) {
-		callback({ httpStatus: 0, body: { error: `not under the EDUcore base ${forgeAdapter.baseIri}` } });
-		return;
-	}
-	branchLibrary['edc-resolver']({ edcRequestPath: `/${uriText.slice(forgeAdapter.baseIri.length)}`, answerFormat: 'json', whenClientGone: () => {} }, (resolveError, resolverAnswer) => {
-		if (resolveError) { callback({ httpStatus: 0, body: { error: resolveError } }); return; }
-		if (!resolverAnswer.deliverTo) {
-			callback({ httpStatus: resolverAnswer.httpStatus, body: resolverAnswer.bodyText ? JSON.parse(resolverAnswer.bodyText) : {} });
-			return;
-		}
-		// an element with many siblings is answered by the resolver's child, streamed as the /edc/ route streams it
-		const chunkList = [];
-		const responseSink = new Writable({ write: (chunk, encoding, written) => { chunkList.push(chunk); written(); } });
-		responseSink.on('finish', () => callback({ httpStatus: resolverAnswer.httpStatus, body: JSON.parse(Buffer.concat(chunkList).toString('utf8')) }));
-		resolverAnswer.deliverTo(responseSink);
-	});
-};
 
 // steps run one after another
 const stepList = [];

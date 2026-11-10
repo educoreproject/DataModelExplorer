@@ -12,6 +12,9 @@
 //      specifications the graph does not hold
 //   V7 selecting a family shows its catalog card in the panel; opening it keeps the card for the focus, and the panel
 //      reads no 'undefined' (an opened family's node carries no counts)
+//   V9 ⟪meaningsExplorer⟫ leaving the Meanings page for the Standards Explorer by an "Expressed in" link lands on that element's own path, and the two
+//      walks (one store, one WalkView) do not leak into each other: nothing asks for a meanings id afterwards (Nuxt gives each page its own route, so the
+//      outgoing walk never sees the incoming path; this checks that it stays so)
 //   V8 the Schema Viewer: not offered at the families catalog; inside CEDS it is a third view beside Diagram and Table,
 //      showing the Specification Viewer opened on CEDS, full width (no detail panel, no filter); Diagram brings them back
 //
@@ -21,7 +24,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import { answerApi, isApiUrl } from './standardsViewFixtures.mjs';
+import { answerApi, isApiUrl, FIXTURE_MEANING_STABLE_ID, FIXTURE_EXPRESSED_IN_PATH } from './standardsViewFixtures.mjs';
 
 const argumentByName = Object.fromEntries(process.argv.slice(2).filter((argumentText) => argumentText.startsWith('--')).map((argumentText) => argumentText.slice(2).split(/=(.*)/s).slice(0, 2)));
 if (!argumentByName.baseUrl) {
@@ -151,6 +154,29 @@ try {
 	await page.locator('[data-testid^="crumb-"]').first().click();
 	await page.waitForFunction(() => !document.querySelector('[data-testid="view-schema"]'), null, { timeout: 10000 }).catch(() => {});
 	check('at the families catalog it is not offered', (await page.locator('[data-testid="view-schema"]').count()) === 0);
+
+	console.log('V9 from a meaning to the Standards Explorer, by an "Expressed in" link');
+	const neighbourhoodPathList = [];
+	page.on('request', (oneRequest) => {
+		if (new URL(oneRequest.url()).pathname !== '/api/standards-neighbourhood') return;
+		const requestBody = oneRequest.postDataJSON?.() || {};
+		if (requestBody.action === 'node') neighbourhoodPathList.push(requestBody.stableId);
+		if (requestBody.action === 'pathSummary') neighbourhoodPathList.push(...requestBody.stableIdList);
+	});
+	await open(`/explore/meanings?path=${encodeURIComponent(`meanings:all,${FIXTURE_MEANING_STABLE_ID}`)}`);
+	await page.waitForSelector('[data-walk-profile="meanings"] [data-testid="meaning-element-link"]', { timeout: 30000 }).catch(() => {});
+	check('the meaning shows its Expressed-in element as a link', (await page.locator('[data-testid="meaning-element-link"]').count()) === 1);
+	const pathCountBeforeLeaving = neighbourhoodPathList.length;
+	await page.locator('[data-testid="meaning-element-link"]').click().catch(() => {});
+	await page.waitForURL((pageUrl) => pageUrl.pathname === '/explore/standards', { timeout: 15000 }).catch(() => {});
+	await page.waitForSelector('[data-walk-profile="standards"] [data-testid="detail-name"]', { timeout: 15000 }).catch(() => {});
+	await page.waitForTimeout(800);
+	const landedPathText = decodeURIComponent(new URL(page.url()).searchParams.get('path') || '');
+	check('it lands on the element\'s own Standards path, nothing prepended', new URL(page.url()).pathname === '/explore/standards' && landedPathText === FIXTURE_EXPRESSED_IN_PATH.join(','), page.url().replace(baseUrl, ''));
+	const requestedAfterLeaving = neighbourhoodPathList.slice(pathCountBeforeLeaving);
+	check('after leaving, nothing asks for a meanings id on the Standards page', requestedAfterLeaving.length > 0 && requestedAfterLeaving.every((oneId) => !/^meaning/.test(oneId)), requestedAfterLeaving.join(' | '));
+	check('the Standards Explorer, not the Meanings walk, draws it', (await page.locator('[data-walk-profile="standards"]').count()) === 1 && (await page.locator('[data-walk-profile="meanings"]').count()) === 0);
+	await shoot(page, 'V9-expressedInToStandards');
 
 	check('signed out, companion pages were never asked for', companionRequestCount === 0, `${companionRequestCount} requests`);
 	check('no page errors', pageErrorList.length === 0, pageErrorList.join(' | '));

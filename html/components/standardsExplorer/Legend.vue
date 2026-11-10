@@ -22,6 +22,9 @@ const LEGEND_KIND_LIST = [
 // each hub's family colours; a page naming no hub shows them once, unnamed and neutral
 const legendKindList = computed(() => {
 	const hubList = store.shownHubList.length ? store.shownHubList : [{ hubName: null, standardFamily: null }];
+	// ⟪meaningsExplorer⟫ a walk with its own bubbles (its profile's legendNodeKindList) shows those, in each named hub's colours
+	const walkLegendNodeKindList = store.walkProfile.legendNodeKindList;
+	if (walkLegendNodeKindList) return hubList.flatMap(({ hubName, standardFamily }) => walkLegendNodeKindList.map((nodeKind) => ({ nodeKind, hubName, standardFamily })));
 	const hubKindList = hubList.reduce((soFar, { hubName, standardFamily }) => soFar.concat([{ nodeKind: 'hubAnchor', hubName, standardFamily }, { nodeKind: 'hubDomain', hubName, standardFamily }]), []);
 	return [...LEGEND_KIND_LIST.slice(0, 5), ...hubKindList, ...LEGEND_KIND_LIST.slice(5)];
 });

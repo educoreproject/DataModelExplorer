@@ -30,8 +30,7 @@ const activeTabKey = computed(() => {
 
 <template>
 	<div class="standards-view" data-testid="standards-view">
-		<div class="standards-view-bar">
-			<h1 class="standards-view-title">Standards</h1>
+		<ExploreViewBar title-text="Standards">
 			<v-tabs :model-value="activeTabKey" color="primary" density="comfortable" show-arrows class="standards-view-tabs" aria-label="Standards sections">
 				<v-tab
 					v-for="oneTab in STANDARDS_TAB_LIST"
@@ -45,28 +44,12 @@ const activeTabKey = computed(() => {
 					{{ oneTab.title }}
 				</v-tab>
 			</v-tabs>
-		</div>
+		</ExploreViewBar>
 		<NuxtPage />
 	</div>
 </template>
 
 <style scoped>
-.standards-view-bar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 8px 24px;
-	padding: 16px clamp(16px, 3vw, 40px) 0;
-	background: var(--edu-surface, #fff);
-	border-bottom: 1px solid #e3e7ef;
-}
-.standards-view-title {
-	margin: 0 0 8px;
-	font-family: 'DM Serif Display', Georgia, serif;
-	font-weight: 400;
-	font-size: 30px;
-	color: #072a6c;
-}
 .standards-view-tabs {
 	flex: 1 1 auto;
 	min-width: 0;

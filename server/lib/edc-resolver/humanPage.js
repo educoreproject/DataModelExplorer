@@ -313,6 +313,7 @@ const meaningHeadHtmlOf = ({ answerBody, humanPageFacts, jsonHref }) => {
 		`<div class="chip-row"><span class="chip bracket">${escapedHtmlOf(bracketText)}</span><span class="chip">${escapedHtmlOf(answerBody.hubName)} hub</span><span class="chip">${escapedHtmlOf(answerBody.hubVersion)}</span>${answerBody.referenceTier ? `<span class="chip">${escapedHtmlOf(answerBody.referenceTier)} card</span>` : ''}</div>`,
 		answerBody.definition ? `<p class="definition">${escapedHtmlOf(answerBody.definition)}</p>` : '',
 		citeHtmlOf(answerBody.meaning),
+		`<p class="json-link"><a href="/explore/meanings?path=${escapedHtmlOf(encodeURIComponent(`meanings:all,meaning:${answerBody.meaning}`))}" data-testid="open-in-meanings">Open in the Meanings explorer</a> <span class="count">this meaning, what it names and every element that expresses it</span></p>`, // ⟪meaningsExplorer⟫
 		jsonLinkHtmlOf(jsonHref),
 	].join('');
 };

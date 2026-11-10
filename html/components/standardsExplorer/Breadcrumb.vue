@@ -3,7 +3,7 @@
 // crumbs and folds the middle into one '…' that names what it hides.
 
 import { computed } from 'vue';
-import { explorerLinkOf, familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 
 const props = defineProps({
@@ -12,7 +12,7 @@ const props = defineProps({
 const store = useStandardsNeighbourhoodStore();
 
 // the walk up to and including a crumb, as a link
-const crumbLinkOf = (oneCrumb) => explorerLinkOf(store.pathStableIdList.slice(0, oneCrumb.pathIndex + 1));
+const crumbLinkOf = (oneCrumb) => store.walkLinkOf(store.pathStableIdList.slice(0, oneCrumb.pathIndex + 1));
 
 const FOLD_ABOVE_CRUMB_COUNT = 6;
 

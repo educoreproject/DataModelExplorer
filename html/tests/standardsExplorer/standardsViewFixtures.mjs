@@ -12,7 +12,27 @@ const standardItemOf = (standardFamily) => ({
 	stableId: `urn:fixture:${standardFamily}:root`, name: standardFamily, kind: 'standard', description: '', hasChildren: false, standardFamily,
 	standardKey: `${standardFamily}@1.0`, releaseLabel: standardFamily, version: '1.0', classCount: FAMILY_CLASS_COUNT_BY_NAME[standardFamily],
 });
+// ⟪meaningsExplorer⟫ the Meanings walk's top and one meaning, whose one "Expressed in" element walks to family:CEDS in the Standards Explorer
+export const FIXTURE_MEANING_STABLE_ID = 'meaning:urn:fixture:card';
+export const FIXTURE_EXPRESSED_IN_PATH = ['families:all', 'family:CEDS'];
+const meaningNeighbourhoodOf = (stableId) => {
+	if (stableId === 'meanings:all') {
+		const itemList = [{ stableId: 'meaningHub:CEDS', name: 'CEDS', kind: 'meaningHub', hubName: 'CEDS', standardFamily: 'CEDS', description: 'Common Education Data Standards', hasChildren: true, tierCountList: [{ referenceTier: 'property', meaningCount: 1 }], meaningCount: 1 }];
+		return { node: { stableId, name: 'Meanings', kind: 'meaningCatalog', description: '' }, ancestorList: [], childGroupList: [{ relationshipType: 'HAS_MEANING_HUB', count: 1, truncated: false, itemList }], mappingList: [] };
+	}
+	const elementList = [{ stableId: 'urn:fixture:CEDS:element', name: 'Fixture Element', kind: 'property', matchKind: 'exact', matchBasis: 'derived', mappingConfidence: 0.9, ancestorList: [], standardsWalkPathStableIdList: FIXTURE_EXPRESSED_IN_PATH }];
+	return {
+		node: {
+			stableId, name: 'Fixture Meaning', kind: 'meaning', hubName: 'CEDS', standardFamily: 'CEDS', description: '', hasChildren: true, referenceTier: 'property', elementCount: 1,
+			uri: 'https://w3id.org/EDUcore/CEDStandards/hub/fixture', uriKind: 'edc', tuple: {}, rangePartList: [], rangeIsIdentity: true, rangeDatatypeList: [],
+			expressionCount: 1, expressionsTruncated: false,
+			expressedInGroupList: [{ stableId: 'standardGroup:fixture@urn:fixture:card', name: 'Fixture Standard', kind: 'standardGroup', standardKey: 'fixture', standardFamily: 'CEDS', releaseLabel: 'CEDS', version: '1.0', elementCount: 1, matchKindCountList: [{ matchKind: 'exact', elementCount: 1 }], elementList, elementsTruncated: false }],
+		},
+		ancestorList: [], childGroupList: [], mappingList: [],
+	};
+};
 const neighbourhoodOf = (stableId) => {
+	if (stableId === 'meanings:all' || stableId === FIXTURE_MEANING_STABLE_ID) return meaningNeighbourhoodOf(stableId);
 	if (stableId === 'families:all') {
 		const itemList = Object.keys(FAMILY_CLASS_COUNT_BY_NAME).map(familyItemOf);
 		return { node: { stableId, name: 'Standards', kind: 'familyCatalog', description: '' }, ancestorList: [], childGroupList: [{ relationshipType: 'HAS_FAMILY', count: itemList.length, truncated: false, itemList }], mappingList: [] };

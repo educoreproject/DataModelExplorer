@@ -9,7 +9,7 @@
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { explorerLinkOf, familyHoldingTextOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -26,7 +26,7 @@ const itemList = computed(() =>
 		displayName: oneRow.displayName,
 		kindText: kindDisplayNameOf(oneRow.kind, oneRow.hubName),
 		detailText: detailTextOf(oneRow),
-		openLink: oneRow.hasChildren ? explorerLinkOf([...store.pathStableIdList, oneRow.stableId]) : null,
+		openLink: oneRow.hasChildren ? store.walkLinkOf([...store.pathStableIdList, oneRow.stableId]) : null,
 		isSelected: oneRow.stableId === store.selectedStableId,
 	})),
 );

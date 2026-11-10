@@ -5,7 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { explorerLinkOf, familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -23,6 +23,8 @@ const infoTextOf = (oneRow) => {
 		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
 		standardGroup: () => (oneRow.matchKindCountList || []).map((oneCount) => `${oneCount.matchKind} ${oneCount.elementCount}`).join(', '),
 		hubAnchor: () => (oneRow.mapping && oneRow.mapping.occurrenceCount > 1 ? `from ${oneRow.mapping.occurrenceCount} occurrences` : oneRow.hubDomainName ? `in ${oneRow.hubDomainName}` : oneRow.description),
+		// ⟪meaningsExplorer⟫
+		meaning: () => meaningInfoTextOf(oneRow),
 	};
 	const infoReader = infoByKind[oneRow.kind];
 	const infoText = infoReader ? infoReader() : oneRow.description || oneRow.path;
@@ -41,6 +43,11 @@ const countOf = (oneRow) => {
 		release: () => ({ countValue: (oneRow.versionList || []).length, countText: `${(oneRow.versionList || []).length} versions` }),
 		standardGroup: () => ({ countValue: oneRow.elementCount, countText: `${oneRow.elementCount} elements` }),
 		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount}` : '' }),
+		// ⟪meaningsExplorer⟫ a group of meanings counts its meanings; a meaning, the elements that express it
+		meaningHub: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
+		meaningDomain: () => ({ countValue: oneRow.mappedMeaningCount, countText: meaningCountTextOf(oneRow) }),
+		meaningProperty: () => ({ countValue: oneRow.mappedMeaningCount, countText: meaningCountTextOf(oneRow) }),
+		meaning: () => ({ countValue: oneRow.elementCount ?? null, countText: hubMappedTextOf(oneRow) }),
 	};
 	const countReader = countByKind[oneRow.kind];
 	return countReader ? countReader() : { countValue: null, countText: '' };
@@ -98,7 +105,7 @@ const rowPropsOf = ({ item }) => ({
 });
 
 // a row's Open is a link to the walk one step further, so it has an href to follow, share or read
-const openLinkOf = (item) => explorerLinkOf([...store.pathStableIdList, item.stableId]);
+const openLinkOf = (item) => store.walkLinkOf([...store.pathStableIdList, item.stableId]);
 
 const selectRow = (clickEvent, { item }) => {
 	if (isOpenAtOnceClick(clickEvent) && item.hasChildren) {

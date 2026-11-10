@@ -16,6 +16,8 @@ import {
 	familyStyleOf,
 	isOpenAtOnceClick,
 	matchStyleByKind,
+	meaningCountTextOf,
+	meaningInfoTextOf,
 	versionBadgeTextOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
@@ -67,6 +69,11 @@ const subTextOf = (oneRow) => {
 		standard: () => (oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : ''),
 		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
 		standardGroup: () => `${oneRow.elementCount} elements`,
+		// ⟪meaningsExplorer⟫
+		meaningHub: () => meaningCountTextOf(oneRow),
+		meaningDomain: () => meaningCountTextOf(oneRow),
+		meaningProperty: () => meaningCountTextOf(oneRow),
+		meaning: () => [meaningInfoTextOf(oneRow), hubMappedTextOf(oneRow)].filter(Boolean).join(' · '),
 	};
 	const subReader = subByKind[oneRow.kind];
 	return subReader ? subReader() : '';
@@ -209,13 +216,20 @@ const styleList = [
 	{ selector: 'node[kind = "hubAnchor"][?isFocus]', style: { width: 120, height: 104 } },
 	{ selector: 'node[kind = "hubProperty"]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1 } },
 	{ selector: 'node[kind = "hubDomain"]', style: { shape: 'round-rectangle', 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1.5, width: 74, height: 44 } },
+	// ⟪meaningsExplorer⟫ the meanings walk: its catalog and hubs as families are drawn, its domains, properties and meanings as a hub's own kinds
+	{ selector: 'node[kind = "meaningCatalog"], node[kind = "meaningHub"]', style: { 'background-color': 'data(familyColor)', color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0 } },
+	{ selector: 'node[kind = "meaningHub"][!isFocus]', style: { width: 76, height: 76, color: '#111827', 'text-valign': 'bottom', 'text-margin-y': 6, 'text-background-opacity': 0.9 } },
+	{ selector: 'node[kind = "meaning"]', style: { shape: 'hexagon', 'background-color': 'data(familyFill)', 'border-width': 0, color: '#072A6C', width: 70, height: 62 } },
+	{ selector: 'node[kind = "meaning"][?isFocus]', style: { width: 120, height: 104 } },
+	{ selector: 'node[kind = "meaningProperty"]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1 } },
+	{ selector: 'node[kind = "meaningDomain"]', style: { shape: 'round-rectangle', 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1.5, width: 74, height: 44 } },
 	{ selector: 'node[kind = "standardGroup"]', style: { 'background-color': 'data(familyTint)', 'border-width': 3, width: 'data(groupSize)', height: 'data(groupSize)' } },
 	{ selector: 'node[kind = "standardGroup"][?isFocus]', style: { width: 110, height: 110 } },
 	{ selector: 'node[kind = "support"], node[kind = "unclassified"]', style: { shape: 'round-rectangle', 'background-color': '#F3F4F6', 'border-color': '#D1D5DB', 'border-width': 1, width: 50, height: 30, 'font-size': 11, 'font-weight': 400 } },
 	{ selector: 'node[kind = "more"]', style: { 'background-color': '#FFFFFF', 'border-style': 'dashed', 'border-width': 2, 'border-color': 'data(familyColor)', 'text-valign': 'center', 'text-margin-y': 0, 'text-background-opacity': 0, 'font-weight': 700 } },
 	{ selector: 'node[kind = "drillBadge"]', style: { width: 18, height: 18, 'background-color': '#072A6C', 'border-color': '#FFFFFF', 'border-width': 2, color: '#FFFFFF', 'text-valign': 'center', 'text-margin-y': -1, 'text-background-opacity': 0, 'font-size': 13, 'font-weight': 700, 'z-index': 20 } },
 	// the focus is always the big bubble in the middle, whatever its kind (after the kind rules, so it wins)
-	{ selector: 'node[?isFocus][kind != "hubAnchor"][kind != "standardGroup"]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700 } },
+	{ selector: 'node[?isFocus][kind != "hubAnchor"][kind != "standardGroup"][kind != "meaning"]', style: { width: 110, height: 110, 'font-size': 15, 'font-weight': 700 } },
 	{ selector: 'node[?isFocus]', style: { 'font-size': 15, 'font-weight': 700 } },
 	{ selector: 'node[?isHome]', style: { 'underlay-color': '#FFAB40', 'underlay-opacity': 0.65, 'underlay-padding': 10, 'underlay-shape': 'ellipse' } },
 	{ selector: 'node:selected', style: { 'overlay-color': '#072A6C', 'overlay-opacity': 0.12, 'overlay-padding': 8, 'overlay-shape': 'ellipse' } },

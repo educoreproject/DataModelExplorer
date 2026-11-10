@@ -76,13 +76,17 @@ export const kindDisplayNameByKind = Object.freeze({
 	standardGroup: 'Elements in one standard',
 	support: 'Supporting item',
 	useCase: 'Use case',
+	// ⟪meaningsExplorer⟫ the meanings walk's top and its groups (its domains, properties and meanings are a hub's own kinds, below)
+	meaningCatalog: 'All meanings',
+	meaningHub: 'Hub',
 	unclassified: 'Unclassified',
 	more: 'More, in the table',
 });
 
 // a hub's own kinds: '<hub> element', '<hub> property', '<hub> domain'
-const hubKindNounByKind = Object.freeze({ hubAnchor: 'element', hubProperty: 'property', hubDomain: 'domain' });
-const hubKindPluralNounByKind = Object.freeze({ hubAnchor: 'elements', hubProperty: 'properties', hubDomain: 'domains' });
+// ⟪meaningsExplorer⟫ and in the meanings walk, '<hub> meaning', '<hub> domain', '<hub> property' (a hub card is a 'meaning' wherever it is the subject)
+const hubKindNounByKind = Object.freeze({ hubAnchor: 'element', hubProperty: 'property', hubDomain: 'domain', meaning: 'meaning', meaningDomain: 'domain', meaningProperty: 'property' });
+const hubKindPluralNounByKind = Object.freeze({ hubAnchor: 'elements', hubProperty: 'properties', hubDomain: 'domains', meaning: 'meanings', meaningDomain: 'domains', meaningProperty: 'properties' });
 
 export const kindDisplayNameOf = (nodeKind, hubName) => (hubKindNounByKind[nodeKind] ? `${hubNameTextOf(hubName)} ${hubKindNounByKind[nodeKind]}` : kindDisplayNameByKind[nodeKind] || nodeKind);
 
@@ -93,6 +97,7 @@ const pluralKindNameByKind = Object.freeze({
 	standardGroup: 'standards',
 	optionValue: 'codes',
 	useCase: 'use cases',
+	meaningHub: 'hubs',
 });
 
 export const pluralKindNameOf = (nodeKind, hubName) =>
@@ -120,6 +125,13 @@ export const relationshipDisplayNameByType = Object.freeze({
 	HAS_USE_CASE: 'Use cases',
 	MAPPED_FROM_STANDARD: 'Standards that map here',
 	MAPPED_TO_ANCHOR: 'Mapped elements',
+	// ⟪meaningsExplorer⟫
+	HAS_MEANING_HUB: 'Hubs',
+	HAS_MEANING_DOMAIN: 'Domains',
+	HAS_MEANING_PROPERTY: 'Properties',
+	HAS_MEANING: 'Meanings',
+	HAS_TERM_MEANING: 'Its own term',
+	HAS_VALUE_MEANING: 'Value meanings',
 });
 
 // the relationships said OF a hub: the explorer's own mapping groups, and a hub anchor's context groups, whose types
@@ -196,8 +208,8 @@ export const versionMemberNounOf = (nodeKind) => versionMemberNounByKind[nodeKin
 export const FAMILY_CATALOG_STABLE_ID = 'families:all';
 
 // a path as the explorer keeps it: the catalog first, prepended when a path (an /explore/pesc link) lacks it
-export const explorerPathOf = (pathStableIdList) =>
-	pathStableIdList[0] === FAMILY_CATALOG_STABLE_ID ? pathStableIdList : [FAMILY_CATALOG_STABLE_ID, ...pathStableIdList];
+// ⟪meaningsExplorer review S6⟫ the standards walk's case of walkPathOf (below)
+export const explorerPathOf = (pathStableIdList) => walkPathOf('standards', pathStableIdList);
 
 // the family the walk began in: the first family: crumb; none while the walk is still at the catalog
 export const homeStandardFamilyOf = (pathStableIdList) => {
@@ -228,6 +240,17 @@ export const hubMappedTextOf = (hubRow) => {
 	if (hubRow.mappedElementCount === undefined) return '';
 	return hubRow.mappedElementCount ? `${hubRow.mappedElementCount} mappings` : 'nothing maps here';
 };
+
+// ⟪meaningsExplorer⟫ how many meanings a hub, a domain or a property holds, and how many a standard maps to; and what one meaning is about
+export const meaningCountTextOf = (meaningGroupRow) => {
+	if (meaningGroupRow.tierCountList) return meaningGroupRow.tierCountList.map((oneTier) => `${oneTier.meaningCount} ${oneTier.referenceTier}`).join(' · ');
+	if (meaningGroupRow.meaningCount === undefined) return '';
+	return meaningGroupRow.mappedMeaningCount ? `${meaningGroupRow.mappedMeaningCount} of ${meaningGroupRow.meaningCount} mapped to` : `${meaningGroupRow.meaningCount} meanings`;
+};
+export const meaningInfoTextOf = (meaningRow) =>
+	[`${meaningRow.referenceTier}${meaningRow.termKind ? ` ${meaningRow.termKind}` : ''}`, meaningRow.rangeName ? `range ${meaningRow.rangeName}` : '', (meaningRow.qualifierNameList || []).length ? `qualified by ${meaningRow.qualifierNameList.join(', ')}` : '']
+		.filter(Boolean)
+		.join(' · ');
 
 // cmd-click (macOS) or ctrl-click (Windows, Linux) opens an item at once, as its panel's Open button would
 export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));
@@ -268,7 +291,71 @@ export const pathTextOf = (pathStableIdList) => pathStableIdList.map((oneStableI
 // the route the explorer lives at, and a link to one walk on it: every drill, crumb and Open is a real link with an href
 // built here, so it can be followed, opened in a new tab, shared, or read by an AI agent without clicking
 export const EXPLORER_ROUTE_PATH = '/explore/standards';
-export const explorerLinkOf = (pathStableIdList) => ({ path: EXPLORER_ROUTE_PATH, query: { path: pathTextOf(pathStableIdList) } });
+// ⟪meaningsExplorer review S6⟫ the standards walk's case of walkLinkOf (below)
+export const explorerLinkOf = (pathStableIdList) => walkLinkOf('standards', pathStableIdList);
+
+// ================================================================================
+// ⟪meaningsExplorer, WORKORDER-meaningsExplorer-111026⟫ THE WALKS — the Explorer's views walk more than one graph from one set of components. Each walk
+// is a profile here, chosen by the page (WalkView's walkProfileName) and held by the store; a component asks the store for a link (store.walkLinkOf) and
+// never names a route itself. The Standards Explorer is the 'standards' profile, exactly as it was; the Meanings explorer is 'meanings'.
+//   rootStableId          the synthetic id every path begins with (prepended when a path lacks it)
+//   offersSchemaViewer    the Schema Viewer view, for a walk inside one standard
+//   showsStandardSections the detail panel's sections about a standard: its catalog card, its version tiles, its companion pages and downloads
+//   legendNodeKindList    the legend's bubbles, drawn once per hub the page names; null: the Standards Explorer's own legend (Legend.vue)
+
+export const MEANING_CATALOG_STABLE_ID = 'meanings:all';
+export const MEANINGS_ROUTE_PATH = '/explore/meanings';
+
+export const walkProfileByName = Object.freeze({
+	standards: Object.freeze({
+		walkProfileName: 'standards',
+		routePath: EXPLORER_ROUTE_PATH,
+		rootStableId: FAMILY_CATALOG_STABLE_ID,
+		titleText: 'Standards Explorer',
+		introText: 'Pick a standard, then walk it: click a bubble or a row to see what it is; double-click, or use Open, to go inside it.',
+		rootLevelText: 'every standards family',
+		metaDescriptionText: 'Walk the education data standards in the EDUcore graph: each family, its classes and properties, the hub elements they map to, and every other standard that maps there.',
+		offersSchemaViewer: true,
+		showsStandardSections: true,
+		legendNodeKindList: null,
+	}),
+	meanings: Object.freeze({
+		walkProfileName: 'meanings',
+		routePath: MEANINGS_ROUTE_PATH,
+		rootStableId: MEANING_CATALOG_STABLE_ID,
+		titleText: 'Meanings Explorer',
+		introText: 'A meaning is one idea the standards can express, named once with a permanent URI. Pick a hub, then a domain and a property; open a meaning to see what it names and every standard element that expresses it.',
+		rootLevelText: 'every group of meanings',
+		metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains and properties, the meanings they name, and every standard element mapped to each meaning.',
+		offersSchemaViewer: false,
+		showsStandardSections: false,
+		legendNodeKindList: Object.freeze(['meaningHub', 'meaningDomain', 'meaningProperty', 'meaning']),
+	}),
+});
+
+// a walk profile by name; a name not listed is refused, never quietly read as another walk
+export const walkProfileOf = (walkProfileName) => {
+	const walkProfile = walkProfileByName[walkProfileName];
+	if (!walkProfile) throw new Error(`explorerVocabulary: '${walkProfileName}' is not a walk profile (${Object.keys(walkProfileByName).join(', ')})`);
+	return walkProfile;
+};
+
+// a link to one point of a walk, and a path that begins at the walk's root (explorerLinkOf and explorerPathOf are the standards walk's)
+export const walkLinkOf = (walkProfileName, pathStableIdList) => ({ path: walkProfileOf(walkProfileName).routePath, query: { path: pathTextOf(pathStableIdList) } });
+export const walkPathOf = (walkProfileName, pathStableIdList) => {
+	const rootStableId = walkProfileOf(walkProfileName).rootStableId;
+	return pathStableIdList[0] === rootStableId ? pathStableIdList : [rootStableId, ...pathStableIdList];
+};
+
+// a meaning as the Meanings explorer opens it from elsewhere (the Standards Explorer, a /edc meaning page): the catalog, then the meaning itself
+export const MEANING_ID_PREFIX = 'meaning:';
+export const meaningsLinkOf = (cardStableId) => walkLinkOf('meanings', [MEANING_CATALOG_STABLE_ID, `${MEANING_ID_PREFIX}${cardStableId}`]);
+
+// (an element's path in the Standards Explorer is made by the server, from the walk's own rules: an "Expressed in" element's standardsWalkPathStableIdList)
+
+// the site's own page for an EDUcore URI: the /edc resolver answers https://w3id.org/EDUcore/<rest> at /edc/<rest> (edc-resolve.js); another IRI has none
+export const EDC_BASE_IRI = 'https://w3id.org/EDUcore/';
+export const edcPagePathOf = (edcUri) => (typeof edcUri === 'string' && edcUri.startsWith(EDC_BASE_IRI) ? `/edc/${edcUri.slice(EDC_BASE_IRI.length)}` : '');
 
 export const pathStableIdListOf = (pathText) =>
 	typeof pathText === 'string' && pathText !== ''

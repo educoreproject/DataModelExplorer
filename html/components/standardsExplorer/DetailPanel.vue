@@ -7,11 +7,14 @@
 // For a family, a release or a standard, the specification catalog's card for that family (SpecificationCard.vue);
 // at the families catalog, the catalog's specifications the graph does not hold yet.
 // ⟪explorerUris⟫ Beneath the definition, the Cite as line (CiteAs.vue) for a node the server sent a uri.
+// ⟪meaningsExplorer⟫ A meaning (the Meanings explorer's kind) shows MeaningSection.vue in place of the facts and the Cite as line (it ends with its own); a hub
+// element of the Standards Explorer links to its meaning there ("Open in Meanings"). The sections about one standard (its catalog card, version tiles,
+// companion pages and downloads) show only in a walk whose profile has them (store.walkProfile.showsStandardSections).
 
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, explorerLinkOf, displayNameOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -59,9 +62,12 @@ const mappingList = computed(() => {
 
 const shownOccurrenceCount = computed(() => Math.max(shownNode.value?.occurrenceCount || 1, occurrenceCountOfMappingList(mappingList.value)));
 
+// a meaning's own section says what it is; the generic facts would only repeat it
+const isMeaning = computed(() => shownNode.value?.kind === 'meaning');
+
 const factList = computed(() => {
 	const oneNode = shownNode.value;
-	if (!oneNode) return [];
+	if (!oneNode || isMeaning.value) return [];
 	const familyName = oneNode.standardFamily ? familyStyleOf(oneNode.standardFamily).displayName : '';
 	const ancestorText = isFocus.value ? (store.neighbourhood.ancestorList || []).map((oneAncestor) => displayNameOf(store.nodeSummaryByStableId[oneAncestor.stableId] || oneAncestor)).join(' › ') : '';
 	return [
@@ -83,6 +89,9 @@ const factList = computed(() => {
 		{ factName: 'Elements', factText: oneNode.elementCount ? String(oneNode.elementCount) : '' },
 		{ factName: `${hubNameTextOf(oneNode.hubName)} tier`, factText: oneNode.referenceTier || '' },
 		{ factName: kindDisplayNameOf('hubDomain', oneNode.hubName), factText: (oneNode.hubDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.hubDomainName || '' },
+		// ⟪meaningsExplorer⟫ a group of meanings (a hub, a domain, a property) says how many it holds and how many a standard maps to
+		{ factName: 'Meanings', factText: oneNode.meaningCount !== undefined && oneNode.kind !== 'meaningHub' ? `${oneNode.meaningCount}${oneNode.mappedMeaningCount ? `, ${oneNode.mappedMeaningCount} mapped to by a standard` : ''}` : '' },
+		{ factName: 'Meanings', factText: oneNode.tierCountList ? oneNode.tierCountList.map((oneTier) => `${oneTier.meaningCount} ${oneTier.referenceTier}`).join(', ') : '' },
 		{ factName: 'Occurrences shown', factText: isFocus.value && store.neighbourhood.instanceFolding && store.neighbourhood.instanceFolding.occurrenceCount > 1 ? (store.neighbourhood.instanceFolding.folded ? 'folded: they all map the same way' : 'yes: they map differently') : '' },
 	].filter((oneFact) => oneFact.factText);
 });
@@ -129,7 +138,8 @@ const definitionText = computed(() => {
 		<h2 class="detail-name" data-testid="detail-name" aria-live="polite">{{ shownNode.displayName }}</h2>
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
 		<!-- ⟪explorerUris⟫ the node's EDUcore URI, as the /edc page cites it; none for a node the server sent no uri -->
-		<StandardsExplorerCiteAs v-if="shownNode.uri" :uri="shownNode.uri" :uri-kind="shownNode.uriKind" :element-list-uri="shownNode.elementListUri || ''" />
+		<StandardsExplorerMeaningSection v-if="isMeaning" :meaning-node="shownNode" :is-focus="isFocus" />
+		<StandardsExplorerCiteAs v-if="shownNode.uri && !isMeaning" :uri="shownNode.uri" :uri-kind="shownNode.uriKind" :element-list-uri="shownNode.elementListUri || ''" />
 
 		<div v-if="mappingList.length" class="detail-box" data-testid="detail-mapping">
 			<span class="detail-box-head">Maps to {{ mappingHubText }}</span>
@@ -165,11 +175,13 @@ const definitionText = computed(() => {
 
 		<StandardsExplorerVersionBadge v-if="shownNode.versionBadge" :version-badge="shownNode.versionBadge" class="detail-badge" />
 
-		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" :to="explorerLinkOf([...store.pathStableIdList, shownNode.stableId])">Open {{ shownNode.displayName }} ›</v-btn>
+		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" :to="store.walkLinkOf([...store.pathStableIdList, shownNode.stableId])">Open {{ shownNode.displayName }} ›</v-btn>
+		<!-- ⟪meaningsExplorer⟫ a hub element is a meaning: its own page in the Meanings explorer -->
+		<v-btn v-if="shownNode.kind === 'hubAnchor'" variant="outlined" color="primary" class="detail-open" data-testid="detail-open-in-meanings" :to="meaningsLinkOf(shownNode.stableId)">Open in Meanings ›</v-btn>
 		<v-btn v-if="shownNode.kind === 'useCase'" color="primary" class="detail-open" data-testid="detail-open-use-case" :to="`/explore/use-cases/forged/${encodeURIComponent(shownNode.stableId)}`">Steps and citations ›</v-btn>
 		<!-- the end of the line only when nothing is beneath (a selected item with children has its Open above, and is not
 		     the end of the line); a focus with children is where the walk is -->
-		<p v-else-if="!shownNode.hasChildren" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
+		<p v-else-if="!shownNode.hasChildren && !(isMeaning && isFocus)" class="detail-leaf" data-testid="detail-leaf">Nothing beneath this one. This is the end of the line.</p>
 		<p v-else-if="isFocus" class="detail-note">You are here. Click anything on this level for its details.</p>
 
 		<section v-if="shownSpec" class="detail-catalog" aria-label="About this specification" data-testid="detail-spec">
@@ -204,8 +216,10 @@ const definitionText = computed(() => {
 			</template>
 		</section>
 
-		<StandardsExplorerCompanionPagesSection />
-		<StandardsExplorerDownloadsSection />
+		<template v-if="store.walkProfile.showsStandardSections">
+			<StandardsExplorerCompanionPagesSection />
+			<StandardsExplorerDownloadsSection />
+		</template>
 	</aside>
 </template>
 

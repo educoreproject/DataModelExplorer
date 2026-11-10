@@ -18,6 +18,8 @@ import {
 	displayNameOf,
 	isSecondaryRelationshipType,
 	relationshipDisplayNameOf,
+	walkLinkOf,
+	walkProfileOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
 const standardsNeighbourhoodStoreInitObject = {
@@ -32,6 +34,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	filterText: '',
 	legendVisible: true,
 	versionTileStateByStableId: {},
+	// ⟪meaningsExplorer⟫ which walk the views are drawing (explorerVocabulary's walkProfileByName); WalkView sets it from its page on every mount
+	walkProfileName: 'standards',
 };
 
 const NEIGHBOURHOOD_URL = '/api/standards-neighbourhood';
@@ -83,6 +87,14 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	versionList: oneItem.versionList || null,
 	version: oneItem.version || null,
 	releaseLabel: oneItem.releaseLabel || null,
+	// ⟪meaningsExplorer⟫ a meaning's tier and what it is about; a meaning group's counts
+	referenceTier: oneItem.referenceTier || null,
+	termKind: oneItem.termKind || null,
+	rangeName: oneItem.rangeName || '',
+	qualifierNameList: oneItem.qualifierNameList || null,
+	meaningCount: oneItem.meaningCount,
+	mappedMeaningCount: oneItem.mappedMeaningCount,
+	tierCountList: oneItem.tierCountList || null,
 	// ⟪explorerUris⟫ its EDUcore URI as the server minted it, or why there is none (a synthetic row has neither)
 	...uriFieldsOfItem(oneItem),
 });
@@ -114,6 +126,10 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 	getters: {
 		focusNode: (state) => (state.neighbourhood ? state.neighbourhood.node : null),
+
+		// ⟪meaningsExplorer⟫ the walk being drawn, and a link to a point of it: every component's Open, crumb and row link goes through here
+		walkProfile: (state) => walkProfileOf(state.walkProfileName),
+		walkLinkOf: (state) => (pathStableIdList) => walkLinkOf(state.walkProfileName, pathStableIdList),
 
 		// every row of this level: mappings first, then children by group; folded occurrence groups are left out
 		levelRowList: (state) => {
@@ -158,7 +174,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		// in; none at the families catalog, where there is no one standard to show the schema of
 		walkStandard() {
 			const focusNode = this.focusNode;
-			if (!focusNode || focusNode.kind === 'familyCatalog') return null;
+			if (!focusNode || focusNode.kind === 'familyCatalog' || !this.walkProfile.offersSchemaViewer) return null;
 			const standardFamily = focusNode.standardFamily || (this.pathStableIdList.find((oneStableId) => oneStableId.indexOf('family:') === 0) || '').slice('family:'.length);
 			if (!standardFamily) return null;
 			return { standardFamily, standardKey: focusNode.standardKey || null, releaseLabel: focusNode.releaseLabel || null, version: focusNode.version || null };
@@ -180,7 +196,7 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		// item carries a version identity and its message has another version (a one-version standard asks nothing)
 		versionTileSubject() {
 			const focusNode = this.focusNode;
-			if (!focusNode || !(focusNode.otherVersionList || []).length) return null;
+			if (!focusNode || !this.walkProfile.showsStandardSections || !(focusNode.otherVersionList || []).length) return null;
 			const subjectNode = this.selectedRow || focusNode;
 			const inFocusStandard = !subjectNode.standardKey || subjectNode.standardKey === focusNode.standardKey;
 			if (!subjectNode.hasVersionIdentity || !inFocusStandard) return null;
@@ -295,6 +311,12 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			(neighbourhood.mappingList || []).forEach((oneMapping) => {
 				this.nodeSummaryByStableId[oneMapping.anchor.stableId] ||= { stableId: oneMapping.anchor.stableId, name: oneMapping.anchor.name, kind: 'hubAnchor', hubName: oneMapping.anchor.hubName || null, standardFamily: oneMapping.anchor.standardFamily || null };
 			});
+		},
+
+		// ⟪meaningsExplorer⟫ the page names its walk; a walk not in explorerVocabulary's walkProfileByName is refused there
+		setWalkProfileName(walkProfileName) {
+			walkProfileOf(walkProfileName);
+			this.walkProfileName = walkProfileName;
 		},
 
 		retry() {

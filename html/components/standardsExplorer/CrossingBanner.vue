@@ -3,7 +3,7 @@
 // offers the way back to the element the person started from.
 
 import { computed } from 'vue';
-import { explorerLinkOf, familyStyleOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyStyleOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 
 const props = defineProps({
@@ -12,7 +12,7 @@ const props = defineProps({
 const store = useStandardsNeighbourhoodStore();
 
 // the way back is a link to the walk as it stood at the home crumb
-const homeLink = computed(() => explorerLinkOf(store.pathStableIdList.slice(0, props.crossing.homeCrumb.pathIndex + 1)));
+const homeLink = computed(() => store.walkLinkOf(store.pathStableIdList.slice(0, props.crossing.homeCrumb.pathIndex + 1)));
 
 const crossedStyle = computed(() => familyStyleOf(props.crossing.crossedFamily));
 const homeStyle = computed(() => familyStyleOf(props.crossing.homeCrumb.standardFamily));

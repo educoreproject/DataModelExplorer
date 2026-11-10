@@ -30,6 +30,12 @@ const swatchStyle = computed(() => {
 		standardGroup: { background: familyStyle.tint, border: `2px solid ${familyStyle.color}`, borderRadius: '50%' },
 		useCase: { background: familyStyle.tint, border: `2px solid ${familyStyle.color}`, borderRadius: '4px' },
 		support: { background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '4px' },
+		// ⟪meaningsExplorer⟫ the meanings walk draws a hub's meanings, domains and properties as the hub's own kinds are drawn
+		meaningCatalog: { background: '#072A6C', borderRadius: '50%' },
+		meaningHub: { background: familyStyle.color, borderRadius: '50%' },
+		meaningDomain: { background: familyStyle.tint, border: `1px solid ${familyStyle.color}`, borderRadius: '4px' },
+		meaningProperty: { background: familyStyle.tint, border: `1px solid ${familyStyle.color}`, borderRadius: '50%' },
+		meaning: { background: familyStyle.fill || familyStyle.color, clipPath: 'polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%)' },
 	};
 	return swatchByKind[props.nodeKind] || { background: '#F3F4F6', border: '1px dashed #9CA3AF', borderRadius: '4px' };
 });

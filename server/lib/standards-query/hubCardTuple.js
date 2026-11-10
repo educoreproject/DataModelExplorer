@@ -47,8 +47,9 @@ const SLOT_NAME_BY_EDGE_SLOT_NAME = Object.freeze(hubCardTupleRules.slotList.red
 const slotNameOfEdgeType = (edgeType) => SLOT_NAME_BY_EDGE_SLOT_NAME[edgeType.split('_').slice(2).join('_')];
 
 // the card, its hub's slotProfile, its datatype range fields and every slot element, in ONE read. The native identifier column is written from the graph's own
-// declarations (checked against the identifier grammar by nativeIdentifier.js); when they are refused the column is null and every part says why.
-const cardCypherFor = (declarationList) => `MATCH (card:HubReference { stableId: $cardStableId }) WHERE card.hubName = $hubName
+// declarations (checked against the identifier grammar by nativeIdentifier.js); when they are refused the column is null and every part says why. The card is matched
+// as a ForgedNode, where the stableId index is: a match on :HubReference alone scans every card (about 90 ms a read, measured in WORKORDER-meaningsExplorer-111026)
+const cardCypherFor = (declarationList) => `MATCH (card:ForgedNode { stableId: $cardStableId }) WHERE card:HubReference AND card.hubName = $hubName
 OPTIONAL MATCH (hub:HubDefinition { hubName: card.hubName })
 WITH card, head(collect(hub.slotProfile)) AS slotProfileText
 OPTIONAL MATCH (card)-[slotEdge]->(element:ForgedNode) WHERE type(slotEdge) IN $slotEdgeTypeList

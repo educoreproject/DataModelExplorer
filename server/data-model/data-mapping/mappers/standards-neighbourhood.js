@@ -19,7 +19,8 @@
 // Four synthetic node ids exist only on the wire, never in the graph: 'families:all' (every standards family the
 // graph holds: the explorer's top), 'family:<standardFamily>' (one family's catalog as a node),
 // 'release:<standardFamily>/<releaseLabel>' (a message offered in several versions: the version picker) and
-// 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one hub anchor).
+// 'standardGroup:<standardKey>@<anchorStableId>' (one standard's elements mapped to one hub anchor). ⟪meaningsExplorer⟫ Five more walk the hub cards
+// as meanings (meaningSyntheticIdPrefixList, below).
 //
 // A hub standard is a standard like the others (a DmeStandardRoot: root -HAS_CLASS-> class -HAS_PROPERTY-> property),
 // but its anchors hang BELOW nothing: a HubReference points AT its hub's property and domain through its own hub's
@@ -34,6 +35,8 @@ const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 // the labels this mapper's Cypher reads; the access point refuses by name when the golden lacks one
 const requiredLabelList = Object.freeze(['ForgedNode', 'DmeStandardRoot', 'DmeClass', 'DmeProperty', 'HubReference']);
 
+// ⟪meaningsExplorer⟫ a card is matched as (:ForgedNode {stableId}) WHERE it is a HubReference: the stableId index is on ForgedNode, and a match on
+// :HubReference alone scans every card (about 90 ms each on GOLD_261030_useCases; runs/meaningsExplorer/perf_before.txt)
 // a JS number reaches Neo4j as a FLOAT and a slice bound refuses a float, so the cap is an integer in the Cypher text
 const GROUP_ITEM_CAP = 500;
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
@@ -65,6 +68,14 @@ const childRelationshipTypeList = Object.freeze([
 
 // the climb from a standard's root down to one of its elements, for the breadcrumb
 const ancestorRelationshipTypeText = 'HAS_CLASS|HAS_PROPERTY|HAS_FIELD|HAS_INSTANCE|HAS_CHILD|HAS_OPTION_SET|HAS_VALUE|HAS_SUPPORT';
+// ⟪meaningsExplorer review S6⟫ the climb's Cypher, written once: every shortest climb from a root to a node, and a climb's nodes as the breadcrumb reads them
+// (ancestorChainsByStableId and meaningExpressionsByCardStableId both use these; chooseAncestorChain picks among the climbs)
+const ancestorChainPathTextFor = (rootVariableName, focusVariableName) => `allShortestPaths((${rootVariableName})-[:${ancestorRelationshipTypeText}*1..8]->(${focusVariableName}))`;
+const chainNodeListTextFor = (chainVariableName) =>
+	`[chainNode IN nodes(${chainVariableName}) | { stableId: chainNode.stableId, name: chainNode.name, labelList: labels(chainNode), hubName: ${hubNameOfNodeTextFor('chainNode')} }]`;
+// every element mapped to one card, with its standard's root ($stableId is the card): the head of the anchor fan-out and of "Expressed in"
+const cardExpressionHeadText = `MATCH (anchor:ForgedNode {stableId: $stableId})<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode) WHERE anchor:HubReference
+					MATCH (root:DmeStandardRoot {_source: element._source})`;
 
 // label → page kind; the FIRST label in this list that a node carries decides. hubStandardNodeKind is the kind when the
 // node belongs to a hub standard (its record carries the hub's hubName): a hub's own domains and properties
@@ -89,6 +100,10 @@ const matchKindByEdgeType = Object.freeze({
 	NARROW_MATCH: { matchKind: 'narrow', strengthRank: 3 },
 	BROAD_MATCH: { matchKind: 'broad', strengthRank: 4 },
 });
+
+// a match edge's strength rank as Cypher, from the registry above, so a query can order strongest first as byStrength does
+const matchStrengthRankTextFor = (edgeVariableName) =>
+	`CASE type(${edgeVariableName}) ${Object.entries(matchKindByEdgeType).map(([edgeType, matchKindEntry]) => `WHEN '${edgeType}' THEN ${matchKindEntry.strengthRank}`).join(' ')} END`;
 
 // VERSION COUNTERPARTS — what definitionDigest covers, as the graph shows it (educoreForge pesc-release-forge
 // walk.js, read 2026-10-14). The forge hashes the parser's model of a definition: for a type, its documentation,
@@ -131,9 +146,60 @@ const syntheticIdPrefixList = Object.freeze([
 	{ idPrefix: 'release:', nodeKind: 'release' },
 	{ idPrefix: 'standardGroup:', nodeKind: 'standardGroup' },
 ]);
+// (the meanings walk's five are appended below, after their own block; parseSyntheticId reads allSyntheticIdPrefixList)
 
 // the one families-catalog id; 'families:' followed by anything else is refused by name
 const FAMILY_CATALOG_STABLE_ID = 'families:all';
+
+// ================================================================================
+// ⟪meaningsExplorer, WORKORDER-meaningsExplorer-111026⟫ THE MEANINGS WALK — the hub cards (HubReference, 'meanings' to a reader) as the subject:
+//   meanings:all                                     every meaning group (today: one per hub)
+//   meaningHub:<hubName>                             one hub's domains (the hub classes its property cards are in)
+//   meaningDomain:<domainStableId>                   one domain's properties, and the domain's own term meaning
+//   meaningProperty:<domainStableId>@<propertyStableId>   the property's meanings in that domain, and the property's own term meaning
+//   meaning:<cardStableId>                           one meaning: its tuple, where it is expressed, and (a property meaning) its value meanings
+// The synthetic ids carry the walk's context (a property's meanings are the ones IN that domain), which a bare stableId cannot.
+// citesStableIdOfRemainder: the remainder IS a graph stableId the row stands for, so the row cites that node's URI (stage 4, withUriFields).
+const meaningSyntheticIdPrefixList = Object.freeze([
+	{ idPrefix: 'meanings:', nodeKind: 'meaningCatalog' },
+	{ idPrefix: 'meaningHub:', nodeKind: 'meaningHub' },
+	{ idPrefix: 'meaningDomain:', nodeKind: 'meaningDomain', citesStableIdOfRemainder: true },
+	{ idPrefix: 'meaningProperty:', nodeKind: 'meaningProperty' },
+	{ idPrefix: 'meaning:', nodeKind: 'meaning', citesStableIdOfRemainder: true },
+]);
+
+const MEANING_CATALOG_STABLE_ID = 'meanings:all';
+
+// THE MEANINGS WALK'S GROUPING — the one place that says what the catalog's first level is. Today a meaning is grouped by its hub; a later grouping (by
+// topic, say) is a new entry here and a reader for its groups, and the walk beneath the group does not change. groupNodeKind names the group level's
+// synthetic kind (its handler is in the access point's handlerBySyntheticKind); groupListQueryName is the query listing the groups.
+const meaningCatalogGrouping = Object.freeze({ groupNodeKind: 'meaningHub', groupIdPrefix: 'meaningHub:', groupListQueryName: 'meaningHubCatalog', relationshipType: 'HAS_MEANING_HUB' });
+
+// the tiers the walk's lists show. A property-tier meaning is one hub property in one hub domain; a term-tier meaning is one hub element meant on its own (a
+// domain's or a property's own term is listed beside it). A value-tier meaning is one code of a property in a domain: up to 7,916 under one property card on
+// GOLD_261030_useCases, so it is listed only inside its property meaning, capped at GROUP_ITEM_CAP with its true count.
+const meaningListTierList = Object.freeze(['property', 'term']);
+const MEANING_VALUE_TIER = 'value';
+// the term tiers listed beside a domain and beside a property: the term card whose term IS that domain or that property
+const meaningTermKindByLevel = Object.freeze({ meaningDomain: ['class'], meaningProperty: ['property'] });
+
+// the divider of a meaningProperty id: no hub domain or hub property stableId holds '@' (0 of 10,209 pairs on GOLD_261030_useCases), and an id with any
+// other count of '@' is refused by name rather than split by guess
+const MEANING_PROPERTY_DIVIDER = '@';
+
+const allSyntheticIdPrefixList = Object.freeze(syntheticIdPrefixList.concat(meaningSyntheticIdPrefixList));
+
+// a card's match edges, and the judged elements a meaning row counts
+const cardMappedElementCountTextFor = (cardVariableName) => `COUNT { MATCH (${cardVariableName})<-[:${MATCH_EDGE_TYPE_TEXT}]-(mappedElement:ForgedNode) RETURN DISTINCT mappedElement }`;
+// what a meaning row says it means: the card's own definition for its tier, then its hub element's
+const cardDefinitionTextFor = (cardVariableName) =>
+	`coalesce(${cardVariableName}.valueDefinition, ${cardVariableName}.termDefinition, ${cardVariableName}.propertyDefinition, ${cardVariableName}.description, '')`;
+// one meaning as a row of the walk (the mapper's mapMeaningItem shapes it)
+const meaningRowTextFor = (cardVariableName) => `{ cardStableId: ${cardVariableName}.stableId, name: ${cardVariableName}.name, hubName: ${cardVariableName}.hubName,
+	referenceTier: ${cardVariableName}.referenceTier, termKind: ${cardVariableName}.termKind, description: ${cardDefinitionTextFor(cardVariableName)},
+	domainName: ${cardVariableName}.domainName, qualifierNameList: coalesce(${cardVariableName}.qualifierNames, []),
+	rangeName: coalesce(${cardVariableName}.rangeOptionSetName, ${cardVariableName}.rangeClassName, ${cardVariableName}.rangeDatatype),
+	mappedElementCount: ${cardMappedElementCountTextFor(cardVariableName)} }`;
 
 // the HubReference tiers a hub property lists as its hub elements. A property-tier anchor is one hub property in
 // one hub domain, the thing standards map to (1,123 of 2,777 carry judgments on GOLD_EVAL_261013_jevQuestionPerBridge);
@@ -285,7 +351,7 @@ const moduleFunction =
 
 			anchorContextByStableId: ({ stableId }) => ({
 				cypher: `
-					MATCH (anchor:HubReference {stableId: $stableId})
+					MATCH (anchor:ForgedNode {stableId: $stableId}) WHERE anchor:HubReference
 					RETURN anchor.hubName AS hubName, anchor.referenceTier AS referenceTier, anchor.domainName AS domainName, anchor.propertyName AS propertyName,
 					       anchor.valueName AS valueName, anchor.rangeOptionSetName AS rangeOptionSetName,
 					       [(anchor)-[propertySlotEdge]->(hubProperty) WHERE type(propertySlotEdge) = ${anchorPropertySlotTextFor('anchor')} | { stableId: hubProperty.stableId, name: hubProperty.name, definition: coalesce(hubProperty.definition, hubProperty.description, ''),
@@ -299,8 +365,7 @@ const moduleFunction =
 			// every element mapped to one anchor, gathered per owning standard and match edge type
 			anchorFanOutByStableId: ({ stableId }) => ({
 				cypher: `
-					MATCH (anchor:HubReference {stableId: $stableId})<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode)
-					MATCH (root:DmeStandardRoot {_source: element._source})
+					${cardExpressionHeadText}
 					WITH root, type(matchEdge) AS matchEdgeType, collect(DISTINCT element.stableId) AS elementStableIdList,
 					     max(matchEdge.mappingConfidence) AS maximumConfidence
 					RETURN root.stableId AS rootStableId, root.name AS rootName, root.standardKey AS standardKey,
@@ -313,9 +378,9 @@ const moduleFunction =
 			standardGroupMembers: ({ anchorStableId, standardKey }) => ({
 				cypher: `
 					MATCH (root:DmeStandardRoot {standardKey: $standardKey})
-					MATCH (anchor:HubReference {stableId: $anchorStableId})<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode {_source: root._source})
+					MATCH (anchor:ForgedNode {stableId: $anchorStableId})<-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]-(element:ForgedNode {_source: root._source}) WHERE anchor:HubReference
 					WITH element, matchEdge, head([(owner)-[:HAS_INSTANCE]->(element) | owner.name]) AS ownerName
-					ORDER BY matchEdge.mappingConfidence DESC, element.name
+					ORDER BY matchEdge.mappingConfidence DESC, element.name, element.stableId
 					WITH count(element) AS itemCount, collect({ element: element, matchEdge: matchEdge, ownerName: ownerName })[0..${GROUP_ITEM_CAP}] AS cappedMemberList
 					UNWIND cappedMemberList AS member
 					WITH itemCount, member.element AS element, member.matchEdge AS matchEdge, member.ownerName AS ownerName
@@ -336,8 +401,8 @@ const moduleFunction =
 				cypher: `
 					MATCH (focus:ForgedNode {stableId: $stableId})
 					MATCH (root:DmeStandardRoot {_source: focus._source}) WHERE root <> focus
-					MATCH chain = allShortestPaths((root)-[:${ancestorRelationshipTypeText}*1..8]->(focus))
-					RETURN [chainNode IN nodes(chain) | { stableId: chainNode.stableId, name: chainNode.name, labelList: labels(chainNode), hubName: ${hubNameOfNodeTextFor('chainNode')} }] AS chainNodeList
+					MATCH chain = ${ancestorChainPathTextFor('root', 'focus')}
+					RETURN ${chainNodeListTextFor('chain')} AS chainNodeList
 					LIMIT 25
 				`,
 				params: { stableId },
@@ -401,6 +466,149 @@ const moduleFunction =
 				`,
 				params: { classStableId },
 			}),
+
+			// ================================================================================
+			// ⟪meaningsExplorer⟫ THE MEANINGS WALK'S READS. Every card is matched through its slot edges or as (:ForgedNode {stableId}) WHERE card:HubReference
+			// (the stableId index is on ForgedNode); a slot edge's type is the card's own hub's (cardHubSlotEdgeTypeTextFor), never a literal hub name.
+
+			// the catalog's groups today: one per hub, with what it holds (meaningCatalogGrouping names this query)
+			meaningHubCatalog: () => ({
+				cypher: `
+					MATCH (hub:HubDefinition)
+					OPTIONAL MATCH (hubRoot:DmeStandardRoot {_source: hub._source})
+					WITH hub, head(collect(hubRoot)) AS hubRoot
+					CALL {
+						WITH hub
+						MATCH (card:HubReference {hubName: hub.hubName})
+						WITH card.referenceTier AS referenceTier, count(card) AS meaningCount ORDER BY referenceTier
+						RETURN collect({ referenceTier: referenceTier, meaningCount: meaningCount }) AS tierCountList
+					}
+					RETURN hub.hubName AS hubName, coalesce(hub.displayName, hub.name, hub.hubName) AS hubTitle, hubRoot.standardFamily AS standardFamily, hubRoot.version AS version, tierCountList
+					ORDER BY hubName
+				`,
+				params: {},
+			}),
+
+			// one hub: is it a hub, and its family (for the colours)
+			meaningHubByName: ({ hubName }) => ({
+				cypher: `
+					MATCH (hub:HubDefinition {hubName: $hubName})
+					OPTIONAL MATCH (hubRoot:DmeStandardRoot {_source: hub._source})
+					RETURN hub.hubName AS hubName, coalesce(hub.displayName, hub.name, hub.hubName) AS hubTitle, head(collect(hubRoot.standardFamily)) AS standardFamily
+				`,
+				params: { hubName },
+			}),
+
+			// every hub and its family: the breadcrumb's colours, and the names a refusal lists
+			hubFamilyList: () => ({
+				cypher: `MATCH (hub:HubDefinition) OPTIONAL MATCH (hubRoot:DmeStandardRoot {_source: hub._source}) RETURN hub.hubName AS hubName, head(collect(hubRoot.standardFamily)) AS standardFamily ORDER BY hubName`,
+				params: {},
+			}),
+
+			// a hub's domains: the hub elements its property meanings name as their domain, each with how many meanings it holds and how many are mapped to
+			meaningDomainsByHubName: ({ hubName }) => ({
+				cypher: `
+					MATCH (card:HubReference {hubName: $hubName})-[domainEdge]->(domain:ForgedNode)
+					WHERE card.referenceTier = 'property' AND type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
+					WITH domain, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount,
+					     count(DISTINCT card.propertyKey) AS propertyCount
+					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description,
+					       meaningCount, mappedMeaningCount, propertyCount
+					ORDER BY name, stableId
+				`,
+				params: { hubName },
+			}),
+
+			// a domain: its own facts and its own term meaning
+			meaningDomainContext: ({ domainStableId }) => ({
+				cypher: `
+					MATCH (domain:ForgedNode {stableId: $domainStableId})
+					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description,
+					       ${hubNameOfNodeTextFor('domain')} AS hubName, ${anchorStandardFamilyTextFor('domain')} AS standardFamily,
+					       [(domain)<-[termEdge]-(termCard:HubReference) WHERE termCard.referenceTier = 'term' AND termCard.termKind IN $termKindList
+					         AND type(termEdge) = ${cardHubSlotEdgeTypeTextFor('termCard', 'TERM')} | ${meaningRowTextFor('termCard')}] AS termMeaningList
+				`,
+				params: { domainStableId, termKindList: [...meaningTermKindByLevel.meaningDomain] },
+			}),
+
+			// a domain's properties: the hub properties its property meanings name, each with how many meanings (one, or one per qualifier or range)
+			meaningPropertiesByDomainStableId: ({ domainStableId }) => ({
+				cypher: `
+					MATCH (domain:ForgedNode {stableId: $domainStableId})<-[domainEdge]-(card:HubReference)
+					WHERE card.referenceTier = 'property' AND type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
+					MATCH (card)-[propertyEdge]->(property:ForgedNode) WHERE type(propertyEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'PROPERTY')}
+					WITH property, card.hubName AS hubName, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount
+					RETURN property.stableId AS stableId, property.name AS name, coalesce(property.definition, property.description, '') AS description, hubName, meaningCount, mappedMeaningCount
+					ORDER BY name, stableId
+				`,
+				params: { domainStableId },
+			}),
+
+			// a property in a domain: its property meanings there, and the property's own term meaning
+			meaningsByDomainAndProperty: ({ domainStableId, propertyStableId }) => ({
+				cypher: `
+					MATCH (domain:ForgedNode {stableId: $domainStableId}), (property:ForgedNode {stableId: $propertyStableId})
+					RETURN domain.name AS domainName, property.name AS propertyName, ${hubNameOfNodeTextFor('property')} AS hubName, ${anchorStandardFamilyTextFor('property')} AS standardFamily,
+					       [(domain)<-[domainEdge]-(card:HubReference)-[propertyEdge]->(property) WHERE card.referenceTier = 'property'
+					         AND type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} AND type(propertyEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'PROPERTY')} | ${meaningRowTextFor('card')}] AS propertyMeaningList,
+					       [(property)<-[termEdge]-(termCard:HubReference) WHERE termCard.referenceTier = 'term' AND termCard.termKind IN $termKindList
+					         AND type(termEdge) = ${cardHubSlotEdgeTypeTextFor('termCard', 'TERM')} | ${meaningRowTextFor('termCard')}] AS termMeaningList
+				`,
+				params: { domainStableId, propertyStableId, termKindList: [...meaningTermKindByLevel.meaningProperty] },
+			}),
+
+			// one meaning: the card and where it sits (its domain and property, for a property or value meaning; none for a term)
+			meaningCardFacts: ({ cardStableId }) => ({
+				cypher: `
+					MATCH (card:ForgedNode {stableId: $cardStableId}) WHERE card:HubReference
+					RETURN ${meaningRowTextFor('card')} AS meaningRow, card.hubVersion AS hubVersion, ${anchorStandardFamilyTextFor('card')} AS standardFamily,
+					       card.valueName AS valueName, card.propertyName AS propertyName,
+					       head([(card)-[domainEdge]->(domain:ForgedNode) WHERE type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} | { stableId: domain.stableId, name: domain.name }]) AS domain,
+					       head([(card)-[propertyEdge]->(property:ForgedNode) WHERE type(propertyEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'PROPERTY')} | { stableId: property.stableId, name: property.name }]) AS property
+				`,
+				params: { cardStableId },
+			}),
+
+			// "Expressed in": the elements mapped to one meaning, PER STANDARD (the anchor fan-out gives each standard's true count), strongest first, then by
+			// confidence, name and stableId (no tie left to the planner), capped at GROUP_ITEM_CAP per standard; each with its root's release version count and
+			// every climb from its root (the Standards Explorer's path to it; standardsWalkPathOf picks the climb as chooseAncestorChain does)
+			meaningExpressionsByCardStableId: ({ stableId }) => ({
+				cypher: `
+					${cardExpressionHeadText}
+					WITH root, element, matchEdge ORDER BY ${matchStrengthRankTextFor('matchEdge')}, matchEdge.mappingConfidence DESC, element.name, element.stableId
+					WITH root, collect({ element: element, matchEdge: matchEdge })[0..${GROUP_ITEM_CAP}] AS cappedExpressionList
+					WITH root, cappedExpressionList, COUNT { MATCH (peer:DmeStandardRoot) WHERE peer.standardFamily = root.standardFamily AND peer.releaseLabel = root.releaseLabel } AS releaseVersionCount
+					UNWIND cappedExpressionList AS expression
+					WITH root, releaseVersionCount, expression.element AS element, expression.matchEdge AS matchEdge
+					CALL {
+						WITH root, element
+						MATCH chain = ${ancestorChainPathTextFor('root', 'element')} WHERE root <> element
+						RETURN collect(${chainNodeListTextFor('chain')})[0..25] AS chainNodeListList
+					}
+					RETURN root.standardKey AS standardKey, root.standardFamily AS standardFamily, root.releaseLabel AS releaseLabel, releaseVersionCount, collect({
+					         stableId: element.stableId, name: element.name, labelList: labels(element), hubName: ${hubNameOfNodeTextFor('element')},
+					         ownerName: head([(owner)-[:HAS_INSTANCE]->(element) | owner.name]),
+					         matchEdgeType: type(matchEdge), matchBasis: matchEdge.matchBasis, mappingConfidence: matchEdge.mappingConfidence, mappingSource: matchEdge.mappingSource,
+					         chainNodeListList: chainNodeListList }) AS expressionList
+				`,
+				params: { stableId },
+			}),
+
+			// a property meaning's value meanings: the value cards of the same domain, property, range and qualifiers, by name, capped with their true count
+			valueMeaningsByCardStableId: ({ cardStableId }) => ({
+				cypher: `
+					MATCH (card:ForgedNode {stableId: $cardStableId}) WHERE card:HubReference AND card.referenceTier = 'property'
+					MATCH (card)-[domainEdge]->(domain:ForgedNode) WHERE type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
+					MATCH (domain)<-[valueDomainEdge]-(valueCard:HubReference)
+					WHERE type(valueDomainEdge) = type(domainEdge) AND valueCard.referenceTier = $valueTier AND valueCard.propertyKey = card.propertyKey
+					  AND coalesce(valueCard.rangeOptionSetId, '') = coalesce(card.rangeOptionSetId, '') AND coalesce(valueCard.qualifierKeys, []) = coalesce(card.qualifierKeys, [])
+					WITH valueCard ORDER BY valueCard.name, valueCard.stableId
+					WITH count(valueCard) AS itemCount, collect(valueCard)[0..${GROUP_ITEM_CAP}] AS cappedValueCardList
+					UNWIND cappedValueCardList AS valueCard
+					RETURN itemCount, collect(${meaningRowTextFor('valueCard')}) AS itemList
+				`,
+				params: { cardStableId, valueTier: MEANING_VALUE_TIER },
+			}),
 		};
 
 		const getCypher = (queryName, queryParams) => {
@@ -428,7 +636,7 @@ const moduleFunction =
 
 		// answers { nodeKind, remainderText } for a synthetic id, or null for a graph stableId
 		const parseSyntheticId = (stableId) => {
-			const prefixEntry = syntheticIdPrefixList.find((oneEntry) => stableId.indexOf(oneEntry.idPrefix) === 0);
+			const prefixEntry = allSyntheticIdPrefixList.find((oneEntry) => stableId.indexOf(oneEntry.idPrefix) === 0);
 			return prefixEntry ? { nodeKind: prefixEntry.nodeKind, remainderText: stableId.slice(prefixEntry.idPrefix.length) } : null;
 		};
 
@@ -439,6 +647,8 @@ const moduleFunction =
 
 		// release:<standardFamily>/<releaseLabel> — one message offered in more than one version (the version picker)
 		const releaseIdOf = ({ standardFamily, releaseLabel }) => `release:${standardFamily}/${releaseLabel}`;
+		// a message is a step of the walk (the version picker) only when it is offered in more than one version; with one, the family lists its standard
+		const releaseIsWalkStepFor = (releaseVersionCount) => releaseVersionCount > 1;
 		const parseReleaseRemainder = (remainderText) => {
 			const dividerIndex = remainderText.indexOf('/');
 			if (dividerIndex < 1 || dividerIndex === remainderText.length - 1) {
@@ -830,6 +1040,131 @@ const moduleFunction =
 			return chosenChain.slice(0, -1).map((chainNode) => ({ stableId: chainNode.stableId, name: chainNode.name, kind: nodeKindOf(chainNode.labelList, chainNode.hubName), ...hubNameFieldOf(nodeKindOf(chainNode.labelList, chainNode.hubName), chainNode.hubName) }));
 		};
 
+		// ================================================================================
+		// ⟪meaningsExplorer⟫ THE MEANINGS WALK — ids and rows
+
+		const meaningPrefixOf = (nodeKind) => meaningSyntheticIdPrefixList.find((oneEntry) => oneEntry.nodeKind === nodeKind).idPrefix;
+		const meaningHubIdOf = (hubName) => `${meaningPrefixOf('meaningHub')}${hubName}`;
+		const meaningDomainIdOf = (domainStableId) => `${meaningPrefixOf('meaningDomain')}${domainStableId}`;
+		const meaningPropertyIdOf = ({ domainStableId, propertyStableId }) => `${meaningPrefixOf('meaningProperty')}${domainStableId}${MEANING_PROPERTY_DIVIDER}${propertyStableId}`;
+		const meaningIdOf = (cardStableId) => `${meaningPrefixOf('meaning')}${cardStableId}`;
+		const isMeaningCatalogId = (stableId) => stableId === MEANING_CATALOG_STABLE_ID;
+		// the group a meaning is listed under at the catalog's first level (meaningCatalogGrouping): today its hub. A new grouping changes this and the registry
+		const meaningGroupOf = ({ hubName }) => ({ stableId: meaningHubIdOf(hubName), name: hubName });
+
+		// meaningProperty:<domainStableId>@<propertyStableId>, exactly one '@' with text on both sides; anything else is null (refused by the caller)
+		const parseMeaningPropertyRemainder = (remainderText) => {
+			const partList = remainderText.split(MEANING_PROPERTY_DIVIDER);
+			if (partList.length !== 2 || !partList[0] || !partList[1]) {
+				return null;
+			}
+			return { domainStableId: partList[0], propertyStableId: partList[1] };
+		};
+
+		// the graph stableId an answer's object cites for its URI: its own stableId, or, for a synthetic row that stands for one graph node (a meaning, a
+		// domain), that node's; null for any other synthetic id
+		const citedGraphStableIdOf = (stableId) => {
+			const syntheticId = parseSyntheticId(stableId);
+			if (!syntheticId) {
+				return stableId;
+			}
+			const prefixEntry = allSyntheticIdPrefixList.find((oneEntry) => oneEntry.nodeKind === syntheticId.nodeKind);
+			return prefixEntry.citesStableIdOfRemainder && syntheticId.remainderText ? syntheticId.remainderText : null;
+		};
+
+		// a meaning as a row: kind 'meaning', its id carrying the card's stableId; always openable (its own page holds its tuple and where it is expressed)
+		const mapMeaningItem = (meaningRecord, standardFamily) => ({
+			stableId: meaningIdOf(meaningRecord.cardStableId),
+			name: meaningRecord.name,
+			kind: 'meaning',
+			hubName: meaningRecord.hubName,
+			standardFamily: standardFamily || null,
+			description: meaningRecord.description || '',
+			hasChildren: true,
+			referenceTier: meaningRecord.referenceTier,
+			...(meaningRecord.termKind ? { termKind: meaningRecord.termKind } : {}),
+			...(meaningRecord.domainName ? { hubDomainName: meaningRecord.domainName } : {}),
+			...(meaningRecord.rangeName ? { rangeName: meaningRecord.rangeName } : {}),
+			...((meaningRecord.qualifierNameList || []).length ? { qualifierNameList: meaningRecord.qualifierNameList } : {}),
+			elementCount: meaningRecord.mappedElementCount,
+		});
+
+		const mapMeaningHubItem = (hubRecord) => ({
+			stableId: meaningHubIdOf(hubRecord.hubName),
+			name: hubRecord.hubName,
+			kind: 'meaningHub',
+			hubName: hubRecord.hubName,
+			standardFamily: hubRecord.standardFamily || null,
+			description: hubRecord.hubTitle || '',
+			// how many meanings of each tier the hub holds; meaningCount is them all
+			tierCountList: hubRecord.tierCountList,
+			meaningCount: hubRecord.tierCountList.reduce((soFar, oneTier) => soFar + oneTier.meaningCount, 0),
+			hasChildren: hubRecord.tierCountList.length > 0,
+			...(hubRecord.version ? { version: hubRecord.version } : {}),
+		});
+
+		const mapMeaningDomainItem = ({ domainRecord, hubName, standardFamily }) => ({
+			stableId: meaningDomainIdOf(domainRecord.stableId),
+			name: domainRecord.name,
+			kind: 'meaningDomain',
+			hubName,
+			standardFamily: standardFamily || null,
+			description: domainRecord.description || '',
+			hasChildren: domainRecord.meaningCount > 0,
+			meaningCount: domainRecord.meaningCount,
+			mappedMeaningCount: domainRecord.mappedMeaningCount,
+			propertyCount: domainRecord.propertyCount,
+		});
+
+		const mapMeaningPropertyItem = ({ propertyRecord, domainStableId, standardFamily }) => ({
+			stableId: meaningPropertyIdOf({ domainStableId, propertyStableId: propertyRecord.stableId }),
+			name: propertyRecord.name,
+			kind: 'meaningProperty',
+			hubName: propertyRecord.hubName,
+			standardFamily: standardFamily || null,
+			description: propertyRecord.description || '',
+			hasChildren: propertyRecord.meaningCount > 0,
+			meaningCount: propertyRecord.meaningCount,
+			mappedMeaningCount: propertyRecord.mappedMeaningCount,
+		});
+
+		// ⟪review S3, S6⟫ an element's path in the Standards Explorer, made here from the walk's own rules (familyIdOf, releaseIdOf, releaseIsWalkStepFor) so the
+		// page never rebuilds them: the families catalog, the family, the release when it is a step, the climb from the root, the element. An element no climb
+		// reaches from its root has no path, and says so by name (a path through a parent edge the graph does not hold would be invented).
+		const STANDARDS_WALK_PATH_ABSENT_NAME_LIST = Object.freeze(['noClimbFromRoot']);
+		const standardsWalkPathFieldsOf = ({ standardFamily, releaseLabel, releaseVersionCount, ancestorList, stableId }) =>
+			ancestorList.length
+				? { standardsWalkPathStableIdList: [FAMILY_CATALOG_STABLE_ID, familyIdOf(standardFamily), ...(releaseIsWalkStepFor(releaseVersionCount) ? [releaseIdOf({ standardFamily, releaseLabel })] : []), ...ancestorList.map((oneAncestor) => oneAncestor.stableId), stableId] }
+				: { standardsWalkPathAbsentName: STANDARDS_WALK_PATH_ABSENT_NAME_LIST[0] };
+
+		// "Expressed in": the anchor fan-out's groups (mapAnchorFanOut: one per standard, its true count and match mix, in its order), each holding its own capped,
+		// ordered element rows (meaningExpressionsByCardStableId), each element with its relation, match basis, confidence and its Standards Explorer path
+		const mapMeaningExpressionGroupList = ({ fanOutRecordList, expressionRecordList, cardStableId }) => {
+			const expressionRecordByStandardKey = Object.fromEntries((expressionRecordList || []).map((oneRecord) => [oneRecord.standardKey, oneRecord]));
+			return mapAnchorFanOut({ fanOutRecordList, anchorStableId: cardStableId }).map((oneGroup) => {
+				const expressionRecord = expressionRecordByStandardKey[oneGroup.standardKey] || { expressionList: [] };
+				const elementList = expressionRecord.expressionList.map((oneExpression) => {
+					const ancestorList = chooseAncestorChain((oneExpression.chainNodeListList || []).map((chainNodeList) => ({ chainNodeList })));
+					return {
+						stableId: oneExpression.stableId,
+						name: oneExpression.name,
+						kind: nodeKindOf(oneExpression.labelList, oneExpression.hubName),
+						...(oneExpression.ownerName ? { ownerName: oneExpression.ownerName } : {}),
+						matchKind: matchKindByEdgeType[oneExpression.matchEdgeType].matchKind,
+						...(oneExpression.matchBasis ? { matchBasis: oneExpression.matchBasis } : {}),
+						...(typeof oneExpression.mappingConfidence === 'number' ? { mappingConfidence: oneExpression.mappingConfidence } : {}),
+						...(oneExpression.mappingSource ? { mappingSource: oneExpression.mappingSource } : {}),
+						ancestorList,
+						...standardsWalkPathFieldsOf({ standardFamily: expressionRecord.standardFamily, releaseLabel: expressionRecord.releaseLabel, releaseVersionCount: expressionRecord.releaseVersionCount, ancestorList, stableId: oneExpression.stableId }),
+					};
+				});
+				return { ...oneGroup, elementList, elementsTruncated: oneGroup.elementCount > elementList.length };
+			});
+		};
+
+		// ⟪review N1⟫ a list of the meanings walk as a child group: its true count, at most GROUP_ITEM_CAP items, and whether it was cut
+		const cappedChildGroupOf = ({ relationshipType, itemList }) => ({ relationshipType, count: itemList.length, truncated: itemList.length > GROUP_ITEM_CAP, itemList: itemList.slice(0, GROUP_ITEM_CAP) });
+
 		const mapStandardItem = (catalogRecord) => ({
 			stableId: catalogRecord.stableId,
 			name: catalogRecord.name,
@@ -846,7 +1181,7 @@ const moduleFunction =
 		// the family's children: a one-version message is its standard; a many-version message is a release to pick from
 		const mapFamilyItemList = (catalogRecordList) =>
 			mapCatalogRecordList(catalogRecordList).map((oneRelease) => {
-				if (oneRelease.versionList.length === 1) {
+				if (!releaseIsWalkStepFor(oneRelease.versionList.length)) {
 					return mapStandardItem(catalogRecordList.find((oneRecord) => oneRecord.stableId === oneRelease.versionList[0].stableId));
 				}
 				return {
@@ -904,6 +1239,27 @@ const moduleFunction =
 			mapAnchorFanOut,
 			chooseAncestorChain,
 			mapCatalogRecordList,
+			// ⟪meaningsExplorer⟫
+			MEANING_CATALOG_STABLE_ID,
+			MEANING_VALUE_TIER,
+			GROUP_ITEM_CAP,
+			meaningCatalogGrouping,
+			meaningListTierList,
+			isMeaningCatalogId,
+			meaningGroupOf,
+			meaningHubIdOf,
+			meaningDomainIdOf,
+			meaningPropertyIdOf,
+			meaningIdOf,
+			parseMeaningPropertyRemainder,
+			citedGraphStableIdOf,
+			mapMeaningItem,
+			mapMeaningHubItem,
+			mapMeaningDomainItem,
+			mapMeaningPropertyItem,
+			mapMeaningExpressionGroupList,
+			cappedChildGroupOf,
+			STANDARDS_WALK_PATH_ABSENT_NAME_LIST,
 		};
 	};
 

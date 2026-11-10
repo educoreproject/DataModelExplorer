@@ -65,6 +65,13 @@ const isAdmin = computed(() =>
 				title="Standards"
 				data-testid="menu-standards"
 			/>
+			<!-- ⟪meaningsExplorer⟫ the hub cards as the subject: each meaning, what it names and every element that expresses it -->
+			<v-list-item
+				to="/explore/meanings"
+				prepend-icon="mdi-hexagon-multiple-outline"
+				title="Meanings"
+				data-testid="menu-meanings"
+			/>
 			<v-list-item
 				to="/explore/rosetta"
 				prepend-icon="mdi-translate"
