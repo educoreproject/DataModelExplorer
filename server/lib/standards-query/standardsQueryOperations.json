@@ -76,7 +76,9 @@
 		"perPrincipalCeilingReached": 429,
 		"notFound": 404,
 		"judgedTokenCeilingReached": 429,
-		"jobNotOpen": 409
+		"jobNotOpen": 409,
+		"interpretBusy": 503,
+		"interpretSpendCeiling": 429
 	},
 	"verbRefusalHttpStatusByName": {
 		"emptyQuery": 400,
@@ -1887,6 +1889,69 @@
 				],
 				"exampleNeedsSignedInAccount": true,
 				"exampleTakesJobFromSubmit": true
+			}
+		},
+		{
+			"operationName": "rosettaInterpret",
+			"routeName": "rosetta/interpret",
+			"httpMethod": "POST",
+			"bodyLimitText": "100kb",
+			"coreHandlerName": "rosettaInterpret",
+			"bodyForm": "bare",
+			"doorList": [
+				"api"
+			],
+			"_comment": "WORKORDER-rosettaFreeInput-111026: the web page's rung 3, never an MCP tool and not in the about document (ROMANTIC_PARASOL 2026-11-10): an agent writes JSON itself. admission is the permission tier, one line: public today (TQ Q80 open), signedIn if he rules so.",
+			"admission": "public",
+			"permissionList": [
+				"public"
+			],
+			"isListedInAbout": false,
+			"holdsOwnInFlightCap": true,
+			"perAddressLimit": {
+				"configSectionName": "rosetta-judge",
+				"requestsPerMinuteSettingName": "interpreterRequestsPerMinute",
+				"burstPerSecondSettingName": "interpreterBurstPerSecond"
+			},
+			"requiresUriPromise": false,
+			"isCounted": true,
+			"cachePolicy": "noStore",
+			"answerStepList": [],
+			"usageSubjectInputNameList": [],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [],
+			"inputFieldList": [
+				{
+					"name": "text",
+					"type": "text",
+					"required": true,
+					"description": "The text you pasted: lines, a table or prose that names your fields. At most 20,000 characters and 300 lines."
+				}
+			],
+			"refusalNameList": [
+				"noSubmission",
+				"inputTooLong",
+				"noFieldsFound",
+				"interpretBusy",
+				"interpretSpendCeiling",
+				"serviceNotConfigured",
+				"rateLimited",
+				"invalidInput",
+				"unknownInput"
+			],
+			"description": "Turn free text into a field list for you to review: a cheap AI model lays out the names and definitions your text gives, and this service keeps only those that stand in your text word for word. Nothing is retrieved or judged. Your text goes to Anthropic, the AI's vendor, under that vendor's terms; this service keeps none of it.",
+			"aboutEntry": {
+				"forWhat": "Read a pasted list, table or paragraph as a field list, which you check and then send to retrieval.",
+				"whatThisDoesNot": "It adds nothing: a name or definition the AI offers that is not in your text is left out and counted.",
+				"exampleInput": {
+					"text": "dischargeDate: If this is not a currently held service, the date of discharge."
+				},
+				"exampleShows": "One field, its name and definition copied from the text.",
+				"expectedAnswerFieldList": [
+					"fieldList",
+					"droppedFieldCount",
+					"unusedLineCount"
+				]
 			}
 		},
 		{

@@ -2,7 +2,7 @@
 
 // standardsQueryCore — one module answers every question about the standards; the Query API, MCP and later doors hold no query of their own (design, first page).
 //
-//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval?, rosettaJobService? })
+//   createStandardsQueryCore({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval?, rosettaJobService?, rosettaInterpreter? })
 //     → { runOperation({ operationName, input, principal }, callback('', { httpStatus, bodyText, cachePolicy, retryAfterSeconds })), registryRowFor, serviceState }
 //
 // An operation runs IN PROCESS on the golden handle's READ session: no spawned node, docker inspect or new driver per call (design 1.6). Query logic stays in the DME CLI module;
@@ -68,7 +68,7 @@ const STRUCTURED_INPUT_TEST_BY_TYPE = Object.freeze({
 	object: (inputValue) => inputValue !== null && typeof inputValue === 'object' && !Array.isArray(inputValue),
 });
 
-const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval, rosettaJobService }) => {
+const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues, goldenHandle, forgeAdapter, dmeSearchModule, dmeModuleConfig, usageCounter, xLog, nowDate, rosettaRetrieval, rosettaJobService, rosettaInterpreter }) => {
 	const registryRowByOperationName = registry.operationList.reduce((soFar, registryRow) => ({ ...soFar, [registryRow.operationName]: registryRow }), {});
 	// ⟪P7a⟫ a row's envelopeRule must name a detail input the row declares with an enum holding the lean value and a default: a registry that does not is a build fault, said at startup
 	registry.operationList.filter((registryRow) => registryRow.envelopeRule).forEach((registryRow) => {
@@ -397,6 +397,14 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 			}
 			rosettaJobService[registryRow.jobActionName]({ principal, input, serviceFacts, withReadSession: goldenHandle.withReadSession, answeredFrom: answeredFromFor(registryRow.operationName), pageNumber, pageSize: registryRow.pageSize, rowDetail, detail, namedSubjectList, answerNoteValues: registry.rosettaJudgedNote }, done);
 		},
+		// rung 3 of the Rosetta page's input ladder: free text to a field list, for the person to review. It reads no graph. rosettaInterpreter is { interpretText } when built, else { refusalText } saying why it is off.
+		rosettaInterpret: ({ registryRow, input }, done) => {
+			if (!rosettaInterpreter || !rosettaInterpreter.interpretText) {
+				done('', { answer: refusalOf(registryRow.operationName, 'serviceNotConfigured', `this instance does not interpret free text: ${rosettaInterpreter ? rosettaInterpreter.refusalText : 'no interpreter was built'}`) });
+				return;
+			}
+			rosettaInterpreter.interpretText({ pastedText: input.text, refusedByName: registryRow.operationName }, (interpretError, answer) => (interpretError ? done(interpretError) : done('', { answer, ...(answer.retryAfterSeconds ? { retryAfterSeconds: answer.retryAfterSeconds } : {}) })));
+		},
 		usage: (unusedContext, done) => usageCounter.readCounts((readError, countRowList) => (readError ? done(readError) : done('', { answer: { countRowList, rowUnit: 'one counter: (operationName, subjectKind, subjectText, utcDay) with how many times it was asked' } }))),
 		openApiDocument: (unusedContext, done) => done('', { answer: openApiDocumentFor({ registry, manifestLabel: serviceFacts ? serviceFacts.manifestLabel : '', inputCapByName }) }),
 		// what a signed-in administrator is told must not sit in a shared cache
@@ -459,11 +467,14 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 			waiterListByOperationName[answerCacheName].push(callback);
 			return;
 		}
-		if (inFlightCount >= inputCapByName.inFlightMax) {
+		// ⟪rosettaFreeInput, ROMANTIC_PARASOL 2026-11-10⟫ a row that holds its own in-flight cap (rosetta/interpret: a model call that can take minutes) is kept out of the core's
+		// slots entirely, so however many such calls are open, every other operation still has all of its own
+		const usesCoreSlot = !registryRow.holdsOwnInFlightCap;
+		if (usesCoreSlot && inFlightCount >= inputCapByName.inFlightMax) {
 			callback('', refusedAnswerFor({ operationName, retryAfterSeconds: BUSY_RETRY_SECONDS, refusal: refusalOf(operationName, 'busy', `${inFlightCount} queries are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`) }));
 			return;
 		}
-		inFlightCount += 1;
+		inFlightCount += usesCoreSlot ? 1 : 0;
 		// a scan has its own cap per operation, so one kind of slow question cannot hold every slot; only a call that actually scans counts, so an exact element never does
 		let isHoldingScanSlot = false;
 		const admitScan = registryRow.scanInFlightMax ? () => {
@@ -494,7 +505,7 @@ const createStandardsQueryCore = ({ registry, limitConfigValues, doorLimitValues
 		const unresolvedHandlerInput = registryRow.envelopeRule ? Object.keys(inputPastRowDetail).filter((inputName) => inputName !== registryRow.envelopeRule.detailInputName).reduce((soFar, inputName) => ({ ...soFar, [inputName]: inputPastRowDetail[inputName] }), {}) : inputPastRowDetail;
 		const handlerInput = registryRow.requiresUriPromise ? withUriInputsResolved({ registryRow, input: unresolvedHandlerInput }) : unresolvedHandlerInput;
 		HANDLER_BY_NAME[registryRow.coreHandlerName]({ registryRow, input: handlerInput, pageNumber, rowDetail, detail, namedUriList, namedSubjectList, admitScan, principal }, (handlerError, handlerResult) => {
-			inFlightCount -= 1;
+			inFlightCount -= usesCoreSlot ? 1 : 0;
 			if (isHoldingScanSlot) {
 				scanCountByOperationName[operationName] -= 1;
 			}

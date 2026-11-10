@@ -105,7 +105,8 @@ const limitsInForceOf = ({ registry, inputCapByName, doorLimitValues }) => ({
 });
 
 const aboutDocumentFor = ({ registry, inputCapByName, doorLimitValues, publicInstanceName, principal }) => {
-	const listedRowList = registry.operationList.filter((registryRow) => mayCall(registryRow, principal));
+	// a row with isListedInAbout false is a web page's helper, not part of what a stranger or an agent is told (rosetta/interpret; ROMANTIC_PARASOL 2026-11-10)
+	const listedRowList = registry.operationList.filter((registryRow) => registryRow.isListedInAbout !== false && mayCall(registryRow, principal));
 	const sharedInputDescriptionByName = sharedInputDescriptionsOf(listedRowList);
 	const edcBaseUrl = `https://${publicInstanceName}${doorLimitValues.edcPublicPathPrefix}`;
 	return {

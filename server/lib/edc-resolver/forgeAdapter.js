@@ -10,7 +10,7 @@
 //       openStoreReadHandle() → { storeHandle } | { error }: one more read-only handle on the store (the standards query core's reads; never a write)
 //       routeFor(edcRequestPath) → { routeName: 'inProcess' | 'wholeBlockChild' | 'directBlock' | 'overCap', kind, byteSize }: a block over wholeBlockMaxBytes is sent as the store holds it by streamOneBlock.js, up to directBlockMaxBytes
 //       retrievalModules: { candidateRetrievalLib, hubEdgeType, dmeRoles }: the forge's pure vote and rank modules and the names they read (Rosetta retrieval, design 4.1); they take records by injection and read no store
-//       loadJudgeModules() → { error } | { judgeOne, renderQuestion, promptIdentifierScanFor, loadSpendPricing, spendLedgerLib, createLlmClient, hubBridgingFor }: the bridge's judging machinery, for Rosetta's judged step (design 1.8, 4.5). Loaded only when an instance configures a judge. Every call into it keeps this file's try boundary. Paths are always handed in, because the forge's own defaults name the canonical stores and a Mac.
+//       loadJudgeModules() → { error } | { judgeOne, renderQuestion, promptIdentifierScanFor, loadSpendPricing, spendLedgerLib, spendRecordLib, createLlmClient, hubBridgingFor }: the bridge's judging machinery, for Rosetta's judged step (design 1.8, 4.5). Loaded only when an instance configures a judge. Every call into it keeps this file's try boundary. Paths are always handed in, because the forge's own defaults name the canonical stores and a Mac.
 //
 // The store opens once, read-only, at startup. An open handle keeps the old inode, so REPLACING THE STORE FILE IS AN API RESTART. So is any change to
 // the licence hold list the block kinds obey, which stubResolver.js freezes at require time: a hold change takes a forge re-sync plus an API restart.
@@ -31,6 +31,7 @@ const JUDGE_MODULE_RELATIVE_PATH_BY_NAME = Object.freeze({
 	promptIdentifierScanLib: ['lib', 'bridge-framework', 'promptIdentifierScan'],
 	spendPricingLib: ['lib', 'spend-ledger', 'spendPricing'],
 	spendLedgerLib: ['lib', 'spend-ledger', 'spendLedger'],
+	spendRecordLib: ['lib', 'spend-ledger', 'spendRecord'],
 	llmClientFactory: ['apps', 'graph-builder', 'apps', 'bridge-maker', 'lib', 'llmClient'],
 });
 
@@ -193,7 +194,7 @@ const loadJudgeModulesFrom = (educoreForgeCodePath) => {
 	if (loaded.error) {
 		return { error: loaded.error };
 	}
-	const { judgeComponentLib, evidenceRendererLib, promptIdentifierScanLib, spendPricingLib, spendLedgerLib, llmClientFactory } = loaded.result;
+	const { judgeComponentLib, evidenceRendererLib, promptIdentifierScanLib, spendPricingLib, spendLedgerLib, spendRecordLib, llmClientFactory } = loaded.result;
 	const forgesDirPath = path.join(educoreForgeCodePath, 'forges');
 	return {
 		judgeOne: (judgeInput, callback) => attemptForgeCallback((answerOnce) => judgeComponentLib.judgeOne(judgeInput, answerOnce), 'judging', callback),
@@ -225,6 +226,7 @@ const loadJudgeModulesFrom = (educoreForgeCodePath) => {
 			return { spendPricer: { ...spendPricer, usdFor: (priceInput) => attemptPricing(priceInput, spendPricer.usdFor), priceRowFor: (priceInput) => attemptPricing(priceInput, spendPricer.priceRowFor) } };
 		},
 		spendLedgerLib,
+		spendRecordLib, // ⟪rosettaFreeInput⟫ the forge's own spend record and totals, so rosetta/interpret builds its ledger line by the forge's rules rather than by hand
 		// a configuration fault in the client is a throw at construction, by the client's own rule: here it becomes { error }. It never echoes a credential.
 		createLlmClient: (constructionOptions) => {
 			const attempted = attemptForgeCall(() => llmClientFactory(constructionOptions), 'constructing the judge client');

@@ -16,6 +16,7 @@ const registry = require('../../../lib/standards-query/standardsQueryOperations.
 const { createRosettaRetrieval, rosettaFuseValuesOf } = require('../../../lib/standards-query/rosetta/rosettaRetrieval');
 const { createStrangerVectorStore } = require('../../../lib/standards-query/rosetta/strangerVectorStore');
 const { assembleRosettaJudged } = require('../../../lib/standards-query/rosetta/assembleRosettaJudged');
+const { buildRosettaInterpreter } = require('../../../lib/standards-query/rosetta/rosettaInterpreter');
 const { runCypherQuery } = require('../../../../cli/lib.d/data-model-explorer/lib/runCypherQuery');
 const { checkGraphEmbeddingContract } = require('../../../../cli/lib.d/data-model-explorer/lib/graphEmbeddingContract');
 const neo4jDriver = require('neo4j-driver');
@@ -80,7 +81,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		if (configError) {
 			xLog.error(`${moduleName}: the DME config could not be read: ${configError}`);
 		}
-		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval, rosettaJudged }) => {
+		withRosettaRetrieval({ dmeModuleConfig: configError ? undefined : dmeModuleConfig }, ({ fuseValues, rosettaRetrieval, rosettaJudged }) => buildRosettaInterpreter({ judgeConfigValues: getConfig(ROSETTA_JUDGE_CONFIG_SECTION_NAME) || {}, forgeAdapter, nowMs: Date.now, xLog }, (interpreterBuilt) => {
+			// the free-text interpreter (rosetta/interpret) is built beside the judge and from its section; off, it says why in the log and refuses that one route by name
+			if (interpreterBuilt.refusalText) {
+				xLog.error(`${moduleName}: rosetta/interpret is off: ${interpreterBuilt.refusalText}`);
+			}
 			standardsQueryCore = createStandardsQueryCore({
 				registry,
 				limitConfigValues,
@@ -101,11 +106,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				nowDate,
 				rosettaRetrieval,
 				rosettaJobService: rosettaJudged ? rosettaJudged.rosettaJobService : undefined,
+				rosettaInterpreter: interpreterBuilt.rosettaInterpreter || { refusalText: interpreterBuilt.refusalText },
 			});
 			if (rosettaJudged) {
 				rosettaJudged.startRunner({ getServiceFacts: standardsQueryCore.serviceFactsForGate, runOperation: standardsQueryCore.runOperation });
 			}
-		});
+		}));
 	});
 
 	const serviceFunction = ({ operationName, input, principal }, callback) => {

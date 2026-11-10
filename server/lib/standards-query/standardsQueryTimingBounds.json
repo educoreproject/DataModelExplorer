@@ -2,7 +2,7 @@
 	"_comment": "The standing timing gate of the standards query service (server/lib/standards-query/standardsQueryTimingGate.js): one row per thing a caller can ask that costs differently, with its bound in seconds. Run on every demo deploy. Every registry route must have a row here or be named in exemptOperationList with why, and standards-query-registry.test.js holds that. knownSlow rows are stated, not excused: their bound is the measured cost, so getting worse fails. Bounds were set from demo's measurements of 2026-11-03: a 4-vCPU shared server, about 3.3 times slower than the Mac.",
 	"defaultWarmBoundSeconds": 5,
 	"defaultFirstCallBoundSeconds": 10,
-	"exemptOperationList": [{ "operationName": "usage", "why": "admin only: the gate holds no credential, and its answer costs one SQLite read" }],
+	"exemptOperationList": [{ "operationName": "usage", "why": "admin only: the gate holds no credential, and its answer costs one SQLite read" }, { "operationName": "rosettaInterpret", "why": "spends at the AI vendor on every call, and the deploy gate spends nothing; its time is measured by the live gate in runs/rosettaFreeInput" }],
 	"rowList": [
 		{ "label": "job submit, no credential", "operationName": "rosettaSubmit", "queryText": "", "expectedHttpStatus": 401, "bodyJson": { "fieldList": [{ "name": "dischargeDate" }] } },
 		{ "label": "job status, no credential", "operationName": "rosettaStatus", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
