@@ -1,0 +1,32 @@
+{
+	"_comment": "The user-account rules as data (WORKORDER-userSqlAndSaveHole-111026). Read by lib/user-profile-rules.js, which refuses at load if any entry is missing. selfEditablePropertyList is what POST /api/saveUserData lets a signed-in user change on their OWN record; anything else in the body is refused by name, never dropped. html/stores/loginStore.js SELF_EDITABLE_PROPERTY_LIST must equal it (gate B1 of server/test/user-sql-and-save-hole.test.js).",
+
+	"_selfEditablePropertyList": "the profile page's own fields (components/form_profile.vue). username, role and refId are never self-editable: role and username change only through the admin tools, and the record is always the signed-in user's own.",
+	"selfEditablePropertyList": ["first", "last", "emailAdr", "phone", "password"],
+
+	"_ownRecordPropertyName": "the one property outside the list a body may carry: the record's own identifier, accepted only when it equals the signed-in user's refId (the write is keyed on the token's refId either way).",
+	"ownRecordPropertyName": "refId",
+
+	"_currentPasswordPropertyName": "the property that must accompany a new password: the CURRENT password, verified against the stored hash before the new one is hashed and saved, so a stolen session cannot change the password (ROMANTIC_PARASOL ruling 2026-11-10). Never saved; refused in a body that carries no new password.",
+	"currentPasswordPropertyName": "currentPassword",
+
+	"_passwordPropertyName": "the users table's password property (profile-user maps it under the same name). It must be in selfEditablePropertyList; a non-blank value there is a NEW password.",
+	"passwordPropertyName": "password",
+
+	"_usernamePatternText": "the username rule for admin-create-user and admin-update-user, as it stood in both before it moved here (2026-11-10). Production held no username outside it that day.",
+	"usernamePatternText": "^[a-zA-Z0-9_-]+$",
+
+	"_refusalByCase": "every refusal this module makes: refusalName is the stable name a caller tests, reason is what a person reads, httpStatus is what the endpoint answers. <!detailListText!> is filled with the property names refused, or the password rule's complaints.",
+	"refusalByCase": {
+		"noSignedInUser": { "refusalName": "noSignedInUser", "httpStatus": 401, "reason": "the sign-in names no user record to save to" },
+		"bodyNotAnObject": { "refusalName": "bodyNotAnObject", "httpStatus": 400, "reason": "a profile save must send a JSON object of the properties to change" },
+		"notOwnRecord": { "refusalName": "notOwnRecord", "httpStatus": 403, "reason": "a profile save may change only the signed-in user's own record" },
+		"propertyNotSelfEditable": { "refusalName": "propertyNotSelfEditable", "httpStatus": 400, "reason": "these cannot be changed from the profile page: <!detailListText!>" },
+		"usernameNotAllowed": { "refusalName": "usernameNotAllowed", "httpStatus": 400, "reason": "a username may contain only letters, numbers, underscore and hyphen" },
+		"identifierNotText": { "refusalName": "identifierNotText", "httpStatus": 400, "reason": "a user lookup was given an identifier that is not text: <!detailListText!>" },
+		"passwordNotAccepted": { "refusalName": "passwordNotAccepted", "httpStatus": 400, "reason": "the new password was not accepted: <!detailListText!>" },
+		"noSuchUser": { "refusalName": "noSuchUser", "httpStatus": 404, "reason": "no user record has that refId" },
+		"currentPasswordRequired": { "refusalName": "currentPasswordRequired", "httpStatus": 400, "reason": "a new password is saved only with the current password" },
+		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" }
+	}
+}

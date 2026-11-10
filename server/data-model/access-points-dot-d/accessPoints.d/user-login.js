@@ -41,6 +41,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const os = require('os');
+const { textIdentifierRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -90,6 +91,22 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		}
 
 		const taskList = new taskListPlus();
+
+		// --------------------------------------------------------------------------------
+		// PIPELINE STAGE 0: CREDENTIALS MUST BE TEXT, BEFORE ANY LOOKUP (review SF-1, 2026-11-10)
+		//
+		// A JSON body can carry { "username": { "username": 1 } }. safeSql escapes an object to `username` = 1, so the
+		// lookup read WHERE username = `username` = 1 (every row) and qtLast() picked the newest user: a sign-in as that
+		// user knowing only their password. A non-text username or password is refused by name here.
+
+		taskList.push((args, next) => {
+			const credentialRefusal = textIdentifierRefusalOf({ username: (xQuery || {}).username, password: (xQuery || {}).password });
+			if (credentialRefusal) {
+				next(refusalText(credentialRefusal), { ...args, credentialRefusal });
+				return;
+			}
+			next('', args);
+		});
 
 		// --------------------------------------------------------------------------------
 		// PIPELINE STAGE 1: DATABASE TABLE EXISTENCE CHECK
@@ -312,6 +329,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
 			const { user = {}, xQuery } = args;
+
+			// a refused credential is answered by its name (every other failure stays the generic 'Authentication failed')
+			if (args.credentialRefusal) {
+				callback(refusalText(args.credentialRefusal), {});
+				return;
+			}
 
 			// AUTHENTICATION HIERARCHY (rootPassword override REMOVED — dmeMcpOAuth Phase 1):
 			// 1. Database users (secure hashed passwords) - HIGHEST PRIORITY

@@ -35,6 +35,7 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
+const { textIdentifierRefusalOf } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -48,8 +49,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const username = xQuery && xQuery.username;
 		const password = xQuery && xQuery.password;
 
-		// Empty username/password never authenticates — bail before any DB work.
-		if (!username || !password) {
+		// Empty username/password never authenticates — bail before any DB work. Neither does a non-text one: an object
+		// username escapes to `username` = 1 and matches every row (review SF-1, 2026-11-10). The login form refuses it
+		// by name first (oauth-interactions); this is the hook's own guard, inside its failure-is-not-an-error contract.
+		if (!username || !password || textIdentifierRefusalOf({ username, password })) {
 			callback('', { account: null });
 			return;
 		}

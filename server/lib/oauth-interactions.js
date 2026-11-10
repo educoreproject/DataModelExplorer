@@ -34,6 +34,7 @@
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const crypto = require('crypto');
+const { textIdentifierRefusalOf, refusalText } = require('./user-profile-rules');
 
 // --- tiny HTML helpers (no template engine; escape everything interpolated) ---
 const escapeHtml = (value) =>
@@ -182,6 +183,16 @@ ${scopes.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
 		if (!csrfOk(uid, body.csrf)) {
 			audit.write({ event: 'login_failed', username, ip, detail: { reason: 'csrf' } });
 			sendHtml(res, 403, renderLogin({ uid, error: 'Your session expired. Please try again.' }));
+			return;
+		}
+
+		// a non-text username or password is refused by name before the throttle and the lookup (review SF-1, 2026-11-10):
+		// startApiServer parses JSON on this route too, and { "username": { "username": 1 } } escaped to `username` = 1,
+		// which matched every row and signed in the newest user on that user's password alone
+		const credentialRefusal = textIdentifierRefusalOf({ username, password });
+		if (credentialRefusal) {
+			audit.write({ event: 'login_failed', username: typeof username === 'string' ? username : null, ip, detail: { reason: credentialRefusal.refusalName } });
+			sendHtml(res, credentialRefusal.httpStatus, renderLogin({ uid, error: refusalText(credentialRefusal) }));
 			return;
 		}
 
