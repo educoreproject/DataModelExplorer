@@ -6,7 +6,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { kindDisplayNameOf, meaningCountTextOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 
@@ -18,7 +18,10 @@ const levelSummaryText = computed(() => {
 		countByKind[oneRow.kind] = (countByKind[oneRow.kind] || 0) + 1;
 		hubNameByKind[oneRow.kind] ||= oneRow.hubName || null;
 	});
-	const kindText = Object.entries(countByKind)
+	// ⟪meaningsPolish review B1⟫ a meanings hub or domain states what it holds exactly as the row that opened it does (meaningCountTextOf, from the node's own
+	// counts), so its own term is never counted in among its meanings; any other level counts its rows by kind, as before
+	const meaningLevelText = meaningCountTextOf(store.focusNode || {});
+	const kindText = meaningLevelText || Object.entries(countByKind)
 		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind, hubNameByKind[nodeKind]).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase()) : pluralKindNameOf(nodeKind, hubNameByKind[nodeKind])}`)
 		.join(', ');
 	const versionComparison = store.neighbourhood.versionComparison;

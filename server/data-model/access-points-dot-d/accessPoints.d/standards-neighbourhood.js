@@ -10,7 +10,7 @@
 //   node         { stableId, compareVersion }  → { node, ancestorList, childGroupList, mappingList, ... }
 //                stableId is a graph stableId or a synthetic id (families:all, family:, release:, standardGroup:; see
 //                the mapper); 'families:all' answers one item per standards family the graph holds;
-//                ⟪meaningsExplorer⟫ and the Meanings explorer's walk: meanings:all, meaningHub:, meaningDomain:, meaningProperty:, meaning:
+//                ⟪meaningsExplorer⟫ and the Meanings explorer's walk: meanings:all, meaningHub:, meaningDomain:, meaning: (⟪meaningsPolish⟫ meaningProperty: is refused by name)
 //                (the mapper's meaningSyntheticIdPrefixList); a meaning: node adds tuple, rangePartList, expressedInGroupList and its place
 //                compareVersion is optional: true badges a standard's classes or a class's properties against the
 //                nearest other version of the same message, anything else leaves badges out
@@ -33,6 +33,15 @@ const { hubEdgeTypeFor } = require('../../../../cli/lib.d/data-model-explorer/li
 const { readUriMinter, uriFieldsOf, elementListUriFieldsOf } = require('../../lib/explorer-uri-fields');
 // ⟪meaningsExplorer⟫ a meaning's tuple, read by the one reader of card tuples
 const { hubCardTupleFor } = require('../../../lib/standards-query/hubCardTuple');
+// ⟪meaningsPolish⟫ the meanings walk's refusal words (data), and the graph's native-identifier declarations (a domain's id in its hub's standard)
+const meaningsWalkWording = require('../../../lib/meanings-walk-wording.json');
+const { readNativeIdentifierDeclarations } = require('../../../lib/native-identifier-declarations');
+// a wording template's {names} filled from valueByName; a name with no value is a programming error and throws by name, never leaves a blank
+const wordingOf = (templateText, valueByName) =>
+	templateText.replace(/\{([A-Za-z]+)\}/g, (placeholderText, valueName) => {
+		if (valueByName[valueName] === undefined || valueByName[valueName] === null) throw new Error(`standards-neighbourhood: wording '${templateText}' needs a value for '${valueName}'`);
+		return String(valueByName[valueName]);
+	});
 
 //START OF moduleFunction() ============================================================
 
@@ -443,7 +452,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 	// ================================================================================
 	// ⟪meaningsExplorer, WORKORDER-meaningsExplorer-111026⟫ THE MEANINGS WALK — the hub cards as the subject: meanings:all → a group (today a hub, by the
-	// mapper's meaningCatalogGrouping) → its domains → a domain's properties → a property's meanings → one meaning. Each level is a synthetic id (the mapper
+	// mapper's meaningCatalogGrouping) → its domains → a domain's meanings → one meaning (⟪meaningsPolish⟫ no property level). Each level is a synthetic id (the mapper
 	// names them); every level answers the node action's own shape { node, ancestorList, childGroupList, mappingList }, so the Explorer's views draw it.
 
 	const MEANING_CATALOG_NAME = 'Meanings';
@@ -454,16 +463,24 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			return;
 		}
 		const grouping = mapper.meaningCatalogGrouping;
-		runNamedQuery(grouping.groupListQueryName, {}, (queryError, groupRecordList) => {
-			if (queryError) {
-				callback(queryError);
+		const taskList = new taskListPlus();
+		// ⟪meaningsPolish⟫ the graph's hubs first: the catalog's counts match each hub's slot edges by type
+		taskList.push((args, next) =>
+			runNamedQuery('hubFamilyList', {}, (queryError, hubRecordList) => {
+				if (!queryError && !hubRecordList.length) {
+					next(`${moduleName}: this graph holds no :HubDefinition, so it holds no meanings`, args);
+					return;
+				}
+				next(queryError, { ...args, hubNameList: (hubRecordList || []).map((oneRecord) => oneRecord.hubName) });
+			}),
+		);
+		taskList.push((args, next) => runNamedQuery(grouping.groupListQueryName, { hubNameList: args.hubNameList }, (queryError, groupRecordList) => next(queryError, { ...args, groupRecordList })));
+		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
+			if (pipeError) {
+				callback(pipeError);
 				return;
 			}
-			if (!groupRecordList.length) {
-				callback(`${moduleName}: this graph holds no :HubDefinition, so it holds no meanings`);
-				return;
-			}
-			const itemList = groupRecordList.map(mapper.mapMeaningHubItem);
+			const itemList = args.groupRecordList.map(mapper.mapMeaningHubItem);
 			callback('', {
 				node: { stableId, name: MEANING_CATALOG_NAME, kind: 'meaningCatalog', description: '', listedTierList: [...mapper.meaningListTierList] },
 				ancestorList: [],
@@ -496,17 +513,30 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', { ...args, hubRecord: hubRecordList[0] });
 			}),
 		);
-		taskList.push((args, next) => runNamedQuery('meaningDomainsByHubName', { hubName }, (queryError, domainRecordList) => next(queryError, { ...args, domainRecordList })));
+		taskList.push((args, next) => readDomainIdentifierDeclarations((declarationError, declarationAnswer) => next(declarationError, { ...args, ...declarationAnswer })));
+		taskList.push((args, next) =>
+			runNamedQuery('meaningDomainsByHubName', { hubName, declarationList: args.declarationList }, (queryError, domainRecordList) => next(queryError, { ...args, domainRecordList })),
+		);
 
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
 			if (pipeError) {
 				callback(pipeError);
 				return;
 			}
-			const { hubRecord } = args;
-			const itemList = args.domainRecordList.map((domainRecord) => mapper.mapMeaningDomainItem({ domainRecord, hubName, standardFamily: hubRecord.standardFamily }));
+			const { hubRecord, declarationList, declarationAbsentName } = args;
+			const itemList = args.domainRecordList.map((domainRecord) => mapper.mapMeaningDomainItem({ domainRecord, hubName, standardFamily: hubRecord.standardFamily, declarationList, declarationAbsentName }));
 			callback('', {
-				node: { stableId, name: hubName, kind: 'meaningHub', hubName, standardFamily: hubRecord.standardFamily || null, description: hubRecord.hubTitle || '' },
+				node: {
+					stableId,
+					name: hubName,
+					kind: 'meaningHub',
+					hubName,
+					standardFamily: hubRecord.standardFamily || null,
+					description: hubRecord.hubTitle || '',
+					// ⟪review B1, N8⟫ what this level lists, as the hub's row says it: its domains, and the property meanings they hold
+					domainCount: itemList.length,
+					meaningCount: itemList.reduce((soFar, oneDomain) => soFar + oneDomain.meaningCount, 0),
+				},
 				ancestorList: [],
 				childGroupList: [mapper.cappedChildGroupOf({ relationshipType: 'HAS_MEANING_DOMAIN', itemList })],
 				mappingList: [],
@@ -518,8 +548,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const domainStableId = remainderText;
 		const taskList = new taskListPlus();
 
+		taskList.push((args, next) => readDomainIdentifierDeclarations((declarationError, declarationAnswer) => next(declarationError, { ...args, ...declarationAnswer })));
 		taskList.push((args, next) =>
-			runNamedQuery('meaningDomainContext', { domainStableId }, (queryError, contextRecordList) => {
+			runNamedQuery('meaningDomainContext', { domainStableId, declarationList: args.declarationList }, (queryError, contextRecordList) => {
 				if (queryError) {
 					next(queryError, args);
 					return;
@@ -535,13 +566,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', { ...args, domainContext: contextRecordList[0] });
 			}),
 		);
+		// ⟪meaningsPolish⟫ the domain's meanings themselves, one row per property meaning (no property level between)
 		taskList.push((args, next) =>
-			runNamedQuery('meaningPropertiesByDomainStableId', { domainStableId }, (queryError, propertyRecordList) => {
-				if (!queryError && !propertyRecordList.length && !args.domainContext.termMeaningList.length) {
+			runNamedQuery('meaningsByDomainStableId', { domainStableId }, (queryError, meaningRecordList) => {
+				if (!queryError && !meaningRecordList.length && !args.domainContext.termMeaningList.length) {
 					next(`${moduleName}: no meaning names '${domainStableId}' as its domain`, args);
 					return;
 				}
-				next(queryError, { ...args, propertyRecordList });
+				next(queryError, { ...args, meaningRecordList });
 			}),
 		);
 
@@ -550,14 +582,27 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(pipeError);
 				return;
 			}
-			const { domainContext } = args;
-			const propertyItemList = args.propertyRecordList.map((propertyRecord) => mapper.mapMeaningPropertyItem({ propertyRecord, domainStableId, standardFamily: domainContext.standardFamily }));
+			const { domainContext, declarationList, declarationAbsentName } = args;
+			const meaningItemList = args.meaningRecordList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord.meaningRow, domainContext.standardFamily));
 			const termItemList = domainContext.termMeaningList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
 			callback('', {
-				node: { stableId, name: domainContext.name, kind: 'meaningDomain', hubName: domainContext.hubName, standardFamily: domainContext.standardFamily || null, description: domainContext.description },
+				node: {
+					stableId,
+					name: domainContext.name,
+					kind: 'meaningDomain',
+					hubName: domainContext.hubName,
+					standardFamily: domainContext.standardFamily || null,
+					description: domainContext.description,
+					// ⟪review B1⟫ what this level lists, counted as the domain's row counts it (the level's own count and the row are then one thing)
+					meaningCount: meaningItemList.length,
+					mappedMeaningCount: meaningItemList.filter((oneItem) => oneItem.elementCount > 0).length,
+					termMeaningCount: termItemList.length,
+					// ⟪review S4⟫ its id in its hub's standard
+					...mapper.nativeIdFieldsOf({ sourceKey: domainContext.sourceKey, nativeIdentifier: domainContext.nativeIdentifier, declarationList, declarationAbsentName }),
+				},
 				ancestorList: [],
 				childGroupList: [
-					mapper.cappedChildGroupOf({ relationshipType: 'HAS_MEANING_PROPERTY', itemList: propertyItemList }),
+					mapper.cappedChildGroupOf({ relationshipType: 'HAS_MEANING', itemList: meaningItemList }),
 					mapper.cappedChildGroupOf({ relationshipType: 'HAS_TERM_MEANING', itemList: termItemList }),
 				].filter((oneGroup) => oneGroup.count > 0),
 				mappingList: [],
@@ -565,49 +610,34 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
-	const readMeaningPropertyNode = ({ stableId, remainderText }, callback) => {
-		const propertyIdentity = mapper.parseMeaningPropertyRemainder(remainderText);
-		if (!propertyIdentity) {
-			callback(`${moduleName}: '${stableId}' is not a meaning property id (expected meaningProperty:<domainStableId>@<propertyStableId>, one '@')`);
-			return;
-		}
-		runNamedQuery('meaningsByDomainAndProperty', propertyIdentity, (queryError, recordList) => {
-			if (queryError) {
-				callback(queryError);
-				return;
-			}
-			const propertyRecord = recordList[0];
-			if (!propertyRecord) {
-				callback(`${moduleName}: the domain '${propertyIdentity.domainStableId}' or the property '${propertyIdentity.propertyStableId}' is no node of this graph`);
-				return;
-			}
-			// ⟪review S4⟫ the level is the property IN the domain: its own term card (which does not depend on the domain) does not make it one
-			if (!propertyRecord.propertyMeaningList.length) {
-				callback(`${moduleName}: no meaning names the property '${propertyIdentity.propertyStableId}' in the domain '${propertyIdentity.domainStableId}'`);
-				return;
-			}
-			const meaningItemListOf = (meaningRecordList) => meaningRecordList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, propertyRecord.standardFamily));
-			const propertyMeaningItemList = meaningItemListOf(propertyRecord.propertyMeaningList);
-			const termItemList = meaningItemListOf(propertyRecord.termMeaningList);
-			callback('', {
-				node: {
-					stableId,
-					name: propertyRecord.propertyName,
-					kind: 'meaningProperty',
-					hubName: propertyRecord.hubName,
-					standardFamily: propertyRecord.standardFamily || null,
-					description: '',
-					hubDomainName: propertyRecord.domainName,
-				},
-				ancestorList: [],
-				childGroupList: [
-					mapper.cappedChildGroupOf({ relationshipType: 'HAS_MEANING', itemList: propertyMeaningItemList }),
-					mapper.cappedChildGroupOf({ relationshipType: 'HAS_TERM_MEANING', itemList: termItemList }),
-				].filter((oneGroup) => oneGroup.count > 0),
-				mappingList: [],
-			});
-		});
+	// ⟪meaningsPolish⟫ a level the walk no longer has (the mapper's retiredLevel): a link made before TQ's ruling is refused by name, naming the domain it
+	// named (⟪review S3⟫ the part of meaningProperty:<domainStableId>@<propertyStableId> before its one '@'; an id without exactly one says so). The words
+	// are data (lib/meanings-walk-wording.json).
+	const RETIRED_PROPERTY_LEVEL_DIVIDER = '@';
+	const retiredMeaningLevelRefusalOf = (stableId) => {
+		const partList = (mapper.parseSyntheticId(stableId) || { remainderText: '' }).remainderText.split(RETIRED_PROPERTY_LEVEL_DIVIDER);
+		return partList.length === 2 && partList[0]
+			? wordingOf(meaningsWalkWording.retiredPropertyLevelWithDomainTemplate, { stableId, domainStableId: partList[0] })
+			: wordingOf(meaningsWalkWording.retiredPropertyLevelTemplate, { stableId });
 	};
+	const refuseRetiredMeaningLevel = ({ stableId }, callback) => callback(`${moduleName}: ${retiredMeaningLevelRefusalOf(stableId)}`);
+
+	// ⟪review S4⟫ the graph's native-identifier declarations, for a domain's id in its hub's standard. A graph that declares none, or declares them
+	// wrongly, still walks: its domains say why they carry no id (declarationAbsentName). A failed read is an error.
+	const DECLARATION_ABSENT_NAME_LIST = Object.freeze(['nativeIdentifierUnstamped', 'nativeIdentifierDeclarationInvalid']);
+	const readDomainIdentifierDeclarations = (callback) =>
+		readNativeIdentifierDeclarations({ neo4jDb }, (declarationError, declarationList) => {
+			if (!declarationError) {
+				callback('', { declarationList, declarationAbsentName: null });
+				return;
+			}
+			const declarationAbsentName = DECLARATION_ABSENT_NAME_LIST.find((oneName) => String(declarationError).startsWith(`${oneName}:`));
+			if (declarationAbsentName) {
+				callback('', { declarationList: null, declarationAbsentName });
+				return;
+			}
+			callback(declarationError);
+		});
 
 	// hubCardTuple reads with a driver session's runCypher(session, cypher, params, done(error, { records })); the golden handle answers rows. This adapts
 	// one to the other, so the card's tuple is read by hubCardTuple itself, never by a copy of its Cypher.
@@ -653,7 +683,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		);
 		// a property meaning holds its value meanings; any other tier holds none
 		taskList.push((args, next) => {
-			if (args.cardFacts.meaningRow.referenceTier !== 'property') {
+			if (args.cardFacts.meaningRow.referenceTier !== mapper.MEANING_PROPERTY_TIER) {
 				next('', { ...args, valueRecord: { itemCount: 0, itemList: [] } });
 				return;
 			}
@@ -676,12 +706,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					...meaningItem,
 					stableId,
 					hubVersion: cardFacts.hubVersion || null,
-					// where it sits in the walk: its group, its domain and its property, as the walk's own ids (a term meaning sits in no domain or property)
+					// where it sits in the walk: its group and its domain, as the walk's own ids (a term meaning sits in no domain)
 					meaningGroup: mapper.meaningGroupOf({ hubName: meaningItem.hubName }),
 					...(cardFacts.domain ? { meaningDomain: { stableId: mapper.meaningDomainIdOf(cardFacts.domain.stableId), name: cardFacts.domain.name } } : {}),
-					...(cardFacts.domain && cardFacts.property
-						? { meaningProperty: { stableId: mapper.meaningPropertyIdOf({ domainStableId: cardFacts.domain.stableId, propertyStableId: cardFacts.property.stableId }), name: cardFacts.property.name } }
-						: {}),
 					// its tuple, as hubCardTuple reads it: the role-named slots, each with its kind, native id, label and uri, or the name of why there is none
 					...(tuple ? { tuple } : { tupleAbsentName }),
 					// the ranges, as hubCardTuple read them; a card it could not read (hubCardNotFound, hubSlotProfileUnreadable) says nothing of its ranges
@@ -689,6 +716,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					// "Expressed in": every element mapped to it, one group per standard with its true count, each capped at the mapper's GROUP_ITEM_CAP
 					expressionCount: expressedInGroupList.reduce((soFar, oneGroup) => soFar + oneGroup.elementCount, 0),
 					expressionsTruncated: expressedInGroupList.some((oneGroup) => oneGroup.elementsTruncated),
+					// ⟪meaningsPolish⟫ the per-standard cap, so the panel's capped note names the server's number rather than a copy of it
+					expressionGroupItemCap: mapper.GROUP_ITEM_CAP,
 					expressedInGroupList,
 				},
 				ancestorList: [],
@@ -713,7 +742,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		meaningCatalog: readMeaningCatalogNode,
 		meaningHub: readMeaningHubNode,
 		meaningDomain: readMeaningDomainNode,
-		meaningProperty: readMeaningPropertyNode,
+		meaningProperty: refuseRetiredMeaningLevel,
 		meaning: readMeaningNode,
 	};
 
@@ -761,10 +790,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}),
 		},
 		meaningDomain: { graphStableIdOf: (remainderText) => remainderText || undefined, summaryOf: ({ stableId, graphSummary }) => meaningCrumbOf({ stableId, nodeKind: 'meaningDomain', graphSummary }) },
-		meaningProperty: {
-			graphStableIdOf: (remainderText) => (mapper.parseMeaningPropertyRemainder(remainderText) || {}).propertyStableId,
-			summaryOf: ({ stableId, graphSummary }) => meaningCrumbOf({ stableId, nodeKind: 'meaningProperty', graphSummary }),
-		},
 		meaning: { graphStableIdOf: (remainderText) => remainderText || undefined, summaryOf: ({ stableId, graphSummary }) => meaningCrumbOf({ stableId, nodeKind: 'meaning', graphSummary }) },
 	};
 
@@ -781,6 +806,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const strayMeaningCatalogIdList = stableIdList.filter((oneId) => (mapper.parseSyntheticId(oneId) || {}).nodeKind === 'meaningCatalog' && !mapper.isMeaningCatalogId(oneId));
 		if (strayMeaningCatalogIdList.length) {
 			callback(`${moduleName}: ${strayMeaningCatalogIdList.map((oneId) => `'${oneId}'`).join(', ')} is not the meanings catalog id (expected ${mapper.MEANING_CATALOG_STABLE_ID})`);
+			return;
+		}
+		// ⟪meaningsPolish⟫ a crumb of a retired level is refused by name, as the node is
+		const retiredMeaningLevelIdList = stableIdList.filter(mapper.isRetiredMeaningLevelId);
+		if (retiredMeaningLevelIdList.length) {
+			callback(`${moduleName}: ${retiredMeaningLevelIdList.map(retiredMeaningLevelRefusalOf).join('; ')}`);
 			return;
 		}
 		// ⟪meaningsExplorer⟫ a meanings-walk id is named by the graph node it stands for (meaningSummaryReaderByKind); a malformed one is refused here

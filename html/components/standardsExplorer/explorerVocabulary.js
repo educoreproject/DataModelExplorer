@@ -5,6 +5,160 @@
 // The visual vocabulary of design/HANDOFF.md as data, shared by the table, the diagram, the legend and the detail
 // panel, so a colour or a threshold is written once. Also the ?path= codec, because the page and the store must
 // agree on it exactly.
+// ⟪meaningsPolish⟫ The Meanings explorer's words are data in meaningsVocabulary, the next block; wordingOf fills a template's {names}.
+
+// ================================================================================
+// ⟪meaningsPolish, WORKORDER-meaningsPolish-111026, TQ's standing rule NO MAGIC STRINGS⟫ THE MEANINGS EXPLORER'S WORDS
+// Every word a reader sees on the Meanings explorer that is not the Standards Explorer's own: the heading and intro, the kind and count wording, the
+// meaning panel's words, and the "What is a meaning?" explainer with its diagram and caption. Data only; the templates' {name} placeholders are filled
+// by wordingOf, which refuses a missing name. A count noun is { one, other }. It lives in this file, not a file of its own, because the server suite
+// imports this module alone from a temporary copy (standards-explorer-hub-vocabulary.test.js, explorer-hub-family-colour-live.test.js), so it may import
+// nothing.
+
+// ⟪review S5⟫ the Cite as line's words (CiteAs.vue), shared by both walks
+export const citeAsVocabulary = Object.freeze({
+	citeLabel: 'Cite as',
+	copyText: 'Copy',
+	copiedText: 'Copied',
+	copyFailedText: 'Copy failed',
+	openOwnIriText: 'Open its own IRI',
+	openPageText: 'Open its page',
+	listElementsText: 'List its elements',
+	ownIriNoteText: "Another publisher's IRI: what this node is, not an EDUcore page.",
+});
+
+// the domain's own term card, listed apart from its meanings (TQ: "labelled unmistakably as the domain's own term"): one wording, used for its row, its group
+// and its legend chip
+const DOMAIN_OWN_TERM_TEXT = "This domain's own term";
+
+export const meaningsVocabulary = Object.freeze({
+	// the page's language, for the counts' digit grouping ("2,777")
+	numberLocaleName: 'en-US',
+
+	// ---- the page's title bar (ExploreViewBar), and the walk profile's words (WalkView's heading, intro, root level, meta description)
+	viewBarTitleText: 'Meanings',
+	titleText: 'Meanings Explorer',
+	introText:
+		'A meaning is one idea the standards can express, named once with a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element that expresses it.',
+	rootLevelText: 'every group of meanings',
+	metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains, the meanings they name, and every standard element mapped to each meaning.',
+
+	// ---- kinds: a meaning is an EDUcore construct, whatever hub defines it (punch-list item 1)
+	meaningKindText: 'EDC meaning',
+	meaningKindPluralText: 'EDC meanings',
+
+	// ---- counts (punch-list items 3, 4, 5, 7): each says what the next level shows
+	domainNoun: Object.freeze({ one: 'domain', other: 'domains' }),
+	meaningNoun: Object.freeze({ one: 'meaning', other: 'meanings' }),
+	elementNoun: Object.freeze({ one: 'element', other: 'elements' }),
+	countedNounTemplate: '{countText} {nounText}',
+	countPartDivider: ' · ',
+	hubHoldingTemplate: '{domainCountText} · {meaningCountText}',
+	domainOwnTermText: '+ its own term',
+	domainHoldingTemplate: '{meaningCountText} {ownTermText}',
+	// ⟪review S6⟫ a domain no property meaning names: its only meaning is its own term
+	domainOwnTermOnlyText: 'its own term only',
+	expressedTemplate: '{countText} expressed in other standards',
+	meaningExpressionTemplate: '{elementCountText} map here',
+	meaningExpressionOneTemplate: '{elementCountText} maps here',
+	meaningUnexpressedText: 'nothing maps here',
+	domainOwnTermRowText: DOMAIN_OWN_TERM_TEXT,
+	rangeTemplate: 'range {rangeName}',
+	qualifierTemplate: 'qualified by {qualifierNameText}',
+	qualifierNameDivider: ', ',
+
+	// ---- the detail panel's facts for a hub and a domain
+	domainsFactName: 'Domains',
+	meaningsFactName: 'Meanings',
+	// ⟪review S4⟫ a domain's id in its hub's standard, as a fact: "CEDS id" C200012
+	hubIdFactNameTemplate: '{hubName} id',
+
+	// ---- ⟪review S3⟫ a walk step the server refused (HTTP 4xx): its own words beneath, never "did not answer" or "Try again"
+	refusalTitleText: 'This step of the walk was refused',
+	refusalGuideText: 'The server says why, below. Go back with the breadcrumb.',
+
+	// ---- ⟪review N2⟫ the legend's chip for the domain's own term
+	ownTermLegendKindText: DOMAIN_OWN_TERM_TEXT,
+
+	// ---- the relationship groups a meanings level lists
+	relationshipDisplayNameByType: Object.freeze({
+		HAS_MEANING_HUB: 'Hubs',
+		HAS_MEANING_DOMAIN: 'Domains',
+		HAS_MEANING: 'Meanings',
+		HAS_TERM_MEANING: DOMAIN_OWN_TERM_TEXT,
+		HAS_VALUE_MEANING: 'Value meanings',
+	}),
+
+	// ---- one meaning's panel (MeaningSection.vue)
+	meaningSection: Object.freeze({
+		sectionLabel: 'What this meaning is',
+		tierFactName: 'Tier',
+		tierTemplate: '{referenceTier} tier ({tierWords})',
+		tierWithTermKindTemplate: '{referenceTier} tier ({tierWords}; a {termKind})',
+		tierWordsByTier: Object.freeze({ property: 'a property in a domain', value: 'one code of a property in a domain', term: 'one term, meant on its own' }),
+		slotLabelByName: Object.freeze({ domain: 'Domain', property: 'Property', range: 'Range', value: 'Value', qualifier: 'Qualifier', term: 'Term' }),
+		partKindLabelByKind: Object.freeze({ class: 'class', property: 'property', optionSet: 'code list', option: 'code' }),
+		// a slot's own id in its hub's standard: "CEDS id P000043" (punch-list item 8)
+		hubIdTemplate: '{hubName} id {nativeIdText}',
+		partDivider: ' · ',
+		openNoteExpressedTemplate: 'Expressed in {elementCountText}. ',
+		openNoteText: 'Open this meaning for its tuple and every element that expresses it.',
+		tupleHeadText: 'What it names',
+		tupleAbsentText: 'No citable tuple:',
+		rangesSummaryText: 'Ranges',
+		rangesAsideText: '(description, not part of what it names)',
+		datatypeTemplate: 'Datatype: {datatypeText}',
+		datatypeRangeTemplate: 'Datatype range: {datatypeText}',
+		datatypeDivider: ', ',
+		expressedInHeadText: 'Expressed in',
+		unexpressedText: 'No element of any standard is mapped to this meaning.',
+		expressionsCappedTemplate: 'Showing {shownCount} of {expressionCount}: each standard lists at most its first {groupItemCap}, strongest first.',
+		groupCappedTemplate: '{elementCount}, showing {shownCount}',
+		elementLinkTitleTemplate: 'Open {elementName} in the Standards Explorer',
+		elementOwnerTemplate: 'of {ownerName}',
+		pathAbsentTextByName: Object.freeze({ noClimbFromRoot: "no walk reaches it from its standard's root" }),
+	}),
+
+	// ---- the JSON-LD the page carries for agents (pages/explore/meanings.vue)
+	jsonLd: Object.freeze({
+		catalogName: 'EDUcore meanings',
+		focusNameTemplate: 'EDUcore meanings: {focusName}',
+		description: 'Meanings named by the EDUcore hubs, each with a permanent EDUcore URI and the standard elements mapped to it.',
+		termCodeTemplate: '{hubName} {referenceTier} meaning',
+	}),
+
+	// ---- "What is a meaning?" (punch-list item 9; TQ-approved text, 2026-11-10, VERBATIM). Each paragraph is a list of runs; an emphasised run is italic.
+	explainer: Object.freeze({
+		openButtonLabel: 'What is a meaning?',
+		closeButtonLabel: 'Close',
+		titleText: 'What is a meaning?',
+		paragraphList: Object.freeze([
+			Object.freeze([{ text: 'A meaning is one complete idea that a data element can carry, such as "a staff member\'s identifier", recorded once in EDUcore with a permanent URI.' }]),
+			Object.freeze([
+				{ text: 'To say what a data element means, you point it at a reference standard (an ontology, such as CEDS). Often one pointer is enough: "First Name" points at First Name. Often it is not. A staff ID and a student ID both point at "Identifier". What separates them is the second pointer: one is the identifier ' },
+				{ text: 'of a staff member', isEmphasis: true },
+				{ text: ', the other the identifier ' },
+				{ text: 'of a student', isEmphasis: true },
+				{ text: '. The complete idea takes two ontology elements together, a class and a property.' },
+			]),
+			Object.freeze([
+				{ text: 'If each data element simply kept two separate pointers, mapping would break down. A staff ID pointing at "Staff Member" and at "Identifier" looks, link by link, like any other element that touches either one, and nothing records that the two pointers belong together. There is no single place to look up "everything that means a staff member\'s identifier", and so nothing to translate through.' },
+			]),
+			Object.freeze([
+				{ text: 'EDUcore solves this by giving the pair a node of its own: the meaning. In ontology terms the combination is reified, made into a thing that can be named and pointed at. The meaning points to the ontology elements that define it, and data elements from any standard point to the meaning.' },
+			]),
+			Object.freeze([
+				{ text: "That is what makes a meaning useful for mapping. A SIF element, an Ed-Fi element and a PESC element that all point to the same meaning express the same idea, so the meaning translates between them. Your own database's columns can point to it in the same way." },
+			]),
+		]),
+		// the diagram: illustrative, generic labels only (TQ's ruling 2026-11-10, after the CEDS check found no "Staff Member" class or "Identifier" property)
+		diagramLabel: 'Diagram: a SIF element, an Ed-Fi element and a PESC element each point to one meaning, which points to an ontology class and an ontology property.',
+		standardElementLabelList: Object.freeze(['SIF element', 'Ed-Fi element', 'PESC element']),
+		meaningLabel: 'Meaning',
+		ontologyElementLabelList: Object.freeze(['Ontology class', 'Ontology property']),
+		captionText: 'Three standards, one meaning, two ontology elements (illustrative).',
+	}),
+});
 
 // ================================================================================
 // FAMILY COLOURS — a family not listed here is drawn in neutral grey under its own name, so a newly loaded
@@ -76,17 +230,20 @@ export const kindDisplayNameByKind = Object.freeze({
 	standardGroup: 'Elements in one standard',
 	support: 'Supporting item',
 	useCase: 'Use case',
-	// ⟪meaningsExplorer⟫ the meanings walk's top and its groups (its domains, properties and meanings are a hub's own kinds, below)
+	// ⟪meaningsExplorer⟫ the meanings walk's top and its groups (its domains are a hub's own kind, below)
 	meaningCatalog: 'All meanings',
 	meaningHub: 'Hub',
+	// ⟪meaningsPolish⟫ a meaning is an EDUcore construct, whichever hub defines it (punch-list item 1)
+	meaning: meaningsVocabulary.meaningKindText,
+	meaningOwnTerm: meaningsVocabulary.ownTermLegendKindText,
 	unclassified: 'Unclassified',
 	more: 'More, in the table',
 });
 
 // a hub's own kinds: '<hub> element', '<hub> property', '<hub> domain'
-// ⟪meaningsExplorer⟫ and in the meanings walk, '<hub> meaning', '<hub> domain', '<hub> property' (a hub card is a 'meaning' wherever it is the subject)
-const hubKindNounByKind = Object.freeze({ hubAnchor: 'element', hubProperty: 'property', hubDomain: 'domain', meaning: 'meaning', meaningDomain: 'domain', meaningProperty: 'property' });
-const hubKindPluralNounByKind = Object.freeze({ hubAnchor: 'elements', hubProperty: 'properties', hubDomain: 'domains', meaning: 'meanings', meaningDomain: 'domains', meaningProperty: 'properties' });
+// ⟪meaningsExplorer⟫ and in the meanings walk, '<hub> domain' (⟪meaningsPolish⟫ a meaning is 'EDC meaning', above; the walk has no property level)
+const hubKindNounByKind = Object.freeze({ hubAnchor: 'element', hubProperty: 'property', hubDomain: 'domain', meaningDomain: 'domain' });
+const hubKindPluralNounByKind = Object.freeze({ hubAnchor: 'elements', hubProperty: 'properties', hubDomain: 'domains', meaningDomain: 'domains' });
 
 export const kindDisplayNameOf = (nodeKind, hubName) => (hubKindNounByKind[nodeKind] ? `${hubNameTextOf(hubName)} ${hubKindNounByKind[nodeKind]}` : kindDisplayNameByKind[nodeKind] || nodeKind);
 
@@ -98,6 +255,7 @@ const pluralKindNameByKind = Object.freeze({
 	optionValue: 'codes',
 	useCase: 'use cases',
 	meaningHub: 'hubs',
+	meaning: meaningsVocabulary.meaningKindPluralText,
 });
 
 export const pluralKindNameOf = (nodeKind, hubName) =>
@@ -125,13 +283,8 @@ export const relationshipDisplayNameByType = Object.freeze({
 	HAS_USE_CASE: 'Use cases',
 	MAPPED_FROM_STANDARD: 'Standards that map here',
 	MAPPED_TO_ANCHOR: 'Mapped elements',
-	// ⟪meaningsExplorer⟫
-	HAS_MEANING_HUB: 'Hubs',
-	HAS_MEANING_DOMAIN: 'Domains',
-	HAS_MEANING_PROPERTY: 'Properties',
-	HAS_MEANING: 'Meanings',
-	HAS_TERM_MEANING: 'Its own term',
-	HAS_VALUE_MEANING: 'Value meanings',
+	// ⟪meaningsExplorer, meaningsPolish⟫ the meanings walk's groups, in its own vocabulary
+	...meaningsVocabulary.relationshipDisplayNameByType,
 });
 
 // the relationships said OF a hub: the explorer's own mapping groups, and a hub anchor's context groups, whose types
@@ -241,16 +394,86 @@ export const hubMappedTextOf = (hubRow) => {
 	return hubRow.mappedElementCount ? `${hubRow.mappedElementCount} mappings` : 'nothing maps here';
 };
 
-// ⟪meaningsExplorer⟫ how many meanings a hub, a domain or a property holds, and how many a standard maps to; and what one meaning is about
-export const meaningCountTextOf = (meaningGroupRow) => {
-	if (meaningGroupRow.tierCountList) return meaningGroupRow.tierCountList.map((oneTier) => `${oneTier.meaningCount} ${oneTier.referenceTier}`).join(' · ');
-	if (meaningGroupRow.meaningCount === undefined) return '';
-	return meaningGroupRow.mappedMeaningCount ? `${meaningGroupRow.mappedMeaningCount} of ${meaningGroupRow.meaningCount} mapped to` : `${meaningGroupRow.meaningCount} meanings`;
+// ================================================================================
+// ⟪meaningsPolish⟫ THE MEANINGS WALK'S WORDS — from the meaningsVocabulary block at the top of this file. Every count says what the next level shows (TQ's ruling on punch-list items 3
+// and 4): a hub, its domains and the meanings they hold; a domain, its meanings, its own term apart, and how many are expressed in other standards.
+
+// a template's {names} filled from valueByName; a name with no value is refused by name, never left blank
+export const wordingOf = (templateText, valueByName) =>
+	templateText.replace(/\{([A-Za-z]+)\}/g, (placeholderText, valueName) => {
+		if (valueByName[valueName] === undefined || valueByName[valueName] === null) throw new Error(`explorerVocabulary: wording '${templateText}' needs a value for '${valueName}'`);
+		return String(valueByName[valueName]);
+	});
+
+const countNumberFormat = new Intl.NumberFormat(meaningsVocabulary.numberLocaleName);
+// a count the server did not send is refused by name, never printed as 'NaN' or read as 0
+const countTextOf = (countValue) => {
+	if (!Number.isFinite(countValue)) throw new Error(`explorerVocabulary: a meanings count must be a number (received ${JSON.stringify(countValue)})`);
+	return countNumberFormat.format(countValue);
 };
-export const meaningInfoTextOf = (meaningRow) =>
-	[`${meaningRow.referenceTier}${meaningRow.termKind ? ` ${meaningRow.termKind}` : ''}`, meaningRow.rangeName ? `range ${meaningRow.rangeName}` : '', (meaningRow.qualifierNameList || []).length ? `qualified by ${meaningRow.qualifierNameList.join(', ')}` : '']
+// "1 meaning", "2,777 meanings": a count noun is { one, other }
+const countedNounTextOf = (countValue, nounEntry) => wordingOf(meaningsVocabulary.countedNounTemplate, { countText: countTextOf(countValue), nounText: countValue === 1 ? nounEntry.one : nounEntry.other });
+
+const meaningCountTextReaderByKind = {
+	meaningHub: (hubRow) =>
+		wordingOf(meaningsVocabulary.hubHoldingTemplate, { domainCountText: countedNounTextOf(hubRow.domainCount, meaningsVocabulary.domainNoun), meaningCountText: countedNounTextOf(hubRow.meaningCount, meaningsVocabulary.meaningNoun) }),
+	meaningDomain: (domainRow) => {
+		const meaningCountText = countedNounTextOf(domainRow.meaningCount, meaningsVocabulary.meaningNoun);
+		const holdingText = !domainRow.termMeaningCount
+			? meaningCountText
+			: domainRow.meaningCount
+				? wordingOf(meaningsVocabulary.domainHoldingTemplate, { meaningCountText, ownTermText: meaningsVocabulary.domainOwnTermText })
+				: meaningsVocabulary.domainOwnTermOnlyText;
+		const expressedText = domainRow.mappedMeaningCount ? wordingOf(meaningsVocabulary.expressedTemplate, { countText: countTextOf(domainRow.mappedMeaningCount) }) : '';
+		return [holdingText, expressedText].filter(Boolean).join(meaningsVocabulary.countPartDivider);
+	},
+};
+// what a hub's or a domain's row holds, in words; any other row holds no meanings to count
+export const meaningCountTextOf = (meaningGroupRow) => {
+	const countTextReader = meaningCountTextReaderByKind[meaningGroupRow.kind];
+	return countTextReader ? countTextReader(meaningGroupRow) : '';
+};
+
+// how many standard elements map to one meaning
+export const meaningExpressionTextOf = (meaningRow) => {
+	if (!meaningRow.elementCount) return meaningsVocabulary.meaningUnexpressedText;
+	const elementCountText = countedNounTextOf(meaningRow.elementCount, meaningsVocabulary.elementNoun);
+	return wordingOf(meaningRow.elementCount === 1 ? meaningsVocabulary.meaningExpressionOneTemplate : meaningsVocabulary.meaningExpressionTemplate, { elementCountText });
+};
+export const meaningElementCountTextOf = (elementCount) => countedNounTextOf(elementCount, meaningsVocabulary.elementNoun);
+
+// what one meaning row is about: the domain's own term says so (⟪review S5⟫ known by the group the server listed it in, never by re-deriving the server's
+// tier rule); a property meaning says its range and qualifiers (its tier is the level's, so it is not repeated)
+export const OWN_TERM_RELATIONSHIP_TYPE = 'HAS_TERM_MEANING';
+export const meaningInfoTextOf = (meaningRow) => {
+	if (meaningRow.relationshipType === OWN_TERM_RELATIONSHIP_TYPE) return meaningsVocabulary.domainOwnTermRowText;
+	return [
+		meaningRow.rangeName ? wordingOf(meaningsVocabulary.rangeTemplate, { rangeName: meaningRow.rangeName }) : '',
+		(meaningRow.qualifierNameList || []).length ? wordingOf(meaningsVocabulary.qualifierTemplate, { qualifierNameText: meaningRow.qualifierNameList.join(meaningsVocabulary.qualifierNameDivider) }) : '',
+	]
 		.filter(Boolean)
-		.join(' · ');
+		.join(meaningsVocabulary.countPartDivider);
+};
+
+// a meaning's line under its bubble: what it is about, then how many elements express it
+export const meaningRowSubTextOf = (meaningRow) => [meaningInfoTextOf(meaningRow), meaningExpressionTextOf(meaningRow)].filter(Boolean).join(meaningsVocabulary.countPartDivider);
+
+// the detail panel's facts for a hub (its domains and its meanings) and for a domain (its row's count text)
+const meaningFactListReaderByKind = {
+	meaningHub: (hubRow) => [
+		{ factName: meaningsVocabulary.domainsFactName, factText: countTextOf(hubRow.domainCount) },
+		{ factName: meaningsVocabulary.meaningsFactName, factText: countTextOf(hubRow.meaningCount) },
+	],
+	meaningDomain: (domainRow) => [
+		{ factName: meaningsVocabulary.meaningsFactName, factText: meaningCountTextOf(domainRow) },
+		// ⟪review S4⟫ its id in its hub's standard, as the server read it (nativeId: { <declared identifier name>: text })
+		...(domainRow.nativeId ? [{ factName: wordingOf(meaningsVocabulary.hubIdFactNameTemplate, { hubName: domainRow.hubName }), factText: Object.values(domainRow.nativeId)[0] }] : []),
+	],
+};
+export const meaningFactListOf = (meaningGroupNode) => {
+	const factListReader = meaningFactListReaderByKind[meaningGroupNode.kind];
+	return factListReader && meaningGroupNode.meaningCount !== undefined ? factListReader(meaningGroupNode) : [];
+};
 
 // cmd-click (macOS) or ctrl-click (Windows, Linux) opens an item at once, as its panel's Open button would
 export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));
@@ -302,6 +525,11 @@ export const explorerLinkOf = (pathStableIdList) => walkLinkOf('standards', path
 //   offersSchemaViewer    the Schema Viewer view, for a walk inside one standard
 //   showsStandardSections the detail panel's sections about a standard: its catalog card, its version tiles, its companion pages and downloads
 //   legendNodeKindList    the legend's bubbles, drawn once per hub the page names; null: the Standards Explorer's own legend (Legend.vue)
+//   legendSharedNodeKindList ⟪review N2⟫ legend bubbles drawn once, not once per hub (the meanings walk's meaning and own-term chips)
+//   showsRefusalsByName   ⟪review S3⟫ a step the server refuses (HTTP 4xx) shows the server's words as a refusal, not as a failure to answer
+//   countTextWraps        ⟪meaningsPolish⟫ the table's Count column wraps (the meanings walk's counts are phrases, not numbers)
+//   citesUriAsLink        ⟪meaningsPolish⟫ the Cite as line's URI is itself the link to its page, with no second "Open its page" link beside the panel's
+//                         Open (punch-list item 2: one Open link, the one that names its target)
 
 export const MEANING_CATALOG_STABLE_ID = 'meanings:all';
 export const MEANINGS_ROUTE_PATH = '/explore/meanings';
@@ -318,18 +546,27 @@ export const walkProfileByName = Object.freeze({
 		offersSchemaViewer: true,
 		showsStandardSections: true,
 		legendNodeKindList: null,
+		citesUriAsLink: false,
+		countTextWraps: false,
+		legendSharedNodeKindList: null,
+		showsRefusalsByName: false,
 	}),
+	// ⟪meaningsPolish⟫ its words are meaningsVocabulary's; its walk is hub → domain → meaning (no property level)
 	meanings: Object.freeze({
 		walkProfileName: 'meanings',
 		routePath: MEANINGS_ROUTE_PATH,
 		rootStableId: MEANING_CATALOG_STABLE_ID,
-		titleText: 'Meanings Explorer',
-		introText: 'A meaning is one idea the standards can express, named once with a permanent URI. Pick a hub, then a domain and a property; open a meaning to see what it names and every standard element that expresses it.',
-		rootLevelText: 'every group of meanings',
-		metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains and properties, the meanings they name, and every standard element mapped to each meaning.',
+		titleText: meaningsVocabulary.titleText,
+		introText: meaningsVocabulary.introText,
+		rootLevelText: meaningsVocabulary.rootLevelText,
+		metaDescriptionText: meaningsVocabulary.metaDescriptionText,
 		offersSchemaViewer: false,
 		showsStandardSections: false,
-		legendNodeKindList: Object.freeze(['meaningHub', 'meaningDomain', 'meaningProperty', 'meaning']),
+		legendNodeKindList: Object.freeze(['meaningHub', 'meaningDomain']),
+		legendSharedNodeKindList: Object.freeze(['meaning', 'meaningOwnTerm']),
+		citesUriAsLink: true,
+		countTextWraps: true,
+		showsRefusalsByName: true,
 	}),
 });
 

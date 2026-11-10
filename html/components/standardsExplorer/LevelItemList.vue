@@ -9,7 +9,7 @@
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, kindDisplayNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, kindDisplayNameOf, meaningCountTextOf, meaningRowSubTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -17,6 +17,10 @@ const specStore = useSpecificationMetadataStore();
 const detailTextOf = (oneRow) => {
 	if (oneRow.kind === 'family') return [specStore.specByGraphFamily(oneRow.standardFamily)?.title, familyHoldingTextOf(oneRow)].filter(Boolean).join(', ');
 	if (oneRow.mapping) return `maps to ${oneRow.mapping.anchor.name} (${oneRow.mapping.matchKind})`;
+	// ⟪meaningsPolish⟫ the meanings walk's counts, drawn under its bubbles, said here too (a reader of the DOM cannot read the canvas)
+	if (oneRow.kind === 'meaning') return meaningRowSubTextOf(oneRow);
+	const meaningCountText = meaningCountTextOf(oneRow);
+	if (meaningCountText) return meaningCountText;
 	return oneRow.description || (oneRow.version ? `version ${oneRow.version}` : '');
 };
 

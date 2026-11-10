@@ -40,6 +40,12 @@ const CEDS_VALUE_HOLDER_CARD_STABLE_ID = 'https://w3id.org/EDUcore/CEDStandards/
 const LARGE_CARD_STABLE_ID = 'https://w3id.org/EDUcore/CTDL/hub/Release_20260927/8f519f13a9ae98e10fd7effb7e228e52c6dca043f68419f630cb782d32ac1e71';
 const NO_CLIMB_ELEMENT_STABLE_ID = 'lif:CompetencyFramework/Association/inline/competencyAssociationUri';
 const CTDL_CARD_STABLE_ID = 'https://w3id.org/EDUcore/CTDL/hub/Release_20260927/69bea17c82f2d43fa773867bf6adab46d0e2b6aae7cfe7ac7f5a7d75b0792b4c';
+// ⟪meaningsPolish⟫ the work order's named domains, and one where a property has more than one meaning
+const ACCESSIBILITY_FEATURE_STABLE_ID = 'https://w3id.org/CEDStandards/terms/C200012';
+const ADULT_EDUCATION_COURSE_STABLE_ID = 'https://w3id.org/CEDStandards/terms/C200003';
+const MULTI_MEANING_DOMAIN_STABLE_ID = 'https://w3id.org/CEDStandards/terms/C200015';
+// ⟪review S6⟫ a domain no property meaning names; its only meaning is its own term
+const TERM_ONLY_DOMAIN_STABLE_ID = 'https://w3id.org/CEDStandards/terms/C200390';
 const DOMAIN_LISTING_MILLISECOND_LIMIT = 2000;
 const MEANING_PAGE_MILLISECOND_LIMIT = 1000;
 const URI_SAMPLE_COUNT = 10;
@@ -74,7 +80,8 @@ stepList.push((done) => meaningsNode('meanings:all', (nodeError, neighbourhood) 
 	ok('meanings:all lists one item per hub, each a meaningHub', hubItemList.length >= 2 && hubItemList.every((oneItem) => oneItem.kind === 'meaningHub'), JSON.stringify(hubItemList.map((oneItem) => oneItem.stableId)));
 	['CEDS', 'CTDL'].forEach((hubName) => ok(`meanings:all lists the ${hubName} hub as meaningHub:${hubName}`, hubItemList.some((oneItem) => oneItem.stableId === `meaningHub:${hubName}`)));
 	const cedsItem = hubItemList.find((oneItem) => oneItem.hubName === 'CEDS') || {};
-	ok('a hub says how many meanings of each tier it holds', (cedsItem.tierCountList || []).some((oneTier) => oneTier.referenceTier === 'value' && oneTier.meaningCount > 0), JSON.stringify(cedsItem));
+	// ⟪meaningsPolish⟫ a hub says what its next level shows (its domains and their meanings), no longer a per-tier inventory TQ read as a mismatch
+	ok('a hub says its domains and the meanings they hold, and no per-tier inventory', cedsItem.domainCount > 0 && cedsItem.meaningCount > 0 && !('tierCountList' in cedsItem), JSON.stringify(cedsItem));
 	ok('meanings:all and its hub items (synthetic, standing for no node) carry no uri', !('uri' in neighbourhood.node) && hubItemList.every((oneItem) => !('uri' in oneItem)));
 	done();
 }));
@@ -91,30 +98,119 @@ stepList.push((done) => timeRead('meaningHub:CEDS', (nodeError, neighbourhood, e
 	done();
 }));
 
-// ---- a domain lists its properties (timed)
+// ---- ⟪meaningsPolish⟫ a domain lists its meanings, with no property level between (TQ's ruling on punch-list items 3 and 4), timed
 stepList.push((done) => timeRead(`meaningDomain:${CEDS_DOMAIN_STABLE_ID}`, (nodeError, neighbourhood, elapsedMilliseconds) => {
 	ok('a meaningDomain answers', !nodeError, nodeError);
 	if (nodeError) { done(); return; }
 	console.log(`  TIMING: meaningDomain:${CEDS_DOMAIN_STABLE_ID} ${elapsedMilliseconds} ms`);
-	const propertyGroup = groupOf(neighbourhood, 'HAS_MEANING_PROPERTY');
-	ok('the domain lists its properties as meaningProperty items', propertyGroup && propertyGroup.itemList.length > 0 && propertyGroup.itemList.every((oneItem) => oneItem.kind === 'meaningProperty'));
-	ok('the domain lists the property P000043 with its own domain in its id', propertyGroup && propertyGroup.itemList.some((oneItem) => oneItem.stableId === `meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`));
+	const meaningGroup = groupOf(neighbourhood, 'HAS_MEANING');
+	ok('the domain lists its property meanings directly, each a meaning row carrying the card\'s uri', meaningGroup && meaningGroup.itemList.length > 0 && meaningGroup.itemList.every((oneItem) => oneItem.kind === 'meaning' && oneItem.referenceTier === 'property' && oneItem.uri === oneItem.stableId.slice('meaning:'.length)), JSON.stringify((meaningGroup || { itemList: [] }).itemList[0] || {}).slice(0, 300));
+	ok('the domain lists the property meaning of P000043 in C200331', meaningGroup && meaningGroup.itemList.some((oneItem) => oneItem.stableId === `meaning:${CEDS_CARD_STABLE_ID}`));
+	ok('no meaningProperty level is listed anywhere on a domain', itemListOf(neighbourhood).every((oneItem) => oneItem.kind !== 'meaningProperty') && !groupOf(neighbourhood, 'HAS_MEANING_PROPERTY'));
+	const termGroup = groupOf(neighbourhood, 'HAS_TERM_MEANING');
+	ok('the domain\'s own term meaning is listed apart, a term card whose term is the domain (termKind class)', termGroup && termGroup.itemList.length === 1 && termGroup.itemList.every((oneItem) => oneItem.referenceTier === 'term' && oneItem.termKind === 'class'), JSON.stringify(termGroup || {}).slice(0, 300));
 	ok(`the domain answers in under ${DOMAIN_LISTING_MILLISECOND_LIMIT} ms (${elapsedMilliseconds} ms)`, elapsedMilliseconds < DOMAIN_LISTING_MILLISECOND_LIMIT);
 	ok('no value-tier meaning is listed on a domain', itemListOf(neighbourhood).every((oneItem) => oneItem.referenceTier !== 'value'));
 	itemListOf(neighbourhood).filter((oneItem) => oneItem.kind === 'meaning').forEach((oneItem) => meaningRowSampleList.push(oneItem));
 	done();
 }));
 
-// ---- a property lists its meanings
-stepList.push((done) => meaningsNode(`meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`, (nodeError, neighbourhood) => {
-	ok('a meaningProperty answers', !nodeError, nodeError);
+// ---- ⟪meaningsPolish⟫ the work order's two named domains: Accessibility Feature (36 meanings, 2 expressed) and Adult Education Course (5 and its own term)
+[
+	{ domainStableId: ACCESSIBILITY_FEATURE_STABLE_ID, domainName: 'Accessibility Feature', meaningCount: 36, mappedMeaningCount: 2 },
+	{ domainStableId: ADULT_EDUCATION_COURSE_STABLE_ID, domainName: 'Adult Education Course', meaningCount: 5, mappedMeaningCount: 0 },
+].forEach((namedDomain) => stepList.push((done) => meaningsNode(`meaningDomain:${namedDomain.domainStableId}`, (nodeError, neighbourhood) => {
+	ok(`${namedDomain.domainName} answers`, !nodeError, nodeError);
 	if (nodeError) { done(); return; }
-	const meaningItemList = itemListOf(neighbourhood);
-	ok('the property lists its meanings, each a meaning row carrying the card\'s uri', meaningItemList.length > 0 && meaningItemList.every((oneItem) => oneItem.kind === 'meaning' && oneItem.uri === oneItem.stableId.slice('meaning:'.length)), JSON.stringify(meaningItemList[0]).slice(0, 300));
-	ok('the property lists the property meaning of P000043 in C200331', meaningItemList.some((oneItem) => oneItem.stableId === `meaning:${CEDS_CARD_STABLE_ID}` && oneItem.referenceTier === 'property'));
-	ok('the property lists its own term meaning beside it', (groupOf(neighbourhood, 'HAS_TERM_MEANING') || { itemList: [] }).itemList.some((oneItem) => oneItem.referenceTier === 'term'));
-	ok('no value-tier meaning is listed on a property', meaningItemList.every((oneItem) => oneItem.referenceTier !== 'value'));
-	meaningItemList.forEach((oneItem) => meaningRowSampleList.push(oneItem));
+	const meaningItemList = (groupOf(neighbourhood, 'HAS_MEANING') || { itemList: [] }).itemList;
+	const termItemList = (groupOf(neighbourhood, 'HAS_TERM_MEANING') || { itemList: [] }).itemList;
+	ok(`${namedDomain.domainName} lists ${namedDomain.meaningCount} meanings and its own term`, meaningItemList.length === namedDomain.meaningCount && termItemList.length === 1 && termItemList[0].name === namedDomain.domainName, `${meaningItemList.length} meanings, ${termItemList.length} terms`);
+	ok(`${namedDomain.domainName}: ${namedDomain.mappedMeaningCount} of its meanings are expressed in another standard`, meaningItemList.filter((oneItem) => oneItem.elementCount > 0).length === namedDomain.mappedMeaningCount);
+	done();
+})));
+
+// ---- ⟪meaningsPolish⟫ COUNTS AGREE at every level, on every hub: a hub's row says its domains and meanings, which are what the hub level lists and the sum of
+// its domains' rows; each domain's row says its meanings, how many are expressed, and whether its own term is listed, which is what the domain level lists
+stepList.push((done) => meaningsNode('meanings:all', (rootError, rootNeighbourhood) => {
+	if (rootError) { ok('meanings:all answers for the count sweep', false, rootError); done(); return; }
+	const hubItemList = itemListOf(rootNeighbourhood);
+	const sweepHub = (hubIndex) => {
+		if (hubIndex === hubItemList.length) { done(); return; }
+		const hubItem = hubItemList[hubIndex];
+		const startMilliseconds = Date.now();
+		meaningsNode(hubItem.stableId, (hubError, hubNeighbourhood) => {
+			const domainItemList = hubError ? [] : itemListOf(hubNeighbourhood);
+			ok(`${hubItem.name}: the hub row's domainCount is what the hub level lists (${hubItem.domainCount} / ${domainItemList.length})`, !hubError && hubItem.domainCount === domainItemList.length, hubError);
+			ok(`${hubItem.name}: the hub row's meaningCount is the sum of its domains' (${hubItem.meaningCount})`, hubItem.meaningCount === domainItemList.reduce((soFar, oneDomain) => soFar + oneDomain.meaningCount, 0));
+			// ⟪meaningsPolish review B1, N8⟫ the hub's own node says what its row says (the level's own count, the panel's facts)
+			ok(`${hubItem.name}: the hub's own node carries its row's domainCount and meaningCount`, !hubError && hubNeighbourhood.node.domainCount === hubItem.domainCount && hubNeighbourhood.node.meaningCount === hubItem.meaningCount, hubError || JSON.stringify(hubNeighbourhood.node).slice(0, 200));
+			const mismatchList = [];
+			let slowestMilliseconds = 0;
+			const sweepDomain = (domainIndex) => {
+				if (domainIndex === domainItemList.length) {
+					ok(`${hubItem.name}: every one of ${domainItemList.length} domain rows agrees with its own level and its own node (meanings, expressed, own term)`, mismatchList.length === 0, JSON.stringify(mismatchList.slice(0, 5)));
+					console.log(`  TIMING: ${hubItem.name} count sweep ${Date.now() - startMilliseconds} ms, slowest domain ${slowestMilliseconds} ms`);
+					ok(`${hubItem.name}: the slowest domain listing is under ${DOMAIN_LISTING_MILLISECOND_LIMIT} ms (${slowestMilliseconds} ms)`, slowestMilliseconds < DOMAIN_LISTING_MILLISECOND_LIMIT);
+					sweepHub(hubIndex + 1);
+					return;
+				}
+				const domainItem = domainItemList[domainIndex];
+				timeRead(domainItem.stableId, (domainError, domainNeighbourhood, elapsedMilliseconds) => {
+					slowestMilliseconds = Math.max(slowestMilliseconds, elapsedMilliseconds);
+					const meaningGroup = domainError ? null : groupOf(domainNeighbourhood, 'HAS_MEANING');
+					const termGroup = domainError ? null : groupOf(domainNeighbourhood, 'HAS_TERM_MEANING');
+					const listedMeaningCount = meaningGroup ? meaningGroup.count : 0;
+					const listedMappedCount = meaningGroup ? meaningGroup.itemList.filter((oneItem) => oneItem.elementCount > 0).length : 0;
+					const listedTermCount = termGroup ? termGroup.count : 0;
+					// ⟪meaningsPolish review B1⟫ and the domain's own node (what its level's count is drawn from) says the same as its row
+					const domainNode = domainError ? {} : domainNeighbourhood.node;
+					const nodeAgrees = domainNode.meaningCount === domainItem.meaningCount && domainNode.mappedMeaningCount === domainItem.mappedMeaningCount && domainNode.termMeaningCount === domainItem.termMeaningCount;
+					if (domainError || !nodeAgrees || listedMeaningCount !== domainItem.meaningCount || listedMappedCount !== domainItem.mappedMeaningCount || listedTermCount !== domainItem.termMeaningCount) {
+						mismatchList.push({ stableId: domainItem.stableId, domainError, row: [domainItem.meaningCount, domainItem.mappedMeaningCount, domainItem.termMeaningCount], listed: [listedMeaningCount, listedMappedCount, listedTermCount], node: [domainNode.meaningCount, domainNode.mappedMeaningCount, domainNode.termMeaningCount] });
+					}
+					sweepDomain(domainIndex + 1);
+				});
+			};
+			sweepDomain(0);
+		});
+	};
+	sweepHub(0);
+}));
+
+// ---- ⟪meaningsPolish review S6⟫ no domain's own term is abandoned: every class-term card of a hub is listed on some domain of the walk (on the base, 33 were not:
+// a domain no property meaning names was never listed); one such domain, Education Institution, is listed and opens to its own term alone
+['CEDS', 'CTDL'].forEach((hubName) => stepList.push((done) => goldenHandle.runQuery(
+	`MATCH (termCard:HubReference {hubName: $hubName})-[termEdge]->(:ForgedNode) WHERE termCard.referenceTier = 'term' AND termCard.termKind = 'class' AND type(termEdge) = $termEdgeType RETURN count(termCard) AS classTermCount`,
+	{ hubName, termEdgeType: `HAS_${hubName}_TERM` },
+	(queryError, rowList) => meaningsNode(`meaningHub:${hubName}`, (hubError, hubNeighbourhood) => {
+		const classTermCount = queryError ? -1 : rowList[0].classTermCount;
+		const listedTermCount = hubError ? 0 : itemListOf(hubNeighbourhood).reduce((soFar, oneDomain) => soFar + oneDomain.termMeaningCount, 0);
+		ok(`${hubName}: every class-term card (${classTermCount}) is some listed domain's own term (${listedTermCount})`, !queryError && !hubError && classTermCount > 0 && listedTermCount === classTermCount, queryError || hubError);
+		done();
+	}),
+)));
+stepList.push((done) => meaningsNode('meaningHub:CEDS', (hubError, hubNeighbourhood) => {
+	const termOnlyRow = hubError ? null : itemListOf(hubNeighbourhood).find((oneItem) => oneItem.stableId === `meaningDomain:${TERM_ONLY_DOMAIN_STABLE_ID}`);
+	ok('Education Institution (no property meaning names it) is listed, holding 0 meanings and its own term', termOnlyRow && termOnlyRow.meaningCount === 0 && termOnlyRow.termMeaningCount === 1 && termOnlyRow.hasChildren === true, JSON.stringify(termOnlyRow || hubError).slice(0, 300));
+	meaningsNode(`meaningDomain:${TERM_ONLY_DOMAIN_STABLE_ID}`, (domainError, domainNeighbourhood) => {
+		const termGroup = domainError ? null : groupOf(domainNeighbourhood, 'HAS_TERM_MEANING');
+		ok('Education Institution opens to its own term alone', !domainError && !groupOf(domainNeighbourhood, 'HAS_MEANING') && termGroup && termGroup.count === 1, domainError);
+		done();
+	});
+}));
+
+// ---- ⟪meaningsPolish review S4⟫ a domain shows its id in its hub's standard (CEDS C200012), on its row and on its own node
+stepList.push((done) => meaningsNode('meaningHub:CEDS', (hubError, hubNeighbourhood) => meaningsNode(`meaningDomain:${ACCESSIBILITY_FEATURE_STABLE_ID}`, (domainError, domainNeighbourhood) => {
+	const domainRow = hubError ? {} : itemListOf(hubNeighbourhood).find((oneItem) => oneItem.stableId === `meaningDomain:${ACCESSIBILITY_FEATURE_STABLE_ID}`) || {};
+	ok('Accessibility Feature\'s row and node carry its CEDS id C200012', (domainRow.nativeId || {}).cedsId === 'C200012' && !domainError && (domainNeighbourhood.node.nativeId || {}).cedsId === 'C200012', JSON.stringify([domainRow.nativeId, domainError || domainNeighbourhood.node.nativeId]));
+	done();
+})));
+
+// ---- ⟪meaningsPolish⟫ a property with more than one property meaning in a domain lists each one (Assessment Asset: 16 meanings over 12 properties)
+stepList.push((done) => meaningsNode(`meaningDomain:${MULTI_MEANING_DOMAIN_STABLE_ID}`, (nodeError, neighbourhood) => {
+	const meaningItemList = nodeError ? [] : (groupOf(neighbourhood, 'HAS_MEANING') || { itemList: [] }).itemList;
+	const distinctNameCount = new Set(meaningItemList.map((oneItem) => oneItem.name)).size;
+	ok(`Assessment Asset lists every property meaning, more than one for some property (${meaningItemList.length} meanings, ${distinctNameCount} names)`, meaningItemList.length === 16 && distinctNameCount < meaningItemList.length, nodeError);
 	done();
 }));
 
@@ -134,7 +230,8 @@ stepList.push((done) => timeRead(`meaning:${CEDS_CARD_STABLE_ID}`, (nodeError, n
 	ok(`"Expressed in" groups its ${meaningNode.expressionCount} elements by standard, every one listed`, groupList.length > 1 && elementList.length === meaningNode.expressionCount && !meaningNode.expressionsTruncated, `${groupList.length} groups, ${elementList.length} of ${meaningNode.expressionCount}`);
 	ok('each element carries its relation, match basis, confidence, uri and its climb from the root', elementList.every((oneElement) => oneElement.matchKind && oneElement.matchBasis && typeof oneElement.mappingConfidence === 'number' && typeof oneElement.uri === 'string' && oneElement.ancestorList.length > 0 && oneElement.ancestorList[0].kind === 'standard'), JSON.stringify(elementList.find((oneElement) => !oneElement.matchBasis) || {}).slice(0, 300));
 	ok('each group names its standard (family, release, version) and is the fan-out\'s standardGroup', groupList.every((oneGroup) => oneGroup.standardFamily && oneGroup.releaseLabel && oneGroup.version && oneGroup.stableId.startsWith('standardGroup:')));
-	ok('its place in the walk: its group, domain and property as walk ids', meaningNode.meaningGroup && meaningNode.meaningGroup.stableId === 'meaningHub:CEDS' && meaningNode.meaningDomain.stableId === `meaningDomain:${CEDS_DOMAIN_STABLE_ID}` && meaningNode.meaningProperty.stableId === `meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`);
+	ok('its place in the walk: its group and domain as walk ids, and no property level', meaningNode.meaningGroup && meaningNode.meaningGroup.stableId === 'meaningHub:CEDS' && meaningNode.meaningDomain.stableId === `meaningDomain:${CEDS_DOMAIN_STABLE_ID}` && !('meaningProperty' in meaningNode));
+	ok('its domain and property slots carry their CEDS ids (C200331, P000043)', meaningNode.tuple && meaningNode.tuple.domain.nativeId.cedsId === 'C200331' && meaningNode.tuple.property.nativeId.cedsId === 'P000043', JSON.stringify(meaningNode.tuple || {}).slice(0, 300));
 	ok('a property meaning without codes holds no value meanings', !groupOf(neighbourhood, 'HAS_VALUE_MEANING'));
 	done();
 }));
@@ -202,11 +299,12 @@ stepList.push((done) => meaningsNode(`meaning:${CEDS_CARD_STABLE_ID}`, (nodeErro
 	checkStep(0);
 }));
 
-// ---- ⟪review S4, S5⟫ a pair no property meaning joins, and an unknown hub in a breadcrumb, are refused by name
-stepList.push((done) => meaningsNode('meaningProperty:https://w3id.org/CEDStandards/terms/C200010@https://w3id.org/CEDStandards/terms/P002089', (nodeError) => {
-	ok('S4: a domain and property no property meaning joins is refused by name (its term card alone does not make the level)', /no meaning names the property .* in the domain/.test(nodeError || ''), nodeError || 'answered');
-	meaningsNode('meaningProperty:ceterms:AssociateDegree@https://w3id.org/CEDStandards/terms/P002089', (crossHubError) => {
-		ok('S4: a CEDS property in a CTDL domain is refused by name', /no meaning names the property .* in the domain/.test(crossHubError || ''), crossHubError || 'answered');
+// ---- ⟪review S5⟫ an unknown hub in a breadcrumb is refused by name; ⟪meaningsPolish⟫ a retired property-level id is refused by name, in a crumb and as a node
+stepList.push((done) => meaningsNode(`meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`, (nodeError) => {
+	ok('a meaningProperty id (the retired property level) is refused by name as a node', /'meaningProperty:.*' is no longer a level of the meanings walk/.test(nodeError || ''), nodeError || 'answered');
+	ok('⟪review S3⟫ the refusal names the real domain to open, not a placeholder', (nodeError || '').includes(`meaningDomain:${CEDS_DOMAIN_STABLE_ID}`) && !(nodeError || '').includes('<domainStableId>'), nodeError || 'answered');
+	branchLibrary['standards-neighbourhood']({ action: 'pathSummary', stableIdList: ['meanings:all', 'meaningHub:CEDS', `meaningDomain:${CEDS_DOMAIN_STABLE_ID}`, `meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`] }, (summaryError) => {
+		ok('a meaningProperty id is refused by name in a breadcrumb', /'meaningProperty:.*' is no longer a level of the meanings walk/.test(summaryError || ''), summaryError || 'answered');
 		done();
 	});
 }));
@@ -234,7 +332,6 @@ stepList.push((done) => {
 [
 	['meanings:other', /is not the meanings catalog id/],
 	['meaningHub:NOSUCHHUB', /no :HubDefinition in this graph has hubName 'NOSUCHHUB'; hubs present: /],
-	[`meaningProperty:${CEDS_DOMAIN_STABLE_ID}`, /is not a meaning property id/],
 	['meaning:https://w3id.org/EDUcore/no-such-card', /no meaning in this graph has stableId/],
 	[`meaningDomain:${CEDS_PROPERTY_STABLE_ID}`, /no meaning names .* as its domain/],
 ].forEach(([stableId, refusalPattern]) => stepList.push((done) => meaningsNode(stableId, (nodeError) => {
@@ -243,8 +340,8 @@ stepList.push((done) => {
 })));
 
 // ---- the breadcrumb of a reloaded meanings path names every step
-stepList.push((done) => branchLibrary['standards-neighbourhood']({ action: 'pathSummary', stableIdList: ['meanings:all', 'meaningHub:CEDS', `meaningDomain:${CEDS_DOMAIN_STABLE_ID}`, `meaningProperty:${CEDS_DOMAIN_STABLE_ID}@${CEDS_PROPERTY_STABLE_ID}`, `meaning:${CEDS_CARD_STABLE_ID}`] }, (summaryError, pathSummary) => {
-	ok('pathSummary names a meanings walk', !summaryError && pathSummary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join(',') === 'meaningCatalog,meaningHub,meaningDomain,meaningProperty,meaning', summaryError || JSON.stringify(pathSummary.nodeSummaryList.map((oneSummary) => [oneSummary.kind, oneSummary.name])));
+stepList.push((done) => branchLibrary['standards-neighbourhood']({ action: 'pathSummary', stableIdList: ['meanings:all', 'meaningHub:CEDS', `meaningDomain:${CEDS_DOMAIN_STABLE_ID}`, `meaning:${CEDS_CARD_STABLE_ID}`] }, (summaryError, pathSummary) => {
+	ok('pathSummary names a meanings walk', !summaryError && pathSummary.nodeSummaryList.map((oneSummary) => oneSummary.kind).join(',') === 'meaningCatalog,meaningHub,meaningDomain,meaning', summaryError || JSON.stringify(pathSummary.nodeSummaryList.map((oneSummary) => [oneSummary.kind, oneSummary.name])));
 	ok('every named step carries its hub\'s family (the crumb colour)', !summaryError && pathSummary.nodeSummaryList.slice(1).every((oneSummary) => oneSummary.standardFamily === 'CEDS'));
 	done();
 }));

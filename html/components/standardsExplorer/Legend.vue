@@ -24,7 +24,13 @@ const legendKindList = computed(() => {
 	const hubList = store.shownHubList.length ? store.shownHubList : [{ hubName: null, standardFamily: null }];
 	// ⟪meaningsExplorer⟫ a walk with its own bubbles (its profile's legendNodeKindList) shows those, in each named hub's colours
 	const walkLegendNodeKindList = store.walkProfile.legendNodeKindList;
-	if (walkLegendNodeKindList) return hubList.flatMap(({ hubName, standardFamily }) => walkLegendNodeKindList.map((nodeKind) => ({ nodeKind, hubName, standardFamily })));
+	// ⟪meaningsPolish review N2⟫ and its shared bubbles (legendSharedNodeKindList) once, in the first named hub's colours
+	const sharedNodeKindList = store.walkProfile.legendSharedNodeKindList || [];
+	if (walkLegendNodeKindList)
+		return [
+			...hubList.flatMap(({ hubName, standardFamily }) => walkLegendNodeKindList.map((nodeKind) => ({ nodeKind, hubName, standardFamily }))),
+			...sharedNodeKindList.map((nodeKind) => ({ nodeKind, hubName: hubList[0].hubName, standardFamily: hubList[0].standardFamily })),
+		];
 	const hubKindList = hubList.reduce((soFar, { hubName, standardFamily }) => soFar.concat([{ nodeKind: 'hubAnchor', hubName, standardFamily }, { nodeKind: 'hubDomain', hubName, standardFamily }]), []);
 	return [...LEGEND_KIND_LIST.slice(0, 5), ...hubKindList, ...LEGEND_KIND_LIST.slice(5)];
 });

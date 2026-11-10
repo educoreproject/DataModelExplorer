@@ -1,9 +1,13 @@
 <script setup>
 // The states a level can be in besides its rows: loading (pulsing grey bubbles) and error (the graph did not
 // answer, with the server's reason underneath and Try again).
+// ⟪meaningsPolish review S3⟫ and refusal: the server refused what was asked, by name (HTTP 4xx). Its words are shown as the reason, with no "Try again",
+// since asking again cannot succeed. Only a walk whose profile sets showsRefusalsByName asks for it (the Meanings walk); its words are meaningsVocabulary's.
+
+import { meaningsVocabulary } from '@/components/standardsExplorer/explorerVocabulary';
 
 defineProps({
-	stateName: { type: String, required: true, validator: (stateName) => ['loading', 'error'].includes(stateName) },
+	stateName: { type: String, required: true, validator: (stateName) => ['loading', 'error', 'refusal'].includes(stateName) },
 	detailText: { type: String, default: '' },
 });
 const emit = defineEmits(['retry']);
@@ -23,6 +27,11 @@ const LOADING_BUBBLE_LIST = [
 			:style="{ left: `${oneBubble[0]}%`, top: `${oneBubble[1]}%`, width: `${oneBubble[2]}%` }"
 		/>
 		<span class="state-loading-text">Loading this level…</span>
+	</div>
+	<div v-else-if="stateName === 'refusal'" role="alert" class="state-error" data-testid="state-error">
+		<span class="state-error-title" data-testid="state-refusal-title">{{ meaningsVocabulary.refusalTitleText }}</span>
+		<span class="state-error-text">{{ meaningsVocabulary.refusalGuideText }}</span>
+		<code v-if="detailText" class="state-error-detail" data-testid="state-error-detail">{{ detailText }}</code>
 	</div>
 	<div v-else role="alert" class="state-error" data-testid="state-error">
 		<span class="state-error-title">The standards graph did not answer</span>

@@ -14,7 +14,7 @@
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -89,9 +89,8 @@ const factList = computed(() => {
 		{ factName: 'Elements', factText: oneNode.elementCount ? String(oneNode.elementCount) : '' },
 		{ factName: `${hubNameTextOf(oneNode.hubName)} tier`, factText: oneNode.referenceTier || '' },
 		{ factName: kindDisplayNameOf('hubDomain', oneNode.hubName), factText: (oneNode.hubDomainList || []).map((oneDomain) => oneDomain.name).join(', ') || oneNode.hubDomainName || '' },
-		// ⟪meaningsExplorer⟫ a group of meanings (a hub, a domain, a property) says how many it holds and how many a standard maps to
-		{ factName: 'Meanings', factText: oneNode.meaningCount !== undefined && oneNode.kind !== 'meaningHub' ? `${oneNode.meaningCount}${oneNode.mappedMeaningCount ? `, ${oneNode.mappedMeaningCount} mapped to by a standard` : ''}` : '' },
-		{ factName: 'Meanings', factText: oneNode.tierCountList ? oneNode.tierCountList.map((oneTier) => `${oneTier.meaningCount} ${oneTier.referenceTier}`).join(', ') : '' },
+		// ⟪meaningsExplorer, meaningsPolish⟫ a group of meanings (a hub, a domain) says what its next level holds, in the meanings vocabulary's words
+		...meaningFactListOf(oneNode),
 		{ factName: 'Occurrences shown', factText: isFocus.value && store.neighbourhood.instanceFolding && store.neighbourhood.instanceFolding.occurrenceCount > 1 ? (store.neighbourhood.instanceFolding.folded ? 'folded: they all map the same way' : 'yes: they map differently') : '' },
 	].filter((oneFact) => oneFact.factText);
 });
@@ -139,7 +138,7 @@ const definitionText = computed(() => {
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
 		<!-- ⟪explorerUris⟫ the node's EDUcore URI, as the /edc page cites it; none for a node the server sent no uri -->
 		<StandardsExplorerMeaningSection v-if="isMeaning" :meaning-node="shownNode" :is-focus="isFocus" />
-		<StandardsExplorerCiteAs v-if="shownNode.uri && !isMeaning" :uri="shownNode.uri" :uri-kind="shownNode.uriKind" :element-list-uri="shownNode.elementListUri || ''" />
+		<StandardsExplorerCiteAs v-if="shownNode.uri && !isMeaning" :uri="shownNode.uri" :uri-kind="shownNode.uriKind" :element-list-uri="shownNode.elementListUri || ''" :uri-is-the-link="store.walkProfile.citesUriAsLink" />
 
 		<div v-if="mappingList.length" class="detail-box" data-testid="detail-mapping">
 			<span class="detail-box-head">Maps to {{ mappingHubText }}</span>
