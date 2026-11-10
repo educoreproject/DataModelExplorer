@@ -348,7 +348,9 @@ stepList.push((next) => doorWith({ 'standards-query-limits': LIMIT_SECTION, 'ros
 })));
 
 // ---- 7. the registry
-const mainRegistry = JSON.parse(execFileSync('git', ['show', 'main:server/lib/standards-query/standardsQueryOperations.json'], { cwd: codeRootPath, encoding: 'utf8' }));
+// the commit before Rosetta free input was merged (da7e896): a fixed baseline, since after the merge 'main' holds the feature and would compare it with itself
+const PRE_FEATURE_BASE_COMMIT = 'da7e896';
+const mainRegistry = JSON.parse(execFileSync('git', ['show', `${PRE_FEATURE_BASE_COMMIT}:server/lib/standards-query/standardsQueryOperations.json`], { cwd: codeRootPath, encoding: 'utf8' }));
 const mcpToolNamesOf = (anyRegistry) => JSON.stringify(anyRegistry.operationList.filter((oneRow) => oneRow.doorList.includes('mcp')).map((oneRow) => oneRow.mcpToolName));
 ok('rosetta/interpret is a web route alone: the api door, no MCP tool', interpretRow.routeName === 'rosetta/interpret' && JSON.stringify(interpretRow.doorList) === '["api"]' && interpretRow.mcpToolName === undefined);
 ok('the MCP tool list is main\'s, unchanged', mcpToolNamesOf(registry) === mcpToolNamesOf(mainRegistry), mcpToolNamesOf(registry));

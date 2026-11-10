@@ -20,7 +20,9 @@ const codeRootPath = path.join(__dirname, '..', '..');
 const storesDirPath = path.join(codeRootPath, 'html', 'stores');
 const ladderFilePath = path.join(storesDirPath, 'rosettaFreeText.js');
 const storeFilePath = path.join(storesDirPath, 'rosettaStore.js');
-const BASE_COMMIT = process.env.ROSETTA_FREE_TEXT_BASE_COMMIT || 'main';
+// the commit before Rosetta free input was merged (da7e896): a fixed baseline, since after the merge 'main' holds the feature and compares it with itself
+const PRE_FEATURE_BASE_COMMIT = 'da7e896';
+const BASE_COMMIT = process.env.ROSETTA_FREE_TEXT_BASE_COMMIT || PRE_FEATURE_BASE_COMMIT;
 
 let passedCount = 0;
 let failedCount = 0;
