@@ -581,7 +581,8 @@ gate('G4.11', (done) => {
 			ok('G4.11: the vendor sentence quotes the terms', /"Anthropic may not train models on Customer Content from Services\."/.test(submitEntry.whatHappensToYourText));
 			ok('G4.11: says how long, the number the config\'s', /for 30 days/.test(submitEntry.whatHappensToYourText) && about.limitsInForce.judgedStep.daysKept === 30);
 			ok('G4.11: says a draft is one model\'s reading, what strong-only means, that strong is not proof, and that the figures are CEDS only', /one model's reading/.test(submitEntry.whatThisDoesNot) && /Only proposals the judge calls strong/.test(submitEntry.whatThisDoesNot) && /Strong is not proof/.test(submitEntry.whatThisDoesNot) && /28 of 28/.test(submitEntry.whatThisDoesNot) && /CEDS alone/.test(submitEntry.whatThisDoesNot) && /Nothing is measured for CTDL/.test(submitEntry.whatThisDoesNot));
-			ok('G4.11: says retrieval stays open while the judged step needs sign-in', /retrieval stays open/i.test(submitEntry.whatThisDoesNot) && submitEntry.needsSignedInAccount === true);
+			// ⟪rosettaMeanings R3⟫ the judged step is now open to a visitor on the API, within smaller limits; MCP still needs an OAuth sign-in, as the example does
+			ok('G4.11: says a visitor may judge on the API without sign-in, and that MCP needs OAuth', /Without sign-in the API takes smaller jobs, reached by jobRefId alone; MCP needs OAuth/.test(submitEntry.whatThisDoesNot) && submitEntry.needsSignedInAccount === true);
 			ok('price: about names no price', !/\$[0-9]|estimateUsd|spentUsd|usd\b/i.test(JSON.stringify({ ...about, operationList: about.operationList.map(({ exampleShows, ...restOfEntry }) => restOfEntry) })), 'about mentions a price');
 			const runExample = (exampleEntry, exampleInput, principal, expectedFieldList, nextDone) => ask(registry.operationList.find((oneRow) => oneRow.routeName === exampleEntry.operation).operationName, exampleInput, principal, ({ httpStatus, answer }) => {
 				const absentList = expectedFieldList.filter((fieldName) => answer[fieldName] === undefined);
@@ -655,7 +656,9 @@ gate('judgedPoolCap', (done) => {
 			ok('judgedPoolCap on: retrieval\'s public pool is still whole', resultOfHub(onAnswer.answer.fieldList[0], 'CEDS').poolSize === 40, `${resultOfHub(onAnswer.answer.fieldList[0], 'CEDS').poolSize}`);
 			ask('rosettaSubmit', { fieldList: [field], hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, () => {
 				const offeredCount = Number((vendor.callLog[vendor.callLog.length - 1].userPrompt.match(/CANDIDATE ELEMENTS \((\d+)\)/) || [])[1]);
-				ok(`judgedPoolCap on: the judge is offered at most 21, not 40 (${offeredCount})`, offeredCount >= 15 && offeredCount <= 21, `${offeredCount}`);
+				// ⟪rosettaMeanings R5, TQ Q90⟫ the shipped search is hubHybrid: the cap and today's cosine-rank-1 card, plus at most hybridMeaningCount meanings the cap lacked
+				const { judgedPoolCap: cardCap, hybridMeaningCount } = require('./lib/rosettaLiveHarness').LIVE_FUSE_VALUES;
+				ok(`judgedPoolCap on: the judge is offered at most ${cardCap + 1 + hybridMeaningCount} (cap, cosine-rank-1, the added meanings), not 40 (${offeredCount})`, offeredCount >= 15 && offeredCount <= cardCap + 1 + hybridMeaningCount, `${offeredCount}`);
 				close();
 			}));
 		});

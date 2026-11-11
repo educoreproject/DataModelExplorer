@@ -17,6 +17,7 @@ const { judgedSettings } = require('./rosettaJudgeEngine');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const SWEEP_MILLISECONDS = MILLISECONDS_PER_DAY;
+const VISITOR_SECRET_MIN_LENGTH = 32;
 const ROSETTA_JOB_PRINCIPAL = Object.freeze({ kind: 'rosettaJob', userRefId: '', role: '' });
 const MAPPINGS_OPERATION_NAME = 'mappings';
 const INCOMING_DIRECTION_NAME = 'incoming';
@@ -40,6 +41,13 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 	}
 	const { judgedValues } = judgedRead;
 	const nowMs = () => nowDate().getTime();
+	// ⟪rosettaMeanings review S2⟫ the secret keying a visitor's HMAC, from the file the config names; absent or short, the judged step stays off by name (the reason names the file, never its content)
+	fs.readFile(judgedValues.anonymousVisitorSecretFilePath, 'utf8', (secretError, secretText) => {
+	const visitorSecret = secretError ? '' : String(secretText).trim();
+	if (visitorSecret.length < VISITOR_SECRET_MIN_LENGTH) {
+		callback(`[rosetta-fuse] anonymousVisitorSecretFilePath ${judgedValues.anonymousVisitorSecretFilePath} ${secretError ? `would not read (${secretError.code})` : `holds fewer than ${VISITOR_SECRET_MIN_LENGTH} characters`}; put a random secret there (eg openssl rand -hex 32), mode 600`);
+		return;
+	}
 	createRosettaJobStore({ storeHandle: strangerVectorStore.storeHandle, nowMs, xLog }, (storeError, jobStore) => {
 		if (storeError) {
 			callback(storeError);
@@ -70,7 +78,7 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 			xLog.status(`assembleRosettaJudged: the judged step refuses submissions here: ${judgeAbsentReason}`);
 		}
 		let runner = null;
-		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, judgedTokensSpentToday: strangerVectorStore.judgedTokensSpentToday, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
+		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, visitorSecret, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, judgedTokensSpentToday: strangerVectorStore.judgedTokensSpentToday, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
 		const sweepNow = (done) => jobStore.sweepExpired({ cacheOldestKeptMs: nowMs() - judgedValues.jobRetentionDays * MILLISECONDS_PER_DAY }, done);
 		const startRunner = ({ getServiceFacts, runOperation }, startedDone) => {
 			runner = createRosettaJobRunner({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, rosettaRetrieval, withReadSession: goldenHandle.withReadSession, getServiceFacts, alreadyMappedFromFor: alreadyMappedFromVia(runOperation), spendLedgerWriter: spendLedgerWriterFor({ jobStore, judgeEngine, judgedValues, xLog }), runCypher, nowMs, xLog });
@@ -89,6 +97,7 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 		};
 		callback('', { judgedValues, jobStore, judgeEngine, rosettaJobService, startRunner, sweepNow });
 		});
+	});
 	});
 };
 

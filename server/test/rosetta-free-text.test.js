@@ -6,6 +6,7 @@
 //   2. LINE FORMATS: name: description, name - description (hyphen, en and em dash), name<TAB>description with and without a header row, bare names, bullets, blank lines.
 //   3. MIXED OR GARBLED: two separators, prose, a line that is no name, a third column, broken JSON: none is read here; each goes to the AI.
 //   4. REVIEW, NEVER SENT: lines stop for review with no request at all; free text sends one request, to rosetta/interpret, and none to retrieval or jobs; only pressing again sends the JSON.
+//      ⟪rosettaMeanings R1⟫ the page's one button is Ask for a judged draft, so every step presses that (submitJob); the store has no retrieval call.
 //   5. UNDO: puts back the typed text byte for byte; after an edit it asks first; untouched, it does not.
 //   6. A REFUSAL AFTER EVERY RUNG says what was tried.
 // Run: /usr/local/bin/node server/test/rosetta-free-text.test.js
@@ -55,6 +56,7 @@ const baseSubmissionOfText = (() => {
 })();
 
 const ladderUrl = writeModule('rosettaFreeText.mjs', fs.readFileSync(ladderFilePath, 'utf8'));
+const vocabularyUrl = writeModule('rosettaVocabulary.mjs', fs.readFileSync(path.join(codeRootPath, 'html', 'components', 'rosetta', 'rosettaVocabulary.js'), 'utf8'));
 const piniaUrl = pathToFileURL(path.join(codeRootPath, 'html', 'node_modules', 'pinia', 'dist', 'pinia.mjs')).href;
 const axiosDoubleUrl = writeModule('axiosDouble.mjs', 'export default { post: (url, body, options) => globalThis.rosettaAxiosDouble.answer("post", url, body), get: (url, options) => globalThis.rosettaAxiosDouble.answer("get", url, options) };\n');
 const loginDoubleUrl = writeModule('loginStoreDouble.mjs', 'export const useLoginStore = () => ({ getAuthTokenProperty: {} });\n');
@@ -63,6 +65,8 @@ const storeUrl = (() => {
 	storeText = rewriteOnce(storeText, "import axios from 'axios';", `import { defineStore } from '${piniaUrl}';\nimport axios from '${axiosDoubleUrl}';`);
 	storeText = rewriteOnce(storeText, "from '@/stores/loginStore';", `from '${loginDoubleUrl}';`);
 	storeText = rewriteOnce(storeText, "from '@/stores/rosettaFreeText';", `from '${ladderUrl}';`);
+	// ⟪rosettaMeanings⟫ the page's words, the real vocabulary file, as a module beside the store
+	storeText = rewriteOnce(storeText, "from '@/components/rosetta/rosettaVocabulary';", `from '${vocabularyUrl}';`);
 	return writeModule('rosettaStore.mjs', storeText);
 })();
 
@@ -152,7 +156,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		globalThis.rosettaAxiosDouble.reset({});
 		store.$reset();
 		store.pastedText = LINE_CASE_LIST[0].text;
-		store.retrieve().then((outcomeName) => {
+		store.submitJob().then((outcomeName) => {
 			ok('lines stop for review: no request at all', outcomeName === 'review' && globalThis.rosettaAxiosDouble.requestList.length === 0, JSON.stringify(globalThis.rosettaAxiosDouble.requestList));
 			ok('the textarea shows the pretty JSON', store.pastedText === JSON.stringify(LINE_CASE_LIST[0].fieldList, null, 2));
 			ok('the status line says how it was read and what to do', store.review && store.review.statusText.startsWith('Read as 2 name/description lines.') && /Undo\.$/.test(store.review.statusText), store.review && store.review.statusText);
@@ -162,17 +166,19 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 	const FREE_TEXT = 'We keep each student\'s birth date, which is the date the student was born, and the school name.';
 	const INTERPRETED_FIELD_LIST = [{ name: 'birth date', definition: 'the date the student was born' }, { name: 'school name' }];
 	stepList.push((next) => {
-		globalThis.rosettaAxiosDouble.reset({ interpret: { data: { fieldList: INTERPRETED_FIELD_LIST, droppedFieldCount: 1, unusedLineCount: 0 } }, retrieval: { data: { answer: { fieldList: [] } } }, jobs: { data: { answer: { jobRefId: 'x', status: 'queued' } } } });
+		globalThis.rosettaAxiosDouble.reset({ interpret: { data: { fieldList: INTERPRETED_FIELD_LIST, droppedFieldCount: 1, unusedLineCount: 0 } }, jobs: { data: { answer: { jobRefId: 'x', status: 'queued' } } }, 'jobs/status': { data: { answer: { jobRefId: 'x', status: 'queued' } } } });
 		store.$reset();
 		store.pastedText = FREE_TEXT;
-		store.retrieve().then((outcomeName) => {
+		store.submitJob().then((outcomeName) => {
 			const urlList = globalThis.rosettaAxiosDouble.requestList.map((oneRequest) => oneRequest.url);
 			ok('free text: one request, to rosetta/interpret, carrying the text as typed; none to retrieval or jobs', outcomeName === 'review' && JSON.stringify(urlList) === '["/api/standards/v1/rosetta/interpret"]' && globalThis.rosettaAxiosDouble.requestList[0].body.text === FREE_TEXT, JSON.stringify(urlList));
 			ok('the AI\'s status line counts what was kept and left out', store.review.statusText.startsWith('Interpreted by AI: 2 fields; 1 field the AI offered was not in your text and was left out.'), store.review.statusText);
-			ok('no retrieval answer appeared', store.retrievalAnswer === null);
-			store.retrieve().then((secondOutcomeName) => {
+			ok('no job was submitted', store.jobRefId === '');
+			store.submitJob().then((secondOutcomeName) => {
 				const secondRequest = globalThis.rosettaAxiosDouble.requestList[1];
-				ok('pressing again sends the shown JSON down the ladder from rung 1, to retrieval', secondOutcomeName === 'sent' && secondRequest && secondRequest.url === '/api/standards/v1/rosetta/retrieval' && JSON.stringify(secondRequest.body) === JSON.stringify({ fieldList: INTERPRETED_FIELD_LIST }), JSON.stringify(secondRequest));
+				store.stopPolling();
+				ok('pressing again sends the shown JSON down the ladder from rung 1, to jobs', secondOutcomeName === 'sent' && secondRequest && secondRequest.url === '/api/standards/v1/rosetta/jobs' && JSON.stringify(secondRequest.body) === JSON.stringify({ fieldList: INTERPRETED_FIELD_LIST }), JSON.stringify(secondRequest));
+				ok('no request ever went to retrieval', globalThis.rosettaAxiosDouble.requestList.every((oneRequest) => !/\/retrieval$/.test(oneRequest.url)));
 				next();
 			});
 		});
@@ -193,7 +199,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		globalThis.rosettaAxiosDouble.reset({ interpret: { data: { fieldList: INTERPRETED_FIELD_LIST } } });
 		store.$reset();
 		store.pastedText = FREE_TEXT;
-		store.retrieve().then((outcomeName) => {
+		store.submitJob().then((outcomeName) => {
 			ok('an AI answer without its counts is refused, never shown as nothing dropped', outcomeName === 'refused' && store.review === null && /droppedFieldCount/.test(store.refusal.reason) && store.pastedText === FREE_TEXT, JSON.stringify(store.refusal));
 			next();
 		});
@@ -205,7 +211,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		globalThis.rosettaAxiosDouble.reset({});
 		store.$reset();
 		store.pastedText = TYPED_TEXT;
-		store.retrieve().then(() => {
+		store.submitJob().then(() => {
 			ok('untouched, Undo does not ask', store.review !== null && store.undoNeedsConfirmation === false);
 			store.undoReview();
 			ok('Undo puts back the typed text byte for byte', store.pastedText === TYPED_TEXT && Buffer.from(store.pastedText).equals(Buffer.from(TYPED_TEXT)) && store.review === null);
@@ -216,7 +222,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		globalThis.rosettaAxiosDouble.reset({});
 		store.$reset();
 		store.pastedText = TYPED_TEXT;
-		store.retrieve().then(() => {
+		store.submitJob().then(() => {
 			store.pastedText = store.pastedText.replace('The given name', 'The given name, edited');
 			ok('after an edit, Undo asks first', store.undoNeedsConfirmation === true);
 			store.undoReview();
@@ -230,7 +236,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		globalThis.rosettaAxiosDouble.reset({ interpret: { refusal: { refusalName: 'noFieldsFound', reason: 'the AI found no fields in the text' } } });
 		store.$reset();
 		store.pastedText = FREE_TEXT;
-		store.retrieve().then((outcomeName) => {
+		store.submitJob().then((outcomeName) => {
 			ok('every rung failed: the refusal names the service\'s refusal and says what was tried', outcomeName === 'refused' && store.refusal.refusalName === 'noFieldsFound' && /not JSON/.test(store.refusal.reason) && /name\/description lines/.test(store.refusal.reason) && /the AI found no fields/.test(store.refusal.reason) && store.review === null, JSON.stringify(store.refusal));
 			ok('and the text is left as typed', store.pastedText === FREE_TEXT);
 			next();

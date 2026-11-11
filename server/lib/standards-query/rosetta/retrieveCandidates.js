@@ -5,7 +5,7 @@
 //   createRetrievalDriver({ candidateRetrievalLib, neo4jIntegerOf, hubEdgeType, baseRoleByBaseKind, runCypher, uriMinter, embeddingModelVersion, textIndexName, retrievalSettingValues })
 //     → { poolsForFieldSlice({ session, fieldSlice, target }, done(err, poolByFieldRefId)) }
 //   A fieldSlice row is { fieldRefId, textList: [{ textHash, vector, textRoleList: ['name' | 'definition'] }] }, each distinct text once.
-//   target: { kind: 'hubCards', hubName, sourceName, tier } | { kind: 'standardElements', standardName } — THE TARGET INTERFACE is POOL_RUNNER_BY_KIND; the stage knows nothing about who called it.
+//   target: { kind: 'hubCards' | 'hubMeanings' | 'hubHybrid', hubName, sourceName, tier } | { kind: 'standardElements', standardName } — THE TARGET INTERFACE is POOL_RUNNER_BY_KIND; the stage knows nothing about who called it.
 //   A pool: { status: 'candidates' | 'noCandidate', admittedCount, poolSize, candidateList: [{ stableId, uri, label, domain?, cosine, cardTextCosine?, ownVotes, rank, rankByCosine, admittedBy }], cosineRankOneOutsidePool? }
 //
 // TWO THINGS READING THE G2 PROBE WOULD NOT TELL YOU (measured, runs/P3): 1. db.index.vector.queryNodes answers (1 + cos) / 2, so the forge's minScore of 0.3 on that scale is cos -0.4 and refuses nothing: every score here is turned back into a cosine. 2. The index spans every standard, and the forge's 40 hits are 40 OF THE HUB'S texts: asking for 40 and filtering by _source left 0 to 5 hits. So each text reads a window (indexWindowPerText) and takes the target's first hitsPerText inside it.
@@ -41,18 +41,53 @@ UNWIND textRow.cardStableIdList AS cardStableId
 MATCH (card:ForgedNode { stableId: cardStableId })
 RETURN textRow.textHash AS textHash, cardStableId, 2 * vector.similarity.cosine(card.embedding, textRow.vector) - 1 AS cardTextCosine, card.embeddingModelVersion AS embeddingModelVersion`;
 
+// ⟪rosettaMeanings R5⟫ THE MEANINGS SEARCHED DIRECTLY: each text against every card of the hub's tier by the card's OWN embedding (its embedText: domain, property and both definitions), exact, in the graph. No window: the ForgedNode index spans every standard, and a hub's tier is a few thousand cards.
+const MEANING_HITS_CYPHER = `UNWIND $textRowList AS textRow
+MATCH (card:HubReference { hubName: $hubName, referenceTier: $tierName })
+WITH textRow.textHash AS textHash, card.stableId AS cardStableId, card.embeddingModelVersion AS embeddingModelVersion, 2 * vector.similarity.cosine(card.embedding, textRow.vector) - 1 AS cosine
+WHERE cosine >= $minScore
+ORDER BY textHash, cosine DESC, cardStableId
+WITH textHash, collect({ cardStableId: cardStableId, cosine: cosine, embeddingModelVersion: embeddingModelVersion })[0..$hitsPerText] AS hitList
+RETURN textHash, hitList`;
+
 const CARD_FACTS_CYPHER = `MATCH (card:ForgedNode) WHERE card.stableId IN $cardStableIdList
 RETURN card.stableId AS stableId, card.name AS label, card.domainName AS domain`;
 
 const ELEMENT_FACTS_CYPHER = `MATCH (element:ForgedNode) WHERE element.stableId IN $stableIdList RETURN element.stableId AS stableId, element.name AS label`;
 
+// ⟪rosettaMeanings R5⟫ how a meaning's cosines to a field's texts (its name, its definition) become one score: the best of them, or their sum (measured: the sum
+// ranks the right meaning first more often; runs/rosettaMeanings/probeVariants.json). A scoring is a row here and a name in [rosetta-fuse] meaningScoringName.
+const MEANING_SCORE_BY_NAME = Object.freeze({
+	max: (cosineList) => Math.max(...cosineList),
+	sum: (cosineList) => cosineList.reduce((soFar, oneCosine) => soFar + oneCosine, 0),
+});
 const roundedCosine = (cosineNumber) => Number(cosineNumber.toFixed(COSINE_DECIMALS));
 const compareText = (leftText, rightText) => (leftText < rightText ? -1 : leftText > rightText ? 1 : 0);
 const distinctOf = (itemList) => [...new Set(itemList)];
 const rowsOf = (queryResult) => queryResult.records.map((oneRecord) => oneRecord.toObject());
 
+// ⟪rosettaMeanings R5, TQ Q90⟫ the hybrid merge, pure, so its rules are tested on pools built to break them: today's judged view (its first judgedPoolCap, 0 the whole pool,
+// AND its cosine-rank-1 card wherever that stood), then the meanings' first hybridMeaningCount it lacks, then today's rest, within poolCap unless the view and the
+// added meanings alone pass it. judgedViewLength is how far the judge's view reaches.
+const hybridPoolOf = ({ cardsPool, meaningsPool, judgedPoolCap, hybridMeaningCount, poolCap }) => {
+	const capList = judgedPoolCap === 0 ? cardsPool.candidateList : cardsPool.candidateList.slice(0, judgedPoolCap);
+	const cosineRankOne = cardsPool.cosineRankOneOutsidePool || cardsPool.candidateList.find((oneCandidate) => oneCandidate.rankByCosine === 1);
+	const judgedViewList = cosineRankOne && !capList.some((oneCandidate) => oneCandidate.stableId === cosineRankOne.stableId) ? [...capList, cosineRankOne] : capList;
+	const viewStableIdSet = new Set(judgedViewList.map((oneCandidate) => oneCandidate.stableId));
+	const addedList = meaningsPool.candidateList.filter((oneCandidate) => !viewStableIdSet.has(oneCandidate.stableId)).slice(0, hybridMeaningCount);
+	const shownStableIdSet = new Set([...viewStableIdSet, ...addedList.map((oneCandidate) => oneCandidate.stableId)]);
+	const restList = cardsPool.candidateList.filter((oneCandidate) => !shownStableIdSet.has(oneCandidate.stableId));
+	const mergedList = [...judgedViewList, ...addedList, ...restList].slice(0, Math.max(poolCap, judgedViewList.length + addedList.length));
+	if (mergedList.length === 0) {
+		return { status: 'noCandidate', admittedCount: 0, poolSize: 0, candidateList: [] };
+	}
+	const rankByCosineOfStableId = new Map(mergedList.slice().sort((left, right) => (right.cosine - left.cosine) || compareText(left.stableId, right.stableId)).map((oneCandidate, candidateIndex) => [oneCandidate.stableId, candidateIndex + 1]));
+	const candidateList = mergedList.map((oneCandidate, candidateIndex) => ({ ...oneCandidate, rank: candidateIndex + 1, rankByCosine: rankByCosineOfStableId.get(oneCandidate.stableId) }));
+	return { status: 'candidates', admittedCount: cardsPool.admittedCount + addedList.length, poolSize: candidateList.length, candidateList, judgedViewLength: judgedViewList.length + addedList.length };
+};
+
 const createRetrievalDriver = ({ candidateRetrievalLib, neo4jIntegerOf, hubEdgeType, baseRoleByBaseKind, runCypher, uriMinter, embeddingModelVersion, textIndexName, retrievalSettingValues }) => {
-	const { hitsPerText, minScore, poolCap, indexWindowPerText } = retrievalSettingValues;
+	const { hitsPerText, minScore, poolCap, indexWindowPerText, meaningScoringName, hybridMeaningCount, judgedPoolCap } = retrievalSettingValues;
 
 	// every distinct text of the slice, once: { [textHash]: [{ hitTextStableId, cosine, baseStableIdList }] }. A text with no hit is absent from the rows and has an empty list.
 	const readHitListByTextHash = ({ session, fieldSlice, sourceName, baseRoleList }, done) => {
@@ -288,11 +323,107 @@ const createRetrievalDriver = ({ candidateRetrievalLib, neo4jIntegerOf, hubEdgeT
 		});
 	};
 
-	const POOL_RUNNER_BY_KIND = Object.freeze({ hubCards: hubCardsPools, standardElements: standardElementsPools });
+	// ⟪rosettaMeanings R5⟫ a field's pool is the cards its texts came closest to, by the card's own vector. A card any of the field's texts reached is a candidate; each
+	// candidate's cosine to EVERY text of the field is then read in the graph (the card-text term's own statement), and the scoring the config names combines them
+	// (MEANING_SCORE_BY_NAME). The pool answers retrieval's shape: cosine is the best of the field's texts, a vote is a text that reached the card, rank is by score.
+	const hubMeaningsPools = ({ session, fieldSlice, target }, done) => {
+		const { hubName, tier } = target;
+		const vectorByTextHash = new Map(fieldSlice.flatMap((oneField) => oneField.textList).map(({ textHash, vector }) => [textHash, vector]));
+		const textRowList = [...vectorByTextHash.entries()].map(([textHash, vector]) => ({ textHash, vector }));
+		const scoreOf = MEANING_SCORE_BY_NAME[meaningScoringName];
+		runCypher(session, MEANING_HITS_CYPHER, { textRowList, hubName, tierName: tier, minScore, hitsPerText: neo4jIntegerOf(hitsPerText) }, (hitError, hitResult) => {
+			if (hitError) {
+				done(`reading ${hubName} meanings: ${hitError}`);
+				return;
+			}
+			const hitListByTextHash = textRowList.reduce((soFar, { textHash }) => ({ ...soFar, [textHash]: [] }), {});
+			rowsOf(hitResult).forEach(({ textHash, hitList }) => { hitListByTextHash[textHash] = hitList; });
+			const otherModelHit = Object.values(hitListByTextHash).flat().find((oneHit) => oneHit.embeddingModelVersion !== embeddingModelVersion);
+			if (otherModelHit) {
+				done(`card ${otherModelHit.cardStableId} is embedded by '${otherModelHit.embeddingModelVersion}', not '${embeddingModelVersion}': a cosine between two models is meaningless`);
+				return;
+			}
+			const tallyListByFieldRefId = fieldSlice.reduce((soFar, { fieldRefId, textList }) => {
+				const tallyByStableId = new Map();
+				textList.forEach(({ textHash, textRoleList }) => hitListByTextHash[textHash].forEach(({ cardStableId }) => {
+					const oneTally = tallyByStableId.get(cardStableId) || { stableId: cardStableId, voterTextHashSet: new Set(), admittedBySet: new Set() };
+					oneTally.voterTextHashSet.add(textHash);
+					textRoleList.forEach((textRole) => oneTally.admittedBySet.add(textRole));
+					tallyByStableId.set(cardStableId, oneTally);
+				}));
+				return { ...soFar, [fieldRefId]: [...tallyByStableId.values()] };
+			}, {});
+			const cosineTextRowList = fieldSlice.flatMap(({ fieldRefId, textList }) => textList.map(({ textHash, vector }) => ({ textHash, vector, cardStableIdList: tallyListByFieldRefId[fieldRefId].map((oneTally) => oneTally.stableId) }))).filter((oneRow) => oneRow.cardStableIdList.length > 0);
+			if (cosineTextRowList.length === 0) {
+				done('', fieldSlice.reduce((soFar, { fieldRefId }) => ({ ...soFar, [fieldRefId]: emptyPool() }), {}));
+				return;
+			}
+			runCypher(session, CARD_TEXT_COSINE_CYPHER, { textRowList: cosineTextRowList }, (cosineError, cosineResult) => {
+				if (cosineError) {
+					done(`reading ${hubName} meaning cosines: ${cosineError}`);
+					return;
+				}
+				const cosineByTextAndCard = new Map(rowsOf(cosineResult).map((oneRow) => [`${oneRow.textHash}\u0000${oneRow.cardStableId}`, oneRow.cardTextCosine]));
+				const rankedListByFieldRefId = fieldSlice.reduce((soFar, { fieldRefId, textList }) => {
+					const scoredList = tallyListByFieldRefId[fieldRefId].map((oneTally) => {
+						const cosineList = textList.map(({ textHash }) => cosineByTextAndCard.get(`${textHash}\u0000${oneTally.stableId}`));
+						return { ...oneTally, bestCosine: Math.max(...cosineList), score: scoreOf(cosineList) };
+					});
+					return { ...soFar, [fieldRefId]: scoredList.sort((left, right) => (right.score - left.score) || (right.voterTextHashSet.size - left.voterTextHashSet.size) || compareText(left.stableId, right.stableId)) };
+				}, {});
+				const shownCardStableIdList = distinctOf(Object.values(rankedListByFieldRefId).flatMap((rankedList) => rankedList.slice(0, poolCap).map((oneTally) => oneTally.stableId)));
+				runCypher(session, CARD_FACTS_CYPHER, { cardStableIdList: shownCardStableIdList }, (factsError, factsResult) => {
+					if (factsError) {
+						done(`reading ${hubName} cards: ${factsError}`);
+						return;
+					}
+					const cardFactsByStableId = rowsOf(factsResult).reduce((soFar, oneRow) => { soFar[oneRow.stableId] = oneRow; return soFar; }, {});
+					done('', fieldSlice.reduce((soFar, { fieldRefId }) => {
+						const rankedList = rankedListByFieldRefId[fieldRefId];
+						const shownList = rankedList.slice(0, poolCap);
+						const rankByCosineOfStableId = new Map(shownList.slice().sort((left, right) => (right.bestCosine - left.bestCosine) || compareText(left.stableId, right.stableId)).map((oneTally, tallyIndex) => [oneTally.stableId, tallyIndex + 1]));
+						const candidateList = shownList.map((oneTally, tallyIndex) => ({
+							stableId: oneTally.stableId,
+							...uriFieldsOf({ stableId: oneTally.stableId, standardName: target.sourceName }),
+							label: cardFactsByStableId[oneTally.stableId].label,
+							domain: cardFactsByStableId[oneTally.stableId].domain,
+							cosine: roundedCosine(oneTally.bestCosine),
+							cardTextCosine: roundedCosine(oneTally.bestCosine),
+							ownVotes: oneTally.voterTextHashSet.size,
+							rank: tallyIndex + 1,
+							rankByCosine: rankByCosineOfStableId.get(oneTally.stableId),
+							admittedBy: [...oneTally.admittedBySet].sort(),
+						}));
+						return { ...soFar, [fieldRefId]: candidateList.length ? { status: 'candidates', admittedCount: rankedList.length, poolSize: candidateList.length, candidateList } : emptyPool() };
+					}, {}));
+				});
+			});
+		});
+	};
+
+	// ⟪rosettaMeanings R5, TQ's ruling Q90⟫ HYBRID: today's pool (hubCards) with the meaning search's first hybridMeaningCount cards it lacks placed straight after the part
+	// the judge is shown. That part is today's judged view: its first judgedPoolCap cards (0 is the whole pool) AND its cosine-rank-1 card wherever it stood, so the
+	// hybrid never shows the judge less than today did. judgedViewLength says how far the judge's view now reaches (the runner's judgedCandidateListOf reads it;
+	// retrieval's answer leaves it out, so no answer's shape moves). The pool stays within poolCap: today's tail gives way to the added meanings.
+	const hubHybridPools = ({ session, fieldSlice, target }, done) => hubCardsPools({ session, fieldSlice, target }, (cardsError, cardsPoolByFieldRefId) => {
+		if (cardsError) {
+			done(cardsError);
+			return;
+		}
+		hubMeaningsPools({ session, fieldSlice, target }, (meaningsError, meaningsPoolByFieldRefId) => {
+			if (meaningsError) {
+				done(meaningsError);
+				return;
+			}
+			done('', fieldSlice.reduce((soFar, { fieldRefId }) => ({ ...soFar, [fieldRefId]: hybridPoolOf({ cardsPool: cardsPoolByFieldRefId[fieldRefId], meaningsPool: meaningsPoolByFieldRefId[fieldRefId], judgedPoolCap, hybridMeaningCount, poolCap }) }), {}));
+		});
+	});
+
+	const POOL_RUNNER_BY_KIND = Object.freeze({ hubCards: hubCardsPools, hubMeanings: hubMeaningsPools, hubHybrid: hubHybridPools, standardElements: standardElementsPools });
 
 	const poolsForFieldSlice = ({ session, fieldSlice, target }, done) => POOL_RUNNER_BY_KIND[target.kind]({ session, fieldSlice, target }, done);
 
 	return { poolsForFieldSlice };
 };
 
-module.exports = { createRetrievalDriver };
+module.exports = { createRetrievalDriver, MEANING_SCORE_BY_NAME, hybridPoolOf };

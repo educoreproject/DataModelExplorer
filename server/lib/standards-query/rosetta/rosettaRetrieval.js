@@ -64,7 +64,8 @@ const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetNam
 				...(oneField.type === undefined ? {} : { requestType: oneField.type }),
 				...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
 				...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
-				resultList: hubRowList.map(({ hubName }) => ({ hub: hubName, ...poolByTargetName[hubName][fieldRefId] })),
+				// judgedViewLength is the judge's business (hubHybrid), never the answer's: the pool's shape is the same for every kind
+				resultList: hubRowList.map(({ hubName }) => { const { judgedViewLength, ...onePool } = poolByTargetName[hubName][fieldRefId]; return { hub: hubName, ...onePool }; }),
 			};
 		}),
 		...(isAudit ? {
@@ -81,22 +82,32 @@ const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetNam
 	};
 };
 
-const INTEGER_SETTING_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'maxUnresolvedListLength', 'maxFieldListLength', 'maxFieldNameChars', 'maxFieldDefinitionChars', 'maxFieldPathChars', 'maxDocumentDepth', 'maxRefExpansions', 'retrievalMaxTokensPerRequest', 'retrievalDailyTokenCeiling', 'retrievalInFlightMax', 'hitsPerText', 'poolCap', 'indexWindowPerText', 'textsPerGraphQuery', 'strangerVectorCacheMaxRows', 'strangerVectorRetentionDays']);
+const INTEGER_SETTING_NAME_LIST = Object.freeze(['hybridMeaningCount', 'judgedDailyTokenCeiling', 'maxUnresolvedListLength', 'maxFieldListLength', 'maxFieldNameChars', 'maxFieldDefinitionChars', 'maxFieldPathChars', 'maxDocumentDepth', 'maxRefExpansions', 'retrievalMaxTokensPerRequest', 'retrievalDailyTokenCeiling', 'retrievalInFlightMax', 'hitsPerText', 'poolCap', 'indexWindowPerText', 'textsPerGraphQuery', 'strangerVectorCacheMaxRows', 'strangerVectorRetentionDays']);
 const NUMBER_SETTING_NAME_LIST = Object.freeze(['minScore', 'judgeUsdPerFieldEstimate']);
 const TEXT_SETTING_NAME_LIST = Object.freeze(['rosettaStoreFilePath']);
+// ⟪rosettaMeanings R5⟫ which pool runner reads a hub (retrieveCandidates' POOL_RUNNER_BY_KIND): hubCards votes through the hub elements' own texts rolled up to cards; hubMeanings searches the cards' own embeddings. One choice serves retrieval and the judge alike, so the API shows what the judge sees.
+const HUB_TARGET_KIND_LIST = Object.freeze(['hubCards', 'hubMeanings', 'hubHybrid']);
+// hubMeanings (and hubHybrid's meaning half) combine a card's cosines to a field's texts by a named scoring; hubHybrid adds hybridMeaningCount meanings past the judge's view (judgedPoolCap)
+const MEANING_SCORING_NAME_LIST = Object.freeze(Object.keys(require('./retrieveCandidates').MEANING_SCORE_BY_NAME));
 
 const rosettaFuseValuesOf = (configValues) => {
 	const badIntegerList = INTEGER_SETTING_NAME_LIST.filter((settingName) => !/^[1-9][0-9]*$/.test(String(configValues[settingName])));
 	const badNumberList = NUMBER_SETTING_NAME_LIST.filter((settingName) => !(Number(configValues[settingName]) > 0));
 	const absentTextList = TEXT_SETTING_NAME_LIST.filter((settingName) => !configValues[settingName]);
-	const faultList = [...badIntegerList, ...badNumberList, ...absentTextList];
+	const badTargetKindList = HUB_TARGET_KIND_LIST.includes(configValues.hubTargetKind) ? [] : [`hubTargetKind (one of ${HUB_TARGET_KIND_LIST.join(', ')}; got ${JSON.stringify(configValues.hubTargetKind)})`];
+	const badScoringList = MEANING_SCORING_NAME_LIST.includes(configValues.meaningScoringName) ? [] : [`meaningScoringName (one of ${MEANING_SCORING_NAME_LIST.join(', ')}; got ${JSON.stringify(configValues.meaningScoringName)})`];
+	const badJudgedPoolCapList = /^[0-9]+$/.test(String(configValues.judgedPoolCap)) ? [] : ['judgedPoolCap (0 is the whole pool)'];
+	const faultList = [...badIntegerList, ...badNumberList, ...absentTextList, ...badTargetKindList, ...badScoringList, ...badJudgedPoolCapList];
 	if (faultList.length > 0) {
-		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_SETTING_NAME_LIST, ...NUMBER_SETTING_NAME_LIST, ...TEXT_SETTING_NAME_LIST].join(', ')}; absent or bad: ${faultList.join(', ')}` };
+		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_SETTING_NAME_LIST, ...NUMBER_SETTING_NAME_LIST, ...TEXT_SETTING_NAME_LIST, 'hubTargetKind', 'meaningScoringName', 'judgedPoolCap'].join(', ')}; absent or bad: ${faultList.join(', ')}` };
 	}
 	return {
 		fuseValues: {
 			...[...INTEGER_SETTING_NAME_LIST, ...NUMBER_SETTING_NAME_LIST].reduce((soFar, settingName) => ({ ...soFar, [settingName]: Number(configValues[settingName]) }), {}),
 			...TEXT_SETTING_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: configValues[settingName] }), {}),
+			hubTargetKind: configValues.hubTargetKind,
+			meaningScoringName: configValues.meaningScoringName,
+			judgedPoolCap: Number(configValues.judgedPoolCap),
 		},
 	};
 };
@@ -363,7 +374,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		});
 
 		taskList.push((args, next) => {
-			const targetList = args.askedHubRowList.map(({ hubName, sourceName }) => ({ targetName: hubName, target: { kind: 'hubCards', hubName, sourceName, tier: TIER_OFFERED } }));
+			const targetList = args.askedHubRowList.map(({ hubName, sourceName }) => ({ targetName: hubName, target: { kind: fuseValues.hubTargetKind, hubName, sourceName, tier: TIER_OFFERED } }));
 			poolsForFieldVectorList({ withReadSession, serviceFacts, graphFacts: args.graphFacts, fieldVectorList: args.fieldVectorList, targetList }, (poolError, poolByTargetName) => next(poolError, { ...args, poolByTargetName }));
 		});
 
@@ -392,20 +403,21 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 				done('', { refusal: graphFacts.refusal });
 				return;
 			}
+			const hubTargetRefusal = () => {
+				if (target.tier !== TIER_OFFERED) {
+					return refusalOf('tierNotOffered', `retrieval offers the ${TIER_OFFERED} tier; this asks for ${target.tier}`, { validValueList: [TIER_OFFERED] });
+				}
+				return graphFacts.hubRowList.some((oneHub) => oneHub.hubName === target.hubName) ? null : refusalOf('unknownHub', `this graph has no hub ${target.hubName}`, { validValueList: graphFacts.hubRowList.map((oneHub) => oneHub.hubName) });
+			};
 			const targetRefusal = {
-				hubCards: () => {
-					if (target.tier !== TIER_OFFERED) {
-						return refusalOf('tierNotOffered', `retrieval offers the ${TIER_OFFERED} tier; this asks for ${target.tier}`, { validValueList: [TIER_OFFERED] });
-					}
-					return graphFacts.hubRowList.some((oneHub) => oneHub.hubName === target.hubName) ? null : refusalOf('unknownHub', `this graph has no hub ${target.hubName}`, { validValueList: graphFacts.hubRowList.map((oneHub) => oneHub.hubName) });
-				},
+				...HUB_TARGET_KIND_LIST.reduce((soFar, hubTargetKind) => ({ ...soFar, [hubTargetKind]: hubTargetRefusal }), {}),
 				standardElements: () => (serviceFacts.standardVersionByName[target.standardName] !== undefined ? null : refusalOf('unknownStandard', `this manifest has no standard ${target.standardName}`, { validValueList: Object.keys(serviceFacts.standardVersionByName).sort() })),
 			}[target.kind]();
 			if (targetRefusal) {
 				done('', { refusal: targetRefusal });
 				return;
 			}
-			const resolvedTarget = target.kind === 'hubCards' ? { ...target, sourceName: graphFacts.hubRowList.find((oneHub) => oneHub.hubName === target.hubName).sourceName } : target;
+			const resolvedTarget = HUB_TARGET_KIND_LIST.includes(target.kind) ? { ...target, sourceName: graphFacts.hubRowList.find((oneHub) => oneHub.hubName === target.hubName).sourceName } : target;
 			const textRowList = fieldTextListOf({ name: queryTextList[0], definition: queryTextList[1] });
 			vectorsForTextRowList({ distinctTextRowList: textRowList, embeddingModelVersion: graphFacts.embeddingModelVersion, tokenAccountName, onTokensCharged }, (vectorError, vectorRead) => {
 				if (vectorError) {
@@ -435,7 +447,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		done('', graphFacts.hubRowList);
 	});
 
-	return { runRetrieval, retrieveCandidates, hubRowListFor, stats: () => ({ ...retrievalStats, inFlightCount }) };
+	return { runRetrieval, retrieveCandidates, hubRowListFor, hubTargetKind: fuseValues.hubTargetKind, stats: () => ({ ...retrievalStats, inFlightCount }) };
 };
 
-module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, retrievalAnswerOf, SUBMISSION_FORM_LIST };
+module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, retrievalAnswerOf, SUBMISSION_FORM_LIST, HUB_TARGET_KIND_LIST };

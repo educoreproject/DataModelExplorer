@@ -14,6 +14,7 @@
 // THE ONE RETRY LOOP IS HERE. The forge's client retries six times with backoff and loses the spend of any 200 it then fails on, so it is called with maxRetries 1: each attempt is one row in judgeCalls, written before it goes and priced when it answers, and the wait between attempts is this instance's stated bound.
 
 const PROVIDER_NAME_ANTHROPIC = 'anthropic';
+const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
 const judgedSettings = require('./rosettaJudgedSettings.json');
 
 const CALL_STATUS = Object.freeze({ answered: 'answered', failedUnbilled: 'failedUnbilled', unansweredPriced: 'unansweredPriced' });
@@ -22,8 +23,11 @@ const SINGLE_ATTEMPT = 1;
 const STOP_REASON_MAX_TOKENS = 'max_tokens';
 const JUDGMENT_BUDGET_PER_UNIT = Object.freeze({ maxJudgmentCount: 2 }); // one ask and judgeOne's one bounded re-ask
 
-const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds']);
-const USD_FUSE_NAME_LIST = Object.freeze(['perJobCeilingUsd', 'perPrincipalDailyUsd', 'dailyJudgeCeilingUsd', 'judgeUsdPerFieldEstimate']);
+// ⟪rosettaMeanings R3, TQ Q86⟫ the anonymous limits are config like every other: a field cap, a per-visitor count in a window, their own running and queue caps (never the signed-in ones), their own retention, a worst-case overhead for pricing a judge call before it goes, and their own 24-hour ceiling
+const INTEGER_FUSE_NAME_LIST = Object.freeze(['judgedDailyTokenCeiling', 'judgedMaxFieldListLength', 'maxRunningJobs', 'maxQueuedJobs', 'perPrincipalJobsOpen', 'jobRetentionDays', 'jobRunnerPollSeconds', 'anonymousMaxFieldListLength', 'anonymousJobsPerVisitorWindow', 'anonymousVisitorWindowMinutes', 'anonymousMaxRunningJobs', 'anonymousMaxQueuedJobs', 'anonymousJobRetentionDays', 'judgeWorstCaseOverheadTokens', 'promptPageSize', 'jobServiceMaxInFlight', 'jobServiceBusyRetrySeconds', 'anonymousJobServiceMaxInFlight', 'anonymousJobsOpenPerVisitor']);
+const USD_FUSE_NAME_LIST = Object.freeze(['perJobCeilingUsd', 'perPrincipalDailyUsd', 'dailyJudgeCeilingUsd', 'judgeUsdPerFieldEstimate', 'anonymousDailyCeilingUsd', 'anonymousPerVisitorDailyUsd']);
+// ⟪rosettaMeanings review S2⟫ the file holding the secret that keys a visitor's HMAC; read at assembly, never logged
+const FUSE_TEXT_NAME_LIST = Object.freeze(['anonymousVisitorSecretFilePath']);
 const JUDGE_TEXT_NAME_LIST = Object.freeze(['judgeProviderName', 'judgeWireModel', 'judgeOutputTokenBudget', 'anthropicConfigFilePath', 'spendPricingFilePath', 'judgePromptVariant', 'spendLedgerFilePath']);
 
 const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
@@ -33,15 +37,16 @@ const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
 		...(/^[1-9][0-9]*(,[1-9][0-9]*)*$/.test(String(fuseConfigValues.judgeRetryWaitSecondsList)) ? [] : ['judgeRetryWaitSecondsList']),
 		...(/^[0-9]+$/.test(String(fuseConfigValues.judgedPoolCap)) ? [] : ['judgedPoolCap']),
 	];
-	if (badFuseList.length > 0) {
-		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST, 'judgeRetryWaitSecondsList', 'judgedPoolCap (0 is off)'].join(', ')}; absent or bad: ${badFuseList.join(', ')}` };
+	const absentFuseTextList = FUSE_TEXT_NAME_LIST.filter((settingName) => !fuseConfigValues[settingName]);
+	if (badFuseList.length > 0 || absentFuseTextList.length > 0) {
+		return { refusalText: `[rosetta-fuse] must give ${[...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST, ...FUSE_TEXT_NAME_LIST, 'judgeRetryWaitSecondsList', 'judgedPoolCap (0 is off)'].join(', ')}; absent or bad: ${[...badFuseList, ...absentFuseTextList].join(', ')}` };
 	}
 	const fuseNumberByName = [...INTEGER_FUSE_NAME_LIST, ...USD_FUSE_NAME_LIST].reduce((soFar, settingName) => ({ ...soFar, [settingName]: Number(fuseConfigValues[settingName]) }), {});
 	const judgeRetryWaitSecondsList = String(fuseConfigValues.judgeRetryWaitSecondsList).split(',').map(Number);
 	const absentJudgeList = JUDGE_TEXT_NAME_LIST.filter((settingName) => !judgeConfigValues[settingName]);
 	// an instance may run retrieval with no judge. Which is not silence: every submission is refused judgeNotConfigured, naming this reason.
 	const judgeAbsentReason = absentJudgeList.length > 0 ? `this instance's [rosetta-judge] does not give ${absentJudgeList.join(', ')}` : '';
-	return { judgedValues: { ...fuseNumberByName, judgedPoolCap: Number(fuseConfigValues.judgedPoolCap), judgeRetryWaitSecondsList, judgeAbsentReason, ...JUDGE_TEXT_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: judgeConfigValues[settingName] }), {}) } };
+	return { judgedValues: { ...fuseNumberByName, ...FUSE_TEXT_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: fuseConfigValues[settingName] }), {}), judgedPoolCap: Number(fuseConfigValues.judgedPoolCap), judgeRetryWaitSecondsList, judgeAbsentReason, ...JUDGE_TEXT_NAME_LIST.reduce((soFar, settingName) => ({ ...soFar, [settingName]: judgeConfigValues[settingName] }), {}) } };
 };
 
 // the JSON's patterns, compiled once; the first row that matches names the fault. An error text that matches none is the judge's answer being refused, not the vendor failing.
@@ -76,6 +81,11 @@ const JUDGE_ANSWER_REFUSAL_PATTERN = new RegExp(judgedSettings.judgeAnswerRefusa
 const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, componentOverrides, nowMs, waitMilliseconds, xLog }) => {
 	if (judgedValues.judgeProviderName !== PROVIDER_NAME_ANTHROPIC) {
 		return { refusalText: `[rosetta-judge] judgeProviderName is '${judgedValues.judgeProviderName}'; this build judges through ${PROVIDER_NAME_ANTHROPIC}` };
+	}
+	// ⟪rosettaMeanings review B1⟫ the variant is checked here, once, against the forge actually loaded: a forge without it leaves the judged step off by name at startup, never a job stopped unit by unit
+	const renderedVariantNameList = judgeModules.judgePromptVariantNameList || [];
+	if (!renderedVariantNameList.includes(judgedValues.judgePromptVariant)) {
+		return { refusalText: `[rosetta-judge] judgePromptVariant '${judgedValues.judgePromptVariant}' is not a variant the loaded forge renders; it renders ${renderedVariantNameList.join(', ') || 'none it declares'}` };
 	}
 	const pricing = judgeModules.loadSpendPricing({ pricingFilePath: judgedValues.spendPricingFilePath });
 	if (pricing.error) {
@@ -120,8 +130,62 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		return hubFactsByName[hubName];
 	};
 
+	// ⟪rosettaMeanings R3, TQ Q86⟫ ANONYMOUS JUDGING'S OWN CEILING, before every one of its vendor calls. A call is priced at its WORST case (the prompt's characters,
+	// more than its tokens, plus the configured overhead, and the whole output budget), and that worst case is what its judgeCalls row holds until the bill corrects
+	// it: so the rolling sum already carries every anonymous call in flight at its worst case. Check and write take turns, in this process (the only writer), so two
+	// anonymous jobs cannot both pass on the room for one.
+	const MILLISECONDS_PER_DAY = 86400000;
+	let isCheckingAnonymousSpend = false;
+	const waitingAnonymousCheckList = [];
+	const inAnonymousTurn = (checkAndWrite) => {
+		const begin = () => {
+			isCheckingAnonymousSpend = true;
+			checkAndWrite(() => {
+				isCheckingAnonymousSpend = false;
+				const nextInLine = waitingAnonymousCheckList.shift();
+				if (nextInLine) {
+					nextInLine();
+				}
+			});
+		};
+		if (isCheckingAnonymousSpend) {
+			waitingAnonymousCheckList.push(begin);
+			return;
+		}
+		begin();
+	};
+	const worstCaseUsdOf = (rerankOptions) => spendPricer.usdFor({ provider: PROVIDER_NAME_ANTHROPIC, model: judgeClient.wireModel, inputTokens: String(rerankOptions.systemPrompt || '').length + String(rerankOptions.userPrompt || '').length + judgedValues.judgeWorstCaseOverheadTokens, outputTokens: Number(judgedValues.judgeOutputTokenBudget) });
+	// writes the call's row and answers its callRefId, or answers a stop: for an anonymous job only after its ceiling admits this call's worst case
+	const addMeteredCall = ({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, hubName, promptHash, rerankOptions }, done) => {
+		if (ownerPrincipalKind !== ANONYMOUS_PRINCIPAL_KIND) {
+			jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: judgedValues.judgeUsdPerFieldEstimate, wireModel: judgeClient.wireModel, promptHash }, (addError, callRefId) => done(addError, { callRefId }));
+			return;
+		}
+		const worstCase = worstCaseUsdOf(rerankOptions);
+		if (worstCase.error) {
+			done(`the worst case of a judge call cannot be priced: ${worstCase.error.message || worstCase.error}`);
+			return;
+		}
+		inAnonymousTurn((turnFinished) => jobStore.rollingSpendUsd({ sinceMs: nowMs() - MILLISECONDS_PER_DAY, ownerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, (spendError, anonymousSpentUsd) => {
+			if (spendError) {
+				turnFinished();
+				done(spendError);
+				return;
+			}
+			if (anonymousSpentUsd + worstCase.usd > judgedValues.anonymousDailyCeilingUsd) {
+				turnFinished();
+				done('', { stopReason: { jobStatus: 'fuseTripped', stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousDailyCeilingReached } });
+				return;
+			}
+			jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: worstCase.usd, wireModel: judgeClient.wireModel, promptHash }, (addError, callRefId) => {
+				turnFinished();
+				done(addError, { callRefId });
+			});
+		}));
+	};
+
 	// THE METER. judgeOne calls rerank; this is rerank. One attempt per row, priced as it answers, waits between attempts within the stated bound, and stopReasonNow asked before each attempt, so a fuse or a cancel holds between retries too.
-	const meteredClientFor = ({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash }) => ({
+	const meteredClientFor = ({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash }) => ({
 		...judgeClient,
 		rerank: (rerankOptions, rerankDone) => {
 			const attemptNumberOf = (waitIndex) => waitIndex + 1;
@@ -136,12 +200,20 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					rerankDone(`rosettaJudgeEngine: stopped before attempt ${attemptNumberOf(waitIndex)}: ${stopReason.stopReasonName}`);
 					return;
 				}
-				jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: judgedValues.judgeUsdPerFieldEstimate, wireModel: judgeClient.wireModel, promptHash }, (addError, callRefId) => {
+				addMeteredCall({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, hubName, promptHash, rerankOptions }, (addError, metered) => {
 					if (addError) {
 						stopHolder.stopReason = STORE_FAILED_STOP;
 						rerankDone(`rosettaJudgeEngine: the bill would not write, so the call was not sent: ${addError}`);
 						return;
 					}
+					if (metered.stopReason) {
+						stopHolder.stopReason = metered.stopReason;
+						rerankDone(`rosettaJudgeEngine: stopped before attempt ${attemptNumberOf(waitIndex)}: ${metered.stopReason.stopReasonName}`);
+						return;
+					}
+					const { callRefId } = metered;
+					// ⟪rosettaMeanings R2⟫ the exact text this attempt sends: the last one sent is the prompt the unit was judged with
+					stopHolder.sentPrompt = { systemPrompt: String(rerankOptions.systemPrompt), userPrompt: String(rerankOptions.userPrompt) };
 					const startedAtMs = nowMs();
 					judgeClient.rerank({ ...rerankOptions, maxRetries: SINGLE_ATTEMPT }, (rerankError, clientReturn) => {
 						const faultRow = rerankError ? vendorFaultRowOf(String(rerankError)) : undefined;
@@ -229,7 +301,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		sourceNoteByColumn: {},
 	});
 
-	const judgeFieldAgainstPool = ({ jobRefId, ownerPrincipalRefId, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, done) => {
+	const judgeFieldAgainstPool = ({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, done) => {
 		const hubFacts = hubFactsFor(hubName);
 		if (hubFacts.refusalText) {
 			done(hubFacts.refusalText);
@@ -265,10 +337,12 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 			return;
 		}
 		const stopHolder = {};
+		const judgedPromptOf = () => stopHolder.sentPrompt || { systemPrompt: question.systemPrompt, userPrompt: question.userPrompt };
 		judgeModules.judgeOne({
 			question,
-			judgeClient: meteredClientFor({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash: question.promptHash }),
-			judgmentCache: jobStore.judgmentCacheFor({ ownerPrincipalRefId, onCutMarkRead: (wasCut) => { stopHolder.answerWasCut = wasCut; }, cutMarkForPut: () => Boolean(stopHolder.answerWasCut) }),
+			judgeClient: meteredClientFor({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, hubName, stopReasonNow, stopHolder, promptHash: question.promptHash }),
+			// ⟪rosettaMeanings review⟫ an anonymous job's cache is its own: keyed by its jobRefId, so no cached answer (nor its being free) can tell one visitor what another at the same address sent, and it is deleted with the job
+			judgmentCache: jobStore.judgmentCacheFor({ ownerPrincipalRefId: ownerPrincipalKind === ANONYMOUS_PRINCIPAL_KIND ? jobRefId : ownerPrincipalRefId, onCutMarkRead: (wasCut) => { stopHolder.answerWasCut = wasCut; }, cutMarkForPut: () => Boolean(stopHolder.answerWasCut) }),
 			matchForensics: { appendRecord: ({ pairKey: pairName, generation, record }, appended) => jobStore.appendForensicRecord({ jobRefId, pairName, generation, record }, appended) },
 			budget: { ...JUDGMENT_BUDGET_PER_UNIT, judgmentCountSoFar: 0 },
 			pairKey: `rosetta::${hubName}`,
@@ -296,10 +370,11 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					return;
 				}
 				xLog.status(`rosettaJudgeEngine: job ${jobRefId}: judgeOne refused one answer`);
-				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash, rendererVersion: rendered.rendererVersion });
+				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash, rendererVersion: rendered.rendererVersion, judgedPrompt: judgedPromptOf() });
 				return;
 			}
 			const collapse = (rendered.cardCollapseList || []).find((oneEntry) => oneEntry.renderedStableId === judged.chosenCardStableId);
+			// ⟪rosettaMeanings R2⟫ judged from the cache, nothing was sent: the prompt is the rendered question that answer was given to (its promptHash is the cache's address)
 			done('', {
 				unitStatus: unitStatusOfJudged({ chosenCardStableId: judged.chosenCardStableId, answerWasCut: stopHolder.answerWasCut }),
 				promptHash: question.promptHash,
@@ -309,6 +384,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 				...(judged.chosenCardStableId === null ? {} : { chosenCardStableId: judged.chosenCardStableId, category: judged.category, confidence: judged.confidence === undefined ? CONFIDENCE_OF_NO_CATEGORY : judged.confidence, ...(judged.predicate ? { predicate: judged.predicate } : {}) }),
 				...(collapse ? { collapsedMemberStableIdList: collapse.memberStableIdList } : {}),
 				judgesRationale: judged.rationale,
+				judgedPrompt: judgedPromptOf(),
 				choiceCount: rendered.choiceEnum.length - 1,
 				...(stopHolder.answerWasCut ? { answerWasCut: true } : {}),
 			});

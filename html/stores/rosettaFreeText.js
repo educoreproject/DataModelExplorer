@@ -114,7 +114,6 @@ const ladderStepOf = (pastedText) => {
 };
 
 const plural = (countNumber, singularText, pluralText) => `${countNumber} ${countNumber === 1 ? singularText : pluralText}`;
-const NEXT_STEP_TEXT = 'Edit it if you like, then press Show candidates (or Ask for a judged draft) again, or Undo.';
 const STATUS_TEXT_BY_READING_KIND = Object.freeze({
 	lineFormat: ({ fieldList }) => `Read as ${plural(fieldList.length, 'name/description line', 'name/description lines')}.`,
 	aiInterpretation: ({ fieldList, droppedFieldCount, unusedLineCount }) => [
@@ -128,7 +127,11 @@ const STATUS_TEXT_BY_READING_KIND = Object.freeze({
 // the counts an AI reading reports are the server's to give: absent, the reading is refused here rather than shown as nothing dropped
 const COUNT_NAME_LIST_BY_READING_KIND = Object.freeze({ lineFormat: [], aiInterpretation: ['droppedFieldCount', 'unusedLineCount'] });
 
-const reviewOf = ({ originalText, fieldList, readingKind, droppedFieldCount, unusedLineCount }) => {
+// ⟪rosettaMeanings⟫ nextStepText is the page's words (rosettaVocabulary), handed in: this module stays free of the page's vocabulary and of any import
+const reviewOf = ({ originalText, fieldList, readingKind, droppedFieldCount, unusedLineCount, nextStepText }) => {
+	if (typeof nextStepText !== 'string' || nextStepText === '') {
+		throw new Error(`rosettaFreeText: reviewOf needs nextStepText, the page's words for what to do next; it gave ${JSON.stringify(nextStepText)}`);
+	}
 	const statusTextOf = STATUS_TEXT_BY_READING_KIND[readingKind];
 	if (!statusTextOf) {
 		throw new Error(`rosettaFreeText: no status wording for reading kind '${readingKind}'; the kinds are ${Object.keys(STATUS_TEXT_BY_READING_KIND).join(', ')}`);
@@ -142,7 +145,7 @@ const reviewOf = ({ originalText, fieldList, readingKind, droppedFieldCount, unu
 		readingKind,
 		originalText,
 		interpretedText: JSON.stringify(fieldList, null, 2),
-		statusText: `${statusTextOf({ fieldList, droppedFieldCount, unusedLineCount })} ${NEXT_STEP_TEXT}`,
+		statusText: `${statusTextOf({ fieldList, droppedFieldCount, unusedLineCount })} ${nextStepText}`,
 	};
 };
 

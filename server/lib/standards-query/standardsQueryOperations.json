@@ -78,7 +78,8 @@
 		"judgedTokenCeilingReached": 429,
 		"jobNotOpen": 409,
 		"interpretBusy": 503,
-		"interpretSpendCeiling": 429
+		"interpretSpendCeiling": 429,
+		"jobServiceBusy": 503
 	},
 	"verbRefusalHttpStatusByName": {
 		"emptyQuery": 400,
@@ -114,7 +115,12 @@
 		"attestationShapeNotRecognised": 503,
 		"noGuideLayer": 404,
 		"layerUsageTipsAbsent": 503,
-		"unknownFlag": 500
+		"unknownFlag": 500,
+		"anonymousVisitorJobLimitReached": 429,
+		"anonymousQueueFull": 429,
+		"anonymousDailyCeilingReached": 429,
+		"anonymousVisitorHasOpenJob": 429,
+		"anonymousVisitorDailyCeilingReached": 429
 	},
 	"operationList": [
 		{
@@ -1561,7 +1567,7 @@
 				"api",
 				"mcp"
 			],
-			"admission": "judgedStep",
+			"admission": "judgedStepOpenToVisitors",
 			"permissionList": [
 				"public"
 			],
@@ -1647,13 +1653,19 @@
 				"judgedTokenCeilingReached",
 				"invalidInput",
 				"inputTooLong",
-				"loopbackNotAdmitted"
+				"loopbackNotAdmitted",
+				"anonymousVisitorJobLimitReached",
+				"anonymousQueueFull",
+				"anonymousDailyCeilingReached",
+				"jobServiceBusy",
+				"anonymousVisitorHasOpenJob",
+				"anonymousVisitorDailyCeilingReached"
 			],
-			"description": "Ask for a judged reading of your fields: a job. One model reads each field against each hub's candidate cards and picks one or declines. Give a field list, a JSON Schema or a JSON-LD @context, as rosetta_retrieve takes them. It answers at once with a jobRefId; poll rosetta_status, then rosetta_fetch. It needs a signed-in account. The answer gives this job's estimated cost, since you are the one spending. Your text goes to Anthropic and Voyage AI: standards_about says what they and this service do with it. Retrieval stays open and costs nothing, so look at rosetta_retrieve first.",
+			"description": "Ask for a judged reading of your fields: a job. One model reads each field against each hub's candidate cards and picks one or declines. Give a field list, a JSON Schema or a JSON-LD @context, as rosetta_retrieve takes them. It answers at once with a jobRefId; poll rosetta_status, then rosetta_fetch. On MCP it needs an account signed in by OAuth; on the Query API a visitor who is not signed in may ask too, within smaller limits. The answer gives this job's estimated cost, since you are the one spending. Your text goes to Anthropic and Voyage AI: standards_about says what they and this service do with it. Retrieval stays open and costs nothing, so look at rosetta_retrieve first.",
 			"aboutEntry": {
 				"forWhat": "Have a model read your fields against each hub's cards and propose a card for each.",
-				"whatThisDoesNot": "A draft is one model's reading, not a mapping anyone has checked. Only proposals the judge calls strong enter the draft @context; moderate and weak ones, and declined fields, are in the report. Strong is not proof. Measured once, on CEDS alone and small samples, at the settings this service runs: for rewritten fields with a published mapping, strong picks agreed with the published layer, whose judge is another model, 28 of 28; and for 27 fields with the right card taken away, the judge picked a wrong card as strong 2 times, picked one less firmly 18 times and declined 7. At a larger pool, strong picks agreed with a mapping people wrote 18 of 20. Nothing is measured for CTDL. This needs a signed-in account; retrieval stays open with none. A job takes several seconds per field per hub; this answers at once, and you poll.",
-				"whatHappensToYourText": "Each field's name, definition, path and type go to Anthropic, the vendor of the judge, inside each judge call, and to Voyage AI to become vectors. Anthropic's Commercial Terms say: \"Anthropic may not train models on Customer Content from Services.\" Anthropic's privacy centre says: \"For Anthropic API users, we automatically delete inputs and outputs on our backend within 30 days of receipt or generation\", and it lists exceptions, among them legal requirements and enforcing its usage policy. This service keeps your submission, the judge's answers and the full prompts for {jobRetentionDays} days, then deletes them. It publishes none of it, gives it to no one else and trains nothing on it.",
+				"whatThisDoesNot": "A draft is one model's reading, not a mapping anyone has checked. Only proposals the judge calls strong enter the draft @context; moderate and weak ones, and declined fields, are in the report. Strong is not proof. Measured once, on CEDS alone and small samples, at the settings this service runs: for rewritten fields with a published mapping, strong picks agreed with the published layer, whose judge is another model, 28 of 28; and for 27 fields with the right card taken away, the judge picked a wrong card as strong 2 times, picked one less firmly 18 times and declined 7. At a larger pool, strong picks agreed with a mapping people wrote 18 of 20. Nothing is measured for CTDL. Without sign-in the API takes smaller jobs, reached by jobRefId alone; MCP needs OAuth. A job takes several seconds per field per hub; this answers at once, and you poll.",
+				"whatHappensToYourText": "Each field's name, definition, path and type go to Anthropic, the vendor of the judge, inside each judge call, and to Voyage AI to become vectors. Anthropic's Commercial Terms say: \"Anthropic may not train models on Customer Content from Services.\" Anthropic's privacy centre says: \"For Anthropic API users, we automatically delete inputs and outputs on our backend within 30 days of receipt or generation\", and it lists exceptions, among them legal requirements and enforcing its usage policy. This service keeps your submission, the judge's answers and the full prompts for {jobRetentionDays} days (fewer for a job asked without sign-in), then deletes them. It publishes none of it, gives it to no one else and trains nothing on it.",
 				"exampleInput": {
 					"fieldList": [
 						{
@@ -1673,7 +1685,8 @@
 					"estimateUsd"
 				],
 				"exampleNeedsSignedInAccount": true
-			}
+			},
+			"holdsOwnInFlightCap": true
 		},
 		{
 			"operationName": "rosettaStatus",
@@ -1689,7 +1702,7 @@
 				"api",
 				"mcp"
 			],
-			"admission": "judgedStep",
+			"admission": "judgedStepOpenToVisitors",
 			"permissionList": [
 				"public"
 			],
@@ -1713,7 +1726,8 @@
 				"notFound",
 				"invalidInput",
 				"inputTooLong",
-				"loopbackNotAdmitted"
+				"loopbackNotAdmitted",
+				"jobServiceBusy"
 			],
 			"description": "How a judged job is getting on: its status, how many units are finished (a unit is one field against one hub), and what it has spent so far. Status is queued, running, cancelling, done, or one that ended early with stopReasonName: fuseTripped, cancelled, vendorStopped, stopped. A job that ended early still has a report to fetch.",
 			"aboutEntry": {
@@ -1730,7 +1744,8 @@
 				],
 				"exampleNeedsSignedInAccount": true,
 				"exampleTakesJobFromSubmit": true
-			}
+			},
+			"holdsOwnInFlightCap": true
 		},
 		{
 			"operationName": "rosettaFetch",
@@ -1758,7 +1773,7 @@
 				"api",
 				"mcp"
 			],
-			"admission": "judgedStep",
+			"admission": "judgedStepOpenToVisitors",
 			"permissionList": [
 				"public"
 			],
@@ -1813,7 +1828,8 @@
 				"invalidInput",
 				"invalidPage",
 				"inputTooLong",
-				"loopbackNotAdmitted"
+				"loopbackNotAdmitted",
+				"jobServiceBusy"
 			],
 			"description": "What a judged job found: one draft @context per hub, holding only strong proposals, and a report of every field against every hub. A draft is one model's reading; review it before use. In the report a status of abstained is the judge declining. notJudged is different: the judge never answered, and notJudgedReason says why, so never report it as no equivalent. Fetch any time; a job not yet done says isPartial. Each answer is a summary unless rowDetail=full, and lean unless detail=audit. A field is named as you sent it (requestName, and requestPath where it sat in your document) and holds resultList, one result per hub. A proposal names its card and the card's tuple, the elements it stands for (domain, property and so on, only those the card has), each with its kind, its own standard's identifier (nativeId, e.g. { cedsId: P002040 }), label and uri: to cite the idea, cite the tuple. The summary line shows the tuple's identifiers, e.g. [C200296 · P002040]. answeredFrom.using names the prompt version that judged (promptVersion), the provider and model, its cost and whether it came from the cache. Every card carries uri; quote it, it is permanent.",
 			"aboutEntry": {
@@ -1831,7 +1847,8 @@
 				],
 				"exampleNeedsSignedInAccount": true,
 				"exampleTakesJobFromSubmit": true
-			}
+			},
+			"holdsOwnInFlightCap": true
 		},
 		{
 			"operationName": "rosettaCancel",
@@ -1849,7 +1866,7 @@
 				"api",
 				"mcp"
 			],
-			"admission": "judgedStep",
+			"admission": "judgedStepOpenToVisitors",
 			"permissionList": [
 				"public"
 			],
@@ -1874,7 +1891,8 @@
 				"jobNotOpen",
 				"invalidInput",
 				"inputTooLong",
-				"loopbackNotAdmitted"
+				"loopbackNotAdmitted",
+				"jobServiceBusy"
 			],
 			"description": "Stop your queued or running job. A queued job ends at once and spends nothing. A running one stops at its next field: a judge call already sent is finished and recorded. What it finished stays fetchable.",
 			"aboutEntry": {
@@ -1889,7 +1907,73 @@
 				],
 				"exampleNeedsSignedInAccount": true,
 				"exampleTakesJobFromSubmit": true
-			}
+			},
+			"holdsOwnInFlightCap": true
+		},
+		{
+			"operationName": "rosettaPrompts",
+			"routeName": "rosetta/jobs/prompts",
+			"httpMethod": "GET",
+			"jobActionName": "prompts",
+			"anonymousRefusalName": "notFound",
+			"_comment": "WORKORDER-rosettaMeanings-111026 R2 (ROMANTIC_PARASOL Q7, 2026-11-10): the Rosetta page's Prompt tab, the exact prompt each unit was judged with. API door only, never an MCP tool, not in the about document. Page size is [rosetta-fuse] promptPageSize, never this row.",
+			"mcpDoorRefusesLoopback": true,
+			"coreHandlerName": "rosettaJobs",
+			"bodyForm": "envelope",
+			"doorList": [
+				"api"
+			],
+			"admission": "judgedStepOpenToVisitors",
+			"permissionList": [
+				"public"
+			],
+			"isListedInAbout": false,
+			"requiresUriPromise": true,
+			"cachePolicy": "noStore",
+			"answerStepList": [],
+			"usageSubjectInputNameList": [],
+			"uriFieldRuleList": [],
+			"coreAddedFieldList": [],
+			"isCounted": false,
+			"inputFieldList": [
+				{
+					"name": "jobRefId",
+					"type": "text",
+					"required": true,
+					"maxLengthConfigName": "maxQueryChars",
+					"description": "The jobRefId the submit gave you. A job that is not yours answers notFound, as no job at all would; a job asked for without signing in is reached by its jobRefId alone."
+				},
+				{
+					"name": "page",
+					"type": "positiveInteger",
+					"required": false,
+					"description": "Which page of prompts. From 1."
+				}
+			],
+			"refusalNameList": [
+				"notFound",
+				"invalidInput",
+				"invalidPage",
+				"inputTooLong",
+				"loopbackNotAdmitted",
+				"jobServiceBusy"
+			],
+			"description": "The exact prompt each field was judged with against each hub, as it was sent to the judge (the re-ask's, where there was one), a page at a time: requestName, hub, systemPrompt and userPrompt. A field judged without a prompt (no candidate, or an identifier in its text) has none.",
+			"aboutEntry": {
+				"forWhat": "The exact prompts a judged job's fields were judged with (the Rosetta page's Prompt tab).",
+				"exampleInput": {
+					"jobRefId": "0123456789abcdef0123456789abcdef"
+				},
+				"exampleShows": "A page of a job's prompts.",
+				"expectedAnswerFieldList": [
+					"jobRefId",
+					"page",
+					"pageCount",
+					"promptList"
+				],
+				"exampleTakesJobFromSubmit": true
+			},
+			"holdsOwnInFlightCap": true
 		},
 		{
 			"operationName": "rosettaInterpret",

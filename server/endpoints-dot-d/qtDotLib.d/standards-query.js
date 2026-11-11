@@ -147,7 +147,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 			next('', args);
 		});
 
-		taskList.push((args, next) => admitRequest({ door: API_DOOR_NAME, credential: xReq.appValueGetter('authclaims'), operationName: registryRow.operationName, registryRow }, (admitError, admission) => {
+		taskList.push((args, next) => admitRequest({ door: API_DOOR_NAME, credential: xReq.appValueGetter('authclaims'), clientAddress: xReq.ip, operationName: registryRow.operationName, registryRow }, (admitError, admission) => {
 			if (admitError) {
 				next(admitError, args);
 				return;
