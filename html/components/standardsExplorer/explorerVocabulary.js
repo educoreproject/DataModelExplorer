@@ -442,6 +442,20 @@ export const meaningExpressionTextOf = (meaningRow) => {
 };
 export const meaningElementCountTextOf = (elementCount) => countedNounTextOf(elementCount, meaningsVocabulary.elementNoun);
 
+// ⟪rosettaReportLegible⟫ a meaning's tuple as its slots, in the server's order (hubCardTuple answers them in its rules' slot order): each slot named in words, its part
+// as the server gave it, and its kind and its id in its hub's standard (hubCardTuple's nativeId: { <declared identifier name>: text }), as "property · CEDS id P000128";
+// a slot with no id says only its kind. The Meanings panel (MeaningSection.vue) and the Rosetta report (rosettaReportBlocks.js) both draw it.
+const tupleSlotHubIdTextOf = ({ slotPart, hubName }) => (slotPart.nativeId ? wordingOf(meaningsVocabulary.meaningSection.hubIdTemplate, { hubName, nativeIdText: Object.values(slotPart.nativeId)[0] }) : '');
+export const meaningTupleSlotListOf = ({ tuple, hubName }) => {
+	const sectionWords = meaningsVocabulary.meaningSection;
+	return Object.entries(tuple || {}).map(([slotName, slotPart]) => ({
+		slotName,
+		slotLabel: sectionWords.slotLabelByName[slotName] || slotName,
+		...slotPart,
+		detailText: [sectionWords.partKindLabelByKind[slotPart.kind] || slotPart.kind, tupleSlotHubIdTextOf({ slotPart, hubName })].filter(Boolean).join(sectionWords.partDivider),
+	}));
+};
+
 // what one meaning row is about: the domain's own term says so (⟪review S5⟫ known by the group the server listed it in, never by re-deriving the server's
 // tier rule); a property meaning says its range and qualifiers (its tier is the level's, so it is not repeated)
 export const OWN_TERM_RELATIONSHIP_TYPE = 'HAS_TERM_MEANING';

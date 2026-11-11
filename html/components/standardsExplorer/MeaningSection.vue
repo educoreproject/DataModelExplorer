@@ -11,7 +11,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { OWN_TERM_RELATIONSHIP_TYPE, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { OWN_TERM_RELATIONSHIP_TYPE, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	meaningNode: { type: Object, required: true },
@@ -29,17 +29,8 @@ const tierText = computed(() => {
 	return props.meaningNode.relationshipType === OWN_TERM_RELATIONSHIP_TYPE ? [meaningsVocabulary.domainOwnTermRowText, tierWordText].join(meaningsVocabulary.countPartDivider) : tierWordText;
 });
 
-// a slot's id in its hub's standard, as the standard declares it (hubCardTuple's nativeId: { <declared identifier name>: text }); none when the slot has none
-const hubIdTextOf = (slotPart) => (slotPart.nativeId ? wordingOf(sectionWords.hubIdTemplate, { hubName: props.meaningNode.hubName, nativeIdText: Object.values(slotPart.nativeId)[0] }) : '');
-// the tuple's slots in the server's order (hubCardTuple answers them in its rules' slot order)
-const tupleSlotList = computed(() =>
-	Object.entries(props.meaningNode.tuple || {}).map(([slotName, slotPart]) => ({
-		slotName,
-		slotLabel: sectionWords.slotLabelByName[slotName] || slotName,
-		...slotPart,
-		detailText: [sectionWords.partKindLabelByKind[slotPart.kind] || slotPart.kind, hubIdTextOf(slotPart)].filter(Boolean).join(sectionWords.partDivider),
-	})),
-);
+// the tuple's slots in the server's order, each with its kind and its id in its hub's standard (⟪rosettaReportLegible⟫ explorerVocabulary's, shared with the Rosetta report)
+const tupleSlotList = computed(() => meaningTupleSlotListOf({ tuple: props.meaningNode.tuple, hubName: props.meaningNode.hubName }));
 const rangeDisclosureList = computed(() => (props.meaningNode.rangeIsIdentity === false ? props.meaningNode.rangePartList || [] : []));
 const rangeDatatypeList = computed(() => props.meaningNode.rangeDatatypeList || []);
 const datatypeText = computed(() => rangeDatatypeList.value.join(sectionWords.datatypeDivider));

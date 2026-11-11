@@ -47,6 +47,23 @@ const checkList = [
 	['R6: on the login page the notice stands BELOW the login form (TQ, 2026-11-10)', /<form_login\s*\/>[\s\S]*<SiteNoticePiiNotice\s*\/>/.test(loginPageText)],
 	['R6: the notice wears the theme primary (the logo blue), not the warning colour', /color="primary"/.test(piiNoticeComponentText) && !/type="warning"/.test(piiNoticeComponentText)],
 	['R6: the notice shows TQ\'s words, verbatim, from the site notice vocabulary', siteNoticeVocabularyText.includes(`piiNoticeText: '${TQ_PII_NOTICE_TEXT}'`) && /\{\{ siteNoticeWords\.piiNoticeText \}\}/.test(piiNoticeComponentText)],
+	// ⟪rosettaReportLegible⟫ gate 1: the Report tab, field by field, from rosettaReportBlocks; the summary below it
+	['legible: the report draws one block per field from fieldBlockListOf, and the summary below it', /fieldBlockListOf\(/.test(pageText) && templateText.indexOf('data-testid="rosetta-field-block"') !== -1 && templateText.indexOf('data-testid="rosetta-field-block"') < templateText.indexOf('rosettaPageWords.reportSummaryHeading') && templateText.indexOf('rosettaPageWords.reportSummaryHeading') < templateText.indexOf('<v-table')],
+	['legible: each block shows the rationale by interpolation', (templateText.match(/\{\{ oneHubBlock\.rationaleText \}\}/g) || []).length === 2],
+	['legible: each block shows the meaning, its URI, its slots, strength, relation and expressed-in by interpolation', ['meaningName', 'meaningUri', 'strengthWords', 'strengthExplanation', 'relationText', 'expressedText', 'statusText'].every((fieldName) => templateText.includes(`{{ oneHubBlock.${fieldName} }}`)) && /\{\{ oneSlot\.uri \}\}/.test(templateText)],
+	['legible: Open in Meanings is a real link to the Meanings explorer\'s own link', /<NuxtLink :to="oneHubBlock\.meaningsLink"[^>]*data-testid="rosetta-open-in-meanings"/.test(templateText)],
+	// gate 1: progress, completion (TQ addendum 2b), the button (TQ's correction)
+	['legible: the progress indicator stands above the tabs, shown by progressOf', /<div v-if="progress\.isShown"[^>]*data-testid="rosetta-progress">\s*<v-progress-linear indeterminate/.test(templateText) && templateText.indexOf('rosetta-progress') < templateText.indexOf('<v-tabs') && /progressOf\(\{ jobStatus: store\.jobStatus, busyStepName: store\.busyStepName, isStatusCheckFailed: store\.isStatusCheckFailed \}\)/.test(pageText)],
+	['legible: an unfinished end says so', /v-if="progress\.endedText"[^>]*data-testid="rosetta-job-ended">\{\{ progress\.endedText \}\}/.test(templateText)],
+	['legible: a finished job says to open the Report tab, and the tab is marked while the report is unseen', /<v-alert v-if="store\.reportUnseen"[^>]*data-testid="rosetta-report-ready"/.test(templateText) && /<v-badge v-if="store\.reportUnseen"/.test(templateText)],
+	['legible: opening the Report tab marks the report seen', /watch\(activeTab, \(nextTabName\) => \{\s*if \(nextTabName === TAB_NAME\.report\) store\.markReportSeen\(\);/.test(pageText)],
+	['legible: the job button\'s words come from askButtonWordsOf', /data-testid="rosetta-ask-draft" @click="askForDraft">\{\{ askButtonText \}\}/.test(templateText) && /askButtonWordsOf\(\{ review: store\.review \}\)/.test(pageText)],
+	// ⟪review⟫ S1 the store remembers the open tab and the page reopens it; S2 a failed status check says so with a retry; S3 a failed count can be read again; N7 only an https href
+	['review S1: the open tab is remembered by the store and opened again on a return to the same job', /store\.rememberTab\(nextTabName\)/.test(pageText) && /if \(store\.shownTabName\) activeTab\.value = store\.shownTabName;/.test(pageText)],
+	['review S2: a failed status check shows its words and a retry', /v-if="progress\.checkFailedText"[^>]*data-testid="rosetta-status-check-failed"/.test(templateText) && /@click="store\.retryStatusCheck\(\)"/.test(templateText)],
+	['review S3: a failed expressed-in read offers a retry', /v-if="oneHubBlock\.expressedReadFailed"[^>]*@click="store\.readExpressions\(\)"/.test(templateText)],
+	['review N7: hrefs are the blocks\' https-only ones', /:href="oneHubBlock\.meaningHref"/.test(templateText) && /:href="oneSlot\.href"/.test(templateText) && !/:href="oneHubBlock\.meaningUri"|:href="oneSlot\.uri"/.test(templateText)],
+	['review N4: the page declares no job status list of its own', !/\['queued', 'running', 'cancelling'\]/.test(pageText)],
 	// no magic strings
 	['no bare word between the page\'s tags: every word is from the vocabulary', bareWordListOf(templateText).length === 0, bareWordListOf(templateText).slice(0, 8).join(' ')],
 	['no bare word in the PII notice component', bareWordListOf(templateSectionOf(piiNoticeComponentText)).length === 0],

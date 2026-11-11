@@ -67,6 +67,8 @@ const storeUrl = (() => {
 	storeText = rewriteOnce(storeText, "from '@/stores/rosettaFreeText';", `from '${ladderUrl}';`);
 	// ⟪rosettaMeanings⟫ the page's words, the real vocabulary file, as a module beside the store
 	storeText = rewriteOnce(storeText, "from '@/components/rosetta/rosettaVocabulary';", `from '${vocabularyUrl}';`);
+	// ⟪rosettaReportLegible⟫ the report's blocks, from their own file (it imports the vocabulary and the Meanings explorer's words by relative path)
+	storeText = rewriteOnce(storeText, "from '@/components/rosetta/rosettaReportBlocks';", `from '${pathToFileURL(path.join(codeRootPath, 'html', 'components', 'rosetta', 'rosettaReportBlocks.js')).href}';`);
 	return writeModule('rosettaStore.mjs', storeText);
 })();
 
