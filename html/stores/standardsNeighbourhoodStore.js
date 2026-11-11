@@ -18,6 +18,7 @@ import {
 	displayNameOf,
 	isSecondaryRelationshipType,
 	relationshipDisplayNameOf,
+	rowWalkPathOf,
 	walkLinkOf,
 	walkProfileOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
@@ -36,6 +37,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	filterText: '',
 	legendVisible: true,
 	versionTileStateByStableId: {},
+	// ⟪meaningsClarity review S4⟫ an element's meaning facts, asked for apart from its node (action meaningFacts), once per stableId: { loading, meaningFacts, meaningFactsAbsentName, failed }
+	meaningFactsStateByStableId: {},
 	// ⟪meaningsExplorer⟫ which walk the views are drawing (explorerVocabulary's walkProfileByName); WalkView sets it from its page on every mount
 	walkProfileName: 'standards',
 };
@@ -103,6 +106,12 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	// ⟪meaningsPolish⟫ what a hub's and a domain's next level lists: a hub's domains; a domain's own term meaning (0 or 1) beside its meanings
 	domainCount: oneItem.domainCount,
 	termMeaningCount: oneItem.termMeaningCount,
+	// ⟪meaningsClarity⟫ a domain's meanings from other domains; a property meaning's values; an incoming meaning's slots and the walk's path to it in its own domain
+	incomingMeaningCount: oneItem.incomingMeaningCount,
+	valueMeaningCount: oneItem.valueMeaningCount,
+	valueElementCount: oneItem.valueElementCount,
+	incomingSlotNameList: oneItem.incomingSlotNameList || null,
+	meaningsWalkPathStableIdList: oneItem.meaningsWalkPathStableIdList || null,
 	// ⟪review S4⟫ a domain's id in its hub's standard
 	nativeId: oneItem.nativeId || null,
 	// ⟪explorerUris⟫ its EDUcore URI as the server minted it, or why there is none (a synthetic row has neither)
@@ -171,6 +180,17 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		rowMatchesFilter() {
 			const filterText = this.filterText.trim().toLowerCase();
 			return (oneRow) => !filterText || `${oneRow.displayName} ${oneRow.name}`.toLowerCase().includes(filterText);
+		},
+
+		// ⟪meaningsClarity⟫ how many of this level's rows the filter dims (diagram) or hides (table): the filter notice says it whenever it is more than none
+		filterUnmatchedRowCount() {
+			return this.levelRowList.length - this.filteredRowList.length;
+		},
+
+		// ⟪meaningsClarity⟫ the walk's path one step into a row: below this level, or to where the row lives when it carries its own path (an incoming meaning,
+		// opened in its own domain). Every drill, Open and item link goes through here
+		drillPathOf() {
+			return (stableId) => rowWalkPathOf({ walkProfileName: this.walkProfileName, pathStableIdList: this.pathStableIdList, stableId, row: this.levelRowList.find((oneRow) => oneRow.stableId === stableId) || null });
 		},
 
 		truncatedGroupList: (state) => (state.neighbourhood ? state.neighbourhood.childGroupList.filter((oneGroup) => oneGroup.truncated) : []),
@@ -354,6 +374,22 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			} catch (error) {
 				this.versionTileStateByStableId[stableId] = { loading: false, statusMsg: refusalTextOf(error, 'other versions'), versionCounterparts: null };
 				return false;
+			}
+		},
+
+		// ⟪meaningsClarity review S4⟫ the meanings an element takes part in, for the panel: fetched once per stableId, after the node, so a walk step costs what it did.
+		// A synthetic id answers meaningFactsAbsentName (notAGraphElement) and the panel says nothing; a failed read is kept, and the panel says so in its own words.
+		async loadMeaningFacts(stableId) {
+			const existingState = this.meaningFactsStateByStableId[stableId];
+			if (existingState && !existingState.failed) return;
+			const loginStore = useLoginStore();
+			this.meaningFactsStateByStableId[stableId] = { loading: true, meaningFacts: null, meaningFactsAbsentName: '', failed: false };
+			try {
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'meaningFacts', stableId }, { headers: authHeadersOf(loginStore) });
+				const factsAnswer = Array.isArray(response.data) ? response.data[0] : null;
+				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: (factsAnswer && factsAnswer.meaningFacts) || null, meaningFactsAbsentName: (factsAnswer && factsAnswer.meaningFactsAbsentName) || '', failed: !factsAnswer };
+			} catch (error) {
+				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: null, meaningFactsAbsentName: '', failed: true };
 			}
 		},
 

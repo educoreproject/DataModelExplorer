@@ -23,7 +23,9 @@ const REQUIRED_STYLE_NAME_LIST = ['color', 'fill', 'tint'];
 
 const importVocabularyFrom = (sourceText, fileTag, callback) => {
 	const temporaryFilePath = path.join(os.tmpdir(), `explorerVocabulary-${process.pid}-${fileTag}.mjs`);
-	fs.writeFileSync(temporaryFilePath, sourceText);
+	// ⟪meaningsClarity⟫ the vocabulary imports its two neighbours, the shared wording and walk-path modules; the temporary copy imports the real ones
+	const neighbourUrlOf = (fileName) => require('url').pathToFileURL(path.join(path.dirname(vocabularyFilePath), fileName)).href;
+	fs.writeFileSync(temporaryFilePath, sourceText.replace("from './sharedWording.js'", `from '${neighbourUrlOf('sharedWording.js')}'`).replace("from './sharedWalkPath.js'", `from '${neighbourUrlOf('sharedWalkPath.js')}'`));
 	import(temporaryFilePath).then(
 		(vocabularyModule) => { fs.unlinkSync(temporaryFilePath); callback('', vocabularyModule); },
 		(importError) => { fs.unlinkSync(temporaryFilePath); callback(`importing the vocabulary failed: ${importError.message}`); },

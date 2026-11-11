@@ -14,6 +14,12 @@
 
 const humanPageRules = require('./humanPageRules.json');
 const hubCardTupleRules = require('../standards-query/hubCardTupleRules.json');
+// ⟪meaningsClarity, Addendum A⟫ the meaning facts' words, the explorer's own list (one word list for both pages)
+const meaningFactsWording = require('../../../html/components/standardsExplorer/meaningFactsWording.json');
+// ⟪meaningsClarity, ruling 3⟫ the one wording function and meaning-title lookup, shared with the explorer (an ES module, loaded by require on Node >= 22.12)
+const { countTextOf, meaningTitleTextOf, meaningSubtitleTextOf } = require('../../../html/components/standardsExplorer/sharedWording.js');
+// the meanings walk's own ids (its catalog, a meaning's id), so a link into it is made by its rules
+const standardsNeighbourhoodMapper = require('../../data-model/data-mapping/mappers/standards-neighbourhood.js')({});
 
 const HTML_ESCAPE_BY_CHARACTER = Object.freeze({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' });
 const escapedHtmlOf = (text) => String(text).replace(/[&<>"']/g, (oneCharacter) => HTML_ESCAPE_BY_CHARACTER[oneCharacter]);
@@ -120,6 +126,7 @@ details>*:last-child{margin-bottom:1rem}
 ul.rows{list-style:none;margin:0;padding:0}
 ul.rows li{padding:.45rem 0;border-bottom:1px solid var(--border);overflow-wrap:anywhere}
 ul.rows li:last-child{border-bottom:none}
+ul.meaning-lines li.meaning-line-depth-1{padding-left:1.5rem;color:var(--text-muted)}
 .row-meta{display:block;color:var(--text-muted);font-size:.84rem}
 .note{color:var(--text-muted);font-size:.88rem;margin:.25rem 0 .75rem}
 .refusal{color:#B42318;font-weight:600}
@@ -170,7 +177,9 @@ const cardRowHtmlOf = ({ cardRow, linkHtmlOf, joinText }) => `<li>${linkHtmlOf(c
 const partRowHtmlOf = ({ slotName, part, linkHtmlOf }) => {
 	const nativeIdText = part.nativeId ? Object.entries(part.nativeId).map(([idName, idText]) => `${idName} ${idText}`).join(', ') : `no native identifier: ${part.nativeIdAbsentName}`;
 	const labelHtml = part.uri === undefined ? `${escapedHtmlOf(part.label)} <span class="count">(no URI: ${escapedHtmlOf(part.uriAbsentReason)})</span>` : linkHtmlOf(part.uri, part.label);
-	return `<li>${slotName === undefined ? '' : `<strong>${escapedHtmlOf(slotName)}</strong> · `}${labelHtml}<span class="row-meta">${escapedHtmlOf(part.kind)} · ${escapedHtmlOf(nativeIdText)}</span></li>`;
+	// ⟪meaningsClarity Addendum C #6⟫ the part's URI as visible text too, as the explorer's panel and the Rosetta report print it
+	const uriHtml = part.uri === undefined ? '' : `<span class="row-meta mono" data-testid="part-uri">${escapedHtmlOf(part.uri)}</span>`;
+	return `<li>${slotName === undefined ? '' : `<strong>${escapedHtmlOf(slotName)}</strong> · `}${labelHtml}<span class="row-meta">${escapedHtmlOf(part.kind)} · ${escapedHtmlOf(nativeIdText)}</span>${uriHtml}</li>`;
 };
 
 // ================================================================================
@@ -239,17 +248,41 @@ const usedOnSectionHtmlOf = ({ humanPageFacts, linkHtmlOf }) => {
 	return detailsHtmlOf({ summaryText: 'Used on', countText: shownCountTextOf({ listedCount: usedOnList.length, heldCount: usedOnCount }), innerHtml });
 };
 
+// ⟪meaningsClarity, Addendum A; review N4⟫ a point of the Meanings explorer, from the walk's own path (the facts carry it, made by the walk's mapper), linked by the
+// explorer's own codec and route (sharedWalkPath.js)
+const { meaningsHrefOf } = require('../../../html/components/standardsExplorer/sharedWalkPath.js');
+const { slotWordOf } = require('./elementMeaningFacts');
+const openInMeaningsHtmlOf = (pathStableIdList) => (pathStableIdList ? ` <a href="${escapedHtmlOf(meaningsHrefOf(pathStableIdList))}" data-testid="open-in-meanings">${escapedHtmlOf(meaningFactsWording.openInMeaningsText)}</a>` : '');
+// one of the facts' lines (elementMeaningFacts.lineList, the explorer's own), its count, and its place in the Meanings explorer
+const meaningLineHtmlOf = (oneLine) =>
+	`<li class="meaning-line-depth-${escapedHtmlOf(oneLine.depth)}" data-meaning-line="${escapedHtmlOf(oneLine.lineName)}" data-depth="${escapedHtmlOf(oneLine.depth)}" data-count="${escapedHtmlOf(oneLine.meaningCount)}">${escapedHtmlOf(oneLine.lineText)} <span class="count">${escapedHtmlOf(countTextOf(oneLine.meaningCount, meaningFactsWording.numberLocaleName))}</span>${openInMeaningsHtmlOf(oneLine.meaningsWalkPathStableIdList)}</li>`;
+// a listed card's join to this element, by section
+const cardJoinTextBySectionName = {
+	propertyMeanings: () => '',
+	namingMeanings: (cardRow) => (cardRow.slotNameList || []).map((slotName) => slotWordOf(slotName, 1)).join(meaningFactsWording.lineDivider),
+	ownTerm: () => '',
+	mappedTo: (cardRow) => [cardRow.relationType, cardRow.matchBasis, cardRow.mappingConfidence === undefined || cardRow.mappingConfidence === null ? undefined : `confidence ${cardRow.mappingConfidence}`].filter(Boolean).join(' · '),
+};
+
+// ⟪meaningsClarity, Addendum A⟫ "Meanings it takes part in", section by section as the explorer says it (the one reader's facts, the shared words): each section a line with
+// its count and its place in the Meanings explorer, its own lines beneath; then each section's listed cards. The total is the sum of the sections' lines.
 const meaningSectionHtmlOf = ({ humanPageFacts, linkHtmlOf }) => {
 	if (humanPageFacts.factsAbsentName !== undefined) {
-		return detailsHtmlOf({ summaryText: 'Meanings it takes part in', innerHtml: factsAbsentHtmlOf(humanPageFacts.factsAbsentName) });
+		return detailsHtmlOf({ summaryText: meaningFactsWording.sectionHeadText, innerHtml: factsAbsentHtmlOf(humanPageFacts.factsAbsentName) });
 	}
-	const { meaningAsPartList, meaningAsPartCount, meaningMappedList, meaningMappedCount } = humanPageFacts;
-	const asPartHtml = meaningAsPartCount === 0 ? '' : `<h2>Names it as part of the card's tuple <span class="count">${escapedHtmlOf(shownCountTextOf({ listedCount: meaningAsPartList.length, heldCount: meaningAsPartCount }))}</span></h2>`
-		+ `<ul class="rows">${meaningAsPartList.map((cardRow) => cardRowHtmlOf({ cardRow, linkHtmlOf, joinText: `as its ${cardRow.slotName}` })).join('')}</ul>`;
-	const mappedHtml = meaningMappedCount === 0 ? '' : `<h2>Mapped to <span class="count">${escapedHtmlOf(shownCountTextOf({ listedCount: meaningMappedList.length, heldCount: meaningMappedCount }))}</span></h2>`
-		+ `<ul class="rows">${meaningMappedList.map((cardRow) => cardRowHtmlOf({ cardRow, linkHtmlOf, joinText: [cardRow.relationType, cardRow.matchBasis, cardRow.mappingConfidence === undefined || cardRow.mappingConfidence === null ? undefined : `confidence ${cardRow.mappingConfidence}`].filter(Boolean).join(' · ') })).join('')}</ul>`;
-	const innerHtml = asPartHtml === '' && mappedHtml === '' ? '<p class="note">No hub card names this element or is mapped from it.</p>' : `${asPartHtml}${mappedHtml}`;
-	return detailsHtmlOf({ summaryText: 'Meanings it takes part in', countText: String(meaningAsPartCount + meaningMappedCount), innerHtml });
+	const { elementMeaningFacts, meaningCardRowListBySectionName } = humanPageFacts;
+	if (elementMeaningFacts.takesPartCount === 0) {
+		return detailsHtmlOf({ summaryText: meaningFactsWording.sectionHeadText, countText: '0', innerHtml: `<p class="note">${escapedHtmlOf(meaningFactsWording.noMeaningText)}</p>` });
+	}
+	const shownSectionList = elementMeaningFacts.sectionList.filter((oneSection) => oneSection.meaningCount > 0);
+	const lineListHtml = `<ul class="rows meaning-lines" data-testid="meaning-lines">${elementMeaningFacts.lineList.map(meaningLineHtmlOf).join('')}</ul>`;
+	const listedHtml = shownSectionList.filter((oneSection) => (meaningCardRowListBySectionName[oneSection.sectionName] || []).length > 0).map((oneSection) => {
+		const listedCardRowList = meaningCardRowListBySectionName[oneSection.sectionName];
+		const noteHtml = oneSection.sectionName === 'mappedTo' ? `<p class="note">${escapedHtmlOf(meaningFactsWording.mappedSectionNoteText)}</p>` : '';
+		return `<h2>${escapedHtmlOf(meaningFactsWording.sectionTitleByName[oneSection.sectionName])} <span class="count">${escapedHtmlOf(shownCountTextOf({ listedCount: listedCardRowList.length, heldCount: oneSection.meaningCount }))}</span></h2>${noteHtml}`
+			+ `<ul class="rows">${listedCardRowList.map((cardRow) => cardRowHtmlOf({ cardRow, linkHtmlOf, joinText: cardJoinTextBySectionName[oneSection.sectionName](cardRow) })).join('')}</ul>`;
+	}).join('');
+	return detailsHtmlOf({ summaryText: meaningFactsWording.sectionHeadText, countText: countTextOf(elementMeaningFacts.takesPartCount, meaningFactsWording.numberLocaleName), innerHtml: `${lineListHtml}${listedHtml}` });
 };
 
 // the layers that interpret this element, by layer; shown only when the answer has them
@@ -305,15 +338,21 @@ const elementMainHtmlOf = (pageParts) => [
 
 const SLOT_NAME_LIST = hubCardTupleRules.slotList.map((oneSlot) => oneSlot.slotName);
 
+// what the meaning is, by its tier, naming its domain from its tuple (the shared lookup)
+const meaningSubtitleHtmlTextOf = ({ answerBody, humanPageFacts }) =>
+	meaningSubtitleTextOf({ referenceTier: answerBody.referenceTier, hubName: answerBody.hubName, domainName: humanPageFacts.tuple && humanPageFacts.tuple.domain ? humanPageFacts.tuple.domain.label : '', meaningFactsWording });
+
 const meaningHeadHtmlOf = ({ answerBody, humanPageFacts, jsonHref }) => {
 	const bracketText = humanPageFacts.tupleBracketText || `[tuple not read: ${humanPageFacts.factsAbsentName}]`;
 	return [
 		`<p class="overline">EDUcore URI · meaning</p>`,
-		`<h1>${escapedHtmlOf(answerBody.label)}</h1>`,
+		// ⟪meaningsClarity Addendum B⟫ titled as a meaning, with what it is underneath, in the words the explorer's panel uses
+		`<h1 data-testid="meaning-title">${escapedHtmlOf(meaningTitleTextOf({ meaningName: answerBody.label, meaningFactsWording }))}</h1>`,
+		`<p class="definition" data-testid="meaning-subtitle">${escapedHtmlOf(meaningSubtitleHtmlTextOf({ answerBody, humanPageFacts }))}</p>`,
 		`<div class="chip-row"><span class="chip bracket">${escapedHtmlOf(bracketText)}</span><span class="chip">${escapedHtmlOf(answerBody.hubName)} hub</span><span class="chip">${escapedHtmlOf(answerBody.hubVersion)}</span>${answerBody.referenceTier ? `<span class="chip">${escapedHtmlOf(answerBody.referenceTier)} card</span>` : ''}</div>`,
 		answerBody.definition ? `<p class="definition">${escapedHtmlOf(answerBody.definition)}</p>` : '',
 		citeHtmlOf(answerBody.meaning),
-		`<p class="json-link"><a href="/explore/meanings?path=${escapedHtmlOf(encodeURIComponent(`meanings:all,meaning:${answerBody.meaning}`))}" data-testid="open-in-meanings">Open in the Meanings explorer</a> <span class="count">this meaning, what it names and every element that expresses it</span></p>`, // ⟪meaningsExplorer⟫
+		`<p class="json-link"><a href="${escapedHtmlOf(meaningsHrefOf([standardsNeighbourhoodMapper.MEANING_CATALOG_STABLE_ID, standardsNeighbourhoodMapper.meaningIdOf(answerBody.meaning)]))}" data-testid="open-in-meanings">Open in the Meanings explorer</a> <span class="count">this meaning, what it names and every element that expresses it</span></p>`, // ⟪meaningsExplorer⟫
 		jsonLinkHtmlOf(jsonHref),
 	].join('');
 };

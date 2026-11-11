@@ -1,0 +1,47 @@
+{
+	"_comment": "⟪meaningsClarity Addendum A, TQ 2026-11-11: an element's explorer page and its URI page must match⟫ THE WORDS OF AN ELEMENT'S MEANING FACTS, one list for both pages. The one reader (server/lib/edc-resolver/elementMeaningFacts.js) builds its sections in sectionNameList's order and its lines (lineList) in these words; the /edc element page (server/lib/edc-resolver/humanPage.js) and the explorer (MeaningFactsSection.vue) draw those lines and read their headings here. A {name} in a template is filled by a wording function that refuses a missing name.",
+	"sectionHeadText": "Meanings it takes part in",
+	"sectionNameList": [
+		"propertyMeanings",
+		"valueMeanings",
+		"namingMeanings",
+		"ownTerm",
+		"mappedTo"
+	],
+	"sectionTitleByName": {
+		"propertyMeanings": "As the domain of property meanings",
+		"valueMeanings": "As the domain of value meanings",
+		"namingMeanings": "Named by meanings of other domains",
+		"ownTerm": "As its own term",
+		"mappedTo": "Mapped to"
+	},
+	"valueGroupTemplate": "under {meaningName}",
+	"valueGroupElementTemplate": "{elementCountText} mapped to them",
+	"unplacedValueGroupText": "under no property meaning of this domain",
+	"namingGroupTemplate": "in {domainName}",
+	"namingGroupNoDomainText": "in no domain",
+	"_namingGroup": "⟪review S3⟫ a naming group is the meanings of one other domain held by one property meaning (that meaning and its values), so its line links to that meaning, whose level lists those values; the words say how the line's count relates to it. A slot is named by its slot name (hubCardTupleRules' slotList), one word list",
+	"namingSlotTemplateByCount": {
+		"one": "as its {slotText}",
+		"other": "as their {slotText}"
+	},
+	"namingHolderAndValuesTemplate": "{meaningName} and its {valueCount} values",
+	"namingHolderOnlyTemplate": "{meaningName}",
+	"namingAllValuesOfHolderTemplate": "the {valueCount} values of {meaningName}",
+	"namingSomeValuesOfHolderTemplate": "{valueCount} of the {holderValueCount} values of {meaningName}",
+	"namingNoHolderTemplate": "{valueCount} values held by no property meaning",
+	"mappedSectionNoteText": "Meanings this element is mapped to.",
+	"openInMeaningsText": "Open in Meanings",
+	"lineDivider": " · ",
+	"noMeaningText": "No meaning names this element, and it is mapped to none.",
+	"_meaningTitle": "⟪meaningsClarity Addendum B⟫ a meaning's visible title, on its explorer panel and its /edc page, and what it is underneath by tier; a tier not named here says its tier as written",
+	"meaningTitleTemplate": "Meaning: {meaningName}",
+	"meaningSubtitleTemplateByTier": {
+		"property": "a property in the {hubName} domain {domainName}",
+		"value": "one code of a property in the {hubName} domain {domainName}",
+		"term": "one {hubName} term, meant on its own"
+	},
+	"numberLocaleName": "en-US",
+	"loadingText": "Reading the meanings it takes part in…",
+	"unreadableText": "The meanings it takes part in could not be read just now."
+}

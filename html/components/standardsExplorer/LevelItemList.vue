@@ -30,7 +30,7 @@ const itemList = computed(() =>
 		displayName: oneRow.displayName,
 		kindText: kindDisplayNameOf(oneRow.kind, oneRow.hubName),
 		detailText: detailTextOf(oneRow),
-		openLink: oneRow.hasChildren ? store.walkLinkOf([...store.pathStableIdList, oneRow.stableId]) : null,
+		openLink: oneRow.hasChildren ? store.walkLinkOf(store.drillPathOf(oneRow.stableId)) : null,
 		isSelected: oneRow.stableId === store.selectedStableId,
 	})),
 );

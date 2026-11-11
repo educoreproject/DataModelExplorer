@@ -8,6 +8,9 @@
 //   5. the page's JSON section, its tags taken off and its entities read back, is exactly JSON.stringify(body, null, 2)
 //   6. a hostile label, value, URI and facts row reach the page escaped: no <script> but the copy button's (gate 4)
 //   7. parent shows only for a single owner; CTDL properties are split by the forge walk's lists; domainCount is never listed; a standard with no split says unsplit
+//   8. ⟪meaningsClarity⟫ "Meanings it takes part in" is split into the shared reader's lines: the section lines sum to the total, each section's own lines sum to it, and
+//      every line with a place in the Meanings explorer links there. C200159: 4 property meanings, 48 value meanings under Has Accessibility Feature Type, 1 meaning of
+//      another domain naming it as its range, its own term: 54 (the fixture is GOLD_261030_useCases, re-read by runs/meaningsClarity/captureFixture.js)
 // Run: node server/test/edc-human-pages.test.js
 
 const path = require('path');
@@ -134,7 +137,17 @@ const hostileMeaningBody = { ...meaningCase.answerBody, label: HOSTILE_TEXT, def
 const hostileMeaningFacts = { tuple: { domain: { kind: HOSTILE_TEXT, nativeId: { [HOSTILE_TEXT]: HOSTILE_TEXT }, label: HOSTILE_TEXT, uri: HOSTILE_URI } }, tupleBracketText: HOSTILE_TEXT, rangeIsIdentity: false };
 const elementCase = caseFor('/CEDS/14.0.0.0/ceds:P002040');
 const hostileElementBody = { ...elementCase.answerBody, definitionText: HOSTILE_TEXT, parent: HOSTILE_URI, interpretationList: [{ layerKey: HOSTILE_TEXT, versionTag: HOSTILE_TEXT, registrationStatus: HOSTILE_TEXT, pinned: HOSTILE_URI, floating: HOSTILE_URI }], node: { ...elementCase.answerBody.node, stableId: HOSTILE_TEXT, labels: [HOSTILE_TEXT], properties: { name: [HOSTILE_TEXT], [HOSTILE_TEXT]: [HOSTILE_TEXT, HOSTILE_URI], uri: [HOSTILE_URI] } } };
-const hostileElementFacts = { usedOnList: [{ label: HOSTILE_TEXT, uri: HOSTILE_URI }], usedOnCount: 1, meaningAsPartList: [{ uri: HOSTILE_URI, hubName: HOSTILE_TEXT, label: HOSTILE_TEXT, referenceTier: HOSTILE_TEXT, tupleBracketText: HOSTILE_TEXT, slotName: HOSTILE_TEXT }], meaningAsPartCount: 1, meaningMappedList: [{ uri: HOSTILE_URI, label: HOSTILE_TEXT, tupleBracketText: HOSTILE_TEXT, relationType: HOSTILE_TEXT, matchBasis: HOSTILE_TEXT, mappingConfidence: HOSTILE_TEXT }], meaningMappedCount: 1 };
+const hostileCardRow = { uri: HOSTILE_URI, hubName: HOSTILE_TEXT, label: HOSTILE_TEXT, referenceTier: HOSTILE_TEXT, tupleBracketText: HOSTILE_TEXT };
+const hostileElementFacts = {
+	usedOnList: [{ label: HOSTILE_TEXT, uri: HOSTILE_URI }],
+	usedOnCount: 1,
+	elementMeaningFacts: {
+		takesPartCount: 2,
+		sectionList: [{ sectionName: 'namingMeanings', meaningCount: 1 }, { sectionName: 'mappedTo', meaningCount: 1 }],
+		lineList: [{ lineName: HOSTILE_TEXT, depth: HOSTILE_TEXT, lineText: HOSTILE_TEXT, meaningCount: 1, meaningsWalkPathStableIdList: [HOSTILE_URI] }, { lineName: 'mappedTo', depth: 0, lineText: HOSTILE_TEXT, meaningCount: 1, meaningsWalkPathStableIdList: null }],
+	},
+	meaningCardRowListBySectionName: { namingMeanings: [{ ...hostileCardRow, slotNameList: [HOSTILE_TEXT] }], mappedTo: [{ ...hostileCardRow, relationType: HOSTILE_TEXT, matchBasis: HOSTILE_TEXT, mappingConfidence: HOSTILE_TEXT }] },
+};
 const hostilePageList = [
 	{ pageName: 'meaning', pageText: pageOf({ casePath: `${meaningCase.casePath}?q=<script>`, httpStatus: 200, answerBody: hostileMeaningBody, humanPageFacts: hostileMeaningFacts }) },
 	{ pageName: 'element', pageText: pageOf({ casePath: elementCase.casePath, httpStatus: 200, answerBody: hostileElementBody, humanPageFacts: hostileElementFacts }) },
@@ -158,6 +171,44 @@ ok('7. CTDL status and changeHistoryUrl are the standard\'s; path and searchText
 ok('7. domainCount is never listed', !hasProxyPage.split('<pre class="json">')[0].includes('domainCount'));
 ok('7. CTDL Has Proxy shows its purl IRI and status', hasProxyPage.includes('https://purl.org/ctdl/terms/hasProxy') && hasProxyPage.includes('<dt>Standard&#39;s status</dt><dd>unstable</dd>'));
 ok('7. Ed-Fi, with no split derived, says unsplit by name', sectionSummaryListOf(edfiPage).includes('Properties (unsplit)') && edfiPage.includes('not recorded for EdFi'));
+
+// 8 ---------------------------------------------------------------------------
+// the meaning lines a page shows, read from its HTML: { lineName, depth, meaningCount, meaningsHref }
+const meaningLineListOf = (pageText) => Array.from((pageText.split('data-testid="meaning-lines"')[1] || '').split('</ul>')[0].matchAll(/<li class="[^"]*" data-meaning-line="([^"]*)" data-depth="(\d)" data-count="(\d+)">(.*?)<\/li>/g))
+	.map((lineMatch) => ({ lineName: lineMatch[1], depth: Number(lineMatch[2]), meaningCount: Number(lineMatch[3]), lineHtml: lineMatch[4], meaningsHref: ((lineMatch[4].match(/href="([^"]*)" data-testid="open-in-meanings"/) || [])[1] || '').replace(/&amp;/g, '&') }));
+const summaryCountOf = (pageText) => Number(((pageText.split('<summary>Meanings it takes part in')[1] || '').match(/^ <span class="count">(\d+)<\/span>/) || [])[1]);
+const MEANINGS_HREF_PREFIX = '/explore/meanings?path=';
+['/CEDS/14.0.0.0/ceds:C200159', '/CEDS/14.0.0.0/ceds:P000385', '/CEDS/14.0.0.0/ceds:NI000385928242', '/CEDS/14.0.0.0/ceds:P002040'].forEach((casePath) => {
+	const elementPageCase = caseFor(casePath);
+	if (!elementPageCase) { ok(`8. the fixture holds ${casePath}`, false); return; }
+	const pageText = pageOf(elementPageCase);
+	const lineList = meaningLineListOf(pageText);
+	const sectionLineList = lineList.filter((oneLine) => oneLine.depth === 0);
+	const sectionSum = sectionLineList.reduce((soFar, oneLine) => soFar + oneLine.meaningCount, 0);
+	ok(`8. ${casePath}: its section lines sum to the total it shows (${sectionSum} = ${summaryCountOf(pageText)})`, sectionLineList.length > 0 && sectionSum === summaryCountOf(pageText), JSON.stringify(lineList.map(({ lineHtml, ...oneLine }) => oneLine)));
+	sectionLineList.forEach((sectionLine) => {
+		const ownLineList = lineList.slice(lineList.indexOf(sectionLine) + 1).filter((oneLine, lineIndex, restList) => restList.slice(0, lineIndex + 1).every((earlierLine) => earlierLine.depth === 1));
+		if (ownLineList.length) ok(`8. ${casePath}: the ${sectionLine.lineName} lines beneath sum to its ${sectionLine.meaningCount}`, ownLineList.reduce((soFar, oneLine) => soFar + oneLine.meaningCount, 0) === sectionLine.meaningCount);
+	});
+	// a section with no one place (a property's naming meanings live in several domains) links each of its own lines instead
+	const ownLineListOf = (sectionLine) => lineList.slice(lineList.indexOf(sectionLine) + 1).filter((oneLine, lineIndex, restList) => restList.slice(0, lineIndex + 1).every((earlierLine) => earlierLine.depth === 1));
+	const isLinked = (oneLine) => oneLine.meaningsHref.startsWith(MEANINGS_HREF_PREFIX);
+	const unlinkedLineList = lineList.filter((oneLine) => oneLine.lineName !== 'mappedTo' && !isLinked(oneLine) && !(oneLine.depth === 0 && ownLineListOf(oneLine).length > 1 && ownLineListOf(oneLine).every(isLinked)));
+	ok(`8. ${casePath}: every line but Mapped to links into the Meanings explorer (or, with no one place, each line beneath it does)`, unlinkedLineList.length === 0, JSON.stringify(unlinkedLineList.map(({ lineHtml, ...oneLine }) => oneLine)));
+});
+const accessibilityPage = pageOf(caseFor('/CEDS/14.0.0.0/ceds:C200159'));
+const accessibilityLineByName = Object.fromEntries(meaningLineListOf(accessibilityPage).filter((oneLine) => oneLine.depth === 0).map((oneLine) => [oneLine.lineName, oneLine]));
+ok('8. C200159: 4 property meanings, 48 value meanings, 1 naming it, its own term: 54', summaryCountOf(accessibilityPage) === 54 && accessibilityLineByName.propertyMeanings.meaningCount === 4 && accessibilityLineByName.valueMeanings.meaningCount === 48
+	&& accessibilityLineByName.namingMeanings.meaningCount === 1 && accessibilityLineByName.ownTerm.meaningCount === 1, JSON.stringify(Object.values(accessibilityLineByName).map(({ lineHtml, ...oneLine }) => oneLine)));
+const valueGroupLine = meaningLineListOf(accessibilityPage).find((oneLine) => oneLine.lineName === 'valueGroup');
+ok('8. C200159: the 48 value meanings are under Has Accessibility Feature Type, linked to that meaning in its domain', Boolean(valueGroupLine) && valueGroupLine.meaningCount === 48 && valueGroupLine.lineHtml.includes('under Has Accessibility Feature Type')
+	&& decodeURIComponent(valueGroupLine.meaningsHref.slice(MEANINGS_HREF_PREFIX.length)).split(',').length === 4, valueGroupLine && valueGroupLine.meaningsHref);
+ok('8. C200159: the meaning of another domain is named as range, and listed with its slot', /Has Individualized Program Accessibility Feature · as its range <span class="count">1<\/span>/.test(accessibilityPage) && accessibilityPage.includes('Has Individualized Program Accessibility Feature'));
+const valueCardPageText = pageOf(caseFor('/CEDStandards/hub/14.0.0.0/0000'));
+ok('8. ⟪Addendum B⟫ a meaning page is titled as a meaning, with what it is underneath', /<h1 data-testid="meaning-title">Meaning: /.test(meaningPage) && /data-testid="meaning-subtitle">a property in the CEDS domain [^<]+</.test(meaningPage)
+	&& /data-testid="meaning-subtitle">one code of a property in the CEDS domain [^<]+</.test(valueCardPageText), (meaningPage.match(/data-testid="meaning-subtitle">[^<]*/) || [])[0]);
+ok('8. ⟪Addendum C #6⟫ each part of what a meaning names shows its URI as text', (meaningPage.match(/data-testid="part-uri">https:\/\/w3id\.org\/EDUcore\//g) || []).length >= 2);
+ok('8. C200159: the property meanings line opens its domain level in the Meanings explorer', decodeURIComponent(accessibilityLineByName.propertyMeanings.meaningsHref.slice(MEANINGS_HREF_PREFIX.length)) === 'meanings:all,meaningHub:CEDS,meaningDomain:https://w3id.org/CEDStandards/terms/C200159');
 
 console.log(`\n=== Results: ${passedCount} passed, ${failedCount} failed ===\n`);
 process.exit(failedCount ? 1 : 0);

@@ -33,6 +33,8 @@ const { hubEdgeTypeFor } = require('../../../../cli/lib.d/data-model-explorer/li
 const { readUriMinter, uriFieldsOf, elementListUriFieldsOf } = require('../../lib/explorer-uri-fields');
 // ⟪meaningsExplorer⟫ a meaning's tuple, read by the one reader of card tuples
 const { hubCardTupleFor } = require('../../../lib/standards-query/hubCardTuple');
+// ⟪meaningsClarity, Addendum A⟫ the one reader of an element's meaning facts, shared with the /edc element page
+const { elementMeaningFactsFor } = require('../../../lib/edc-resolver/elementMeaningFacts');
 // ⟪meaningsPolish⟫ the meanings walk's refusal words (data), and the graph's native-identifier declarations (a domain's id in its hub's standard)
 const meaningsWalkWording = require('../../../lib/meanings-walk-wording.json');
 const { readNativeIdentifierDeclarations } = require('../../../lib/native-identifier-declarations');
@@ -544,6 +546,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 	};
 
+	// ⟪meaningsClarity, Addendum A⟫ an element's meaning facts, read by THE one reader the /edc element page reads too (lib/edc-resolver/elementMeaningFacts.js), on
+	// the golden's plain rows
+	const runRowsOnGolden = (cypherText, cypherParameters, done) => neo4jDb.runQuery(cypherText, cypherParameters, done);
+	const readElementMeaningFacts = ({ elementStableId }, callback) => elementMeaningFactsFor({ mapper, runRows: runRowsOnGolden, elementStableId, readsInParallel: true }, callback);
+
 	const readMeaningDomainNode = ({ stableId, remainderText }, callback) => {
 		const domainStableId = remainderText;
 		const taskList = new taskListPlus();
@@ -566,14 +573,15 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', { ...args, domainContext: contextRecordList[0] });
 			}),
 		);
-		// ⟪meaningsPolish⟫ the domain's meanings themselves, one row per property meaning (no property level between)
+		// ⟪meaningsPolish⟫ the domain's meanings themselves, one row per property meaning (no property level between); ⟪meaningsClarity, Addendum A⟫ read with its
+		// own term and the meanings of other domains that name it by the one reader of an element's meaning facts, so this level and the element's /edc page agree
 		taskList.push((args, next) =>
-			runNamedQuery('meaningsByDomainStableId', { domainStableId }, (queryError, meaningRecordList) => {
-				if (!queryError && !meaningRecordList.length && !args.domainContext.termMeaningList.length) {
+			readElementMeaningFacts({ elementStableId: domainStableId }, (factsError, factsAnswer) => {
+				if (!factsError && !factsAnswer.elementMeaningFacts.isMeaningDomain) {
 					next(`${moduleName}: no meaning names '${domainStableId}' as its domain`, args);
 					return;
 				}
-				next(queryError, { ...args, meaningRecordList });
+				next(factsError, { ...args, factsAnswer });
 			}),
 		);
 
@@ -582,9 +590,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(pipeError);
 				return;
 			}
-			const { domainContext, declarationList, declarationAbsentName } = args;
-			const meaningItemList = args.meaningRecordList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord.meaningRow, domainContext.standardFamily));
-			const termItemList = domainContext.termMeaningList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
+			const { domainContext, declarationList, declarationAbsentName, factsAnswer } = args;
+			const { elementMeaningFacts, meaningRowsBySectionName } = factsAnswer;
+			const meaningItemList = meaningRowsBySectionName.propertyMeanings.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
+			const termItemList = meaningRowsBySectionName.ownTerm.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
+			const incomingRecord = meaningRowsBySectionName.namingMeanings;
+			const incomingItemList = incomingRecord.itemList.map((oneIncomingRecord) => mapper.mapIncomingMeaningItem({ incomingRecord: oneIncomingRecord, standardFamily: domainContext.standardFamily }));
 			callback('', {
 				node: {
 					stableId,
@@ -597,13 +608,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					meaningCount: meaningItemList.length,
 					mappedMeaningCount: meaningItemList.filter((oneItem) => oneItem.elementCount > 0).length,
 					termMeaningCount: termItemList.length,
+					// ⟪meaningsClarity⟫ counted apart from its own meanings, as its row in the hub counts them
+					incomingMeaningCount: incomingRecord.itemCount,
 					// ⟪review S4⟫ its id in its hub's standard
 					...mapper.nativeIdFieldsOf({ sourceKey: domainContext.sourceKey, nativeIdentifier: domainContext.nativeIdentifier, declarationList, declarationAbsentName }),
+					// ⟪meaningsClarity, Addendum A⟫ the meanings it takes part in, section by section, as its /edc page says them
+					meaningFacts: elementMeaningFacts,
 				},
 				ancestorList: [],
 				childGroupList: [
 					mapper.cappedChildGroupOf({ relationshipType: 'HAS_MEANING', itemList: meaningItemList }),
 					mapper.cappedChildGroupOf({ relationshipType: 'HAS_TERM_MEANING', itemList: termItemList }),
+					// ⟪meaningsClarity⟫ an added group: capped in its query, so its count is the query's true count
+					{ relationshipType: 'HAS_INCOMING_MEANING', count: incomingRecord.itemCount, truncated: incomingRecord.itemCount > incomingItemList.length, itemList: incomingItemList },
 				].filter((oneGroup) => oneGroup.count > 0),
 				mappingList: [],
 			});
@@ -688,7 +705,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			// as above: no value card of this property answers no row, a count of 0
-			runNamedQuery('valueMeaningsByCardStableId', { cardStableId }, (queryError, valueRecordList) => next(queryError, { ...args, valueRecord: (valueRecordList || [])[0] || { itemCount: 0, itemList: [] } }));
+			runNamedQuery('valueMeaningsByCardStableId', { cardStableId }, (queryError, valueRecordList) => next(queryError, { ...args, valueRecord: (valueRecordList || [])[0] || { itemCount: 0, valueElementCount: 0, itemList: [] } }));
 		});
 
 		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
@@ -719,6 +736,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					// ⟪meaningsPolish⟫ the per-standard cap, so the panel's capped note names the server's number rather than a copy of it
 					expressionGroupItemCap: mapper.GROUP_ITEM_CAP,
 					expressedInGroupList,
+					// ⟪meaningsClarity⟫ a property meaning says what it holds, as its row in its domain says it: its value meanings and the elements mapped to them
+					...(meaningItem.referenceTier === mapper.MEANING_PROPERTY_TIER ? { valueMeaningCount: valueRecord.itemCount, valueElementCount: valueRecord.valueElementCount } : {}),
 				},
 				ancestorList: [],
 				childGroupList: [{ relationshipType: 'HAS_VALUE_MEANING', count: valueRecord.itemCount, truncated: valueRecord.itemCount > valueItemList.length, itemList: valueItemList }].filter((oneGroup) => oneGroup.count > 0),
@@ -744,6 +763,21 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		meaningDomain: readMeaningDomainNode,
 		meaningProperty: refuseRetiredMeaningLevel,
 		meaning: readMeaningNode,
+	};
+
+	// ⟪meaningsClarity, Addendum A; review S4⟫ an element's meaning facts, as its /edc page says them, asked for apart from its node (action meaningFacts), so a walk step
+	// costs what it cost before and the panel reads them after. A synthetic id is no graph element: it answers that by name, with no read
+	const MEANING_FACTS_ABSENT_NAME_LIST = Object.freeze(['notAGraphElement']);
+	const readMeaningFactsAnswer = ({ stableId }, callback) => {
+		if (typeof stableId !== 'string' || stableId.trim() === '') {
+			callback(`${moduleName}: meaningFacts requires stableId as a non-empty string (received ${JSON.stringify(stableId)})`);
+			return;
+		}
+		if (mapper.parseSyntheticId(stableId)) {
+			callback('', { stableId, meaningFactsAbsentName: MEANING_FACTS_ABSENT_NAME_LIST[0] });
+			return;
+		}
+		readElementMeaningFacts({ elementStableId: stableId }, (factsError, factsAnswer) => callback(factsError, factsError ? undefined : { stableId, meaningFacts: factsAnswer.elementMeaningFacts }));
 	};
 
 	const readNode = ({ stableId, compareVersion }, callback) => {
@@ -1134,6 +1168,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		node: (xQuery, callback) => readNode({ stableId: xQuery.stableId, compareVersion: xQuery.compareVersion }, callback),
 		pathSummary: (xQuery, callback) => readPathSummary({ stableIdList: xQuery.stableIdList }, callback),
 		versionCounterparts: (xQuery, callback) => readVersionCounterparts({ stableId: xQuery.stableId }, callback),
+		// ⟪meaningsClarity review S4⟫
+		meaningFacts: (xQuery, callback) => readMeaningFactsAnswer({ stableId: xQuery.stableId }, callback),
 	};
 
 	const serviceFunction = (xQuery, callback) => {
