@@ -44,6 +44,8 @@ const checkList = [
 	// R6
 	['R6: the PII notice stands beside the Rosetta input', /<SiteNoticePiiNotice[^>]*\/>\s*<v-textarea/.test(templateText)],
 	['R6: the PII notice stands on the login page', /<SiteNoticePiiNotice\s*\/>/.test(loginPageText)],
+	['R6: on the login page the notice stands BELOW the login form (TQ, 2026-11-10)', /<form_login\s*\/>[\s\S]*<SiteNoticePiiNotice\s*\/>/.test(loginPageText)],
+	['R6: the notice wears the theme primary (the logo blue), not the warning colour', /color="primary"/.test(piiNoticeComponentText) && !/type="warning"/.test(piiNoticeComponentText)],
 	['R6: the notice shows TQ\'s words, verbatim, from the site notice vocabulary', siteNoticeVocabularyText.includes(`piiNoticeText: '${TQ_PII_NOTICE_TEXT}'`) && /\{\{ siteNoticeWords\.piiNoticeText \}\}/.test(piiNoticeComponentText)],
 	// no magic strings
 	['no bare word between the page\'s tags: every word is from the vocabulary', bareWordListOf(templateText).length === 0, bareWordListOf(templateText).slice(0, 8).join(' ')],
