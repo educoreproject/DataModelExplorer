@@ -4,10 +4,11 @@
 	"defaultFirstCallBoundSeconds": 10,
 	"exemptOperationList": [{ "operationName": "usage", "why": "admin only: the gate holds no credential, and its answer costs one SQLite read" }, { "operationName": "rosettaInterpret", "why": "spends at the AI vendor on every call, and the deploy gate spends nothing; its time is measured by the live gate in runs/rosettaFreeInput" }],
 	"rowList": [
-		{ "label": "job submit, no credential", "operationName": "rosettaSubmit", "queryText": "", "expectedHttpStatus": 401, "bodyJson": { "fieldList": [{ "name": "dischargeDate" }] } },
+		{ "label": "job submit, no credential: refused before any spend (no fields), since a visitor may now judge (rosettaMeanings R3) and a real field would start a paid job", "operationName": "rosettaSubmit", "queryText": "", "expectedHttpStatus": 400, "bodyJson": { "fieldList": [] } },
 		{ "label": "job status, no credential", "operationName": "rosettaStatus", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
 		{ "label": "job fetch, no credential", "operationName": "rosettaFetch", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
 		{ "label": "job cancel, no credential", "operationName": "rosettaCancel", "queryText": "", "expectedHttpStatus": 404, "bodyJson": { "jobRefId": "0123456789abcdef0123456789abcdef" } },
+		{ "label": "job prompts, no such job", "operationName": "rosettaPrompts", "queryText": "jobRefId=0123456789abcdef0123456789abcdef", "expectedHttpStatus": 404 },
 		{ "label": "search hybrid", "operationName": "search", "queryText": "q=date of birth" },
 		{ "label": "search keyword", "operationName": "search", "queryText": "q=race&mode=keyword" },
 		{ "label": "grep regex", "operationName": "grep", "queryText": "pattern=^birth&standard=LIF" },

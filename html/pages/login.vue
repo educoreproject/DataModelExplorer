@@ -7,6 +7,8 @@ definePageMeta({ layout: 'blank' });
 		<div class="login-header" @click="navigateTo('/')" style="cursor: pointer;">
 			<img src="/educore-logo.png" alt="EDUcore" class="login-logo" />
 		</div>
+		<!-- ⟪rosettaMeanings R6⟫ TQ's personal-information notice, its words in siteNoticeVocabulary -->
+		<div class="login-notice"><SiteNoticePiiNotice /></div>
 		<form_login />
 	</div>
 </template>
@@ -22,6 +24,12 @@ definePageMeta({ layout: 'blank' });
 	text-align: center;
 	background: #fff;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.login-notice {
+	max-width: 480px;
+	margin: 16px auto 0;
+	padding: 0 16px;
 }
 
 .login-logo {

@@ -22,15 +22,26 @@ const UNIT_STATUS_NO_CANDIDATE = 'noCandidate';
 const JUDGED_TOKEN_ACCOUNT_NAME = 'judged';
 const EMBEDDING_PROVIDER_NAME = 'voyage';
 const RELEASE_JOB = Object.freeze({ releaseJob: true });
+const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
+// the two pots the fuse reads before every unit, keyed by whether the job is anonymous (DATA: a kind filter, the ceiling and per-owner settings, and what a stop says)
+const RUNNER_POT_BY_IS_ANONYMOUS = Object.freeze({
+	false: Object.freeze({ kindFilter: { exceptOwnerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'dailyJudgeCeilingUsd', ownerDailySettingName: 'perPrincipalDailyUsd', dailyStop: { stopReasonName: 'dailyCeilingReached', stopReasonText: 'this service reached the most it spends on judging in any 24 hours' }, ownerStop: { stopReasonName: 'perPrincipalCeilingReached', stopReasonText: 'this account reached the most one person may spend in any 24 hours' } }),
+	true: Object.freeze({ kindFilter: { ownerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'anonymousDailyCeilingUsd', ownerDailySettingName: 'anonymousPerVisitorDailyUsd', dailyStop: { stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousDailyCeilingReached }, ownerStop: { stopReasonName: 'anonymousVisitorDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousVisitorDailyCeilingReached } }),
+});
+const RUNNER_LANE_LIST = Object.freeze([
+	Object.freeze({ laneName: 'signedIn', maxRunningSettingName: 'maxRunningJobs', isAnonymousLane: false }),
+	Object.freeze({ laneName: 'anonymous', maxRunningSettingName: 'anonymousMaxRunningJobs', isAnonymousLane: true }),
+]);
 const JOB_STATUS = Object.freeze({ done: 'done', running: 'running', cancelled: 'cancelled', fuseTripped: 'fuseTripped', vendorStopped: 'vendorStopped', stopped: 'stopped' });
 const CARD_FACTS_CYPHER_FOR = (candidateFieldNameList) => `MATCH (card:HubReference) WHERE card.stableId IN $cardStableIdList RETURN card { .stableId, .qualifierNames, ${candidateFieldNameList.filter((oneName) => oneName !== 'componentIdeaList').map((oneName) => `.${oneName}`).join(', ')} } AS cardFacts`;
 
 // WHAT THE JUDGE IS OFFERED. judgedPoolCap 0 is the pool as retrieval built it. Above 0 it is the pool's first judgedPoolCap by rank, plus the card closest by cosine, always, even from past the cap or past the pool: vote-first order can rank the true card behind every card a generic name reached twice (P4's organization name: cosine rank 1 at rank 33 to 41). Retrieval's own answer never reads this.
+// ⟪rosettaMeanings R5⟫ a hubHybrid pool says how far the judge's view reaches (its judgedViewLength: the cap's cards and the meanings added after them); no other kind says it, and the cap rules
 const judgedCandidateListOf = ({ pool, judgedPoolCap }) => {
 	if (judgedPoolCap === 0) {
 		return pool.candidateList;
 	}
-	const firstList = pool.candidateList.slice(0, judgedPoolCap);
+	const firstList = pool.candidateList.slice(0, pool.judgedViewLength === undefined ? judgedPoolCap : pool.judgedViewLength);
 	const cosineRankOne = pool.cosineRankOneOutsidePool || pool.candidateList.find((oneCandidate) => oneCandidate.rankByCosine === 1);
 	return cosineRankOne && !firstList.some((oneCandidate) => oneCandidate.stableId === cosineRankOne.stableId) ? [...firstList, cosineRankOne] : firstList;
 };
@@ -98,13 +109,15 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					done('', { jobStatus: JOB_STATUS.fuseTripped, stopReasonName: 'perJobCeilingReached', stopReasonText: 'this job reached the most one job may spend' });
 					return;
 				}
-				jobStore.rollingSpendUsd({ sinceMs }, (dayError, daySpentUsd) => {
+				// ⟪rosettaMeanings review S1, S4⟫ each kind of job is held to its own pot and its own per-owner share (RUNNER_POT_BY_IS_ANONYMOUS); a visitor never spends the signed-in day
+				const runnerPot = RUNNER_POT_BY_IS_ANONYMOUS[String(job.ownerPrincipalKind === ANONYMOUS_PRINCIPAL_KIND)];
+				jobStore.rollingSpendUsd({ sinceMs, ...runnerPot.kindFilter }, (dayError, daySpentUsd) => {
 					if (dayError) {
 						done(dayError);
 						return;
 					}
-					if (daySpentUsd >= judgedValues.dailyJudgeCeilingUsd) {
-						done('', { jobStatus: JOB_STATUS.fuseTripped, stopReasonName: 'dailyCeilingReached', stopReasonText: 'this service reached the most it spends on judging in any 24 hours' });
+					if (daySpentUsd >= judgedValues[runnerPot.dailyCeilingSettingName]) {
+						done('', { jobStatus: JOB_STATUS.fuseTripped, ...runnerPot.dailyStop });
 						return;
 					}
 					jobStore.rollingSpendUsd({ sinceMs, ownerPrincipalRefId: job.ownerPrincipalRefId }, (ownerError, ownerSpentUsd) => {
@@ -112,8 +125,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 							done(ownerError);
 							return;
 						}
-						if (ownerSpentUsd >= judgedValues.perPrincipalDailyUsd) {
-							done('', { jobStatus: JOB_STATUS.fuseTripped, stopReasonName: 'perPrincipalCeilingReached', stopReasonText: 'this account reached the most one person may spend in any 24 hours' });
+						if (ownerSpentUsd >= judgedValues[runnerPot.ownerDailySettingName]) {
+							done('', { jobStatus: JOB_STATUS.fuseTripped, ...runnerPot.ownerStop });
 							return;
 						}
 						done('', null);
@@ -193,7 +206,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 				return;
 			}
 			// a session of its own, closed before the judge is asked: a judge call takes seconds and no graph session waits on it
-			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: 'hubCards', hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
+			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: rosettaRetrieval.hubTargetKind, hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
 				if (poolError || pool.refusal || pool.status === UNIT_STATUS_NO_CANDIDATE) {
 					sessionDone(poolError, { pool });
 					return;
@@ -211,19 +224,30 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: pool.refusal.refusalName, stopReasonText: pool.refusal.reason });
 					return;
 				}
-				const writeUnit = ({ unitStatus, promptHash, judgment }, afterWrite) => jobStore.writeJudgment({ jobRefId: job.jobRefId, fieldIndex, hubName, unitStatus, promptHash, judgment }, (writeError) => {
-					if (writeError) {
-						xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a judgment would not write: ${writeError}`);
-						unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take a judgment' });
-						return;
-					}
-					afterWrite();
-				});
+				// ⟪rosettaMeanings R2⟫ the prompt the unit was judged with goes first, beside the judgment: a unit whose judgment is written is finished, so its prompt must already be there
+				const writeUnit = ({ unitStatus, promptHash, judgment, judgedPrompt }, afterWrite) => {
+					const writePrompt = (afterPrompt) => (judgedPrompt ? jobStore.writeJudgmentPrompt({ jobRefId: job.jobRefId, fieldIndex, hubName, ...judgedPrompt }, afterPrompt) : afterPrompt(''));
+					writePrompt((promptError) => {
+						if (promptError) {
+							xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a prompt would not write: ${promptError}`);
+							unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take a prompt' });
+							return;
+						}
+						jobStore.writeJudgment({ jobRefId: job.jobRefId, fieldIndex, hubName, unitStatus, promptHash, judgment }, (writeError) => {
+							if (writeError) {
+								xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a judgment would not write: ${writeError}`);
+								unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take a judgment' });
+								return;
+							}
+							afterWrite();
+						});
+					});
+				};
 				if (pool.status === UNIT_STATUS_NO_CANDIDATE) {
 					writeUnit({ unitStatus: UNIT_STATUS_NO_CANDIDATE, judgment: { poolSize: 0, admittedCount: 0, runnerUpList: [] } }, () => unitDone('', null));
 					return;
 				}
-				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
+				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, ownerPrincipalKind: job.ownerPrincipalKind, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
 					if (judgeError) {
 						xLog.error(`rosettaJobRunner: job ${job.jobRefId}: judging could not start: ${judgeError}`);
 						unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeUnavailable', stopReasonText: 'this instance could not put the question to the judge' });
@@ -258,7 +282,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 						}
 						afterTuple(cardTupleFieldsOf(cardTupleFacts));
 					}) : afterTuple(undefined));
-					withEnrichment((alreadyMappedFrom) => withHubElementIdentity((hubElementIdentityFields) => withCardTuple((cardTupleFields) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom, hubElementIdentityFields, cardTupleFields }) }, () => unitDone('', null)))));
+					withEnrichment((alreadyMappedFrom) => withHubElementIdentity((hubElementIdentityFields) => withCardTuple((cardTupleFields) => writeUnit({ unitStatus: outcome.unitStatus, promptHash: outcome.promptHash, judgedPrompt: outcome.judgedPrompt, judgment: unitRowOf({ outcome, pool: { ...pool, candidateList: judgedCandidateList }, alreadyMappedFrom, hubElementIdentityFields, cardTupleFields }) }, () => unitDone('', null)))));
 				});
 			});
 		});
@@ -327,37 +351,39 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		});
 	};
 
+	// ⟪rosettaMeanings R3, TQ Q86⟫ TWO LANES, each with its own cap: anonymous jobs run beside signed-in ones, never in their slots. A lane is DATA: its cap's setting and which jobs are its own.
+	const runnerLaneList = RUNNER_LANE_LIST.map((oneLane) => ({ ...oneLane, activeJobCount: 0 }));
 	// running ones first, so a restart resumes before anything new begins
 	const tick = () => {
-		if (activeJobCount >= judgedValues.maxRunningJobs || !getServiceFacts()) {
+		if (!getServiceFacts()) {
 			return;
 		}
+		runnerLaneList.forEach(tickLane);
+	};
+	const tickLane = (runnerLane) => {
+		if (runnerLane.activeJobCount >= judgedValues[runnerLane.maxRunningSettingName]) {
+			return;
+		}
+		const isLaneJob = (oneJob) => runnerLane.isAnonymousLane === (oneJob.ownerPrincipalKind === ANONYMOUS_PRINCIPAL_KIND);
+		runnerLane.activeJobCount += 1;
 		activeJobCount += 1;
-		const released = () => {
+		const letGoOfSlot = () => {
+			runnerLane.activeJobCount -= 1;
 			activeJobCount -= 1;
+		};
+		const released = () => {
+			letGoOfSlot();
 			setImmediate(tick);
 		};
-		jobStore.readJobList({ statusList: ['cancelling'] }, (cancellingError, cancellingJobList) => {
-			// told to stop, and no unit will ever read that: nobody holds it. It would keep its owner's one slot and its estimate for ever.
-			const unheldCancelling = cancellingError ? undefined : cancellingJobList.find((oneJob) => !heldJobRefIdSet.has(oneJob.jobRefId));
-			if (unheldCancelling) {
-				heldJobRefIdSet.add(unheldCancelling.jobRefId);
-				finishJob({ job: unheldCancelling, stopReason: { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' } }, () => {
-					heldJobRefIdSet.delete(unheldCancelling.jobRefId);
-					released();
-				});
-				return;
-			}
-			startNextJob();
-		});
+		// defined before the first read, which can answer at once (a closed store errs synchronously)
 		const startNextJob = () => jobStore.readJobList({ statusList: [JOB_STATUS.running] }, (runningError, runningJobList) => {
 			if (runningError) {
 				xLog.error(`rosettaJobRunner: the queue would not read: ${runningError}`);
-				activeJobCount -= 1;
+				letGoOfSlot();
 				return;
 			}
 			const heldRefIdSet = heldJobRefIdSet;
-			const resumable = runningJobList.find((oneJob) => !heldRefIdSet.has(oneJob.jobRefId));
+			const resumable = runningJobList.filter(isLaneJob).find((oneJob) => !heldRefIdSet.has(oneJob.jobRefId));
 			const startJob = (oneJob) => {
 				heldRefIdSet.add(oneJob.jobRefId);
 				runJob(oneJob, () => {
@@ -372,16 +398,29 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			jobStore.readJobList({ statusList: ['queued'] }, (queueError, queuedJobList) => {
 				if (queueError) {
 					xLog.error(`rosettaJobRunner: the queue would not read: ${queueError}`);
-					activeJobCount -= 1;
+					letGoOfSlot();
 					return;
 				}
-				const nextQueuedJob = queuedJobList.find((oneJob) => !heldRefIdSet.has(oneJob.jobRefId));
+				const nextQueuedJob = queuedJobList.filter(isLaneJob).find((oneJob) => !heldRefIdSet.has(oneJob.jobRefId));
 				if (!nextQueuedJob) {
-					activeJobCount -= 1;
+					letGoOfSlot();
 					return;
 				}
 				startJob(nextQueuedJob);
 			});
+		});
+		jobStore.readJobList({ statusList: ['cancelling'] }, (cancellingError, cancellingJobList) => {
+			// told to stop, and no unit will ever read that: nobody holds it. It would keep its owner's one slot and its estimate for ever.
+			const unheldCancelling = cancellingError ? undefined : cancellingJobList.filter(isLaneJob).find((oneJob) => !heldJobRefIdSet.has(oneJob.jobRefId));
+			if (unheldCancelling) {
+				heldJobRefIdSet.add(unheldCancelling.jobRefId);
+				finishJob({ job: unheldCancelling, stopReason: { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' } }, () => {
+					heldJobRefIdSet.delete(unheldCancelling.jobRefId);
+					released();
+				});
+				return;
+			}
+			startNextJob();
 		});
 	};
 	const heldJobRefIdSet = new Set();

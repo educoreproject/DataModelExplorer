@@ -354,8 +354,12 @@ const mainRegistry = JSON.parse(execFileSync('git', ['show', `${PRE_FEATURE_BASE
 const mcpToolNamesOf = (anyRegistry) => JSON.stringify(anyRegistry.operationList.filter((oneRow) => oneRow.doorList.includes('mcp')).map((oneRow) => oneRow.mcpToolName));
 ok('rosetta/interpret is a web route alone: the api door, no MCP tool', interpretRow.routeName === 'rosetta/interpret' && JSON.stringify(interpretRow.doorList) === '["api"]' && interpretRow.mcpToolName === undefined);
 ok('the MCP tool list is main\'s, unchanged', mcpToolNamesOf(registry) === mcpToolNamesOf(mainRegistry), mcpToolNamesOf(registry));
-const { interpretBusy: busyStatus, interpretSpendCeiling: ceilingStatus, ...envelopeStatusWithoutInterpret } = registry.envelopeRefusalHttpStatusByName;
-ok('the registry changed by this one row and its two refusal statuses (interpretBusy 503, interpretSpendCeiling 429), nothing else', busyStatus === 503 && ceilingStatus === 429 && JSON.stringify({ ...registry, envelopeRefusalHttpStatusByName: envelopeStatusWithoutInterpret, operationList: registry.operationList.filter((oneRow) => oneRow.operationName !== 'rosettaInterpret') }) === JSON.stringify(mainRegistry));
+// ⟪rosettaMeanings⟫ what THIS feature changed is read at its merge (83591df), pinned, so a later branch's registry rows (rosettaMeanings R2, R3) do not read as this feature's
+const FEATURE_MERGED_COMMIT = '83591df';
+const featureRegistry = JSON.parse(execFileSync('git', ['show', `${FEATURE_MERGED_COMMIT}:server/lib/standards-query/standardsQueryOperations.json`], { cwd: codeRootPath, encoding: 'utf8' }));
+const { interpretBusy: busyStatus, interpretSpendCeiling: ceilingStatus, ...envelopeStatusWithoutInterpret } = featureRegistry.envelopeRefusalHttpStatusByName;
+ok(`the registry at ${FEATURE_MERGED_COMMIT} changed by this one row and its two refusal statuses (interpretBusy 503, interpretSpendCeiling 429), nothing else`, busyStatus === 503 && ceilingStatus === 429 && JSON.stringify({ ...featureRegistry, envelopeRefusalHttpStatusByName: envelopeStatusWithoutInterpret, operationList: featureRegistry.operationList.filter((oneRow) => oneRow.operationName !== 'rosettaInterpret') }) === JSON.stringify(mainRegistry));
+ok('the interpret row today is the row it was merged as', JSON.stringify(interpretRow) === JSON.stringify(featureRegistry.operationList.find((oneRow) => oneRow.operationName === 'rosettaInterpret')));
 ok('the permission tier is one line: admission public, today', interpretRow.admission === 'public');
 
 const runStep = (stepIndex) => {

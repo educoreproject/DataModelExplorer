@@ -75,7 +75,7 @@ const untilClosed = (ask, jobRefId, principal, done) => {
 const fieldListOf = (fieldCount, prefix = 'reviewField') => Array.from({ length: fieldCount }, (unusedItem, fieldIndex) => ({ name: `${prefix}${fieldIndex}`, definition: `The date of discharge, number ${fieldIndex}.` }));
 const submitAndWait = (ask, input, principal, done) => ask('rosettaSubmit', input, principal, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, principal, (statusAnswer) => done({ jobRefId: submitted.jobRefId, statusAnswer })));
 const toolBody = (toolInput, stopReason = 'tool_use') => ({ content: [{ type: 'tool_use', name: 'select_candidate', input: toolInput }], usage: { input_tokens: 7000, output_tokens: 1500 }, stop_reason: stopReason });
-const addSeedJob = (jobStore, jobRefId, { owner = 'seedOwner', answeredFrom = {} } = {}, done) => jobStore.addJob({ jobRefId, ownerPrincipalKind: 'oauthUser', ownerPrincipalRefId: owner, formatName: 'fieldList', byteSize: 1, fieldList: fieldListOf(2), hubNameList: ['CEDS'], submissionNote: {}, expiresAtMs: Date.now() + MILLISECONDS_PER_DAY, estimateUsd: 0.05, answeredFrom, judgeFacts: {} }, done);
+const addSeedJob = (jobStore, jobRefId, { owner = 'seedOwner', answeredFrom = {} } = {}, done) => jobStore.addJob({ jobRefId, ownerPrincipalKind: 'oauthUser', ownerPrincipalRefId: owner, formatName: 'fieldList', byteSize: 1, fieldList: fieldListOf(2), hubNameList: ['CEDS'], submissionNote: {}, expiresAtMs: Date.now() + MILLISECONDS_PER_DAY, estimateUsd: 0.05, answeredFrom, judgeFacts: {}, embeddingTokensEstimate: 0 }, done);
 
 const GATE_LIST = [];
 const gate = (gateName, runGate) => GATE_LIST.push({ gateName, runGate });

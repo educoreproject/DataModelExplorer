@@ -1,5 +1,20 @@
 {
 	"_comment": "DATA for Rosetta's judged step (design 4.1, 4.4, 4.5). hubRowByName: which forge bundle holds the hub half of a bridge toward each hub; a hub in the graph with no row is refused at submit by name. subjectRenderingAllowList: what the judge is shown of a stranger's field, LIF's list less what a stranger's field never has. vendorFaultRowList: what a failed judge call means, first match wins, tested against the client's error text; retriable rows are waited on within [rosetta-fuse] judgeRetryWaitSecondsList; billedWhenUnanswered says the vendor may have billed a call that never answered, so it stays priced at the estimate. attemptLimit: fewer attempts than the wait list allows, for a fault where a retry mostly buys the same answer again. endsUnitOnly: past the bound that one unit is judgeRefused and the job goes on, because the vendor is answering, only not usefully. A client error matching no row is unnamedVendorFault, and stops the job. judgeOne refusing what the vendor answered is judgeAnswerRefusalPattern: that unit is judgeRefused and the job goes on; anything else judgeOne says is a fault of this service, and stops the job. draftRefusedTermPatternList: names a @context must not hold.",
+	"_anonymousComment": "rosettaMeanings R3 (TQ Q86): what a visitor who is not signed in is told when an anonymous limit refuses, and why a running anonymous job stopped. {name} slots are filled from [rosetta-fuse]'s numbers. The limits themselves are config, never here.",
+	"anonymousRefusalReasonByName": {
+		"anonymousVisitorJobLimitReached": "this address has asked for {jobLimit} judged jobs in the last {windowMinutes} minutes, the most a visitor who is not signed in may; sign in, or try again later",
+		"anonymousQueueFull": "{queuedCount} jobs from visitors who are not signed in are waiting, the most that queue holds; try again later, or sign in",
+		"anonymousDailyCeilingReached": "judging for visitors who are not signed in has reached what it may spend in any 24 hours; sign in, or try again later. Retrieval keeps working.",
+		"anonymousVisitorHasOpenJob": "this address has {openCount} judged jobs open, the most a visitor who is not signed in may; wait for one to finish, or sign in",
+		"anonymousVisitorDailyCeilingReached": "this address has reached the most a visitor who is not signed in may judge in any 24 hours; sign in, or try again later. Retrieval keeps working.",
+		"notFound": "there is no such job here; a job asked for without signing in is reached only by its own link"
+	},
+	"_jobServiceComment": "rosettaMeanings R3 (the lesson of rosettaFreeInput's B1): the job rows hold their own in-flight cap ([rosetta-fuse] jobServiceMaxInFlight), never the query core's slots, so a crowd of visitors submitting at once can never stop the rest of the service answering. Past it, a request is refused jobServiceBusy, to retry.",
+	"jobServiceBusyReason": "{inFlightCount} job requests are being answered, the most this service answers at once; retry in {retryAfterSeconds} seconds",
+	"anonymousStopReasonTextByName": {
+		"anonymousDailyCeilingReached": "judging for visitors who are not signed in reached what it may spend in any 24 hours, so the next judge call was not sent",
+		"anonymousVisitorDailyCeilingReached": "this address reached the most a visitor who is not signed in may judge in any 24 hours"
+	},
 	"hubRowByName": {
 		"CEDS": { "forgeBundleName": "ceds", "hubBridgingModuleName": "cedsHubBridging" },
 		"CTDL": { "forgeBundleName": "ctdl", "hubBridgingModuleName": "ctdlHubBridging" }

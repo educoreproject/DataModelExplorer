@@ -61,15 +61,18 @@ openHarness({}, (harnessError, harness) => {
 		ok('a pool holds no more than poolCap, ranked from 1', poolList.every((onePool) => onePool.poolSize <= 40 && onePool.candidateList.every((oneCandidate, candidateIndex) => oneCandidate.rank === candidateIndex + 1)));
 		ok('every candidate has uri, label, a raw cosine and what admitted it', poolList.flatMap((onePool) => onePool.candidateList).every((oneCandidate) => oneCandidate.uri && oneCandidate.label && oneCandidate.cosine >= 0.3 && oneCandidate.cosine <= 1 && oneCandidate.admittedBy.length > 0));
 		ok('a pool is property-tier cards: every candidate is a card of this hub', poolList.flatMap((onePool) => onePool.candidateList).every((oneCandidate) => /\/CEDStandards\/hub\/14\.0\.0\.0\//.test(oneCandidate.uri)));
-		ok('the vote orders the pool: votes never rise as rank falls', poolList.every((onePool) => onePool.candidateList.every((oneCandidate, candidateIndex, candidateList) => candidateIndex === 0 || candidateList[candidateIndex - 1].ownVotes >= oneCandidate.ownVotes)));
+		// ⟪rosettaMeanings R5, TQ Q90⟫ under hubHybrid the vote orders today's part, the first judgedPoolCap; after it come today's cosine-rank-1 card and the added meanings
+		const { judgedPoolCap: votedPartLength } = require('./lib/rosettaLiveHarness').LIVE_FUSE_VALUES;
+		ok('the vote orders the pool: votes never rise as rank falls, through the judged cap', poolList.every((onePool) => onePool.candidateList.slice(0, votedPartLength).every((oneCandidate, candidateIndex, candidateList) => candidateIndex === 0 || candidateList[candidateIndex - 1].ownVotes >= oneCandidate.ownVotes)));
 		ok('a field with no definition says so', body.answer.fieldList.every((oneField, fieldIndex) => Boolean(oneField.definitionAbsent) === !shared.subjectList[fieldIndex].definition));
 		next();
 	}));
 
-	// ---- a cosine is a raw cosine. Neo4j's index answers (1 + cos) / 2, so the best a pool reports is held against the best the hub's texts can give, worked out here by a scan and not by the index
+	// ---- a cosine is a raw cosine. Neo4j's index answers (1 + cos) / 2, so the best a pool reports is held against the best the hub's texts can give, worked out here by a scan and not by the index.
+	// ⟪rosettaMeanings R5⟫ under the shipped hubHybrid a candidate can be a meaning found by the card's own embedding, so the scan covers the cards' embeddings too
 	steps.push((next) => {
 		const { name } = shared.fieldList.find((oneField) => oneField.name === 'dischargeDate') || shared.fieldList[0];
-		goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { text: $name }) WITH t.textEmbedding AS vector LIMIT 1 MATCH (hub:DmeEmbedText { _source: 'CEDS' }) WITH max(vector.similarity.cosine(hub.textEmbedding, vector)) AS bestSimilarity RETURN 2 * bestSimilarity - 1 AS bestRawCosine", { name }).then((queryResult) => sessionDone('', queryResult.records[0].get('bestRawCosine')), (queryError) => sessionDone(queryError.message)), (scanError, bestRawCosine) => {
+		goldenHandle.withReadSession((session, sessionDone) => session.run("MATCH (t:DmeEmbedText { text: $name }) WITH t.textEmbedding AS vector LIMIT 1 MATCH (hub:DmeEmbedText { _source: 'CEDS' }) WITH vector, max(vector.similarity.cosine(hub.textEmbedding, vector)) AS bestTextSimilarity MATCH (card:HubReference { hubName: 'CEDS', referenceTier: 'property' }) WITH bestTextSimilarity, max(vector.similarity.cosine(card.embedding, vector)) AS bestCardSimilarity RETURN 2 * CASE WHEN bestCardSimilarity > bestTextSimilarity THEN bestCardSimilarity ELSE bestTextSimilarity END - 1 AS bestRawCosine", { name }).then((queryResult) => sessionDone('', queryResult.records[0].get('bestRawCosine')), (queryError) => sessionDone(queryError.message)), (scanError, bestRawCosine) => {
 			retrieve({ fieldList: [{ name }], hubList: ['CEDS'], rowDetail: 'full' }, ({ body }) => {
 				const bestReported = Math.max(...poolOfHub(body.answer.fieldList[0], 'CEDS').candidateList.map((oneCandidate) => oneCandidate.cosine));
 				ok(`a reported cosine is raw: ${bestReported} is no more than the scan's ${bestRawCosine && bestRawCosine.toFixed(4)}`, !scanError && bestReported <= bestRawCosine + 0.005, scanError);

@@ -8,7 +8,7 @@
 			"CEDS",
 			"CTDL"
 		],
-		"embeddingTokens": 0,
+		"embeddingTokens": 0, "embeddingTokensEstimate": 0,
 		"estimateUsd": 0.56,
 		"submittedAtMs": 1,
 		"startedAtMs": 2,

@@ -17,6 +17,7 @@ const { judgedSettings } = require('./rosettaJudgeEngine');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const SWEEP_MILLISECONDS = MILLISECONDS_PER_DAY;
+const VISITOR_SECRET_MIN_LENGTH = 32;
 const ROSETTA_JOB_PRINCIPAL = Object.freeze({ kind: 'rosettaJob', userRefId: '', role: '' });
 const MAPPINGS_OPERATION_NAME = 'mappings';
 const INCOMING_DIRECTION_NAME = 'incoming';
@@ -45,6 +46,21 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 			callback(storeError);
 			return;
 		}
+		// retention, from the store alone: it runs whatever else fails to assemble below, so no missing setting or file can suspend a deletion (re-verification N1)
+		const sweepNow = (done) => jobStore.sweepExpired({ cacheOldestKeptMs: nowMs() - judgedValues.jobRetentionDays * MILLISECONDS_PER_DAY }, done);
+		const logSweep = (sweepError) => (sweepError ? xLog.error(`assembleRosettaJudged: the retention sweep failed: ${sweepError}`) : undefined);
+		const keepSweeping = () => setInterval(() => sweepNow(logSweep), SWEEP_MILLISECONDS).unref();
+		// ⟪rosettaMeanings review S2⟫ the secret keying a visitor's HMAC, from the file the config names; absent or short, the judged step stays off by name (the reason names the file, never its content), and the store is still swept
+		fs.readFile(judgedValues.anonymousVisitorSecretFilePath, 'utf8', (secretError, secretText) => {
+		const visitorSecret = secretError ? '' : String(secretText).trim();
+		if (visitorSecret.length < VISITOR_SECRET_MIN_LENGTH) {
+			sweepNow((sweepError) => {
+				logSweep(sweepError);
+				keepSweeping();
+				callback(`[rosetta-fuse] anonymousVisitorSecretFilePath ${judgedValues.anonymousVisitorSecretFilePath} ${secretError ? `would not read (${secretError.code})` : `holds fewer than ${VISITOR_SECRET_MIN_LENGTH} characters`}; put a random secret there (eg openssl rand -hex 32), mode 600. The store is still swept.`);
+			});
+			return;
+		}
 		// a judge that was configured and will not build leaves the step off, by name. The reason says what is wrong and never holds a credential: the client's own refusals name only the file. Nothing on this path may throw: it runs in a sqlite callback, and a throw there stops the API, every other operation with it.
 		const buildEngine = (built) => {
 			if (judgedValues.judgeAbsentReason) {
@@ -70,17 +86,15 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 			xLog.status(`assembleRosettaJudged: the judged step refuses submissions here: ${judgeAbsentReason}`);
 		}
 		let runner = null;
-		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, judgedTokensSpentToday: strangerVectorStore.judgedTokensSpentToday, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
-		const sweepNow = (done) => jobStore.sweepExpired({ cacheOldestKeptMs: nowMs() - judgedValues.jobRetentionDays * MILLISECONDS_PER_DAY }, done);
+		const rosettaJobService = createRosettaJobService({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, visitorSecret, parserLimitValues: fuseValues, hubRowListFor: rosettaRetrieval.hubRowListFor, judgedTokensSpentToday: strangerVectorStore.judgedTokensSpentToday, tickRunner: () => (runner ? runner.tick() : undefined), nowMs });
 		const startRunner = ({ getServiceFacts, runOperation }, startedDone) => {
 			runner = createRosettaJobRunner({ jobStore, judgeEngine, judgeAbsentReason, judgedValues, rosettaRetrieval, withReadSession: goldenHandle.withReadSession, getServiceFacts, alreadyMappedFromFor: alreadyMappedFromVia(runOperation), spendLedgerWriter: spendLedgerWriterFor({ jobStore, judgeEngine, judgedValues, xLog }), runCypher, nowMs, xLog });
 			runner.startUp((startError) => {
 				if (startError) {
 					xLog.error(`assembleRosettaJudged: the job runner would not start: ${startError}`);
 				}
-				const logSweep = (sweepError) => (sweepError ? xLog.error(`assembleRosettaJudged: the retention sweep failed: ${sweepError}`) : undefined);
 				sweepNow(logSweep);
-				setInterval(() => sweepNow(logSweep), SWEEP_MILLISECONDS).unref();
+				keepSweeping();
 				if (startedDone) {
 					startedDone(startError, runner);
 				}
@@ -89,6 +103,7 @@ const assembleRosettaJudged = ({ fuseConfigValues, judgeConfigValues, fuseValues
 		};
 		callback('', { judgedValues, jobStore, judgeEngine, rosettaJobService, startRunner, sweepNow });
 		});
+	});
 	});
 };
 
