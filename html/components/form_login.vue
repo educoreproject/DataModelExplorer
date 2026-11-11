@@ -45,12 +45,15 @@
 
 <template>
 	<v-container>
-		<v-sheet class="pa-12" color="transparent">
+		<!-- ⟪rosettaLoginPolish #13⟫ at phone width the container's own 16px is the side gutter: the outer padding starts at sm, and the card shrinks to fit below 340px -->
+		<v-sheet class="px-0 py-6 pa-sm-12" color="transparent">
 			<v-sheet
-				class="mx-auto pa-10"
-				width="340"
+				class="mx-auto pa-6 pa-sm-10"
+				width="100%"
+				max-width="340"
 				:elevation="2"
 				rounded="lg"
+				data-testid="login-card"
 			>
 				<v-alert
 					v-if="LoginStore.statusMsg"

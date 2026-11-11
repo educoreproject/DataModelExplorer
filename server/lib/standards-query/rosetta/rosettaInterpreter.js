@@ -29,6 +29,7 @@ const fs = require('fs');
 const path = require('path');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const interpreterSettings = require('./rosettaInterpreterSettings.json');
+const { reasonOf } = require('./rosettaReasonWords');
 
 const PROVIDER_NAME_ANTHROPIC = 'anthropic';
 const STOP_REASON_MAX_TOKENS = 'max_tokens';
@@ -180,18 +181,18 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 	// the size caps, in characters, in lines and in one line's characters; an empty text is refused before anything is sent
 	const inputRefusalFor = ({ pastedText, refusedByName }) => {
 		if (typeof pastedText !== 'string' || pastedText.trim() === '') {
-			return refusalOf(refusedByName, 'noSubmission', 'there is no text to interpret');
+			return refusalOf(refusedByName, 'noSubmission', reasonOf('interpretNoText'));
 		}
 		if (pastedText.length > interpreterValues.interpreterMaxInputChars) {
-			return refusalOf(refusedByName, 'inputTooLong', `the text is ${pastedText.length} characters; the AI reads at most ${interpreterValues.interpreterMaxInputChars}`, { fieldName: 'text', maxLength: interpreterValues.interpreterMaxInputChars });
+			return refusalOf(refusedByName, 'inputTooLong', reasonOf('interpretTextTooLong', { charCount: pastedText.length, maxChars: interpreterValues.interpreterMaxInputChars }), { fieldName: 'text', maxLength: interpreterValues.interpreterMaxInputChars });
 		}
 		const lineList = nonBlankLineListOf(pastedText); // a trailing newline or a blank line is no line of fields; the character cap bounds them
 		if (lineList.length > interpreterValues.interpreterMaxInputLines) {
-			return refusalOf(refusedByName, 'inputTooLong', `the text is ${lineList.length} lines; the AI reads at most ${interpreterValues.interpreterMaxInputLines}`, { fieldName: 'text', maxLineCount: interpreterValues.interpreterMaxInputLines });
+			return refusalOf(refusedByName, 'inputTooLong', reasonOf('interpretTooManyLines', { lineCount: lineList.length, maxLines: interpreterValues.interpreterMaxInputLines }), { fieldName: 'text', maxLineCount: interpreterValues.interpreterMaxInputLines });
 		}
 		const longLineIndex = lineList.findIndex((lineText) => lineText.length > interpreterValues.interpreterMaxLineChars);
 		if (longLineIndex !== -1) {
-			return refusalOf(refusedByName, 'inputTooLong', `line ${longLineIndex + 1} is ${lineList[longLineIndex].length} characters; the AI reads lines of at most ${interpreterValues.interpreterMaxLineChars}`, { fieldName: 'text', maxLineChars: interpreterValues.interpreterMaxLineChars });
+			return refusalOf(refusedByName, 'inputTooLong', reasonOf('interpretLineTooLong', { lineNumber: longLineIndex + 1, charCount: lineList[longLineIndex].length, maxLineChars: interpreterValues.interpreterMaxLineChars }), { fieldName: 'text', maxLineChars: interpreterValues.interpreterMaxLineChars });
 		}
 		return null;
 	};
@@ -250,7 +251,7 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 			return;
 		}
 		if (inFlightCount >= interpreterValues.interpreterMaxInFlight) {
-			done('', refusalOf(refusedByName, 'interpretBusy', `${inFlightCount} interpretations are running, the most this service runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`, { retryAfterSeconds: BUSY_RETRY_SECONDS }));
+			done('', refusalOf(refusedByName, 'interpretBusy', reasonOf('interpretBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS }), { retryAfterSeconds: BUSY_RETRY_SECONDS }));
 			return;
 		}
 		const maxTokens = outputTokenBudgetFor({ interpreterValues, pastedText });
@@ -279,7 +280,7 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 			}
 			const committedUsd = spentUsd + reservedUsd; // reservedUsd already holds this call's worst case
 			if (committedUsd > interpreterValues.interpreterDailyCeilingUsd) {
-				stopWith(args, next, refusalOf(refusedByName, 'interpretSpendCeiling', `today's spend on interpreting free text has reached the ceiling of ${interpreterValues.interpreterDailyCeilingUsd} USD; it opens again at 00:00 UTC. JSON and plain name/description lines still work: they need no AI`));
+				stopWith(args, next, refusalOf(refusedByName, 'interpretSpendCeiling', reasonOf('interpretSpendCeiling', { ceilingUsd: interpreterValues.interpreterDailyCeilingUsd })));
 				return;
 			}
 			next('', args);
@@ -320,13 +321,13 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 			if (called.toolInput === null) {
 				xLog.error(`rosettaInterpreter: no fields read (stopReason ${called.stopReason}, budget ${maxTokens}); ${usd.toFixed(6)} USD spent`);
 				const wasCut = called.stopReason === STOP_REASON_MAX_TOKENS;
-				finishWith('', refusalOf(refusedByName, 'noFieldsFound', wasCut ? 'the AI\'s answer was cut off before it finished, so none of it is used; send a shorter text, or fewer fields at a time' : 'the AI did not answer with a list of fields'));
+				finishWith('', refusalOf(refusedByName, 'noFieldsFound', reasonOf(wasCut ? 'interpretAnswerCut' : 'interpretNoFieldList')));
 				return;
 			}
 			const { keptFieldList, droppedFieldCount, droppedFailureList, offeredCount } = checkedFieldsOf({ pastedText, toolInput: called.toolInput });
 			xLog.status(`rosettaInterpreter: ${offeredCount} offered, ${keptFieldList.length} kept, ${droppedFieldCount} dropped (${droppedFailureList.join(', ') || 'none'}), budget ${maxTokens}, ${usd.toFixed(6)} USD, ${elapsedMs} ms`);
 			if (keptFieldList.length === 0) {
-				finishWith('', refusalOf(refusedByName, 'noFieldsFound', offeredCount === 0 ? 'the AI found no fields in the text' : `the AI offered ${offeredCount} fields, and none of them was in your text word for word, so none is used`, { droppedFieldCount }));
+				finishWith('', refusalOf(refusedByName, 'noFieldsFound', offeredCount === 0 ? reasonOf('interpretFoundNone') : reasonOf('interpretNoneVerbatim', { offeredCount }), { droppedFieldCount }));
 				return;
 			}
 			finishWith('', {

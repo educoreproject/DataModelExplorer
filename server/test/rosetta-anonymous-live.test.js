@@ -523,7 +523,7 @@ gate('variantAtStartup', (done) => {
 	const vendor = fakeJudgeVendorFor();
 	withHarness({ vendorPostOnce: vendor.postOnce, judgePromptVariant: 'noSuchVariant', judgedOffAllowed: true }, (harness, close) => {
 		askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ httpStatus, answer }) => {
-			ok('an unknown judgePromptVariant: every submission is refused judgeNotConfigured, naming the variant and those the forge renders', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /judgePromptVariant 'noSuchVariant' is not a variant the loaded forge renders; it renders .*derivedJudgeSlot/.test(answer.reason), `${httpStatus} ${answer.reason}`);
+			ok('an unknown judgePromptVariant: every submission is refused judgeNotConfigured, naming the variant and those the forge renders', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /judgePromptVariant 'noSuchVariant' is not a variant the loaded forge renders; it renders .*derivedJudgeSlot/.test(answer.judgeAbsentDetail), `${httpStatus} ${answer.judgeAbsentDetail}`);
 			ok('and the vendor was never called', vendor.callLog.length === 0);
 			close();
 		});

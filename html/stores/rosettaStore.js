@@ -32,7 +32,8 @@ const unreadReasonOf = (requestError) => {
 
 const refusalOf = (requestError) => {
 	const answer = requestError?.response?.data?.answer;
-	return answer?.refusalName ? { refusalName: answer.refusalName, reason: answer.reason } : { refusalName: 'requestFailed', reason: requestError.message };
+	// ⟪rosettaLoginPolish #5⟫ no refusal from the service: the request's own error, inside a sentence from the vocabulary
+	return answer?.refusalName ? { refusalName: answer.refusalName, reason: answer.reason } : { refusalName: 'requestFailed', reason: wordsOf(rosettaPageWords.requestFailedTemplate, { requestErrorText: requestError.message }) };
 };
 
 export const useRosettaStore = defineStore('rosettaStore', {

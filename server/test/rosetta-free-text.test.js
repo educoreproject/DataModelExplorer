@@ -55,8 +55,9 @@ const baseSubmissionOfText = (() => {
 	return new Function(`return ${functionMatch[1].replace(/;$/, '')}`)();
 })();
 
-const ladderUrl = writeModule('rosettaFreeText.mjs', fs.readFileSync(ladderFilePath, 'utf8'));
 const vocabularyUrl = writeModule('rosettaVocabulary.mjs', fs.readFileSync(path.join(codeRootPath, 'html', 'components', 'rosetta', 'rosettaVocabulary.js'), 'utf8'));
+// ⟪rosettaLoginPolish⟫ the ladder takes its refusal words from the vocabulary by relative path; its copy here reads the vocabulary's copy beside it
+const ladderUrl = writeModule('rosettaFreeText.mjs', rewriteOnce(fs.readFileSync(ladderFilePath, 'utf8'), "from '../components/rosetta/rosettaVocabulary.js';", `from '${vocabularyUrl}';`));
 const piniaUrl = pathToFileURL(path.join(codeRootPath, 'html', 'node_modules', 'pinia', 'dist', 'pinia.mjs')).href;
 const axiosDoubleUrl = writeModule('axiosDouble.mjs', 'export default { post: (url, body, options) => globalThis.rosettaAxiosDouble.answer("post", url, body), get: (url, options) => globalThis.rosettaAxiosDouble.answer("get", url, options) };\n');
 const loginDoubleUrl = writeModule('loginStoreDouble.mjs', 'export const useLoginStore = () => ({ getAuthTokenProperty: {} });\n');
@@ -239,7 +240,7 @@ import(ladderUrl).then((ladder) => import(piniaUrl).then((pinia) => import(store
 		store.$reset();
 		store.pastedText = FREE_TEXT;
 		store.submitJob().then((outcomeName) => {
-			ok('every rung failed: the refusal names the service\'s refusal and says what was tried', outcomeName === 'refused' && store.refusal.refusalName === 'noFieldsFound' && /not JSON/.test(store.refusal.reason) && /name\/description lines/.test(store.refusal.reason) && /the AI found no fields/.test(store.refusal.reason) && store.review === null, JSON.stringify(store.refusal));
+			ok('every rung failed: the refusal names the service\'s refusal and says what was tried', outcomeName === 'refused' && store.refusal.refusalName === 'noFieldsFound' && /not JSON/.test(store.refusal.reason) && /name and description lines/.test(store.refusal.reason) && /the AI found no fields/.test(store.refusal.reason) && store.review === null, JSON.stringify(store.refusal));
 			ok('and the text is left as typed', store.pastedText === FREE_TEXT);
 			next();
 		});

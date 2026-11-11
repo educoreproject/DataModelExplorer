@@ -1729,7 +1729,7 @@
 				"loopbackNotAdmitted",
 				"jobServiceBusy"
 			],
-			"description": "How a judged job is getting on: its status, how many units are finished (a unit is one field against one hub), and what it has spent so far. Status is queued, running, cancelling, done, or one that ended early with stopReasonName: fuseTripped, cancelled, vendorStopped, stopped. A job that ended early still has a report to fetch.",
+			"description": "How a judged job is getting on: its status, how many units are finished (a unit is one field against one hub), and what it has spent so far. Status is queued, running, cancelling, done, or one that ended early with stopReasonName: fuseTripped, cancelled, vendorStopped, stopped. A job that ended early still has a report to fetch. spentUsd counts each judge call still out at its estimate until its bill corrects it, so it can fall; billedUsd counts finished calls only and never falls, and inFlightUsd is the most the inFlightCallCount calls still out may cost. A stopped job's stopReasonText says why in words; stopReasonName is its name for a program.",
 			"aboutEntry": {
 				"forWhat": "See how far a judged job has got and what it has spent.",
 				"exampleInput": {

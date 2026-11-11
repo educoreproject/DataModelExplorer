@@ -112,6 +112,7 @@ const rosettaFuseValuesOf = (configValues) => {
 	};
 };
 
+const { reasonOf } = require('./rosettaReasonWords');
 const refusalOf = (refusalName, reason, extraFields = {}) => ({ refusedByName: OPERATION_NAME, refusalName, reason, ...extraFields });
 const textHashOf = (textValue) => crypto.createHash('sha256').update(textValue).digest('hex');
 const tokenEstimateOf = (textValue) => Math.ceil(Buffer.byteLength(textValue) / BYTES_PER_TOKEN_ESTIMATE);
@@ -188,8 +189,8 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 
 	// two counts, one for each door to the vendor: an open retrieval spending its ceiling must not stop a signed-in job, nor a job an open retrieval
 	const TOKEN_ACCOUNT_BY_NAME = Object.freeze({
-		retrieval: { dailyCeiling: fuseValues.retrievalDailyTokenCeiling, spentToday: strangerVectorStore.tokensSpentToday, addToday: strangerVectorStore.addTokensToday, ceilingRefusal: () => refusalOf('retrievalCeilingReached', `today's ceiling of ${fuseValues.retrievalDailyTokenCeiling} retrieval tokens would be passed, so this retrieval cannot run. It resets at midnight UTC. Text already submitted costs nothing and still answers.`, { dailyTokenCeiling: fuseValues.retrievalDailyTokenCeiling }) },
-		judged: { dailyCeiling: fuseValues.judgedDailyTokenCeiling, spentToday: strangerVectorStore.judgedTokensSpentToday, addToday: strangerVectorStore.addJudgedTokensToday, ceilingRefusal: () => refusalOf('judgedTokenCeilingReached', `today's ceiling of ${fuseValues.judgedDailyTokenCeiling} tokens for judged jobs would be passed. It resets at midnight UTC. Retrieval keeps working.`, { dailyTokenCeiling: fuseValues.judgedDailyTokenCeiling }) },
+		retrieval: { dailyCeiling: fuseValues.retrievalDailyTokenCeiling, spentToday: strangerVectorStore.tokensSpentToday, addToday: strangerVectorStore.addTokensToday, ceilingRefusal: () => refusalOf('retrievalCeilingReached', reasonOf('retrievalTokensWouldPass', { dailyTokenCeiling: fuseValues.retrievalDailyTokenCeiling }), { dailyTokenCeiling: fuseValues.retrievalDailyTokenCeiling }) },
+		judged: { dailyCeiling: fuseValues.judgedDailyTokenCeiling, spentToday: strangerVectorStore.judgedTokensSpentToday, addToday: strangerVectorStore.addJudgedTokensToday, ceilingRefusal: () => refusalOf('judgedTokenCeilingReached', reasonOf('judgedTokensWouldPass', { dailyTokenCeiling: fuseValues.judgedDailyTokenCeiling }), { dailyTokenCeiling: fuseValues.judgedDailyTokenCeiling }) },
 	});
 
 	// THE SPEND. Every text is asked of the cache first; only what is new costs a call. The fuse is read before any call, and the day's tokens are charged before the call goes, so a request that fails still counted.
@@ -204,7 +205,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			const newTextRowList = distinctTextRowList.filter((oneRow) => !cachedVectorByTextHash[oneRow.textHash]);
 			const estimatedTokens = newTextRowList.reduce((soFar, oneRow) => soFar + tokenEstimateOf(oneRow.textValue), 0);
 			if (estimatedTokens > fuseValues.retrievalMaxTokensPerRequest) {
-				done('', { refusal: refusalOf('retrievalTokensPerRequestExceeded', `this submission's new text comes to about ${estimatedTokens} tokens; one request may spend ${fuseValues.retrievalMaxTokensPerRequest}. Send it in smaller submissions.`, { estimatedTokens, maxTokens: fuseValues.retrievalMaxTokensPerRequest }) });
+				done('', { refusal: refusalOf('retrievalTokensPerRequestExceeded', reasonOf('retrievalTokensPerRequestExceeded', { estimatedTokens, maxTokens: fuseValues.retrievalMaxTokensPerRequest }), { estimatedTokens, maxTokens: fuseValues.retrievalMaxTokensPerRequest }) });
 				return;
 			}
 			tokenAccount.spentToday((spentError, tokensSpentToday) => {
@@ -249,7 +250,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 						});
 					}, (spendError) => {
 						if (spendError === 'embeddingFailed') {
-							done('', { refusal: refusalOf('embeddingFailed', 'the embedding vendor did not answer, so no pool could be made; nothing else was attempted') });
+							done('', { refusal: refusalOf('embeddingFailed', reasonOf('embeddingFailed')) });
 							return;
 						}
 						if (spendError) {
@@ -304,7 +305,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 	// THE ONE DOOR-INDEPENDENT RUN. Every cap here holds on MCP, which has no per-address limiter.
 	const runRetrieval = ({ withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues }, callback) => {
 		if (inFlightCount >= fuseValues.retrievalInFlightMax) {
-			callback('', { answer: refusalOf('busy', `${inFlightCount} retrievals are running, the most this instance runs at once; retry in ${BUSY_RETRY_SECONDS} seconds`), retryAfterSeconds: BUSY_RETRY_SECONDS });
+			callback('', { answer: refusalOf('busy', reasonOf('retrievalBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS })), retryAfterSeconds: BUSY_RETRY_SECONDS });
 			return;
 		}
 		inFlightCount += 1;
@@ -315,7 +316,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		taskList.push((args, next) => {
 			const formList = submissionFormOf(input);
 			if (formList.length !== 1) {
-				stopWith(args, next, refusalOf('noSubmission', `give exactly one of ${SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName).join(', ')}; this request gives ${formList.length}`, { validValueList: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName) }));
+				stopWith(args, next, refusalOf('noSubmission', reasonOf('submissionFormCount', { formNameListText: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName).join(', '), formCount: formList.length }), { validValueList: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName) }));
 				return;
 			}
 			const [submissionForm] = formList;
@@ -344,12 +345,12 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			const { hubRowList } = args.graphFacts;
 			const validHubNameList = hubRowList.map((oneHub) => oneHub.hubName);
 			if (input.hubList !== undefined && (input.hubList.length === 0 || input.hubList.some((hubName) => typeof hubName !== 'string'))) {
-				stopWith(args, next, refusalOf('unknownHub', 'hubList must name at least one hub by name, or be left out for every hub', { validValueList: validHubNameList }));
+				stopWith(args, next, refusalOf('unknownHub', reasonOf('hubListEmpty'), { validValueList: validHubNameList }));
 				return;
 			}
 			const unknownHubList = (input.hubList || []).filter((hubName) => !validHubNameList.includes(hubName));
 			if (unknownHubList.length > 0) {
-				stopWith(args, next, refusalOf('unknownHub', `this graph has no hub ${unknownHubList.join(', ')}`, { validValueList: validHubNameList }));
+				stopWith(args, next, refusalOf('unknownHub', reasonOf('hubNamedUnknown', { hubNameListText: unknownHubList.join(', ') }), { validValueList: validHubNameList }));
 				return;
 			}
 			const askedHubRowList = input.hubList ? hubRowList.filter((oneHub) => input.hubList.includes(oneHub.hubName)) : hubRowList;
@@ -405,13 +406,13 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			}
 			const hubTargetRefusal = () => {
 				if (target.tier !== TIER_OFFERED) {
-					return refusalOf('tierNotOffered', `retrieval offers the ${TIER_OFFERED} tier; this asks for ${target.tier}`, { validValueList: [TIER_OFFERED] });
+					return refusalOf('tierNotOffered', reasonOf('tierNotOffered', { tierOffered: TIER_OFFERED, tierAsked: target.tier }), { validValueList: [TIER_OFFERED] });
 				}
-				return graphFacts.hubRowList.some((oneHub) => oneHub.hubName === target.hubName) ? null : refusalOf('unknownHub', `this graph has no hub ${target.hubName}`, { validValueList: graphFacts.hubRowList.map((oneHub) => oneHub.hubName) });
+				return graphFacts.hubRowList.some((oneHub) => oneHub.hubName === target.hubName) ? null : refusalOf('unknownHub', reasonOf('hubNamedUnknown', { hubNameListText: target.hubName }), { validValueList: graphFacts.hubRowList.map((oneHub) => oneHub.hubName) });
 			};
 			const targetRefusal = {
 				...HUB_TARGET_KIND_LIST.reduce((soFar, hubTargetKind) => ({ ...soFar, [hubTargetKind]: hubTargetRefusal }), {}),
-				standardElements: () => (serviceFacts.standardVersionByName[target.standardName] !== undefined ? null : refusalOf('unknownStandard', `this manifest has no standard ${target.standardName}`, { validValueList: Object.keys(serviceFacts.standardVersionByName).sort() })),
+				standardElements: () => (serviceFacts.standardVersionByName[target.standardName] !== undefined ? null : refusalOf('unknownStandard', reasonOf('standardNamedUnknown', { standardName: target.standardName }), { validValueList: Object.keys(serviceFacts.standardVersionByName).sort() })),
 			}[target.kind]();
 			if (targetRefusal) {
 				done('', { refusal: targetRefusal });

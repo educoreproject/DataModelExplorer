@@ -132,7 +132,7 @@ gate('noJudge', (done) => withHarness({}, (harness, close) => {
 	const ask = askFor(harness);
 	ask('rosettaSubmit', { fieldList: fieldListOf(1) }, USER_A, ({ httpStatus, answer }) => {
 		ok('no judge configured: a submission is refused judgeNotConfigured by name', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured', `${httpStatus} ${answer.refusalName}`);
-		ok('the refusal says what is absent and holds no value', /does not give/.test(answer.reason) && /Retrieval keeps working/.test(answer.reason));
+		ok('the refusal says what is absent and holds no value', /does not give/.test(answer.judgeAbsentDetail) && /Retrieval keeps working/.test(answer.reason));
 		ask('rosettaRetrieval', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, (retrievalAnswer) => {
 			ok('no judge configured: retrieval still answers', retrievalAnswer.httpStatus === 200);
 			ask('rosettaStatus', { jobRefId: 'f'.repeat(32) }, USER_A, (statusAnswer) => {
@@ -148,7 +148,7 @@ gate('unpricedModel', (done) => {
 	fs.writeFileSync(path.join(scratchDirPath, 'a.ini'), '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-retired-9\nmaxTokens=2500\n');
 	fs.writeFileSync(path.join(scratchDirPath, 'p.ini'), '[spendPrice_x]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate\npriceAsOf=2026-11-05\n');
 	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgeWireModel: 'claude-retired-9', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'l', 'l.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1) }, USER_A, ({ httpStatus, answer }) => {
-		ok('a judge model with no price is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /unpriced/.test(answer.reason), answer.reason);
+		ok('a judge model with no price is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /unpriced/.test(answer.judgeAbsentDetail), answer.judgeAbsentDetail);
 		fs.rmSync(scratchDirPath, { recursive: true, force: true });
 		close();
 	}), done);

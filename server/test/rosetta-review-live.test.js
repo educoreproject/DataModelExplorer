@@ -163,7 +163,7 @@ gate('finding3', (done) => {
 	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(blockedPath, 'under', 'ledger.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ httpStatus, answer }) => askFor(harness)('stats', {}, USER_A, (statsAnswer) => {
 		process.removeListener('uncaughtException', onUncaught);
 		ok('3: a ledger path that cannot be made throws nothing', uncaught.length === 0, uncaught.join(' ').slice(0, 200));
-		ok('3: the judged step refuses by name, saying why', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /ledger/i.test(answer.reason), `${httpStatus} ${answer.refusalName} ${String(answer.reason).slice(0, 160)}`);
+		ok('3: the judged step refuses by name, saying why', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /ledger/i.test(answer.judgeAbsentDetail), `${httpStatus} ${answer.refusalName} ${String(answer.judgeAbsentDetail).slice(0, 160)}`);
 		ok('3: every other operation still answers', statsAnswer.httpStatus === 200);
 		fs.rmSync(scratchDirPath, { recursive: true, force: true });
 		close();
@@ -259,8 +259,8 @@ gate('budgetMismatch', (done) => {
 	fs.writeFileSync(path.join(scratchDirPath, 'a.ini'), '[anthropicAi]\napiKey=gateFixtureNotACredential\nmodel=claude-opus-5\nmaxTokens=64\n');
 	fs.writeFileSync(path.join(scratchDirPath, 'p.ini'), '[spendPrice_x]\nprovider=anthropic\nmodel=claude-opus-5\ninputUsdPerMillionTokens=5\noutputUsdPerMillionTokens=25\npriceSource=gate\npriceAsOf=2026-11-05\n');
 	withHarness({ judgeConfigValues: { judgeProviderName: 'anthropic', judgeWireModel: 'claude-opus-5', judgeOutputTokenBudget: '2500', judgePromptVariant: 'derivedJudgeSlot', anthropicConfigFilePath: path.join(scratchDirPath, 'a.ini'), spendPricingFilePath: path.join(scratchDirPath, 'p.ini'), spendLedgerFilePath: path.join(scratchDirPath, 'l', 'l.jsonl') } }, (harness, close) => askFor(harness)('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ httpStatus, answer }) => {
-		ok('budget: a judge ini whose budget is not the stated one is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /judgeOutputTokenBudget/.test(answer.reason), `${httpStatus} ${answer.reason}`);
-		ok('budget: and the refusal names no path', !/\/private|\/tmp|\/var|\/Users/.test(answer.reason), answer.reason);
+		ok('budget: a judge ini whose budget is not the stated one is refused by name, before anything is spent', httpStatus === 503 && answer.refusalName === 'judgeNotConfigured' && /judgeOutputTokenBudget/.test(answer.judgeAbsentDetail), `${httpStatus} ${answer.judgeAbsentDetail}`);
+		ok('budget: and the refusal names no path', !/\/private|\/tmp|\/var|\/Users/.test(`${answer.reason} ${answer.judgeAbsentDetail}`), answer.judgeAbsentDetail);
 		fs.rmSync(scratchDirPath, { recursive: true, force: true });
 		close();
 	}), done);
@@ -348,6 +348,8 @@ gate('finding7', (done) => {
 		});
 		const afterJob = (statusAnswer) => {
 			ok('7: the judged step has its own ceiling, and a job stops by name at it', statusAnswer.status === 'stopped' && statusAnswer.stopReasonName === 'judgedTokenCeilingReached', `${statusAnswer.status} ${statusAnswer.stopReasonName}`);
+			// ⟪rosettaLoginPolish review B1⟫ the words beside the name are the refusal's own: today's ceiling, never "the graph would not give the meanings"
+			ok('7: and its stop text is the ceiling\'s own words', /tokens for judged jobs would be passed/.test(String(statusAnswer.stopReasonText)) && !/graph would not give/.test(String(statusAnswer.stopReasonText)), statusAnswer.stopReasonText);
 			ask('rosettaRetrieval', { fieldList: fieldListOf(1, 'tokenFieldThree'), hubList: ['CEDS'] }, USER_B, (retrievalAnswer) => {
 				ok('7: and tripping it leaves retrieval open', retrievalAnswer.httpStatus === 200);
 				ask('rosettaSubmit', { fieldList: fieldListOf(1, 'tokenFieldFour'), hubList: ['CEDS'] }, USER_B, (submitAnswer) => {

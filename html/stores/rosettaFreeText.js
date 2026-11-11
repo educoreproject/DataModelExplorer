@@ -12,6 +12,9 @@
 // A text uses ONE separator: tab, colon or dash. A line with no separator is a bare name and may sit beside any of them. A text whose lines use two
 // separators is not read here: "a: b" beside "c - d" leaves it unclear whether ": " or " - " separates, and the AI reads such a text better than a guess does.
 
+// ⟪rosettaLoginPolish #5⟫ the ladder's refusals in the page's words; a relative path, so the same file runs in Nuxt and in node's tests
+import { rosettaPageWords, wordsOf } from '../components/rosetta/rosettaVocabulary.js';
+
 const SEPARATOR_ROW_LIST = Object.freeze([
 	{ separatorName: 'tab', splitPattern: /\t/, hasHeaderRow: true },
 	{ separatorName: 'colon', splitPattern: /:\s+|:$/ },
@@ -96,12 +99,12 @@ const parsedJsonOf = (pastedText) => {
 
 const ladderStepOf = (pastedText) => {
 	if (String(pastedText).trim() === '') {
-		return { refusal: { refusalName: 'noSubmission', reason: 'there is nothing to read: paste your fields first' } };
+		return { refusal: { refusalName: 'noSubmission', reason: rosettaPageWords.ladderNothingPastedText } };
 	}
 	const jsonRead = parsedJsonOf(pastedText);
 	// valid JSON goes as it always went. The page refused null here before, when reading null.fieldList threw; it still does, now by name
 	if (jsonRead.parsedDocument === null) {
-		return { refusal: { refusalName: 'notJson', reason: 'the text is the JSON value null, which names no fields' } };
+		return { refusal: { refusalName: 'notJson', reason: rosettaPageWords.ladderJsonNullText } };
 	}
 	if (jsonRead.parsedDocument !== undefined) {
 		return { submission: submissionOfDocument(jsonRead.parsedDocument) };
@@ -154,7 +157,7 @@ const undoPlanOf = ({ pastedText, review }) => ({ restoreText: review.originalTe
 
 const ladderRefusalOf = (interpretRefusal) => ({
 	refusalName: interpretRefusal.refusalName,
-	reason: `Your text is not JSON, and its lines do not read as name/description lines, so it was sent to be interpreted by AI, and the service answered: ${interpretRefusal.reason}`,
+	reason: wordsOf(rosettaPageWords.ladderInterpretRefusedTemplate, { reasonText: interpretRefusal.reason }),
 });
 
 export { ladderStepOf, readLines, reviewOf, undoPlanOf, ladderRefusalOf, submissionOfDocument };
