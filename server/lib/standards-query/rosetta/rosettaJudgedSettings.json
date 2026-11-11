@@ -1,20 +1,7 @@
 {
 	"_comment": "DATA for Rosetta's judged step (design 4.1, 4.4, 4.5). hubRowByName: which forge bundle holds the hub half of a bridge toward each hub; a hub in the graph with no row is refused at submit by name. subjectRenderingAllowList: what the judge is shown of a stranger's field, LIF's list less what a stranger's field never has. vendorFaultRowList: what a failed judge call means, first match wins, tested against the client's error text; retriable rows are waited on within [rosetta-fuse] judgeRetryWaitSecondsList; billedWhenUnanswered says the vendor may have billed a call that never answered, so it stays priced at the estimate. attemptLimit: fewer attempts than the wait list allows, for a fault where a retry mostly buys the same answer again. endsUnitOnly: past the bound that one unit is judgeRefused and the job goes on, because the vendor is answering, only not usefully. A client error matching no row is unnamedVendorFault, and stops the job. judgeOne refusing what the vendor answered is judgeAnswerRefusalPattern: that unit is judgeRefused and the job goes on; anything else judgeOne says is a fault of this service, and stops the job. draftRefusedTermPatternList: names a @context must not hold.",
-	"_anonymousComment": "rosettaMeanings R3 (TQ Q86): what a visitor who is not signed in is told when an anonymous limit refuses, and why a running anonymous job stopped. {name} slots are filled from [rosetta-fuse]'s numbers. The limits themselves are config, never here.",
-	"anonymousRefusalReasonByName": {
-		"anonymousVisitorJobLimitReached": "this address has asked for {jobLimit} judged jobs in the last {windowMinutes} minutes, the most a visitor who is not signed in may; sign in, or try again later",
-		"anonymousQueueFull": "{queuedCount} jobs from visitors who are not signed in are waiting, the most that queue holds; try again later, or sign in",
-		"anonymousDailyCeilingReached": "judging for visitors who are not signed in has reached what it may spend in any 24 hours; sign in, or try again later. Retrieval keeps working.",
-		"anonymousVisitorHasOpenJob": "this address has {openCount} judged jobs open, the most a visitor who is not signed in may; wait for one to finish, or sign in",
-		"anonymousVisitorDailyCeilingReached": "this address has reached the most a visitor who is not signed in may judge in any 24 hours; sign in, or try again later. Retrieval keeps working.",
-		"notFound": "there is no such job here; a job asked for without signing in is reached only by its own link"
-	},
 	"_jobServiceComment": "rosettaMeanings R3 (the lesson of rosettaFreeInput's B1): the job rows hold their own in-flight cap ([rosetta-fuse] jobServiceMaxInFlight), never the query core's slots, so a crowd of visitors submitting at once can never stop the rest of the service answering. Past it, a request is refused jobServiceBusy, to retry.",
-	"jobServiceBusyReason": "{inFlightCount} job requests are being answered, the most this service answers at once; retry in {retryAfterSeconds} seconds",
-	"anonymousStopReasonTextByName": {
-		"anonymousDailyCeilingReached": "judging for visitors who are not signed in reached what it may spend in any 24 hours, so the next judge call was not sent",
-		"anonymousVisitorDailyCeilingReached": "this address reached the most a visitor who is not signed in may judge in any 24 hours"
-	},
+	"_movedWordsComment": "WORKORDER-rosettaLoginPolish-111126: the anonymous refusal and stop words, the job service busy reason and every vendor fault's words (under the fault's own faultName) now live in rosettaReasonWords.json, beside every other Rosetta reason, as sentences a person may read. A vendor fault row here carries its pattern and policy only.",
 	"hubRowByName": {
 		"CEDS": { "forgeBundleName": "ceds", "hubBridgingModuleName": "cedsHubBridging" },
 		"CTDL": { "forgeBundleName": "ctdl", "hubBridgingModuleName": "ctdlHubBridging" }
@@ -27,7 +14,7 @@
 	"draftCategoryList": ["strong"],
 	"runnerUpListLength": 5,
 	"alreadyMappedFromLength": 10,
-	"unnamedVendorFault": { "faultName": "judgeVendorFaultUnnamed", "reason": "the judge's vendor failed in a way this service does not name, so it stopped rather than ask again" },
+	"unnamedVendorFault": { "faultName": "judgeVendorFaultUnnamed" },
 	"judgeAnswerRefusalPattern": "(the judge returned|the judge abstained|the judge picked|the judge's rationale|names no rendered candidate|predicate|judge summary)",
 	"draftRefusedTermPatternList": [
 		{ "pattern": "^@", "reason": "a name beginning @ is a JSON-LD keyword, and would change how every other term reads" },
@@ -35,14 +22,14 @@
 		{ "pattern": "^(__proto__|constructor|prototype|toString|valueOf|hasOwnProperty|isPrototypeOf|propertyIsEnumerable|toLocaleString|__defineGetter__|__defineSetter__|__lookupGetter__|__lookupSetter__)$", "reason": "this name means something to the programs that read JSON, so it is kept out of a draft" }
 	],
 	"vendorFaultRowList": [
-		{ "faultName": "judgeOutOfCredit", "pattern": "API error \\(40[02]\\):.*(credit|billing)", "retriable": false, "reason": "the judge's vendor says this service's account is out of credit" },
-		{ "faultName": "judgeCredentialRefused", "pattern": "API error \\(40[13]\\)", "retriable": false, "reason": "the judge's vendor refused this service's credential" },
-		{ "faultName": "judgeModelRefused", "pattern": "API error \\(404\\)", "retriable": false, "reason": "the judge's vendor does not serve the configured model" },
-		{ "faultName": "judgeRequestRefused", "pattern": "API error \\(4(00|13|22)\\)", "retriable": false, "reason": "the judge's vendor refused the request" },
-		{ "faultName": "judgeRateLimited", "pattern": "API error \\(429\\)", "retriable": true, "reason": "the judge's vendor is limiting this service's rate" },
-		{ "faultName": "judgeServerFault", "pattern": "API error \\(5\\d\\d\\)", "retriable": true, "reason": "the judge's vendor answered with a server fault" },
-		{ "faultName": "judgeNoAnswer", "pattern": "(request error|timeout|timed out|response not JSON)", "retriable": true, "billedWhenUnanswered": true, "reason": "the judge's vendor did not answer" },
-		{ "faultName": "judgeUnpricedAnswer", "pattern": "(could not extract a choice|cannot be priced)", "retriable": true, "billedWhenUnanswered": true, "endsUnitOnly": true, "attemptLimit": 2, "reason": "the judge's vendor answered with something that could not be read" },
-		{ "faultName": "judgeModelUnpriced", "pattern": "(spendPricing|no price|unpriced|not priced)", "retriable": false, "reason": "the configured model has no price in this service's table" }
+		{ "faultName": "judgeOutOfCredit", "pattern": "API error \\(40[02]\\):.*(credit|billing)", "retriable": false },
+		{ "faultName": "judgeCredentialRefused", "pattern": "API error \\(40[13]\\)", "retriable": false },
+		{ "faultName": "judgeModelRefused", "pattern": "API error \\(404\\)", "retriable": false },
+		{ "faultName": "judgeRequestRefused", "pattern": "API error \\(4(00|13|22)\\)", "retriable": false },
+		{ "faultName": "judgeRateLimited", "pattern": "API error \\(429\\)", "retriable": true },
+		{ "faultName": "judgeServerFault", "pattern": "API error \\(5\\d\\d\\)", "retriable": true },
+		{ "faultName": "judgeNoAnswer", "pattern": "(request error|timeout|timed out|response not JSON)", "retriable": true, "billedWhenUnanswered": true },
+		{ "faultName": "judgeUnpricedAnswer", "pattern": "(could not extract a choice|cannot be priced)", "retriable": true, "billedWhenUnanswered": true, "endsUnitOnly": true, "attemptLimit": 2 },
+		{ "faultName": "judgeModelUnpriced", "pattern": "(spendPricing|no price|unpriced|not priced)", "retriable": false }
 	]
 }

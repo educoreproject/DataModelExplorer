@@ -3,7 +3,7 @@
 // rosettaJobStore — what a judged job leaves in Rosetta's own store, <dataStores>/rosettaJobs.sqlite (design 4.6). It shares strangerVectorStore's handle, so one file has one writer. Nothing here reaches graphBuilderSupport.sqlite or the forge's forensic files: judgeOne writes where it is told, and judgmentCacheFor and appendForensicRecord are what it is told.
 //
 //   createRosettaJobStore({ storeHandle, nowMs, xLog }, callback) → callback('', jobStore)
-//   jobStore: addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
+//   jobStore: addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
 //   ⟪rosettaMeanings R3⟫ an owner KIND (anonymous, siteUser, oauthUser) narrows the queue count, the open estimates and the rolling spend, so anonymous judging is counted on its own and never fills the signed-in queue.
 //
 // MONEY LIVES IN ONE TABLE. judgeCalls holds a row for every call to the vendor, written BEFORE the call goes, at the estimate, and corrected to the bill when it answers. Every sum is read from that table, so a process that dies mid-call has already written down what it may owe, and no second counter can disagree with it. A row left inFlight by a kill becomes lostAtRestart and keeps its estimate.
@@ -27,6 +27,8 @@ const CREATE_STATEMENT_LIST = Object.freeze([
 const TABLE_CREATE_PREFIX = 'CREATE TABLE IF NOT EXISTS ';
 const SCHEMA_CHECK_TABLE_PREFIX = 'schemaCheck_';
 const tableNameOfCreate = (createStatement) => createStatement.slice(TABLE_CREATE_PREFIX.length).split(' ')[0];
+
+const { reasonOf } = require('./rosettaReasonWords');
 
 const OPEN_STATUS_LIST = Object.freeze(['queued', 'running', 'cancelling']);
 const HALF_WRITTEN_JOB_OLDEST_MS = 3600000;
@@ -84,7 +86,7 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	const markJobRunning = ({ jobRefId, startedAtMs }, done) => run("UPDATE jobs SET status = 'running', startedAtMs = coalesce(startedAtMs, ?) WHERE jobRefId = ? AND status IN ('queued', 'running')", [startedAtMs, jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
 
 	// a queued job ends here and now; a running one is told, and stops at its next boundary, so a call already sent is still recorded when it answers
-	const requestCancel = (jobRefId, done) => run("UPDATE jobs SET status = CASE status WHEN 'queued' THEN 'cancelled' ELSE 'cancelling' END, finishedAtMs = CASE status WHEN 'queued' THEN ? ELSE finishedAtMs END, stopReasonName = 'cancelledByOwner' WHERE jobRefId = ? AND status IN ('queued', 'running')", [nowMs(), jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
+	const requestCancel = (jobRefId, done) => run("UPDATE jobs SET status = CASE status WHEN 'queued' THEN 'cancelled' ELSE 'cancelling' END, finishedAtMs = CASE status WHEN 'queued' THEN ? ELSE finishedAtMs END, stopReasonName = 'cancelledByOwner', stopReasonText = ? WHERE jobRefId = ? AND status IN ('queued', 'running')", [nowMs(), reasonOf('cancelledByOwner'), jobRefId], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.changes > 0)));
 
 	// an owner-kind clause: { ownerPrincipalKindList } keeps those kinds, { exceptOwnerPrincipalKindList } keeps the rest; neither keeps every job
 	const ownerKindClauseOf = ({ ownerPrincipalKindList, exceptOwnerPrincipalKindList }, columnName) => {
@@ -118,6 +120,10 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	};
 
 	const jobSpendUsd = (jobRefId, done) => one('SELECT coalesce(sum(usd), 0) AS spentUsd FROM judgeCalls WHERE jobRefId = ?', [jobRefId], (readError, oneRow) => (readError ? done(readError) : done('', oneRow.spentUsd)));
+	// ⟪rosettaLoginPolish #4⟫ the same sum, split for a person to read: billedUsd counts calls that have finished, each at its bill (or, lost at a restart or
+	// unanswered, at the estimate it keeps), and never falls, because a finished row is never written again; inFlightUsd is what calls still out may cost at most,
+	// held at their estimate until their bill corrects it, so it can fall. spentUsd, their sum, is what every ceiling counts, and is unchanged.
+	const jobSpendSplitOf = (jobRefId, done) => one(`SELECT coalesce(sum(usd), 0) AS spentUsd, coalesce(sum(CASE WHEN callStatus = '${SPENDING_CALL_STATUS_IN_FLIGHT}' THEN 0 ELSE usd END), 0) AS billedUsd, coalesce(sum(CASE WHEN callStatus = '${SPENDING_CALL_STATUS_IN_FLIGHT}' THEN usd ELSE 0 END), 0) AS inFlightUsd, count(CASE WHEN callStatus = '${SPENDING_CALL_STATUS_IN_FLIGHT}' THEN 1 END) AS inFlightCallCount FROM judgeCalls WHERE jobRefId = ?`, [jobRefId], (readError, oneRow) => (readError ? done(readError) : done('', oneRow)));
 
 	// written before the call goes. A process that dies now has owed the estimate, and says so.
 	const addJudgeCall = ({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd, wireModel, promptHash }, done) => run(`INSERT INTO judgeCalls (jobRefId, ownerPrincipalRefId, fieldIndex, hubName, startedAtMs, callStatus, usd, wireModel, promptHash) VALUES (?, ?, ?, ?, ?, '${SPENDING_CALL_STATUS_IN_FLIGHT}', ?, ?, ?)`, [jobRefId, ownerPrincipalRefId, fieldIndex, hubName, nowMs(), estimateUsd, wireModel, promptHash === undefined ? null : promptHash], (writeError, runFacts) => (writeError ? done(writeError) : done('', runFacts.lastID)));
@@ -289,7 +295,7 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 			callback(`rosettaJobStore: the indexes would not take: ${indexError}`);
 			return;
 		}
-		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, writeJudgmentPrompt, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, addEmbeddingTokens, rowCounts });
+		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, writeJudgmentPrompt, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, addEmbeddingTokens, rowCounts });
 		});
 		});
 	});

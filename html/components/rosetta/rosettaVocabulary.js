@@ -22,10 +22,25 @@ export const rosettaPageWords = Object.freeze({
 	tabPrompt: 'Prompt',
 	undoButton: 'Undo',
 	statusLabel: 'Status:',
+	// ⟪rosettaLoginPolish #5⟫ a job's status in words, by the status's own name (rosettaJobRunner's JOB_STATUS); a status not listed is said by jobStatusOtherText, never by its name
+	jobStatusWordsByStatus: Object.freeze({
+		queued: 'Waiting in the queue.',
+		running: 'Judging.',
+		cancelling: 'Cancelling.',
+		done: 'Finished.',
+		cancelled: 'Cancelled.',
+		stopped: 'Stopped before it finished.',
+		fuseTripped: 'Stopped at a spending limit.',
+		vendorStopped: 'Stopped: the judge\'s vendor would not answer.',
+	}),
+	jobStatusOtherText: 'In a state this page has no words for.',
 	queuePlaceText: 'Place in the queue: {position}',
 	unitsFinishedText: 'Finished {unitsFinished} of {unitsTotal} (one is one field against one hub)',
 	estimateText: 'Estimate ${estimateUsd}',
-	spentText: '; spent ${spentUsd}',
+	// ⟪rosettaLoginPolish #4⟫ what is billed never falls; what calls still out may cost is said apart, as "up to", because their bills arrive lower than their estimates
+	billedText: '; billed so far ${billedUsd}',
+	inFlightOneCallText: ', and up to ${inFlightUsd} more for the judge call still running',
+	inFlightCallsText: ', and up to ${inFlightUsd} more for {inFlightCallCount} judge calls still running',
 	cancelButton: 'Cancel',
 	jobLinkLabel: 'This job\'s link:',
 	copyJobLinkButton: 'Copy the link',
@@ -56,20 +71,26 @@ export const rosettaPageWords = Object.freeze({
 	progressRunningText: 'Judging…',
 	progressRunningUnitsText: 'Judging: {unitsFinished} of {unitsTotal} finished (one is one field against one hub)',
 	progressCancellingText: 'Cancelling…',
-	// what each status a job can end in says, by the status's own name (rosettaJobRunner's JOB_STATUS); a status not listed is said by endedOtherTemplate, never silently
+	// what each status a job can end in says, by the status's own name (rosettaJobRunner's JOB_STATUS); a status not listed is said by endedOtherText, never silently
 	endedTextByStatus: Object.freeze({
 		cancelled: 'This job was cancelled.',
 		stopped: 'This job stopped before it finished.',
 		fuseTripped: 'This job stopped: it reached a spending limit.',
 		vendorStopped: 'This job stopped: the judge\'s vendor would not answer.',
 	}),
-	endedOtherTemplate: 'This job ended as {status}.',
-	endedReasonTemplate: '{stopReasonText} ({stopReasonName})',
-	// ⟪review B1⟫ a reason the service names without text (a queued job cancelled: cancelledByOwner), in words; a name not listed is said by endedReasonNameTemplate
+	endedOtherText: 'This job ended in a state this page has no words for.',
+	// ⟪review B1⟫ a reason the service names without text (a job cancelled before rosettaLoginPolish stored no text for it), in words; ⟪rosettaLoginPolish #5⟫ a name
+	// not listed is said by stopReasonUnwordedText, never by the name
 	stopReasonWordsByName: Object.freeze({
 		cancelledByOwner: 'It was cancelled before it started.',
 	}),
-	endedReasonNameTemplate: '({stopReasonName})',
+	stopReasonUnwordedText: 'The service gave no reason in words.',
+	// ⟪rosettaLoginPolish #5⟫ a request that got no refusal from the service (it could not be reached, or answered with no refusal), with the request's own error
+	requestFailedTemplate: 'The service could not be reached, or did not answer: {requestErrorText}.',
+	// the ladder's own refusals (rosettaFreeText), before anything is sent
+	ladderNothingPastedText: 'There is nothing to read. Paste your fields first.',
+	ladderJsonNullText: 'The text is the JSON value null, which names no fields.',
+	ladderInterpretRefusedTemplate: 'Your text is not JSON, and its lines do not read as name and description lines, so it was sent to be read by AI. The service answered: {reasonText}',
 	endedPartDivider: ' ',
 	// ⟪TQ addendum⟫ on completion: where to look, and a mark on the Report tab until it is opened
 	reportReadyText: 'Your report is ready. Open the Report tab to read it, field by field.',
@@ -106,6 +127,8 @@ export const rosettaPageWords = Object.freeze({
 	reportCountsTemplate: '{hubName}: {countListText}',
 	reportCountPartTemplate: '{countWords} {count}',
 	reportCountDivider: ', ',
+	// ⟪review N1⟫ the summary table's result cell: the strength, then the meaning
+	summaryResultDivider: ': ',
 	// the strength the judge gave (its category), with what it means; only strong goes into a draft (rosettaJudgedSettings.draftCategoryList)
 	strengthByCategory: Object.freeze({
 		strong: Object.freeze({ words: 'Strong', explanation: 'The judge found this meaning says what your field says. Only a strong match goes into the draft.' }),
@@ -123,7 +146,7 @@ export const rosettaPageWords = Object.freeze({
 	}),
 	relationOtherTemplate: 'The judge named this relation {predicate}.',
 	relationAbsentText: 'The judge was not asked for a relation.',
-	// a unit with no proposal, by its status's own name (rosettaReport's STATUS_COUNT_NAME_LIST); a status not listed is said by noProposalOtherTemplate
+	// a unit with no proposal, by its status's own name (rosettaReport's STATUS_COUNT_NAME_LIST); a status not listed is said by noProposalOtherText
 	noProposalTextByStatus: Object.freeze({
 		abstained: 'The judge looked at this hub\'s closest meanings and found none that says what your field says.',
 		abstainedOnCutAnswer: 'The judge\'s answer was cut off before it chose, so it is counted as no choice.',
@@ -134,8 +157,9 @@ export const rosettaPageWords = Object.freeze({
 		identifierInSourceText: 'Your field\'s text looks like it holds an identifier, so it was not sent to the judge.',
 		identifierInCandidateText: 'A meaning the judge would have seen holds text that looks like an identifier, so nothing was sent.',
 	}),
-	noProposalOtherTemplate: 'This field ended as {status} against this hub.',
-	notJudgedReasonTemplate: 'The service says: {notJudgedReason}',
+	// ⟪rosettaLoginPolish #5⟫ never the status's name, and never notJudgedReason's (a machine name): a unit the job's stop left unjudged says the job's reason in words
+	noProposalOtherText: 'This field has no proposal against this hub, for a reason this page has no words for.',
+	notJudgedJobStoppedTemplate: 'The job ended first. {stopReasonText}',
 	// the summary's count names, said plainly (rosettaReport's count names)
 	countWordsByName: Object.freeze({
 		proposedStrong: 'strong',

@@ -16,6 +16,7 @@
 const PROVIDER_NAME_ANTHROPIC = 'anthropic';
 const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
 const judgedSettings = require('./rosettaJudgedSettings.json');
+const { reasonOf, REASON_NAME_LIST } = require('./rosettaReasonWords');
 
 const CALL_STATUS = Object.freeze({ answered: 'answered', failedUnbilled: 'failedUnbilled', unansweredPriced: 'unansweredPriced' });
 const CONFIDENCE_OF_NO_CATEGORY = null;
@@ -52,6 +53,13 @@ const rosettaJudgedValuesOf = ({ fuseConfigValues, judgeConfigValues }) => {
 // the JSON's patterns, compiled once; the first row that matches names the fault. An error text that matches none is the judge's answer being refused, not the vendor failing.
 const FAULT_ROW_LIST = judgedSettings.vendorFaultRowList.map((oneRow) => ({ ...oneRow, compiledPattern: new RegExp(oneRow.pattern, 'i') }));
 const vendorFaultRowOf = (errorText) => FAULT_ROW_LIST.find((oneRow) => oneRow.compiledPattern.test(errorText));
+// ⟪rosettaLoginPolish #5, review S2⟫ a vendor fault's words are a stopped job's words, so they live in rosettaReasonWords.json under the fault's own name; a
+// fault the vocabulary has no words for is refused here, at load, rather than when a vendor first fails that way
+const unwordedFaultNameList = [...judgedSettings.vendorFaultRowList, judgedSettings.unnamedVendorFault].map((oneRow) => oneRow.faultName).filter((faultName) => !REASON_NAME_LIST.includes(faultName));
+if (unwordedFaultNameList.length) {
+	throw new Error(`rosettaJudgeEngine: rosettaReasonWords.json has no words for the vendor faults ${unwordedFaultNameList.join(', ')}`);
+}
+const vendorStopOf = (faultName) => ({ faultName, reason: reasonOf(faultName) });
 
 // the forge's scan reads identifiers as they are written: P001234, ceterms:Name. A person may type p001234, P 001234, P００１２３４ or CETERMS:Name, and a model reads all of them as the id. So each text is scanned as written and in two normal forms: full width folded, separators inside an id closed up, then each case.
 const SEPARATOR_INSIDE_IDENTIFIER_PATTERN = /([PpCc]|\d)[\s\-_.]+(?=\d)/g;
@@ -75,7 +83,7 @@ const unitStatusOfJudged = ({ chosenCardStableId, answerWasCut }) => {
 	}
 	return answerWasCut ? 'abstainedOnCutAnswer' : 'abstained';
 };
-const STORE_FAILED_STOP = Object.freeze({ jobStatus: 'stopped', stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take what the judge needs recorded' });
+const STORE_FAILED_STOP = Object.freeze({ jobStatus: 'stopped', stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeRefusedJudgeRecord') });
 const JUDGE_ANSWER_REFUSAL_PATTERN = new RegExp(judgedSettings.judgeAnswerRefusalPattern, 'i');
 
 const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, componentOverrides, nowMs, waitMilliseconds, xLog }) => {
@@ -174,7 +182,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 			}
 			if (anonymousSpentUsd + worstCase.usd > judgedValues.anonymousDailyCeilingUsd) {
 				turnFinished();
-				done('', { stopReason: { jobStatus: 'fuseTripped', stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousDailyCeilingReached } });
+				done('', { stopReason: { jobStatus: 'fuseTripped', stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: reasonOf('anonymousDailyCeilingStop') } });
 				return;
 			}
 			jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex, hubName, estimateUsd: worstCase.usd, wireModel: judgeClient.wireModel, promptHash }, (addError, callRefId) => {
@@ -240,7 +248,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 							// a vendor failing in a way nobody named stops the job: asked a hundred times, it would otherwise end done
 							if (!faultRow) {
 								finishWith({ callStatus: CALL_STATUS.failedUnbilled, usd: 0, faultName: judgedSettings.unnamedVendorFault.faultName }, () => {
-									stopHolder.vendorStop = judgedSettings.unnamedVendorFault;
+									stopHolder.vendorStop = vendorStopOf(judgedSettings.unnamedVendorFault.faultName);
 									rerankDone(`rosettaJudgeEngine: ${judgedSettings.unnamedVendorFault.faultName}`);
 								});
 								return;
@@ -250,7 +258,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 									rerankDone(`rosettaJudgeEngine: ${faultRow.faultName}`);
 									return;
 								}
-								stopHolder.vendorStop = { faultName: faultRow.faultName, reason: faultRow.reason };
+								stopHolder.vendorStop = vendorStopOf(faultRow.faultName);
 								rerankDone(`rosettaJudgeEngine: ${faultRow.faultName}`);
 							}));
 							return;
@@ -262,7 +270,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 						}, 0);
 						if (pricedUsd === null) {
 							finishWith({ callStatus: CALL_STATUS.unansweredPriced, usd: judgedValues.judgeUsdPerFieldEstimate, faultName: 'judgeModelUnpriced' }, () => {
-								stopHolder.vendorStop = { faultName: 'judgeModelUnpriced', reason: 'the configured model has no price in this service\'s table' };
+								stopHolder.vendorStop = vendorStopOf('judgeModelUnpriced');
 								rerankDone('rosettaJudgeEngine: judgeModelUnpriced');
 							});
 							return;
@@ -366,7 +374,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 				// the vendor answered, and judgeOne would not take the answer (a form fault after its one re-ask, an unreadable choice). The money is already on the bill. The text can quote the prompt, so it stays in no log. Anything else judgeOne says is this service failing, which must stop the job and not read as a judge's refusal.
 				if (!JUDGE_ANSWER_REFUSAL_PATTERN.test(String(judgeError)) && !/rosettaJudgeEngine: judgeUnpricedAnswer/.test(String(judgeError))) {
 					xLog.error(`rosettaJudgeEngine: job ${jobRefId}: judging failed in this service, not at the vendor`);
-					done('', { stoppedBy: { jobStatus: 'stopped', stopReasonName: 'judgeFaulted', stopReasonText: 'this service could not finish a judgment' } });
+					done('', { stoppedBy: { jobStatus: 'stopped', stopReasonName: 'judgeFaulted', stopReasonText: reasonOf('judgeFaulted') } });
 					return;
 				}
 				xLog.status(`rosettaJudgeEngine: job ${jobRefId}: judgeOne refused one answer`);

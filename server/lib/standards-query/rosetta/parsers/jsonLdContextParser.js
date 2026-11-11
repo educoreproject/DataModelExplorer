@@ -4,6 +4,7 @@
 // A remote @context URL is recorded in unresolvedContextList and its terms are not fields. A keyword (@vocab, @base) is no field. A term mapping to a namespace (schema: "https://schema.org/") is a prefix, not a field, and is named in notWalkedList, as is a term's own scoped context.
 
 const { isPlainRecord, depthRefusalFor, fieldCollectorFor, cappedRowListFor, omittedCountsOf } = require('./parserLimits');
+const { reasonOf } = require('../rosettaReasonWords');
 
 const CONTEXT_PROPERTY_NAME = '@context';
 const KEYWORD_PREFIX = '@';
@@ -18,7 +19,7 @@ const parseJsonLdContext = ({ submittedDocument, parserLimitValues }) => {
 		return { refusal: depthRefusal };
 	}
 	if (submittedDocument[CONTEXT_PROPERTY_NAME] === undefined) {
-		return { refusal: { refusalName: 'noFieldsFound', reason: `this document has no ${CONTEXT_PROPERTY_NAME}` } };
+		return { refusal: { refusalName: 'noFieldsFound', reason: reasonOf('contextAbsent', { contextPropertyName: CONTEXT_PROPERTY_NAME }) } };
 	}
 	const collector = fieldCollectorFor(parserLimitValues);
 	const unresolvedContexts = cappedRowListFor(parserLimitValues);
@@ -56,7 +57,7 @@ const parseJsonLdContext = ({ submittedDocument, parserLimitValues }) => {
 		}
 	}
 	if (collector.fieldList.length === 0) {
-		return { refusal: { refusalName: 'noFieldsFound', reason: 'this @context defines no term to read as a field', unresolvedContextList, notWalkedList } };
+		return { refusal: { refusalName: 'noFieldsFound', reason: reasonOf('contextDefinesNoTerm'), unresolvedContextList, notWalkedList } };
 	}
 	return { fieldList: collector.fieldList, unresolvedRefList: [], unresolvedContextList, notWalkedList, ...omittedCountsOf({ unresolvedContextOmittedCount: unresolvedContexts.omittedCount(), notWalkedOmittedCount: notWalkedRows.omittedCount() }) };
 };

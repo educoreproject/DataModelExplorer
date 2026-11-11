@@ -13,7 +13,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRosettaStore } from '@/stores/rosettaStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { rosettaPageWords, wordsOf } from '@/components/rosetta/rosettaVocabulary';
-import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
+import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, jobStatusLineOf, spendLineOf, summaryResultTextOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
 
 const store = useRosettaStore();
 const loginStore = useLoginStore();
@@ -63,7 +63,6 @@ watch(activeTab, (nextTabName) => {
 	if (nextTabName === TAB_NAME.report) store.markReportSeen();
 	store.rememberTab(nextTabName);
 });
-const unitLine = (oneUnit) => (oneUnit.proposal ? `${oneUnit.proposal.category}: ${oneUnit.proposal.label}` : oneUnit.notJudgedReason ? `${oneUnit.status}: ${oneUnit.notJudgedReason}` : oneUnit.status);
 
 const downloadDraft = (hubName) => {
 	const blob = new Blob([JSON.stringify(store.report.draftContextByHub[hubName], null, 2)], { type: 'application/ld+json;charset=utf-8' });
@@ -104,7 +103,7 @@ onUnmounted(() => store.stopPolling());
 		<p class="mb-4 text-caption" data-testid="rosetta-vendor-notice">{{ rosettaPageWords.vendorNoticeText }}</p>
 
 		<v-alert v-if="store.refusal" type="warning" class="mb-4" closable data-testid="rosetta-refusal">
-			<strong>{{ store.refusal.refusalName }}</strong>: {{ store.refusal.reason }}
+			{{ store.refusal.reason }}
 		</v-alert>
 
 		<div v-if="progress.isShown" class="mb-4" role="status" aria-live="polite" data-testid="rosetta-progress">
@@ -152,10 +151,10 @@ onUnmounted(() => store.stopPolling());
 
 			<v-window-item value="job">
 				<template v-if="store.jobStatus">
-					<p><strong>{{ rosettaPageWords.statusLabel }}</strong> {{ store.jobStatus.status }}<span v-if="store.jobStatus.stopReasonName"> ({{ store.jobStatus.stopReasonName }}: {{ store.jobStatus.stopReasonText }})</span></p>
+					<p data-testid="rosetta-job-status"><strong>{{ rosettaPageWords.statusLabel }}</strong> {{ jobStatusLineOf(store.jobStatus) }}</p>
 					<p v-if="store.jobStatus.position">{{ wordsOf(rosettaPageWords.queuePlaceText, { position: store.jobStatus.position }) }}</p>
 					<p v-if="store.jobStatus.unitsTotal">{{ wordsOf(rosettaPageWords.unitsFinishedText, { unitsFinished: store.jobStatus.unitsFinished, unitsTotal: store.jobStatus.unitsTotal }) }}</p>
-					<p>{{ wordsOf(rosettaPageWords.estimateText, { estimateUsd: store.jobStatus.estimateUsd }) }}<span v-if="store.jobStatus.spentUsd !== undefined">{{ wordsOf(rosettaPageWords.spentText, { spentUsd: store.jobStatus.spentUsd }) }}</span></p>
+					<p data-testid="rosetta-job-spend">{{ spendLineOf(store.jobStatus) }}</p>
 					<div v-if="jobLink" class="d-flex flex-wrap align-center ga-2 mt-2" data-testid="rosetta-job-link">
 						<span>{{ rosettaPageWords.jobLinkLabel }}</span>
 						<code class="rosettaJobLink">{{ jobLink }}</code>
@@ -216,8 +215,10 @@ onUnmounted(() => store.stopPolling());
 								</dd>
 							</dl>
 							<dl v-else class="rosettaFacts" data-testid="rosetta-no-proposal">
-								<dt>{{ rosettaPageWords.reportNoProposalLabel }}</dt>
-								<dd data-testid="rosetta-no-proposal-reason">{{ oneHubBlock.statusText }}<span v-if="oneHubBlock.notJudgedReasonText"> {{ oneHubBlock.notJudgedReasonText }}</span></dd>
+								<dt>{{ rosettaPageWords.reportMeaningLabel }}</dt>
+								<dd data-testid="rosetta-no-proposal-meaning">{{ rosettaPageWords.reportNoProposalLabel }}</dd>
+								<dt data-testid="rosetta-no-proposal-why-label">{{ rosettaPageWords.reportNoProposalReasonLabel }}</dt>
+								<dd data-testid="rosetta-no-proposal-reason">{{ oneHubBlock.whyText }}</dd>
 								<template v-if="oneHubBlock.rationaleText">
 									<dt>{{ rosettaPageWords.reportRationaleLabel }}</dt>
 									<dd class="rosettaWrap" data-testid="rosetta-rationale">{{ oneHubBlock.rationaleText }}</dd>
@@ -235,7 +236,7 @@ onUnmounted(() => store.stopPolling());
 									<tr v-for="hubName in hubNameList" :key="hubName">
 										<td>{{ oneField.requestName }}</td>
 										<td>{{ hubName }}</td>
-										<td>{{ unitLine(resultFor(oneField, hubName)) }}</td>
+										<td>{{ summaryResultTextOf(resultFor(oneField, hubName)) }}</td>
 										<td class="rosettaRationale">{{ resultFor(oneField, hubName).judgesRationale }}</td>
 									</tr>
 								</template>

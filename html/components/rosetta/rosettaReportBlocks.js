@@ -9,6 +9,8 @@
 //   meaningNodeStableIdOf(meaningUri) → the Meanings walk's id for that meaning (a hub card's stableId IS its meaning URI: server/lib/standards-query/uriMinter.js)
 //   progressOf({ jobStatus, busyStepName, isStatusCheckFailed }) → { isShown, progressText, endedText, checkFailedText }: the indicator while the AI reads the text,
 //     a job is sent or a job is open; what an unfinished end says; and that a status check failed
+//   jobStatusLineOf(jobStatus) → the Job tab's status line: the status in words and, when the job stopped, the service's reason; never a status or reason name
+//   spendLineOf(jobStatus) → the Job tab's money line: the estimate, what is billed (it never falls) and, while calls are out, what they may cost at most
 //   askButtonWordsOf({ review }) → the job button's words: Submit the Request while the page's reading of the text is up for review (TQ), else the first wording
 //   JOB_OPEN_STATUS_LIST, JOB_STATUS_DONE, TAB_NAME, BUSY_STEP_NAME: the job statuses, tab names and busy steps the page, the store and this module share
 //
@@ -81,14 +83,28 @@ const proposalBlockOf = ({ hubName, oneResult, expressionByMeaningUri }) => {
 	};
 };
 
-const noProposalBlockOf = ({ hubName, oneResult }) => ({
-	hubName,
-	hubHeadingText: wordsOf(rosettaPageWords.reportHubTemplate, { hubName }),
-	hasProposal: false,
-	statusText: rosettaPageWords.noProposalTextByStatus[oneResult.status] || wordsOf(rosettaPageWords.noProposalOtherTemplate, { status: String(oneResult.status) }),
-	notJudgedReasonText: oneResult.notJudgedReason ? wordsOf(rosettaPageWords.notJudgedReasonTemplate, { notJudgedReason: oneResult.notJudgedReason }) : '',
-	rationaleText: oneResult.judgesRationale || '',
-});
+// ⟪rosettaLoginPolish #5⟫ a unit's notJudgedReason is a machine name (the job's stopReasonName, answerRefused, lostAtRestart). When it is the job's own stop, the
+// job's reason in words says why (the audit report's job block carries it); the other names are already said by the unit's status
+const noProposalStatusTextOf = (oneResult) => rosettaPageWords.noProposalTextByStatus[oneResult.status] || rosettaPageWords.noProposalOtherText;
+const notJudgedReasonTextOf = ({ oneResult, reportJob }) =>
+	oneResult.notJudgedReason && reportJob && reportJob.stopReasonName === oneResult.notJudgedReason && reportJob.stopReasonText
+		? wordsOf(rosettaPageWords.notJudgedJobStoppedTemplate, { stopReasonText: reportJob.stopReasonText })
+		: '';
+// whyText: the two joined here, with the vocabulary's divider, because a template's space before a {{ }} inside a span is condensed away (the live run read
+// "hub.The job ended first")
+const noProposalBlockOf = ({ hubName, oneResult, reportJob }) => {
+	const statusText = noProposalStatusTextOf(oneResult);
+	const notJudgedReasonText = notJudgedReasonTextOf({ oneResult, reportJob });
+	return {
+		hubName,
+		hubHeadingText: wordsOf(rosettaPageWords.reportHubTemplate, { hubName }),
+		hasProposal: false,
+		statusText,
+		notJudgedReasonText,
+		whyText: [statusText, notJudgedReasonText].filter(Boolean).join(rosettaPageWords.endedPartDivider),
+		rationaleText: oneResult.judgesRationale || '',
+	};
+};
 
 // ⟪P7a⟫ a field's results are a resultList, each naming its hub, in the job's hub order
 export const fieldBlockListOf = ({ report, expressionByMeaningUri }) =>
@@ -96,9 +112,12 @@ export const fieldBlockListOf = ({ report, expressionByMeaningUri }) =>
 		requestName: oneField.requestName,
 		definitionText: oneField.requestDefinition || rosettaPageWords.reportFieldDefinitionAbsentText,
 		hubBlockList: oneField.resultList.map((oneResult) =>
-			oneResult.proposal ? proposalBlockOf({ hubName: oneResult.hub, oneResult, expressionByMeaningUri }) : noProposalBlockOf({ hubName: oneResult.hub, oneResult }),
+			oneResult.proposal ? proposalBlockOf({ hubName: oneResult.hub, oneResult, expressionByMeaningUri }) : noProposalBlockOf({ hubName: oneResult.hub, oneResult, reportJob: report.job }),
 		),
 	}));
+
+// ⟪rosettaLoginPolish #5⟫ the summary table's result cell: the strength and the meaning, or why there is none, in the same words as the blocks above it
+export const summaryResultTextOf = (oneResult) => (oneResult.proposal ? `${strengthOf(oneResult.proposal.category).strengthWords}${rosettaPageWords.summaryResultDivider}${oneResult.proposal.label}` : noProposalStatusTextOf(oneResult));
 
 export const proposedMeaningUriListOf = (report) => [...new Set(report.fieldList.flatMap((oneField) => oneField.resultList.filter((oneResult) => oneResult.proposal).map((oneResult) => oneResult.proposal.uri)))];
 // ⟪ROMANTIC_PARASOL⟫ the Meanings answers one shown page may ask, at most (rosettaPageSettings); the rest of the page's meanings say so, by the limit, never a count
@@ -127,14 +146,15 @@ const openProgressTextOf = (jobStatus) => {
 	if (jobStatus.status === 'cancelling') return rosettaPageWords.progressCancellingText;
 	return jobStatus.unitsTotal ? wordsOf(rosettaPageWords.progressRunningUnitsText, { unitsFinished: jobStatus.unitsFinished, unitsTotal: jobStatus.unitsTotal }) : rosettaPageWords.progressRunningText;
 };
-// ⟪review B1⟫ the reason: its text and name when the service gave text; its words when it gave a name alone (a queued job cancelled has no text); else its name
+// ⟪review B1, rosettaLoginPolish #5⟫ the reason: the service's text when it gave text; its words when it gave a name alone (a job cancelled before the service
+// stored text for it); else that it gave none. The name itself is never shown: it is in the answer for a program, not for a person.
 const stopReasonTextOf = ({ stopReasonName, stopReasonText }) => {
 	if (!stopReasonName) return '';
-	if (stopReasonText) return wordsOf(rosettaPageWords.endedReasonTemplate, { stopReasonText, stopReasonName });
-	return rosettaPageWords.stopReasonWordsByName[stopReasonName] || wordsOf(rosettaPageWords.endedReasonNameTemplate, { stopReasonName });
+	if (stopReasonText) return stopReasonText;
+	return rosettaPageWords.stopReasonWordsByName[stopReasonName] || rosettaPageWords.stopReasonUnwordedText;
 };
 const endedTextOf = (jobStatus) => {
-	const statusText = rosettaPageWords.endedTextByStatus[jobStatus.status] || wordsOf(rosettaPageWords.endedOtherTemplate, { status: String(jobStatus.status) });
+	const statusText = rosettaPageWords.endedTextByStatus[jobStatus.status] || rosettaPageWords.endedOtherText;
 	return [statusText, stopReasonTextOf(jobStatus)].filter(Boolean).join(rosettaPageWords.endedPartDivider);
 };
 // busyStepName: what the store is doing before a job's status speaks (BUSY_STEP_NAME); isStatusCheckFailed: the last status check failed (⟪review S2⟫)
@@ -147,6 +167,22 @@ export const progressOf = ({ jobStatus, busyStepName, isStatusCheckFailed }) => 
 	if (JOB_OPEN_STATUS_LIST.includes(jobStatus.status)) return shownWith(openProgressTextOf(jobStatus));
 	if (jobStatus.status === JOB_STATUS_DONE) return NOTHING_SHOWN;
 	return { ...NOTHING_SHOWN, endedText: endedTextOf(jobStatus) };
+};
+
+// ⟪review S4⟫ a job that ended done says so alone: a cancel that landed while its last unit was out leaves the cancel's name and words stored on a finished job
+export const jobStatusLineOf = (jobStatus) =>
+	[rosettaPageWords.jobStatusWordsByStatus[jobStatus.status] || rosettaPageWords.jobStatusOtherText, jobStatus.status === JOB_STATUS_DONE ? '' : stopReasonTextOf(jobStatus)].filter(Boolean).join(rosettaPageWords.endedPartDivider);
+
+// ⟪rosettaLoginPolish #4⟫ never spentUsd: it holds each call still out at its estimate and falls when the bill corrects it. billedUsd only rises; an answer without
+// it (a service from before) says the estimate alone rather than a figure that can go backwards
+export const spendLineOf = (jobStatus) => {
+	const estimateText = wordsOf(rosettaPageWords.estimateText, { estimateUsd: jobStatus.estimateUsd });
+	if (jobStatus.billedUsd === undefined) return estimateText;
+	const billedText = wordsOf(rosettaPageWords.billedText, { billedUsd: jobStatus.billedUsd });
+	const inFlightTemplate = jobStatus.inFlightCallCount === 1 ? rosettaPageWords.inFlightOneCallText : rosettaPageWords.inFlightCallsText;
+	// ⟪review N4⟫ only an open job has calls running: a call row a store fault left inFlight on an ended job is not one
+	const inFlightText = jobStatus.inFlightCallCount > 0 && JOB_OPEN_STATUS_LIST.includes(jobStatus.status) ? wordsOf(inFlightTemplate, { inFlightUsd: jobStatus.inFlightUsd, inFlightCallCount: jobStatus.inFlightCallCount }) : '';
+	return `${estimateText}${billedText}${inFlightText}`;
 };
 
 export const askButtonWordsOf = ({ review }) => (review ? rosettaPageWords.submitRequestButton : rosettaPageWords.askDraftButton);

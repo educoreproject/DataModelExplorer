@@ -15,6 +15,7 @@ const { SUBMISSION_FORM_LIST } = require('./rosettaRetrieval');
 const { OPEN_STATUS_LIST } = require('./rosettaJobStore');
 const { reportOf, usingOf, ownerJobFactsOf } = require('./rosettaReport');
 const { judgedSettings } = require('./rosettaJudgeEngine');
+const { reasonOf } = require('./rosettaReasonWords');
 
 const MILLISECONDS_PER_DAY = 86400000;
 const JOB_REF_ID_BYTES = 16;
@@ -24,9 +25,9 @@ const JOB_REF_ID_PATTERN = /^[0-9a-f]{32}$/;
 // what a cancel did, by what it found: running told to stop, queued ended, or it arrived after the job had already finished
 const cancelNoteOf = ({ wasChanged, status }) => {
 	if (!wasChanged) {
-		return 'the job had already finished when this arrived; what it did stays fetchable';
+		return reasonOf('cancelArrivedLate');
 	}
-	return status === 'cancelling' ? 'it stops at the next field; a judge call already sent is finished and recorded, and what is finished stays fetchable' : 'it had not begun; nothing was spent';
+	return status === 'cancelling' ? reasonOf('cancelStopsAtNextField') : reasonOf('cancelBeforeStart');
 };
 const refusalOf = (refusedByName, refusalName, reason, extraFields = {}) => ({ refusedByName, refusalName, reason, ...extraFields });
 const roundedUsdOf = (usd) => Number(usd.toFixed(4));
@@ -38,15 +39,6 @@ const OPERATION_NAME_BY_JOB_ACTION_NAME = Object.freeze(require('../standardsQue
 const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
 const ANONYMOUS_KIND_FILTER = Object.freeze({ ownerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] });
 const SIGNED_IN_KIND_FILTER = Object.freeze({ exceptOwnerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] });
-const TEMPLATE_SLOT_PATTERN = /\{([A-Za-z]+)\}/g;
-// a reason from the settings' data with its {slots} filled; a slot with no value is a fault of this service, said by name rather than shown as braces
-const templateFilled = (templateText, valueBySlotName) => templateText.replace(TEMPLATE_SLOT_PATTERN, (wholeSlot, slotName) => {
-	if (valueBySlotName[slotName] === undefined) {
-		throw new Error(`rosettaJobService: the reason '${templateText}' names {${slotName}}, which was not given`);
-	}
-	return String(valueBySlotName[slotName]);
-});
-const anonymousReasonOf = (refusalName, valueBySlotName) => templateFilled(judgedSettings.anonymousRefusalReasonByName[refusalName], valueBySlotName);
 // ⟪rosettaMeanings R3, review S2⟫ who owns a job: a person by their users.refId; a visitor who is not signed in by visitorRefId, an HMAC of the address keyed by a
 // secret from config (assembleRosettaJudged reads it), so the stored value cannot be turned back into the address by hashing every address
 const visitorRefIdOf = ({ visitorAddress, visitorSecret }) => crypto.createHmac('sha256', visitorSecret).update(String(visitorAddress)).digest('hex');
@@ -81,7 +73,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 
 	const ownedJobOr = ({ operationName, principal, input }, withJob, done) => {
 		// ⟪rosettaMeanings S6⟫ a visitor is told in a visitor's words, never "this account"
-		const notFound = () => done('', refusalJudgedAnswer(operationName, 'notFound', principal.kind === ANONYMOUS_PRINCIPAL_KIND ? judgedSettings.anonymousRefusalReasonByName.notFound : 'there is no such job for this account'));
+		const notFound = () => done('', refusalJudgedAnswer(operationName, 'notFound', reasonOf(principal.kind === ANONYMOUS_PRINCIPAL_KIND ? 'jobNotFoundAnonymous' : 'jobNotFoundSignedIn')));
 		if (typeof input.jobRefId !== 'string' || !JOB_REF_ID_PATTERN.test(input.jobRefId)) {
 			notFound();
 			return;
@@ -110,14 +102,14 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 				return;
 			}
 			if (tokensSpent + estimatedTokens > judgedValues.judgedDailyTokenCeiling) {
-				done('', refusalJudgedAnswer(operationName, 'judgedTokenCeilingReached', 'today\'s tokens for judged jobs are spent. It resets at midnight UTC. Retrieval keeps working.'));
+				done('', refusalJudgedAnswer(operationName, 'judgedTokenCeilingReached', reasonOf('judgedTokensSpentToday')));
 				return;
 			}
 			afterTokenCheck();
 		});
 		const afterTokenCheck = () => {
 		if (estimateUsd > judgedValues.perJobCeilingUsd) {
-			done('', refusalJudgedAnswer(operationName, 'perJobCeilingReached', `a job of this size is more than one job may spend; send fewer fields or fewer hubs. At most ${judgedValues.judgedMaxFieldListLength} fields a job.`));
+			done('', refusalJudgedAnswer(operationName, 'perJobCeilingReached', reasonOf('jobTooCostly', { maxFieldListLength: judgedValues.judgedMaxFieldListLength })));
 			return;
 		}
 		// ⟪rosettaMeanings R3⟫ a visitor's allowance in the window comes before everything a signed-in person is also asked: it is the visitor's own limit
@@ -132,7 +124,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					return;
 				}
 				if (windowJobCount >= judgedValues.anonymousJobsPerVisitorWindow) {
-					done('', refusalJudgedAnswer(operationName, 'anonymousVisitorJobLimitReached', anonymousReasonOf('anonymousVisitorJobLimitReached', { jobLimit: judgedValues.anonymousJobsPerVisitorWindow, windowMinutes: judgedValues.anonymousVisitorWindowMinutes })));
+					done('', refusalJudgedAnswer(operationName, 'anonymousVisitorJobLimitReached', reasonOf('anonymousVisitorJobLimitReached', { jobLimit: judgedValues.anonymousJobsPerVisitorWindow, windowMinutes: judgedValues.anonymousVisitorWindowMinutes })));
 					return;
 				}
 				afterAllowance();
@@ -144,11 +136,11 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 				return;
 			}
 			if (isAnonymous && openCount >= judgedValues.anonymousJobsOpenPerVisitor) {
-				done('', refusalJudgedAnswer(operationName, 'anonymousVisitorHasOpenJob', anonymousReasonOf('anonymousVisitorHasOpenJob', { openCount })));
+				done('', refusalJudgedAnswer(operationName, 'anonymousVisitorHasOpenJob', reasonOf('anonymousVisitorHasOpenJob', { openCount })));
 				return;
 			}
 			if (!isAnonymous && openCount >= judgedValues.perPrincipalJobsOpen) {
-				done('', refusalJudgedAnswer(operationName, 'principalHasOpenJob', `this account has ${openCount} job open, the most it may have; wait for it, or cancel it with rosetta_cancel`));
+				done('', refusalJudgedAnswer(operationName, 'principalHasOpenJob', reasonOf('principalHasOpenJob', { openCount })));
 				return;
 			}
 			// each kind waits in its own queue: anonymous jobs can never fill the signed-in one
@@ -158,11 +150,11 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					return;
 				}
 				if (isAnonymous && queuedCount >= judgedValues.anonymousMaxQueuedJobs) {
-					done('', refusalJudgedAnswer(operationName, 'anonymousQueueFull', anonymousReasonOf('anonymousQueueFull', { queuedCount }), { lastQueuedPosition: queuedCount }));
+					done('', refusalJudgedAnswer(operationName, 'anonymousQueueFull', reasonOf('anonymousQueueFull', { queuedCount }), { lastQueuedPosition: queuedCount }));
 					return;
 				}
 				if (!isAnonymous && queuedCount >= judgedValues.maxQueuedJobs) {
-					done('', refusalJudgedAnswer(operationName, 'queueFull', `${queuedCount} jobs are waiting, the most the queue holds; try again later`, { lastQueuedPosition: queuedCount }));
+					done('', refusalJudgedAnswer(operationName, 'queueFull', reasonOf('queueFull', { queuedCount }), { lastQueuedPosition: queuedCount }));
 					return;
 				}
 				const sinceMs = nowMs() - MILLISECONDS_PER_DAY;
@@ -178,7 +170,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 							return;
 						}
 						if (daySpentUsd + openEstimatesUsd + estimateUsd > judgedValues.dailyJudgeCeilingUsd) {
-							done('', refusalJudgedAnswer(operationName, 'dailyCeilingReached', 'this service has reached the most it judges in any 24 hours, counting what is already queued; retrieval keeps working, and this will open again as the day rolls on'));
+							done('', refusalJudgedAnswer(operationName, 'dailyCeilingReached', reasonOf('dailyCeilingRefused')));
 							return;
 						}
 						afterServiceCeiling();
@@ -202,7 +194,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 										return;
 									}
 									if (anonymousSpentUsd + anonymousOpenUsd + estimateUsd > judgedValues.anonymousDailyCeilingUsd) {
-										done('', refusalJudgedAnswer(operationName, 'anonymousDailyCeilingReached', anonymousReasonOf('anonymousDailyCeilingReached', {})));
+										done('', refusalJudgedAnswer(operationName, 'anonymousDailyCeilingReached', reasonOf('anonymousDailyCeilingRefused')));
 										return;
 									}
 									afterCeiling();
@@ -216,11 +208,11 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 							}
 							// ⟪rosettaMeanings review S4⟫ one address's share of the anonymous day is its own setting, so no single address can take the whole anonymous pot
 							if (isAnonymous && ownerSpentUsd + estimateUsd > judgedValues.anonymousPerVisitorDailyUsd) {
-								done('', refusalJudgedAnswer(operationName, 'anonymousVisitorDailyCeilingReached', anonymousReasonOf('anonymousVisitorDailyCeilingReached', {})));
+								done('', refusalJudgedAnswer(operationName, 'anonymousVisitorDailyCeilingReached', reasonOf('anonymousVisitorDailyCeilingRefused')));
 								return;
 							}
 							if (!isAnonymous && ownerSpentUsd + estimateUsd > judgedValues.perPrincipalDailyUsd) {
-								done('', refusalJudgedAnswer(operationName, 'perPrincipalCeilingReached', 'this account has reached the most one person may judge in any 24 hours; retrieval keeps working'));
+								done('', refusalJudgedAnswer(operationName, 'perPrincipalCeilingReached', reasonOf('perPrincipalCeilingRefused')));
 								return;
 							}
 							done('', { queuedCount });
@@ -234,12 +226,12 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 	const submit = ({ principal, input, serviceFacts, withReadSession, answeredFrom, namedSubjectList }, done) => {
 		const operationName = 'rosettaSubmit';
 		if (!judgeEngine) {
-			done('', refusalJudgedAnswer(operationName, 'judgeNotConfigured', `the judged step is off on this instance: ${String(judgeAbsentReason).replace(PATH_IN_REASON_PATTERN, '<path>')}. Retrieval keeps working.`));
+			done('', refusalJudgedAnswer(operationName, 'judgeNotConfigured', reasonOf('judgeOffHere'), { judgeAbsentDetail: String(judgeAbsentReason).replace(PATH_IN_REASON_PATTERN, '<path>') }));
 			return;
 		}
 		const formList = SUBMISSION_FORM_LIST.filter((oneForm) => input[oneForm.inputName] !== undefined);
 		if (formList.length !== 1) {
-			done('', refusalJudgedAnswer(operationName, 'noSubmission', `give exactly one of ${SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName).join(', ')}; this request gives ${formList.length}`, { validValueList: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName) }));
+			done('', refusalJudgedAnswer(operationName, 'noSubmission', reasonOf('submissionFormCount', { formNameListText: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName).join(', '), formCount: formList.length }), { validValueList: SUBMISSION_FORM_LIST.map((oneForm) => oneForm.inputName) }));
 			return;
 		}
 		const [submissionForm] = formList;
@@ -257,13 +249,13 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 			}
 			const validHubNameList = hubRowList.map((oneHub) => oneHub.hubName);
 			if (input.hubList !== undefined && (input.hubList.length === 0 || input.hubList.some((hubName) => !validHubNameList.includes(hubName)))) {
-				done('', refusalJudgedAnswer(operationName, 'unknownHub', 'hubList must name hubs this graph holds, or be left out for every hub', { validValueList: validHubNameList }));
+				done('', refusalJudgedAnswer(operationName, 'unknownHub', reasonOf('hubListUnknown'), { validValueList: validHubNameList }));
 				return;
 			}
 			const hubNameList = input.hubList ? validHubNameList.filter((hubName) => input.hubList.includes(hubName)) : validHubNameList;
 			const unjudgedHubName = hubNameList.find((hubName) => judgeEngine.hubFactsFor(hubName).refusalText);
 			if (unjudgedHubName) {
-				done('', refusalJudgedAnswer(operationName, 'hubNotJudged', `the judged step cannot read hub ${unjudgedHubName} on this instance`, { validValueList: Object.keys(judgedSettings.hubRowByName) }));
+				done('', refusalJudgedAnswer(operationName, 'hubNotJudged', reasonOf('hubNotJudged', { hubName: unjudgedHubName }), { validValueList: Object.keys(judgedSettings.hubRowByName) }));
 				return;
 			}
 			const estimateUsd = roundedUsdOf(parsed.fieldList.length * hubNameList.length * judgedValues.judgeUsdPerFieldEstimate);
@@ -306,7 +298,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 		});
 	};
 
-	const status = ({ principal, input }, done) => ownedJobOr({ operationName: 'rosettaStatus', principal, input }, (job) => jobStore.jobSpendUsd(job.jobRefId, (spendError, spentUsd) => {
+	const status = ({ principal, input }, done) => ownedJobOr({ operationName: 'rosettaStatus', principal, input }, (job) => jobStore.jobSpendSplitOf(job.jobRefId, (spendError, spendSplit) => {
 		if (spendError) {
 			done(`the job store would not read: ${spendError}`);
 			return;
@@ -322,7 +314,9 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					return;
 				}
 				const positionIndex = queuedJobList.findIndex((oneJob) => oneJob.jobRefId === job.jobRefId);
-				done('', { answer: { ...ownerJobFactsOf({ job, spentUsd, unitsFinished: judgmentRowList.length }), ...(positionIndex === -1 ? {} : { position: positionIndex + 1 }) } });
+				// ⟪rosettaLoginPolish #4⟫ added beside spentUsd: what is billed (it never falls) and what calls still out may cost at most (jobStore.jobSpendSplitOf), so a person is never shown money going backwards
+				const spendSplitFields = { billedUsd: roundedUsdOf(spendSplit.billedUsd), inFlightUsd: roundedUsdOf(spendSplit.inFlightUsd), inFlightCallCount: spendSplit.inFlightCallCount };
+				done('', { answer: { ...ownerJobFactsOf({ job, spentUsd: spendSplit.spentUsd, unitsFinished: judgmentRowList.length }), ...spendSplitFields, ...(positionIndex === -1 ? {} : { position: positionIndex + 1 }) } });
 			});
 		});
 	}), done);
@@ -378,7 +372,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 
 	const cancel = ({ principal, input }, done) => ownedJobOr({ operationName: 'rosettaCancel', principal, input }, (job) => {
 		if (!['queued', 'running'].includes(job.status)) {
-			done('', refusalJudgedAnswer('rosettaCancel', 'jobNotOpen', `this job is ${job.status}; there is nothing to cancel, and whatever it finished stays fetchable`, { status: job.status }));
+			done('', refusalJudgedAnswer('rosettaCancel', 'jobNotOpen', reasonOf('jobNotOpen'), { status: job.status }));
 			return;
 		}
 		jobStore.requestCancel(job.jobRefId, (cancelError, wasChanged) => {
@@ -400,7 +394,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 	const withinOwnCap = (actionName, action) => (actionArgs, done) => {
 		const capLane = capLaneList.find((oneLane) => oneLane.isAnonymousLane === (actionArgs.principal.kind === ANONYMOUS_PRINCIPAL_KIND));
 		if (capLane.inFlightCount >= judgedValues[capLane.maxInFlightSettingName]) {
-			const busyReason = templateFilled(judgedSettings.jobServiceBusyReason, { inFlightCount: capLane.inFlightCount, retryAfterSeconds: judgedValues.jobServiceBusyRetrySeconds });
+			const busyReason = reasonOf('jobServiceBusy', { inFlightCount: capLane.inFlightCount, retryAfterSeconds: judgedValues.jobServiceBusyRetrySeconds });
 			done('', { ...refusalJudgedAnswer(OPERATION_NAME_BY_JOB_ACTION_NAME[actionName], 'jobServiceBusy', busyReason), retryAfterSeconds: judgedValues.jobServiceBusyRetrySeconds });
 			return;
 		}

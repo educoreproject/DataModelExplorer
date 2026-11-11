@@ -4,6 +4,8 @@
 //   THE PARSER INTERFACE: parser({ submittedDocument, parserLimitValues }) → { fieldList, unresolvedRefList, unresolvedContextList, notWalkedList } | { refusal: { refusalName, reason, ...} }
 //   A field is { name, definition?, definitionAbsent?, path?, type?, valueTierNotOffered? }. No parser reads a network, a file or the graph: a remote reference is recorded, never fetched.
 
+const { reasonOf } = require('../rosettaReasonWords');
+
 const isPlainRecord = (candidate) => candidate !== null && typeof candidate === 'object' && !Array.isArray(candidate);
 const isUsableText = (candidate) => typeof candidate === 'string' && candidate.trim() !== '';
 
@@ -19,7 +21,7 @@ const isDeeperThan = (documentPart, depthCap, currentDepth = 1) => {
 };
 
 const depthRefusalFor = ({ submittedDocument, parserLimitValues }) => (isDeeperThan(submittedDocument, parserLimitValues.maxDocumentDepth)
-	? { refusalName: 'depthExceeded', reason: `the document is nested deeper than ${parserLimitValues.maxDocumentDepth} levels`, maxDepth: parserLimitValues.maxDocumentDepth }
+	? { refusalName: 'depthExceeded', reason: reasonOf('documentTooDeep', { maxDepth: parserLimitValues.maxDocumentDepth }), maxDepth: parserLimitValues.maxDocumentDepth }
 	: null);
 
 // a collector, so the 201st field stops the walk rather than being counted afterwards. add() answers a refusal or null.
@@ -27,24 +29,24 @@ const fieldCollectorFor = (parserLimitValues) => {
 	const fieldList = [];
 	const add = ({ name, definition, path, type, valueTierNotOffered }) => {
 		if (fieldList.length >= parserLimitValues.maxFieldListLength) {
-			return { refusalName: 'maxFieldListLength', reason: `a submission may name ${parserLimitValues.maxFieldListLength} fields, and this one names more; send them in smaller submissions`, maxFieldListLength: parserLimitValues.maxFieldListLength };
+			return { refusalName: 'maxFieldListLength', reason: reasonOf('tooManyFields', { maxFieldListLength: parserLimitValues.maxFieldListLength }), maxFieldListLength: parserLimitValues.maxFieldListLength };
 		}
 		if (!isUsableText(name)) {
-			return { refusalName: 'invalidFieldEntry', reason: `field ${fieldList.length + 1} has no name`, fieldIndex: fieldList.length };
+			return { refusalName: 'invalidFieldEntry', reason: reasonOf('fieldHasNoName', { fieldNumber: fieldList.length + 1 }), fieldIndex: fieldList.length };
 		}
 		const trimmedName = name.trim();
 		if (trimmedName.length > parserLimitValues.maxFieldNameChars) {
-			return { refusalName: 'fieldTextTooLong', reason: `field ${fieldList.length + 1}'s name is ${trimmedName.length} characters; the cap is ${parserLimitValues.maxFieldNameChars}`, fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldNameChars };
+			return { refusalName: 'fieldTextTooLong', reason: reasonOf('fieldNameTooLong', { fieldNumber: fieldList.length + 1, charCount: trimmedName.length, maxLength: parserLimitValues.maxFieldNameChars }), fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldNameChars };
 		}
 		const trimmedDefinition = isUsableText(definition) ? definition.trim() : '';
 		if (trimmedDefinition.length > parserLimitValues.maxFieldDefinitionChars) {
-			return { refusalName: 'fieldTextTooLong', reason: `the definition of field ${fieldList.length + 1} (${trimmedName}) is ${trimmedDefinition.length} characters; the cap is ${parserLimitValues.maxFieldDefinitionChars}`, fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldDefinitionChars };
+			return { refusalName: 'fieldTextTooLong', reason: reasonOf('fieldDefinitionTooLong', { fieldNumber: fieldList.length + 1, fieldName: trimmedName, charCount: trimmedDefinition.length, maxLength: parserLimitValues.maxFieldDefinitionChars }), fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldDefinitionChars };
 		}
 		if (path !== undefined && String(path).length > parserLimitValues.maxFieldPathChars) {
-			return { refusalName: 'fieldTextTooLong', reason: `the path of field ${fieldList.length + 1} (${trimmedName}) is ${String(path).length} characters; the cap is ${parserLimitValues.maxFieldPathChars}`, fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldPathChars };
+			return { refusalName: 'fieldTextTooLong', reason: reasonOf('fieldPathTooLong', { fieldNumber: fieldList.length + 1, fieldName: trimmedName, charCount: String(path).length, maxLength: parserLimitValues.maxFieldPathChars }), fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldPathChars };
 		}
 		if (type !== undefined && String(type).length > parserLimitValues.maxFieldPathChars) {
-			return { refusalName: 'fieldTextTooLong', reason: `the type of field ${fieldList.length + 1} (${trimmedName}) is ${String(type).length} characters; the cap is ${parserLimitValues.maxFieldPathChars}`, fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldPathChars };
+			return { refusalName: 'fieldTextTooLong', reason: reasonOf('fieldTypeTooLong', { fieldNumber: fieldList.length + 1, fieldName: trimmedName, charCount: String(type).length, maxLength: parserLimitValues.maxFieldPathChars }), fieldIndex: fieldList.length, maxLength: parserLimitValues.maxFieldPathChars };
 		}
 		fieldList.push({
 			name: trimmedName,
