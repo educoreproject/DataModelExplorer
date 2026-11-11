@@ -1,0 +1,1131 @@
+{
+	"capturedAt": "2026-11-11T23:15:08.512Z",
+	"graphName": "GOLD_261030_useCases",
+	"capturedBy": "runs/meaningsClarity/captureWalkFixture.js",
+	"domainLevel": {
+		"node": {
+			"stableId": "meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+			"name": "Individualized Program Accessibility Feature",
+			"kind": "meaningDomain",
+			"hubName": "CEDS",
+			"standardFamily": "CEDS",
+			"description": "Information about an accessibility feature specified as part of an individualized program such as a screen reader or spoken instructions for a visually impaired student.",
+			"meaningCount": 4,
+			"mappedMeaningCount": 3,
+			"termMeaningCount": 1,
+			"incomingMeaningCount": 1,
+			"nativeId": {
+				"cedsId": "C200159"
+			},
+			"meaningFacts": {
+				"hubName": "CEDS",
+				"isMeaningDomain": true,
+				"takesPartCount": 54,
+				"meaningsWalkPathStableIdList": [
+					"meanings:all",
+					"meaningHub:CEDS",
+					"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+				],
+				"sectionList": [
+					{
+						"sectionName": "propertyMeanings",
+						"meaningCount": 4,
+						"mappedMeaningCount": 3,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+						]
+					},
+					{
+						"sectionName": "valueMeanings",
+						"meaningCount": 48,
+						"groupList": [
+							{
+								"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33",
+								"name": "Has Accessibility Feature Type",
+								"meaningCount": 48,
+								"elementCount": 0,
+								"meaningsWalkPathStableIdList": [
+									"meanings:all",
+									"meaningHub:CEDS",
+									"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+									"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33"
+								]
+							}
+						],
+						"unplacedMeaningCount": 0,
+						"unplacedMeaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+						],
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33"
+						]
+					},
+					{
+						"sectionName": "namingMeanings",
+						"meaningCount": 1,
+						"groupList": [
+							{
+								"ownDomainStableId": "https://w3id.org/CEDStandards/terms/C200157",
+								"ownDomainName": "Individualized Program",
+								"slotName": "range",
+								"meaningCount": 1,
+								"holderCardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8eeeedd98dd7069e65d50b58412f2de40ad9de27744fda81c4e5d6804a2ea123",
+								"holderName": "Has Individualized Program Accessibility Feature",
+								"holderIncludedCount": 1,
+								"holderValueCount": 0,
+								"meaningsWalkPathStableIdList": [
+									"meanings:all",
+									"meaningHub:CEDS",
+									"meaningDomain:https://w3id.org/CEDStandards/terms/C200157",
+									"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8eeeedd98dd7069e65d50b58412f2de40ad9de27744fda81c4e5d6804a2ea123"
+								]
+							}
+						],
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+						]
+					},
+					{
+						"sectionName": "ownTerm",
+						"meaningCount": 1,
+						"termList": [
+							{
+								"cardStableId": "https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b",
+								"name": "Individualized Program Accessibility Feature",
+								"meaningsWalkPathStableIdList": [
+									"meanings:all",
+									"meaningHub:CEDS",
+									"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+									"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b"
+								]
+							}
+						],
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b"
+						]
+					},
+					{
+						"sectionName": "mappedTo",
+						"meaningCount": 0,
+						"meaningsWalkPathStableIdList": null
+					}
+				],
+				"lineList": [
+					{
+						"lineName": "propertyMeanings",
+						"depth": 0,
+						"lineText": "As the domain of property meanings",
+						"meaningCount": 4,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+						]
+					},
+					{
+						"lineName": "valueMeanings",
+						"depth": 0,
+						"lineText": "As the domain of value meanings",
+						"meaningCount": 48,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33"
+						]
+					},
+					{
+						"lineName": "valueGroup",
+						"lineText": "under Has Accessibility Feature Type",
+						"meaningCount": 48,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33"
+						],
+						"depth": 1
+					},
+					{
+						"lineName": "namingMeanings",
+						"depth": 0,
+						"lineText": "Named by meanings of other domains",
+						"meaningCount": 1,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159"
+						]
+					},
+					{
+						"lineName": "namingGroup",
+						"lineText": "in Individualized Program · Has Individualized Program Accessibility Feature · as its range",
+						"meaningCount": 1,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200157",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8eeeedd98dd7069e65d50b58412f2de40ad9de27744fda81c4e5d6804a2ea123"
+						],
+						"depth": 1
+					},
+					{
+						"lineName": "ownTerm",
+						"depth": 0,
+						"lineText": "As its own term",
+						"meaningCount": 1,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b"
+						]
+					},
+					{
+						"lineName": "ownTermCard",
+						"lineText": "Individualized Program Accessibility Feature",
+						"meaningCount": 1,
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b"
+						],
+						"depth": 1
+					}
+				]
+			},
+			"uriAbsentName": "uriServiceNotReady"
+		},
+		"ancestorList": [],
+		"childGroupList": [
+			{
+				"relationshipType": "HAS_MEANING",
+				"count": 4,
+				"truncated": false,
+				"itemList": [
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33",
+						"name": "Has Accessibility Feature Type",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The type of design elements or functionalities integrated into products, services, or environments to ensure equitable access for all individuals, aiming to eliminate barriers and facilitate ease of use.",
+						"hasChildren": true,
+						"referenceTier": "property",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"valueMeaningCount": 48,
+						"valueElementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e0a3a498b237f3c09dbc815407e46397b0f0061565820de5c48c7840e5631a1a",
+						"name": "Has Individualized Program Accessibility Feature Subject",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "References an academic subject for which an individualized program accessibility feature applies.",
+						"hasChildren": true,
+						"referenceTier": "property",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Individualized Program Accessibility Feature Subject",
+						"elementCount": 2,
+						"valueMeaningCount": 0,
+						"valueElementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/13512d7dfe11ea1dadd66a21ed9b45fa482d111e64f35a8dce9d8eb5c01a7135",
+						"name": "Individualized Program Accommodation Applicability",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Circumstances in which the accommodation or change to standards or practices will be applied.",
+						"hasChildren": true,
+						"referenceTier": "property",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "string",
+						"elementCount": 2,
+						"valueMeaningCount": 0,
+						"valueElementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/081f419a31af5c734c4cde11e3e57f1a2e73bcd8af245c8ffc7ab6e510fc05ad",
+						"name": "Individualized Program Accommodation Description",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Description of a specific accommodation or change to standards or practices that will be made.",
+						"hasChildren": true,
+						"referenceTier": "property",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "string",
+						"elementCount": 17,
+						"valueMeaningCount": 0,
+						"valueElementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					}
+				]
+			},
+			{
+				"relationshipType": "HAS_TERM_MEANING",
+				"count": 1,
+				"truncated": false,
+				"itemList": [
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/500e5cb6c6a85f66de9b425f8d2a4917ea6591fd22fde447115f2586108c8e3b",
+						"name": "Individualized Program Accessibility Feature",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Information about an accessibility feature specified as part of an individualized program such as a screen reader or spoken instructions for a visually impaired student.",
+						"hasChildren": true,
+						"referenceTier": "term",
+						"termKind": "class",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					}
+				]
+			},
+			{
+				"relationshipType": "HAS_INCOMING_MEANING",
+				"count": 1,
+				"truncated": false,
+				"itemList": [
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8eeeedd98dd7069e65d50b58412f2de40ad9de27744fda81c4e5d6804a2ea123",
+						"name": "Has Individualized Program Accessibility Feature",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "References information about an accessibility feature specified as part of an individualized program such as a screen reader or spoken instructions for a visually impaired student.",
+						"hasChildren": true,
+						"referenceTier": "property",
+						"hubDomainName": "Individualized Program",
+						"rangeName": "Individualized Program Accessibility Feature",
+						"elementCount": 1,
+						"incomingSlotNameList": [
+							"range"
+						],
+						"meaningsWalkPathStableIdList": [
+							"meanings:all",
+							"meaningHub:CEDS",
+							"meaningDomain:https://w3id.org/CEDStandards/terms/C200157",
+							"meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8eeeedd98dd7069e65d50b58412f2de40ad9de27744fda81c4e5d6804a2ea123"
+						],
+						"uriAbsentName": "uriServiceNotReady"
+					}
+				]
+			}
+		],
+		"mappingList": []
+	},
+	"hubLevelCut": {
+		"node": {
+			"stableId": "meaningHub:CEDS",
+			"name": "CEDS",
+			"kind": "meaningHub",
+			"hubName": "CEDS",
+			"standardFamily": "CEDS",
+			"description": "Common Education Data Standards",
+			"domainCount": 402,
+			"meaningCount": 2777
+		},
+		"ancestorList": [],
+		"childGroupList": [
+			{
+				"relationshipType": "HAS_MEANING_DOMAIN",
+				"count": 402,
+				"truncated": false,
+				"itemList": [
+					{
+						"stableId": "meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+						"name": "Individualized Program Accessibility Feature",
+						"kind": "meaningDomain",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Information about an accessibility feature specified as part of an individualized program such as a screen reader or spoken instructions for a visually impaired student.",
+						"hasChildren": true,
+						"meaningCount": 4,
+						"mappedMeaningCount": 3,
+						"termMeaningCount": 1,
+						"incomingMeaningCount": 1,
+						"nativeId": {
+							"cedsId": "C200159"
+						},
+						"uriAbsentName": "uriServiceNotReady"
+					}
+				]
+			}
+		],
+		"mappingList": []
+	},
+	"valueLevel": {
+		"node": {
+			"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/12394792602ce6bc43085ce94bcee975754884315c9bcdd8cd2f2a6484689d33",
+			"name": "Has Accessibility Feature Type",
+			"kind": "meaning",
+			"hubName": "CEDS",
+			"standardFamily": "CEDS",
+			"description": "The type of design elements or functionalities integrated into products, services, or environments to ensure equitable access for all individuals, aiming to eliminate barriers and facilitate ease of use.",
+			"hasChildren": true,
+			"referenceTier": "property",
+			"hubDomainName": "Individualized Program Accessibility Feature",
+			"rangeName": "Accessibility Feature Type",
+			"elementCount": 0,
+			"hubVersion": "14.0.0.0",
+			"meaningGroup": {
+				"stableId": "meaningHub:CEDS",
+				"name": "CEDS"
+			},
+			"meaningDomain": {
+				"stableId": "meaningDomain:https://w3id.org/CEDStandards/terms/C200159",
+				"name": "Individualized Program Accessibility Feature",
+				"uriAbsentName": "uriServiceNotReady"
+			},
+			"tuple": {
+				"domain": {
+					"kind": "class",
+					"nativeId": {
+						"cedsId": "C200159"
+					},
+					"label": "Individualized Program Accessibility Feature",
+					"uriAbsentReason": "uriServiceNotReady"
+				},
+				"property": {
+					"kind": "property",
+					"nativeId": {
+						"cedsId": "P000385"
+					},
+					"label": "Has Accessibility Feature Type",
+					"uriAbsentReason": "uriServiceNotReady"
+				},
+				"range": {
+					"kind": "optionSet",
+					"nativeId": {
+						"cedsId": "OS000385"
+					},
+					"label": "Accessibility Feature Type",
+					"uriAbsentReason": "uriServiceNotReady"
+				}
+			},
+			"rangePartList": [
+				{
+					"kind": "optionSet",
+					"nativeId": {
+						"cedsId": "OS000385"
+					},
+					"label": "Accessibility Feature Type",
+					"uriAbsentReason": "uriServiceNotReady"
+				}
+			],
+			"rangeIsIdentity": true,
+			"rangeDatatypeList": [],
+			"expressionCount": 0,
+			"expressionsTruncated": false,
+			"expressionGroupItemCap": 500,
+			"expressedInGroupList": [],
+			"valueMeaningCount": 48,
+			"valueElementCount": 0,
+			"uriAbsentName": "uriServiceNotReady"
+		},
+		"ancestorList": [],
+		"childGroupList": [
+			{
+				"relationshipType": "HAS_VALUE_MEANING",
+				"count": 48,
+				"truncated": false,
+				"itemList": [
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/1eee7c6df729ad1c568f085230a08d40b33973dbee4b4ff4b5c3b7e0c335964d",
+						"name": "Adaptive and specialized equipment or furniture",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Furniture or equipment used to address physical or sensory needs.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/9ebaf4ea967ffbb051a9d0b2e2d45fa93a3db93782be0e127f203fd7e71c9482",
+						"name": "Adaptive calculator",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A specialized calculator designed to accommodate users with diverse needs, such as visual impairments or motor difficulties, by customizing its interface and functionality to enhance accessibility and usability.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7660a74916857a2352a5aa7db77a6a24e08d5c77d278b27c589ed29fe7eb2439",
+						"name": "Alternate response option",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "An alternate method for providing a response.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/31245206a99dfa090e84c3313acdbaa6463269746c082f2aeb39064e13ecf507",
+						"name": "Alternative text",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Scripted statements describing graphics and images (e.g., tables, charts, graphs, timelines, photos, and illustrations).",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2759b066f56702a56c7e1b515b6586c9dc80d2ffc55309c6803c5bf7814967ad",
+						"name": "Amplification",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The ability to adjust the volume control beyond standard volume using other non-embedded devices including, but not limited to, assistive technology, personal hearing aids, or FM systems",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/33b4ee6754a584a5b880342e82a714cc081d8088a911449c2ac62907cdc8d8c3",
+						"name": "Assessment Refocus",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Redirecting the individual's focus during the assessment ensuring that such redirections do not suggest revisiting a prior item or imply potential errors.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c31e1ef2bc616b5d16f5f510d69fab9a64ef17f5ccc977c0b5be6d5c41e3296a",
+						"name": "Assessment countdown timer",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A timer which shows the time allowed for the assessment and counts down when the administration starts.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/64aeff90c9b8b0039841dabd108b423c2285f998fc2b9b0bac85b15e947ff365",
+						"name": "Assessment extended time",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Additional time to complete an assessment beyond the standard time allotment.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3a59c55b1cfa4a6419144101057d7b754a57c3e7b665fa2026600acb7e6ae28e",
+						"name": "Assessment multiple days",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Assessment activities are completed over multiple days without extending the time available to complete the assessment.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5292c7594a915f2b2366d238176a848526b07eb4cb8531739670741862054298",
+						"name": "Assessment time of day",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Altering the schedule for administering assessments to the time of day optimal for the individual's needs.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/df675681562ac7f5f3f549dd766d3bb736aae8f9164466e96465e815a14259b3",
+						"name": "Auditory calming",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The use of auditory stimuli to promote relaxation and reduce stress or anxiety.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/47cc0ddb4ff7b2d72ab1cfe06e863afc3b50dddc3a37e008a89d8edc6178fd31",
+						"name": "Bilingual dictionary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A comprehensive dictionary containing definitions and contextual information in two languages that may contain construct-relevant terms.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/edfe8f725bdd81b2ee437e57306b0e3bd1b4a58039e7011de4fa355086c38f4a",
+						"name": "Bilingual glossary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A collection of grade and context appropriate definitions of specific construct-irrelevant terms provided in two languages.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5e2debe03b105ba934932aa2e3b7e16e3dd2b971be907e6187f7f3b0c6896348",
+						"name": "Braille",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Braille code is a tactile system of raised dots that enables a person to read through touch.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/42f2ccecc08b492d202769e2c2163d1e2d0449db2114b9545f70f06d8e52bbc3",
+						"name": "Breaks",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A pause allowing the individual to temporarily suspend activities.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/8c91ced711438b18b1d6b0f96a09e5b13ded3a1bdfd1542b21080af1b2e28753",
+						"name": "Calculator",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "An electronic device or software that performs mathematical calculations.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5dd1edee79df445ce2c8ce81021e483e1cf593c8333ca1ce79dd160831be1a3a",
+						"name": "Closed captioning",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Text-based transcriptions of dialogue, sounds, and relevant audio cues that are synchronized with a video or audio content.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/082d98c6e56c6c08a436ed1c8f0b6ccb733a252f47ee22c953b828c5972fceb6",
+						"name": "Display Format Adjustment",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Content is presented in a streamlined, stacked, or simplified format.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ac909e3a1add0e22ff84cc8304b4c57fddfc150b3c0e51fb6639e17a6becc86a",
+						"name": "English dictionary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A comprehensive dictionary containing definitions and contextual information in English that may contain construct-relevant terms.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/e5aafc3a168e1c43f7a41a0d01980e5e19d5c371e24de09807815c9a35990681",
+						"name": "English glossary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A collection of grade and context appropriate definitions of specific construct-irrelevant terms in English.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f8e76ccb150fd1d9ede82a37b17f94e227d68297ac2d4012ea5db0c117ea420f",
+						"name": "Group size",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "An adjustment to the number of individuals in the setting.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/d3f44c7e72dba961764ac34675c250634a041e2b24c6706979afe7a62266c1c3",
+						"name": "Highlighter",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A tool for marking desired text.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/ef450252a8e856c49028dfec66028c544311a3dd9bb69b09ec6e2ae293ca715a",
+						"name": "Illustration glossaries",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A collection of key terms, concepts, or subjects accompanied by illustrative visuals, such as images, diagrams, or graphics. It is designed to enhance understanding and learning by combining written definitions with visual representations, making complex or abstract ideas more accessible and engaging.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/017c835ea91585fdbf53f4befc9ec7d5bf0dccbef6cbc57c3827368bc5d9a1ff",
+						"name": "Large print paper assessment booklet",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A larger size version of a paper- based assessment that increases the font size, illustrations, and other test elements.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5628cba339f3e9e137b3ee1666bb2df91e03998998dbe2c49198c88e261ba904",
+						"name": "Line guide",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A tool used to emphasize a line of text.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/492115f82e564f9c8cbb636a9f7ce6c718f97db47a21f9c227198831c03d29f7",
+						"name": "Masking",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A tool used to cover the text above and below the line or lines that the individual is reading, so that only one line or lines of text is visible at a time.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/21a9e2751179cb3ff7d64f046746ff20fcc9c737644a231abddc322d0f3a0692",
+						"name": "Medical supports",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Support for a person with a medical condition.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/2b24b334db22a9ec7f59d33005c6ea3dfc385b99ace71dad2a03e75e6b7aa4fa",
+						"name": "Noise canceling",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Equipment used to block external sounds and reduce distractions.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/84421affa2dc10536d1d80fe093c1c3a91be71edffc6afb1f07730901de9b755",
+						"name": "Other",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The type of design elements or functionalities integrated into products, services, or environments to ensure equitable access for all individuals, aiming to eliminate barriers and facilitate ease of use is an option not yet defined in CEDS.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/727a530fb9fff26ffb5b9f8d3a4a021c905f25aca6f05c1088227f16b4965ca3",
+						"name": "Read aloud",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Text is read aloud to the individual.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/b4394be3fc49de209da1bc5fb5e715fd2a0cfd4f185180c309e0b9a669169aed",
+						"name": "Read aloud to self",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The individual may read content aloud to themselves, with or without a device.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7e05e0acec4c28eb227fb53199f301c1917b6e27898f6e8acddf6ebe8910dd16",
+						"name": "Reference sheet",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A structured document specifically designed for providing reference materials, such as multiplication tables, periodic tables, etc.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/47b5603e0e1ad089baaea691b4e89802b80783df3471aac7856986a9179334a2",
+						"name": "Repeat test directions",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The individual being assessed may request that the test administrator repeat test directions prior to beginning the actual test items.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a5a83e0d8d5a7374156078519a85a82f9ad61dc64c5d8a6a959e3e1f3946e052",
+						"name": "Screen reader",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A technology tool that describes what is being displayed on the screen (e.g., text, images), converting the content into audio or braille output.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/eb642214f240ee3a8c64820be3a01a33e60a90cfb3986016babb77f64e3e7fab",
+						"name": "Setting",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "An adjustment in the environment based on individual needs.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f4737cdf3e9a42048ba5e4048b5f66f9c80de75a977ee27ae88a2af4e576bd4c",
+						"name": "Signed administration",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Content is presented via a form of sign language.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/cb2cc2f5485c19443cbab973c54beb77416101284e8d09747ddd0f2108ee4801",
+						"name": "Simplified test directions",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Test directions, provided prior to beginning the test, are simplified or clarified.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/15705086670d561708360b86383f4c0cd9f3de82b4efb3476d1684223a9290a1",
+						"name": "Specific test administrator",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A designated test administrator.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/c601a7ba025ea9bdd85f19954bd16dc15b4136dd1e4cf844764b224ce92ac509",
+						"name": "Strikethrough",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A tool to visually mark or cancel out text.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4658142b704358d457c8a9a2221d62e194db0a7c1a7b5c546342a2a467c3531e",
+						"name": "Tactile graphics",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Tactile graphics convey non-textual information through touch. These may include tactile representations of pictures, maps, graphs, diagrams and other images.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/278fbc10d3334bb2de2d8e6c9790c35b398bac7552b7b00b39b123bb11eb5122",
+						"name": "Tactile symbols",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A static communication form that conveys concepts through touch, encompassing tactile objects, symbols, or manipulatives used to support assessment or instructional content.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/3d01a888100df422b6a9a70e8d91e705d2aa4c195d2425ffcc3046a320333af5",
+						"name": "Thesaurus",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A thesaurus contains synonyms of words.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/7a063667a067294e7815bb922991d38380a7e35692b1f3dd0368d11d218d1b41",
+						"name": "Translation",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Converting text or speech from one language into another.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/a6a650582e5e27ba3248de04ba56f35ac13fdc50bae59dbc71fe2631fbf488a2",
+						"name": "Turn off any universal tools",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "Deactivating one or more universal tools the individual does not require, is unable to use, or could potentially cause distraction.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/4b8e6d393f96c8891c73da0345e6ff054c23ade8bbca1f3cd5856e308ed456cc",
+						"name": "Unlimited replays",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The individual is allowed to replay multimedia components an unlimited number of times.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/21f09222b9e2fa2a272ec967b804831f3004db35f1f4bbe38c4a17a8490c65a8",
+						"name": "Unlimited rerecording",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "The individual is allowed to re-record responses an unlimited number of times.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/f303c28214414a060f1650075268e153158f208005357a634281ca6b4b4ca540",
+						"name": "Word to word bilingual dictionary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A comprehensive collection of individual words or short phrases translated in two languages that may contain construct-relevant terms.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					},
+					{
+						"stableId": "meaning:https://w3id.org/EDUcore/CEDStandards/hub/14.0.0.0/5582e3945f28f4f6728c1ef965b36e28c87f99c6212e39d604762f262ed55135",
+						"name": "Word to word bilingual glossary",
+						"kind": "meaning",
+						"hubName": "CEDS",
+						"standardFamily": "CEDS",
+						"description": "A collection of construct-irrelevant individual words or short phrases translated in two languages.",
+						"hasChildren": true,
+						"referenceTier": "value",
+						"hubDomainName": "Individualized Program Accessibility Feature",
+						"rangeName": "Accessibility Feature Type",
+						"elementCount": 0,
+						"uriAbsentName": "uriServiceNotReady"
+					}
+				]
+			}
+		],
+		"mappingList": []
+	}
+}

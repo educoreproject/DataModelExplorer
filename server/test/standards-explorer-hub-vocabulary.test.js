@@ -28,7 +28,9 @@ const ok = (testName, condition, detailText) => {
 // the module source, optionally mutated, written as .mjs so node imports it as an ES module
 const importVocabularyFrom = (sourceText, fileTag) => {
 	const temporaryFilePath = path.join(os.tmpdir(), `explorerVocabulary-${process.pid}-${fileTag}.mjs`);
-	fs.writeFileSync(temporaryFilePath, sourceText);
+	// ⟪meaningsClarity⟫ the vocabulary imports its two neighbours, the shared wording and walk-path modules; the temporary copy imports the real ones
+	const neighbourUrlOf = (fileName) => require('url').pathToFileURL(path.join(path.dirname(vocabularyFilePath), fileName)).href;
+	fs.writeFileSync(temporaryFilePath, sourceText.replace("from './sharedWording.js'", `from '${neighbourUrlOf('sharedWording.js')}'`).replace("from './sharedWalkPath.js'", `from '${neighbourUrlOf('sharedWalkPath.js')}'`));
 	return import(temporaryFilePath).then((vocabularyModule) => {
 		fs.unlinkSync(temporaryFilePath);
 		return vocabularyModule;

@@ -11,7 +11,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { OWN_TERM_RELATIONSHIP_TYPE, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { INCOMING_MEANING_RELATIONSHIP_TYPE, OWN_TERM_RELATIONSHIP_TYPE, incomingSlotTextOf, meaningExpressionTextOf, meaningValuesTextOf, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	meaningNode: { type: Object, required: true },
@@ -59,6 +59,15 @@ const shownExpressionCount = computed(() => expressedInGroupList.value.reduce((s
 const expressionsCappedText = computed(() => wordingOf(sectionWords.expressionsCappedTemplate, { shownCount: shownExpressionCount.value, expressionCount: props.meaningNode.expressionCount, groupItemCap: props.meaningNode.expressionGroupItemCap }));
 const openNoteText = computed(() => (props.meaningNode.elementCount ? wordingOf(sectionWords.openNoteExpressedTemplate, { elementCountText: meaningElementCountTextOf(props.meaningNode.elementCount) }) : '') + sectionWords.openNoteText);
 
+// ⟪meaningsClarity⟫ the values a property meaning holds ("48 values inside"; and, when nothing maps to it but something maps to its values, that); for a meaning of
+// another domain listed here, why it is here ("names this as its range")
+const valuesFactText = computed(() => {
+	const valuesText = meaningValuesTextOf(props.meaningNode);
+	if (!valuesText) return '';
+	return [valuesText, !props.meaningNode.elementCount && props.meaningNode.valueElementCount ? meaningExpressionTextOf(props.meaningNode) : ''].filter(Boolean).join(meaningsVocabulary.countPartDivider);
+});
+const incomingFactText = computed(() => (props.meaningNode.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE ? incomingSlotTextOf(props.meaningNode) : ''));
+
 // its domain as the walk reaches it from the top: the catalog, the meaning's group, then the domain
 const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStableId, props.meaningNode.meaningGroup.stableId, props.meaningNode.meaningDomain.stableId]));
 </script>
@@ -72,6 +81,14 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 			<template v-if="meaningNode.meaningDomain && meaningNode.meaningGroup">
 				<dt>{{ kindDisplayNameOf('meaningDomain', meaningNode.hubName) }}</dt>
 				<dd><NuxtLink :to="domainLink" data-testid="meaning-domain-link">{{ meaningNode.meaningDomain.name }}</NuxtLink></dd>
+			</template>
+			<template v-if="valuesFactText">
+				<dt>{{ sectionWords.valuesFactName }}</dt>
+				<dd data-testid="meaning-values">{{ valuesFactText }}</dd>
+			</template>
+			<template v-if="incomingFactText">
+				<dt>{{ sectionWords.incomingFactName }}</dt>
+				<dd data-testid="meaning-incoming">{{ incomingFactText }}</dd>
 			</template>
 		</dl>
 
@@ -87,6 +104,8 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 						<a v-if="oneSlot.uri" :href="oneSlot.uri" target="_blank" rel="noopener" class="meaning-slot-label">{{ oneSlot.label }}</a>
 						<span v-else class="meaning-slot-label" :title="oneSlot.uriAbsentReason">{{ oneSlot.label }}</span>
 						<span class="meaning-slot-kind" data-testid="meaning-slot-detail">{{ oneSlot.detailText }}</span>
+						<!-- ⟪meaningsClarity Addendum C #6⟫ the part's URI as visible text, as the Rosetta report prints it -->
+						<span v-if="oneSlot.uri" class="meaning-slot-uri" data-testid="meaning-slot-uri">{{ oneSlot.uri }}</span>
 					</li>
 				</ul>
 				<details v-if="rangeDisclosureList.length || (meaningNode.rangeIsIdentity === false && rangeDatatypeList.length)" class="meaning-ranges" data-testid="meaning-ranges">
@@ -202,6 +221,12 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 .meaning-slot-kind {
 	font-size: 12px;
 	color: #6b7280;
+}
+.meaning-slot-uri {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	color: #374151;
+	overflow-wrap: anywhere;
 }
 .meaning-ranges summary,
 .meaning-group summary {

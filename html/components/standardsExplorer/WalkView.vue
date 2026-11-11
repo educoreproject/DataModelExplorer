@@ -18,7 +18,7 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, walkPathOf, walkProfileOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	// the Standards Explorer's page passes none; any other walk names itself
@@ -47,14 +47,43 @@ watch(
 	{ immediate: true },
 );
 
+// ⟪meaningsClarity⟫ THE LEVEL'S FILTER LIVES IN ITS URL (walkFilterVocabulary): the URL's text is the box's on every visit, so a move to another level (whose URL
+// carries none) clears it, and Back or Forward to a level brings its own text back. A URL carrying the parameter twice reads as its first text (⟪review S2⟫).
+const FILTER_QUERY_NAME = walkFilterVocabulary.walkFilterQueryName;
+watch(
+	() => route.query[FILTER_QUERY_NAME],
+	() => store.setFilterText(walkFilterTextOfRouteQuery(route.query)),
+	{ immediate: true },
+);
+// what is typed goes into this level's own URL, replacing it (typing is not a move, so it adds no history entry); the URL then says what the box says
+watch(
+	() => store.filterText,
+	(filterText) => {
+		if (walkFilterTextOfRouteQuery(route.query) === filterText) return;
+		const { [FILTER_QUERY_NAME]: replacedFilterText, ...otherQueryByName } = route.query;
+		router.replace({ path: route.path, query: { ...otherQueryByName, ...walkRouteQueryOf({ pathStableIdList: pathStableIdListOf(route.query.path), filterText }) } });
+	},
+);
+
+// ⟪meaningsClarity Addendum C #12⟫ a meaning reached by a deep link gets its hub and domain crumbs: the URL is rewritten in place to the meaning's whole path,
+// which its own answer names (meaningFullPathOf), so the person can climb up
+watch(
+	() => store.focusNode,
+	(focusNode) => {
+		const fullPathStableIdList = meaningFullPathOf({ pathStableIdList: store.pathStableIdList, focusNode });
+		if (fullPathStableIdList) router.replace({ path: route.path, query: { ...route.query, path: pathTextOf(fullPathStableIdList) } });
+	},
+);
+
 // ================================================================================
-// NAVIGATION — every move is a new ?path=, so back and forward work
+// NAVIGATION — every move is a new ?path=, so back and forward work; a move carries no filter, so it clears the box (⟪meaningsClarity⟫)
 
-const goToPath = (pathStableIdList) => router.push({ path: route.path, query: { path: pathTextOf(pathStableIdList) } });
+const goToPath = (pathStableIdList) => router.push({ path: route.path, query: walkRouteQueryOf({ pathStableIdList, filterText: '' }) });
 
+// ⟪meaningsClarity⟫ one step into a row: below this level, or, for a row that lives elsewhere (an incoming meaning), to it in its own place (store.drillPathOf)
 const drillInto = (stableId) => {
 	if (!stableId) return;
-	goToPath([...store.pathStableIdList, stableId]);
+	goToPath(store.drillPathOf(stableId));
 };
 
 
@@ -122,6 +151,8 @@ useHead(() => ({
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
 				<StandardsExplorerStateNotice v-else-if="showError" :state-name="store.walkProfile.showsRefusalsByName && store.statusIsRefusal ? 'refusal' : 'error'" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
+					<StandardsExplorerLevelProse v-if="store.walkProfile.showsLevelProse && store.effectiveViewMode !== 'schema'" />
+					<StandardsExplorerFilterNotice v-if="store.filterUnmatchedRowCount > 0 && store.effectiveViewMode !== 'schema'" />
 					<v-alert
 						v-if="store.isLargeLevel && store.effectiveViewMode === 'table'"
 						type="info"

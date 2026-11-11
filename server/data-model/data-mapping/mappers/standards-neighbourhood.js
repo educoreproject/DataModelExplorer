@@ -42,7 +42,8 @@ const GROUP_ITEM_CAP = 500;
 const MATCH_EDGE_TYPE_TEXT = 'EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH';
 // ⟪ctdlHub P7⟫ an anchor reaches its property and domain through its OWN hub's slot edges (they were HAS_CEDS_PROPERTY /
 // HAS_CEDS_DOMAIN): the card names its hub, so no literal.
-const { cardHubSlotEdgeTypeTextFor, hubEdgeTypeFor, hubSlotEdgeTypeList } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const { cardHubSlotEdgeTypeTextFor, hubEdgeTypeFor, hubSlotEdgeTypeList, HUB_DECOMPOSITION_SLOT_LIST } = require('../../../../cli/lib.d/data-model-explorer/lib/toolPayloadContract');
+const hubCardTupleRules = require('../../../lib/standards-query/hubCardTupleRules.json');
 const { nativeIdentifierCypherTextFor } = require('../../../../cli/lib.d/data-model-explorer/lib/nativeIdentifier');
 const anchorPropertySlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'PROPERTY');
 const anchorDomainSlotTextFor = (anchorVariableName) => cardHubSlotEdgeTypeTextFor(anchorVariableName, 'DOMAIN');
@@ -201,6 +202,37 @@ const meaningRowTextFor = (cardVariableName) => `{ cardStableId: ${cardVariableN
 	domainName: ${cardVariableName}.domainName, qualifierNameList: coalesce(${cardVariableName}.qualifierNames, []),
 	rangeName: coalesce(${cardVariableName}.rangeOptionSetName, ${cardVariableName}.rangeClassName, ${cardVariableName}.rangeDatatype),
 	mappedElementCount: ${cardMappedElementCountTextFor(cardVariableName)} }`;
+
+// ⟪meaningsClarity⟫ A PROPERTY MEANING'S VALUE MEANINGS: the value cards of the same domain, property, range and qualifiers. One rule, read by the meaning's own level
+// (valueMeaningsByCardStableId, which lists them), by its domain's level (meaningsByDomainStableId, which counts them on its row) and by an /edc element page
+// (valueMeaningGroupsByDomainStableId, its "as the domain of value meanings" lines). The property card, its domain and its DOMAIN edge are bound by the caller;
+// the value card and its DOMAIN edge are introduced here. Prefix OPTIONAL for a count that may be 0. Needs $valueTier.
+// ⟪review S3⟫ the rule is the cards' PROPERTY SIGNATURE: property, range and qualifiers. A value card belongs to the property card of its domain with the same signature
+const propertySignatureTextFor = (cardVariableName) => `[${cardVariableName}.propertyKey, coalesce(${cardVariableName}.rangeOptionSetId, ''), coalesce(${cardVariableName}.qualifierKeys, [])]`;
+const valueCardOfPropertyCardMatchTextFor = ({ cardVariableName, domainVariableName, domainEdgeVariableName, valueCardVariableName }) => `MATCH (${domainVariableName})<-[${valueCardVariableName}DomainEdge]-(${valueCardVariableName}:HubReference)
+	WHERE type(${valueCardVariableName}DomainEdge) = type(${domainEdgeVariableName}) AND ${valueCardVariableName}.referenceTier = $valueTier AND ${propertySignatureTextFor(valueCardVariableName)} = ${propertySignatureTextFor(cardVariableName)}`;
+
+// ⟪meaningsClarity, TQ 2026-11-11: "why do the two things it participates in not in the diagram. Don't they have a relationship to that element?"⟫ AN INCOMING
+// MEANING (a "naming meaning" on an element's page): a meaning of ANOTHER domain that names this element in one of its other slots. Into a domain, on
+// GOLD_261030_useCases, only property meanings do and only as RANGE: 475 such edges into CEDS domains, 77,308 into CTDL's, where one CTDL domain is the range of
+// up to 1,253. Into a property or a code it is every meaning naming it as its property or value. A meaning's own DOMAIN edge is what lists it in its own domain; a
+// meaning naming its own domain again in another slot is already one of that domain's meanings, so it is not counted twice. The walk's domain rows
+// (meaningDomainsByHubName) and every element's meaning facts (elementMeaningFacts.js) read this one rule.
+const INCOMING_SLOT_NAME_LIST = Object.freeze(HUB_DECOMPOSITION_SLOT_LIST.filter((slotName) => slotName !== 'DOMAIN'));
+const incomingCardWhereTextFor = ({ cardVariableName, domainVariableName }) =>
+	`NOT EXISTS { (${cardVariableName})-[${cardVariableName}OwnDomainEdge]->(${domainVariableName}) WHERE type(${cardVariableName}OwnDomainEdge) = ${cardHubSlotEdgeTypeTextFor(cardVariableName, 'DOMAIN')} }`;
+// the incoming slots' edge types of a card's own hub, as a Cypher list (for a query that reads no hub list first)
+const incomingSlotEdgeTypeListTextFor = (cardVariableName) => `[${INCOMING_SLOT_NAME_LIST.map((slotName) => cardHubSlotEdgeTypeTextFor(cardVariableName, slotName)).join(', ')}]`;
+// a slot edge's type in words: HAS_CEDS_RANGE is the 'range' slot (hubCardTupleRules' slotList names each slot); a type it does not name is refused by name
+const SLOT_NAME_BY_EDGE_SLOT_NAME = Object.freeze(hubCardTupleRules.slotList.reduce((soFar, oneSlot) => ({ ...soFar, [oneSlot.edgeSlotName]: oneSlot.slotName }), {}));
+const slotNameOfEdgeTypeFor = ({ hubName, slotEdgeType }) => {
+	const edgeTypePrefix = hubEdgeTypeFor(hubName, '');
+	const slotName = slotEdgeType.indexOf(edgeTypePrefix) === 0 ? SLOT_NAME_BY_EDGE_SLOT_NAME[slotEdgeType.slice(edgeTypePrefix.length)] : undefined;
+	if (!slotName) {
+		throw new Error(`${moduleName}: '${slotEdgeType}' is not a slot edge of hub '${hubName}' (${hubCardTupleRules.slotList.map((oneSlot) => oneSlot.edgeSlotName).join(', ')})`);
+	}
+	return slotName;
+};
 
 // the HubReference tiers a hub property lists as its hub elements. A property-tier anchor is one hub property in
 // one hub domain, the thing standards map to (1,123 of 2,777 carry judgments on GOLD_EVAL_261013_jevQuestionPerBridge);
@@ -534,35 +566,127 @@ const moduleFunction =
 					WITH domain, sum(meaningCount) AS meaningCount, sum(mappedMeaningCount) AS mappedMeaningCount, sum(termMeaningCount) AS termMeaningCount
 					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description, domain._source AS sourceKey,
 					       ${declarationList ? nativeIdentifierCypherTextFor('domain', declarationList) : 'null'} AS nativeIdentifier,
-					       meaningCount, mappedMeaningCount, termMeaningCount
+					       meaningCount, mappedMeaningCount, termMeaningCount,
+					       COUNT { MATCH (domain)<-[:${INCOMING_SLOT_NAME_LIST.map((slotName) => hubEdgeTypeFor(hubName, slotName)).join('|')}]-(incomingCard:HubReference)
+					               WHERE ${incomingCardWhereTextFor({ cardVariableName: 'incomingCard', domainVariableName: 'domain' })} RETURN DISTINCT incomingCard } AS incomingMeaningCount
 					ORDER BY name, stableId
 				`,
 				params: { propertyTier: MEANING_PROPERTY_TIER, termTier: MEANING_TERM_TIER, termKindList: [...meaningTermKindByLevel.meaningDomain] },
 			}),
 
-			// a domain: its own facts and its own term meaning
+			// a domain: its own facts (⟪meaningsClarity⟫ the meanings it takes part in are its meaning facts, lib/edc-resolver/elementMeaningFacts.js)
 			meaningDomainContext: ({ domainStableId, declarationList }) => ({
 				cypher: `
 					MATCH (domain:ForgedNode {stableId: $domainStableId})
 					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description, domain._source AS sourceKey,
 					       ${declarationList ? nativeIdentifierCypherTextFor('domain', declarationList) : 'null'} AS nativeIdentifier,
-					       ${hubNameOfNodeTextFor('domain')} AS hubName, ${anchorStandardFamilyTextFor('domain')} AS standardFamily,
-					       [(domain)<-[termEdge]-(termCard:HubReference) WHERE termCard.referenceTier = $termTier AND termCard.termKind IN $termKindList
-					         AND type(termEdge) = ${cardHubSlotEdgeTypeTextFor('termCard', 'TERM')} | ${meaningRowTextFor('termCard')}] AS termMeaningList
+					       ${hubNameOfNodeTextFor('domain')} AS hubName, ${anchorStandardFamilyTextFor('domain')} AS standardFamily
 				`,
-				params: { domainStableId, termTier: MEANING_TERM_TIER, termKindList: [...meaningTermKindByLevel.meaningDomain] },
+				params: { domainStableId },
 			}),
 
 			// ⟪meaningsPolish⟫ a domain's meanings: every property meaning that names it as its domain, one row each (a property with more than one meaning in
 			// the domain, one per qualifier or range, lists each), by name then stableId (no tie left to the planner)
+			// ⟪meaningsClarity⟫ each with the value meanings it holds and how many elements map to them, so a row that holds 48 values does not read as empty
 			meaningsByDomainStableId: ({ domainStableId }) => ({
 				cypher: `
 					MATCH (domain:ForgedNode {stableId: $domainStableId})<-[domainEdge]-(card:HubReference)
 					WHERE card.referenceTier = $propertyTier AND type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
-					WITH card ORDER BY card.name, card.stableId
-					RETURN ${meaningRowTextFor('card')} AS meaningRow
+					CALL {
+						WITH domain, domainEdge, card
+						OPTIONAL ${valueCardOfPropertyCardMatchTextFor({ cardVariableName: 'card', domainVariableName: 'domain', domainEdgeVariableName: 'domainEdge', valueCardVariableName: 'valueCard' })}
+						OPTIONAL MATCH (valueCard)<-[:${MATCH_EDGE_TYPE_TEXT}]-(valueElement:ForgedNode)
+						RETURN count(DISTINCT valueCard) AS valueMeaningCount, count(DISTINCT valueElement) AS valueElementCount
+					}
+					WITH card, valueMeaningCount, valueElementCount ORDER BY card.name, card.stableId
+					RETURN ${meaningRowTextFor('card')} AS meaningRow, valueMeaningCount, valueElementCount
 				`,
-				params: { domainStableId, propertyTier: MEANING_PROPERTY_TIER },
+				params: { domainStableId, propertyTier: MEANING_PROPERTY_TIER, valueTier: MEANING_VALUE_TIER },
+			}),
+
+			// ⟪meaningsClarity, Addendum A⟫ THE ELEMENT'S MEANING FACTS (read by lib/edc-resolver/elementMeaningFacts.js for both the explorer and the /edc page). Where each
+			// meaning naming an element places it, counted once per meaning: as its DOMAIN (a property or value meaning of this domain), as its own TERM, or else by
+			// the first other slot it names it in (incomingCardWhereTextFor: a meaning of another domain), in the hub's slot order
+			elementMeaningPlaceCounts: ({ elementStableId }) => ({
+				cypher: `
+					MATCH (element:ForgedNode {stableId: $elementStableId})<-[slotEdge]-(card:HubReference)
+					WHERE type(slotEdge) IN [${['DOMAIN', 'TERM', ...INCOMING_SLOT_NAME_LIST].map((slotName) => cardHubSlotEdgeTypeTextFor('card', slotName)).join(', ')}]
+					WITH card, collect(type(slotEdge)) AS slotEdgeTypeList
+					WITH card, CASE ${['DOMAIN', 'TERM', ...INCOMING_SLOT_NAME_LIST].map((slotName) => `WHEN ${cardHubSlotEdgeTypeTextFor('card', slotName)} IN slotEdgeTypeList THEN '${slotName}'`).join(' ')} END AS placeSlotName
+					RETURN card.hubName AS hubName, card.referenceTier AS referenceTier, card.termKind AS termKind, placeSlotName, count(card) AS meaningCount
+					ORDER BY hubName, placeSlotName, referenceTier
+				`,
+				params: { elementStableId },
+			}),
+
+			// the meanings of other domains that name an element (incomingCardWhereTextFor), by name then stableId, capped at GROUP_ITEM_CAP with their true count, each
+			// with the slots it names the element in and its own domain (where the walk lists it)
+			incomingMeaningsByElementStableId: ({ elementStableId }) => ({
+				cypher: `
+					MATCH (element:ForgedNode {stableId: $elementStableId})<-[slotEdge]-(card:HubReference)
+					WHERE type(slotEdge) IN ${incomingSlotEdgeTypeListTextFor('card')} AND ${incomingCardWhereTextFor({ cardVariableName: 'card', domainVariableName: 'element' })}
+					WITH card, collect(DISTINCT type(slotEdge)) AS slotEdgeTypeList ORDER BY card.name, card.stableId
+					WITH count(card) AS itemCount, collect({ card: card, slotEdgeTypeList: slotEdgeTypeList })[0..${GROUP_ITEM_CAP}] AS cappedIncomingList
+					UNWIND cappedIncomingList AS incoming
+					WITH itemCount, incoming.card AS card, incoming.slotEdgeTypeList AS slotEdgeTypeList
+					RETURN itemCount, collect({ meaningRow: ${meaningRowTextFor('card')}, slotEdgeTypeList: slotEdgeTypeList,
+					         ownDomainStableId: head([(card)-[ownDomainEdge]->(ownDomain:ForgedNode) WHERE type(ownDomainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} | ownDomain.stableId]) }) AS itemList
+				`,
+				params: { elementStableId },
+			}),
+
+			// the meanings of other domains that name an element, counted by their own domain and the first slot they name it in (the hub's slot order): where each lives
+			// in the walk. A meaning with no domain of its own is counted under none.
+			namingMeaningCountsByElementStableId: ({ elementStableId }) => ({
+				// ⟪review S3⟫ and, within its own domain, by the property meaning that holds it (the property signature): a property meaning and its values naming the
+				// element are one group, linked to that meaning, whose level lists those values; with how many values that meaning holds in all, so a line can say
+				// "1 of the 48 values" when not all of them name the element. A value whose domain has no property meaning of its signature is held by none.
+				cypher: `
+					MATCH (element:ForgedNode {stableId: $elementStableId})<-[slotEdge]-(card:HubReference)
+					WHERE type(slotEdge) IN ${incomingSlotEdgeTypeListTextFor('card')} AND ${incomingCardWhereTextFor({ cardVariableName: 'card', domainVariableName: 'element' })}
+					WITH card, collect(type(slotEdge)) AS slotEdgeTypeList
+					WITH card, CASE ${INCOMING_SLOT_NAME_LIST.map((slotName) => `WHEN ${cardHubSlotEdgeTypeTextFor('card', slotName)} IN slotEdgeTypeList THEN '${slotName}'`).join(' ')} END AS placeSlotName,
+					     head([(card)-[ownDomainEdge]->(ownDomain:ForgedNode) WHERE type(ownDomainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} | { domain: ownDomain, domainEdgeType: type(ownDomainEdge) }]) AS own
+					WITH card, placeSlotName, own ORDER BY card.name, card.stableId
+					WITH card.hubName AS hubName, own.domain AS ownDomain, own.domainEdgeType AS ownDomainEdgeType, placeSlotName, ${propertySignatureTextFor('card')} AS propertySignature,
+					     count(card) AS meaningCount, count(CASE WHEN card.referenceTier = $propertyTier THEN card END) AS holderIncludedCount,
+					     head(collect(CASE WHEN card.referenceTier = $propertyTier THEN card END)) AS namingHolder, head(collect(card.stableId)) AS firstCardStableId
+					CALL {
+						WITH ownDomain, ownDomainEdgeType, propertySignature, namingHolder
+						OPTIONAL MATCH (ownDomain)<-[holderDomainEdge]-(holderCandidate:HubReference)
+						WHERE namingHolder IS NULL AND type(holderDomainEdge) = ownDomainEdgeType AND holderCandidate.referenceTier = $propertyTier AND ${propertySignatureTextFor('holderCandidate')} = propertySignature
+						WITH namingHolder, head(collect(holderCandidate)) AS foundHolder
+						RETURN coalesce(namingHolder, foundHolder) AS holder
+					}
+					RETURN hubName, ownDomain.stableId AS ownDomainStableId, ownDomain.name AS ownDomainName, placeSlotName, meaningCount, firstCardStableId,
+					       holder.stableId AS holderCardStableId, holder.name AS holderName, holderIncludedCount,
+					       CASE WHEN holder IS NULL THEN 0 ELSE COUNT { MATCH (ownDomain)<-[valueDomainEdge]-(holderValue:HubReference)
+					         WHERE type(valueDomainEdge) = ownDomainEdgeType AND holderValue.referenceTier = $valueTier AND ${propertySignatureTextFor('holderValue')} = propertySignature } END AS holderValueCount
+					ORDER BY ownDomainName, ownDomainStableId, placeSlotName, holderName
+				`,
+				params: { elementStableId, propertyTier: MEANING_PROPERTY_TIER, valueTier: MEANING_VALUE_TIER },
+			}),
+
+			// an element's own term meanings: the term cards whose TERM is it (a class's is its domain's own term), by name
+			termMeaningsByElementStableId: ({ elementStableId }) => ({
+				cypher: `
+					MATCH (element:ForgedNode {stableId: $elementStableId})<-[termEdge]-(termCard:HubReference)
+					WHERE type(termEdge) = ${cardHubSlotEdgeTypeTextFor('termCard', 'TERM')}
+					WITH termCard ORDER BY termCard.name, termCard.stableId
+					RETURN ${meaningRowTextFor('termCard')} AS meaningRow
+				`,
+				params: { elementStableId },
+			}),
+
+			// the meanings an element is mapped to (its match edges to cards), by hub, name and stableId, capped at GROUP_ITEM_CAP with their true count
+			mappedMeaningsByElementStableId: ({ elementStableId }) => ({
+				cypher: `
+					MATCH (element:ForgedNode {stableId: $elementStableId})-[matchEdge:${MATCH_EDGE_TYPE_TEXT}]->(card:HubReference)
+					WITH card, matchEdge ORDER BY card.hubName, card.name, card.stableId
+					WITH collect({ cardStableId: card.stableId, relationType: type(matchEdge), matchBasis: matchEdge.matchBasis, mappingConfidence: matchEdge.mappingConfidence }) AS mappedRowList
+					RETURN size(mappedRowList) AS itemCount, mappedRowList[0..${GROUP_ITEM_CAP}] AS itemList
+				`,
+				params: { elementStableId },
 			}),
 
 			// one meaning: the card and where it sits (its domain, for a property or value meaning; none for a term)
@@ -601,18 +725,24 @@ const moduleFunction =
 				params: { stableId },
 			}),
 
-			// a property meaning's value meanings: the value cards of the same domain, property, range and qualifiers, by name, capped with their true count
+			// a property meaning's value meanings (valueCardOfPropertyCardMatchTextFor), by name, capped with their true count; ⟪meaningsClarity⟫ and how many elements
+			// map to any of them (valueElementCount), counted over all of them, not the capped list
 			valueMeaningsByCardStableId: ({ cardStableId }) => ({
 				cypher: `
 					MATCH (card:ForgedNode {stableId: $cardStableId}) WHERE card:HubReference AND card.referenceTier = $propertyTier
 					MATCH (card)-[domainEdge]->(domain:ForgedNode) WHERE type(domainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
-					MATCH (domain)<-[valueDomainEdge]-(valueCard:HubReference)
-					WHERE type(valueDomainEdge) = type(domainEdge) AND valueCard.referenceTier = $valueTier AND valueCard.propertyKey = card.propertyKey
-					  AND coalesce(valueCard.rangeOptionSetId, '') = coalesce(card.rangeOptionSetId, '') AND coalesce(valueCard.qualifierKeys, []) = coalesce(card.qualifierKeys, [])
+					${valueCardOfPropertyCardMatchTextFor({ cardVariableName: 'card', domainVariableName: 'domain', domainEdgeVariableName: 'domainEdge', valueCardVariableName: 'valueCard' })}
 					WITH valueCard ORDER BY valueCard.name, valueCard.stableId
-					WITH count(valueCard) AS itemCount, collect(valueCard)[0..${GROUP_ITEM_CAP}] AS cappedValueCardList
+					WITH collect(valueCard) AS valueCardList
+					CALL {
+						WITH valueCardList
+						UNWIND valueCardList AS countedValueCard
+						OPTIONAL MATCH (countedValueCard)<-[:${MATCH_EDGE_TYPE_TEXT}]-(valueElement:ForgedNode)
+						RETURN count(DISTINCT valueElement) AS valueElementCount
+					}
+					WITH size(valueCardList) AS itemCount, valueElementCount, valueCardList[0..${GROUP_ITEM_CAP}] AS cappedValueCardList
 					UNWIND cappedValueCardList AS valueCard
-					RETURN itemCount, collect(${meaningRowTextFor('valueCard')}) AS itemList
+					RETURN itemCount, valueElementCount, collect(${meaningRowTextFor('valueCard')}) AS itemList
 				`,
 				params: { cardStableId, valueTier: MEANING_VALUE_TIER, propertyTier: MEANING_PROPERTY_TIER },
 			}),
@@ -1090,7 +1220,28 @@ const moduleFunction =
 			...(meaningRecord.rangeName ? { rangeName: meaningRecord.rangeName } : {}),
 			...((meaningRecord.qualifierNameList || []).length ? { qualifierNameList: meaningRecord.qualifierNameList } : {}),
 			elementCount: meaningRecord.mappedElementCount,
+			// ⟪meaningsClarity⟫ a property meaning listed in its domain says what it holds: its value meanings, and the elements mapped to them (read only where listed)
+			...(meaningRecord.valueMeaningCount === undefined ? {} : { valueMeaningCount: meaningRecord.valueMeaningCount, valueElementCount: meaningRecord.valueElementCount }),
 		});
+
+		// ⟪meaningsClarity⟫ a point of the meanings walk, as the walk reaches it from the top: the catalog, the hub's group, the domain, and (with a card) the meaning
+		const meaningsWalkPathOf = ({ hubName, domainStableId, cardStableId }) => [
+			MEANING_CATALOG_STABLE_ID,
+			meaningGroupOf({ hubName }).stableId,
+			meaningDomainIdOf(domainStableId),
+			...(cardStableId === undefined ? [] : [meaningIdOf(cardStableId)]),
+		];
+
+		// ⟪meaningsClarity⟫ an incoming meaning as a row of the domain it names: the meaning's own row, the slots it names this domain in (in words: 'range'), and the
+		// walk's path to it in its OWN domain, so opening it goes there (TQ: "goes to that meaning in its own domain"), not one step below this one
+		const mapIncomingMeaningItem = ({ incomingRecord, standardFamily }) => {
+			const meaningItem = mapMeaningItem(incomingRecord.meaningRow, standardFamily);
+			return {
+				...meaningItem,
+				incomingSlotNameList: incomingRecord.slotEdgeTypeList.map((slotEdgeType) => slotNameOfEdgeTypeFor({ hubName: meaningItem.hubName, slotEdgeType })),
+				meaningsWalkPathStableIdList: meaningsWalkPathOf({ hubName: meaningItem.hubName, domainStableId: incomingRecord.ownDomainStableId, cardStableId: incomingRecord.meaningRow.cardStableId }),
+			};
+		};
 
 		const mapMeaningHubItem = (hubRecord) => ({
 			stableId: meaningHubIdOf(hubRecord.hubName),
@@ -1130,6 +1281,8 @@ const moduleFunction =
 			meaningCount: domainRecord.meaningCount,
 			mappedMeaningCount: domainRecord.mappedMeaningCount,
 			termMeaningCount: domainRecord.termMeaningCount,
+			// ⟪meaningsClarity⟫ and the meanings of other domains that name it (incomingCardWhereTextFor), listed on its level apart from its own
+			incomingMeaningCount: domainRecord.incomingMeaningCount,
 			...nativeIdFieldsOf({ sourceKey: domainRecord.sourceKey, nativeIdentifier: domainRecord.nativeIdentifier, declarationList, declarationAbsentName }),
 		});
 
@@ -1259,6 +1412,14 @@ const moduleFunction =
 			isRetiredMeaningLevelId,
 			citedGraphStableIdOf,
 			mapMeaningItem,
+			// ⟪meaningsClarity⟫
+			mapIncomingMeaningItem,
+			meaningsWalkPathOf,
+			slotNameOfEdgeTypeFor,
+			valueCardOfPropertyCardMatchTextFor,
+			INCOMING_SLOT_NAME_LIST,
+			MATCH_EDGE_TYPE_TEXT,
+			meaningTermKindByLevel,
 			mapMeaningHubItem,
 			mapMeaningDomainItem,
 			nativeIdFieldsOf,

@@ -14,7 +14,8 @@
 import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { FAMILY_CATALOG_STABLE_ID, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import meaningFactsWording from '@/components/standardsExplorer/meaningFactsWording.json';
+import { FAMILY_CATALOG_STABLE_ID, meaningSubtitleOf, meaningTitleOf, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -38,6 +39,23 @@ const openCounterpart = (versionEntry) => {
 };
 
 const isFocus = computed(() => !store.selectedRow);
+
+// ⟪meaningsClarity review S4⟫ the focus's meaning facts: carried by a meanings domain level's own answer, else asked for apart (store.loadMeaningFacts); null when the
+// focus is no graph element (the server says notAGraphElement) or no answer is in yet
+watch(
+	() => store.focusNode?.stableId,
+	(focusStableId) => {
+		if (focusStableId && !store.focusNode.meaningFacts) store.loadMeaningFacts(focusStableId);
+	},
+	{ immediate: true },
+);
+const focusMeaningFactsState = computed(() => {
+	const focusNode = store.focusNode;
+	if (!focusNode) return null;
+	if (focusNode.meaningFacts) return { loading: false, meaningFacts: focusNode.meaningFacts, failed: false };
+	const factsState = store.meaningFactsStateByStableId[focusNode.stableId];
+	return factsState && !factsState.meaningFactsAbsentName ? factsState : null;
+});
 
 // how many places the shown item occurs in its own version, for the tiles' "occurrences are not compared" note
 const occurrenceCountOfMappingList = (mappingList) => Math.max(1, ...(mappingList || []).map((oneMapping) => oneMapping.occurrenceCount || 1));
@@ -134,7 +152,12 @@ const definitionText = computed(() => {
 			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? 'Focus' : 'Selected' }}</span>
 		</div>
-		<h2 class="detail-name" data-testid="detail-name" aria-live="polite">{{ shownNode.displayName }}</h2>
+		<!-- ⟪meaningsClarity Addendum B⟫ a meaning is titled as one, with what it is underneath, in the words its /edc page uses -->
+		<template v-if="isMeaning">
+			<h2 class="detail-name" data-testid="detail-name" aria-live="polite">{{ meaningTitleOf({ meaningNode: shownNode, meaningFactsWording }) }}</h2>
+			<p class="detail-subtitle" data-testid="detail-meaning-subtitle">{{ meaningSubtitleOf({ meaningNode: shownNode, meaningFactsWording }) }}</p>
+		</template>
+		<h2 v-else class="detail-name" data-testid="detail-name" aria-live="polite">{{ shownNode.displayName }}</h2>
 		<p v-if="definitionText" class="detail-definition">{{ definitionText }}</p>
 		<!-- ⟪explorerUris⟫ the node's EDUcore URI, as the /edc page cites it; none for a node the server sent no uri -->
 		<StandardsExplorerMeaningSection v-if="isMeaning" :meaning-node="shownNode" :is-focus="isFocus" />
@@ -174,7 +197,7 @@ const definitionText = computed(() => {
 
 		<StandardsExplorerVersionBadge v-if="shownNode.versionBadge" :version-badge="shownNode.versionBadge" class="detail-badge" />
 
-		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" :to="store.walkLinkOf([...store.pathStableIdList, shownNode.stableId])">Open {{ shownNode.displayName }} ›</v-btn>
+		<v-btn v-if="!isFocus && shownNode.hasChildren" color="primary" class="detail-open" data-testid="detail-open" :to="store.walkLinkOf(store.drillPathOf(shownNode.stableId))">Open {{ shownNode.displayName }} ›</v-btn>
 		<!-- ⟪meaningsExplorer⟫ a hub element is a meaning: its own page in the Meanings explorer -->
 		<v-btn v-if="shownNode.kind === 'hubAnchor'" variant="outlined" color="primary" class="detail-open" data-testid="detail-open-in-meanings" :to="meaningsLinkOf(shownNode.stableId)">Open in Meanings ›</v-btn>
 		<v-btn v-if="shownNode.kind === 'useCase'" color="primary" class="detail-open" data-testid="detail-open-use-case" :to="`/explore/use-cases/forged/${encodeURIComponent(shownNode.stableId)}`">Steps and citations ›</v-btn>
@@ -214,6 +237,9 @@ const definitionText = computed(() => {
 				/>
 			</template>
 		</section>
+
+		<!-- ⟪meaningsClarity, Addendum A⟫ the meanings the element on screen takes part in, as its /edc page says them -->
+		<StandardsExplorerMeaningFactsSection v-if="isFocus && focusMeaningFactsState" :facts-state="focusMeaningFactsState" />
 
 		<template v-if="store.walkProfile.showsStandardSections">
 			<StandardsExplorerCompanionPagesSection />
@@ -322,6 +348,22 @@ const definitionText = computed(() => {
 }
 .detail-open {
 	align-self: flex-start;
+	/* ⟪meaningsClarity Addendum C #11⟫ a long "Open … ›" label wraps inside its button instead of spilling past it */
+	max-width: 100%;
+	height: auto !important;
+	min-height: 36px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+.detail-open :deep(.v-btn__content) {
+	white-space: normal;
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+.detail-subtitle {
+	margin: -8px 0 0;
+	font-size: 14px;
+	color: #4b5563;
 }
 .detail-catalog {
 	display: flex;

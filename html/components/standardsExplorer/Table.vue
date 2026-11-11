@@ -104,7 +104,7 @@ const rowPropsOf = ({ item }) => ({
 });
 
 // a row's Open is a link to the walk one step further, so it has an href to follow, share or read
-const openLinkOf = (item) => store.walkLinkOf([...store.pathStableIdList, item.stableId]);
+const openLinkOf = (item) => store.walkLinkOf(store.drillPathOf(item.stableId));
 
 const selectRow = (clickEvent, { item }) => {
 	if (isOpenAtOnceClick(clickEvent) && item.hasChildren) {
@@ -225,5 +225,18 @@ const drillRow = (clickEvent, { item }) => {
 }
 :deep(tbody tr) {
 	cursor: pointer;
+}
+/* ⟪meaningsClarity Addendum C #11⟫ the Open column stays in view at the table's right edge when the table scrolls sideways */
+:deep(tbody td:last-child),
+:deep(thead th:last-child) {
+	/* Vuetify's own td rule sets position: relative with a more specific selector */
+	position: sticky !important;
+	right: 0;
+	z-index: 1;
+	background: #ffffff;
+	box-shadow: -6px 0 6px -6px rgba(17, 24, 39, 0.25);
+}
+:deep(thead th:last-child) {
+	background: inherit;
 }
 </style>

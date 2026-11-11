@@ -11,9 +11,11 @@
 // ⟪meaningsPolish, WORKORDER-meaningsPolish-111026, TQ's standing rule NO MAGIC STRINGS⟫ THE MEANINGS EXPLORER'S WORDS
 // Every word a reader sees on the Meanings explorer that is not the Standards Explorer's own: the heading and intro, the kind and count wording, the
 // meaning panel's words, and the "What is a meaning?" explainer with its diagram and caption. Data only; the templates' {name} placeholders are filled
-// by wordingOf, which refuses a missing name. A count noun is { one, other }. It lives in this file, not a file of its own, because the server suite
-// imports this module alone from a temporary copy (standards-explorer-hub-vocabulary.test.js, explorer-hub-family-colour-live.test.js), so it may import
-// nothing.
+// by wordingOf, which refuses a missing name. A count noun is { one, other }. ⟪meaningsClarity⟫ It imports one module, sharedWording.js beside it (the one wording
+// function and meaning-title lookup the server shares); the tests that import this module from a temporary copy copy that module beside it.
+
+import { wordingOf, meaningTitleTextOf, meaningSubtitleTextOf } from './sharedWording.js';
+import { pathTextOf, MEANINGS_ROUTE_PATH } from './sharedWalkPath.js';
 
 // ⟪review S5⟫ the Cite as line's words (CiteAs.vue), shared by both walks
 export const citeAsVocabulary = Object.freeze({
@@ -25,6 +27,19 @@ export const citeAsVocabulary = Object.freeze({
 	openPageText: 'Open its page',
 	listElementsText: 'List its elements',
 	ownIriNoteText: "Another publisher's IRI: what this node is, not an EDUcore page.",
+});
+
+// ⟪meaningsClarity, TQ 2026-11-11: "Clear the filter. Can it be restored when someone goes back? That would be ideal."⟫ THE LEVEL FILTER, shared by both walks. A
+// filter belongs to the level it was typed on: it rides in that level's URL (walkFilterQueryName), so a drill, a crumb or an Open (a new URL with no filter) clears it,
+// and Back or Forward, or a shared link, brings that level's own text back. While it dims or hides anything the page says so (FilterNotice.vue), in these words.
+export const walkFilterVocabulary = Object.freeze({
+	walkFilterQueryName: 'filter',
+	noticeTemplate: "Filtered by '{filterText}'",
+	// the diagram fades what does not match; the table and the item list under the diagram leave it out
+	unmatchedTemplateByViewMode: Object.freeze({ diagram: '{unmatchedCountText} dimmed', table: '{unmatchedCountText} hidden' }),
+	noticeDivider: ' · ',
+	clearText: 'Clear',
+	clearLabelText: 'Clear the filter',
 });
 
 // the domain's own term card, listed apart from its meanings (TQ: "labelled unmistakably as the domain's own term"): one wording, used for its row, its group
@@ -58,6 +73,20 @@ export const meaningsVocabulary = Object.freeze({
 	domainHoldingTemplate: '{meaningCountText} {ownTermText}',
 	// ⟪review S6⟫ a domain no property meaning names: its only meaning is its own term
 	domainOwnTermOnlyText: 'its own term only',
+	// ⟪meaningsClarity⟫ a domain's meanings from other domains (they name it as their range), counted apart from its own: "4 meanings + its own term + 1 from another domain"
+	incomingNoun: Object.freeze({ one: 'from another domain', other: 'from other domains' }),
+	domainOwnTermBesideIncomingText: 'its own term',
+	domainIncomingAddedTemplate: '+ {incomingCountText}',
+	domainHoldingPartDivider: ' ',
+	// ⟪meaningsClarity⟫ a property meaning that holds value meanings says so ("48 values inside"); one whose values are mapped though it is not says that too
+	valueNoun: Object.freeze({ one: 'value', other: 'values' }),
+	valuesInsideTemplate: '{valueCountText} inside',
+	meaningUnexpressedWithValuesTemplate: 'nothing maps here directly; {elementCountText} map to its values',
+	meaningUnexpressedWithValuesOneTemplate: 'nothing maps here directly; {elementCountText} maps to its values',
+	// ⟪meaningsClarity⟫ an incoming meaning's line: its own domain, and the slot it names this domain in
+	incomingDomainTemplate: 'in {domainName}',
+	incomingSlotTemplate: 'names this as its {slotText}',
+	incomingSlotWordDivider: ' and ',
 	expressedTemplate: '{countText} expressed in other standards',
 	meaningExpressionTemplate: '{elementCountText} map here',
 	meaningExpressionOneTemplate: '{elementCountText} maps here',
@@ -87,12 +116,71 @@ export const meaningsVocabulary = Object.freeze({
 		HAS_MEANING: 'Meanings',
 		HAS_TERM_MEANING: DOMAIN_OWN_TERM_TEXT,
 		HAS_VALUE_MEANING: 'Value meanings',
+		// ⟪meaningsClarity⟫
+		HAS_INCOMING_MEANING: 'Meanings of other domains that name this one',
+	}),
+
+	// ---- ⟪meaningsClarity Addendum B, TQ 2026-11-11: "yes, definitely"⟫ WHAT THE DIAGRAM SHOWS, in a few sentences built from the level's own counts and names
+	// (levelProseOf). One template set per level kind; a sentence whose subject is absent at this level is not said. Numbers are written as digits, the ones the
+	// diagram's labels and the table's counts show.
+	levelProse: Object.freeze({
+		// ⟪supervisor's ruling 4⟫ one template set per view: a level shown as a table is described as the table, never as a diagram that is not on screen
+		templateSetByViewMode: Object.freeze({
+			diagram: Object.freeze({
+				catalogTemplate: 'Each circle is a hub, a reference standard whose meanings EDUcore names: {hubCount} here, holding {meaningCount} meanings in all. Open a hub for its domains.',
+				hubTemplate: 'The circle is the hub {hubName}. Each square around it is one of its {domainCount} domains, which hold {meaningCount} meanings between them. Open a domain for its meanings.',
+				domainSquareTemplate: 'The square is the {hubName} domain {domainName}.',
+				domainMeaningsTemplate: 'The solid hexagons around it are its {meaningCountText}, each pairing the domain with one property; {mappedMeaningCount} of them have elements of other standards mapped to them.',
+				domainOwnTermText: "The dashed hexagon is the domain's own term.",
+				domainIncomingTemplate: '{incomingCount} meanings in other domains ({domainNameText}) name this domain as their {slotText}, drawn as outlined hexagons with a dashed arrow.',
+				domainIncomingOneTemplate: '1 meaning in another domain, {domainNameText}, names this domain as its {slotText}, drawn as an outlined hexagon with a dashed arrow.',
+				domainValuesTemplate: 'A › on a hexagon means there is more inside: {valueHolderText}.',
+				valuesTemplate: 'The hexagon in the middle is the meaning {meaningName}. The {valueCount} hexagons around it are its values, one code each; {mappedValueCount} of them have elements of other standards mapped to them.',
+				meaningNoValuesTemplate: 'The hexagon is the meaning {meaningName}. It holds no values; its panel says what it names and every element that expresses it.',
+				filterTemplate: "The filter '{filterText}' dims {unmatchedCount} of them.",
+			}),
+			table: Object.freeze({
+				catalogTemplate: 'The table lists {hubCount} hubs, reference standards whose meanings EDUcore names, holding {meaningCount} meanings in all. Open a hub for its domains.',
+				hubTemplate: 'The table lists the {domainCount} domains of the hub {hubName}, which hold {meaningCount} meanings between them. Open a domain for its meanings.',
+				domainSquareTemplate: 'The table lists what the {hubName} domain {domainName} holds.',
+				domainMeaningsTemplate: 'Its {meaningCountText} each pair the domain with one property; {mappedMeaningCount} of them have elements of other standards mapped to them.',
+				domainOwnTermText: "One row is the domain's own term.",
+				domainIncomingTemplate: '{incomingCount} rows are meanings in other domains ({domainNameText}) that name this domain as their {slotText}.',
+				domainIncomingOneTemplate: '1 row is a meaning in another domain, {domainNameText}, that names this domain as its {slotText}.',
+				domainValuesTemplate: 'Open a meaning for what it holds: {valueHolderText}.',
+				valuesTemplate: 'The table lists the {valueCount} values of the meaning {meaningName}, one code each; {mappedValueCount} of them have elements of other standards mapped to them.',
+				meaningNoValuesTemplate: 'This is the meaning {meaningName}. It holds no values; its panel says what it names and every element that expresses it.',
+				filterTemplate: "The filter '{filterText}' hides {unmatchedCount} of them.",
+			}),
+		}),
+		valueHolderTemplate: '{meaningName} holds {valueCount} values',
+		nameListDivider: ', ',
+		nameListMoreTemplate: '{nameListText} and {moreCount} more',
+		nameListLimit: 3,
+	}),
+
+	// ---- ⟪meaningsClarity, TQ 2026-11-11: "Add those (a diagram key)"⟫ the Meanings diagram's key (Legend.vue), one entry per mark the diagram draws. markName picks
+	// the swatch Legend.vue draws for it; the words are these.
+	diagramKey: Object.freeze({
+		headText: 'Key',
+		entryList: Object.freeze([
+			Object.freeze({ markName: 'domainSquare', entryText: 'a domain (square)' }),
+			Object.freeze({ markName: 'meaningHexagon', entryText: 'a meaning (solid hexagon)' }),
+			Object.freeze({ markName: 'ownTermHexagon', entryText: "the domain's own term (dashed hexagon)" }),
+			Object.freeze({ markName: 'incomingMeaning', entryText: 'a meaning of another domain that names this one (outlined hexagon, dashed arrow)' }),
+			Object.freeze({ markName: 'moreInside', entryText: 'more inside: open it' }),
+			Object.freeze({ markName: 'expressedCount', entryText: 'elements of other standards mapped to it', sampleText: 'N elements map here' }),
+			Object.freeze({ markName: 'dimmed', entryText: 'filtered out by the filter box' }),
+		]),
 	}),
 
 	// ---- one meaning's panel (MeaningSection.vue)
 	meaningSection: Object.freeze({
 		sectionLabel: 'What this meaning is',
 		tierFactName: 'Tier',
+		// ⟪meaningsClarity⟫ a property meaning's values, and an incoming meaning's tie to the domain on screen
+		valuesFactName: 'Values',
+		incomingFactName: 'Here because it',
 		tierTemplate: '{referenceTier} tier ({tierWords})',
 		tierWithTermKindTemplate: '{referenceTier} tier ({tierWords}; a {termKind})',
 		tierWordsByTier: Object.freeze({ property: 'a property in a domain', value: 'one code of a property in a domain', term: 'one term, meant on its own' }),
@@ -399,11 +487,8 @@ export const hubMappedTextOf = (hubRow) => {
 // and 4): a hub, its domains and the meanings they hold; a domain, its meanings, its own term apart, and how many are expressed in other standards.
 
 // a template's {names} filled from valueByName; a name with no value is refused by name, never left blank
-export const wordingOf = (templateText, valueByName) =>
-	templateText.replace(/\{([A-Za-z]+)\}/g, (placeholderText, valueName) => {
-		if (valueByName[valueName] === undefined || valueByName[valueName] === null) throw new Error(`explorerVocabulary: wording '${templateText}' needs a value for '${valueName}'`);
-		return String(valueByName[valueName]);
-	});
+// ⟪meaningsClarity, ruling 3⟫ it lives in the one shared wording module (sharedWording.js), which the server loads too; it is re-exported here as it always was
+export { wordingOf };
 
 const countNumberFormat = new Intl.NumberFormat(meaningsVocabulary.numberLocaleName);
 // a count the server did not send is refused by name, never printed as 'NaN' or read as 0
@@ -419,11 +504,17 @@ const meaningCountTextReaderByKind = {
 		wordingOf(meaningsVocabulary.hubHoldingTemplate, { domainCountText: countedNounTextOf(hubRow.domainCount, meaningsVocabulary.domainNoun), meaningCountText: countedNounTextOf(hubRow.meaningCount, meaningsVocabulary.meaningNoun) }),
 	meaningDomain: (domainRow) => {
 		const meaningCountText = countedNounTextOf(domainRow.meaningCount, meaningsVocabulary.meaningNoun);
-		const holdingText = !domainRow.termMeaningCount
+		// ⟪meaningsClarity⟫ the meanings of other domains that name it, apart from its own (an answer older than them lists none, and says none)
+		const incomingMeaningCount = domainRow.incomingMeaningCount || 0;
+		const ownHoldingText = !domainRow.termMeaningCount
 			? meaningCountText
 			: domainRow.meaningCount
 				? wordingOf(meaningsVocabulary.domainHoldingTemplate, { meaningCountText, ownTermText: meaningsVocabulary.domainOwnTermText })
-				: meaningsVocabulary.domainOwnTermOnlyText;
+				: incomingMeaningCount
+					? meaningsVocabulary.domainOwnTermBesideIncomingText
+					: meaningsVocabulary.domainOwnTermOnlyText;
+		const incomingText = incomingMeaningCount ? wordingOf(meaningsVocabulary.domainIncomingAddedTemplate, { incomingCountText: countedNounTextOf(incomingMeaningCount, meaningsVocabulary.incomingNoun) }) : '';
+		const holdingText = [ownHoldingText, incomingText].filter(Boolean).join(meaningsVocabulary.domainHoldingPartDivider);
 		const expressedText = domainRow.mappedMeaningCount ? wordingOf(meaningsVocabulary.expressedTemplate, { countText: countTextOf(domainRow.mappedMeaningCount) }) : '';
 		return [holdingText, expressedText].filter(Boolean).join(meaningsVocabulary.countPartDivider);
 	},
@@ -435,7 +526,12 @@ export const meaningCountTextOf = (meaningGroupRow) => {
 };
 
 // how many standard elements map to one meaning
+// ⟪meaningsClarity⟫ a meaning nothing maps to whose values are mapped says so, so it does not read as empty
 export const meaningExpressionTextOf = (meaningRow) => {
+	if (!meaningRow.elementCount && meaningRow.valueElementCount) {
+		const valueElementCountText = countedNounTextOf(meaningRow.valueElementCount, meaningsVocabulary.elementNoun);
+		return wordingOf(meaningRow.valueElementCount === 1 ? meaningsVocabulary.meaningUnexpressedWithValuesOneTemplate : meaningsVocabulary.meaningUnexpressedWithValuesTemplate, { elementCountText: valueElementCountText });
+	}
 	if (!meaningRow.elementCount) return meaningsVocabulary.meaningUnexpressedText;
 	const elementCountText = countedNounTextOf(meaningRow.elementCount, meaningsVocabulary.elementNoun);
 	return wordingOf(meaningRow.elementCount === 1 ? meaningsVocabulary.meaningExpressionOneTemplate : meaningsVocabulary.meaningExpressionTemplate, { elementCountText });
@@ -459,11 +555,31 @@ export const meaningTupleSlotListOf = ({ tuple, hubName }) => {
 // what one meaning row is about: the domain's own term says so (⟪review S5⟫ known by the group the server listed it in, never by re-deriving the server's
 // tier rule); a property meaning says its range and qualifiers (its tier is the level's, so it is not repeated)
 export const OWN_TERM_RELATIONSHIP_TYPE = 'HAS_TERM_MEANING';
+// a domain's own property meanings (the server's HAS_MEANING group)
+export const MEANING_RELATIONSHIP_TYPE = 'HAS_MEANING';
+// ⟪meaningsClarity⟫ a meaning of another domain listed on this one (the server's HAS_INCOMING_MEANING group)
+export const INCOMING_MEANING_RELATIONSHIP_TYPE = 'HAS_INCOMING_MEANING';
+// how an incoming meaning names the domain on screen: "names this as its range"
+export const incomingSlotTextOf = (meaningRow) =>
+	wordingOf(meaningsVocabulary.incomingSlotTemplate, {
+		// ⟪review N1⟫ a slot is said by its slot name (the server's, from hubCardTupleRules), the one word the /edc page uses too
+		slotText: (meaningRow.incomingSlotNameList || []).join(meaningsVocabulary.incomingSlotWordDivider),
+	});
+// ⟪meaningsClarity⟫ the values a property meaning holds: "48 values inside" (none said when it holds none)
+export const meaningValuesTextOf = (meaningRow) =>
+	meaningRow.valueMeaningCount ? wordingOf(meaningsVocabulary.valuesInsideTemplate, { valueCountText: countedNounTextOf(meaningRow.valueMeaningCount, meaningsVocabulary.valueNoun) }) : '';
 export const meaningInfoTextOf = (meaningRow) => {
 	if (meaningRow.relationshipType === OWN_TERM_RELATIONSHIP_TYPE) return meaningsVocabulary.domainOwnTermRowText;
+	// ⟪meaningsClarity⟫ an incoming meaning says where it lives and how it names this domain (its range IS this domain, so the range is not repeated)
+	if (meaningRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE) {
+		return [meaningRow.hubDomainName ? wordingOf(meaningsVocabulary.incomingDomainTemplate, { domainName: meaningRow.hubDomainName }) : '', incomingSlotTextOf(meaningRow), meaningValuesTextOf(meaningRow)]
+			.filter(Boolean)
+			.join(meaningsVocabulary.countPartDivider);
+	}
 	return [
 		meaningRow.rangeName ? wordingOf(meaningsVocabulary.rangeTemplate, { rangeName: meaningRow.rangeName }) : '',
 		(meaningRow.qualifierNameList || []).length ? wordingOf(meaningsVocabulary.qualifierTemplate, { qualifierNameText: meaningRow.qualifierNameList.join(meaningsVocabulary.qualifierNameDivider) }) : '',
+		meaningValuesTextOf(meaningRow),
 	]
 		.filter(Boolean)
 		.join(meaningsVocabulary.countPartDivider);
@@ -471,6 +587,74 @@ export const meaningInfoTextOf = (meaningRow) => {
 
 // a meaning's line under its bubble: what it is about, then how many elements express it
 export const meaningRowSubTextOf = (meaningRow) => [meaningInfoTextOf(meaningRow), meaningExpressionTextOf(meaningRow)].filter(Boolean).join(meaningsVocabulary.countPartDivider);
+
+// ⟪meaningsClarity Addendum B⟫ the meaning panel's visible title and, under it, what the meaning is in words ("a property in the CEDS domain Individualized Program
+// Accessibility Feature"). The words are the shared list both pages read (meaningFactsWording.json), passed in: this module imports nothing. A tier the list has no
+// words for, or a domain name the node does not carry, says the tier as the server named it.
+export const meaningTitleOf = ({ meaningNode, meaningFactsWording }) => meaningTitleTextOf({ meaningName: meaningNode.displayName || meaningNode.name, meaningFactsWording });
+export const meaningSubtitleOf = ({ meaningNode, meaningFactsWording }) =>
+	meaningSubtitleTextOf({ referenceTier: meaningNode.referenceTier, hubName: meaningNode.hubName, domainName: meaningNode.hubDomainName || (meaningNode.meaningDomain && meaningNode.meaningDomain.name) || '', meaningFactsWording });
+
+// ⟪meaningsClarity Addendum B⟫ WHAT THE DIAGRAM SHOWS, written from the level's own facts: the sentences, and the counts they say (countByName), which are the same
+// numbers the diagram's labels and the table's counts show. Only what is true at this level is said. A level kind with no template says nothing.
+const proseWords = meaningsVocabulary.levelProse;
+const nameListTextOf = (nameList) => {
+	const distinctNameList = Array.from(new Set(nameList));
+	const shownNameText = distinctNameList.slice(0, proseWords.nameListLimit).join(proseWords.nameListDivider);
+	return distinctNameList.length > proseWords.nameListLimit ? wordingOf(proseWords.nameListMoreTemplate, { nameListText: shownNameText, moreCount: distinctNameList.length - proseWords.nameListLimit }) : shownNameText;
+};
+// the counts as the page writes numbers ("2,777")
+const countTextByNameOf = (countByName) => Object.fromEntries(Object.entries(countByName).map(([countName, countValue]) => [countName, countTextOf(countValue)]));
+const levelProseReaderByKind = {
+	meaningCatalog: ({ levelRowList, templateSet }) => {
+		const countByName = { hubCount: levelRowList.length, meaningCount: levelRowList.reduce((soFar, oneRow) => soFar + (oneRow.meaningCount || 0), 0) };
+		return { countByName, sentenceList: [wordingOf(templateSet.catalogTemplate, countTextByNameOf(countByName))] };
+	},
+	meaningHub: ({ focusNode, templateSet }) => {
+		const countByName = { domainCount: focusNode.domainCount, meaningCount: focusNode.meaningCount };
+		return { countByName, sentenceList: [wordingOf(templateSet.hubTemplate, { ...countTextByNameOf(countByName), hubName: focusNode.hubName || focusNode.name })] };
+	},
+	meaningDomain: ({ focusNode, levelRowList, templateSet }) => {
+		const incomingRowList = levelRowList.filter((oneRow) => oneRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE);
+		const valueHolderRowList = levelRowList.filter((oneRow) => oneRow.relationshipType === MEANING_RELATIONSHIP_TYPE && oneRow.valueMeaningCount);
+		const countByName = {
+			meaningCount: focusNode.meaningCount,
+			mappedMeaningCount: focusNode.mappedMeaningCount,
+			termMeaningCount: focusNode.termMeaningCount,
+			incomingMeaningCount: focusNode.incomingMeaningCount || 0,
+			...Object.fromEntries(valueHolderRowList.map((oneRow) => [`valueCount:${oneRow.name}`, oneRow.valueMeaningCount])),
+		};
+		const valueHolderList = valueHolderRowList.slice(0, proseWords.nameListLimit).map((oneRow) => wordingOf(proseWords.valueHolderTemplate, { meaningName: oneRow.displayName || oneRow.name, valueCount: countTextOf(oneRow.valueMeaningCount) }));
+		const incomingDomainNameText = nameListTextOf(incomingRowList.map((oneRow) => oneRow.hubDomainName).filter(Boolean));
+		return {
+			countByName,
+			sentenceList: [
+				wordingOf(templateSet.domainSquareTemplate, { hubName: focusNode.hubName, domainName: focusNode.name }),
+				focusNode.meaningCount ? wordingOf(templateSet.domainMeaningsTemplate, { meaningCountText: countedNounTextOf(focusNode.meaningCount, meaningsVocabulary.meaningNoun), mappedMeaningCount: countTextOf(focusNode.mappedMeaningCount) }) : '',
+				focusNode.termMeaningCount ? templateSet.domainOwnTermText : '',
+				countByName.incomingMeaningCount
+					? wordingOf(countByName.incomingMeaningCount === 1 ? templateSet.domainIncomingOneTemplate : templateSet.domainIncomingTemplate, { incomingCount: countTextOf(countByName.incomingMeaningCount), domainNameText: incomingDomainNameText, slotText: Array.from(new Set(incomingRowList.flatMap((oneRow) => oneRow.incomingSlotNameList || []))).join(meaningsVocabulary.incomingSlotWordDivider) })
+					: '',
+				valueHolderList.length ? wordingOf(templateSet.domainValuesTemplate, { valueHolderText: valueHolderRowList.length > proseWords.nameListLimit ? wordingOf(proseWords.nameListMoreTemplate, { nameListText: valueHolderList.join(proseWords.nameListDivider), moreCount: valueHolderRowList.length - proseWords.nameListLimit }) : valueHolderList.join(proseWords.nameListDivider) }) : '',
+			].filter(Boolean),
+		};
+	},
+	meaning: ({ focusNode, levelRowList, templateSet }) => {
+		const meaningName = displayNameOf(focusNode);
+		if (!focusNode.valueMeaningCount) return { countByName: { valueCount: 0 }, sentenceList: [wordingOf(templateSet.meaningNoValuesTemplate, { meaningName })] };
+		const countByName = { valueCount: focusNode.valueMeaningCount, mappedValueCount: levelRowList.filter((oneRow) => oneRow.elementCount > 0).length };
+		return { countByName, sentenceList: [wordingOf(templateSet.valuesTemplate, { ...countTextByNameOf(countByName), meaningName })] };
+	},
+};
+export const levelProseOf = ({ focusNode, levelRowList, filterText, filterUnmatchedRowCount, effectiveViewMode }) => {
+	const proseReader = focusNode ? levelProseReaderByKind[focusNode.kind] : null;
+	if (!proseReader) return { countByName: {}, sentenceList: [] };
+	const templateSet = proseWords.templateSetByViewMode[effectiveViewMode];
+	if (!templateSet) throw new Error(`explorerVocabulary: no level prose for the view '${effectiveViewMode}' (${Object.keys(proseWords.templateSetByViewMode).join(', ')})`);
+	const { countByName, sentenceList } = proseReader({ focusNode, levelRowList, templateSet });
+	const filterSentenceList = filterUnmatchedRowCount ? [wordingOf(templateSet.filterTemplate, { filterText: filterText.trim(), unmatchedCount: countTextOf(filterUnmatchedRowCount) })] : [];
+	return { countByName: { ...countByName, ...(filterUnmatchedRowCount ? { unmatchedCount: filterUnmatchedRowCount } : {}) }, sentenceList: [...sentenceList, ...filterSentenceList] };
+};
 
 // the detail panel's facts for a hub (its domains and its meanings) and for a domain (its row's count text)
 const meaningFactListReaderByKind = {
@@ -523,7 +707,8 @@ export const displayNameOf = (nodeSummary) => {
 // so each id writes those two as %2C and %25 before joining; the router's own encoding sits on top and is undone
 // by the router, so reading splits on ',' and then restores the two.
 
-export const pathTextOf = (pathStableIdList) => pathStableIdList.map((oneStableId) => oneStableId.replace(/%/g, '%25').replace(/,/g, '%2C')).join(',');
+// ⟪review N4⟫ the codec lives once, in sharedWalkPath.js, which the /edc pages load too; re-exported here as it always was
+export { pathTextOf };
 
 // the route the explorer lives at, and a link to one walk on it: every drill, crumb and Open is a real link with an href
 // built here, so it can be followed, opened in a new tab, shared, or read by an AI agent without clicking
@@ -544,9 +729,14 @@ export const explorerLinkOf = (pathStableIdList) => walkLinkOf('standards', path
 //   countTextWraps        ⟪meaningsPolish⟫ the table's Count column wraps (the meanings walk's counts are phrases, not numbers)
 //   citesUriAsLink        ⟪meaningsPolish⟫ the Cite as line's URI is itself the link to its page, with no second "Open its page" link beside the panel's
 //                         Open (punch-list item 2: one Open link, the one that names its target)
+//   legendShowsMatchColumns ⟪meaningsClarity⟫ the legend's match-kind, confidence and marks columns (the meanings walk draws no mapping edge, so it shows its own key)
+//   diagramKey            ⟪meaningsClarity⟫ the diagram's key (meaningsVocabulary.diagramKey), drawn by the legend; null: none
+//   showsLevelProse       ⟪meaningsClarity Addendum B⟫ a few sentences above the level saying what its diagram shows (levelProseOf)
+//   rowWalkPathFieldName  ⟪meaningsClarity⟫ the row field carrying the walk's own path to a row that lives elsewhere (an incoming meaning, opened in its own domain);
+//                         a row without it opens one step below this level. null: every row opens one step below
 
 export const MEANING_CATALOG_STABLE_ID = 'meanings:all';
-export const MEANINGS_ROUTE_PATH = '/explore/meanings';
+export { MEANINGS_ROUTE_PATH };
 
 export const walkProfileByName = Object.freeze({
 	standards: Object.freeze({
@@ -564,6 +754,10 @@ export const walkProfileByName = Object.freeze({
 		countTextWraps: false,
 		legendSharedNodeKindList: null,
 		showsRefusalsByName: false,
+		legendShowsMatchColumns: true,
+		diagramKey: null,
+		showsLevelProse: false,
+		rowWalkPathFieldName: null,
 	}),
 	// ⟪meaningsPolish⟫ its words are meaningsVocabulary's; its walk is hub → domain → meaning (no property level)
 	meanings: Object.freeze({
@@ -581,6 +775,10 @@ export const walkProfileByName = Object.freeze({
 		citesUriAsLink: true,
 		countTextWraps: true,
 		showsRefusalsByName: true,
+		legendShowsMatchColumns: false,
+		diagramKey: meaningsVocabulary.diagramKey,
+		showsLevelProse: true,
+		rowWalkPathFieldName: 'meaningsWalkPathStableIdList',
 	}),
 });
 
@@ -592,7 +790,28 @@ export const walkProfileOf = (walkProfileName) => {
 };
 
 // a link to one point of a walk, and a path that begins at the walk's root (explorerLinkOf and explorerPathOf are the standards walk's)
-export const walkLinkOf = (walkProfileName, pathStableIdList) => ({ path: walkProfileOf(walkProfileName).routePath, query: { path: pathTextOf(pathStableIdList) } });
+export const walkLinkOf = (walkProfileName, pathStableIdList) => ({ path: walkProfileOf(walkProfileName).routePath, query: walkRouteQueryOf({ pathStableIdList, filterText: '' }) });
+// ⟪meaningsClarity⟫ a walk URL's query: its path, and the level's filter text when there is one (walkFilterVocabulary). Every link to another level is made with no
+// filter, so moving clears it; WalkView writes the level's own text into its own URL as it is typed, so Back and Forward bring it back
+export const walkRouteQueryOf = ({ pathStableIdList, filterText }) => ({
+	path: pathTextOf(pathStableIdList),
+	...(filterText ? { [walkFilterVocabulary.walkFilterQueryName]: filterText } : {}),
+});
+// the filter text a walk URL carries: '' when it carries none
+// ⟪review S2⟫ a hand-edited or mangled link never takes the page down: a repeated parameter (the router gives a list) reads as its first text, and a parameter that
+// is no text reads as no filter. The box then shows what was read, and typing writes one parameter back.
+export const walkFilterTextOfRouteQuery = (routeQuery) => {
+	const filterValue = (routeQuery || {})[walkFilterVocabulary.walkFilterQueryName];
+	const firstFilterValue = Array.isArray(filterValue) ? filterValue[0] : filterValue;
+	return typeof firstFilterValue === 'string' ? firstFilterValue : '';
+};
+// the walk's path one step into a row: below this level, or, for a row that carries the walk's own path to it (rowWalkPathFieldName), that path
+// (row: the level's row with that stableId, or null when the id is no row of this level)
+export const rowWalkPathOf = ({ walkProfileName, pathStableIdList, stableId, row }) => {
+	const rowWalkPathFieldName = walkProfileOf(walkProfileName).rowWalkPathFieldName;
+	const rowWalkPathStableIdList = rowWalkPathFieldName && row ? row[rowWalkPathFieldName] : null;
+	return rowWalkPathStableIdList && rowWalkPathStableIdList.length ? rowWalkPathStableIdList : [...pathStableIdList, stableId];
+};
 export const walkPathOf = (walkProfileName, pathStableIdList) => {
 	const rootStableId = walkProfileOf(walkProfileName).rootStableId;
 	return pathStableIdList[0] === rootStableId ? pathStableIdList : [rootStableId, ...pathStableIdList];
@@ -601,6 +820,14 @@ export const walkPathOf = (walkProfileName, pathStableIdList) => {
 // a meaning as the Meanings explorer opens it from elsewhere (the Standards Explorer, a /edc meaning page): the catalog, then the meaning itself
 export const MEANING_ID_PREFIX = 'meaning:';
 export const meaningsLinkOf = (cardStableId) => walkLinkOf('meanings', [MEANING_CATALOG_STABLE_ID, `${MEANING_ID_PREFIX}${cardStableId}`]);
+
+// ⟪meaningsClarity Addendum C #12⟫ a meaning reached by a deep link ([catalog, meaning], as meaningsLinkOf and the /edc page make it) has no hub or domain crumb to climb
+// to; its answer names both (meaningGroup, meaningDomain), so the full path is [catalog, its group, its domain, itself]. null: the path is already whole, or the
+// focus is no meaning, or its answer names no group
+export const meaningFullPathOf = ({ pathStableIdList, focusNode }) => {
+	if (!focusNode || focusNode.kind !== 'meaning' || !focusNode.meaningGroup || pathStableIdList.length !== 2 || pathStableIdList[1] !== focusNode.stableId) return null;
+	return [pathStableIdList[0], focusNode.meaningGroup.stableId, ...(focusNode.meaningDomain ? [focusNode.meaningDomain.stableId] : []), focusNode.stableId];
+};
 
 // (an element's path in the Standards Explorer is made by the server, from the walk's own rules: an "Expressed in" element's standardsWalkPathStableIdList)
 
