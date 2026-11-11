@@ -86,7 +86,7 @@ const withHarness = (harnessOptions, useHarness, afterAll) => {
 const seedSpend = ({ harness, ownerPrincipalKind, ownerPrincipalRefId, usdSpent }, done) => {
 	const { jobStore } = harness.rosettaJudged;
 	const jobRefId = crypto.randomBytes(16).toString('hex');
-	jobStore.addJob({ jobRefId, ownerPrincipalKind, ownerPrincipalRefId, formatName: 'fieldList', byteSize: 1, fieldList: [{ name: 'seeded' }], hubNameList: ['CEDS'], submissionNote: {}, expiresAtMs: Date.now() + MILLISECONDS_PER_DAY, estimateUsd: usdSpent, answeredFrom: { manifestRefId: 'seeded' }, judgeFacts: {} }, (addError) => jobStore.setJobStatus({ jobRefId, status: 'done', finishedAtMs: Date.now() }, () => jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex: 0, hubName: 'CEDS', estimateUsd: usdSpent, wireModel: 'claude-opus-5' }, (callError, callRefId) => jobStore.finishJudgeCall({ callRefId, callStatus: 'answered', usd: usdSpent, inputTokens: 1, outputTokens: 1 }, (finishError) => done(addError || callError || finishError)))));
+	jobStore.addJob({ jobRefId, ownerPrincipalKind, ownerPrincipalRefId, formatName: 'fieldList', byteSize: 1, fieldList: [{ name: 'seeded' }], hubNameList: ['CEDS'], submissionNote: {}, expiresAtMs: Date.now() + MILLISECONDS_PER_DAY, estimateUsd: usdSpent, answeredFrom: { manifestRefId: 'seeded' }, judgeFacts: {}, embeddingTokensEstimate: 0 }, (addError) => jobStore.setJobStatus({ jobRefId, status: 'done', finishedAtMs: Date.now() }, () => jobStore.addJudgeCall({ jobRefId, ownerPrincipalRefId, fieldIndex: 0, hubName: 'CEDS', estimateUsd: usdSpent, wireModel: 'claude-opus-5' }, (callError, callRefId) => jobStore.finishJudgeCall({ callRefId, callStatus: 'answered', usd: usdSpent, inputTokens: 1, outputTokens: 1 }, (finishError) => done(addError || callError || finishError)))));
 };
 
 const GATE_LIST = [];
@@ -536,6 +536,52 @@ gate('variantAtStartup', (done) => {
 			});
 		}, done);
 	});
+});
+
+// ⟪re-verification N1⟫ deletion never depends on the secret: a store with an expired anonymous job, restarted with the secret file missing, is still swept
+gate('sweepWithoutSecret', (done) => {
+	const storeDirPath = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rosettaSweepNoSecret-'));
+	const storeFilePath = path.join(storeDirPath, 'rosettaJobs.sqlite');
+	const vendor = fakeJudgeVendorFor();
+	openHarness({ embedder: (() => { const embedder = anyTextEmbedderFor(); return embedder; })(), storeFilePath, vendorPostOnce: vendor.postOnce }, (harnessError, harness) => {
+		if (harnessError) { ok(`harness: ${harnessError}`, false); done(); return; }
+		harness.usedEmbedder.setGoldenHandle(harness.goldenHandle);
+		const ask = askFor(harness);
+		visitorFor('203.0.113.90', (visitor) => ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, visitor, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, visitor, () => {
+			harness.runner.stopTicking();
+			const countSubmissions = (counted) => {
+				const sqlite3 = require('sqlite3');
+				const handle = new sqlite3.Database(storeFilePath, sqlite3.OPEN_READONLY, () => handle.get('SELECT (SELECT count(*) FROM submissions) AS submissions, (SELECT count(*) FROM rosettaJudgmentCache) AS cacheRows', [], (readError, oneRow) => handle.close(() => counted(readError, oneRow))));
+			};
+			countSubmissions((beforeError, beforeCount) => harness.strangerVectorStore.close(() => {
+				ok('before: the anonymous job is in the store', !beforeError && beforeCount.submissions === 1, JSON.stringify(beforeCount));
+				const laterNow = () => new Date(Date.now() + 8 * 86400000);
+				openHarness({ storeFilePath, judgedOffAllowed: true, nowDate: laterNow, fuseOverrideValues: { anonymousVisitorSecretFilePath: path.join(storeDirPath, 'noSuchSecretFile.txt') } }, (laterError, laterHarness) => {
+					ok('restarted 8 days on with the secret file missing: the judged step is off, by name', !laterError && laterHarness.errorLineList.some((oneLine) => /anonymousVisitorSecretFilePath .* would not read \(ENOENT\)/.test(oneLine)), laterError || JSON.stringify(laterHarness.errorLineList));
+					countSubmissions((afterError, afterCount) => {
+						ok('and the expired anonymous job was swept anyway, its cache with it', !afterError && afterCount.submissions === 0 && afterCount.cacheRows === 0, JSON.stringify(afterCount));
+						laterHarness.strangerVectorStore.close(() => { fs.rmSync(storeDirPath, { recursive: true, force: true }); done(); });
+					});
+				});
+			}));
+		})));
+	});
+});
+
+// ⟪re-verification N2⟫ nothing a job reports may tell its owner that someone else sent the same text: the embedding estimate is the same cached or not
+gate('estimateCacheBlind', (done) => {
+	const vendor = fakeJudgeVendorFor();
+	withHarness({ vendorPostOnce: vendor.postOnce }, (harness, close) => {
+		const ask = askFor(harness);
+		const sameField = [{ name: 'estimateProbeField', definition: 'The date the learner left the programme.' }];
+		visitorFor('203.0.113.91', (firstVisitor) => visitorFor('203.0.113.92', (secondVisitor) => ask('rosettaSubmit', { fieldList: sameField, hubList: ['CEDS'] }, firstVisitor, ({ answer: firstJob }) => untilClosed(ask, firstJob.jobRefId, firstVisitor, (firstStatus) => ask('rosettaSubmit', { fieldList: sameField, hubList: ['CEDS'] }, secondVisitor, ({ answer: secondJob }) => untilClosed(ask, secondJob.jobRefId, secondVisitor, (secondStatus) => {
+			ok('the second sender of the same text sees the same embedding estimate as the first, and a real one', firstStatus.embeddingTokensEstimate > 0 && secondStatus.embeddingTokensEstimate === firstStatus.embeddingTokensEstimate, `${firstStatus.embeddingTokensEstimate} vs ${secondStatus.embeddingTokensEstimate}`);
+			ask('rosettaStatus', { jobRefId: 'f'.repeat(32) }, secondVisitor, (unknownAnswer) => {
+				ok('a visitor asking for no such job is told in a visitor\'s words, never "this account"', unknownAnswer.answer.refusalName === 'notFound' && !/account/.test(unknownAnswer.answer.reason), unknownAnswer.answer.reason);
+				close();
+			});
+		}))))));
+	}, done);
 });
 
 const selectedNameList = process.argv.slice(2);

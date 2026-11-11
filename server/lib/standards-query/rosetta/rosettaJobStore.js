@@ -11,7 +11,7 @@
 
 const CREATE_STATEMENT_LIST = Object.freeze([
 	'CREATE TABLE IF NOT EXISTS submissions (jobRefId TEXT PRIMARY KEY, ownerPrincipalKind TEXT NOT NULL, ownerPrincipalRefId TEXT NOT NULL, formatName TEXT NOT NULL, byteSize INTEGER NOT NULL, fieldCount INTEGER NOT NULL, hubListJson TEXT NOT NULL, submittedJson TEXT NOT NULL, submissionNoteJson TEXT NOT NULL, expiresAtMs INTEGER NOT NULL)',
-	'CREATE TABLE IF NOT EXISTS jobs (jobRefId TEXT PRIMARY KEY, queueOrder INTEGER NOT NULL, status TEXT NOT NULL, stopReasonName TEXT, stopReasonText TEXT, submittedAtMs INTEGER NOT NULL, startedAtMs INTEGER, finishedAtMs INTEGER, estimateUsd REAL NOT NULL, answeredFromJson TEXT NOT NULL, judgeFactsJson TEXT NOT NULL, embeddingTokens INTEGER NOT NULL DEFAULT 0, embeddingTextCount INTEGER NOT NULL DEFAULT 0, embeddingCachedCount INTEGER NOT NULL DEFAULT 0)',
+	'CREATE TABLE IF NOT EXISTS jobs (jobRefId TEXT PRIMARY KEY, queueOrder INTEGER NOT NULL, status TEXT NOT NULL, stopReasonName TEXT, stopReasonText TEXT, submittedAtMs INTEGER NOT NULL, startedAtMs INTEGER, finishedAtMs INTEGER, estimateUsd REAL NOT NULL, answeredFromJson TEXT NOT NULL, judgeFactsJson TEXT NOT NULL, embeddingTokens INTEGER NOT NULL DEFAULT 0, embeddingTextCount INTEGER NOT NULL DEFAULT 0, embeddingCachedCount INTEGER NOT NULL DEFAULT 0, embeddingTokensEstimate INTEGER NOT NULL DEFAULT 0)',
 	'CREATE INDEX IF NOT EXISTS jobsByStatus ON jobs (status, queueOrder)',
 	'CREATE TABLE IF NOT EXISTS judgments (jobRefId TEXT NOT NULL, fieldIndex INTEGER NOT NULL, hubName TEXT NOT NULL, unitStatus TEXT NOT NULL, promptHash TEXT, judgmentJson TEXT NOT NULL, finishedAtMs INTEGER NOT NULL, PRIMARY KEY (jobRefId, fieldIndex, hubName))',
 	'CREATE TABLE IF NOT EXISTS judgeCalls (callRefId INTEGER PRIMARY KEY AUTOINCREMENT, jobRefId TEXT NOT NULL, ownerPrincipalRefId TEXT NOT NULL, fieldIndex INTEGER NOT NULL, hubName TEXT NOT NULL, startedAtMs INTEGER NOT NULL, finishedAtMs INTEGER, callStatus TEXT NOT NULL, usd REAL NOT NULL, inputTokens INTEGER, outputTokens INTEGER, wireModel TEXT NOT NULL, faultName TEXT, promptHash TEXT)',
@@ -57,8 +57,13 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	const JOB_READ_SQL = 'SELECT jobs.*, submissions.ownerPrincipalKind, submissions.ownerPrincipalRefId, submissions.formatName, submissions.byteSize, submissions.fieldCount, submissions.hubListJson, submissions.expiresAtMs FROM jobs JOIN submissions ON submissions.jobRefId = jobs.jobRefId';
 
 	// the job row first: a kill between the two leaves a row with no text, which the sweep clears, and never a text with nothing to name it
-	const addJob = ({ jobRefId, ownerPrincipalKind, ownerPrincipalRefId, formatName, byteSize, fieldList, hubNameList, submissionNote, expiresAtMs, estimateUsd, answeredFrom, judgeFacts }, done) => {
-		run("INSERT INTO jobs (jobRefId, queueOrder, status, submittedAtMs, estimateUsd, answeredFromJson, judgeFactsJson) VALUES (?, (SELECT coalesce(max(queueOrder), 0) + 1 FROM jobs), 'queued', ?, ?, ?, ?)", [jobRefId, nowMs(), estimateUsd, JSON.stringify(answeredFrom), JSON.stringify(judgeFacts)], (jobError) => {
+	// ⟪rosettaMeanings re-verification N2⟫ embeddingTokensEstimate is fixed at submit from the submission's own text, as if nothing were cached: what a job reports can never tell its owner that someone else sent the same text (embeddingTokens, the cache-aware count, stays for the bill)
+	const addJob = ({ jobRefId, ownerPrincipalKind, ownerPrincipalRefId, formatName, byteSize, fieldList, hubNameList, submissionNote, expiresAtMs, estimateUsd, answeredFrom, judgeFacts, embeddingTokensEstimate }, done) => {
+		if (!Number.isInteger(embeddingTokensEstimate) || embeddingTokensEstimate < 0) {
+			done(`addJob needs embeddingTokensEstimate, a whole number of tokens from the submission's own text; it was given ${JSON.stringify(embeddingTokensEstimate)}`);
+			return;
+		}
+		run("INSERT INTO jobs (jobRefId, queueOrder, status, submittedAtMs, estimateUsd, answeredFromJson, judgeFactsJson, embeddingTokensEstimate) VALUES (?, (SELECT coalesce(max(queueOrder), 0) + 1 FROM jobs), 'queued', ?, ?, ?, ?, ?)", [jobRefId, nowMs(), estimateUsd, JSON.stringify(answeredFrom), JSON.stringify(judgeFacts), embeddingTokensEstimate], (jobError) => {
 			if (jobError) {
 				done(jobError);
 				return;

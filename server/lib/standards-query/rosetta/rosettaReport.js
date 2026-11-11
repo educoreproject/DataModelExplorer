@@ -39,7 +39,7 @@ const ownerJobFactsOf = ({ job, spentUsd, unitsFinished }) => ({
 	unitsFinished,
 	unitsTotal: job.fieldCount * job.hubNameList.length,
 	unitNote: 'one unit is one field against one hub',
-	embeddingTokensEstimate: job.embeddingTokens,
+	embeddingTokensEstimate: job.embeddingTokensEstimate, // ⟪rosettaMeanings N2⟫ fixed at submit, cache-blind
 	spentUsd: roundedUsdOf(spentUsd),
 	estimateUsd: job.estimateUsd,
 	submittedAt: isoOf(job.submittedAtMs),

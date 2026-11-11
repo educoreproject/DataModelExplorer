@@ -80,7 +80,8 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 	};
 
 	const ownedJobOr = ({ operationName, principal, input }, withJob, done) => {
-		const notFound = () => done('', refusalJudgedAnswer(operationName, 'notFound', 'there is no such job for this account'));
+		// ⟪rosettaMeanings S6⟫ a visitor is told in a visitor's words, never "this account"
+		const notFound = () => done('', refusalJudgedAnswer(operationName, 'notFound', principal.kind === ANONYMOUS_PRINCIPAL_KIND ? judgedSettings.anonymousRefusalReasonByName.notFound : 'there is no such job for this account'));
 		if (typeof input.jobRefId !== 'string' || !JOB_REF_ID_PATTERN.test(input.jobRefId)) {
 			notFound();
 			return;
@@ -291,6 +292,7 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 					estimateUsd,
 					answeredFrom,
 					judgeFacts: judgeEngine.judgeFacts,
+					embeddingTokensEstimate: estimatedTokens,
 				}, (addError) => {
 					if (addError) {
 						finished(`the job store would not take the job: ${addError}`);

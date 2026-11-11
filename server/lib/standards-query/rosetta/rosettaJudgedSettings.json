@@ -6,7 +6,8 @@
 		"anonymousQueueFull": "{queuedCount} jobs from visitors who are not signed in are waiting, the most that queue holds; try again later, or sign in",
 		"anonymousDailyCeilingReached": "judging for visitors who are not signed in has reached what it may spend in any 24 hours; sign in, or try again later. Retrieval keeps working.",
 		"anonymousVisitorHasOpenJob": "this address has {openCount} judged jobs open, the most a visitor who is not signed in may; wait for one to finish, or sign in",
-		"anonymousVisitorDailyCeilingReached": "this address has reached the most a visitor who is not signed in may judge in any 24 hours; sign in, or try again later. Retrieval keeps working."
+		"anonymousVisitorDailyCeilingReached": "this address has reached the most a visitor who is not signed in may judge in any 24 hours; sign in, or try again later. Retrieval keeps working.",
+		"notFound": "there is no such job here; a job asked for without signing in is reached only by its own link"
 	},
 	"_jobServiceComment": "rosettaMeanings R3 (the lesson of rosettaFreeInput's B1): the job rows hold their own in-flight cap ([rosetta-fuse] jobServiceMaxInFlight), never the query core's slots, so a crowd of visitors submitting at once can never stop the rest of the service answering. Past it, a request is refused jobServiceBusy, to retry.",
 	"jobServiceBusyReason": "{inFlightCount} job requests are being answered, the most this service answers at once; retry in {retryAfterSeconds} seconds",
