@@ -4,7 +4,8 @@ import { siteNoticeWords } from '@/components/siteNotice/siteNoticeVocabulary';
 </script>
 
 <template>
-	<v-alert type="warning" variant="tonal" density="compact" class="piiNotice" data-testid="pii-notice">{{ siteNoticeWords.piiNoticeText }}</v-alert>
+	<!-- the theme's primary colour, the logo's blue (TQ, 2026-11-10: not the warning orange) -->
+	<v-alert color="primary" variant="tonal" density="compact" class="piiNotice" data-testid="pii-notice">{{ siteNoticeWords.piiNoticeText }}</v-alert>
 </template>
 
 <style scoped>
