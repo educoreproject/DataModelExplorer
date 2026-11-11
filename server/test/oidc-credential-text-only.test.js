@@ -13,9 +13,12 @@
 //   O1  a non-text username or password (JSON object, JSON array, urlencoded bracket form) is refused by name (400
 //       identifierNotText on the page) and no login is recorded: the flow does not move on to consent
 //   O2  the real credentials still sign in (control: the flow moves on)
-//   M1  review SF-4: an MCP bearer token issued BEFORE the user's password change is refused by the real bearer gate
-//       (user access revoked); the same token passes the gate before the change (control). The change goes through the
-//       real user-save-data access point, which stamps users.accessRevokedAfter.
+//   M1  review SF-4: an MCP bearer token issued BEFORE the user's password change, IN THE SAME SECOND, is refused by the
+//       real bearer gate; the same token passes the gate before the change (control). The change goes through the real
+//       user-save-data access point.
+//   M2  re-verification SF-4 (2): the refresh token issued with it no longer refreshes after the change (run, not read)
+//   M3  the provider login session from before the change no longer authorizes silently: a fresh authorization asks
+//       for the password again
 //
 // USER_HOLE_SERVER_PATH=<server dir> points it at another tree (the pinned base, to watch it fail).
 //
@@ -163,7 +166,7 @@ const obtainAccessToken = ({ issuerUrl, username, password }, callback) => {
 				const authorizationCode = new URL(nextUrl).searchParams.get('code');
 				sendRequest({ method: 'POST', url: `${issuerUrl}/oauth/token`, formText: new URLSearchParams({ grant_type: 'authorization_code', code: authorizationCode, redirect_uri: redirectUri, client_id: CLIENT_ID, code_verifier: codeVerifier }).toString() }, (tokenResponse) => {
 					const tokenAnswer = /^\s*\{/.test(tokenResponse.bodyText) ? JSON.parse(tokenResponse.bodyText) : {};
-					callback(tokenAnswer.access_token ? { accessToken: tokenAnswer.access_token } : { failureText: `token ${tokenResponse.statusCode} ${tokenResponse.bodyText.slice(0, 160)}` });
+					callback(tokenAnswer.access_token ? { accessToken: tokenAnswer.access_token, refreshToken: tokenAnswer.refresh_token } : { failureText: `token ${tokenResponse.statusCode} ${tokenResponse.bodyText.slice(0, 160)}` });
 				});
 				return;
 			}
@@ -172,6 +175,10 @@ const obtainAccessToken = ({ issuerUrl, username, password }, callback) => {
 		}
 		const interactionUid = ((response.bodyText.match(/interaction\/([^/?"]+)\/(?:login|confirm)/) || [])[1]) || interactionUidOf(url);
 		if (response.statusCode === 200 && /name="password"/.test(response.bodyText)) {
+			if (password === undefined) {
+				callback({ stoppedAtLoginPage: true });
+				return;
+			}
 			followStep('POST', `${issuerUrl}/oauth/interaction/${interactionUid}/login`, new URLSearchParams({ username, password, csrf: csrfOf(response.bodyText) }).toString(), hopCount + 1);
 			return;
 		}
@@ -268,7 +275,7 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 						const { verifyBearer } = makeMcpVerifier({ resolvePublicKey, expectedAudience: `${issuerUrl}/mcp`, verifyMcpAccessToken });
 						const { checkBearer } = makeBearerGate({ getOauthContext: () => ({ verifyBearer, sqlDb }) });
 						const bearerVerdictOf = (accessToken, verdictDone) => checkBearer({ headers: { authorization: `Bearer ${accessToken}` } }, (rejectReason) => verdictDone(rejectReason || ''));
-						const runMcpRevocation = (flowDone) => obtainAccessToken({ issuerUrl, username: 'bob', password: BOB_PASSWORD }, ({ accessToken, failureText }) => {
+						const runMcpRevocation = (flowDone) => obtainAccessToken({ issuerUrl, username: 'bob', password: BOB_PASSWORD }, ({ accessToken, refreshToken, failureText }) => {
 							check('M1 setup: an MCP access token is issued to bob through the whole flow', !!accessToken, failureText);
 							if (!accessToken) {
 								flowDone();
@@ -276,13 +283,23 @@ sqlDbGen.initDatabaseInstance(path.join(scratchDirPath, 'users.sqlite3'), (dbErr
 							}
 							bearerVerdictOf(accessToken, (beforeReason) => {
 								check('M1 control: before the password change the bearer gate admits the token', beforeReason === '', beforeReason);
-								setTimeout(() => accessPointByName['user-save-data']({ refId: refIdByUsername.bob, password: BOB_NEW_PASSWORD, currentPassword: BOB_PASSWORD }, (saveError) => {
+								// no wait: the change runs in the token's own second whenever the flow is quick, the case that used to survive
+								const tokenIatSeconds = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()).iat;
+								accessPointByName['user-save-data']({ refId: refIdByUsername.bob, password: BOB_NEW_PASSWORD, currentPassword: BOB_PASSWORD }, (saveError) => {
+									const changeSeconds = Math.floor(Date.now() / 1000);
 									check('M1 setup: bob\'s password change saves', !saveError, saveError);
+									console.log(`  (M1 token iat ${tokenIatSeconds}, change second ${changeSeconds}: ${tokenIatSeconds === changeSeconds ? 'same second' : 'different seconds'})`);
 									bearerVerdictOf(accessToken, (afterReason) => {
-										check('M1 the token from before the change is refused by the bearer gate (user access revoked)', /user access revoked/.test(afterReason), afterReason || 'admitted');
-										flowDone();
+										check('M1 the token from before the change is refused by the bearer gate (user access revoked or grant revoked)', /revoked/.test(afterReason), afterReason || 'admitted');
+										sendRequest({ method: 'POST', url: `${issuerUrl}/oauth/token`, formText: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken || '', client_id: CLIENT_ID }).toString() }, (refreshResponse) => {
+											check('M2 the refresh token from before the change no longer refreshes', !!refreshToken && refreshResponse.statusCode >= 400 && /invalid_grant/.test(refreshResponse.bodyText), `${refreshResponse.statusCode} ${refreshResponse.bodyText.slice(0, 160)}`);
+											obtainAccessToken({ issuerUrl, username: 'bob', password: undefined }, (silentAnswer) => {
+												check('M3 a fresh authorization asks for the password again (the old provider session no longer signs in)', silentAnswer.stoppedAtLoginPage === true, JSON.stringify(silentAnswer).slice(0, 160));
+												flowDone();
+											});
+										});
 									});
-								}), ONE_SECOND_AND_A_LITTLE_MS);
+								});
 							});
 						});
 						console.log(`server tree under test: ${SERVER_PATH}`);

@@ -54,6 +54,14 @@ const APOSTROPHE_FIRST_NAME = "O'Brien";
 const OVERSIZED_FIRST_NAME = 'x'.repeat(100000);
 const UNKNOWN_PLAIN_REFID = 'no-such-refId-q7';
 const ONE_SECOND_AND_A_LITTLE_MS = 1100;
+const WENDY_PASSWORD = 'wendy-Kestrel-4417';
+const WENDY_NEW_PASSWORD = 'wendy-Heron-5528';
+const WENDY_RESET_PASSWORD = 'wendy-Plover-6639';
+const MILLISECONDS_PER_SECOND = 1000;
+const JUST_AFTER_SECOND_START_MS = 20;
+// wait until just after the next whole second starts, so what follows runs inside one wall-clock second
+const waitForFreshSecond = (callback) => setTimeout(callback, MILLISECONDS_PER_SECOND - (Date.now() % MILLISECONDS_PER_SECOND) + JUST_AFTER_SECOND_START_MS);
+const iatOf = (authtoken) => (authtoken ? jwt.decode(authtoken).iat : undefined);
 const SEED_USER_LIST = [
 	{ username: 'alice', password: ALICE_PASSWORD, first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user' },
 	{ username: 'bob', password: BOB_PASSWORD, first: 'Bob', last: 'Baker', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'user' },
@@ -195,6 +203,33 @@ const stepList = [
 	// ---------------------------------------------------------------- U1 the username rule on admin create / update
 	(state, next) => state.harness.accessPointByName['admin-create-user']({ username: "eve'name", password: EVE_PASSWORD, first: 'Eve', last: 'Evans', emailAdr: 'eve@example.org' }, (createError) => next({ ...state, u1CreateError: createError })),
 	(state, next) => state.harness.accessPointByName['admin-update-user']({ refId: userOf(state, 'bob').refId, username: "bob'name", first: 'Bob', last: 'Baker', emailAdr: 'bob@example.org' }, (updateError) => next({ ...state, u1UpdateError: updateError })),
+	// ---------------------------------------------------------------- W1 the same-second race (re-verification SF-4 (1))
+	// a token minted in the SAME second as the change must not survive; only the changer's fresh token does
+	(state, next) => state.harness.accessPointByName['admin-create-user']({ username: 'wendy', password: WENDY_PASSWORD, first: 'Wendy', last: 'Wren', emailAdr: 'wendy@example.org' }, (createError, createAnswer) => next({ ...state, wendyRefId: createAnswer && createAnswer.user && createAnswer.user.refId })),
+	(state, next) => waitForFreshSecond(() => next(state)),
+	(state, next) => post(state, '/api/login', { username: 'wendy', password: WENDY_PASSWORD }, null, (response) => next({ ...state, w1ThiefLogin: response })),
+	(state, next) => post(state, '/api/login', { username: 'wendy', password: WENDY_PASSWORD }, null, (response) => next({ ...state, w1ChangerLogin: response })),
+	(state, next) => post(state, '/api/saveUserData', { password: WENDY_NEW_PASSWORD, currentPassword: WENDY_PASSWORD }, state.w1ChangerLogin.authtoken, (response) => next({ ...state, w1Change: response, w1ChangeSecond: Math.floor(Date.now() / MILLISECONDS_PER_SECOND) })),
+	(state, next) => rowByRefIdOf(state, state.wendyRefId, (wendyRow) => next({ ...state, w1CutoffSeconds: Number((wendyRow || {}).accessRevokedAfter || 0) })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Thief' }, state.w1ThiefLogin.authtoken, (response) => next({ ...state, w1ThiefAfter: response })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Wendy' }, state.w1Change.authtoken, (response) => next({ ...state, w1ChangerNext: response })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Wendy' }, state.w1ChangerNext.authtoken, (response) => next({ ...state, w1ChangerNextNext: response })),
+	// a sign-in with the NEW password in the change's own second must give a token that works (it is signed at the cutoff)
+	(state, next) => post(state, '/api/login', { username: 'wendy', password: WENDY_NEW_PASSWORD }, null, (response) => next({ ...state, w1LoginRightAfter: response, w1LoginRightAfterSecond: Math.floor(Date.now() / MILLISECONDS_PER_SECOND) })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Wendy' }, state.w1LoginRightAfter.authtoken, (response) => next({ ...state, w1LoginRightAfterSave: response })),
+
+	// ---------------------------------------------------------------- W2 an admin password reset ends the user's sessions (re-verification SF-4 (3))
+	// a fresh second first, so W1's cutoff cannot be what refuses the token below
+	(state, next) => waitForFreshSecond(() => setTimeout(() => next(state), MILLISECONDS_PER_SECOND)),
+	(state, next) => post(state, '/api/login', { username: 'wendy', password: WENDY_NEW_PASSWORD }, null, (response) => next({ ...state, w2WendyLogin: response })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Wendy' }, state.w2WendyLogin.authtoken, (response) => next({ ...state, w2BeforeReset: response })),
+	(state, next) => state.harness.accessPointByName['admin-update-user']({ refId: state.wendyRefId, username: 'wendy', password: WENDY_RESET_PASSWORD, first: 'Wendy', last: 'Wren', emailAdr: 'wendy@example.org' }, (updateError) => next({ ...state, w2ResetError: updateError })),
+	(state, next) => post(state, '/api/saveUserData', { first: 'Wendy' }, state.w2WendyLogin.authtoken, (response) => next({ ...state, w2AfterReset: response })),
+	(state, next) => post(state, '/api/login', { username: 'wendy', password: WENDY_RESET_PASSWORD }, null, (response) => next({ ...state, w2ResetLogin: response })),
+
+	// ---------------------------------------------------------------- A1 admin saves refuse unknown properties by name (re-verification nit)
+	(state, next) => state.harness.accessPointByName['admin-update-user']({ refId: state.wendyRefId, username: 'wendy', first: 'Wendy', last: 'Wren', emailAdr: 'wendy@example.org', disabled: '1' }, (updateError) => next({ ...state, a1UpdateError: updateError })),
+	(state, next) => state.harness.accessPointByName['admin-create-user']({ username: 'xena', password: DORA_PASSWORD, first: 'Xena', last: 'Xu', emailAdr: 'xena@example.org', accessRevokedAfter: '1' }, (createError) => next({ ...state, a1CreateError: createError })),
 	(state, next) => allRowsOf(state, (rowList) => next({ ...state, finalRowList: rowList })),
 
 	// ---------------------------------------------------------------- N3 admin-create refuses a non-text username by name
@@ -298,6 +333,23 @@ const report = (state) => {
 	const bobRow = state.finalRowList.find((userRow) => userRow.username === 'bob') || {};
 	check('admin-create-user: stored as a hash, not as typed, and it logs in', !state.h1CreateError && caraRow.password !== CARA_COLON_PASSWORD && state.h1CaraLogin.statusCode === 200, `${state.h1CreateError} plaintext=${caraRow.password === CARA_COLON_PASSWORD} login ${state.h1CaraLogin.statusCode}`);
 	check('admin-update-user: stored as a hash, not as typed, and it logs in', !state.h1UpdateError && bobRow.password !== BOB_COLON_PASSWORD && state.h1BobLogin.statusCode === 200, `${state.h1UpdateError} plaintext=${bobRow.password === BOB_COLON_PASSWORD} login ${state.h1BobLogin.statusCode}`);
+
+	console.log('W1 the same-second race: only the changer\'s fresh token survives');
+	const { w1CutoffSeconds } = state;
+	check('setup: the thief\'s token was minted in the same second as the change', iatOf(state.w1ThiefLogin.authtoken) === state.w1ChangeSecond && state.w1Change.statusCode === 200, `thief iat ${iatOf(state.w1ThiefLogin.authtoken)} change second ${state.w1ChangeSecond} change ${state.w1Change.statusCode}`);
+	check('the same-second thief token is refused 401 sessionRevoked', state.w1ThiefAfter.statusCode === 401 && /sessionRevoked/.test(state.w1ThiefAfter.bodyText), `${state.w1ThiefAfter.statusCode} ${state.w1ThiefAfter.bodyText}`);
+	check('the changer\'s fresh token works, and so does the token after it (never signed below the cutoff)', state.w1ChangerNext.statusCode === 200 && state.w1ChangerNextNext.statusCode === 200 && iatOf(state.w1ChangerNext.authtoken) >= w1CutoffSeconds, `${state.w1ChangerNext.statusCode} ${state.w1ChangerNextNext.statusCode} iat ${iatOf(state.w1ChangerNext.authtoken)} cutoff ${w1CutoffSeconds}`);
+
+	check('a sign-in with the new password in the change\'s own second gets a working token', state.w1LoginRightAfter.statusCode === 200 && state.w1LoginRightAfterSave.statusCode === 200, `login ${state.w1LoginRightAfter.statusCode} (second ${state.w1LoginRightAfterSecond}, cutoff ${w1CutoffSeconds}) then save ${state.w1LoginRightAfterSave.statusCode} ${state.w1LoginRightAfterSave.bodyText.slice(0, 80)}`);
+
+	console.log('W2 an admin password reset ends the user\'s sessions (W1 cutoff long past)');
+	check('control: the token works before the reset', state.w2BeforeReset.statusCode === 200, `${state.w2BeforeReset.statusCode} ${state.w2BeforeReset.bodyText.slice(0, 80)}`);
+	check('the user\'s token from before the reset is refused 401 sessionRevoked', !state.w2ResetError && state.w2WendyLogin.statusCode === 200 && state.w2AfterReset.statusCode === 401 && /sessionRevoked/.test(state.w2AfterReset.bodyText), `${state.w2ResetError} login ${state.w2WendyLogin.statusCode} after ${state.w2AfterReset.statusCode} ${state.w2AfterReset.bodyText}`);
+	check('the reset password logs in', state.w2ResetLogin.statusCode === 200, `${state.w2ResetLogin.statusCode}`);
+
+	console.log('A1 admin saves refuse unknown properties by name');
+	check('admin-update-user: refused propertyNotAdminEditable naming disabled', /propertyNotAdminEditable/.test(String(state.a1UpdateError)) && /\bdisabled\b/.test(String(state.a1UpdateError)), String(state.a1UpdateError));
+	check('admin-create-user: refused propertyNotAdminEditable naming accessRevokedAfter', /propertyNotAdminEditable/.test(String(state.a1CreateError)) && /\baccessRevokedAfter\b/.test(String(state.a1CreateError)), String(state.a1CreateError));
 
 	console.log('N3 admin-create-user refuses a non-text username by name');
 	check('refused identifierNotText', /identifierNotText/.test(String(state.n3CreateError)), String(state.n3CreateError));

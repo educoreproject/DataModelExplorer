@@ -13,6 +13,9 @@
 	"_passwordPropertyName": "the users table's password property (profile-user maps it under the same name). It must be in selfEditablePropertyList; a non-blank value there is a NEW password.",
 	"passwordPropertyName": "password",
 
+	"_adminEditablePropertyList": "what admin-create-user and admin-update-user accept (the admin user form sends exactly these; the rater tool sends a subset); anything else is refused by name (propertyNotAdminEditable), never dropped (re-verification 2026-11-10).",
+	"adminEditablePropertyList": ["refId", "username", "password", "first", "last", "emailAdr", "phone", "role"],
+
 	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling.",
 	"maxLengthByPropertyName": { "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64 },
 
@@ -31,6 +34,7 @@
 		"usernameNotAllowed": { "refusalName": "usernameNotAllowed", "httpStatus": 400, "reason": "a username may contain only letters, numbers, underscore and hyphen" },
 		"identifierNotText": { "refusalName": "identifierNotText", "httpStatus": 400, "reason": "a user lookup was given an identifier that is not text: <!detailListText!>" },
 		"passwordNotAccepted": { "refusalName": "passwordNotAccepted", "httpStatus": 400, "reason": "the new password was not accepted: <!detailListText!>" },
+		"propertyNotAdminEditable": { "refusalName": "propertyNotAdminEditable", "httpStatus": 400, "reason": "these cannot be set by the admin user tools: <!detailListText!>" },
 		"propertyValueNotText": { "refusalName": "propertyValueNotText", "httpStatus": 400, "reason": "these must be text: <!detailListText!>" },
 		"propertyTooLong": { "refusalName": "propertyTooLong", "httpStatus": 400, "reason": "these are longer than allowed: <!detailListText!>" },
 		"emailAdrNotValid": { "refusalName": "emailAdrNotValid", "httpStatus": 400, "reason": "the email address is not in a valid form" },

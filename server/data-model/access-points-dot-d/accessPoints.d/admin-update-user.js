@@ -22,7 +22,8 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
-const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText } = require('../../../lib/user-profile-rules');
+const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, adminSaveRefusalOf, refusalOf, refusalText, isBlank } = require('../../../lib/user-profile-rules');
+const { revokeSessionsOf } = require('../../../lib/user-session-revocation');
 
 //START OF moduleFunction() ============================================================
 
@@ -65,6 +66,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 			// every limited property within its limit, refused by name before any save (review SF-7: an over-long value
 			// re-signed into every token header locked the account)
+			// only the admin tools' own properties; anything else is refused by name, never dropped (re-verification nit)
+			const adminPropertyRefusal = adminSaveRefusalOf(userData);
+			if (adminPropertyRefusal) {
+				errors.push(refusalText(adminPropertyRefusal));
+			}
+
 			const lengthRefusal = valueLengthRefusalOf(userData);
 			if (lengthRefusal) {
 				errors.push(refusalText(lengthRefusal));
@@ -186,6 +193,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const dbData = dataMapping['profile-user'].map(validatedUserData, 'reverse');
 
 			userTable.runStatement(dataMapping['profile-user'].getSql('updateByRefId', dbData), { suppressStatementLog: true }, localCallback);
+		});
+
+		// --------------------------------------------------------------------------------
+		// AN ADMIN PASSWORD RESET ENDS THE USER'S SESSIONS (re-verification SF-4 (3)): a reset is what support reaches for
+		// on a compromised account, so every token of it, website and MCP, must stop working (lib/user-session-revocation)
+
+		taskList.push((args, next) => {
+			const { validatedUserData } = args;
+			if (isBlank(validatedUserData.password)) {
+				next('', args);
+				return;
+			}
+			revokeSessionsOf({ sqlDb, dataMapping, userRefId: validatedUserData.refId }, (revokeError) => next(revokeError ? `User update failed: ${revokeError}` : '', args));
 		});
 
 		// --------------------------------------------------------------------------------

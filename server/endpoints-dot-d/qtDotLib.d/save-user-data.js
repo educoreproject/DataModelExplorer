@@ -105,6 +105,8 @@ const moduleFunction = function ({
 				{
 					xReq,
 					xRes,
+					// after a password change, refreshauthtoken signs this token no earlier than the account's new cutoff (the
+					// next whole second), so it survives while every older token, even one from this same second, is refused
 					payloadValues: {
 						source: 'save-user-data',
 						user,

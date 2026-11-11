@@ -20,8 +20,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 const os = require('os');
 const { textIdentifierRefusalOf, refusalOf, refusalText, hasNewPassword, isBlank, currentPasswordPropertyName } = require('../../../lib/user-profile-rules');
 
-// accessRevokedAfter is epoch SECONDS, the unit of a JWT's iat (the MCP bearer gate and hasValidToken both compare them)
-const MILLISECONDS_PER_SECOND = 1000;
+const { revokeSessionsOf } = require('../../../lib/user-session-revocation');
 
 //START OF moduleFunction() ============================================================
 
@@ -153,22 +152,18 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		});
 
 		// --------------------------------------------------------------------------------
-		// A PASSWORD CHANGE SIGNS OUT EVERY OTHER SESSION (review SF-4, ROMANTIC_PARASOL ruling 2026-11-10)
-		//
-		// users.accessRevokedAfter (epoch seconds) is the cutoff hasValidToken applies to website tokens and the MCP
-		// bearer gate applies to OAuth access tokens: a token issued before it is refused. AI-connector sessions of this
-		// user are signed out too, deliberately. The token the endpoint signs after this stage is issued at or after the
-		// cutoff (iat >= cutoff passes), so the changer stays signed in. saveObject adds the column when a table lacks it;
-		// the value is digits, so its apostrophe handling does not matter.
+		// A PASSWORD CHANGE SIGNS OUT EVERY OTHER SESSION (review SF-4 and its re-verification, ROMANTIC_PARASOL rulings
+		// 2026-11-10), website and MCP OAuth alike, including a token minted earlier in the same second. The mechanism is in
+		// lib/user-session-revocation.js: the cutoff is the NEXT whole second, and refreshauthtoken signs the changer's
+		// fresh token (and any later token of the account) no earlier than that cutoff, so older tokens are all refused.
 
 		taskList.push((args, next) => {
-			const { isPasswordChange, refId, userTable } = args;
+			const { isPasswordChange, refId } = args;
 			if (!isPasswordChange) {
 				next('', args);
 				return;
 			}
-			const accessRevokedAfterSeconds = Math.floor(Date.now() / MILLISECONDS_PER_SECOND);
-			userTable.saveObject({ refId, accessRevokedAfter: String(accessRevokedAfterSeconds) }, { suppressStatementLog: true }, (stampError) => next(stampError, args));
+			revokeSessionsOf({ sqlDb, dataMapping, userRefId: refId }, (revokeError) => next(revokeError, args));
 		});
 
 		// --------------------------------------------------------------------------------

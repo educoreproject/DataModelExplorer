@@ -35,6 +35,16 @@ const moduleFunction = ({ moduleName }) => ({ baseMappingProcess, safeSql } = {}
 			return `SELECT refId, id, payload, expiresAt FROM <!tableName!> WHERE model = 'Grant'`;
 		}
 
+		// a password change or an admin password reset ends every MCP OAuth session of the account (review SF-4,
+		// 2026-11-10): first every token row of its grants (refresh tokens, codes: rows carrying grantId), then the
+		// Grant and Session rows themselves. A refresh token then fails at the provider (no row), and a bearer whose
+		// Grant row is gone is refused by the bearer gate. Two statements, so the first still sees the Grant rows.
+		if (queryName === 'grantFamilyTokensOfAccountDelete') {
+			return safeSql(`DELETE FROM <!tableName!> WHERE grantId IN (SELECT id FROM <!tableName!> WHERE model = 'Grant' AND json_extract(payload, '$.accountId') = <!accountRefId!>)`, { accountRefId: replaceObject.accountRefId });
+		}
+		if (queryName === 'grantsAndSessionsOfAccountDelete') {
+			return safeSql(`DELETE FROM <!tableName!> WHERE model IN ('Grant', 'Session') AND json_extract(payload, '$.accountId') = <!accountRefId!>`, { accountRefId: replaceObject.accountRefId });
+		}
 		if (queryName === 'clientsAll') {
 			return `SELECT refId, id, payload FROM <!tableName!> WHERE model = 'Client'`;
 		}

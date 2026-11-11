@@ -14,6 +14,7 @@
 //   hasNewPassword(bodyObject)                            -> true when the body carries a non-blank password
 //   isBlank(propertyValue)                                -> true for undefined, null and ''
 //   valueLengthRefusalOf(recordObject)                    -> '' or a refusal (propertyTooLong) naming each over-long property
+//   adminSaveRefusalOf(userData)                          -> '' or a refusal (propertyNotAdminEditable) naming each unknown property
 //   usernameRefusalOf(usernameText)                       -> '' or a refusal (usernameNotAllowed)
 //   textIdentifierRefusalOf(identifierByName)             -> '' or a refusal (identifierNotText) naming each non-text one
 //   refusalOf(caseName, { detailList })                   -> { refusalName, httpStatus, reason }
@@ -27,7 +28,7 @@ const path = require('path');
 
 const RULES_FILE_PATH = path.join(__dirname, 'user-profile-rules.json');
 const REQUIRED_CASE_NAME_LIST = [
-	'noSignedInUser', 'bodyNotAnObject', 'notOwnRecord', 'propertyNotSelfEditable', 'propertyValueNotText', 'propertyTooLong', 'emailAdrNotValid',
+	'noSignedInUser', 'bodyNotAnObject', 'notOwnRecord', 'propertyNotSelfEditable', 'propertyNotAdminEditable', 'propertyValueNotText', 'propertyTooLong', 'emailAdrNotValid',
 	'usernameNotAllowed', 'identifierNotText', 'noSuchUser', 'passwordNotAccepted', 'currentPasswordRequired', 'currentPasswordWrong', 'sessionRevoked',
 ];
 const BLANK_VALUE_LIST = Object.freeze([undefined, null, '']);
@@ -40,9 +41,12 @@ const refuseRules = (problemText) => {
 // ---- loadRules - read the rules file and refuse, naming the entry, anything absent or malformed
 const loadRules = () => {
 	const rulesObject = require(RULES_FILE_PATH);
-	const { selfEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, emailPatternText, usernamePatternText, refusalByCase } = rulesObject;
+	const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, emailPatternText, usernamePatternText, refusalByCase } = rulesObject;
 	if (!Array.isArray(selfEditablePropertyList) || !selfEditablePropertyList.length || selfEditablePropertyList.some((propertyName) => typeof propertyName !== 'string')) {
 		refuseRules('selfEditablePropertyList must be a non-empty list of property names');
+	}
+	if (!Array.isArray(adminEditablePropertyList) || !adminEditablePropertyList.length || adminEditablePropertyList.some((propertyName) => typeof propertyName !== 'string')) {
+		refuseRules('adminEditablePropertyList must be a non-empty list of property names');
 	}
 	if (typeof ownRecordPropertyName !== 'string' || !ownRecordPropertyName || selfEditablePropertyList.includes(ownRecordPropertyName)) {
 		refuseRules('ownRecordPropertyName must name the record\'s identifier property, outside selfEditablePropertyList');
@@ -71,13 +75,13 @@ const loadRules = () => {
 		refuseRules(`refusalByCase lacks a complete { refusalName, httpStatus, reason } for: ${missingCaseNameList.join(', ')}`);
 	}
 	return {
-		selfEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase,
+		selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase,
 		emailPattern: new RegExp(emailPatternText),
 		usernamePattern: new RegExp(usernamePatternText),
 	};
 };
 
-const { selfEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase, emailPattern, usernamePattern } = loadRules();
+const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase, emailPattern, usernamePattern } = loadRules();
 
 const isBlank = (propertyValue) => BLANK_VALUE_LIST.includes(propertyValue);
 
@@ -157,9 +161,15 @@ const selfSaveRecordOf = ({ requestBody, signedInUserRefId }) =>
 		{ [ownRecordPropertyName]: signedInUserRefId },
 	);
 
+// ---- adminSaveRefusalOf - an admin create or update carries only adminEditablePropertyList; anything else is named
+const adminSaveRefusalOf = (userData) => {
+	const refusedNameList = Object.keys(userData || {}).filter((propertyName) => !adminEditablePropertyList.includes(propertyName));
+	return refusedNameList.length ? refusalOf('propertyNotAdminEditable', { detailList: refusedNameList }) : '';
+};
+
 const usernameRefusalOf = (usernameText) => (typeof usernameText === 'string' && usernamePattern.test(usernameText) ? '' : refusalOf('usernameNotAllowed'));
 
 module.exports = {
-	selfSaveRefusalOf, selfSaveRecordOf, usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText, hasNewPassword, isBlank,
+	selfSaveRefusalOf, selfSaveRecordOf, adminSaveRefusalOf, usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText, hasNewPassword, isBlank,
 	selfEditablePropertyList, currentPasswordPropertyName,
 };

@@ -28,7 +28,7 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
-const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
+const { usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, adminSaveRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -71,6 +71,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 
 			// every limited property within its limit, refused by name before any save (review SF-7: an over-long value
 			// re-signed into every token header locked the account)
+			// only the admin tools' own properties; anything else is refused by name, never dropped (re-verification nit)
+			const adminPropertyRefusal = adminSaveRefusalOf(userData);
+			if (adminPropertyRefusal) {
+				errors.push(refusalText(adminPropertyRefusal));
+			}
+
 			const lengthRefusal = valueLengthRefusalOf(userData);
 			if (lengthRefusal) {
 				errors.push(refusalText(lengthRefusal));

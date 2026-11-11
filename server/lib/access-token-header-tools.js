@@ -17,6 +17,9 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const { refusalOf, refusalText } = require('./user-profile-rules');
+
+const ISSUED_NO_EARLIER_THAN_NAME = 'issuedNoEarlierThanSeconds';
+const MILLISECONDS_PER_SECOND = 1000;
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
@@ -98,6 +101,9 @@ const moduleFunction =
 					if (!err && accessRevokedAfterSeconds && Number(authclaims.iat || 0) < accessRevokedAfterSeconds) {
 						err = `token error: ${refusalText(refusalOf('sessionRevoked'))}`;
 					}
+					// refreshauthtoken must never sign this account a token below its cutoff (the cutoff is the second after a
+					// password change, so a request later in that same second would otherwise mint a token about to be refused)
+					xReq.appValueSetter(ISSUED_NO_EARLIER_THAN_NAME, accessRevokedAfterSeconds);
 					next(err, { ...args, user });
 				};
 
@@ -162,6 +168,24 @@ const moduleFunction =
 			xLog.status(`refreshauthtoken ${xReq.path}`);
 			const taskList = new taskListPlus();
 
+			// a caller signing a token FOR a user (login, a profile save) gets that user's revocation cutoff from the user row,
+			// so a sign-in in the second right after a password change is signed at the cutoff, not just below it (the
+			// per-request path already has the cutoff from hasValidToken)
+			taskList.push((args, next) => {
+				const signedUsername = payloadValues.user && payloadValues.user.username;
+				if (typeof signedUsername !== 'string' || !signedUsername || typeof userByUsername !== 'function') {
+					next('', args);
+					return;
+				}
+				userByUsername({ username: signedUsername }, (lookupError, userRow) => {
+					const userCutoffSeconds = Number((userRow && userRow.accessRevokedAfter) || 0);
+					if (userCutoffSeconds > Number(xReq.appValueGetter(ISSUED_NO_EARLIER_THAN_NAME) || 0)) {
+						xReq.appValueSetter(ISSUED_NO_EARLIER_THAN_NAME, userCutoffSeconds);
+					}
+					next('', args);
+				});
+			});
+
 			// Initialize and execute the task list
 			const initialData = {};
 			pipeRunner(taskList.getList(), initialData, (err, args) => {
@@ -169,8 +193,13 @@ const moduleFunction =
 				delete authclaims.exp;
 				delete authclaims.iat;
 
+				// iat is never below the account's revocation cutoff (hasValidToken sets it from the user row on every request;
+				// the stage above sets it when a login or a profile save signs a user)
+				const issuedNoEarlierThanSeconds = Number(xReq.appValueGetter(ISSUED_NO_EARLIER_THAN_NAME) || 0);
+				const nowSeconds = Math.floor(Date.now() / MILLISECONDS_PER_SECOND);
 				const payload = {
 					...authclaims,
+					...(issuedNoEarlierThanSeconds > nowSeconds ? { iat: issuedNoEarlierThanSeconds } : {}),
 					...payloadValues,
 					authsecondsexpirationseconds,
 				};
