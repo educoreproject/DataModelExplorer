@@ -48,6 +48,18 @@
 			bio: '',
 		},
 		{
+			name: 'David K. Moldoff',
+			title: 'Founding Architect, P20W+ Strategy and Semantic Interoperability',
+			affiliation: 'Founder and CEO, AcademyOne | Founder, KSAWorks',
+			photo: '/team/david-moldoff.jpg',
+			bio: [
+				'David K. Moldoff is an entrepreneur, researcher, author, and technology architect whose work connects education policy, lifelong learning, and workforce opportunity. As founder and CEO of AcademyOne and founder of KSAWorks, he develops systems that help people navigate educational pathways and gain recognition for learning acquired throughout their lives.',
+				'For more than three decades, David has contributed leadership, advisory service, and volunteer expertise to education data standards and interoperability efforts through PESC, IMS Global, Internet2, A4L, CEDS, DSU (Data Standards United) the Groningen Declaration Network, RS3G, and early Statewide Longitudinal Data Systems initiatives. His research examines global, national, and regional education policies and practices, with particular emphasis on prior learning assessment and recognition, academic credit portability, and connections between education and work.',
+				'An inventor and incubator of new technologies, David brings extensive experience in cloud architecture, systems integration, and data management across institutions and the P20W+ continuum—from early learning through postsecondary education and the workforce. His current work explores how semantic dictionaries, shared data standards, and large language models can support scalable enterprise systems and trustworthy applications of artificial intelligence.',
+				'David is the author of seven books, including the Pedegreed series, and an invited speaker and panelist on education policy, learning recognition, interoperability, and emerging technologies. He brings to EDUcore a perspective grounded in standards collaboration, practical engineering, and a commitment to making learning more visible, portable, and valued.',
+			],
+		},
+		{
 			name: 'Elizabeth Murphy',
 			title: 'Program Director',
 			photo: null,
@@ -78,6 +90,8 @@
 	];
 
 	const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase();
+	// A bio is one paragraph (string) or several (array).
+	const paragraphs = (bio) => [].concat(bio || []).filter(Boolean);
 </script>
 
 <template>
@@ -114,7 +128,8 @@
 						<div v-else class="team-photo-placeholder">{{ initials(person.name) }}</div>
 						<h4>{{ person.name }}</h4>
 						<div v-if="person.title" class="team-title">{{ person.title }}</div>
-						<p v-if="person.bio">{{ person.bio }}</p>
+						<div v-if="person.affiliation" class="team-affiliation">{{ person.affiliation }}</div>
+						<p v-for="(para, i) in paragraphs(person.bio)" :key="i">{{ para }}</p>
 					</div>
 				</div>
 			</div>
@@ -310,10 +325,21 @@ section h2 {
 	margin-bottom: 0.6rem;
 }
 
+.team-affiliation {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--lp-text);
+	margin-bottom: 0.6rem;
+}
+
 .team-card p {
 	font-size: 0.88rem;
 	color: var(--lp-text-light);
 	line-height: 1.65;
+}
+
+.team-card p + p {
+	margin-top: 0.75rem;
 }
 
 /* ── Footer ── */
