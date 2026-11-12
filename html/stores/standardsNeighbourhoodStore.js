@@ -273,6 +273,8 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 	actions: {
 		// loads what a path names: the last stableId's neighbourhood, and names for any crumb not yet known
 		async loadPath(pathStableIdList) {
+			// TQ 2026-11-12: any navigation puts a full-width panel back in its column
+			this.panelFullWidth = false;
 			this.pathStableIdList = pathStableIdList;
 			this.selectedStableId = '';
 			const unknownStableIdList = pathStableIdList.filter((oneStableId) => !this.nodeSummaryByStableId[oneStableId]);

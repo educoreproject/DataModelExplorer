@@ -15,7 +15,7 @@
 // ⟪meaningsPolish⟫ A page may put something beside the heading in the titleAside slot (the Meanings page's ⓘ explainer); with nothing there the heading is
 // drawn exactly as it was.
 
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
@@ -30,6 +30,25 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 const store = useStandardsNeighbourhoodStore();
+
+// TQ 2026-11-12: a full-width panel goes back to its column on a click anywhere outside it (its own collapse button and any navigation do too)
+const detailPanelRef = ref(null);
+const collapseOnOutsideClick = (clickEvent) => {
+	const panelElement = detailPanelRef.value && detailPanelRef.value.$el;
+	if (!store.panelFullWidth || !panelElement || panelElement.contains(clickEvent.target)) return;
+	store.panelFullWidth = false;
+};
+watch(
+	() => store.panelFullWidth,
+	(isFullWidth) => {
+		if (isFullWidth) document.addEventListener('click', collapseOnOutsideClick, true);
+		else document.removeEventListener('click', collapseOnOutsideClick, true);
+	},
+);
+onBeforeUnmount(() => {
+	document.removeEventListener('click', collapseOnOutsideClick, true);
+	store.panelFullWidth = false;
+});
 const walkProfile = walkProfileOf(props.walkProfileName);
 store.setWalkProfileName(props.walkProfileName);
 
@@ -179,7 +198,7 @@ useHead(() => ({
 				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
 			</section>
 
-			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
+			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" ref="detailPanelRef" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>
