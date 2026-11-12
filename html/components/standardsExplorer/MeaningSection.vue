@@ -11,7 +11,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { INCOMING_MEANING_RELATIONSHIP_TYPE, OWN_TERM_RELATIONSHIP_TYPE, incomingSlotTextOf, meaningExpressionTextOf, meaningValuesTextOf, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf, tupleAbsentTextOf, uriAbsentTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { INCOMING_MEANING_RELATIONSHIP_TYPE, OWN_TERM_RELATIONSHIP_TYPE, incomingSlotTextOf, meaningExpressionTextOf, meaningValuesTextOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf, tupleAbsentTextOf, uriAbsentTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	meaningNode: { type: Object, required: true },
@@ -40,28 +40,6 @@ const rangeDisclosureList = computed(() => (props.meaningNode.rangeIsIdentity ==
 const rangeDatatypeList = computed(() => props.meaningNode.rangeDatatypeList || []);
 const datatypeText = computed(() => rangeDatatypeList.value.join(sectionWords.datatypeDivider));
 
-// "Expressed in": one group per standard, its true count beside its (capped) list; each element links into the Standards Explorer at the path the server
-// made for it, or, when no walk reaches it from its standard's root, is shown unlinked with the reason
-const expressedInGroupList = computed(() =>
-	(props.meaningNode.expressedInGroupList || []).map((oneGroup) => ({
-		...oneGroup,
-		familyColor: familyStyleOf(oneGroup.standardFamily).color,
-		// ⟪meaningsPolish⟫ the standard's name as the Explorer names a standard group (the group carries no rootName; on main the summary was blank)
-		groupDisplayName: displayNameOf(oneGroup),
-		countText: oneGroup.elementsTruncated ? wordingOf(sectionWords.groupCappedTemplate, { elementCount: oneGroup.elementCount, shownCount: oneGroup.elementList.length }) : String(oneGroup.elementCount),
-		elementList: oneGroup.elementList.map((oneElement) => ({
-			...oneElement,
-			explorerLink: oneElement.standardsWalkPathStableIdList ? explorerLinkOf(oneElement.standardsWalkPathStableIdList) : null,
-			linkTitleText: wordingOf(sectionWords.elementLinkTitleTemplate, { elementName: oneElement.name }),
-			ownerText: oneElement.ownerName && oneElement.ownerName !== oneElement.name ? wordingOf(sectionWords.elementOwnerTemplate, { ownerName: oneElement.ownerName }) : '',
-			pathAbsentText: oneElement.standardsWalkPathAbsentName ? sectionWords.pathAbsentTextByName[oneElement.standardsWalkPathAbsentName] || sectionWords.pathAbsentOtherText : '',
-		})),
-	})),
-);
-// a short list opens its groups; a long one (375 elements for a CIP code) shows its standards closed, so the panel reads as a list of standards first
-const GROUPS_OPEN_UP_TO_ELEMENT_COUNT = 24;
-const shownExpressionCount = computed(() => expressedInGroupList.value.reduce((soFar, oneGroup) => soFar + oneGroup.elementList.length, 0));
-const expressionsCappedText = computed(() => wordingOf(sectionWords.expressionsCappedTemplate, { shownCount: shownExpressionCount.value, expressionCount: props.meaningNode.expressionCount, groupItemCap: props.meaningNode.expressionGroupItemCap }));
 const openNoteText = computed(() => (props.meaningNode.elementCount ? wordingOf(sectionWords.openNoteExpressedTemplate, { elementCountText: meaningElementCountTextOf(props.meaningNode.elementCount) }) : '') + sectionWords.openNoteText);
 
 // ⟪meaningsClarity⟫ the values a property meaning holds ("48 values inside"; and, when nothing maps to it but something maps to its values, that); for a meaning of
@@ -129,165 +107,9 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 				<p v-if="rangeDatatypeList.length && meaningNode.rangeIsIdentity !== false" class="meaning-note" data-testid="meaning-datatypes">{{ wordingOf(sectionWords.datatypeRangeTemplate, { datatypeText }) }}</p>
 			</div>
 
-			<div class="meaning-box" data-testid="meaning-expressed-in">
-				<span class="meaning-box-head">{{ sectionWords.expressedInHeadText }} <span class="meaning-count">{{ meaningElementCountTextOf(meaningNode.expressionCount) }}</span></span>
-				<p v-if="!meaningNode.expressionCount" class="meaning-note">{{ sectionWords.unexpressedText }}</p>
-				<p v-else-if="meaningNode.expressionsTruncated" class="meaning-note" data-testid="meaning-expressed-in-capped">{{ expressionsCappedText }}</p>
-				<details v-for="oneGroup in expressedInGroupList" :key="oneGroup.standardKey" class="meaning-group" :open="shownExpressionCount <= GROUPS_OPEN_UP_TO_ELEMENT_COUNT" :data-testid="`meaning-group-${oneGroup.standardKey}`">
-					<summary>
-						<span aria-hidden="true" class="meaning-group-dot" :style="{ background: oneGroup.familyColor }" />
-						<span class="meaning-group-name" data-testid="meaning-group-name">{{ oneGroup.groupDisplayName }}</span>
-						<span class="meaning-count">{{ oneGroup.countText }}</span>
-					</summary>
-					<ul class="meaning-elements">
-						<li v-for="oneElement in oneGroup.elementList" :key="oneElement.stableId" class="meaning-element">
-							<NuxtLink v-if="oneElement.explorerLink" :to="oneElement.explorerLink" class="meaning-element-name" :title="oneElement.linkTitleText" data-testid="meaning-element-link">{{ oneElement.name }}</NuxtLink>
-							<span v-else class="meaning-element-name" data-testid="meaning-element-unlinked">{{ oneElement.name }} <span class="meaning-element-basis">({{ oneElement.pathAbsentText }})</span></span>
-							<span v-if="oneElement.ownerText" class="meaning-element-owner">{{ oneElement.ownerText }}</span>
-							<StandardsExplorerMatchSummary :match-kind="oneElement.matchKind" :mapping-confidence="oneElement.mappingConfidence ?? null" />
-							<span v-if="oneElement.matchBasis" class="meaning-element-basis">{{ oneElement.matchBasis }}</span>
-						</li>
-					</ul>
-				</details>
-			</div>
+			<StandardsExplorerMeaningMappedHere :meaning-node="meaningNode" />
 		</template>
 	</section>
 </template>
 
-<style scoped>
-.meaning {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-.meaning-facts {
-	margin: 0;
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 6px 12px;
-	font-size: 14px;
-}
-.meaning-facts dt {
-	color: #6b7280;
-}
-.meaning-facts dd {
-	margin: 0;
-	overflow-wrap: anywhere;
-}
-.meaning-box {
-	border: 1px solid #e3e7ef;
-	border-radius: 10px;
-	padding: 12px;
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	background: #fbfcfe;
-	min-width: 0;
-}
-.meaning-box-head {
-	font-size: 12px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: #6b7280;
-}
-.meaning-count {
-	font-weight: 400;
-	color: #6b7280;
-	text-transform: none;
-	letter-spacing: 0;
-}
-.meaning-note {
-	margin: 0;
-	font-size: 13px;
-	color: #6b7280;
-}
-.meaning-slots,
-.meaning-elements {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-.meaning-slot {
-	display: grid;
-	grid-template-columns: 6.5em 1fr;
-	gap: 0 8px;
-	font-size: 14px;
-}
-/* the slot's title (Domain, Property…) in bold; it spans its label and kind rows, and the URI below runs across both columns as the slot's separator */
-.meaning-slot-name {
-	font-weight: 700;
-	color: #374151;
-	grid-row: span 2;
-}
-.meaning-slot-label {
-	font-weight: 700;
-	overflow-wrap: anywhere;
-}
-.meaning-slot-kind {
-	font-size: 12px;
-	color: #6b7280;
-}
-.meaning-slot-uri {
-	grid-column: 1 / -1;
-	margin-top: 2px;
-	padding-bottom: 6px;
-	border-bottom: 1px solid #e3e7ef;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-	font-size: 11px;
-	color: #374151;
-	overflow-wrap: anywhere;
-}
-.meaning-slot:last-child .meaning-slot-uri {
-	padding-bottom: 0;
-	border-bottom: none;
-}
-.meaning-ranges summary,
-.meaning-group summary {
-	cursor: pointer;
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-.meaning-ranges .meaning-slot {
-	grid-template-columns: 1fr;
-	margin-top: 6px;
-}
-.meaning-group {
-	border-top: 1px solid #e3e7ef;
-	padding-top: 8px;
-}
-.meaning-group-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	flex: none;
-}
-.meaning-group-name {
-	font-weight: 700;
-	overflow-wrap: anywhere;
-}
-.meaning-elements {
-	margin-top: 8px;
-}
-.meaning-element {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 4px 8px;
-	font-size: 14px;
-}
-.meaning-element-name {
-	font-weight: 600;
-	overflow-wrap: anywhere;
-}
-.meaning-element-owner,
-.meaning-element-basis {
-	font-size: 12px;
-	color: #6b7280;
-}
-</style>
+<style scoped src="./meaningBoxes.css"></style>

@@ -399,6 +399,16 @@ export const meaningsVocabulary = Object.freeze({
 	}),
 
 	// ---- one meaning's panel (MeaningSection.vue)
+	// TQ 2026-11-12: a class's panel lists the elements mapped to its meanings, meaning by meaning, as a meaning's panel lists its own (ClassMappingsSection)
+	classMappings: Object.freeze({
+		headText: 'Mapped here',
+		shownMeaningCap: 20,
+		readingText: 'Reading what is mapped to it…',
+		unreadableText: 'What is mapped to it could not be read just now.',
+		noneText: 'Nothing is mapped to its meanings yet.',
+		moreTemplate: '{moreCount} more meanings have mappings; select one in the table to see them.',
+		selectTitleTemplate: 'Select {meaningName} in the table',
+	}),
 	meaningSection: Object.freeze({
 		sectionLabel: 'What this meaning is',
 		tierFactName: 'Tier',
