@@ -224,6 +224,11 @@ export const explorerComponentWords = Object.freeze({
 	}),
 	detailPanel: Object.freeze({
 		panelLabelTemplate: 'Details: {itemName}',
+		// TQ 2026-11-12: the panel can take the page's whole width, as the DME's panels can, and give it back
+		fullWidthText: 'Full width',
+		exitFullWidthText: 'Exit full width',
+		fullWidthIconName: 'mdi-fullscreen',
+		exitFullWidthIconName: 'mdi-fullscreen-exit',
 		focusRoleText: 'Focus',
 		selectedRoleText: 'Selected',
 		mapsToTemplate: 'Maps to {hubText}',
@@ -274,7 +279,7 @@ export const meaningsVocabulary = Object.freeze({
 	viewBarTitleText: 'Meanings',
 	titleText: 'Meanings Explorer',
 	introText:
-		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (today, CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element that expresses it.',
+		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (e.g., CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element mapped to it.',
 	rootLevelText: 'every group of meanings',
 	metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains, the meanings they name, and every standard element mapped to each meaning.',
 
@@ -282,6 +287,13 @@ export const meaningsVocabulary = Object.freeze({
 	meaningKindText: 'EDC meaning',
 	meaningKindPluralText: 'EDC meanings',
 
+	// TQ 2026-11-12: the table's button and the breadcrumb name what the next level shows: a hub lists its domains, a domain its meanings, a meaning its values
+	openTextByFocusKind: Object.freeze({ meaningCatalog: 'Show Domains', meaningHub: 'Show Meanings', meaningDomain: 'Show Values' }),
+	openLabelTemplateByFocusKind: Object.freeze({ meaningCatalog: 'Show the domains of {itemName}', meaningHub: 'Show the meanings of {itemName}', meaningDomain: 'Show the values of {itemName}' }),
+	// TQ 2026-11-12: the meanings tables count two things in two columns: what a row contains (meanings, values) and the mappings to it
+	containsColumnTitle: 'Contains',
+	mappingColumnTitle: 'Mappings',
+	crumbTemplateByKind: Object.freeze({ meaningHub: '{crumbName} Domains', meaningDomain: '{crumbName} Meanings', meaning: '{crumbName} Values' }),
 	// ---- counts (punch-list items 3, 4, 5, 7): each says what the next level shows
 	domainNoun: Object.freeze({ one: 'domain', other: 'domains' }),
 	meaningNoun: Object.freeze({ one: 'meaning', other: 'meanings' }),
@@ -289,15 +301,6 @@ export const meaningsVocabulary = Object.freeze({
 	countedNounTemplate: '{countText} {nounText}',
 	countPartDivider: ' · ',
 	hubHoldingTemplate: '{domainCountText} · {meaningCountText}',
-	domainOwnTermText: '+ its own term',
-	domainHoldingTemplate: '{meaningCountText} {ownTermText}',
-	// ⟪review S6⟫ a domain no property meaning names: its only meaning is its own term
-	domainOwnTermOnlyText: 'its own term only',
-	// ⟪meaningsClarity⟫ a domain's meanings from other domains (they name it as their range), counted apart from its own: "4 meanings + its own term + 1 from another domain"
-	incomingNoun: Object.freeze({ one: 'from another domain', other: 'from other domains' }),
-	domainOwnTermBesideIncomingText: 'its own term',
-	domainIncomingAddedTemplate: '+ {incomingCountText}',
-	domainHoldingPartDivider: ' ',
 	// ⟪meaningsClarity⟫ a property meaning that holds value meanings says so ("48 values inside"); one whose values are mapped though it is not says that too
 	valueNoun: Object.freeze({ one: 'value', other: 'values' }),
 	valuesInsideTemplate: '{valueCountText} inside',
@@ -307,7 +310,6 @@ export const meaningsVocabulary = Object.freeze({
 	incomingDomainTemplate: 'in {domainName}',
 	incomingSlotTemplate: 'names this as its {slotText}',
 	incomingSlotWordDivider: ' and ',
-	expressedTemplate: '{countText} expressed in other standards',
 	meaningExpressionTemplate: '{elementCountText} map here',
 	meaningExpressionOneTemplate: '{elementCountText} maps here',
 	meaningUnexpressedText: 'nothing maps here',
@@ -351,27 +353,31 @@ export const meaningsVocabulary = Object.freeze({
 			diagram: Object.freeze({
 				catalogTemplate: 'Each circle is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
 				hubTemplate: 'Each square is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
-				domainMeaningsTemplate: Object.freeze({ one: 'This domain takes part in 1 meaning (solid hexagon).', other: 'This domain takes part in {meaningCount} meanings (solid hexagons).' }),
-				domainMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it (marked "{expressedSampleText}").', other: '{mappedMeaningCount} have elements of other standards mapped to them (marked "{expressedSampleText}").' }),
+				domainMeaningsTemplate: Object.freeze({ one: 'This domain contributes to 1 meaning (solid hexagon).', other: 'This domain contributes to {meaningCount} meanings (solid hexagons).' }),
+				domainMappedTemplate: Object.freeze({ one: '1 meaning has elements of other standards mapped to it (marked "{expressedSampleText}").', other: '{mappedMeaningCount} meanings have elements of other standards mapped to them (marked "{expressedSampleText}").' }),
 				domainOwnTermOnlyText: 'It holds only its own term (dashed hexagon).',
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText} (outlined hexagon, dashed arrow).', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText} (outlined hexagons, dashed arrow).' }),
 				domainValuesText: 'A › means the meaning holds values; open it to see them.',
 				valuesTemplate: Object.freeze({ one: 'This meaning holds 1 value (hexagon), one code.', other: 'This meaning holds {valueCount} values (hexagons), one code each.' }),
-				valuesMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedValueCount} have elements of other standards mapped to them.' }),
-				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
+				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
+				valuesRangeTemplate: 'They are the codes of {rangeName}.',
+				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element mapped to it.',
 				filterTemplate: "The filter '{filterText}' dims {unmatchedCount} of them.",
 			}),
 			table: Object.freeze({
 				catalogTemplate: 'Each row of the table is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
 				hubTemplate: 'Each row of the table is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
-				domainMeaningsTemplate: Object.freeze({ one: 'The table lists the 1 meaning this domain takes part in.', other: 'The table lists the {meaningCount} meanings this domain takes part in.' }),
-				domainMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedMeaningCount} have elements of other standards mapped to them.' }),
+				domainMeaningsTemplate: Object.freeze({ one: 'The table lists the 1 meaning this domain contributes to.', other: 'The table lists the {meaningCount} meanings this domain contributes to.' }),
+				domainMappedTemplate: Object.freeze({ one: '1 meaning has elements of other standards mapped to it.', other: '{mappedMeaningCount} meanings have elements of other standards mapped to them.' }),
 				domainOwnTermOnlyText: 'It holds only its own term.',
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText}.', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText}.' }),
-				domainValuesText: 'A meaning with an Open button holds values; open it to see them.',
+				domainValuesText: 'A meaning with a Show Values button holds values; press it to see them.',
 				valuesTemplate: Object.freeze({ one: 'The table lists the 1 value this meaning holds, one code.', other: 'The table lists the {valueCount} values this meaning holds, one code each.' }),
-				valuesMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedValueCount} have elements of other standards mapped to them.' }),
-				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
+				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
+				valuesRangeTemplate: 'They are the codes of {rangeName}.',
+				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element mapped to it.',
 				filterTemplate: "The filter '{filterText}' hides {unmatchedCount} of them.",
 			}),
 		}),
@@ -393,6 +399,16 @@ export const meaningsVocabulary = Object.freeze({
 	}),
 
 	// ---- one meaning's panel (MeaningSection.vue)
+	// TQ 2026-11-12: a class's panel lists the elements mapped to its meanings, meaning by meaning, as a meaning's panel lists its own (ClassMappingsSection)
+	classMappings: Object.freeze({
+		headText: 'Mapped here',
+		shownMeaningCap: 20,
+		readingText: 'Reading what is mapped to it…',
+		unreadableText: 'What is mapped to it could not be read just now.',
+		noneText: 'Nothing is mapped to its meanings yet.',
+		moreTemplate: '{moreCount} more meanings have mappings; select one in the table to see them.',
+		selectTitleTemplate: 'Select {meaningName} in the table',
+	}),
 	meaningSection: Object.freeze({
 		sectionLabel: 'What this meaning is',
 		tierFactName: 'Tier',
@@ -407,8 +423,8 @@ export const meaningsVocabulary = Object.freeze({
 		// a slot's own id in its hub's standard: "CEDS id P000043" (punch-list item 8)
 		hubIdTemplate: '{hubName} id {nativeIdText}',
 		partDivider: ' · ',
-		openNoteExpressedTemplate: 'Expressed in {elementCountText}. ',
-		openNoteText: 'Open this meaning for its tuple and every element that expresses it.',
+		openNoteExpressedTemplate: '{elementCountText} mapped here. ',
+		openNoteText: 'Open this meaning for its tuple and every element mapped to it.',
 		// ⟪explorerTidy⟫ a selected meaning that opens to nothing reads its own facts into the panel
 		leafLoadingText: 'Reading what this meaning names…',
 		leafFailedText: 'What this meaning names could not be read just now. Its URI page, above, has it.',
@@ -449,7 +465,7 @@ export const meaningsVocabulary = Object.freeze({
 		datatypeTemplate: 'Datatype: {datatypeText}',
 		datatypeRangeTemplate: 'Datatype range: {datatypeText}',
 		datatypeDivider: ', ',
-		expressedInHeadText: 'Expressed in',
+		expressedInHeadText: 'Mapped here',
 		unexpressedText: 'No element of any standard is mapped to this meaning.',
 		expressionsCappedTemplate: 'Showing {shownCount} of {expressionCount}: each standard lists at most its first {groupItemCap}, strongest first.',
 		groupCappedTemplate: '{elementCount}, showing {shownCount}',
@@ -752,26 +768,19 @@ const countTextOf = (countValue) => {
 // "1 meaning", "2,777 meanings": a count noun is { one, other }
 const countedNounTextOf = (countValue, nounEntry) => wordingOf(meaningsVocabulary.countedNounTemplate, { countText: countTextOf(countValue), nounText: countValue === 1 ? nounEntry.one : nounEntry.other });
 
+// the meanings a domain's level lists: its own, its own term, and those of other domains that name it (TQ 2026-11-12: one number, matching the next page)
+export const meaningTotalCountOf = (domainRow) => domainRow.meaningCount + (domainRow.termMeaningCount || 0) + (domainRow.incomingMeaningCount || 0);
 const meaningCountTextReaderByKind = {
 	meaningHub: (hubRow) =>
 		wordingOf(meaningsVocabulary.hubHoldingTemplate, { domainCountText: countedNounTextOf(hubRow.domainCount, meaningsVocabulary.domainNoun), meaningCountText: countedNounTextOf(hubRow.meaningCount, meaningsVocabulary.meaningNoun) }),
-	meaningDomain: (domainRow) => {
-		const meaningCountText = countedNounTextOf(domainRow.meaningCount, meaningsVocabulary.meaningNoun);
-		// ⟪meaningsClarity⟫ the meanings of other domains that name it, apart from its own (an answer older than them lists none, and says none)
-		const incomingMeaningCount = domainRow.incomingMeaningCount || 0;
-		const ownHoldingText = !domainRow.termMeaningCount
-			? meaningCountText
-			: domainRow.meaningCount
-				? wordingOf(meaningsVocabulary.domainHoldingTemplate, { meaningCountText, ownTermText: meaningsVocabulary.domainOwnTermText })
-				: incomingMeaningCount
-					? meaningsVocabulary.domainOwnTermBesideIncomingText
-					: meaningsVocabulary.domainOwnTermOnlyText;
-		const incomingText = incomingMeaningCount ? wordingOf(meaningsVocabulary.domainIncomingAddedTemplate, { incomingCountText: countedNounTextOf(incomingMeaningCount, meaningsVocabulary.incomingNoun) }) : '';
-		const holdingText = [ownHoldingText, incomingText].filter(Boolean).join(meaningsVocabulary.domainHoldingPartDivider);
-		const expressedText = domainRow.mappedMeaningCount ? wordingOf(meaningsVocabulary.expressedTemplate, { countText: countTextOf(domainRow.mappedMeaningCount) }) : '';
-		return [holdingText, expressedText].filter(Boolean).join(meaningsVocabulary.countPartDivider);
-	},
+	// TQ 2026-11-12: a domain's row says one number, the meanings its level lists (its own, its own term, and those of other domains that name it), so the count
+	// matches the next page; what the meanings are is said on that page, not here
+	meaningDomain: (domainRow) => countedNounTextOf(meaningTotalCountOf(domainRow), meaningsVocabulary.meaningNoun),
 };
+// a bare count in the walk's number format ('14,889'), for a column of numbers
+export const countFormattedTextOf = (countValue) => countTextOf(countValue);
+// a count and its noun ('16 values'), for a level whose walk profile names what its rows are (focusCountNounByKind)
+export const focusCountTextOf = (countValue, nounEntry) => countedNounTextOf(countValue, nounEntry);
 // what a hub's or a domain's row holds, in words; any other row holds no meanings to count
 export const meaningCountTextOf = (meaningGroupRow) => {
 	const countTextReader = meaningCountTextReaderByKind[meaningGroupRow.kind];
@@ -798,6 +807,8 @@ const tupleSlotHubIdTextOf = ({ slotPart, hubName }) => (slotPart.nativeId ? wor
 // ⟪explorerTidy, supervisor's ruling⟫ A SELECTED LEAF MEANING (a meaning row that opens to nothing) shows in the panel what its focus would: its own node, read by the store
 // (loadLeafMeaning, the drill's own request), under the row's own fields. The panel (DetailPanel.vue) reads these three; a test drives them with the store.
 export const isLeafMeaningRow = (selectedRow) => Boolean(selectedRow && selectedRow.kind === 'meaning' && !selectedRow.hasChildren);
+// TQ 2026-11-12: any selected meaning shows its tuple and what is mapped to it, as its focus would, not only one that opens to nothing
+export const isMeaningRow = (selectedRow) => Boolean(selectedRow && selectedRow.kind === 'meaning');
 export const selectedLeafNodeOf = ({ selectedRow, leafMeaningState }) => (leafMeaningState && leafMeaningState.meaningNode ? { ...leafMeaningState.meaningNode, ...selectedRow } : null);
 export const leafFactsStateNameOf = (leafMeaningState) => {
 	if (!leafMeaningState) return '';
@@ -889,6 +900,11 @@ const diagramKeyEntryOf = (markName) => {
 };
 // a count's sentence, in its one or other form, or none for a count of 0
 const countedSentenceOf = ({ templateByCount, countValue, valueByName }) => (countValue ? wordingOf(countValue === 1 ? templateByCount.one : templateByCount.other, valueByName) : '');
+// the range every value row shares, or '' when they differ or name none (then nothing is said of it)
+const sharedRangeNameOf = (levelRowList) => {
+	const rangeNameSet = new Set(levelRowList.filter((oneRow) => oneRow.kind === 'meaning').map((oneRow) => oneRow.rangeName || ''));
+	return rangeNameSet.size === 1 ? [...rangeNameSet][0] : '';
+};
 const levelProseReaderByKind = {
 	meaningCatalog: ({ levelRowList, templateSet }) => {
 		const countByName = { meaningCount: levelRowList.reduce((soFar, oneRow) => soFar + (oneRow.meaningCount || 0), 0) };
@@ -923,6 +939,7 @@ const levelProseReaderByKind = {
 			countByName,
 			sentenceList: [
 				countedSentenceOf({ templateByCount: templateSet.valuesTemplate, countValue: countByName.valueCount, valueByName: countTextByName }),
+				sharedRangeNameOf(levelRowList) ? wordingOf(templateSet.valuesRangeTemplate, { rangeName: sharedRangeNameOf(levelRowList) }) : '',
 				countedSentenceOf({ templateByCount: templateSet.valuesMappedTemplate, countValue: countByName.mappedValueCount, valueByName: countTextByName }),
 			].filter(Boolean),
 		};
@@ -959,6 +976,8 @@ export const meaningFactListOf = (meaningGroupNode) => {
 export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));
 
 // a level with more items than this opens in the table (spec §6.4)
+// TQ 2026-11-12: every walk opens as a table; the diagram stays a choice in the toolbar
+export const DEFAULT_VIEW_MODE_NAME = 'table';
 export const LARGE_LEVEL_ITEM_COUNT = 40;
 
 // ================================================================================
@@ -1040,6 +1059,11 @@ export const walkProfileByName = Object.freeze({
 		diagramKey: null,
 		showsLevelProse: false,
 		rowWalkPathFieldName: null,
+		levelTableByFocusKind: Object.freeze({}),
+		crumbTemplateByKind: Object.freeze({}),
+		countColumnTitle: null,
+		mappingColumnTitle: null,
+		focusCountNounByKind: Object.freeze({}),
 	}),
 	// ⟪meaningsPolish⟫ its words are meaningsVocabulary's; its walk is hub → domain → meaning (no property level)
 	meanings: Object.freeze({
@@ -1061,6 +1085,21 @@ export const walkProfileByName = Object.freeze({
 		diagramKey: meaningsVocabulary.diagramKey,
 		showsLevelProse: true,
 		rowWalkPathFieldName: 'meaningsWalkPathStableIdList',
+		// TQ 2026-11-12: a hub's level lists classes only, so Kind and Detail say nothing a click on the row does not; each level's button names what it opens
+		levelTableByFocusKind: Object.freeze({
+			// the hubs: every row is a hub, so Kind says nothing; Detail is each hub's full name
+			meaningCatalog: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind']), openText: meaningsVocabulary.openTextByFocusKind.meaningCatalog, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningCatalog }),
+			meaningHub: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind', 'infoText']), openText: meaningsVocabulary.openTextByFocusKind.meaningHub, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningHub }),
+			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind']), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
+			// a meaning's values contain nothing, so its level has no Contains column
+			// TQ 2026-11-12 (Q109): Kind reads 'EDC meaning' on every row of every meanings level; a values level's Detail repeats one range, said once in its prose
+			meaning: Object.freeze({ hiddenColumnNameList: Object.freeze(['countValue', 'kind', 'infoText']) }),
+		}),
+		countColumnTitle: meaningsVocabulary.containsColumnTitle,
+		mappingColumnTitle: meaningsVocabulary.mappingColumnTitle,
+		crumbTemplateByKind: meaningsVocabulary.crumbTemplateByKind,
+		// TQ 2026-11-12: a meaning's level lists its values, so its toolbar counts values ('16 values'), from the meaning's own count
+		focusCountNounByKind: Object.freeze({ meaning: Object.freeze({ countFieldName: 'valueMeaningCount', nounEntry: meaningsVocabulary.valueNoun }) }),
 	}),
 });
 

@@ -516,19 +516,19 @@ const moduleFunction =
 				cypher: `
 					CALL {
 						MATCH (card:HubReference)-[:${hubSlotEdgeTypeList(hubNameList, 'DOMAIN').join('|')}]->(domain:ForgedNode) WHERE card.referenceTier = $propertyTier
-						RETURN card.hubName AS cardHubName, domain, count(card) AS domainMeaningCount
+						RETURN card.hubName AS cardHubName, domain, count(card) AS domainMeaningCount, sum(${cardMappedElementCountTextFor('card')}) AS domainMappingCount
 						UNION ALL
 						MATCH (termCard:HubReference)-[:${hubSlotEdgeTypeList(hubNameList, 'TERM').join('|')}]->(domain:ForgedNode)
 						WHERE termCard.referenceTier = $termTier AND termCard.termKind IN $termKindList
-						RETURN termCard.hubName AS cardHubName, domain, 0 AS domainMeaningCount
+						RETURN termCard.hubName AS cardHubName, domain, 0 AS domainMeaningCount, sum(${cardMappedElementCountTextFor('termCard')}) AS domainMappingCount
 					}
-					WITH cardHubName, count(DISTINCT domain) AS domainCount, sum(domainMeaningCount) AS domainMeaningCount
-					WITH collect({ hubName: cardHubName, domainCount: domainCount, domainMeaningCount: domainMeaningCount }) AS hubTotalList
+					WITH cardHubName, count(DISTINCT domain) AS domainCount, sum(domainMeaningCount) AS domainMeaningCount, sum(domainMappingCount) AS domainMappingCount
+					WITH collect({ hubName: cardHubName, domainCount: domainCount, domainMeaningCount: domainMeaningCount, domainMappingCount: domainMappingCount }) AS hubTotalList
 					MATCH (hub:HubDefinition)
 					OPTIONAL MATCH (hubRoot:DmeStandardRoot {_source: hub._source})
 					WITH hub, head(collect(hubRoot)) AS hubRoot, head([oneTotal IN hubTotalList WHERE oneTotal.hubName = hub.hubName]) AS hubTotal
 					RETURN hub.hubName AS hubName, coalesce(hub.displayName, hub.name, hub.hubName) AS hubTitle, hubRoot.standardFamily AS standardFamily, hubRoot.version AS version,
-					       coalesce(hubTotal.domainCount, 0) AS domainCount, coalesce(hubTotal.domainMeaningCount, 0) AS domainMeaningCount
+					       coalesce(hubTotal.domainCount, 0) AS domainCount, coalesce(hubTotal.domainMeaningCount, 0) AS domainMeaningCount, coalesce(hubTotal.domainMappingCount, 0) AS domainMappingCount
 					ORDER BY hubName
 				`,
 				params: { propertyTier: MEANING_PROPERTY_TIER, termTier: MEANING_TERM_TIER, termKindList: [...meaningTermKindByLevel.meaningDomain] },
@@ -560,15 +560,15 @@ const moduleFunction =
 				cypher: `
 					CALL {
 						MATCH (card:HubReference)-[:${hubEdgeTypeFor(hubName, 'DOMAIN')}]->(domain:ForgedNode) WHERE card.referenceTier = $propertyTier
-						RETURN domain, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount, 0 AS termMeaningCount
+						RETURN domain, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount, 0 AS termMeaningCount, sum(${cardMappedElementCountTextFor('card')}) AS mappingCount
 						UNION ALL
 						MATCH (termCard:HubReference)-[:${hubEdgeTypeFor(hubName, 'TERM')}]->(domain:ForgedNode) WHERE termCard.referenceTier = $termTier AND termCard.termKind IN $termKindList
-						RETURN domain, 0 AS meaningCount, 0 AS mappedMeaningCount, count(termCard) AS termMeaningCount
+						RETURN domain, 0 AS meaningCount, 0 AS mappedMeaningCount, count(termCard) AS termMeaningCount, sum(${cardMappedElementCountTextFor('termCard')}) AS mappingCount
 					}
-					WITH domain, sum(meaningCount) AS meaningCount, sum(mappedMeaningCount) AS mappedMeaningCount, sum(termMeaningCount) AS termMeaningCount
+					WITH domain, sum(meaningCount) AS meaningCount, sum(mappedMeaningCount) AS mappedMeaningCount, sum(termMeaningCount) AS termMeaningCount, sum(mappingCount) AS mappingCount
 					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description, domain._source AS sourceKey,
 					       ${declarationList ? nativeIdentifierCypherTextFor('domain', declarationList) : 'null'} AS nativeIdentifier,
-					       meaningCount, mappedMeaningCount, termMeaningCount,
+					       meaningCount, mappedMeaningCount, termMeaningCount, mappingCount,
 					       COUNT { MATCH (domain)<-[:${INCOMING_SLOT_NAME_LIST.map((slotName) => hubEdgeTypeFor(hubName, slotName)).join('|')}]-(incomingCard:HubReference)
 					               WHERE ${incomingCardWhereTextFor({ cardVariableName: 'incomingCard', domainVariableName: 'domain' })} RETURN DISTINCT incomingCard } AS incomingMeaningCount
 					ORDER BY name, stableId
@@ -1292,6 +1292,8 @@ const moduleFunction =
 			// ⟪meaningsPolish⟫ what its next level shows: its domains, and the property meanings they hold (the sum of the domains' meaningCount)
 			domainCount: hubRecord.domainCount,
 			meaningCount: hubRecord.domainMeaningCount,
+			// TQ 2026-11-12: the mappings its domains' rows add up to (the same rule as each domain's mappingCount)
+			mappingCount: hubRecord.domainMappingCount,
 			hasChildren: hubRecord.domainCount > 0,
 			...(hubRecord.version ? { version: hubRecord.version } : {}),
 		});
@@ -1322,6 +1324,8 @@ const moduleFunction =
 			termMeaningCount: domainRecord.termMeaningCount,
 			// ⟪meaningsClarity⟫ and the meanings of other domains that name it (incomingCardWhereTextFor), listed on its level apart from its own
 			incomingMeaningCount: domainRecord.incomingMeaningCount,
+			// TQ 2026-11-12: the mappings to its own meanings and its own term (the shared count rule, cardMappedElementCountTextFor, summed over its cards)
+			mappingCount: domainRecord.mappingCount,
 			...nativeIdFieldsOf({ sourceKey: domainRecord.sourceKey, nativeIdentifier: domainRecord.nativeIdentifier, declarationList, declarationAbsentName }),
 		});
 

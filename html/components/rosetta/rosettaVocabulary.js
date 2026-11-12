@@ -7,6 +7,16 @@ const TEMPLATE_SLOT_PATTERN = /\{([A-Za-z]+)\}/g;
 export const rosettaPageWords = Object.freeze({
 	pageTitle: 'Rosetta',
 	introText: 'Paste your fields: plain lines (a name, or a name and its description), a table copied from a spreadsheet, a field list, a JSON Schema or a JSON-LD @context. A model then reads each field against each hub\'s meanings and proposes the one it expresses. You need no account; signed in, you may send more fields.',
+	// TQ 2026-11-12 (Q104): a field given by name alone gives the search little to go on ('classes a student takes' put the right card 32nd; one sentence of description put it 10th)
+	descriptionHintText: 'Give each field a one-sentence description if you can. A name alone gives the search little to go on, and a short description often decides whether the right meaning is found.',
+	// TQ 2026-11-12: how Rosetta finds a match, in his words (LANGUOROUS_SOIREE). Each step's subList is shown indented under it.
+	howItWorksHeading: 'How Rosetta finds a match',
+	howItWorksStepList: Object.freeze([
+		Object.freeze({ text: 'Semantic search is used to find candidates.', subList: Object.freeze(["Search against the hub's text. Each result is followed to the HubReference cards whose property it is.", 'Search against the HubReference cards directly.']) }),
+		Object.freeze({ text: 'The best candidates are sent to the AI judge, which picks one, or none.', subList: Object.freeze([]) }),
+		Object.freeze({ text: "The report shows the match with the judge's confidence and reason, and the next five candidates. Only strong matches go into the draft mapping.", subList: Object.freeze([]) }),
+	]),
+	howItWorksPerHubText: 'Each field goes through this once per hub, CEDS and CTDL.',
 	vendorNoticeText: 'Where your text goes: asking for a judged draft sends your fields to Voyage AI, to turn them into vectors, and to Anthropic, the judge\'s vendor. If your text is neither JSON nor plain lines, pressing Ask for a judged draft first sends it to Anthropic, whose AI lays it out as fields for you to check; nothing is judged until you press Submit the Request.',
 	textareaLabel: 'Your fields: plain lines, a table, a field list, a JSON Schema or a @context',
 	textareaPlaceholder: 'One field a line, with or without a description, for example:\nbirthDate: the date the person was born\nschoolName - the name of the school',

@@ -14,6 +14,7 @@
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 import {
+	DEFAULT_VIEW_MODE_NAME,
 	LARGE_LEVEL_ITEM_COUNT,
 	displayNameOf,
 	isSecondaryRelationshipType,
@@ -31,9 +32,11 @@ const standardsNeighbourhoodStoreInitObject = {
 	statusMsg: '',
 	// ⟪meaningsPolish review S3⟫ the last neighbourhood request was refused by the server (HTTP 4xx, its words in statusMsg), not left unanswered
 	statusIsRefusal: false,
-	viewModeChoice: 'diagram',
+	viewModeChoice: DEFAULT_VIEW_MODE_NAME,
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
+	// TQ 2026-11-12: the detail panel shown across the page's whole width, the level's table set aside until it is given back
+	panelFullWidth: false,
 	filterText: '',
 	legendVisible: true,
 	versionTileStateByStableId: {},
@@ -110,6 +113,8 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	termMeaningCount: oneItem.termMeaningCount,
 	// ⟪meaningsClarity⟫ a domain's meanings from other domains; a property meaning's values; an incoming meaning's slots and the walk's path to it in its own domain
 	incomingMeaningCount: oneItem.incomingMeaningCount,
+	// TQ 2026-11-12: the mappings to a domain's own meanings and own term, its Mappings column
+	mappingCount: oneItem.mappingCount,
 	valueMeaningCount: oneItem.valueMeaningCount,
 	valueElementCount: oneItem.valueElementCount,
 	incomingSlotNameList: oneItem.incomingSlotNameList || null,
@@ -268,6 +273,8 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 	actions: {
 		// loads what a path names: the last stableId's neighbourhood, and names for any crumb not yet known
 		async loadPath(pathStableIdList) {
+			// TQ 2026-11-12: any navigation puts a full-width panel back in its column
+			this.panelFullWidth = false;
 			this.pathStableIdList = pathStableIdList;
 			this.selectedStableId = '';
 			const unknownStableIdList = pathStableIdList.filter((oneStableId) => !this.nodeSummaryByStableId[oneStableId]);
@@ -413,6 +420,16 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		selectRow(stableId) {
 			this.selectedStableId = stableId;
+		},
+
+		// TQ 2026-11-12: a crumb shows its level as itself: no row selected, and the panel back in its column
+		showCrumbLevel() {
+			this.selectedStableId = '';
+			this.panelFullWidth = false;
+		},
+
+		togglePanelFullWidth() {
+			this.panelFullWidth = !this.panelFullWidth;
 		},
 
 		setViewModeChoice(viewMode) {

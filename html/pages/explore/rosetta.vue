@@ -100,6 +100,19 @@ onUnmounted(() => store.stopPolling());
 	<v-container>
 		<h1 class="text-h4 mb-2">{{ rosettaPageWords.pageTitle }}</h1>
 		<p class="mb-2">{{ rosettaPageWords.introText }}</p>
+		<p class="mb-2" data-testid="rosetta-description-hint"><strong>{{ rosettaPageWords.descriptionHintText }}</strong></p>
+		<details class="mb-2" data-testid="rosetta-how-it-works">
+			<summary>{{ rosettaPageWords.howItWorksHeading }}</summary>
+			<ol class="mt-2 ml-6">
+				<li v-for="oneStep in rosettaPageWords.howItWorksStepList" :key="oneStep.text">
+					{{ oneStep.text }}
+					<ol v-if="oneStep.subList.length" type="a" class="ml-6">
+						<li v-for="oneSubStep in oneStep.subList" :key="oneSubStep">{{ oneSubStep }}</li>
+					</ol>
+				</li>
+			</ol>
+			<p class="mt-1">{{ rosettaPageWords.howItWorksPerHubText }}</p>
+		</details>
 		<p class="mb-4 text-caption" data-testid="rosetta-vendor-notice">{{ rosettaPageWords.vendorNoticeText }}</p>
 
 		<v-alert v-if="store.refusal" type="warning" class="mb-4" closable data-testid="rosetta-refusal">

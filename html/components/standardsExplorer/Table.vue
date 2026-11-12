@@ -5,7 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningExpressionTextOf, meaningInfoTextOf, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf, meaningTotalCountOf, focusCountTextOf, countFormattedTextOf, meaningsVocabulary, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -46,12 +46,16 @@ const countOf = (oneRow) => {
 		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount}` : '' }),
 		// ⟪meaningsExplorer⟫ a group of meanings counts its meanings; a meaning, the elements that express it
 		meaningHub: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaningDomain: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaning: () => ({ countValue: oneRow.elementCount ?? null, countText: meaningExpressionTextOf(oneRow) }),
+		// TQ 2026-11-12: a domain contains the meanings its level lists; a meaning contains its values; the mappings to either have their own column (mappingOf)
+		meaningDomain: () => ({ countValue: meaningTotalCountOf(oneRow), countText: meaningCountTextOf(oneRow) }),
+		meaning: () => ({ countValue: oneRow.valueMeaningCount || 0, countText: oneRow.valueMeaningCount ? focusCountTextOf(oneRow.valueMeaningCount, meaningsVocabulary.valueNoun) : '' }),
 	};
 	const countReader = countByKind[oneRow.kind];
 	return countReader ? countReader() : { countValue: null, countText: '' };
 };
+// the Mappings column (a walk that names one): how many elements of other standards map to a row, the server's own count of it
+const mappingValueByKind = { meaningHub: (oneRow) => oneRow.mappingCount, meaningDomain: (oneRow) => oneRow.mappingCount, meaning: (oneRow) => oneRow.elementCount };
+const mappingOf = (oneRow) => (mappingValueByKind[oneRow.kind] ? mappingValueByKind[oneRow.kind](oneRow) ?? null : null);
 
 const isAnchorLevel = computed(() => store.focusNode?.kind === 'hubAnchor');
 const homeStandardKey = computed(() => (isAnchorLevel.value && store.crossing ? store.crossing.homeStandardKey : null));
@@ -65,6 +69,8 @@ const tableRowList = computed(() =>
 			infoText: infoTextOf(oneRow),
 			countValue: countValue ?? -1,
 			countText,
+			mappingValue: mappingOf(oneRow) ?? -1,
+			mappingText: mappingOf(oneRow) === null ? '' : countFormattedTextOf(mappingOf(oneRow)),
 			matchKind: matchKind || '',
 			confidenceValue: oneRow.mapping ? oneRow.mapping.mappingConfidence : -1,
 			badgeOrder: oneRow.versionBadge ? { new: 0, changed: 1, unchanged: 2 }[oneRow.versionBadge.badgeState] : 3,
@@ -77,16 +83,21 @@ const versionComparison = computed(() => store.neighbourhood?.versionComparison 
 const hasMatchColumn = computed(() => tableRowList.value.some((oneRow) => oneRow.matchKind || ['property', 'instance', 'hubAnchor'].includes(oneRow.kind)));
 
 const columnTitleByName = walkTableVocabulary.columnTitleByName;
+// TQ 2026-11-12: a walk may name, for the level on screen, columns it hides and the words of its Open button (the walk profile's levelTableByFocusKind)
+const levelTable = computed(() => store.walkProfile.levelTableByFocusKind[store.focusNode?.kind] || {});
+const hiddenColumnNameList = computed(() => levelTable.value.hiddenColumnNameList || []);
+const openText = computed(() => levelTable.value.openText || walkTableVocabulary.openText);
 const headerList = computed(() =>
 	[
 		{ title: columnTitleByName.displayName, key: 'displayName', sortable: true },
 		{ title: columnTitleByName.kind, key: 'kind', sortable: true },
 		{ title: columnTitleByName.infoText, key: 'infoText', sortable: false, minWidth: '160px' },
-		{ title: columnTitleByName.countValue, key: 'countValue', sortable: true },
+		{ title: store.walkProfile.countColumnTitle || columnTitleByName.countValue, key: 'countValue', sortable: true },
+		store.walkProfile.mappingColumnTitle ? { title: store.walkProfile.mappingColumnTitle, key: 'mappingValue', sortable: true, align: 'end' } : null,
 		hasMatchColumn.value ? { title: columnTitleByName.confidenceValue, key: 'confidenceValue', sortable: true } : null,
 		versionComparison.value ? { title: wordingOf(walkTableVocabulary.comparedVersionColumnTemplate, { comparedVersion: versionComparison.value.comparedVersion }), key: 'badgeOrder', sortable: true } : null,
 		{ title: columnTitleByName.openAction, key: 'openAction', sortable: false, align: 'end' },
-	].filter(Boolean),
+	].filter((oneHeader) => oneHeader && !hiddenColumnNameList.value.includes(oneHeader.key)),
 );
 
 // most-mapped first on a level of classes; the server's order otherwise
@@ -122,7 +133,7 @@ const drillRow = (clickEvent, { item }) => {
 // ⟪explorerTidy⟫ an empty table says why: a filter that hides every row (with Clear), or a level with nothing beneath it
 const emptyLevel = computed(() => emptyLevelOf({ levelRowCount: store.levelRowList.length, filterText: store.filterText }));
 const selectLabelOf = (item) => wordingOf(walkTableVocabulary.selectLabelTemplate, { itemName: item.displayName, kindName: kindDisplayNameOf(item.kind, item.hubName) });
-const openLabelOf = (item) => wordingOf(walkTableVocabulary.openLabelTemplate, { itemName: item.displayName });
+const openLabelOf = (item) => wordingOf(levelTable.value.openLabelTemplate || walkTableVocabulary.openLabelTemplate, { itemName: item.displayName });
 </script>
 
 <template>
@@ -166,6 +177,9 @@ const openLabelOf = (item) => wordingOf(walkTableVocabulary.openLabelTemplate, {
 			<template #item.countValue="{ item }">
 				<span class="explorer-row-count" :class="{ 'explorer-row-count-wraps': store.walkProfile.countTextWraps }">{{ item.countText }}</span>
 			</template>
+			<template #item.mappingValue="{ item }">
+				<span class="explorer-row-count">{{ item.mappingText }}</span>
+			</template>
 			<template #item.confidenceValue="{ item }">
 				<StandardsExplorerMatchSummary v-if="item.mapping" :match-kind="item.mapping.matchKind" :mapping-confidence="item.mapping.mappingConfidence" />
 				<StandardsExplorerMatchSummary v-else-if="item.strongestMatchKind" :match-kind="item.strongestMatchKind" :show-confidence="false" />
@@ -175,7 +189,7 @@ const openLabelOf = (item) => wordingOf(walkTableVocabulary.openLabelTemplate, {
 				<StandardsExplorerVersionBadge v-if="item.versionBadge" :version-badge="item.versionBadge" />
 			</template>
 			<template #item.openAction="{ item }">
-				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :to="openLinkOf(item)" :aria-label="openLabelOf(item)" :data-testid="`open-${item.name}`" @click.stop>{{ walkTableVocabulary.openText }}</v-btn>
+				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :to="openLinkOf(item)" :aria-label="openLabelOf(item)" :data-testid="`open-${item.name}`" @click.stop>{{ openText }}</v-btn>
 			</template>
 		</v-data-table>
 	</div>

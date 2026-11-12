@@ -8,7 +8,7 @@
 //   5. the page's JSON section, its tags taken off and its entities read back, is exactly JSON.stringify(body, null, 2)
 //   6. a hostile label, value, URI and facts row reach the page escaped: no <script> but the copy button's (gate 4)
 //   7. parent shows only for a single owner; CTDL properties are split by the forge walk's lists; domainCount is never listed; a standard with no split says unsplit
-//   8. ⟪meaningsClarity⟫ "Meanings it takes part in" is split into the shared reader's lines: the section lines sum to the total, each section's own lines sum to it, and
+//   8. ⟪meaningsClarity⟫ "Meanings it contributes to" is split into the shared reader's lines: the section lines sum to the total, each section's own lines sum to it, and
 //      every line with a place in the Meanings explorer links there. C200159: 4 property meanings, 48 value meanings under Has Accessibility Feature Type, 1 meaning of
 //      another domain naming it as its range, its own term: 54 (the fixture is GOLD_261030_useCases, re-read by runs/meaningsClarity/captureFixture.js)
 // Run: node server/test/edc-human-pages.test.js
@@ -87,7 +87,7 @@ try { answerTextFor({ answerFormat: 'html', httpStatus: 200, answerBody: { kind:
 ok('3. an html page with no request path is refused by name, never a page with no JSON link', /needs the request path/.test(missingPathText), missingPathText);
 
 // 4 ---------------------------------------------------------------------------
-const ELEMENT_SECTION_LIST = ['Used on', 'Meanings it takes part in', 'JSON'];
+const ELEMENT_SECTION_LIST = ['Used on', 'Meanings it contributes to', 'JSON'];
 const MEANING_SECTION_LIST = ['Ranges', 'Elements mapped to this meaning', 'JSON'];
 caseList.forEach((oneCase) => {
 	const pageText = pageOf(oneCase);
@@ -176,7 +176,7 @@ ok('7. Ed-Fi, with no split derived, says unsplit by name', sectionSummaryListOf
 // the meaning lines a page shows, read from its HTML: { lineName, depth, meaningCount, meaningsHref }
 const meaningLineListOf = (pageText) => Array.from((pageText.split('data-testid="meaning-lines"')[1] || '').split('</ul>')[0].matchAll(/<li class="[^"]*" data-meaning-line="([^"]*)" data-depth="(\d)" data-count="(\d+)">(.*?)<\/li>/g))
 	.map((lineMatch) => ({ lineName: lineMatch[1], depth: Number(lineMatch[2]), meaningCount: Number(lineMatch[3]), lineHtml: lineMatch[4], meaningsHref: ((lineMatch[4].match(/href="([^"]*)" data-testid="open-in-meanings"/) || [])[1] || '').replace(/&amp;/g, '&') }));
-const summaryCountOf = (pageText) => Number(((pageText.split('<summary>Meanings it takes part in')[1] || '').match(/^ <span class="count">(\d+)<\/span>/) || [])[1]);
+const summaryCountOf = (pageText) => Number(((pageText.split('<summary>Meanings it contributes to')[1] || '').match(/^ <span class="count">(\d+)<\/span>/) || [])[1]);
 const MEANINGS_HREF_PREFIX = '/explore/meanings?path=';
 ['/CEDS/14.0.0.0/ceds:C200159', '/CEDS/14.0.0.0/ceds:P000385', '/CEDS/14.0.0.0/ceds:NI000385928242', '/CEDS/14.0.0.0/ceds:P002040'].forEach((casePath) => {
 	const elementPageCase = caseFor(casePath);

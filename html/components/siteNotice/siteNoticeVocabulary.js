@@ -3,5 +3,5 @@
 // never signs in never sees the login page.
 
 export const siteNoticeWords = Object.freeze({
-	piiNoticeText: 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site.',
+	piiNoticeText: 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site. They are never sold or shared, except with the AI services that process them, which are set to keep nothing.',
 });

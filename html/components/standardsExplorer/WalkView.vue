@@ -15,7 +15,7 @@
 // ⟪meaningsPolish⟫ A page may put something beside the heading in the titleAside slot (the Meanings page's ⓘ explainer); with nothing there the heading is
 // drawn exactly as it was.
 
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
@@ -30,6 +30,25 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 const store = useStandardsNeighbourhoodStore();
+
+// TQ 2026-11-12: a full-width panel goes back to its column on a click anywhere outside it (its own collapse button and any navigation do too)
+const detailPanelRef = ref(null);
+const collapseOnOutsideClick = (clickEvent) => {
+	const panelElement = detailPanelRef.value && detailPanelRef.value.$el;
+	if (!store.panelFullWidth || !panelElement || panelElement.contains(clickEvent.target)) return;
+	store.panelFullWidth = false;
+};
+watch(
+	() => store.panelFullWidth,
+	(isFullWidth) => {
+		if (isFullWidth) document.addEventListener('click', collapseOnOutsideClick, true);
+		else document.removeEventListener('click', collapseOnOutsideClick, true);
+	},
+);
+onBeforeUnmount(() => {
+	document.removeEventListener('click', collapseOnOutsideClick, true);
+	store.panelFullWidth = false;
+});
 const walkProfile = walkProfileOf(props.walkProfileName);
 store.setWalkProfileName(props.walkProfileName);
 
@@ -149,7 +168,7 @@ useHead(() => ({
 		<StandardsExplorerToolbar />
 
 		<div class="explorer-body">
-			<section class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
+			<section v-show="!store.panelFullWidth" class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
 				<StandardsExplorerStateNotice v-else-if="showError" :state-name="store.walkProfile.showsRefusalsByName && store.statusIsRefusal ? 'refusal' : 'error'" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
@@ -179,7 +198,7 @@ useHead(() => ({
 				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
 			</section>
 
-			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
+			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" ref="detailPanelRef" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>
@@ -253,6 +272,13 @@ useHead(() => ({
 .explorer-panel {
 	flex: 1 1 300px;
 	min-width: 0;
+}
+/* TQ 2026-11-12: given the page's whole width, the panel is no longer pinned beside a list */
+.explorer-panel.explorer-panel-full {
+	flex: 1 1 100%;
+	position: static;
+	max-height: none;
+	overflow-y: visible;
 }
 /* Beside the list (wide screens), the panel stays in view while the list scrolls, below the app bar (--v-layout-top, set by v-main); a panel taller than the window scrolls on its own. */
 @media (min-width: 1100px) {

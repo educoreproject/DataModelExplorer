@@ -15,7 +15,7 @@ import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
 import meaningFactsWording from '@/components/standardsExplorer/meaningFactsWording.json';
-import { FAMILY_CATALOG_STABLE_ID, meaningSubtitleOf, meaningTitleOf, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf, explorerCommonWords, explorerComponentWords, wordingOf, isLeafMeaningRow, selectedLeafNodeOf, leafFactsStateNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, meaningSubtitleOf, meaningTitleOf, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf, explorerCommonWords, explorerComponentWords, wordingOf, isMeaningRow, selectedLeafNodeOf, leafFactsStateNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const panelWords = explorerComponentWords.detailPanel;
@@ -41,9 +41,9 @@ const openCounterpart = (versionEntry) => {
 
 const isFocus = computed(() => !store.selectedRow);
 
-// ⟪explorerTidy, supervisor's ruling⟫ a selected meaning that opens to nothing (no Open) shows its tuple and Expressed-in here, as its focus would: its own node, read
-// once by the store with the request a drill sends
-const isLeafMeaningSelected = computed(() => isLeafMeaningRow(store.selectedRow));
+// ⟪explorerTidy⟫ a selected meaning shows its tuple and what is mapped to it here, as its focus would (TQ 2026-11-12: every selected meaning, not only a leaf):
+// its own node, read once by the store with the request a drill sends
+const isLeafMeaningSelected = computed(() => isMeaningRow(store.selectedRow));
 watch(
 	() => (isLeafMeaningSelected.value ? store.selectedRow.stableId : ''),
 	(leafStableId) => {
@@ -163,10 +163,23 @@ const definitionText = computed(() => {
 </script>
 
 <template>
-	<aside v-if="shownNode" :aria-label="wordingOf(panelWords.panelLabelTemplate, { itemName: shownNode.displayName })" class="detail-panel" data-testid="detail-panel">
+	<aside v-if="shownNode" :aria-label="wordingOf(panelWords.panelLabelTemplate, { itemName: shownNode.displayName })" class="detail-panel" :class="{ 'detail-panel-wide': store.panelFullWidth }" data-testid="detail-panel">
 		<div class="detail-head">
 			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? panelWords.focusRoleText : panelWords.selectedRoleText }}</span>
+			<v-btn
+				icon
+				size="x-small"
+				variant="text"
+				class="detail-full-width"
+				data-testid="detail-full-width"
+				:title="store.panelFullWidth ? panelWords.exitFullWidthText : panelWords.fullWidthText"
+				:aria-label="store.panelFullWidth ? panelWords.exitFullWidthText : panelWords.fullWidthText"
+				:aria-pressed="store.panelFullWidth ? 'true' : 'false'"
+				@click="store.togglePanelFullWidth()"
+			>
+				<v-icon size="small">{{ store.panelFullWidth ? panelWords.exitFullWidthIconName : panelWords.fullWidthIconName }}</v-icon>
+			</v-btn>
 		</div>
 		<!-- ⟪meaningsClarity Addendum B⟫ a meaning is titled as one, with what it is underneath, in the words its /edc page uses -->
 		<template v-if="isMeaning">
@@ -255,7 +268,9 @@ const definitionText = computed(() => {
 		</section>
 
 		<!-- ⟪meaningsClarity, Addendum A⟫ the meanings the element on screen takes part in, as its /edc page says them -->
-		<StandardsExplorerMeaningFactsSection v-if="isFocus && focusMeaningFactsState" :facts-state="focusMeaningFactsState" />
+		<!-- TQ 2026-11-12: a class in the meanings walk lists what is mapped to its meanings, as a meaning lists its own -->
+		<StandardsExplorerClassMappingsSection v-if="isFocus && shownNode.kind === 'meaningDomain'" />
+		<StandardsExplorerMeaningFactsSection v-if="isFocus && focusMeaningFactsState" :facts-state="focusMeaningFactsState" :folded="shownNode.kind === 'meaningDomain'" />
 
 		<template v-if="store.walkProfile.showsStandardSections">
 			<StandardsExplorerCompanionPagesSection />
@@ -274,11 +289,45 @@ const definitionText = computed(() => {
 	flex-direction: column;
 	gap: 14px;
 }
+/* TQ 2026-11-12: given the page's width, the panel reads as a two-column sheet: its heading across the top, its sections in two columns beneath.
+   The meaning section's own boxes take part in the grid as the panel's sections do. One column again below the wide-screen width. */
+@media (min-width: 1100px) {
+	.detail-panel.detail-panel-wide {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-auto-flow: row dense;
+		align-items: start;
+		gap: 16px 28px;
+		padding: 28px 32px;
+	}
+	.detail-panel-wide > .detail-head,
+	.detail-panel-wide > .detail-name,
+	.detail-panel-wide > .detail-subtitle,
+	.detail-panel-wide > .detail-definition {
+		grid-column: 1 / -1;
+	}
+	.detail-panel-wide > .detail-subtitle {
+		margin-top: -10px;
+	}
+	.detail-panel-wide > .detail-definition {
+		max-width: 80ch;
+	}
+	/* a class's mapped meanings read across the whole width */
+	.detail-panel-wide > .class-mappings {
+		grid-column: 1 / -1;
+	}
+	.detail-panel-wide > :deep(section.meaning) {
+		display: contents;
+	}
+}
 .detail-head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
+}
+.detail-full-width {
+	margin-left: auto;
 }
 .detail-role {
 	font-size: 12px;
