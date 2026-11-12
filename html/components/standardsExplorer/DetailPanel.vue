@@ -163,7 +163,7 @@ const definitionText = computed(() => {
 </script>
 
 <template>
-	<aside v-if="shownNode" :aria-label="wordingOf(panelWords.panelLabelTemplate, { itemName: shownNode.displayName })" class="detail-panel" data-testid="detail-panel">
+	<aside v-if="shownNode" :aria-label="wordingOf(panelWords.panelLabelTemplate, { itemName: shownNode.displayName })" class="detail-panel" :class="{ 'detail-panel-wide': store.panelFullWidth }" data-testid="detail-panel">
 		<div class="detail-head">
 			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? panelWords.focusRoleText : panelWords.selectedRoleText }}</span>
@@ -286,6 +286,33 @@ const definitionText = computed(() => {
 	display: flex;
 	flex-direction: column;
 	gap: 14px;
+}
+/* TQ 2026-11-12: given the page's width, the panel reads as a two-column sheet: its heading across the top, its sections in two columns beneath.
+   The meaning section's own boxes take part in the grid as the panel's sections do. One column again below the wide-screen width. */
+@media (min-width: 1100px) {
+	.detail-panel.detail-panel-wide {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-auto-flow: row dense;
+		align-items: start;
+		gap: 16px 28px;
+		padding: 28px 32px;
+	}
+	.detail-panel-wide > .detail-head,
+	.detail-panel-wide > .detail-name,
+	.detail-panel-wide > .detail-subtitle,
+	.detail-panel-wide > .detail-definition {
+		grid-column: 1 / -1;
+	}
+	.detail-panel-wide > .detail-subtitle {
+		margin-top: -10px;
+	}
+	.detail-panel-wide > .detail-definition {
+		max-width: 80ch;
+	}
+	.detail-panel-wide > :deep(section.meaning) {
+		display: contents;
+	}
 }
 .detail-head {
 	display: flex;
