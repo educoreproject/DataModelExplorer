@@ -354,6 +354,8 @@ export const meaningsVocabulary = Object.freeze({
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText} (outlined hexagon, dashed arrow).', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText} (outlined hexagons, dashed arrow).' }),
 				domainValuesText: 'A › means the meaning holds values; open it to see them.',
 				valuesTemplate: Object.freeze({ one: 'This meaning holds 1 value (hexagon), one code.', other: 'This meaning holds {valueCount} values (hexagons), one code each.' }),
+				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
+				valuesRangeTemplate: 'They are the codes of {rangeName}.',
 				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
 				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
 				filterTemplate: "The filter '{filterText}' dims {unmatchedCount} of them.",
@@ -367,6 +369,8 @@ export const meaningsVocabulary = Object.freeze({
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText}.', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText}.' }),
 				domainValuesText: 'A meaning with a Show Values button holds values; press it to see them.',
 				valuesTemplate: Object.freeze({ one: 'The table lists the 1 value this meaning holds, one code.', other: 'The table lists the {valueCount} values this meaning holds, one code each.' }),
+				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
+				valuesRangeTemplate: 'They are the codes of {rangeName}.',
 				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
 				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
 				filterTemplate: "The filter '{filterText}' hides {unmatchedCount} of them.",
@@ -877,6 +881,11 @@ const diagramKeyEntryOf = (markName) => {
 };
 // a count's sentence, in its one or other form, or none for a count of 0
 const countedSentenceOf = ({ templateByCount, countValue, valueByName }) => (countValue ? wordingOf(countValue === 1 ? templateByCount.one : templateByCount.other, valueByName) : '');
+// the range every value row shares, or '' when they differ or name none (then nothing is said of it)
+const sharedRangeNameOf = (levelRowList) => {
+	const rangeNameSet = new Set(levelRowList.filter((oneRow) => oneRow.kind === 'meaning').map((oneRow) => oneRow.rangeName || ''));
+	return rangeNameSet.size === 1 ? [...rangeNameSet][0] : '';
+};
 const levelProseReaderByKind = {
 	meaningCatalog: ({ levelRowList, templateSet }) => {
 		const countByName = { meaningCount: levelRowList.reduce((soFar, oneRow) => soFar + (oneRow.meaningCount || 0), 0) };
@@ -911,6 +920,7 @@ const levelProseReaderByKind = {
 			countByName,
 			sentenceList: [
 				countedSentenceOf({ templateByCount: templateSet.valuesTemplate, countValue: countByName.valueCount, valueByName: countTextByName }),
+				sharedRangeNameOf(levelRowList) ? wordingOf(templateSet.valuesRangeTemplate, { rangeName: sharedRangeNameOf(levelRowList) }) : '',
 				countedSentenceOf({ templateByCount: templateSet.valuesMappedTemplate, countValue: countByName.mappedValueCount, valueByName: countTextByName }),
 			].filter(Boolean),
 		};
@@ -1057,9 +1067,10 @@ export const walkProfileByName = Object.freeze({
 		// TQ 2026-11-12: a hub's level lists classes only, so Kind and Detail say nothing a click on the row does not; each level's button names what it opens
 		levelTableByFocusKind: Object.freeze({
 			meaningHub: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind', 'infoText']), openText: meaningsVocabulary.openTextByFocusKind.meaningHub, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningHub }),
-			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze([]), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
+			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind']), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
 			// a meaning's values contain nothing, so its level has no Contains column
-			meaning: Object.freeze({ hiddenColumnNameList: Object.freeze(['countValue']) }),
+			// TQ 2026-11-12 (Q109): Kind reads 'EDC meaning' on every row of every meanings level; a values level's Detail repeats one range, said once in its prose
+			meaning: Object.freeze({ hiddenColumnNameList: Object.freeze(['countValue', 'kind', 'infoText']) }),
 		}),
 		countColumnTitle: meaningsVocabulary.containsColumnTitle,
 		mappingColumnTitle: meaningsVocabulary.mappingColumnTitle,
