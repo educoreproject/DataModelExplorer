@@ -364,7 +364,7 @@ export const meaningsVocabulary = Object.freeze({
 			table: Object.freeze({
 				catalogTemplate: 'Each row of the table is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
 				hubTemplate: 'Each row of the table is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
-				domainMeaningsTemplate: Object.freeze({ one: 'The table lists the 1 meaning this domain takes part in.', other: 'The table lists the {meaningCount} meanings this domain takes part in.' }),
+				domainMeaningsTemplate: Object.freeze({ one: 'The table lists the 1 meaning this domain contributes to.', other: 'The table lists the {meaningCount} meanings this domain contributes to.' }),
 				domainMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedMeaningCount} have elements of other standards mapped to them.' }),
 				domainOwnTermOnlyText: 'It holds only its own term.',
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText}.', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText}.' }),
