@@ -274,7 +274,7 @@ export const meaningsVocabulary = Object.freeze({
 	viewBarTitleText: 'Meanings',
 	titleText: 'Meanings Explorer',
 	introText:
-		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (today, CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element that expresses it.',
+		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (e.g., CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element that expresses it.',
 	rootLevelText: 'every group of meanings',
 	metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains, the meanings they name, and every standard element mapped to each meaning.',
 
