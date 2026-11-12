@@ -33,6 +33,13 @@ const createSearchDescriptionCache = ({ storeHandle, retentionDays, nowMs }, cal
 		callback(`searchDescriptionCache: retentionDays must be a positive whole number of days (the judged step's jobRetentionDays); it was ${JSON.stringify(retentionDays)}`);
 		return;
 	}
+	// a swept sentence is visitor-derived text: it leaves the file, not just the table, as the job store's rows do (PRAGMA secure_delete), set here too because
+	// an instance whose judged step does not assemble never opens the job store (COY_MACAROON's stand-down holding b)
+	storeHandle.run('PRAGMA secure_delete = ON', [], (pragmaError) => {
+		if (pragmaError) {
+			callback(`searchDescriptionCache: secure_delete would not set: ${pragmaError.message}`);
+			return;
+		}
 	storeHandle.run(CREATE_STATEMENT_TEXT, [], (createError) => {
 		if (createError) {
 			callback(`searchDescriptionCache: the table would not create: ${createError.message}`);
@@ -71,6 +78,7 @@ const createSearchDescriptionCache = ({ storeHandle, retentionDays, nowMs }, cal
 			const rowCount = (done) => storeHandle.get('SELECT count(*) AS rowCount FROM searchDescriptionCache', [], (countError, oneRow) => done(countError ? countError.message : '', oneRow ? oneRow.rowCount : 0));
 			callback('', { readDescriptions, writeDescriptions, sweepExpired, rowCount });
 		});
+	});
 	});
 };
 
