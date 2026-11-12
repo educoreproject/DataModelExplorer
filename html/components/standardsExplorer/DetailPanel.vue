@@ -167,6 +167,19 @@ const definitionText = computed(() => {
 		<div class="detail-head">
 			<StandardsExplorerKindChip :node-kind="shownNode.kind" :standard-family="shownNode.standardFamily" :hub-name="shownNode.hubName || null" :is-unmapped="shownNode.kind === 'property' && mappingList.length === 0" />
 			<span class="detail-role">{{ isFocus ? panelWords.focusRoleText : panelWords.selectedRoleText }}</span>
+			<v-btn
+				icon
+				size="x-small"
+				variant="text"
+				class="detail-full-width"
+				data-testid="detail-full-width"
+				:title="store.panelFullWidth ? panelWords.exitFullWidthText : panelWords.fullWidthText"
+				:aria-label="store.panelFullWidth ? panelWords.exitFullWidthText : panelWords.fullWidthText"
+				:aria-pressed="store.panelFullWidth ? 'true' : 'false'"
+				@click="store.togglePanelFullWidth()"
+			>
+				<v-icon size="small">{{ store.panelFullWidth ? panelWords.exitFullWidthIconName : panelWords.fullWidthIconName }}</v-icon>
+			</v-btn>
 		</div>
 		<!-- ⟪meaningsClarity Addendum B⟫ a meaning is titled as one, with what it is underneath, in the words its /edc page uses -->
 		<template v-if="isMeaning">
@@ -279,6 +292,9 @@ const definitionText = computed(() => {
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
+}
+.detail-full-width {
+	margin-left: auto;
 }
 .detail-role {
 	font-size: 12px;

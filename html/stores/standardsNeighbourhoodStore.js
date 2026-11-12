@@ -35,6 +35,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	viewModeChoice: DEFAULT_VIEW_MODE_NAME,
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
+	// TQ 2026-11-12: the detail panel shown across the page's whole width, the level's table set aside until it is given back
+	panelFullWidth: false,
 	filterText: '',
 	legendVisible: true,
 	versionTileStateByStableId: {},
@@ -416,6 +418,10 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		selectRow(stableId) {
 			this.selectedStableId = stableId;
+		},
+
+		togglePanelFullWidth() {
+			this.panelFullWidth = !this.panelFullWidth;
 		},
 
 		setViewModeChoice(viewMode) {

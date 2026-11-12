@@ -224,6 +224,11 @@ export const explorerComponentWords = Object.freeze({
 	}),
 	detailPanel: Object.freeze({
 		panelLabelTemplate: 'Details: {itemName}',
+		// TQ 2026-11-12: the panel can take the page's whole width, as the DME's panels can, and give it back
+		fullWidthText: 'Full width',
+		exitFullWidthText: 'Exit full width',
+		fullWidthIconName: 'mdi-fullscreen',
+		exitFullWidthIconName: 'mdi-fullscreen-exit',
 		focusRoleText: 'Focus',
 		selectedRoleText: 'Selected',
 		mapsToTemplate: 'Maps to {hubText}',

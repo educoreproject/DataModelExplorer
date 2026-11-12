@@ -149,7 +149,7 @@ useHead(() => ({
 		<StandardsExplorerToolbar />
 
 		<div class="explorer-body">
-			<section class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
+			<section v-show="!store.panelFullWidth" class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
 				<StandardsExplorerStateNotice v-else-if="showError" :state-name="store.walkProfile.showsRefusalsByName && store.statusIsRefusal ? 'refusal' : 'error'" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
@@ -179,7 +179,7 @@ useHead(() => ({
 				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
 			</section>
 
-			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
+			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>
@@ -253,6 +253,13 @@ useHead(() => ({
 .explorer-panel {
 	flex: 1 1 300px;
 	min-width: 0;
+}
+/* TQ 2026-11-12: given the page's whole width, the panel is no longer pinned beside a list */
+.explorer-panel.explorer-panel-full {
+	flex: 1 1 100%;
+	position: static;
+	max-height: none;
+	overflow-y: visible;
 }
 /* Beside the list (wide screens), the panel stays in view while the list scrolls, below the app bar (--v-layout-top, set by v-main); a panel taller than the window scrolls on its own. */
 @media (min-width: 1100px) {
