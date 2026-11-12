@@ -217,8 +217,10 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 	gap: 0 8px;
 	font-size: 14px;
 }
+/* the slot's title (Domain, Property…) in bold; it spans its label and kind rows, and the URI below runs across both columns as the slot's separator */
 .meaning-slot-name {
-	color: #6b7280;
+	font-weight: 700;
+	color: #374151;
 	grid-row: span 2;
 }
 .meaning-slot-label {
@@ -230,10 +232,18 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 	color: #6b7280;
 }
 .meaning-slot-uri {
+	grid-column: 1 / -1;
+	margin-top: 2px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #e3e7ef;
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 11px;
 	color: #374151;
 	overflow-wrap: anywhere;
+}
+.meaning-slot:last-child .meaning-slot-uri {
+	padding-bottom: 0;
+	border-bottom: none;
 }
 .meaning-ranges summary,
 .meaning-group summary {
