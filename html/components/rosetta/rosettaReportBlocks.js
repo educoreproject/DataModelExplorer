@@ -17,7 +17,7 @@
 // A RATIONALE, A FIELD NAME AND A LABEL CAN BE HOSTILE. Every text here stays text: nothing is built as HTML, and the page shows it all by {{ }}, which escapes it.
 
 import { rosettaPageWords, wordsOf } from './rosettaVocabulary.js';
-import { meaningsLinkOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, MEANING_ID_PREFIX } from '../standardsExplorer/explorerVocabulary.js';
+import { meaningsLinkOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, MEANING_ID_PREFIX, absentReasonTextOf, uriAbsentTextOf } from '../standardsExplorer/explorerVocabulary.js';
 import { rosettaPageSettings } from './rosettaPageSettings.js';
 
 const sectionWords = meaningsVocabulary.meaningSection;
@@ -37,7 +37,7 @@ export const meaningNodeStableIdOf = (meaningUri) => `${MEANING_ID_PREFIX}${mean
 const nativeIdTextOf = (slotPart) => (slotPart.nativeId ? Object.values(slotPart.nativeId)[0] : '');
 // the Meanings panel's slots, each with what the report says of a slot with no URI
 const slotListOf = ({ tuple, hubName }) =>
-	meaningTupleSlotListOf({ tuple, hubName }).map((oneSlot) => (oneSlot.uri ? { ...oneSlot, href: hrefOf(oneSlot.uri) } : { ...oneSlot, href: '', uriAbsentText: wordsOf(rosettaPageWords.reportSlotUriAbsentTemplate, { uriAbsentReason: oneSlot.uriAbsentReason }) }));
+	meaningTupleSlotListOf({ tuple, hubName }).map((oneSlot) => (oneSlot.uri ? { ...oneSlot, href: hrefOf(oneSlot.uri) } : { ...oneSlot, href: '', uriAbsentText: wordsOf(rosettaPageWords.reportSlotUriAbsentTemplate, { uriAbsentText: uriAbsentTextOf(oneSlot.uriAbsentReason) }) }));
 
 const strengthOf = (category) => {
 	const strengthWords = rosettaPageWords.strengthByCategory[category];
@@ -72,7 +72,7 @@ const proposalBlockOf = ({ hubName, oneResult, expressionByMeaningUri }) => {
 		meaningsLink: meaningsLinkOf(proposal.uri),
 		hubIdsText: nativeIdList.length ? wordsOf(rosettaPageWords.reportHubIdsTemplate, { hubName, nativeIdListText: nativeIdList.join(sectionWords.partDivider) }) : '',
 		slotList,
-		tupleAbsentText: proposal.tupleAbsentName ? wordsOf(rosettaPageWords.reportTupleAbsentTemplate, { tupleAbsentName: proposal.tupleAbsentName }) : '',
+		tupleAbsentText: proposal.tupleAbsentName ? wordsOf(rosettaPageWords.reportTupleAbsentTemplate, { reasonText: absentReasonTextOf(proposal.tupleAbsentName) }) : '',
 		...strengthOf(proposal.category),
 		relationText: relationTextOf(proposal.predicate),
 		rationaleText: oneResult.judgesRationale || '',

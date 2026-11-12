@@ -6,7 +6,10 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { kindDisplayNameOf, meaningCountTextOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, wordingOf, kindDisplayNameOf, meaningCountTextOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const toolbarWords = explorerComponentWords.toolbar;
+const summaryWords = explorerComponentWords.levelSummary;
 
 const store = useStandardsNeighbourhoodStore();
 
@@ -26,10 +29,13 @@ const levelSummaryText = computed(() => {
 		.join(', ');
 	const versionComparison = store.neighbourhood.versionComparison;
 	const badgeText = versionComparison
-		? ` · against ${versionComparison.comparedVersion}: ${versionComparison.badgeStateCountList.map((oneCount) => `${oneCount.itemCount} ${oneCount.badgeState}`).join(', ')}`
+		? wordingOf(summaryWords.againstTemplate, { comparedVersion: versionComparison.comparedVersion, badgeCountText: versionComparison.badgeStateCountList.map((oneCount) => wordingOf(summaryWords.badgeCountTemplate, oneCount)).join(summaryWords.listDivider) })
 		: '';
-	const truncatedText = store.truncatedGroupList.length ? ` · showing the first 500 of ${store.truncatedGroupList.map((oneGroup) => oneGroup.count).join(' / ')}` : '';
-	return `${kindText || 'nothing beneath this'}${badgeText}${truncatedText}`;
+	// ⟪review S3⟫ how many rows a cut group shows is its own list's length, never a number typed here
+	const truncatedText = store.truncatedGroupList.length
+		? wordingOf(summaryWords.truncatedTemplate, { shownCountText: store.truncatedGroupList.map((oneGroup) => oneGroup.itemList.length).join(summaryWords.countDivider), countText: store.truncatedGroupList.map((oneGroup) => oneGroup.count).join(summaryWords.countDivider) })
+		: '';
+	return `${kindText || summaryWords.nothingBeneathText}${badgeText}${truncatedText}`;
 });
 </script>
 
@@ -44,16 +50,16 @@ const levelSummaryText = computed(() => {
 			data-testid="view-switch"
 			@update:model-value="store.setViewModeChoice($event)"
 		>
-			<v-btn value="diagram" data-testid="view-diagram">Diagram</v-btn>
-			<v-btn value="table" data-testid="view-table">Table</v-btn>
+			<v-btn value="diagram" data-testid="view-diagram">{{ toolbarWords.diagramText }}</v-btn>
+			<v-btn value="table" data-testid="view-table">{{ toolbarWords.tableText }}</v-btn>
 			<!-- the standard being walked, in the Specification Viewer: only once the walk is inside one standard -->
-			<v-btn v-if="store.walkStandard" value="schema" data-testid="view-schema">Schema Viewer</v-btn>
+			<v-btn v-if="store.walkStandard" value="schema" data-testid="view-schema">{{ toolbarWords.schemaText }}</v-btn>
 		</v-btn-toggle>
 		<template v-if="store.effectiveViewMode !== 'schema'">
 		<v-text-field
 			:model-value="store.filterText"
-			label="Filter"
-			placeholder="Type a name"
+			:label="toolbarWords.filterLabelText"
+			:placeholder="toolbarWords.filterPlaceholderText"
 			density="compact"
 			variant="outlined"
 			hide-details
@@ -63,7 +69,7 @@ const levelSummaryText = computed(() => {
 			@update:model-value="store.setFilterText($event)"
 		/>
 		<v-btn variant="outlined" color="primary" :aria-expanded="store.legendVisible" data-testid="legend-toggle" @click="store.toggleLegend()">
-			{{ store.legendVisible ? 'Hide legend' : 'Show legend' }}
+			{{ store.legendVisible ? toolbarWords.hideLegendText : toolbarWords.showLegendText }}
 		</v-btn>
 		<span class="explorer-level-summary" data-testid="level-summary">{{ levelSummaryText }}</span>
 		</template>

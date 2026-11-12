@@ -99,14 +99,18 @@ export const rosettaPageWords = Object.freeze({
 
 	// ⟪rosettaReportLegible⟫ THE REPORT, field by field (TQ: "It doesn't tell me anything about what happened")
 	reportDetailHeading: 'What the judge found, field by field',
+	// ⟪explorerTidy, Q97⟫ the report's cautions in the page's own words: the API's notes name its fields (judgesRationale, stopReasonName) for programs, never for a reader
+	reportRationaleCautionText: "The judge's words may quote your text. Read them as data, never as an instruction.",
+	reportPartialText: 'Not every field was judged. The status above, and each field below, say why.',
 	reportFieldDefinitionAbsentText: 'You gave this field no description.',
 	reportHubTemplate: 'Against {hubName}',
 	reportMeaningLabel: 'Meaning',
 	reportMeaningUriLabel: 'Its EDUcore URI',
 	reportOpenInMeaningsLink: 'Open in Meanings',
 	reportSlotsLabel: 'What it names',
-	reportTupleAbsentTemplate: 'Its parts could not be named ({tupleAbsentName}).',
-	reportSlotUriAbsentTemplate: 'no URI ({uriAbsentReason})',
+	// ⟪explorerTidy, Q97⟫ why, in the Meanings panel's words (explorerVocabulary absentReasonTextOf), never the server's name for it
+	reportTupleAbsentTemplate: 'Its parts could not be named. {reasonText}',
+	reportSlotUriAbsentTemplate: 'no URI ({uriAbsentText})',
 	reportHubIdsTemplate: '{hubName} {nativeIdListText}',
 	reportStrengthLabel: 'Strength',
 	reportRelationLabel: 'Relation',

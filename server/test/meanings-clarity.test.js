@@ -14,6 +14,7 @@
 //      a sentence about something absent is not said; a meaning's panel is titled "Meaning: <name>" with what it is underneath
 //   8. ⟪Addendum C⟫ #6 a slot's URI is visible text; #11 a long Open label wraps and the table's Open column stays in view; #12 a deep link to a meaning is given
 //      its hub and domain; #15 the explainer's words are visible beside its icon
+//  10. ⟪explorerTidy review S5⟫ a selected leaf meaning (a value, a property holding no values) is read once with the drill's request and shows its tuple and Expressed-in
 //   9. ⟪supervisor's rulings 3 and 4⟫ ONE shared module (sharedWording.js, beside meaningFactsWording.json) fills every template and picks a meaning's subtitle by tier,
 //      for the explorer and the /edc page both: no other file carries that lookup or a wording function of its own; and a level shown as a table is described as the
 //      table, never as a diagram that is not on screen
@@ -78,6 +79,14 @@ globalThis.clarityAxiosDouble = {
 		if (body.action === 'pathSummary') return Promise.resolve({ data: [{ nodeSummaryList: [] }] });
 		const levelByStableId = { [`meaningDomain:${C200159}`]: walkFixture.domainLevel, 'meaningHub:CEDS': walkFixture.hubLevelCut };
 		const level = levelByStableId[body.stableId];
+		// ⟪explorerTidy review S5⟫ a selected leaf meaning's own node, counted per stableId; one stableId fails on its first request only
+		const leafAnswer = globalThis.clarityAxiosDouble.leafNodeByStableId && globalThis.clarityAxiosDouble.leafNodeByStableId[body.stableId];
+		if (leafAnswer) {
+			const requestCountByStableId = globalThis.clarityAxiosDouble.leafRequestCountByStableId;
+			requestCountByStableId[body.stableId] = (requestCountByStableId[body.stableId] || 0) + 1;
+			if (body.stableId === globalThis.clarityAxiosDouble.failOnceStableId && requestCountByStableId[body.stableId] === 1) return Promise.reject(new Error('the double fails this read once'));
+			return Promise.resolve({ data: [{ node: leafAnswer, childGroupList: [], mappingList: [] }] });
+		}
 		return level ? Promise.resolve({ data: [level] }) : Promise.reject(new Error(`the double has no level ${body.stableId}`));
 	},
 };
@@ -165,11 +174,14 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		const domainProseText = domainProse.sentenceList.join(' ');
 		console.log(`    C200159: ${domainProseText}`);
 		const ownRowList = store.levelRowList.filter((oneRow) => oneRow.relationshipType === 'HAS_MEANING');
-		const diagramCountList = [ownRowList.length, ownRowList.filter((oneRow) => oneRow.elementCount > 0).length, store.levelRowList.filter((oneRow) => oneRow.relationshipType === 'HAS_INCOMING_MEANING').length, ...ownRowList.filter((oneRow) => oneRow.valueMeaningCount).map((oneRow) => oneRow.valueMeaningCount)];
+		// ⟪explorerTidy⟫ the prose says the level's counts (meanings, mapped meanings, incoming meanings) and lists no property's values
+		const diagramCountList = [ownRowList.length, ownRowList.filter((oneRow) => oneRow.elementCount > 0).length, store.levelRowList.filter((oneRow) => oneRow.relationshipType === 'HAS_INCOMING_MEANING').length].filter(Boolean);
 		ok(`C200159: every number in its prose (${JSON.stringify(numbersOf(domainProseText))}) is one the diagram and table count (${JSON.stringify(diagramCountList)}), and every count is said`,
 			JSON.stringify([...numbersOf(domainProseText)].sort((left, right) => left - right)) === JSON.stringify([...diagramCountList].sort((left, right) => left - right)), domainProseText);
-		ok('C200159: it names the domain, its own term, the other domain naming it as range, and the 48 values', /CEDS domain Individualized Program Accessibility Feature/.test(domainProseText) && /own term/.test(domainProseText)
-			&& /Individualized Program, names this domain as its range/.test(domainProseText) && /Has Accessibility Feature Type holds 48 values/.test(domainProseText), domainProseText);
+		// ⟪explorerTidy, TQ: "too long and too much detail"⟫ one sentence per fact; no other domain named, no property with values listed, never "this domain as"
+		ok('C200159: the short shape: its meanings, the incoming one as its range, the › hint; no other domain, no property listed, never "this domain as"', /^This domain takes part in 4 meanings \(solid hexagons\)\./.test(domainProseText)
+			&& /1 meaning in another domain names it as its range/.test(domainProseText) && /A › means the meaning holds values/.test(domainProseText)
+			&& !/Individualized Program,|Has Accessibility Feature Type|holds 48|this domain as/.test(domainProseText), domainProseText);
 		ok('C200159: no sentence about dimming while nothing is dimmed', !/dims/.test(domainProseText));
 		store.setFilterText('accessibility');
 		const dimmedProseText = vocabulary.levelProseOf({ focusNode: store.focusNode, levelRowList: store.levelRowList, filterText: store.filterText, filterUnmatchedRowCount: store.filterUnmatchedRowCount, effectiveViewMode: 'diagram' }).sentenceList.join(' ');
@@ -179,8 +191,9 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		const valueRowList = valueLevel.childGroupList.flatMap((oneGroup) => oneGroup.itemList);
 		const valueProseText = vocabulary.levelProseOf({ focusNode: valueLevel.node, levelRowList: valueRowList, filterText: '', filterUnmatchedRowCount: 0, effectiveViewMode: 'diagram' }).sentenceList.join(' ');
 		console.log(`    Has Accessibility Feature Type: ${valueProseText}`);
+		// ⟪explorerTidy⟫ a count of 0 says no sentence, so the numbers said are the level's counts that are not 0
 		ok(`the value level: every number in its prose (${JSON.stringify(numbersOf(valueProseText))}) is its table's (${valueLevel.childGroupList[0].count} values, ${valueRowList.filter((oneRow) => oneRow.elementCount > 0).length} mapped)`,
-			JSON.stringify(numbersOf(valueProseText)) === JSON.stringify([valueLevel.childGroupList[0].count, valueRowList.filter((oneRow) => oneRow.elementCount > 0).length]), valueProseText);
+			JSON.stringify(numbersOf(valueProseText)) === JSON.stringify([valueLevel.childGroupList[0].count, valueRowList.filter((oneRow) => oneRow.elementCount > 0).length].filter(Boolean)), valueProseText);
 		const meaningFactsWording = JSON.parse(fs.readFileSync(path.join(explorerDirPath, 'meaningFactsWording.json'), 'utf8'));
 		ok('a meaning\'s panel is titled as one', vocabulary.meaningTitleOf({ meaningNode: valueLevel.node, meaningFactsWording }) === 'Meaning: Has Accessibility Feature Type');
 		ok('with what it is underneath, in words', vocabulary.meaningSubtitleOf({ meaningNode: valueLevel.node, meaningFactsWording }) === 'a property in the CEDS domain Individualized Program Accessibility Feature', vocabulary.meaningSubtitleOf({ meaningNode: valueLevel.node, meaningFactsWording }));
@@ -205,7 +218,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		ok('no file but the shared module picks a subtitle by tier or fills a template itself', lookupHolderList.length === 0, JSON.stringify(lookupHolderList));
 		ok('review N4: the /edc page links into the walk with the explorer\'s own codec and route, defined once', !/'\/explore\/meanings'/.test(fs.readFileSync(path.join(codeRootPath, 'server/lib/edc-resolver/humanPage.js'), 'utf8')) && !/export const pathTextOf = /.test(fs.readFileSync(path.join(explorerDirPath, 'explorerVocabulary.js'), 'utf8')) && fs.existsSync(path.join(explorerDirPath, 'sharedWalkPath.js')));
 		ok('review N1: a slot is said by its one name, with no second word map', !/incomingSlotWordByName/.test(fs.readFileSync(path.join(explorerDirPath, 'explorerVocabulary.js'), 'utf8')) && !/namingSlotWordByName/.test(fs.readFileSync(path.join(explorerDirPath, 'meaningFactsWording.json'), 'utf8')));
-		ok('review N3: the prose says the slot the incoming meanings name the domain in', /names this domain as its range/.test(domainProseText) && !/\{slotText\}/.test(domainProseText));
+		ok('review N3: the prose says the slot the incoming meanings name the domain in', /names it as its range/.test(domainProseText) && !/\{slotText\}/.test(domainProseText));
 		ok('the /edc page and the explorer both take their meaning words from it', /require\('\.\.\/\.\.\/\.\.\/html\/components\/standardsExplorer\/sharedWording\.js'\)/.test(fs.readFileSync(path.join(codeRootPath, 'server/lib/edc-resolver/humanPage.js'), 'utf8'))
 			&& /from '\.\/sharedWording\.js'/.test(fs.readFileSync(path.join(explorerDirPath, 'explorerVocabulary.js'), 'utf8')));
 		await store.loadPath(domainPath);
@@ -213,12 +226,39 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		const tableProseText = proseOfView('table', 2);
 		console.log(`    C200159 as a table: ${tableProseText}`);
 		ok('a level shown as a table is described as the table, with no shape the diagram draws', /table/.test(tableProseText) && !/hexagon|square|circle|arrow|›/.test(tableProseText), tableProseText);
-		ok('and says the same numbers the table counts', JSON.stringify(numbersOf(tableProseText).slice(0, 4).sort((left, right) => left - right)) === JSON.stringify([...diagramCountList].sort((left, right) => left - right)), tableProseText);
+		ok('and says the same numbers the table counts', JSON.stringify(numbersOf(tableProseText).slice(0, diagramCountList.length).sort((left, right) => left - right)) === JSON.stringify([...diagramCountList].sort((left, right) => left - right)), tableProseText);
 		ok('a filter on a table hides, and the prose says so', /hides 2 of them/.test(tableProseText), tableProseText);
 		ok('the same level as a diagram is described as the diagram', /solid hexagons/.test(proseOfView('diagram', 0)));
 		const valueTableProseText = vocabulary.levelProseOf({ focusNode: valueLevel.node, levelRowList: valueRowList, filterText: '', filterUnmatchedRowCount: 0, effectiveViewMode: 'table' }).sentenceList.join(' ');
 		ok('the 48 values, opened as a table, are described as the table\'s 48 rows', /table/.test(valueTableProseText) && !/hexagon/.test(valueTableProseText) && numbersOf(valueTableProseText)[0] === 48, valueTableProseText);
 		ok('a view the prose has no words for is refused by name', /no level prose for the view 'schema'/.test(refusalTextOf(() => vocabulary.levelProseOf({ focusNode: store.focusNode, levelRowList: store.levelRowList, filterText: '', filterUnmatchedRowCount: 0, effectiveViewMode: 'schema' }))));
+		console.log('\n=== 10. ⟪explorerTidy review S5⟫ a selected leaf meaning shows its tuple and Expressed-in ===');
+		if (!store.loadLeafMeaning || !vocabulary.selectedLeafNodeOf) {
+			ok('the store reads a selected leaf meaning\'s own node (loadLeafMeaning) and the vocabulary merges it (selectedLeafNodeOf)', false);
+		} else {
+			// the fixture was captured before the hasChildren fix; the server now sends hasChildren false on these rows
+			const valueRow = { ...valueRowList[0], hasChildren: false };
+			const valuelessRow = { ...store.levelRowList.find((oneRow) => oneRow.relationshipType === 'HAS_MEANING' && !oneRow.valueMeaningCount), hasChildren: false };
+			const leafNodeOf = (oneRow) => ({ stableId: oneRow.stableId, kind: 'meaning', name: oneRow.name, hubName: 'CEDS', referenceTier: oneRow.referenceTier, tuple: { domain: { kind: 'class', label: 'Individualized Program Accessibility Feature', nativeId: { cedsId: 'C200159' }, uri: 'https://w3id.org/EDUcore/CEDS/14.0.0.0/ceds:C200159' } }, expressedInGroupList: [], expressionCount: 0, hasChildren: false });
+			globalThis.clarityAxiosDouble.leafNodeByStableId = { [valueRow.stableId]: leafNodeOf(valueRow), [valuelessRow.stableId]: leafNodeOf(valuelessRow) };
+			globalThis.clarityAxiosDouble.leafRequestCountByStableId = {};
+			globalThis.clarityAxiosDouble.failOnceStableId = valuelessRow.stableId;
+			ok('a value row and a value-less property row are leaves; a property holding values is not', vocabulary.isLeafMeaningRow(valueRow) && vocabulary.isLeafMeaningRow(valuelessRow) && !vocabulary.isLeafMeaningRow({ kind: 'meaning', hasChildren: true }));
+			const loadingPromise = store.loadLeafMeaning(valueRow.stableId);
+			ok('while its node is read the panel says it is reading', vocabulary.leafFactsStateNameOf(store.leafMeaningStateByStableId[valueRow.stableId]) === 'loading');
+			await loadingPromise;
+			await store.loadLeafMeaning(valueRow.stableId);
+			ok('the value row\'s node is asked for once, with the drill\'s own request', globalThis.clarityAxiosDouble.leafRequestCountByStableId[valueRow.stableId] === 1, JSON.stringify(globalThis.clarityAxiosDouble.leafRequestCountByStableId));
+			const valueShownNode = vocabulary.selectedLeafNodeOf({ selectedRow: valueRow, leafMeaningState: store.leafMeaningStateByStableId[valueRow.stableId] });
+			ok('its tuple and Expressed-in reach the panel, under the row\'s own fields', Boolean(valueShownNode && valueShownNode.tuple && valueShownNode.tuple.domain && Array.isArray(valueShownNode.expressedInGroupList) && valueShownNode.relationshipType === valueRow.relationshipType) && vocabulary.leafFactsStateNameOf(store.leafMeaningStateByStableId[valueRow.stableId]) === 'read');
+			await store.loadLeafMeaning(valuelessRow.stableId);
+			ok('a failed read is kept, and the panel says so', vocabulary.leafFactsStateNameOf(store.leafMeaningStateByStableId[valuelessRow.stableId]) === 'failed' && vocabulary.selectedLeafNodeOf({ selectedRow: valuelessRow, leafMeaningState: store.leafMeaningStateByStableId[valuelessRow.stableId] }) === null);
+			await store.loadLeafMeaning(valuelessRow.stableId);
+			const valuelessShownNode = vocabulary.selectedLeafNodeOf({ selectedRow: valuelessRow, leafMeaningState: store.leafMeaningStateByStableId[valuelessRow.stableId] });
+			ok('selected again after a failure it is asked again, and the value-less property shows its tuple and Expressed-in', globalThis.clarityAxiosDouble.leafRequestCountByStableId[valuelessRow.stableId] === 2 && Boolean(valuelessShownNode && valuelessShownNode.tuple && valuelessShownNode.expressedInGroupList));
+			const detailPanelSourceText = fs.readFileSync(path.join(explorerDirPath, 'DetailPanel.vue'), 'utf8');
+			ok('the panel reads them: a selected leaf is loaded, merged and shown with its full facts', /isLeafMeaningRow\(store\.selectedRow\)/.test(detailPanelSourceText) && /store\.loadLeafMeaning\(leafStableId\)/.test(detailPanelSourceText) && /selectedLeafNodeOf\(\{ selectedRow: store\.selectedRow/.test(detailPanelSourceText) && /:shows-full-facts="isFocus \|\| Boolean\(leafMeaningState && leafMeaningState\.meaningNode\)"/.test(detailPanelSourceText));
+		}
 		ok('#15: the explainer\'s words are visible beside its icon', /data-testid="meaning-explainer-label">\{\{ explainerWords\.openButtonLabel \}\}/.test(fs.readFileSync(path.join(explorerDirPath, 'MeaningExplainer.vue'), 'utf8')));
 		finish();
 	})

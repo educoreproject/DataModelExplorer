@@ -354,6 +354,7 @@ const moduleFunction =
 					         description: coalesce(child.definition, child.description, ''),
 					         path: child.path,
 					         hasStructuralChildren: EXISTS { MATCH (child)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList },
+					         hasNonInstanceStructuralChildren: EXISTS { MATCH (child)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList AND type(grandchildEdge) <> 'HAS_INSTANCE' },
 					         propertyCount: COUNT { (child)-[:HAS_PROPERTY|HAS_FIELD]->() },
 					         mappedPropertyCount: COUNT { MATCH (child)-[:HAS_PROPERTY|HAS_FIELD]->(member)
 					           WHERE EXISTS { (member)-[:HAS_INSTANCE*0..1]->()-[:${MATCH_EDGE_TYPE_TEXT}]->(:HubReference) }
@@ -423,6 +424,7 @@ const moduleFunction =
 					         path: coalesce(element.contextPath, element.path),
 					         ownerName: ownerName,
 					         hasStructuralChildren: EXISTS { MATCH (element)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList },
+					         hasNonInstanceStructuralChildren: EXISTS { MATCH (element)-[grandchildEdge]->(:ForgedNode) WHERE type(grandchildEdge) IN $childRelationshipTypeList AND type(grandchildEdge) <> 'HAS_INSTANCE' },
 					         mappingList: [{ matchEdgeType: type(matchEdge), mappingConfidence: matchEdge.mappingConfidence, mappingSource: matchEdge.mappingSource,
 					                         anchorStableId: $anchorStableId, anchorName: null, subjectStableId: element.stableId }] }) AS itemList
 				`,
@@ -621,7 +623,11 @@ const moduleFunction =
 
 			// the meanings of other domains that name an element (incomingCardWhereTextFor), by name then stableId, capped at GROUP_ITEM_CAP with their true count, each
 			// with the slots it names the element in and its own domain (where the walk lists it)
-			incomingMeaningsByElementStableId: ({ elementStableId }) => ({
+			// ⟪explorerTidy review S1⟫ withIncomingValueCount (required, no default): true only for a meanings domain level, whose rows open by it; an element's meaning facts
+			// (the panel, the /edc page) do not use the count, so they do not pay for it
+			incomingMeaningsByElementStableId: ({ elementStableId, withIncomingValueCount }) => {
+				if (typeof withIncomingValueCount !== 'boolean') throw new Error(`${moduleName}: incomingMeaningsByElementStableId needs withIncomingValueCount true or false (received ${JSON.stringify(withIncomingValueCount)})`);
+				return {
 				cypher: `
 					MATCH (element:ForgedNode {stableId: $elementStableId})<-[slotEdge]-(card:HubReference)
 					WHERE type(slotEdge) IN ${incomingSlotEdgeTypeListTextFor('card')} AND ${incomingCardWhereTextFor({ cardVariableName: 'card', domainVariableName: 'element' })}
@@ -630,10 +636,15 @@ const moduleFunction =
 					UNWIND cappedIncomingList AS incoming
 					WITH itemCount, incoming.card AS card, incoming.slotEdgeTypeList AS slotEdgeTypeList
 					RETURN itemCount, collect({ meaningRow: ${meaningRowTextFor('card')}, slotEdgeTypeList: slotEdgeTypeList,
-					         ownDomainStableId: head([(card)-[ownDomainEdge]->(ownDomain:ForgedNode) WHERE type(ownDomainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} | ownDomain.stableId]) }) AS itemList
+					         ownDomainStableId: head([(card)-[ownDomainEdge]->(ownDomain:ForgedNode) WHERE type(ownDomainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')} | ownDomain.stableId])${withIncomingValueCount ? `,
+					         // ⟪explorerTidy⟫ the value meanings it holds in its own domain (the one value rule), so its row opens only when its level would list one
+					         valueMeaningCount: CASE WHEN card.referenceTier = $propertyTier THEN COUNT { MATCH (card)-[incomingOwnDomainEdge]->(incomingOwnDomain:ForgedNode) WHERE type(incomingOwnDomainEdge) = ${cardHubSlotEdgeTypeTextFor('card', 'DOMAIN')}
+					           ${valueCardOfPropertyCardMatchTextFor({ cardVariableName: 'card', domainVariableName: 'incomingOwnDomain', domainEdgeVariableName: 'incomingOwnDomainEdge', valueCardVariableName: 'incomingValueCard' })}
+					           RETURN DISTINCT incomingValueCard } ELSE 0 END` : ''} }) AS itemList
 				`,
-				params: { elementStableId },
-			}),
+				params: { elementStableId, ...(withIncomingValueCount ? { propertyTier: MEANING_PROPERTY_TIER, valueTier: MEANING_VALUE_TIER } : {}) },
+				};
+			},
 
 			// the meanings of other domains that name an element, counted by their own domain and the first slot they name it in (the hub's slot order): where each lives
 			// in the walk. A meaning with no domain of its own is counted under none.
@@ -1031,6 +1042,15 @@ const moduleFunction =
 			version: summaryRecord.version,
 		});
 
+		// ⟪explorerTidy review S2⟫ a row opens when its level would draw a row. A property's level folds its instances when there is at most one, or when every one maps the
+		// same way (instanceFoldingOf); with no mapping on the property or any instance they all map the same way (none), so its instances never draw a row. A property
+		// therefore opens only with a mapping, or a structural child that is not an instance. Every other kind opens on any structural child or mapping.
+		const childHasRowsOf = ({ itemKind, childRecord, mappingList }) => {
+			if (itemKind !== 'property') return Boolean(childRecord.hasStructuralChildren) || mappingList.length > 0;
+			if (typeof childRecord.hasNonInstanceStructuralChildren !== 'boolean') throw new Error(`${moduleName}: the property '${childRecord.stableId}' was read without hasNonInstanceStructuralChildren, so whether it opens to anything is unknown`);
+			return mappingList.length > 0 || childRecord.hasNonInstanceStructuralChildren;
+		};
+
 		const mapChildItem = (childRecord) => {
 			const itemKind = nodeKindOf(childRecord.labelList, childRecord.hubName);
 			const mappingList = collapseMappingList(childRecord.mappingList);
@@ -1040,7 +1060,7 @@ const moduleFunction =
 				kind: itemKind,
 				...hubNameFieldOf(itemKind, childRecord.hubName),
 				description: childRecord.description,
-				hasChildren: Boolean(childRecord.hasStructuralChildren) || mappingList.length > 0,
+				hasChildren: childHasRowsOf({ itemKind, childRecord, mappingList }),
 				hasVersionIdentity: versionIdentityOf(childRecord.releaseIndependentId) !== null,
 			};
 			if (childRecord.path !== undefined && childRecord.path !== null) {
@@ -1205,7 +1225,24 @@ const moduleFunction =
 			return prefixEntry.citesStableIdOfRemainder && syntheticId.remainderText ? syntheticId.remainderText : null;
 		};
 
-		// a meaning as a row: kind 'meaning', its id carrying the card's stableId; always openable (its own page holds its tuple and where it is expressed)
+		// ⟪explorerTidy, TQ: a value's Open "leads to an empty page"⟫ a meaning's next level lists its value meanings, and only a property meaning holds any (readMeaningNode),
+		// so a row opens only when that level would list at least one: a property meaning holding values. A property meaning read without its value count is refused
+		// by name, never guessed open or shut: the access point asks meaningCountAbsentRefusalOf first and answers its callback with the refusal (⟪review N3⟫); the
+		// throw below is only the invariant behind that check.
+		const valueMeaningCountNumberOf = (valueMeaningCount) => (typeof valueMeaningCount === 'number' ? valueMeaningCount : valueMeaningCount && typeof valueMeaningCount.toNumber === 'function' ? valueMeaningCount.toNumber() : null);
+		const meaningCountAbsentRefusalOf = (meaningRecordList) => {
+			const uncountedRecord = meaningRecordList.find((meaningRecord) => meaningRecord.referenceTier === MEANING_PROPERTY_TIER && valueMeaningCountNumberOf(meaningRecord.valueMeaningCount) === null);
+			return uncountedRecord ? `${moduleName}: the property meaning '${uncountedRecord.cardStableId}' was read without its valueMeaningCount, so whether it opens to anything is unknown` : '';
+		};
+		const meaningOpensToRowsOf = (meaningRecord) => {
+			if (meaningRecord.referenceTier !== MEANING_PROPERTY_TIER) return false;
+			const countNumber = valueMeaningCountNumberOf(meaningRecord.valueMeaningCount);
+			if (countNumber === null) throw new Error(meaningCountAbsentRefusalOf([meaningRecord]));
+			return countNumber > 0;
+		};
+
+		// a meaning as a row: kind 'meaning', its id carrying the card's stableId; it opens when its level lists something (meaningOpensToRowsOf). Its own panel, focused
+		// or selected, holds its tuple and where it is expressed.
 		const mapMeaningItem = (meaningRecord, standardFamily) => ({
 			stableId: meaningIdOf(meaningRecord.cardStableId),
 			name: meaningRecord.name,
@@ -1213,7 +1250,7 @@ const moduleFunction =
 			hubName: meaningRecord.hubName,
 			standardFamily: standardFamily || null,
 			description: meaningRecord.description || '',
-			hasChildren: true,
+			hasChildren: meaningOpensToRowsOf(meaningRecord),
 			referenceTier: meaningRecord.referenceTier,
 			...(meaningRecord.termKind ? { termKind: meaningRecord.termKind } : {}),
 			...(meaningRecord.domainName ? { hubDomainName: meaningRecord.domainName } : {}),
@@ -1234,8 +1271,10 @@ const moduleFunction =
 
 		// ⟪meaningsClarity⟫ an incoming meaning as a row of the domain it names: the meaning's own row, the slots it names this domain in (in words: 'range'), and the
 		// walk's path to it in its OWN domain, so opening it goes there (TQ: "goes to that meaning in its own domain"), not one step below this one
+		// an incoming meaning's row record, with the value count its query read alongside it
+		const incomingMeaningRecordOf = (incomingRecord) => ({ ...incomingRecord.meaningRow, valueMeaningCount: incomingRecord.valueMeaningCount });
 		const mapIncomingMeaningItem = ({ incomingRecord, standardFamily }) => {
-			const meaningItem = mapMeaningItem(incomingRecord.meaningRow, standardFamily);
+			const meaningItem = mapMeaningItem(incomingMeaningRecordOf(incomingRecord), standardFamily);
 			return {
 				...meaningItem,
 				incomingSlotNameList: incomingRecord.slotEdgeTypeList.map((slotEdgeType) => slotNameOfEdgeTypeFor({ hubName: meaningItem.hubName, slotEdgeType })),
@@ -1412,8 +1451,10 @@ const moduleFunction =
 			isRetiredMeaningLevelId,
 			citedGraphStableIdOf,
 			mapMeaningItem,
+			meaningCountAbsentRefusalOf,
 			// ⟪meaningsClarity⟫
 			mapIncomingMeaningItem,
+			incomingMeaningRecordOf,
 			meaningsWalkPathOf,
 			slotNameOfEdgeTypeFor,
 			valueCardOfPropertyCardMatchTextFor,

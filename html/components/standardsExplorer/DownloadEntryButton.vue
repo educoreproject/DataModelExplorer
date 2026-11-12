@@ -4,6 +4,7 @@
 
 import { computed } from 'vue';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
+import { explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	downloadEntry: { type: Object, required: true },
@@ -13,7 +14,8 @@ const props = defineProps({
 const downloadsStore = useStandardDownloadsStore();
 
 // the download that is not the original says so in its title (TQ 2026-10-15, WORKORDER-experimentalLabel-101526)
-const facetLabelByName = { source: 'Source', graph: 'From the graph (experimental)' };
+const entryWords = explorerComponentWords.downloadEntry;
+const facetLabelByName = entryWords.facetLabelByName;
 const facetLabel = computed(() => facetLabelByName[props.downloadEntry.facet] || props.downloadEntry.facet);
 const sizeText = computed(() => {
 	const byteSize = props.downloadEntry.byteSize;
@@ -40,7 +42,7 @@ const isDownloading = computed(() => downloadsStore.downloadingDownloadId === pr
 		</v-btn>
 		<template v-else>
 			<v-btn size="small" variant="outlined" disabled :data-testid="`download-${downloadEntry.downloadId}`">{{ facetLabel }}</v-btn>
-			<span v-if="showReason" class="download-entry-reason" :data-testid="`download-reason-${downloadEntry.downloadId}`">{{ facetLabel }} not available: {{ downloadEntry.unavailableReason }}</span>
+			<span v-if="showReason" class="download-entry-reason" :data-testid="`download-reason-${downloadEntry.downloadId}`">{{ wordingOf(entryWords.unavailableTemplate, { facetLabel, unavailableReason: downloadEntry.unavailableReason }) }}</span>
 		</template>
 	</div>
 </template>

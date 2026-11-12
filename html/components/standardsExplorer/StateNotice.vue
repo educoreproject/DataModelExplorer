@@ -4,7 +4,9 @@
 // ⟪meaningsPolish review S3⟫ and refusal: the server refused what was asked, by name (HTTP 4xx). Its words are shown as the reason, with no "Try again",
 // since asking again cannot succeed. Only a walk whose profile sets showsRefusalsByName asks for it (the Meanings walk); its words are meaningsVocabulary's.
 
-import { meaningsVocabulary } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerCommonWords, explorerComponentWords, meaningsVocabulary } from '@/components/standardsExplorer/explorerVocabulary';
+
+const stateWords = explorerComponentWords.stateNotice;
 
 defineProps({
 	stateName: { type: String, required: true, validator: (stateName) => ['loading', 'error', 'refusal'].includes(stateName) },
@@ -19,14 +21,14 @@ const LOADING_BUBBLE_LIST = [
 </script>
 
 <template>
-	<div v-if="stateName === 'loading'" aria-busy="true" aria-label="Loading this level" class="state-canvas" data-testid="state-loading">
+	<div v-if="stateName === 'loading'" aria-busy="true" :aria-label="stateWords.loadingText" class="state-canvas" data-testid="state-loading">
 		<span
 			v-for="(oneBubble, bubbleIndex) in LOADING_BUBBLE_LIST"
 			:key="bubbleIndex"
 			class="state-bubble"
 			:style="{ left: `${oneBubble[0]}%`, top: `${oneBubble[1]}%`, width: `${oneBubble[2]}%` }"
 		/>
-		<span class="state-loading-text">Loading this level…</span>
+		<span class="state-loading-text">{{ stateWords.loadingText }}</span>
 	</div>
 	<div v-else-if="stateName === 'refusal'" role="alert" class="state-error" data-testid="state-error">
 		<span class="state-error-title" data-testid="state-refusal-title">{{ meaningsVocabulary.refusalTitleText }}</span>
@@ -34,10 +36,10 @@ const LOADING_BUBBLE_LIST = [
 		<code v-if="detailText" class="state-error-detail" data-testid="state-error-detail">{{ detailText }}</code>
 	</div>
 	<div v-else role="alert" class="state-error" data-testid="state-error">
-		<span class="state-error-title">The standards graph did not answer</span>
-		<span class="state-error-text">Nothing is wrong with what you clicked. The server could not answer this request. Try again, or go back with the breadcrumb.</span>
+		<span class="state-error-title">{{ stateWords.failedTitleText }}</span>
+		<span class="state-error-text">{{ stateWords.failedGuideText }}</span>
 		<code v-if="detailText" class="state-error-detail" data-testid="state-error-detail">{{ detailText }}</code>
-		<v-btn color="primary" data-testid="retry" @click="emit('retry')">Try again</v-btn>
+		<v-btn color="primary" data-testid="retry" @click="emit('retry')">{{ explorerCommonWords.retryText }}</v-btn>
 	</div>
 </template>
 

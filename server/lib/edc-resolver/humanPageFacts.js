@@ -167,7 +167,7 @@ const elementFactsWork = ({ runCypher, partByName, uriForElementInRelease }) => 
 
 	taskList.push((args, next) => listingFor({ runCypher, session, cypherText: USED_ON_CYPHER, cypherParameters: { ...elementParameters, ownerEdgeTypeList: humanPageRules.ownerEdgeTypeList }, countFieldName: 'ownerCount', listFieldNameList: ['ownerStableIdList', 'ownerLabelList'] }, (listingError, usedOnListing) => next(listingError, { ...args, usedOnListing })));
 	// ⟪meaningsClarity, Addendum A⟫ the meanings it takes part in: THE one reader, the explorer's own
-	taskList.push((args, next) => elementMeaningFactsFor({ mapper: standardsNeighbourhoodMapper, runRows: runRowsFor({ runCypher, session }), elementStableId, readsInParallel: false }, (factsError, factsAnswer) => next(factsError, { ...args, factsAnswer })));
+	taskList.push((args, next) => elementMeaningFactsFor({ mapper: standardsNeighbourhoodMapper, runRows: runRowsFor({ runCypher, session }), elementStableId, readsInParallel: false, withIncomingValueCount: false }, (factsError, factsAnswer) => next(factsError, { ...args, factsAnswer })));
 	taskList.push((args, next) => declarationVerdictFor({ runCypher, session }, (declarationError, declarationVerdict) => next(declarationError, { ...args, declarationVerdict })));
 
 	// each section's listed cards (its first listCap), read for their tuple brackets in one query

@@ -9,7 +9,9 @@
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationViewerStore } from '@/stores/specificationViewerStore';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, familyStyleOf, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const schemaWords = explorerComponentWords.schemaView;
 import SpecificationViewer from '@/components/SpecificationViewer.vue';
 
 const store = useStandardsNeighbourhoodStore();
@@ -31,13 +33,12 @@ const isUnmatched = computed(() => specViewerStore.specs.length > 0 && !specView
 </script>
 
 <template>
-	<section class="schema-view" :aria-label="`Schema Viewer: ${familyName}`" data-testid="schema-view">
+	<section class="schema-view" :aria-label="wordingOf(schemaWords.sectionLabelTemplate, { familyName })" data-testid="schema-view">
 		<p class="schema-view-intro">
-			The schema of <strong>{{ familyName }}</strong>, element by element, with each element's mappings to the other standards.
-			Switch back to Diagram or Table to keep walking.
+			{{ schemaWords.introLeadText }} <strong>{{ familyName }}</strong>{{ schemaWords.introDivider }}{{ schemaWords.introTailText }}
 		</p>
 		<v-alert v-if="isUnmatched" type="info" variant="tonal" density="compact" class="mb-4" data-testid="schema-view-unmatched">
-			The Specification Viewer lists no schema named {{ walkStandard.standardFamily }}. Pick one below.
+			{{ wordingOf(schemaWords.unmatchedTemplate, { standardFamily: walkStandard.standardFamily }) }}
 		</v-alert>
 		<SpecificationViewer embedded :spec-source="matchedSpecSource" />
 	</section>

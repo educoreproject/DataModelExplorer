@@ -39,6 +39,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	versionTileStateByStableId: {},
 	// ⟪meaningsClarity review S4⟫ an element's meaning facts, asked for apart from its node (action meaningFacts), once per stableId: { loading, meaningFacts, meaningFactsAbsentName, failed }
 	meaningFactsStateByStableId: {},
+	// ⟪explorerTidy, supervisor's ruling⟫ a selected leaf meaning's own node (its tuple and Expressed-in), read with the request a drill makes, once per stableId: { loading, meaningNode, failed }
+	leafMeaningStateByStableId: {},
 	// ⟪meaningsExplorer⟫ which walk the views are drawing (explorerVocabulary's walkProfileByName); WalkView sets it from its page on every mount
 	walkProfileName: 'standards',
 };
@@ -390,6 +392,22 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: (factsAnswer && factsAnswer.meaningFacts) || null, meaningFactsAbsentName: (factsAnswer && factsAnswer.meaningFactsAbsentName) || '', failed: !factsAnswer };
 			} catch (error) {
 				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: null, meaningFactsAbsentName: '', failed: true };
+			}
+		},
+
+		// ⟪explorerTidy, supervisor's ruling⟫ a meaning row that opens to nothing has no Open, so its panel shows what its focus would: its own node, read by the same
+		// request a drill sends (action node), kept apart from the level on screen. Once per stableId; a failed read is kept, and the panel says so in its own words.
+		async loadLeafMeaning(stableId) {
+			const existingState = this.leafMeaningStateByStableId[stableId];
+			if (existingState && !existingState.failed) return;
+			const loginStore = useLoginStore();
+			this.leafMeaningStateByStableId[stableId] = { loading: true, meaningNode: null, failed: false };
+			try {
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'node', stableId }, { headers: authHeadersOf(loginStore) });
+				const leafNeighbourhood = Array.isArray(response.data) ? response.data[0] : null;
+				this.leafMeaningStateByStableId[stableId] = { loading: false, meaningNode: (leafNeighbourhood && leafNeighbourhood.node) || null, failed: !(leafNeighbourhood && leafNeighbourhood.node) };
+			} catch (error) {
+				this.leafMeaningStateByStableId[stableId] = { loading: false, meaningNode: null, failed: true };
 			}
 		},
 

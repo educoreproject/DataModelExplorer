@@ -18,7 +18,9 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const walkWords = explorerComponentWords.walkView;
 
 const props = defineProps({
 	// the Standards Explorer's page passes none; any other walk names itself
@@ -93,7 +95,7 @@ const copyShareUrl = async () => {
 	try {
 		await navigator.clipboard.writeText(shareUrlText.value);
 	} catch (error) {
-		store.statusMsg = `could not copy the link: ${error.message}`;
+		store.statusMsg = wordingOf(explorerComponentWords.walkLevelLabel.copyFailedTemplate, { errorText: error.message });
 	}
 };
 
@@ -110,8 +112,8 @@ const focusNameText = computed(() => (store.focusNode && !isAtRoot.value ? displ
 const levelLabelText = computed(() => {
 	if (!store.focusNode) return 'Explorer';
 	const kindText = isAtRoot.value ? walkProfile.rootLevelText : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
-	if (store.effectiveViewMode === 'schema') return `Explorer: the schema of ${kindText}, in the Schema Viewer`;
-	return `Explorer: ${store.levelRowList.length} items in ${kindText}, shown as a ${store.effectiveViewMode}`;
+	if (store.effectiveViewMode === 'schema') return wordingOf(explorerComponentWords.walkLevelLabel.schemaTemplate, { kindText });
+	return wordingOf(explorerComponentWords.walkLevelLabel.levelTemplate, { itemCount: store.levelRowList.length, kindText, viewModeName: store.effectiveViewMode });
 });
 useHead(() => ({
 	title: focusNameText.value ? `${focusNameText.value} · ${walkProfile.titleText}` : walkProfile.titleText,
@@ -131,9 +133,9 @@ useHead(() => ({
 				<p class="explorer-intro">{{ walkProfile.introText }}</p>
 			</div>
 			<div class="explorer-share">
-				<span>Link to this view:</span>
+				<span>{{ walkWords.shareLabelText }}</span>
 				<code class="explorer-share-url" data-testid="share-url">{{ shareUrlText }}</code>
-				<v-btn size="small" variant="outlined" color="primary" @click="copyShareUrl">Copy link</v-btn>
+				<v-btn size="small" variant="outlined" color="primary" @click="copyShareUrl">{{ walkWords.copyLinkText }}</v-btn>
 			</div>
 		</div>
 
@@ -162,8 +164,8 @@ useHead(() => ({
 						data-testid="large-level-notice"
 					>
 						<div class="explorer-large-notice">
-							<span>{{ store.levelRowList.length }} items is too many to draw at once, so this level opened as a table.</span>
-							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">Show diagram</v-btn>
+							<span>{{ wordingOf(walkWords.largeLevelTemplate, { itemCount: store.levelRowList.length }) }}</span>
+							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">{{ walkWords.showDiagramText }}</v-btn>
 						</div>
 					</v-alert>
 					<template v-if="store.effectiveViewMode === 'diagram'">

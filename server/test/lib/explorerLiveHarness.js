@@ -61,28 +61,35 @@ const branchLibrary = accessPointLibraryFor(process.env.SUBJECT_SERVER_PATH || p
 const baselineLibrary = process.env.BASELINE_SERVER_PATH ? accessPointLibraryFor(process.env.BASELINE_SERVER_PATH) : null;
 
 
-// the local resolver asked a URI's own path, as the /edc/ route hands it: { httpStatus, body }
-const resolveUri = (uriText, callback) => {
+// ⟪explorerTidy⟫ the local resolver asked a URI's own path, as the /edc/ route hands it, in a format ('json' or 'html'): { httpStatus, bodyText }, or { httpStatus: 0, errorText }
+const resolveUriText = ({ uriText, answerFormat }, callback) => {
 	if (!uriText.startsWith(forgeAdapter.baseIri)) {
-		callback({ httpStatus: 0, body: { error: `not under the EDUcore base ${forgeAdapter.baseIri}` } });
+		callback({ httpStatus: 0, errorText: `not under the EDUcore base ${forgeAdapter.baseIri}` });
 		return;
 	}
-	branchLibrary['edc-resolver']({ edcRequestPath: `/${uriText.slice(forgeAdapter.baseIri.length)}`, answerFormat: 'json', whenClientGone: () => {} }, (resolveError, resolverAnswer) => {
-		if (resolveError) { callback({ httpStatus: 0, body: { error: resolveError } }); return; }
+	branchLibrary['edc-resolver']({ edcRequestPath: `/${uriText.slice(forgeAdapter.baseIri.length)}`, answerFormat, whenClientGone: () => {} }, (resolveError, resolverAnswer) => {
+		if (resolveError) { callback({ httpStatus: 0, errorText: resolveError }); return; }
 		if (!resolverAnswer.deliverTo) {
-			callback({ httpStatus: resolverAnswer.httpStatus, body: resolverAnswer.bodyText ? JSON.parse(resolverAnswer.bodyText) : {} });
+			callback({ httpStatus: resolverAnswer.httpStatus, bodyText: resolverAnswer.bodyText || '' });
 			return;
 		}
 		// an element with many siblings is answered by the resolver's child, streamed as the /edc/ route streams it
 		const chunkList = [];
 		const responseSink = new Writable({ write: (chunk, encoding, written) => { chunkList.push(chunk); written(); } });
-		responseSink.on('finish', () => callback({ httpStatus: resolverAnswer.httpStatus, body: JSON.parse(Buffer.concat(chunkList).toString('utf8')) }));
+		responseSink.on('finish', () => callback({ httpStatus: resolverAnswer.httpStatus, bodyText: Buffer.concat(chunkList).toString('utf8') }));
 		resolverAnswer.deliverTo(responseSink);
 	});
 };
+
+// the local resolver's JSON answer for a URI: { httpStatus, body }
+const resolveUri = (uriText, callback) =>
+	resolveUriText({ uriText, answerFormat: 'json' }, (resolved) => {
+		if (resolved.errorText !== undefined) { callback({ httpStatus: 0, body: { error: resolved.errorText } }); return; }
+		callback({ httpStatus: resolved.httpStatus, body: resolved.bodyText ? JSON.parse(resolved.bodyText) : {} });
+	});
 
 
 const GATE_WAIT_MILLISECONDS = 250;
 const GATE_WAIT_LIMIT = 480;
 
-module.exports = { goldenHandle, forgeAdapter, branchLibrary, baselineLibrary, resolveUri, GATE_WAIT_MILLISECONDS, GATE_WAIT_LIMIT, URI_MINTER_ACCESS_POINT_NAME };
+module.exports = { goldenHandle, forgeAdapter, branchLibrary, baselineLibrary, resolveUri, resolveUriText, GATE_WAIT_MILLISECONDS, GATE_WAIT_LIMIT, URI_MINTER_ACCESS_POINT_NAME };
