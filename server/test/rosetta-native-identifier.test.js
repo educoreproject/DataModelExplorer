@@ -90,7 +90,7 @@ const judgmentRowList = [
 ];
 const submission = { fieldList: [{ name: 'Military Discharge Date' }, { name: 'Birth Date' }], submissionNote: {} };
 const answerNoteValues = { draftNote: 'd', strongOnlyNote: 's', strongEvidenceNote: 'e', rationaleNote: 'r', partialNote: 'p' };
-const fullReport = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: JOB.answeredFrom });
+const fullReport = reportOf({ job: JOB, submission, describedList: null, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: JOB.answeredFrom });
 const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
 ok('a proposal recorded with its identifier keeps it', resultOfHub(fullReport.fieldList[0], 'CEDS').proposal.hubElementNativeIdentifier === 'P002040' && !('hubElementNativeIdentifierAbsentName' in resultOfHub(fullReport.fieldList[0], 'CEDS').proposal));
 ok('a proposal recorded before P7 says judgedBeforeNativeIdentifierRecorded, never a blank', resultOfHub(fullReport.fieldList[0], 'CTDL').proposal.hubElementNativeIdentifierAbsentName === 'judgedBeforeNativeIdentifierRecorded', JSON.stringify(resultOfHub(fullReport.fieldList[0], 'CTDL').proposal));
@@ -99,7 +99,7 @@ ok('a unit with no proposal gains no identity field', !('proposal' in resultOfHu
 ok('the stored row is not changed by the report', !('hubElementNativeIdentifierAbsentName' in judgmentRowList[1].judgment.proposal));
 
 console.log('- 4. the fetch summary line');
-const summaryAnswer = reportOf({ job: JOB, submission, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'summary', detail: 'lean', answeredFromNow: JOB.answeredFrom });
+const summaryAnswer = reportOf({ job: JOB, submission, describedList: null, judgmentRowList, spentUsd: 0.01, answerNoteValues, pageNumber: 1, pageSize: 10, rowDetail: 'summary', detail: 'lean', answeredFromNow: JOB.answeredFrom });
 const summary = SUMMARY_SHAPER_BY_NAME.rosettaFetch({ answer: summaryAnswer, summaryShape: registry.summaryShape });
 console.log(`  lines: ${JSON.stringify(summary.fieldLineList)}`);
 ok('⟪P7a⟫ a proposal recorded before its tuple names that absence in the bracket', summary.fieldLineList[0][1] === 'CEDS strong [no tuple: judgedBeforeTupleRecorded]: Military Discharge Date', summary.fieldLineList[0][1]);

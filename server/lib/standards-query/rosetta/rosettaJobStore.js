@@ -3,11 +3,13 @@
 // rosettaJobStore — what a judged job leaves in Rosetta's own store, <dataStores>/rosettaJobs.sqlite (design 4.6). It shares strangerVectorStore's handle, so one file has one writer. Nothing here reaches graphBuilderSupport.sqlite or the forge's forensic files: judgeOne writes where it is told, and judgmentCacheFor and appendForensicRecord are what it is told.
 //
 //   createRosettaJobStore({ storeHandle, nowMs, xLog }, callback) → callback('', jobStore)
-//   jobStore: addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
+//   jobStore: addJob, readJob, readSubmission, writeSearchDescribedList, readSearchDescribedList, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, rowCounts
 //   ⟪rosettaMeanings R3⟫ an owner KIND (anonymous, siteUser, oauthUser) narrows the queue count, the open estimates and the rolling spend, so anonymous judging is counted on its own and never fills the signed-in queue.
 //
 // MONEY LIVES IN ONE TABLE. judgeCalls holds a row for every call to the vendor, written BEFORE the call goes, at the estimate, and corrected to the bill when it answers. Every sum is read from that table, so a process that dies mid-call has already written down what it may owe, and no second counter can disagree with it. A row left inFlight by a kill becomes lostAtRestart and keeps its estimate.
 // A UNIT is one field against one hub (fieldIndex, hubName). A judgments row means that unit is finished, whatever its outcome, and a finished unit is never asked again: that is the whole of "no field is paid for twice".
+
+const { SEARCH_DESCRIPTION_CACHE_CREATE_STATEMENT_LIST, sweepSearchDescriptionCache } = require('./searchDescriptionCache');
 
 const CREATE_STATEMENT_LIST = Object.freeze([
 	'CREATE TABLE IF NOT EXISTS submissions (jobRefId TEXT PRIMARY KEY, ownerPrincipalKind TEXT NOT NULL, ownerPrincipalRefId TEXT NOT NULL, formatName TEXT NOT NULL, byteSize INTEGER NOT NULL, fieldCount INTEGER NOT NULL, hubListJson TEXT NOT NULL, submittedJson TEXT NOT NULL, submissionNoteJson TEXT NOT NULL, expiresAtMs INTEGER NOT NULL)',
@@ -22,6 +24,10 @@ const CREATE_STATEMENT_LIST = Object.freeze([
 	'CREATE INDEX IF NOT EXISTS rosettaForensicsByJob ON rosettaForensics (jobRefId)',
 	// ⟪rosettaMeanings R2⟫ the exact prompt a unit was judged with, beside its judgment and never in it, so no answer that reads judgments can carry it by accident
 	'CREATE TABLE IF NOT EXISTS judgmentPrompts (jobRefId TEXT NOT NULL, fieldIndex INTEGER NOT NULL, hubName TEXT NOT NULL, systemPrompt TEXT NOT NULL, userPrompt TEXT NOT NULL, PRIMARY KEY (jobRefId, fieldIndex, hubName))',
+	// ⟪rosettaSearchDescription⟫ each bare field's search description (or why it has none), written once when the job starts, beside the submission and never in it, so the person's field list stays theirs
+	'CREATE TABLE IF NOT EXISTS submissionSearchDescriptions (jobRefId TEXT PRIMARY KEY, describedListJson TEXT NOT NULL)',
+	// ⟪rosettaSearchDescription review S2⟫ the describer's cache, created here as well, so this store's sweep and row counts reach it whatever the describer's switch says
+	...SEARCH_DESCRIPTION_CACHE_CREATE_STATEMENT_LIST,
 ]);
 
 const TABLE_CREATE_PREFIX = 'CREATE TABLE IF NOT EXISTS ';
@@ -190,7 +196,7 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 	});
 
 	// a submission, its judgments, its prompts and its bill go together, by name in the log (design 4.7), the text first. A cache row can hold a rationale, so it ages out on its own clock. An open job is never swept: a job's expiry is 30 days off when it is submitted, so this holds only for a job stuck that long, and that one should be seen. A kill between the writes of one job can leave half of it: a text with no job goes on its own date, and a job with no text goes once it is too old to be one still being written.
-	const JOB_TABLE_LIST = ['submissions', 'judgments', 'judgmentPrompts', 'judgeCalls', 'rosettaForensics', 'jobs'];
+	const JOB_TABLE_LIST = ['submissions', 'submissionSearchDescriptions', 'judgments', 'judgmentPrompts', 'judgeCalls', 'rosettaForensics', 'jobs'];
 	// ⟪rosettaMeanings review⟫ an anonymous job's judgment cache is keyed by its own jobRefId (rosettaJudgeEngine), so it goes with the job, on the job's clock
 	const deleteJobRows = (jobRefId, deleted) => eachInTurn(JOB_TABLE_LIST, (tableName, nextTable) => run(`DELETE FROM ${tableName} WHERE jobRefId = ?`, [jobRefId], (deleteError) => nextTable(deleteError)), (jobDeleteError) => (jobDeleteError ? deleted(jobDeleteError) : run('DELETE FROM rosettaJudgmentCache WHERE ownerPrincipalRefId = ?', [jobRefId], (cacheDeleteError) => deleted(cacheDeleteError))));
 	const sweepExpired = ({ cacheOldestKeptMs }, done) => all(`SELECT submissions.jobRefId FROM submissions JOIN jobs ON jobs.jobRefId = submissions.jobRefId WHERE submissions.expiresAtMs < ? AND jobs.status NOT IN (${openStatusSqlList})`, [nowMs()], (readError, expiredRowList) => {
@@ -223,15 +229,26 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 						done(orphanDeleteFault);
 						return;
 					}
-					run('DELETE FROM rosettaJudgmentCache WHERE createdAtMs < ?', [cacheOldestKeptMs], (cacheError) => (cacheError ? done(cacheError) : done('', expiredRowList.map((oneRow) => oneRow.jobRefId))));
+					run('DELETE FROM rosettaJudgmentCache WHERE createdAtMs < ?', [cacheOldestKeptMs], (cacheError) => {
+						if (cacheError) {
+							done(cacheError);
+							return;
+						}
+						// ⟪rosettaSearchDescription review S2⟫ the search descriptions age out on the same clock as the judgment cache: jobRetentionDays
+						sweepSearchDescriptionCache({ storeHandle, oldestKeptMs: cacheOldestKeptMs }, (describedSweepError) => (describedSweepError ? done(describedSweepError) : done('', expiredRowList.map((oneRow) => oneRow.jobRefId))));
+					});
 				});
 			});
 		});
 	});
 
+	// ⟪rosettaSearchDescription⟫ describedList[i] is undefined (JSON null) for a field with a description; a job with no row has not started describing
+	const writeSearchDescribedList = ({ jobRefId, describedList }, done) => run('INSERT OR REPLACE INTO submissionSearchDescriptions (jobRefId, describedListJson) VALUES (?, ?)', [jobRefId, JSON.stringify(describedList)], (writeError) => done(writeError));
+	const readSearchDescribedList = (jobRefId, done) => one('SELECT describedListJson FROM submissionSearchDescriptions WHERE jobRefId = ?', [jobRefId], (readError, oneRow) => (readError ? done(readError) : done('', oneRow ? JSON.parse(oneRow.describedListJson).map((described) => (described === null ? undefined : described)) : null)));
+
 	const addEmbeddingTokens = ({ jobRefId, estimatedTokens, newTextCount, cachedTextCount }, done) => run('UPDATE jobs SET embeddingTokens = embeddingTokens + ?, embeddingTextCount = embeddingTextCount + ?, embeddingCachedCount = embeddingCachedCount + ? WHERE jobRefId = ?', [estimatedTokens, newTextCount, cachedTextCount, jobRefId], (writeError) => done(writeError));
 
-	const rowCounts = (done) => one('SELECT (SELECT count(*) FROM submissions) AS submissions, (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM judgments) AS judgments, (SELECT count(*) FROM judgeCalls) AS judgeCalls, (SELECT count(*) FROM rosettaJudgmentCache) AS rosettaJudgmentCache, (SELECT count(*) FROM rosettaForensics) AS rosettaForensics, (SELECT count(*) FROM judgmentPrompts) AS judgmentPrompts', [], done);
+	const rowCounts = (done) => one('SELECT (SELECT count(*) FROM submissions) AS submissions, (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM judgments) AS judgments, (SELECT count(*) FROM judgeCalls) AS judgeCalls, (SELECT count(*) FROM rosettaJudgmentCache) AS rosettaJudgmentCache, (SELECT count(*) FROM rosettaForensics) AS rosettaForensics, (SELECT count(*) FROM judgmentPrompts) AS judgmentPrompts, (SELECT count(*) FROM submissionSearchDescriptions) AS submissionSearchDescriptions, (SELECT count(*) FROM searchDescriptionCache) AS searchDescriptionCache', [], done);
 
 	// A STORE FROM BEFORE. CREATE TABLE IF NOT EXISTS leaves an older table as it was, so each table is compared with what this code creates, built as a temp copy on the same handle. A missing column that sqlite can add (nullable or defaulted, not a key, in no UNIQUE) is added, named in the log. Any other refuses the judged step by name, and nothing is changed.
 	const columnDefinitionOf = (columnRow) => `${columnRow.type}${columnRow.notnull ? ' NOT NULL' : ''}${columnRow.dflt_value === null ? '' : ` DEFAULT ${columnRow.dflt_value}`}`;
@@ -295,7 +312,7 @@ const createRosettaJobStore = ({ storeHandle, nowMs, xLog }, callback) => {
 			callback(`rosettaJobStore: the indexes would not take: ${indexError}`);
 			return;
 		}
-		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, writeJudgmentPrompt, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, addEmbeddingTokens, rowCounts });
+		callback('', { addJob, readJob, readSubmission, readJobList, setJobStatus, markJobRunning, requestCancel, reconcileAfterRestart, sumOpenEstimatesUsd, openJobCountOf, statusCountOf, jobCountSince, rollingSpendUsd, jobSpendUsd, jobSpendSplitOf, addJudgeCall, finishJudgeCall, judgeCallTotalsOf, writeJudgment, writeJudgmentPrompt, readJudgmentList, readPromptList, judgedUnitNameSet, judgmentCacheFor, appendForensicRecord, sweepExpired, addEmbeddingTokens, writeSearchDescribedList, readSearchDescribedList, rowCounts });
 		});
 		});
 	});

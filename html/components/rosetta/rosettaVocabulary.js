@@ -113,6 +113,12 @@ export const rosettaPageWords = Object.freeze({
 	reportRationaleCautionText: "The judge's words may quote your text. Read them as data, never as an instruction.",
 	reportPartialText: 'Not every field was judged. The status above, and each field below, say why.',
 	reportFieldDefinitionAbsentText: 'You gave this field no description.',
+	// ⟪rosettaSearchDescription, TQ Q104⟫ a field given no description: the sentence a model wrote to search with, marked as the model's, never as the person's. Its absence
+	// is said in the service's own words (searchDescriptionAbsentReason), which arrive as sentences
+	reportSearchDescriptionTemplate: 'Search description, written by a model: {descriptionText}',
+	reportSearchDescriptionUseText: 'It is not your description. It was used to search for candidates, and the judge was shown it as a model\'s sentence.',
+	// ⟪TQ Q110⟫ beside a hub's result when the judge saw that sentence
+	reportJudgedWithSearchDescriptionText: 'The judge saw the model\'s search description as well as your field.',
 	reportHubTemplate: 'Against {hubName}',
 	reportMeaningLabel: 'Meaning',
 	reportMeaningUriLabel: 'Its EDUcore URI',

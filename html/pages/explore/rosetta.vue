@@ -13,7 +13,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRosettaStore } from '@/stores/rosettaStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { rosettaPageWords, wordsOf } from '@/components/rosetta/rosettaVocabulary';
-import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, jobStatusLineOf, spendLineOf, summaryResultTextOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
+import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, jobStatusLineOf, spendLineOf, summaryResultTextOf, noteLeadAndItemsOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
 
 const store = useRosettaStore();
 const loginStore = useLoginStore();
@@ -52,6 +52,7 @@ const copyJobLink = () => navigator.clipboard.writeText(jobLink.value);
 // ⟪P7a⟫ a field's results are a list, each naming its hub
 const resultFor = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
 const fieldBlockList = computed(() => (store.report ? fieldBlockListOf({ report: store.report, expressionByMeaningUri: store.expressionByMeaningUri }) : []));
+const strongEvidence = computed(() => noteLeadAndItemsOf(store.report ? store.report.strongEvidenceNote : ''));
 const countLineList = computed(() => (store.report ? countLineListOf(store.report.counts) : []));
 const progress = computed(() => progressOf({ jobStatus: store.jobStatus, busyStepName: store.busyStepName, isStatusCheckFailed: store.isStatusCheckFailed }));
 const askButtonText = computed(() => askButtonWordsOf({ review: store.review }));
@@ -186,8 +187,13 @@ onUnmounted(() => store.stopPolling());
 					<v-card v-for="oneFieldBlock in fieldBlockList" :key="oneFieldBlock.requestName" class="mb-4 pa-3" variant="outlined" data-testid="rosetta-field-block">
 						<h3 class="text-subtitle-1 font-weight-bold rosettaWrap" data-testid="rosetta-field-name">{{ oneFieldBlock.requestName }}</h3>
 						<p class="text-body-2 mb-2 rosettaWrap" data-testid="rosetta-field-definition">{{ oneFieldBlock.definitionText }}</p>
+						<div v-if="oneFieldBlock.searchDescriptionText" class="text-body-2 mb-2 pl-3 rosettaWrap rosettaSearchDescription" data-testid="rosetta-field-search-description">
+							<p class="mb-0 font-italic">{{ oneFieldBlock.searchDescriptionText }}</p>
+							<p v-if="oneFieldBlock.hasSearchDescription" class="mb-0 text-caption text-medium-emphasis">{{ rosettaPageWords.reportSearchDescriptionUseText }}</p>
+						</div>
 						<v-sheet v-for="oneHubBlock in oneFieldBlock.hubBlockList" :key="oneHubBlock.hubName" class="pa-3 mb-2 rosettaHubBlock" border rounded data-testid="rosetta-hub-block">
 							<p class="text-overline mb-1">{{ oneHubBlock.hubHeadingText }}</p>
+							<p v-if="oneHubBlock.judgedWithSearchDescriptionText" class="text-caption text-medium-emphasis mb-1" data-testid="rosetta-judged-with-search-description">{{ oneHubBlock.judgedWithSearchDescriptionText }}</p>
 							<dl v-if="oneHubBlock.hasProposal" class="rosettaFacts" data-testid="rosetta-proposal">
 								<dt>{{ rosettaPageWords.reportMeaningLabel }}</dt>
 								<dd>
@@ -264,7 +270,10 @@ onUnmounted(() => store.stopPolling());
 				<template v-if="store.report">
 					<p class="mb-1"><strong>{{ store.report.draftNote }}</strong></p>
 					<p class="mb-2">{{ store.report.strongOnlyNote }}</p>
-					<p class="mb-2">{{ store.report.strongEvidenceNote }}</p>
+					<p class="mb-1" data-testid="rosetta-strong-evidence">{{ strongEvidence.leadText }}</p>
+					<ul v-if="strongEvidence.itemList.length" class="mb-2 rosettaEvidenceList" data-testid="rosetta-strong-evidence-list">
+						<li v-for="oneItem in strongEvidence.itemList" :key="oneItem">{{ oneItem }}</li>
+					</ul>
 					<v-card v-for="hubName in hubNameList" :key="hubName" class="mb-4 pa-3">
 						<v-btn size="small" class="mb-2" @click="downloadDraft(hubName)">{{ wordsOf(rosettaPageWords.downloadDraftButton, { hubName }) }}</v-btn>
 						<pre class="rosettaDraft">{{ JSON.stringify(store.report.draftContextByHub[hubName], null, 2) }}</pre>
@@ -319,6 +328,8 @@ onUnmounted(() => store.stopPolling());
 .rosettaFacts dd { margin: 0; min-width: 0; }
 .rosettaSlots { list-style: none; padding: 0; margin: 0; }
 .rosettaSlots li { margin-bottom: 0.25rem; }
+.rosettaSearchDescription { border-left: 3px solid rgba(var(--v-theme-on-surface), 0.2); }
+.rosettaEvidenceList { padding-left: 1.25rem; }
 @media (max-width: 600px) {
 	.rosettaFacts { grid-template-columns: 1fr; }
 	.rosettaFacts dd { margin-bottom: 0.5rem; }

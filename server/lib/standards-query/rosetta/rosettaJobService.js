@@ -343,9 +343,15 @@ const createRosettaJobService = ({ jobStore, judgeEngine, judgeAbsentReason, jud
 						return;
 					}
 					const judgeCallCount = callTotalsRowList.reduce((soFar, oneRow) => soFar + oneRow.callCount, 0);
-					done('', {
-						answer: reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow: answeredFrom }),
-						answeredFromAddition: { using: usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) },
+					jobStore.readSearchDescribedList(job.jobRefId, (describedError, describedList) => {
+						if (describedError) {
+							done(`the job store would not read: ${describedError}`);
+							return;
+						}
+						done('', {
+							answer: reportOf({ job, submission, describedList, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow: answeredFrom }),
+							answeredFromAddition: { using: usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) },
+						});
 					});
 				});
 			});

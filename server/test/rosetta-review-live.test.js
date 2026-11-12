@@ -128,7 +128,7 @@ gate('finding2partial', (done) => {
 			const refusedUnit = resultOfHub(report.fieldList[0], 'CEDS');
 			ok('2: a job holding a refused unit ends done, and says it is partial', statusAnswer.status === 'done' && report.isPartial === true, `${statusAnswer.status} ${report.isPartial}`);
 			ok('2: the refused row carries a reason', refusedUnit.status === 'judgeRefused' && Boolean(refusedUnit.notJudgedReason), JSON.stringify(refusedUnit).slice(0, 200));
-			const lostReport = reportOf({ job: { jobRefId: 'x', status: 'done', fieldCount: 1, hubNameList: ['CEDS'], estimateUsd: 0, judgeFacts: {}, answeredFrom: {} }, submission: { fieldList: [{ name: 'x' }], submissionNote: {} }, judgmentRowList: [{ fieldIndex: 0, hubName: 'CEDS', unitStatus: 'lostAtRestart', judgment: { notJudgedReason: 'lostAtRestart' } }], spentUsd: 0, answerNoteValues: registry.rosettaJudgedNote, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: {} });
+			const lostReport = reportOf({ job: { jobRefId: 'x', status: 'done', fieldCount: 1, hubNameList: ['CEDS'], estimateUsd: 0, judgeFacts: {}, answeredFrom: {} }, submission: { fieldList: [{ name: 'x' }], submissionNote: {} }, describedList: null, judgmentRowList: [{ fieldIndex: 0, hubName: 'CEDS', unitStatus: 'lostAtRestart', judgment: { notJudgedReason: 'lostAtRestart' } }], spentUsd: 0, answerNoteValues: registry.rosettaJudgedNote, pageNumber: 1, pageSize: 10, rowDetail: 'full', detail: 'audit', answeredFromNow: {} });
 			ok('2: a job that survived a restart with a lost unit says it is partial', lostReport.isPartial === true);
 			close();
 		}));

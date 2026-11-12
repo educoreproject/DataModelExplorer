@@ -118,7 +118,8 @@ console.log('- 1. hubCardTuple');
 
 // ---- 2. the lean full answer, five kinds of card
 console.log('- 2. the lean full answer');
-const reportArgumentsOf = (fixture, extraArguments) => ({ job: fixture.job, submission: fixture.submission, judgmentRowList: fixture.judgmentRowList, spentUsd: 0, answerNoteValues: fixture.answerNoteValues, pageNumber: 1, pageSize: fixture.pageSize, answeredFromNow: fixture.answeredFromNow, ...extraArguments });
+// ⟪rosettaSearchDescription⟫ these fixtures were captured before search descriptions existed: null is a job whose describer has not run, so a bare field says searchDescriptionPending
+const reportArgumentsOf = (fixture, extraArguments) => ({ job: fixture.job, submission: fixture.submission, describedList: null, judgmentRowList: fixture.judgmentRowList, spentUsd: 0, answerNoteValues: fixture.answerNoteValues, pageNumber: 1, pageSize: fixture.pageSize, answeredFromNow: fixture.answeredFromNow, ...extraArguments });
 const leanTupled = reportOf(reportArgumentsOf(tupledFixture, { rowDetail: 'full', detail: 'lean' }));
 const auditTupled = reportOf(reportArgumentsOf(tupledFixture, { rowDetail: 'full', detail: 'audit' }));
 const resultOfHub = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
@@ -204,8 +205,9 @@ const renamedPathOf = (oldPath, hubNameList) => oldPath
 	ok(`page ${pageNumber}: every lean leaf is in the audit answer`, notInAuditList.length === 0, JSON.stringify(notInAuditList.slice(0, 5)));
 	const oldRenamedPathSet = new Set([...leafMapOf(beforeEnvelope.answer).keys()].map((oldPath) => renamedPathOf(oldPath, hubNameList)));
 	const addedList = [...auditLeafMap.keys()].filter((auditPath) => !oldRenamedPathSet.has(auditPath));
-	// what the audit answer has that 0c1f86f did not: jobRefId and status lifted to the top (they are also in job), each result's hub, and the named tuple absence
-	const ADDED_ON_PURPOSE_PATTERN = /^jobRefId$|^status$|\.resultList\.\d+\.hub$|\.proposal\.tupleAbsentName$/;
+	// what the audit answer has that 0c1f86f did not: jobRefId and status lifted to the top (they are also in job), each result's hub, and the named tuple absence;
+	// ⟪rosettaSearchDescription⟫ and, for a field given no description, its search description or why it has none, with the note saying what one is
+	const ADDED_ON_PURPOSE_PATTERN = /^jobRefId$|^status$|\.resultList\.\d+\.hub$|\.proposal\.tupleAbsentName$|^fieldList\.\d+\.searchDescription(Absent|AbsentReason|\.descriptionText|\.writtenByModel)$|^searchDescriptionNote$/;
 	ok(`page ${pageNumber}: the audit answer adds only jobRefId and status at the top, each result's hub, and the named tuple absence`, addedList.every((auditPath) => ADDED_ON_PURPOSE_PATTERN.test(auditPath)), JSON.stringify(addedList.filter((auditPath) => !ADDED_ON_PURPOSE_PATTERN.test(auditPath)).slice(0, 5)));
 });
 {
