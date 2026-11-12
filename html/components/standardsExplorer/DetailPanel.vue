@@ -15,7 +15,7 @@ import { computed, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
 import meaningFactsWording from '@/components/standardsExplorer/meaningFactsWording.json';
-import { FAMILY_CATALOG_STABLE_ID, meaningSubtitleOf, meaningTitleOf, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf, explorerCommonWords, explorerComponentWords, wordingOf, isLeafMeaningRow, selectedLeafNodeOf, leafFactsStateNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, meaningSubtitleOf, meaningTitleOf, counterpartPathOf, displayNameOf, meaningFactListOf, meaningsLinkOf, familyHoldingTextOf, familyStyleOf, homeStandardFamilyOf, hubMappedTextOf, hubNameTextOf, humanizeName, kindDisplayNameOf, pluralKindNameOf, explorerCommonWords, explorerComponentWords, wordingOf, isMeaningRow, selectedLeafNodeOf, leafFactsStateNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const panelWords = explorerComponentWords.detailPanel;
@@ -41,9 +41,9 @@ const openCounterpart = (versionEntry) => {
 
 const isFocus = computed(() => !store.selectedRow);
 
-// ⟪explorerTidy, supervisor's ruling⟫ a selected meaning that opens to nothing (no Open) shows its tuple and Expressed-in here, as its focus would: its own node, read
-// once by the store with the request a drill sends
-const isLeafMeaningSelected = computed(() => isLeafMeaningRow(store.selectedRow));
+// ⟪explorerTidy⟫ a selected meaning shows its tuple and what is mapped to it here, as its focus would (TQ 2026-11-12: every selected meaning, not only a leaf):
+// its own node, read once by the store with the request a drill sends
+const isLeafMeaningSelected = computed(() => isMeaningRow(store.selectedRow));
 watch(
 	() => (isLeafMeaningSelected.value ? store.selectedRow.stableId : ''),
 	(leafStableId) => {

@@ -797,6 +797,8 @@ const tupleSlotHubIdTextOf = ({ slotPart, hubName }) => (slotPart.nativeId ? wor
 // ⟪explorerTidy, supervisor's ruling⟫ A SELECTED LEAF MEANING (a meaning row that opens to nothing) shows in the panel what its focus would: its own node, read by the store
 // (loadLeafMeaning, the drill's own request), under the row's own fields. The panel (DetailPanel.vue) reads these three; a test drives them with the store.
 export const isLeafMeaningRow = (selectedRow) => Boolean(selectedRow && selectedRow.kind === 'meaning' && !selectedRow.hasChildren);
+// TQ 2026-11-12: any selected meaning shows its tuple and what is mapped to it, as its focus would, not only one that opens to nothing
+export const isMeaningRow = (selectedRow) => Boolean(selectedRow && selectedRow.kind === 'meaning');
 export const selectedLeafNodeOf = ({ selectedRow, leafMeaningState }) => (leafMeaningState && leafMeaningState.meaningNode ? { ...leafMeaningState.meaningNode, ...selectedRow } : null);
 export const leafFactsStateNameOf = (leafMeaningState) => {
 	if (!leafMeaningState) return '';
