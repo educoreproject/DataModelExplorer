@@ -4,6 +4,7 @@
 //
 //   fieldBlockListOf({ report, expressionByMeaningUri }) → one block per field sent: its name, its definition, and one hub block per hub (a proposal, or why none)
 //   countLineListOf(counts) → the summary's count lines, one per hub, in words
+//   summaryRowListOf({ fieldList, hubNameList }) → the summary table's rows: field, hub, result words, the judge's words; a missing hub said in words
 //   proposedMeaningUriListOf(report) → the distinct meanings the shown page proposes (each is asked of the Meanings answer until it is counted, for its expressed-in count)
 //   meaningReadPlanOf(meaningUriList) → which of them one read asks, within rosettaPageSettings' limit, and the reason the rest give
 //   meaningNodeStableIdOf(meaningUri) → the Meanings walk's id for that meaning (a hub card's stableId IS its meaning URI: server/lib/standards-query/uriMinter.js)
@@ -142,6 +143,21 @@ export const noteLeadAndItemsOf = (noteText) => {
 
 // ⟪rosettaLoginPolish #5⟫ the summary table's result cell: the strength and the meaning, or why there is none, in the same words as the blocks above it
 export const summaryResultTextOf = (oneResult) => (oneResult.proposal ? `${strengthOf(oneResult.proposal.category).strengthWords}${rosettaPageWords.summaryResultDivider}${oneResult.proposal.label}` : noProposalStatusTextOf(oneResult));
+
+// ⟪rosettaDownloadAll D1⟫ the summary table's rows, one per field per hub of the job, for the page and for the downloaded report alike. A hub a field has no result
+// for says so in words; it is never read through (the page's table once threw on it)
+export const summaryRowListOf = ({ fieldList, hubNameList }) =>
+	fieldList.flatMap((oneField) =>
+		hubNameList.map((hubName) => {
+			const oneResult = oneField.resultList.find((result) => result.hub === hubName);
+			return {
+				requestName: oneField.requestName,
+				hubName,
+				resultText: oneResult ? summaryResultTextOf(oneResult) : rosettaPageWords.reportHubResultAbsentText,
+				rationaleText: oneResult && oneResult.judgesRationale ? oneResult.judgesRationale : '',
+			};
+		}),
+	);
 
 export const proposedMeaningUriListOf = (report) => [...new Set(report.fieldList.flatMap((oneField) => oneField.resultList.filter((oneResult) => oneResult.proposal).map((oneResult) => oneResult.proposal.uri)))];
 // ⟪ROMANTIC_PARASOL⟫ the Meanings answers one shown page may ask, at most (rosettaPageSettings); the rest of the page's meanings say so, by the limit, never a count

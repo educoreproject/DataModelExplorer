@@ -188,14 +188,24 @@ export const useRosettaStore = defineStore('rosettaStore', {
 			this.reportUnseen = false;
 		},
 		// detail=audit: the page shows the judge's notes and reads the job's hub list, which the lean answer leaves out (P7a)
-		async fetchReport(pageNumber) {
+		// ⟪rosettaDownloadAll⟫ readReportPage reads a page and shows nothing: { answer } or { refusal }. fetchReport shows what it read; Download all reads every page
+		// through readReportPage, so the page the person is looking at stays put
+		async readReportPage(pageNumber) {
 			try {
 				const reply = await axios.get(`${ROUTE_BASE_PATH}/jobs/fetch`, { params: { jobRefId: this.jobRefId, rowDetail: 'full', detail: 'audit', page: String(pageNumber) }, headers: this.headers() });
-				this.report = reply.data.answer;
-				this.reportPage = pageNumber;
+				return { answer: reply.data.answer };
 			} catch (requestError) {
-				this.refusal = refusalOf(requestError);
+				return { refusal: refusalOf(requestError) };
 			}
+		},
+		async fetchReport(pageNumber) {
+			const { answer, refusal } = await this.readReportPage(pageNumber);
+			if (refusal) {
+				this.refusal = refusal;
+				return;
+			}
+			this.report = answer;
+			this.reportPage = pageNumber;
 		},
 		// each proposed meaning on the shown page not yet counted, asked of the Meanings answer, up to the page's limit; a read that fails, or one past the limit, is
 		// kept with its reason, never as a count, and is asked again next time (⟪review S3⟫: only a count is kept for good)
@@ -229,14 +239,23 @@ export const useRosettaStore = defineStore('rosettaStore', {
 			this.isStatusCheckFailed = false;
 			await this.pollJob();
 		},
-		// ⟪rosettaMeanings R2⟫ the exact prompts the job was judged with, a page at a time (rosetta/jobs/prompts, the page's own API operation)
-		async fetchPrompts(pageNumber) {
+		// ⟪rosettaMeanings R2⟫ the exact prompts the job was judged with, a page at a time (rosetta/jobs/prompts, the page's own API operation); readPromptPage as
+		// readReportPage: it reads and shows nothing
+		async readPromptPage(pageNumber) {
 			try {
 				const reply = await axios.get(`${ROUTE_BASE_PATH}/jobs/prompts`, { params: { jobRefId: this.jobRefId, page: String(pageNumber) }, headers: this.headers() });
-				this.promptPage = reply.data.answer;
+				return { answer: reply.data.answer };
 			} catch (requestError) {
-				this.refusal = refusalOf(requestError);
+				return { refusal: refusalOf(requestError) };
 			}
+		},
+		async fetchPrompts(pageNumber) {
+			const { answer, refusal } = await this.readPromptPage(pageNumber);
+			if (refusal) {
+				this.refusal = refusal;
+				return;
+			}
+			this.promptPage = answer;
 		},
 		async cancelJob() {
 			try {

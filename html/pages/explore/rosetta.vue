@@ -12,11 +12,14 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useRosettaStore } from '@/stores/rosettaStore';
 import { useLoginStore } from '@/stores/loginStore';
+import { useRosettaDownloadAllStore } from '@/stores/rosettaDownloadAllStore';
 import { rosettaPageWords, wordsOf } from '@/components/rosetta/rosettaVocabulary';
-import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, jobStatusLineOf, spendLineOf, summaryResultTextOf, noteLeadAndItemsOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
+import { draftFileTextOf } from '@/components/rosetta/rosettaDownloadAll';
+import { fieldBlockListOf, countLineListOf, progressOf, askButtonWordsOf, jobStatusLineOf, spendLineOf, summaryRowListOf, noteLeadAndItemsOf, TAB_NAME, JOB_OPEN_STATUS_LIST } from '@/components/rosetta/rosettaReportBlocks';
 
 const store = useRosettaStore();
 const loginStore = useLoginStore();
+const downloadAllStore = useRosettaDownloadAllStore();
 const route = useRoute();
 const router = useRouter();
 const activeTab = ref(TAB_NAME.submit);
@@ -49,8 +52,8 @@ const hubNameList = computed(() => (store.report ? store.report.job.hubList : []
 const jobLink = computed(() => (store.jobRefId && import.meta.client ? `${window.location.origin}${route.path}?${JOB_LINK_QUERY_NAME}=${store.jobRefId}` : ''));
 const copyJobLink = () => navigator.clipboard.writeText(jobLink.value);
 
-// ⟪P7a⟫ a field's results are a list, each naming its hub
-const resultFor = (oneField, hubName) => oneField.resultList.find((oneResult) => oneResult.hub === hubName);
+// ⟪P7a⟫ a field's results are a list, each naming its hub; ⟪rosettaDownloadAll D1⟫ the summary table's rows say a missing hub in words rather than throw
+const summaryRowList = computed(() => (store.report ? summaryRowListOf({ fieldList: store.report.fieldList, hubNameList: hubNameList.value }) : []));
 const fieldBlockList = computed(() => (store.report ? fieldBlockListOf({ report: store.report, expressionByMeaningUri: store.expressionByMeaningUri }) : []));
 const strongEvidence = computed(() => noteLeadAndItemsOf(store.report ? store.report.strongEvidenceNote : ''));
 const countLineList = computed(() => (store.report ? countLineListOf(store.report.counts) : []));
@@ -65,17 +68,26 @@ watch(activeTab, (nextTabName) => {
 	store.rememberTab(nextTabName);
 });
 
-const downloadDraft = (hubName) => {
-	const blob = new Blob([JSON.stringify(store.report.draftContextByHub[hubName], null, 2)], { type: 'application/ld+json;charset=utf-8' });
+const saveBlobAs = (blob, fileName) => {
 	const url = URL.createObjectURL(blob);
 	const anchor = document.createElement('a');
 	anchor.href = url;
-	anchor.download = `draft-${hubName}-${store.jobRefId.slice(0, 8)}.jsonld`;
+	anchor.download = fileName;
 	document.body.appendChild(anchor);
 	anchor.click();
 	anchor.remove();
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+// ⟪rosettaDownloadAll⟫ the draft's bytes come from draftFileTextOf, which the zip's drafts files use too
+const downloadDraft = (hubName) => {
+	saveBlobAs(new Blob([draftFileTextOf(store.report.draftContextByHub[hubName])], { type: 'application/ld+json;charset=utf-8' }), `draft-${hubName}-${store.jobRefId.slice(0, 8)}.jsonld`);
+};
+// ⟪rosettaDownloadAll⟫ every tab in one zip; the store reads every page without moving this one, names it and builds it, and says in the button area what happened
+const downloadAll = () => downloadAllStore.buildDownloadAll({ jobLink: jobLink.value }).then((built) => {
+	if (built) saveBlobAs(built.zipBlob, built.zipFileName);
+});
+// what the button area said was about the job before this one
+watch(() => store.jobRefId, () => downloadAllStore.$reset());
 
 const currentUserRefId = () => (loginStore.validUser ? loginStore.loggedInUser.refId || loginStore.loggedInUser.username : '');
 onMounted(() => {
@@ -137,6 +149,13 @@ onUnmounted(() => store.stopPolling());
 				<v-btn size="small" color="primary" data-testid="rosetta-open-report" @click="openReport">{{ rosettaPageWords.reportReadyOpenButton }}</v-btn>
 			</div>
 		</v-alert>
+
+		<div class="d-flex flex-wrap align-center ga-2 mb-4" data-testid="rosetta-download-all-area">
+			<v-btn size="small" variant="outlined" prepend-icon="mdi-folder-zip-outline" :disabled="!store.report" :loading="downloadAllStore.isBuilding" data-testid="rosetta-download-all" @click="downloadAll">{{ rosettaPageWords.downloadAllButton }}</v-btn>
+			<span v-if="downloadAllStore.isBuilding" class="text-body-2" role="status" aria-live="polite" data-testid="rosetta-download-all-busy">{{ rosettaPageWords.downloadAllBusyText }}</span>
+			<span v-else-if="downloadAllStore.noteText" class="text-body-2 rosettaWrap" role="status" data-testid="rosetta-download-all-note">{{ downloadAllStore.noteText }}</span>
+		</div>
+		<v-alert v-if="downloadAllStore.refusalText" type="warning" variant="tonal" class="mb-4" data-testid="rosetta-download-all-refusal">{{ downloadAllStore.refusalText }}</v-alert>
 
 		<v-tabs v-model="activeTab" class="mb-4" show-arrows>
 			<v-tab value="submit">{{ rosettaPageWords.tabYourFields }}</v-tab>
@@ -251,14 +270,12 @@ onUnmounted(() => store.stopPolling());
 						<v-table density="compact">
 							<thead><tr><th>{{ rosettaPageWords.reportFieldHeading }}</th><th>{{ rosettaPageWords.reportHubHeading }}</th><th>{{ rosettaPageWords.reportResultHeading }}</th><th>{{ rosettaPageWords.reportRationaleHeading }}</th></tr></thead>
 							<tbody>
-								<template v-for="oneField in store.report.fieldList" :key="oneField.requestName">
-									<tr v-for="hubName in hubNameList" :key="hubName">
-										<td>{{ oneField.requestName }}</td>
-										<td>{{ hubName }}</td>
-										<td>{{ summaryResultTextOf(resultFor(oneField, hubName)) }}</td>
-										<td class="rosettaRationale">{{ resultFor(oneField, hubName).judgesRationale }}</td>
-									</tr>
-								</template>
+								<tr v-for="oneSummaryRow in summaryRowList" :key="`${oneSummaryRow.requestName}\u0000${oneSummaryRow.hubName}`">
+									<td>{{ oneSummaryRow.requestName }}</td>
+									<td>{{ oneSummaryRow.hubName }}</td>
+									<td>{{ oneSummaryRow.resultText }}</td>
+									<td class="rosettaRationale">{{ oneSummaryRow.rationaleText }}</td>
+								</tr>
 							</tbody>
 						</v-table>
 					</div>
@@ -276,7 +293,7 @@ onUnmounted(() => store.stopPolling());
 					</ul>
 					<v-card v-for="hubName in hubNameList" :key="hubName" class="mb-4 pa-3">
 						<v-btn size="small" class="mb-2" @click="downloadDraft(hubName)">{{ wordsOf(rosettaPageWords.downloadDraftButton, { hubName }) }}</v-btn>
-						<pre class="rosettaDraft">{{ JSON.stringify(store.report.draftContextByHub[hubName], null, 2) }}</pre>
+						<pre class="rosettaDraft">{{ draftFileTextOf(store.report.draftContextByHub[hubName]) }}</pre>
 					</v-card>
 				</template>
 			</v-window-item>
