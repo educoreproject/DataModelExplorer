@@ -17,7 +17,7 @@ const vocabularyText = readHtmlFile('components/rosetta/rosettaVocabulary.js');
 const loginPageText = readHtmlFile('pages/login.vue');
 const piiNoticeComponentText = readHtmlFile('components/siteNotice/PiiNotice.vue');
 const siteNoticeVocabularyText = readHtmlFile('components/siteNotice/siteNoticeVocabulary.js');
-const TQ_PII_NOTICE_TEXT = 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site.';
+const TQ_PII_NOTICE_TEXT = 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site. They are never sold or shared, except with the AI services that process them, which are set to keep nothing.';
 
 // the words between tags once every interpolation and every tag is gone: what is left must be no word at all
 const bareWordListOf = (oneTemplateText) => oneTemplateText.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\{\{[\s\S]*?\}\}/g, ' ').replace(/<(?:[^>"']|"[^"]*"|'[^']*')*>/g, ' ').split(/\s+/).filter((oneWord) => /[A-Za-z]/.test(oneWord));
