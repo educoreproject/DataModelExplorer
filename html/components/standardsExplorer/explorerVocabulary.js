@@ -282,6 +282,10 @@ export const meaningsVocabulary = Object.freeze({
 	meaningKindText: 'EDC meaning',
 	meaningKindPluralText: 'EDC meanings',
 
+	// TQ 2026-11-12: the table's button and the breadcrumb name what the next level shows: a hub lists its domains, a domain its meanings, a meaning its values
+	openTextByFocusKind: Object.freeze({ meaningHub: 'Show Meanings', meaningDomain: 'Show Values' }),
+	openLabelTemplateByFocusKind: Object.freeze({ meaningHub: 'Show the meanings of {itemName}', meaningDomain: 'Show the values of {itemName}' }),
+	crumbTemplateByKind: Object.freeze({ meaningHub: '{crumbName} Domains', meaningDomain: '{crumbName} Meanings' }),
 	// ---- counts (punch-list items 3, 4, 5, 7): each says what the next level shows
 	domainNoun: Object.freeze({ one: 'domain', other: 'domains' }),
 	meaningNoun: Object.freeze({ one: 'meaning', other: 'meanings' }),
@@ -358,7 +362,7 @@ export const meaningsVocabulary = Object.freeze({
 				domainMappedTemplate: Object.freeze({ one: '1 meaning has elements of other standards mapped to it.', other: '{mappedMeaningCount} meanings have elements of other standards mapped to them.' }),
 				domainOwnTermOnlyText: 'It holds only its own term.',
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText}.', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText}.' }),
-				domainValuesText: 'A meaning with an Open button holds values; open it to see them.',
+				domainValuesText: 'A meaning with a Show Values button holds values; press it to see them.',
 				valuesTemplate: Object.freeze({ one: 'The table lists the 1 value this meaning holds, one code.', other: 'The table lists the {valueCount} values this meaning holds, one code each.' }),
 				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
 				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
@@ -1017,6 +1021,8 @@ export const walkProfileByName = Object.freeze({
 		diagramKey: null,
 		showsLevelProse: false,
 		rowWalkPathFieldName: null,
+		levelTableByFocusKind: Object.freeze({}),
+		crumbTemplateByKind: Object.freeze({}),
 	}),
 	// ⟪meaningsPolish⟫ its words are meaningsVocabulary's; its walk is hub → domain → meaning (no property level)
 	meanings: Object.freeze({
@@ -1038,6 +1044,12 @@ export const walkProfileByName = Object.freeze({
 		diagramKey: meaningsVocabulary.diagramKey,
 		showsLevelProse: true,
 		rowWalkPathFieldName: 'meaningsWalkPathStableIdList',
+		// TQ 2026-11-12: a hub's level lists classes only, so Kind and Detail say nothing a click on the row does not; each level's button names what it opens
+		levelTableByFocusKind: Object.freeze({
+			meaningHub: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind', 'infoText']), openText: meaningsVocabulary.openTextByFocusKind.meaningHub, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningHub }),
+			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze([]), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
+		}),
+		crumbTemplateByKind: meaningsVocabulary.crumbTemplateByKind,
 	}),
 });
 

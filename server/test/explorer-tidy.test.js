@@ -143,7 +143,7 @@ Promise.all([
 			ok(`${oneComponent.fileName}: no words built in its script`, oneComponent.scriptWordList.length === 0, oneComponent.scriptWordList.slice(0, 6).join(' | '));
 		});
 		if (UNSWEPT_COMPONENT_LIST.length) console.log(`  NOTE: not yet swept: ${UNSWEPT_COMPONENT_LIST.join(', ')}`);
-		ok('Table.vue says Open, its screen-reader Open and its Open label from the vocabulary', /\{\{ walkTableVocabulary\.openText \}\}/.test(tableText) && /\{\{ walkTableVocabulary\.openColumnLabelText \}\}/.test(tableText) && /:aria-label="openLabelOf\(item\)"/.test(tableText) && !/`Open \$\{item\.displayName\}`/.test(tableText));
+		ok('Table.vue says Open, its screen-reader Open and its Open label from the vocabulary (the level\'s own words first, TQ 2026-11-12)', /\{\{ openText \}\}/.test(tableText) && /levelTable\.value\.openText \|\| walkTableVocabulary\.openText/.test(tableText) && /\{\{ walkTableVocabulary\.openColumnLabelText \}\}/.test(tableText) && /:aria-label="openLabelOf\(item\)"/.test(tableText) && !/`Open \$\{item\.displayName\}`/.test(tableText));
 
 		console.log('\n=== 5. no program names on the page ===');
 		const rosettaPageText = sourceOf('html/pages/explore/rosetta.vue');

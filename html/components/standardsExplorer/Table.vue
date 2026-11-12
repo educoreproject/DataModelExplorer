@@ -77,6 +77,10 @@ const versionComparison = computed(() => store.neighbourhood?.versionComparison 
 const hasMatchColumn = computed(() => tableRowList.value.some((oneRow) => oneRow.matchKind || ['property', 'instance', 'hubAnchor'].includes(oneRow.kind)));
 
 const columnTitleByName = walkTableVocabulary.columnTitleByName;
+// TQ 2026-11-12: a walk may name, for the level on screen, columns it hides and the words of its Open button (the walk profile's levelTableByFocusKind)
+const levelTable = computed(() => store.walkProfile.levelTableByFocusKind[store.focusNode?.kind] || {});
+const hiddenColumnNameList = computed(() => levelTable.value.hiddenColumnNameList || []);
+const openText = computed(() => levelTable.value.openText || walkTableVocabulary.openText);
 const headerList = computed(() =>
 	[
 		{ title: columnTitleByName.displayName, key: 'displayName', sortable: true },
@@ -86,7 +90,7 @@ const headerList = computed(() =>
 		hasMatchColumn.value ? { title: columnTitleByName.confidenceValue, key: 'confidenceValue', sortable: true } : null,
 		versionComparison.value ? { title: wordingOf(walkTableVocabulary.comparedVersionColumnTemplate, { comparedVersion: versionComparison.value.comparedVersion }), key: 'badgeOrder', sortable: true } : null,
 		{ title: columnTitleByName.openAction, key: 'openAction', sortable: false, align: 'end' },
-	].filter(Boolean),
+	].filter((oneHeader) => oneHeader && !hiddenColumnNameList.value.includes(oneHeader.key)),
 );
 
 // most-mapped first on a level of classes; the server's order otherwise
@@ -122,7 +126,7 @@ const drillRow = (clickEvent, { item }) => {
 // ⟪explorerTidy⟫ an empty table says why: a filter that hides every row (with Clear), or a level with nothing beneath it
 const emptyLevel = computed(() => emptyLevelOf({ levelRowCount: store.levelRowList.length, filterText: store.filterText }));
 const selectLabelOf = (item) => wordingOf(walkTableVocabulary.selectLabelTemplate, { itemName: item.displayName, kindName: kindDisplayNameOf(item.kind, item.hubName) });
-const openLabelOf = (item) => wordingOf(walkTableVocabulary.openLabelTemplate, { itemName: item.displayName });
+const openLabelOf = (item) => wordingOf(levelTable.value.openLabelTemplate || walkTableVocabulary.openLabelTemplate, { itemName: item.displayName });
 </script>
 
 <template>
@@ -175,7 +179,7 @@ const openLabelOf = (item) => wordingOf(walkTableVocabulary.openLabelTemplate, {
 				<StandardsExplorerVersionBadge v-if="item.versionBadge" :version-badge="item.versionBadge" />
 			</template>
 			<template #item.openAction="{ item }">
-				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :to="openLinkOf(item)" :aria-label="openLabelOf(item)" :data-testid="`open-${item.name}`" @click.stop>{{ walkTableVocabulary.openText }}</v-btn>
+				<v-btn v-if="item.hasChildren" size="small" variant="outlined" color="primary" :to="openLinkOf(item)" :aria-label="openLabelOf(item)" :data-testid="`open-${item.name}`" @click.stop>{{ openText }}</v-btn>
 			</template>
 		</v-data-table>
 	</div>

@@ -29,6 +29,11 @@ const shownCrumbList = computed(() => {
 });
 
 const lastPathIndex = computed(() => props.crumbList.length - 1);
+// TQ 2026-11-12: a walk may name a crumb by what its level lists ('CEDS Domains', 'Adult Education Course Meanings'); a fold keeps its own words
+const crumbTextOf = (oneCrumb) => {
+	const crumbTemplate = !oneCrumb.isFold && store.walkProfile.crumbTemplateByKind[oneCrumb.kind];
+	return crumbTemplate ? wordingOf(crumbTemplate, { crumbName: oneCrumb.displayName }) : oneCrumb.displayName;
+};
 </script>
 
 <template>
@@ -46,7 +51,7 @@ const lastPathIndex = computed(() => props.crumbList.length - 1);
 					:data-testid="`crumb-${crumbIndex}`"
 				>
 					<span v-if="!oneCrumb.isFold" aria-hidden="true" class="crumb-dot" :style="{ background: familyStyleOf(oneCrumb.standardFamily).fill || familyStyleOf(oneCrumb.standardFamily).color }" />
-					{{ oneCrumb.displayName }}
+					{{ crumbTextOf(oneCrumb) }}
 				</NuxtLink>
 			</li>
 		</ol>
