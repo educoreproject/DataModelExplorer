@@ -270,7 +270,7 @@ const definitionText = computed(() => {
 		<!-- ⟪meaningsClarity, Addendum A⟫ the meanings the element on screen takes part in, as its /edc page says them -->
 		<!-- TQ 2026-11-12: a class in the meanings walk lists what is mapped to its meanings, as a meaning lists its own -->
 		<StandardsExplorerClassMappingsSection v-if="isFocus && shownNode.kind === 'meaningDomain'" />
-		<StandardsExplorerMeaningFactsSection v-if="isFocus && focusMeaningFactsState" :facts-state="focusMeaningFactsState" />
+		<StandardsExplorerMeaningFactsSection v-if="isFocus && focusMeaningFactsState" :facts-state="focusMeaningFactsState" :folded="shownNode.kind === 'meaningDomain'" />
 
 		<template v-if="store.walkProfile.showsStandardSections">
 			<StandardsExplorerCompanionPagesSection />

@@ -59,7 +59,7 @@ const uriPageLinesOf = (elementStableId, callback) =>
 const linesOfPage = (pageText) => {
 		const lineList = Array.from((pageText.split('data-testid="meaning-lines"')[1] || '').split('</ul>')[0].matchAll(/data-meaning-line="([^"]*)" data-depth="(\d)" data-count="(\d+)">([^<]*) <span class="count">/g))
 			.map((lineMatch) => ({ lineName: lineMatch[1], depth: Number(lineMatch[2]), meaningCount: Number(lineMatch[3]), lineText: lineMatch[4].replace(/&#39;/g, "'").replace(/&amp;/g, '&') }));
-		const totalCount = Number(((pageText.split('<summary>Meanings it takes part in')[1] || '').match(/^ <span class="count">(\d+)<\/span>/) || [])[1]);
+		const totalCount = Number(((pageText.split('<summary>Meanings it contributes to')[1] || '').match(/^ <span class="count">(\d+)<\/span>/) || [])[1]);
 		return { lineList, totalCount };
 };
 const comparableLinesOf = (meaningFacts) => (meaningFacts && meaningFacts.lineList ? meaningFacts.lineList.map(({ lineName, depth, meaningCount, lineText }) => ({ lineName, depth, meaningCount, lineText })) : null);

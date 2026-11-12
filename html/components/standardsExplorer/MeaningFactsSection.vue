@@ -12,6 +12,8 @@ import meaningFactsWording from '@/components/standardsExplorer/meaningFactsWord
 const props = defineProps({
 	// { loading, meaningFacts, failed }: the focus's facts as its answer carried them, or as the store asked for them
 	factsState: { type: Object, required: true },
+	// TQ 2026-11-12: folded closed where the panel lists the mappings themselves (a class in the meanings walk); open everywhere else
+	folded: { type: Boolean, default: false },
 });
 
 const meaningFacts = computed(() => props.factsState.meaningFacts || null);
@@ -28,10 +30,11 @@ const lineList = computed(() =>
 
 <template>
 	<section class="meaning-facts" :aria-label="meaningFactsWording.sectionHeadText" data-testid="meaning-facts">
-		<span class="detail-box-head">
+		<details :open="!folded" class="meaning-facts-fold" data-testid="meaning-facts-fold">
+		<summary class="detail-box-head">
 			{{ meaningFactsWording.sectionHeadText }}
 			<span v-if="meaningFacts" class="meaning-facts-total" data-testid="meaning-facts-total" :data-count="meaningFacts.takesPartCount">{{ countTextOfFacts(meaningFacts.takesPartCount) }}</span>
-		</span>
+		</summary>
 		<p v-if="factsState.loading" class="meaning-facts-note" data-testid="meaning-facts-loading">{{ meaningFactsWording.loadingText }}</p>
 		<p v-else-if="factsState.failed" class="meaning-facts-note" data-testid="meaning-facts-absent">{{ meaningFactsWording.unreadableText }}</p>
 		<p v-else-if="meaningFacts && !lineList.length" class="meaning-facts-note">{{ meaningFactsWording.noMeaningText }}</p>
@@ -49,6 +52,7 @@ const lineList = computed(() =>
 				<NuxtLink v-if="oneLine.meaningsLink" :to="oneLine.meaningsLink" class="meaning-facts-open" data-testid="meaning-facts-open">{{ meaningFactsWording.openInMeaningsText }}</NuxtLink>
 			</li>
 		</ul>
+		</details>
 	</section>
 </template>
 
@@ -57,6 +61,10 @@ const lineList = computed(() =>
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+}
+.meaning-facts-fold > summary {
+	cursor: pointer;
+	margin-bottom: 6px;
 }
 .detail-box-head {
 	font-size: 12px;
