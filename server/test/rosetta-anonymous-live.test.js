@@ -179,13 +179,19 @@ gate('anonLanes', (done) => {
 									return;
 								}
 								ok('and it runs in its own lane at once, not after the visitors', vendor.heldCallCount() === judgedValues.anonymousMaxRunningJobs + 1, `${vendor.heldCallCount()} held`);
-								ask('about', {}, visitorList[0], (aboutAnswer) => ask('rosettaStatus', { jobRefId: answerList[VISITOR_COUNT - 1].answer.jobRefId || 'x' }, visitorList[VISITOR_COUNT - 1], (statusAnswer) => {
-									ok('the rest of the service answers meanwhile: about 200, a waiting job\'s status 200', aboutAnswer.httpStatus === 200 && statusAnswer.httpStatus === 200 && statusAnswer.answer.status === 'queued', `${aboutAnswer.httpStatus} ${statusAnswer.httpStatus} ${JSON.stringify(statusAnswer.answer).slice(0, 300)}`);
+								// the 21 submissions were sent at once and reach the queue in whatever order they finish admission, so the waiting job is read from the queue, not taken by visitor index
+								harness.rosettaJudged.jobStore.readJobList({ statusList: ['queued'] }, (queueError, queuedJobList) => {
+								const lastWaitingJob = queuedJobList.filter((oneJob) => oneJob.ownerPrincipalKind === 'anonymous').slice(-1)[0] || { jobRefId: 'x' };
+								const waitingVisitorIndex = answerList.findIndex((oneAnswer) => oneAnswer.answer.jobRefId === lastWaitingJob.jobRefId);
+								const expectedPosition = VISITOR_COUNT - judgedValues.anonymousMaxRunningJobs;
+								ask('about', {}, visitorList[0], (aboutAnswer) => ask('rosettaStatus', { jobRefId: lastWaitingJob.jobRefId }, visitorList[waitingVisitorIndex] || visitorList[0], (statusAnswer) => {
+									ok(`the rest of the service answers meanwhile: about 200, the last waiting job's status 200, queued at place ${expectedPosition}`, !queueError && aboutAnswer.httpStatus === 200 && statusAnswer.httpStatus === 200 && statusAnswer.answer.status === 'queued' && statusAnswer.answer.position === expectedPosition, `${queueError || ''} ${aboutAnswer.httpStatus} ${statusAnswer.httpStatus} ${JSON.stringify(statusAnswer.answer).slice(0, 300)}`);
 									ok('and the jobs hold none of the core\'s query slots', harness.core.serviceState().inFlightCount === 0, `${harness.core.serviceState().inFlightCount}`);
 									vendor.releaseCalls();
 									// every job runs out before the store closes
 									eachInTurn(answerList, (oneAnswer, visitorIndex, nextJob) => untilClosed(ask, oneAnswer.answer.jobRefId, visitorList[visitorIndex], () => nextJob()), () => untilClosed(ask, signedInAnswer.answer.jobRefId, USER_A, () => close()));
 								}));
+								});
 							};
 							waitForSignedIn(0);
 						});
