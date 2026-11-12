@@ -254,6 +254,16 @@ useHead(() => ({
 	flex: 1 1 300px;
 	min-width: 0;
 }
+/* Beside the list (wide screens), the panel stays in view while the list scrolls, below the app bar (--v-layout-top, set by v-main); a panel taller than the window scrolls on its own. */
+@media (min-width: 1100px) {
+	.explorer-panel {
+		position: sticky;
+		top: calc(var(--v-layout-top, 0px) + 12px);
+		max-height: calc(100vh - var(--v-layout-top, 0px) - 24px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+}
 .explorer-large-notice {
 	display: flex;
 	flex-wrap: wrap;
