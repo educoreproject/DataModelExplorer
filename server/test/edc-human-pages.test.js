@@ -113,7 +113,7 @@ ok('4. the CEDS value card shows its four-part bracket and its option set range'
 const ctdlCardPage = pageOf(caseFor('/CTDL/hub/'));
 ok('4. the CTDL card says its ranges are described, not named', /describes its ranges/.test(ctdlCardPage));
 const edfiPage = pageOf(caseFor('/EdFi/'));
-ok('4. the Ed-Fi element lists the cards it is mapped to, each hub named', edfiPage.includes('EXACT_MATCH') && edfiPage.includes('CEDS 14.0.0.0') && edfiPage.includes('CTDL Release 20260927'));
+ok('4. the Ed-Fi element lists the cards it is mapped to, each hub named, its relation in words (explorerTidy review N7)', edfiPage.includes('exact match') && !/>[^<]*EXACT_MATCH[^<]*</.test(edfiPage.split('<pre')[0]) && edfiPage.includes('CEDS 14.0.0.0') && edfiPage.includes('CTDL Release 20260927'));
 ok('4. the Ed-Fi element shows what maps here, by layer', sectionSummaryListOf(edfiPage).includes('What maps here'));
 const notFoundPage = pageOf({ ...meaningCase, httpStatus: 404, answerBody: { kind: 'meaning', error: 'no such card' } });
 ok('4. a refused meaning keeps the plain page', notFoundPage.includes('HTTP 404') && !notFoundPage.includes('site-header'));

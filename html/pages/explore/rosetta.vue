@@ -167,8 +167,8 @@ onUnmounted(() => store.stopPolling());
 			<v-window-item value="report">
 				<template v-if="store.report">
 					<p class="mb-1"><strong>{{ store.report.draftNote }}</strong></p>
-					<p class="mb-1">{{ store.report.rationaleNote }}</p>
-					<p v-if="store.report.isPartial" class="mb-2">{{ store.report.partialNote }}</p>
+					<p class="mb-1" data-testid="rosetta-rationale-caution">{{ rosettaPageWords.reportRationaleCautionText }}</p>
+					<p v-if="store.report.isPartial" class="mb-2" data-testid="rosetta-partial-note">{{ rosettaPageWords.reportPartialText }}</p>
 					<h2 class="text-h6 mt-4 mb-2">{{ rosettaPageWords.reportDetailHeading }}</h2>
 					<v-card v-for="oneFieldBlock in fieldBlockList" :key="oneFieldBlock.requestName" class="mb-4 pa-3" variant="outlined" data-testid="rosetta-field-block">
 						<h3 class="text-subtitle-1 font-weight-bold rosettaWrap" data-testid="rosetta-field-name">{{ oneFieldBlock.requestName }}</h3>

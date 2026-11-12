@@ -208,8 +208,8 @@ Promise.all([import(blocksUrl), import(vocabularyUrl), import(piniaUrl), import(
 	ok('a meaning whose read has not come back says it is reading', blocks.fieldBlockListOf({ report: reportFixture, expressionByMeaningUri: {} })[0].hubBlockList[0].expressedText === words.reportExpressedReadingText);
 	ok('a meaning whose read failed says why, by the reason', blocks.fieldBlockListOf({ report: reportFixture, expressionByMeaningUri: { [ACCESSIBILITY_MEANING_URI]: { unreadReason: 'the server is down' } } })[0].hubBlockList[0].expressedText === 'How it links into the graph could not be read: the server is down');
 	const staffPropertySlot = fieldBlockList[1].hubBlockList[0].slotList[1];
-	ok('a slot with no URI and no id says so by name, never blank', !staffPropertySlot.uri && staffPropertySlot.uriAbsentText === 'no URI (notInManifestStore)' && staffPropertySlot.detailText === 'property', JSON.stringify(staffPropertySlot));
-	ok('a proposal with no tuple names why', fieldBlockList[2].hubBlockList[1].tupleAbsentText === 'Its parts could not be named (hubCardNotFound).' && fieldBlockList[2].hubBlockList[1].slotList.length === 0);
+	ok('a slot with no URI and no id says so in words, never blank and never by the server name (explorerTidy review S4)', !staffPropertySlot.uri && staffPropertySlot.uriAbsentText === 'no URI (not in a published EDUcore release yet)' && staffPropertySlot.detailText === 'property', JSON.stringify(staffPropertySlot));
+	ok('a proposal with no tuple names why', fieldBlockList[2].hubBlockList[1].tupleAbsentText === 'Its parts could not be named. The live graph does not hold this card.' && fieldBlockList[2].hubBlockList[1].slotList.length === 0);
 	ok('the hub ids of a tuple with no ids say nothing rather than a bare hub name', fieldBlockList[2].hubBlockList[1].hubIdsText === '');
 
 	// ---- 2. no proposal says why

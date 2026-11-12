@@ -17,7 +17,9 @@ const hubCardTupleRules = require('../standards-query/hubCardTupleRules.json');
 // ⟪meaningsClarity, Addendum A⟫ the meaning facts' words, the explorer's own list (one word list for both pages)
 const meaningFactsWording = require('../../../html/components/standardsExplorer/meaningFactsWording.json');
 // ⟪meaningsClarity, ruling 3⟫ the one wording function and meaning-title lookup, shared with the explorer (an ES module, loaded by require on Node >= 22.12)
-const { countTextOf, meaningTitleTextOf, meaningSubtitleTextOf } = require('../../../html/components/standardsExplorer/sharedWording.js');
+const { countTextOf, meaningTitleTextOf, meaningSubtitleTextOf, wordingOf } = require('../../../html/components/standardsExplorer/sharedWording.js');
+// ⟪explorerTidy, Q97⟫ a tuple part's kind and id, and why a tuple or a range list is absent, in the Meanings panel's own words (one vocabulary; an ES module, loaded by require)
+const { tuplePartDetailTextOf, tupleAbsentTextOf, rangeListAbsentTextOf, uriAbsentTextOf, factsAbsentTextOf, absentReasonTextOf, relationTextOf, meaningsVocabulary } = require('../../../html/components/standardsExplorer/explorerVocabulary.js');
 // the meanings walk's own ids (its catalog, a meaning's id), so a link into it is made by its rules
 const standardsNeighbourhoodMapper = require('../../data-model/data-mapping/mappers/standards-neighbourhood.js')({});
 
@@ -167,19 +169,20 @@ const detailsHtmlOf = ({ summaryText, countText, innerHtml }) => `<details><summ
 const jsonDetailsHtmlOf = (answerBody) => detailsHtmlOf({ summaryText: 'JSON', innerHtml: `<pre class="json">${jsonHtmlOf(answerBody)}</pre>` });
 const factsRowHtmlOf = (termText, definitionHtml) => `<dt>${escapedHtmlOf(termText)}</dt><dd>${definitionHtml}</dd>`;
 const shownCountTextOf = ({ listedCount, heldCount }) => (listedCount < heldCount ? `${heldCount}, showing ${listedCount}` : String(heldCount));
-const factsAbsentHtmlOf = (factsAbsentName) => `<p class="note">The live graph was not read for this page: <code>${escapedHtmlOf(factsAbsentName)}</code>.</p>`;
+// ⟪explorerTidy review S4⟫ in words; the server's name for why rides in a data attribute, for programs
+const factsAbsentHtmlOf = (factsAbsentName) => `<p class="note" data-facts-absent-name="${escapedHtmlOf(factsAbsentName)}">${escapedHtmlOf(factsAbsentTextOf(factsAbsentName))}</p>`;
+const uriAbsentHtmlOf = (uriAbsentReason) => `<span class="count" data-uri-absent-reason="${escapedHtmlOf(uriAbsentReason)}">(no URI: ${escapedHtmlOf(uriAbsentTextOf(uriAbsentReason))})</span>`;
 
 // a hub card in a list: its label linked to its page, its bracket, its hub release and tier, and what joins it to this element
 const cardRowHtmlOf = ({ cardRow, linkHtmlOf, joinText }) => `<li>${linkHtmlOf(cardRow.uri, cardRow.label || cardRow.uri)} <span class="mono">${escapedHtmlOf(cardRow.tupleBracketText)}</span>`
 	+ `<span class="row-meta">${escapedHtmlOf([cardRow.hubName, cardRow.hubVersion].filter(Boolean).join(' '))}${cardRow.referenceTier ? ` · ${escapedHtmlOf(cardRow.referenceTier)} card` : ''}${joinText ? ` · ${escapedHtmlOf(joinText)}` : ''}</span></li>`;
 
-// one tuple or range part: slot, kind, native identifier, label linked to the element's page
-const partRowHtmlOf = ({ slotName, part, linkHtmlOf }) => {
-	const nativeIdText = part.nativeId ? Object.entries(part.nativeId).map(([idName, idText]) => `${idName} ${idText}`).join(', ') : `no native identifier: ${part.nativeIdAbsentName}`;
-	const labelHtml = part.uri === undefined ? `${escapedHtmlOf(part.label)} <span class="count">(no URI: ${escapedHtmlOf(part.uriAbsentReason)})</span>` : linkHtmlOf(part.uri, part.label);
+// one tuple or range part: slot, kind and id in its hub's standard ("class · CEDS id C200159", the explorer panel's words), label linked to the element's page
+const partRowHtmlOf = ({ slotName, part, hubName, linkHtmlOf }) => {
+	const labelHtml = part.uri === undefined ? `${escapedHtmlOf(part.label)} ${uriAbsentHtmlOf(part.uriAbsentReason)}` : linkHtmlOf(part.uri, part.label);
 	// ⟪meaningsClarity Addendum C #6⟫ the part's URI as visible text too, as the explorer's panel and the Rosetta report print it
 	const uriHtml = part.uri === undefined ? '' : `<span class="row-meta mono" data-testid="part-uri">${escapedHtmlOf(part.uri)}</span>`;
-	return `<li>${slotName === undefined ? '' : `<strong>${escapedHtmlOf(slotName)}</strong> · `}${labelHtml}<span class="row-meta">${escapedHtmlOf(part.kind)} · ${escapedHtmlOf(nativeIdText)}</span>${uriHtml}</li>`;
+	return `<li>${slotName === undefined ? '' : `<strong>${escapedHtmlOf(slotName)}</strong> · `}${labelHtml}<span class="row-meta" data-testid="part-detail">${escapedHtmlOf(tuplePartDetailTextOf({ slotPart: part, hubName }))}</span>${uriHtml}</li>`;
 };
 
 // ================================================================================
@@ -244,7 +247,7 @@ const usedOnSectionHtmlOf = ({ humanPageFacts, linkHtmlOf }) => {
 	const { usedOnList, usedOnCount } = humanPageFacts;
 	const innerHtml = usedOnCount === 0
 		? '<p class="note">No class or option set in this standard holds this element.</p>'
-		: `<ul class="rows">${usedOnList.map((onePart) => `<li>${onePart.uri === undefined ? `${escapedHtmlOf(onePart.label)} <span class="count">(no URI: ${escapedHtmlOf(onePart.uriAbsentReason)})</span>` : linkHtmlOf(onePart.uri, onePart.label)}</li>`).join('')}</ul>`;
+		: `<ul class="rows">${usedOnList.map((onePart) => `<li>${onePart.uri === undefined ? `${escapedHtmlOf(onePart.label)} ${uriAbsentHtmlOf(onePart.uriAbsentReason)}` : linkHtmlOf(onePart.uri, onePart.label)}</li>`).join('')}</ul>`;
 	return detailsHtmlOf({ summaryText: 'Used on', countText: shownCountTextOf({ listedCount: usedOnList.length, heldCount: usedOnCount }), innerHtml });
 };
 
@@ -261,7 +264,7 @@ const cardJoinTextBySectionName = {
 	propertyMeanings: () => '',
 	namingMeanings: (cardRow) => (cardRow.slotNameList || []).map((slotName) => slotWordOf(slotName, 1)).join(meaningFactsWording.lineDivider),
 	ownTerm: () => '',
-	mappedTo: (cardRow) => [cardRow.relationType, cardRow.matchBasis, cardRow.mappingConfidence === undefined || cardRow.mappingConfidence === null ? undefined : `confidence ${cardRow.mappingConfidence}`].filter(Boolean).join(' · '),
+	mappedTo: (cardRow) => [cardRow.relationType ? relationTextOf(cardRow.relationType) : undefined, cardRow.matchBasis, cardRow.mappingConfidence === undefined || cardRow.mappingConfidence === null ? undefined : `confidence ${cardRow.mappingConfidence}`].filter(Boolean).join(' · '),
 };
 
 // ⟪meaningsClarity, Addendum A⟫ "Meanings it takes part in", section by section as the explorer says it (the one reader's facts, the shared words): each section a line with
@@ -343,7 +346,7 @@ const meaningSubtitleHtmlTextOf = ({ answerBody, humanPageFacts }) =>
 	meaningSubtitleTextOf({ referenceTier: answerBody.referenceTier, hubName: answerBody.hubName, domainName: humanPageFacts.tuple && humanPageFacts.tuple.domain ? humanPageFacts.tuple.domain.label : '', meaningFactsWording });
 
 const meaningHeadHtmlOf = ({ answerBody, humanPageFacts, jsonHref }) => {
-	const bracketText = humanPageFacts.tupleBracketText || `[tuple not read: ${humanPageFacts.factsAbsentName}]`;
+	const bracketText = humanPageFacts.tupleBracketText || wordingOf(meaningsVocabulary.meaningSection.tupleNotReadTemplate, { reasonText: absentReasonTextOf(humanPageFacts.factsAbsentName) });
 	return [
 		`<p class="overline">EDUcore URI · meaning</p>`,
 		// ⟪meaningsClarity Addendum B⟫ titled as a meaning, with what it is underneath, in the words the explorer's panel uses
@@ -357,14 +360,14 @@ const meaningHeadHtmlOf = ({ answerBody, humanPageFacts, jsonHref }) => {
 	].join('');
 };
 
-const tuplePartsHtmlOf = ({ humanPageFacts, linkHtmlOf }) => {
+const tuplePartsHtmlOf = ({ answerBody, humanPageFacts, linkHtmlOf }) => {
 	if (humanPageFacts.factsAbsentName !== undefined) {
 		return `<div class="card"><h2>What this meaning names</h2>${factsAbsentHtmlOf(humanPageFacts.factsAbsentName)}</div>`;
 	}
 	if (humanPageFacts.tuple === undefined) {
-		return `<div class="card"><h2>What this meaning names</h2><p class="note">No citable tuple: <code>${escapedHtmlOf(humanPageFacts.tupleAbsentName)}</code>.</p></div>`;
+		return `<div class="card"><h2>What this meaning names</h2><p class="note">${escapedHtmlOf(tupleAbsentTextOf(humanPageFacts.tupleAbsentName))}</p></div>`;
 	}
-	const partRowHtml = SLOT_NAME_LIST.filter((slotName) => humanPageFacts.tuple[slotName]).map((slotName) => partRowHtmlOf({ slotName, part: humanPageFacts.tuple[slotName], linkHtmlOf })).join('');
+	const partRowHtml = SLOT_NAME_LIST.filter((slotName) => humanPageFacts.tuple[slotName]).map((slotName) => partRowHtmlOf({ slotName, part: humanPageFacts.tuple[slotName], hubName: answerBody.hubName, linkHtmlOf })).join('');
 	return `<div class="card"><h2>What this meaning names</h2><ul class="rows">${partRowHtml}</ul></div>`;
 };
 
@@ -372,11 +375,11 @@ const rangeSectionHtmlOf = ({ answerBody, humanPageFacts, linkHtmlOf }) => {
 	const rangeList = answerBody.rangeList || [];
 	const rangeDatatypeList = answerBody.rangeDatatypeList || [];
 	if (answerBody.rangeListAbsentName !== undefined) {
-		return detailsHtmlOf({ summaryText: 'Ranges', innerHtml: `<p class="note">No range list: <code>${escapedHtmlOf(answerBody.rangeListAbsentName)}</code>.</p>` });
+		return detailsHtmlOf({ summaryText: 'Ranges', innerHtml: `<p class="note">${escapedHtmlOf(rangeListAbsentTextOf(answerBody.rangeListAbsentName))}</p>` });
 	}
 	const describedNote = humanPageFacts.rangeIsIdentity === false ? `<p class="note">This hub describes its ranges: they say what the property may point to, and are not part of what the card names.</p>` : '';
 	const datatypeHtml = rangeDatatypeList.length === 0 ? '' : `<h2>Datatype</h2><p>${rangeDatatypeList.map((datatypeText) => `<code>${escapedHtmlOf(datatypeText)}</code>`).join(' ')}</p>`;
-	const partHtml = rangeList.length === 0 ? '' : `<ul class="rows">${rangeList.map((part) => partRowHtmlOf({ part, linkHtmlOf })).join('')}</ul>`;
+	const partHtml = rangeList.length === 0 ? '' : `<ul class="rows">${rangeList.map((part) => partRowHtmlOf({ part, hubName: answerBody.hubName, linkHtmlOf })).join('')}</ul>`;
 	return detailsHtmlOf({ summaryText: 'Ranges', countText: String(rangeList.length + rangeDatatypeList.length), innerHtml: `${describedNote}${partHtml}${datatypeHtml}` });
 };
 
@@ -385,7 +388,7 @@ const mappedElementSectionHtmlOf = ({ answerBody, linkHtmlOf }) => {
 	if (mappedElementList.length === 0) {
 		return detailsHtmlOf({ summaryText: 'Elements mapped to this meaning', countText: '0', innerHtml: '<p class="note">No element of any standard is mapped to this meaning in the manifests that hold it.</p>' });
 	}
-	const rowHtml = mappedElementList.map((oneMapped) => `<li>${linkHtmlOf(oneMapped.element, oneMapped.name)}<span class="row-meta">${escapedHtmlOf(oneMapped.standardName)} · ${escapedHtmlOf(oneMapped.relationType)} · ${linkHtmlOf(oneMapped.layerVersion, 'layer')}</span></li>`).join('');
+	const rowHtml = mappedElementList.map((oneMapped) => `<li>${linkHtmlOf(oneMapped.element, oneMapped.name)}<span class="row-meta">${escapedHtmlOf(oneMapped.standardName)} · ${escapedHtmlOf(relationTextOf(oneMapped.relationType))} · ${linkHtmlOf(oneMapped.layerVersion, 'layer')}</span></li>`).join('');
 	const pagerHtml = answerBody.pageCount > 1
 		? `<p class="note">Page ${escapedHtmlOf(answerBody.pageNumber)} of ${escapedHtmlOf(answerBody.pageCount)}${answerBody.previous ? ` · ${linkHtmlOf(answerBody.previous, 'previous')}` : ''}${answerBody.next ? ` · ${linkHtmlOf(answerBody.next, 'next')}` : ''}</p>`
 		: '';

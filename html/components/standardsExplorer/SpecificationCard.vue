@@ -6,7 +6,9 @@
 
 import { computed } from 'vue';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { FAMILY_CATALOG_STABLE_ID, explorerLinkOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { FAMILY_CATALOG_STABLE_ID, explorerLinkOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const cardWords = explorerComponentWords.specificationCard;
 
 const props = defineProps({
 	spec: { type: Object, required: true },
@@ -36,7 +38,7 @@ const burdenColor = (burden) => {
 		<v-card-title class="d-flex align-center flex-wrap ga-2 pb-1">
 			<component :is="`h${headingLevel}`" :id="titleId" class="text-subtitle-1 font-weight-bold spec-card-title">{{ spec.title }}</component>
 			<v-chip size="x-small" :color="burdenColor(spec.implementationBurden)" variant="tonal">
-				{{ spec.implementationBurden }} burden
+				{{ wordingOf(cardWords.burdenTemplate, { burdenText: spec.implementationBurden }) }}
 			</v-chip>
 			<v-chip size="x-small" :color="spec.accessLevel === 'open' ? 'success' : 'warning'" variant="tonal">
 				{{ spec.accessLevel }}
@@ -44,9 +46,9 @@ const burdenColor = (burden) => {
 		</v-card-title>
 
 		<v-card-subtitle class="pb-2">
-			{{ spec.owner }} &mdash; {{ /^\d/.test(spec.version) ? 'v' + spec.version : spec.version }}
-			<template v-if="spec.governanceBody"> &middot; Governance: {{ spec.governanceBody }}</template>
-			<template v-if="spec.lastUpdated"> &middot; Updated {{ spec.lastUpdated }}</template>
+			{{ spec.owner }}{{ cardWords.ownerDivider }}{{ /^\d/.test(spec.version) ? cardWords.versionPrefixText + spec.version : spec.version }}
+			<template v-if="spec.governanceBody">{{ wordingOf(cardWords.governanceTemplate, { governanceBody: spec.governanceBody }) }}</template>
+			<template v-if="spec.lastUpdated">{{ wordingOf(cardWords.updatedTemplate, { lastUpdated: spec.lastUpdated }) }}</template>
 		</v-card-subtitle>
 
 		<v-card-text class="pt-0">
@@ -69,12 +71,12 @@ const burdenColor = (burden) => {
 			<v-expansion-panels variant="accordion" flat>
 				<v-expansion-panel>
 					<v-expansion-panel-title class="text-caption font-weight-bold px-0">
-						Implementation Details
+						{{ cardWords.detailsHeadText }}
 					</v-expansion-panel-title>
 					<v-expansion-panel-text>
 						<!-- Burden Rubric -->
 						<div v-if="spec.burdenRubric" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-2">Burden Rubric</h4>
+							<h4 class="text-caption font-weight-bold mb-2">{{ cardWords.burdenRubricHeadText }}</h4>
 							<div v-if="compact" class="spec-card-rubric">
 								<div v-for="(val, key) in spec.burdenRubric" :key="key" class="spec-card-rubric-row">
 									<div class="d-flex align-center ga-2">
@@ -101,7 +103,7 @@ const burdenColor = (burden) => {
 
 						<!-- Required Capabilities -->
 						<div v-if="spec.requiredCapabilities?.length" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Required Capabilities</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.requiredCapabilitiesHeadText }}</h4>
 							<ul class="text-body-2 pl-4">
 								<li v-for="cap in spec.requiredCapabilities" :key="cap">{{ cap }}</li>
 							</ul>
@@ -109,13 +111,13 @@ const burdenColor = (burden) => {
 
 						<!-- Implementation Guidance -->
 						<div v-if="spec.implementationGuidance" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Guidance</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.guidanceHeadText }}</h4>
 							<p class="text-body-2">{{ spec.implementationGuidance }}</p>
 						</div>
 
 						<!-- Commonly Paired With -->
 						<div v-if="spec.commonlyPairedWith?.length" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Commonly Paired With</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.pairedWithHeadText }}</h4>
 							<div>
 								<v-chip
 									v-for="pairedId in spec.commonlyPairedWith"
@@ -131,7 +133,7 @@ const burdenColor = (burden) => {
 
 						<!-- Known Adopters -->
 						<div v-if="spec.knownAdopters?.length" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Known Adopters</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.adoptersHeadText }}</h4>
 							<div>
 								<v-chip
 									v-for="adopter in spec.knownAdopters"
@@ -147,7 +149,7 @@ const burdenColor = (burden) => {
 
 						<!-- Privacy Considerations -->
 						<div v-if="spec.privacyConsiderations" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Privacy Considerations</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.privacyHeadText }}</h4>
 							<p class="text-body-2">
 								<v-chip size="x-small" variant="tonal" class="mr-1"
 									:color="spec.privacyConsiderations.level === 'low-concern' ? 'success' : spec.privacyConsiderations.level === 'medium-concern' ? 'warning' : 'error'"
@@ -163,7 +165,7 @@ const burdenColor = (burden) => {
 
 						<!-- Equity Considerations -->
 						<div v-if="spec.equityConsiderations" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-1">Equity Considerations</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.equityHeadText }}</h4>
 							<p class="text-body-2">
 								<v-chip size="x-small" variant="tonal" class="mr-1"
 									:color="spec.equityConsiderations.level === 'low-concern' ? 'success' : 'warning'"
@@ -176,7 +178,7 @@ const burdenColor = (burden) => {
 
 						<!-- Sample Payloads -->
 						<div v-if="spec.samplePayloads?.length" class="mb-4">
-							<h4 class="text-caption font-weight-bold mb-2">Sample Payloads</h4>
+							<h4 class="text-caption font-weight-bold mb-2">{{ cardWords.samplePayloadsHeadText }}</h4>
 							<div v-for="payload in spec.samplePayloads" :key="payload.label" class="mb-2">
 								<div class="text-caption text-medium-emphasis mb-1">{{ payload.label }}</div>
 								<pre class="pa-3 rounded" style="background: #2d2d2d; color: #f8f8f2; font-size: 0.8rem; overflow-x: auto; max-height: 300px;">{{ payload.code }}</pre>
@@ -185,7 +187,7 @@ const burdenColor = (burden) => {
 
 						<!-- Technical Doc Links -->
 						<div v-if="spec.technicalDocLinks?.length">
-							<h4 class="text-caption font-weight-bold mb-1">Documentation</h4>
+							<h4 class="text-caption font-weight-bold mb-1">{{ cardWords.documentationHeadText }}</h4>
 							<div>
 								<v-btn
 									v-for="link in spec.technicalDocLinks"
@@ -206,8 +208,8 @@ const burdenColor = (burden) => {
 				</v-expansion-panel>
 			</v-expansion-panels>
 			<div v-if="!compact && (explorerLink || downloadsLink)" class="spec-card-links">
-				<v-btn v-if="explorerLink" :to="explorerLink" size="small" variant="tonal" color="primary" prepend-icon="mdi-graph-outline" :aria-label="`Explore ${spec.title} in the Standards Explorer`" :data-testid="`spec-card-explore-${spec.id}`">Explore in the Standards Explorer</v-btn>
-				<v-btn v-if="downloadsLink" :to="downloadsLink" size="small" variant="text" color="primary" prepend-icon="mdi-download-box-outline" :aria-label="`Downloads for ${spec.title}`" :data-testid="`spec-card-downloads-${spec.id}`">Downloads</v-btn>
+				<v-btn v-if="explorerLink" :to="explorerLink" size="small" variant="tonal" color="primary" prepend-icon="mdi-graph-outline" :aria-label="wordingOf(cardWords.exploreLabelTemplate, { specTitle: spec.title })" :data-testid="`spec-card-explore-${spec.id}`">{{ cardWords.exploreText }}</v-btn>
+				<v-btn v-if="downloadsLink" :to="downloadsLink" size="small" variant="text" color="primary" prepend-icon="mdi-download-box-outline" :aria-label="wordingOf(cardWords.downloadsLabelTemplate, { specTitle: spec.title })" :data-testid="`spec-card-downloads-${spec.id}`">{{ cardWords.downloadsText }}</v-btn>
 			</div>
 		</v-card-text>
 	</v-card>

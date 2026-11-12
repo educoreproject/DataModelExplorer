@@ -11,7 +11,9 @@ const props = defineProps({
 	downloadEntry: { type: Object, required: true },
 });
 
-const NOT_RECORDED_TEXT = 'Where this source was obtained is not recorded.';
+import { explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
+
+const noteWords = explorerComponentWords.sourceUrlNote;
 
 const isRecorded = computed(() => typeof props.downloadEntry.sourceUrl === 'string' && props.downloadEntry.sourceUrl !== '');
 
@@ -31,11 +33,11 @@ const shortAddressOf = (addressText) => {
 			{{ ' ' }}
 			<a :href="downloadEntry.sourceUrl" :title="downloadEntry.sourceUrl" target="_blank" rel="noopener noreferrer" class="source-url-link" :data-testid="`source-url-link-${downloadEntry.standardKey}`">{{ shortAddressOf(downloadEntry.sourceUrl) }}</a>
 			<template v-if="downloadEntry.sourceUrlPage">
-				{{ ' ' }}<span class="source-url-page">(linked from <a :href="downloadEntry.sourceUrlPage" :title="downloadEntry.sourceUrlPage" target="_blank" rel="noopener noreferrer" class="source-url-link" :data-testid="`source-url-page-${downloadEntry.standardKey}`">{{ shortAddressOf(downloadEntry.sourceUrlPage) }}</a>)</span>
+				{{ ' ' }}<span class="source-url-page">{{ noteWords.linkedFromText }} <a :href="downloadEntry.sourceUrlPage" :title="downloadEntry.sourceUrlPage" target="_blank" rel="noopener noreferrer" class="source-url-link" :data-testid="`source-url-page-${downloadEntry.standardKey}`">{{ shortAddressOf(downloadEntry.sourceUrlPage) }}</a>{{ noteWords.linkedFromCloseText }}</span>
 			</template>
 			<span v-if="downloadEntry.sourceUrlNote" class="source-url-caveat" :data-testid="`source-url-note-${downloadEntry.standardKey}`">{{ downloadEntry.sourceUrlNote }}</span>
 		</template>
-		<span v-else class="source-url-unrecorded" :data-testid="`source-url-unrecorded-${downloadEntry.standardKey}`">{{ NOT_RECORDED_TEXT }}</span>
+		<span v-else class="source-url-unrecorded" :data-testid="`source-url-unrecorded-${downloadEntry.standardKey}`">{{ noteWords.notRecordedText }}</span>
 	</div>
 </template>
 

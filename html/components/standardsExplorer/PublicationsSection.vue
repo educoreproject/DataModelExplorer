@@ -7,6 +7,10 @@
 
 import { computed, onMounted } from 'vue';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
+import { explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const publicationWords = explorerComponentWords.publicationsSection;
+const cardFormatTextOf = (kindName) => publicationWords.cardFormatTextByKind[kindName] || publicationWords.cardFormatOtherText;
 
 const downloadsStore = useStandardDownloadsStore();
 
@@ -53,34 +57,32 @@ const sizeTextOf = (byteSize) => (byteSize >= 1048576 ? `${(byteSize / 1048576).
 
 <template>
 	<section class="publications-section" data-testid="publications-section">
-		<h2 class="publications-title">Mapping sets and hub cards</h2>
-		<p class="publications-intro">
-			The mappings in this graph, as SSSOM mapping sets: one set per mapping-layer version, each with its layer's registry and a JSON-LD context per standard; and every hub's cards (its meanings), one file per hub release. Mapping is not distribution: the sets name every standard's elements, including standards whose own files are held above.
-		</p>
+		<h2 class="publications-title">{{ publicationWords.titleText }}</h2>
+		<p class="publications-intro">{{ publicationWords.introText }}</p>
 		<v-progress-linear v-if="downloadsStore.publicationLoading" indeterminate color="primary" />
 		<v-alert v-else-if="downloadsStore.publicationStatusMsg" type="info" variant="tonal" density="compact" data-testid="publications-status">{{ downloadsStore.publicationStatusMsg }}</v-alert>
 		<template v-else-if="downloadsStore.publication">
 			<p class="publications-stamp" data-testid="publications-stamp">
-				Manifest <code>{{ downloadsStore.publication.publicLabel }}</code> (<code>{{ downloadsStore.publication.manifestRefId.slice(0, 12) }}</code>) · published {{ downloadsStore.publication.generatedAt }}
-				<v-btn v-if="siteRegistryEntry" size="small" variant="text" color="primary" :loading="downloadsStore.downloadingDownloadId === siteRegistryEntry.downloadId" data-testid="publications-site-registry" @click="downloadsStore.downloadPublicationEntry(siteRegistryEntry)">Site registry ({{ sizeTextOf(siteRegistryEntry.byteSize) }})</v-btn>
+				{{ publicationWords.manifestText }} <code>{{ downloadsStore.publication.publicLabel }}</code> (<code>{{ downloadsStore.publication.manifestRefId.slice(0, 12) }}</code>) {{ wordingOf(publicationWords.publishedTemplate, { generatedAt: downloadsStore.publication.generatedAt }) }}
+				<v-btn v-if="siteRegistryEntry" size="small" variant="text" color="primary" :loading="downloadsStore.downloadingDownloadId === siteRegistryEntry.downloadId" data-testid="publications-site-registry" @click="downloadsStore.downloadPublicationEntry(siteRegistryEntry)">{{ wordingOf(publicationWords.siteRegistryTemplate, { sizeText: sizeTextOf(siteRegistryEntry.byteSize) }) }}</v-btn>
 			</p>
 
-			<h3 class="publications-subtitle">Mapping sets</h3>
+			<h3 class="publications-subtitle">{{ publicationWords.mappingSetsHeadText }}</h3>
 			<table class="publications-table" data-testid="publications-mapping-sets">
 				<thead>
-					<tr><th scope="col">Layer</th><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Set</th><th scope="col">Contexts</th></tr>
+					<tr><th v-for="columnTitle in publicationWords.mappingSetColumnTitleList" :key="columnTitle" scope="col">{{ columnTitle }}</th></tr>
 				</thead>
 				<tbody>
 					<template v-for="layerRow in layerList" :key="layerRow.layerKey">
 						<tr v-for="(versionRow, versionIndex) in layerRow.versionList" :key="versionRow.versionTag" :data-testid="`publications-layer-${layerRow.layerKey}-${versionRow.versionTag}`">
 							<th v-if="versionIndex === 0" scope="rowgroup" :rowspan="layerRow.versionList.length" class="publications-layer">
 								{{ layerRow.layerTitle }}
-								<v-btn v-if="layerRow.registryEntry" size="x-small" variant="text" color="primary" :loading="downloadsStore.downloadingDownloadId === layerRow.registryEntry.downloadId" :data-testid="`publications-registry-${layerRow.layerKey}`" @click="downloadsStore.downloadPublicationEntry(layerRow.registryEntry)">registry</v-btn>
+								<v-btn v-if="layerRow.registryEntry" size="x-small" variant="text" color="primary" :loading="downloadsStore.downloadingDownloadId === layerRow.registryEntry.downloadId" :data-testid="`publications-registry-${layerRow.layerKey}`" @click="downloadsStore.downloadPublicationEntry(layerRow.registryEntry)">{{ publicationWords.registryText }}</v-btn>
 							</th>
 							<td><code>{{ versionRow.versionTag }}</code></td>
 							<td>{{ versionRow.registrationStatus }}</td>
 							<td>
-								<v-btn v-if="versionRow.setEntry" size="small" variant="tonal" color="primary" :loading="downloadsStore.downloadingDownloadId === versionRow.setEntry.downloadId" :data-testid="`publications-set-${layerRow.layerKey}-${versionRow.versionTag}`" @click="downloadsStore.downloadPublicationEntry(versionRow.setEntry)">SSSOM ({{ sizeTextOf(versionRow.setEntry.byteSize) }})</v-btn>
+								<v-btn v-if="versionRow.setEntry" size="small" variant="tonal" color="primary" :loading="downloadsStore.downloadingDownloadId === versionRow.setEntry.downloadId" :data-testid="`publications-set-${layerRow.layerKey}-${versionRow.versionTag}`" @click="downloadsStore.downloadPublicationEntry(versionRow.setEntry)">{{ wordingOf(publicationWords.sssomTemplate, { sizeText: sizeTextOf(versionRow.setEntry.byteSize) }) }}</v-btn>
 							</td>
 							<td>
 								<v-btn v-for="contextEntry in versionRow.contextEntryList" :key="contextEntry.downloadId" size="x-small" variant="text" color="primary" :loading="downloadsStore.downloadingDownloadId === contextEntry.downloadId" @click="downloadsStore.downloadPublicationEntry(contextEntry)">{{ contextEntry.standardKey }}</v-btn>
@@ -90,10 +92,10 @@ const sizeTextOf = (byteSize) => (byteSize >= 1048576 ? `${(byteSize / 1048576).
 				</tbody>
 			</table>
 
-			<h3 class="publications-subtitle">Hub cards</h3>
+			<h3 class="publications-subtitle">{{ publicationWords.hubCardsHeadText }}</h3>
 			<table class="publications-table" data-testid="publications-hub-cards">
 				<thead>
-					<tr><th scope="col">Hub</th><th scope="col">Release</th><th scope="col">Cards</th><th scope="col">Download</th></tr>
+					<tr><th v-for="columnTitle in publicationWords.hubCardColumnTitleList" :key="columnTitle" scope="col">{{ columnTitle }}</th></tr>
 				</thead>
 				<tbody>
 					<tr v-for="releaseRow in hubReleaseList" :key="releaseRow.releaseName" :data-testid="`publications-hub-${releaseRow.releaseName}`">
@@ -101,7 +103,7 @@ const sizeTextOf = (byteSize) => (byteSize >= 1048576 ? `${(byteSize / 1048576).
 						<td>{{ releaseRow.hubVersion }}</td>
 						<td>{{ releaseRow.cardCount }}</td>
 						<td>
-							<v-btn v-for="(cardEntry, kindName) in releaseRow.entryByKind" :key="kindName" size="small" variant="tonal" color="primary" class="mr-2" :loading="downloadsStore.downloadingDownloadId === cardEntry.downloadId" @click="downloadsStore.downloadPublicationEntry(cardEntry)">{{ kindName === 'hubCardsCsv' ? 'CSV' : 'JSON-LD' }} ({{ sizeTextOf(cardEntry.byteSize) }})</v-btn>
+							<v-btn v-for="(cardEntry, kindName) in releaseRow.entryByKind" :key="kindName" size="small" variant="tonal" color="primary" class="mr-2" :loading="downloadsStore.downloadingDownloadId === cardEntry.downloadId" @click="downloadsStore.downloadPublicationEntry(cardEntry)">{{ wordingOf(publicationWords.cardFileTemplate, { formatText: cardFormatTextOf(kindName), sizeText: sizeTextOf(cardEntry.byteSize) }) }}</v-btn>
 						</td>
 					</tr>
 				</tbody>

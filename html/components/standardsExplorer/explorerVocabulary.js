@@ -42,6 +42,226 @@ export const walkFilterVocabulary = Object.freeze({
 	clearLabelText: 'Clear the filter',
 });
 
+// ⟪explorerTidy review N6⟫ words more than one component says, written once
+export const explorerCommonWords = Object.freeze({
+	homeChipText: 'You started here',
+	retryText: 'Try again',
+	notMappedToHubText: 'Not mapped to a hub.',
+});
+
+// ⟪explorerTidy, TQ's standing rule NO MAGIC STRINGS⟫ THE LEVEL'S TABLE (Table.vue), shared by both walks: its column titles, its row controls, and what an empty level
+// says. With no filter, an empty level says plainly that nothing is beneath it; with a filter that hides every row, it says so, beside the filter's Clear.
+export const walkTableVocabulary = Object.freeze({
+	columnTitleByName: Object.freeze({ displayName: 'Name', kind: 'Kind', infoText: 'Detail', countValue: 'Count', confidenceValue: 'Match · confidence', openAction: '' }),
+	comparedVersionColumnTemplate: 'vs {comparedVersion}',
+	openText: 'Open ›',
+	openColumnLabelText: 'Open',
+	openLabelTemplate: 'Open {itemName}',
+	selectLabelTemplate: 'Select {itemName} ({kindName}) to see its details',
+	notMappedText: 'not mapped',
+});
+// ⟪explorerTidy⟫ an empty level, said the same way by the table and the diagram (a diagram dims what a filter does not match, so only the table empties by filter)
+export const walkEmptyLevelVocabulary = Object.freeze({
+	emptyLevelText: 'Nothing is beneath this.',
+	emptyFilteredTemplate: "Nothing on this level matches '{filterText}'.",
+});
+// ⟪review N4⟫ which of the two an empty view says: the filter's, only when the level has rows and a filter hid them all
+export const emptyLevelOf = ({ levelRowCount, filterText }) => {
+	const trimmedFilterText = String(filterText || '').trim();
+	return levelRowCount > 0 && trimmedFilterText
+		? { isEmptiedByFilter: true, emptyText: wordingOf(walkEmptyLevelVocabulary.emptyFilteredTemplate, { filterText: trimmedFilterText }) }
+		: { isEmptiedByFilter: false, emptyText: walkEmptyLevelVocabulary.emptyLevelText };
+};
+
+// ⟪explorerTidy, TQ's standing rule NO MAGIC STRINGS⟫ THE EXPLORER COMPONENTS' OWN WORDS, one block per component (both walks), so no word is typed in a template.
+// A {name} is filled by wordingOf, which refuses a missing name.
+export const explorerComponentWords = Object.freeze({
+	breadcrumb: Object.freeze({ navLabelText: 'Breadcrumb', foldLabelTemplate: '{titleText} (hidden steps of the walk)' }),
+	companionPages: Object.freeze({ headText: 'Companion pages', unreadTemplate: 'The companion pages could not be read: {statusMsg}', audienceTemplate: 'For {audienceText}' }),
+	crossingBanner: Object.freeze({
+		crossedTemplate: 'You have crossed into {crossedName}',
+		throughTemplate: 'through the {anchorKindName} {anchorName}. Everything below is {crossedName}, not {homeName}.',
+		backTemplate: 'Back to {homeName}',
+	}),
+	downloadEntry: Object.freeze({ facetLabelByName: Object.freeze({ source: 'Source', graph: 'From the graph (experimental)' }), unavailableTemplate: '{facetLabel} not available: {unavailableReason}' }),
+	sourceUrlNote: Object.freeze({ notRecordedText: 'Where this source was obtained is not recorded.', linkedFromText: '(linked from', linkedFromCloseText: ')' }),
+	levelItemList: Object.freeze({
+		navLabelText: 'Items on this level',
+		headText: 'On this level',
+		selectLabelTemplate: 'Select {itemName} ({kindText})',
+		selectLabelWithDetailTemplate: 'Select {itemName} ({kindText}): {detailText}',
+		openLabelTemplate: 'Open {itemName}',
+	}),
+	toolbar: Object.freeze({ diagramText: 'Diagram', tableText: 'Table', schemaText: 'Schema Viewer', filterLabelText: 'Filter', filterPlaceholderText: 'Type a name', hideLegendText: 'Hide legend', showLegendText: 'Show legend' }),
+	diagram: Object.freeze({
+		sampleNoteTemplate: 'Showing {drawnCount} of {levelCount}. The dashed bubble opens the full list in the table.',
+		canvasLabelTemplate: 'Bubble diagram of {drawnCount} of the {levelCount} items in {focusName}. The same items are listed after the diagram as buttons and links, and as rows in the Table view.',
+		noFocusNameText: 'this level',
+	}),
+	matchSummary: Object.freeze({ confidenceLabelTemplate: 'confidence {confidenceText}' }),
+	// ⟪review S3⟫ what a row says about itself, under its bubble (Diagram.vue), in its table cells (Table.vue) and in the item list (LevelItemList.vue)
+	rowWords: Object.freeze({
+		classCountTemplate: '{classCount} classes',
+		mappedOfTemplate: '{mappedCount} of {propertyCount} mapped',
+		mappedToOfTemplate: '{mappedCount} of {propertyCount} mapped to',
+		noPropertiesText: 'no properties',
+		versionListTemplate: 'versions {versionListText}',
+		versionListDivider: ', ',
+		versionCountTemplate: '{versionCount} versions',
+		elementCountTemplate: '{elementCount} elements',
+		fromOccurrencesTemplate: 'from {occurrenceCount} occurrences',
+		inDomainTemplate: 'in {domainName}',
+		notMappedText: 'not mapped',
+		versionTemplate: 'version {version}',
+		mapsToTemplate: 'maps to {anchorName} ({matchKind})',
+		partDivider: ' · ',
+	}),
+	levelSummary: Object.freeze({
+		nothingBeneathText: 'nothing beneath this',
+		againstTemplate: ' · against {comparedVersion}: {badgeCountText}',
+		badgeCountTemplate: '{itemCount} {badgeState}',
+		truncatedTemplate: ' · showing the first {shownCountText} of {countText}',
+		countDivider: ' / ',
+		listDivider: ', ',
+	}),
+	walkLevelLabel: Object.freeze({
+		schemaTemplate: 'Explorer: the schema of {kindText}, in the Schema Viewer',
+		levelTemplate: 'Explorer: {itemCount} items in {kindText}, shown as a {viewModeName}',
+		copyFailedTemplate: 'could not copy the link: {errorText}',
+	}),
+	versionBadge: Object.freeze({ comparedTitleTemplate: 'compared with {comparedVersion}' }),
+	downloadsSection: Object.freeze({
+		headText: 'Downloads',
+		catalogNoteText: 'The source of every standard, and each written back out of this graph (experimental).',
+		allDownloadsText: 'All downloads ›',
+		loadingText: 'Looking for downloads…',
+		unreadTemplate: 'The downloads could not be read: {statusMsg}',
+		noneText: 'No downloads for this standard in this graph.',
+		familyLinkTemplate: '{familyLinkText} ›',
+		familyAllTemplate: 'All downloads for {familyName}',
+	}),
+	versionTile: Object.freeze({
+		inVersionTemplate: 'In {version}',
+		notInVersionTemplate: 'Not in {version}.',
+		onOccurrencesTemplate: 'on {occurrenceCount} occurrences',
+		moreTemplate: '{hiddenCount} more',
+		lessText: 'less',
+		openInVersionTemplate: 'Open in {version} ›',
+		onceText: 'once',
+		timesTemplate: '{occurrenceCount} times',
+		sameDefinitionTemplate: 'Defined the same way. It occurs {thisTimesText} in {thisVersion} and {otherTimesText} in {otherVersion}; occurrence counts are not compared.',
+		noValueText: 'none',
+		fieldValuesTemplate: '{thisValueText} in {thisVersion}, {otherValueText} in {otherVersion}',
+		fieldDiffersTemplate: 'Its {fieldLabel} differs',
+		membersOnlyInTemplate: '{memberNoun} only in {version}',
+		membersDifferTemplate: '{memberNoun} defined differently',
+		typeDiffersTemplate: 'Its type {typeName} is defined differently in {version}',
+		typeAbsentTemplate: 'Its type {typeName} is not in {version}',
+		otherDifferenceText: 'Its definition differs in a part this page does not show',
+	}),
+	walkView: Object.freeze({
+		shareLabelText: 'Link to this view:',
+		copyLinkText: 'Copy link',
+		largeLevelTemplate: '{itemCount} items is too many to draw at once, so this level opened as a table.',
+		showDiagramText: 'Show diagram',
+	}),
+	schemaView: Object.freeze({
+		sectionLabelTemplate: 'Schema Viewer: {familyName}',
+		introLeadText: 'The schema of',
+		introTailText: "element by element, with each element's mappings to the other standards. Switch back to Diagram or Table to keep walking.",
+		introDivider: ', ',
+		unmatchedTemplate: 'The Specification Viewer lists no schema named {standardFamily}. Pick one below.',
+	}),
+	legend: Object.freeze({
+		navigateNoteText: 'Cmd-Click to Navigate',
+		bubblesHeadText: 'Bubbles',
+		notMappedAsideText: '(not mapped)',
+		matchHeadTemplate: 'Match to {hubText}',
+		anyHubText: 'a hub',
+		confidenceHeadText: 'Confidence',
+		confidenceAsideText: 'Thicker and darker means surer. Every mapping is a judgment, not a fact.',
+		marksHeadText: 'Marks',
+		moreInsideText: 'Has more inside',
+		ringTemplate: 'Ring: share mapped to {hubText}',
+		versionBadgeAsideText: 'against the other version',
+	}),
+	specificationCard: Object.freeze({
+		burdenTemplate: '{burdenText} burden',
+		ownerDivider: ' — ',
+		versionPrefixText: 'v',
+		governanceTemplate: ' · Governance: {governanceBody}',
+		updatedTemplate: ' · Updated {lastUpdated}',
+		detailsHeadText: 'Implementation Details',
+		burdenRubricHeadText: 'Burden Rubric',
+		requiredCapabilitiesHeadText: 'Required Capabilities',
+		guidanceHeadText: 'Guidance',
+		pairedWithHeadText: 'Commonly Paired With',
+		adoptersHeadText: 'Known Adopters',
+		privacyHeadText: 'Privacy Considerations',
+		equityHeadText: 'Equity Considerations',
+		samplePayloadsHeadText: 'Sample Payloads',
+		documentationHeadText: 'Documentation',
+		exploreText: 'Explore in the Standards Explorer',
+		exploreLabelTemplate: 'Explore {specTitle} in the Standards Explorer',
+		downloadsText: 'Downloads',
+		downloadsLabelTemplate: 'Downloads for {specTitle}',
+	}),
+	publicationsSection: Object.freeze({
+		titleText: 'Mapping sets and hub cards',
+		introText: "The mappings in this graph, as SSSOM mapping sets: one set per mapping-layer version, each with its layer's registry and a JSON-LD context per standard; and every hub's cards (its meanings), one file per hub release. Mapping is not distribution: the sets name every standard's elements, including standards whose own files are held above.",
+		manifestText: 'Manifest',
+		publishedTemplate: '· published {generatedAt}',
+		siteRegistryTemplate: 'Site registry ({sizeText})',
+		mappingSetsHeadText: 'Mapping sets',
+		mappingSetColumnTitleList: Object.freeze(['Layer', 'Version', 'Status', 'Set', 'Contexts']),
+		registryText: 'registry',
+		sssomTemplate: 'SSSOM ({sizeText})',
+		hubCardsHeadText: 'Hub cards',
+		hubCardColumnTitleList: Object.freeze(['Hub', 'Release', 'Cards', 'Download']),
+		cardFileTemplate: '{formatText} ({sizeText})',
+		cardFormatTextByKind: Object.freeze({ hubCardsCsv: 'CSV' }),
+		cardFormatOtherText: 'JSON-LD',
+	}),
+	detailPanel: Object.freeze({
+		panelLabelTemplate: 'Details: {itemName}',
+		focusRoleText: 'Focus',
+		selectedRoleText: 'Selected',
+		mapsToTemplate: 'Maps to {hubText}',
+		onOccurrencesTemplate: 'on {occurrenceCount} occurrences',
+		matchMixHeadText: 'How these elements match',
+		matchMixCountTemplate: '{elementCount} elements',
+		matchMixNoteText: 'Each element carries its own confidence. Open this group to see them.',
+		openTemplate: 'Open {itemName} ›',
+		openInMeaningsText: 'Open in Meanings ›',
+		useCaseStepsText: 'Steps and citations ›',
+		leafText: 'Nothing beneath this one. This is the end of the line.',
+		focusNoteText: 'You are here. Click anything on this level for its details.',
+		specHeadText: 'About this specification',
+		catalogHeadText: 'Specification catalog',
+		catalogNoteText: 'Select a family for its catalog card: owner, governance, burden, access and implementation details.',
+		notInGraphText: 'In the catalog, not yet walkable in the graph:',
+		versionsLabelText: 'Other versions',
+		versionsHeadText: 'In other versions',
+		versionsLoadingText: 'Looking in the other versions…',
+		versionsUnreadTemplate: 'The other versions could not be read: {statusMsg}',
+		// ⟪review S3⟫ the facts list (factList): each fact's name, and the words of the facts that are phrases
+		factNameByName: Object.freeze({ standard: 'Standard', inside: 'Inside', path: 'Path', propertyOf: 'Property of', holds: 'Holds', properties: 'Properties', occurrences: 'Occurrences', elements: 'Elements', occurrencesShown: 'Occurrences shown' }),
+		holdsTemplate: '{familyHoldingText}, {classCount} classes',
+		propertiesTemplate: '{propertyCount}, {mappedPropertyCount} {mappedWords}',
+		propertiesMappedWordsByKind: Object.freeze({ hubDomain: 'mapped to by a standard' }),
+		propertiesMappedOtherWords: 'mapped to a hub',
+		hubElementsTemplate: '{hubElementCount}; {hubMappedText}',
+		tierFactTemplate: '{hubText} tier',
+		occurrencesFoldedText: 'folded: they all map the same way',
+		occurrencesUnfoldedText: 'yes: they map differently',
+	}),
+	stateNotice: Object.freeze({
+		loadingText: 'Loading this level…',
+		failedTitleText: 'The standards graph did not answer',
+		failedGuideText: 'Nothing is wrong with what you clicked. The server could not answer this request. Try again, or go back with the breadcrumb.',
+	}),
+});
+
 // the domain's own term card, listed apart from its meanings (TQ: "labelled unmistakably as the domain's own term"): one wording, used for its row, its group
 // and its legend chip
 const DOMAIN_OWN_TERM_TEXT = "This domain's own term";
@@ -120,43 +340,41 @@ export const meaningsVocabulary = Object.freeze({
 		HAS_INCOMING_MEANING: 'Meanings of other domains that name this one',
 	}),
 
-	// ---- ⟪meaningsClarity Addendum B, TQ 2026-11-11: "yes, definitely"⟫ WHAT THE DIAGRAM SHOWS, in a few sentences built from the level's own counts and names
-	// (levelProseOf). One template set per level kind; a sentence whose subject is absent at this level is not said. Numbers are written as digits, the ones the
-	// diagram's labels and the table's counts show.
+	// ---- ⟪meaningsClarity Addendum B, TQ 2026-11-11: "yes, definitely"⟫ WHAT THE DIAGRAM SHOWS, in a few sentences built from the level's own counts (levelProseOf).
+	// One template set per view; a sentence whose subject is absent at this level is not said. Numbers are written as digits, the ones the diagram's labels and the
+	// table's counts show. ⟪explorerTidy, TQ 2026-11-11: "Yours is too long and too much detail"⟫ one short sentence per fact: no other domain is named, no property
+	// with values is listed, and a domain is never "this domain as its range" (domain is a role a class plays in a tuple, not what the class is). A count's sentence
+	// has a one form and an other form ({ one, other }).
 	levelProse: Object.freeze({
 		// ⟪supervisor's ruling 4⟫ one template set per view: a level shown as a table is described as the table, never as a diagram that is not on screen
 		templateSetByViewMode: Object.freeze({
 			diagram: Object.freeze({
-				catalogTemplate: 'Each circle is a hub, a reference standard whose meanings EDUcore names: {hubCount} here, holding {meaningCount} meanings in all. Open a hub for its domains.',
-				hubTemplate: 'The circle is the hub {hubName}. Each square around it is one of its {domainCount} domains, which hold {meaningCount} meanings between them. Open a domain for its meanings.',
-				domainSquareTemplate: 'The square is the {hubName} domain {domainName}.',
-				domainMeaningsTemplate: 'The solid hexagons around it are its {meaningCountText}, each pairing the domain with one property; {mappedMeaningCount} of them have elements of other standards mapped to them.',
-				domainOwnTermText: "The dashed hexagon is the domain's own term.",
-				domainIncomingTemplate: '{incomingCount} meanings in other domains ({domainNameText}) name this domain as their {slotText}, drawn as outlined hexagons with a dashed arrow.',
-				domainIncomingOneTemplate: '1 meaning in another domain, {domainNameText}, names this domain as its {slotText}, drawn as an outlined hexagon with a dashed arrow.',
-				domainValuesTemplate: 'A › on a hexagon means there is more inside: {valueHolderText}.',
-				valuesTemplate: 'The hexagon in the middle is the meaning {meaningName}. The {valueCount} hexagons around it are its values, one code each; {mappedValueCount} of them have elements of other standards mapped to them.',
-				meaningNoValuesTemplate: 'The hexagon is the meaning {meaningName}. It holds no values; its panel says what it names and every element that expresses it.',
+				catalogTemplate: 'Each circle is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
+				hubTemplate: 'Each square is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
+				domainMeaningsTemplate: Object.freeze({ one: 'This domain takes part in 1 meaning (solid hexagon).', other: 'This domain takes part in {meaningCount} meanings (solid hexagons).' }),
+				domainMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it (marked "{expressedSampleText}").', other: '{mappedMeaningCount} have elements of other standards mapped to them (marked "{expressedSampleText}").' }),
+				domainOwnTermOnlyText: 'It holds only its own term (dashed hexagon).',
+				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText} (outlined hexagon, dashed arrow).', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText} (outlined hexagons, dashed arrow).' }),
+				domainValuesText: 'A › means the meaning holds values; open it to see them.',
+				valuesTemplate: Object.freeze({ one: 'This meaning holds 1 value (hexagon), one code.', other: 'This meaning holds {valueCount} values (hexagons), one code each.' }),
+				valuesMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedValueCount} have elements of other standards mapped to them.' }),
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
 				filterTemplate: "The filter '{filterText}' dims {unmatchedCount} of them.",
 			}),
 			table: Object.freeze({
-				catalogTemplate: 'The table lists {hubCount} hubs, reference standards whose meanings EDUcore names, holding {meaningCount} meanings in all. Open a hub for its domains.',
-				hubTemplate: 'The table lists the {domainCount} domains of the hub {hubName}, which hold {meaningCount} meanings between them. Open a domain for its meanings.',
-				domainSquareTemplate: 'The table lists what the {hubName} domain {domainName} holds.',
-				domainMeaningsTemplate: 'Its {meaningCountText} each pair the domain with one property; {mappedMeaningCount} of them have elements of other standards mapped to them.',
-				domainOwnTermText: "One row is the domain's own term.",
-				domainIncomingTemplate: '{incomingCount} rows are meanings in other domains ({domainNameText}) that name this domain as their {slotText}.',
-				domainIncomingOneTemplate: '1 row is a meaning in another domain, {domainNameText}, that names this domain as its {slotText}.',
-				domainValuesTemplate: 'Open a meaning for what it holds: {valueHolderText}.',
-				valuesTemplate: 'The table lists the {valueCount} values of the meaning {meaningName}, one code each; {mappedValueCount} of them have elements of other standards mapped to them.',
-				meaningNoValuesTemplate: 'This is the meaning {meaningName}. It holds no values; its panel says what it names and every element that expresses it.',
+				catalogTemplate: 'Each row of the table is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
+				hubTemplate: 'Each row of the table is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
+				domainMeaningsTemplate: Object.freeze({ one: 'The table lists the 1 meaning this domain takes part in.', other: 'The table lists the {meaningCount} meanings this domain takes part in.' }),
+				domainMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedMeaningCount} have elements of other standards mapped to them.' }),
+				domainOwnTermOnlyText: 'It holds only its own term.',
+				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText}.', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText}.' }),
+				domainValuesText: 'A meaning with an Open button holds values; open it to see them.',
+				valuesTemplate: Object.freeze({ one: 'The table lists the 1 value this meaning holds, one code.', other: 'The table lists the {valueCount} values this meaning holds, one code each.' }),
+				valuesMappedTemplate: Object.freeze({ one: '1 has elements of other standards mapped to it.', other: '{mappedValueCount} have elements of other standards mapped to them.' }),
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
 				filterTemplate: "The filter '{filterText}' hides {unmatchedCount} of them.",
 			}),
 		}),
-		valueHolderTemplate: '{meaningName} holds {valueCount} values',
-		nameListDivider: ', ',
-		nameListMoreTemplate: '{nameListText} and {moreCount} more',
-		nameListLimit: 3,
 	}),
 
 	// ---- ⟪meaningsClarity, TQ 2026-11-11: "Add those (a diagram key)"⟫ the Meanings diagram's key (Legend.vue), one entry per mark the diagram draws. markName picks
@@ -191,8 +409,41 @@ export const meaningsVocabulary = Object.freeze({
 		partDivider: ' · ',
 		openNoteExpressedTemplate: 'Expressed in {elementCountText}. ',
 		openNoteText: 'Open this meaning for its tuple and every element that expresses it.',
+		// ⟪explorerTidy⟫ a selected meaning that opens to nothing reads its own facts into the panel
+		leafLoadingText: 'Reading what this meaning names…',
+		leafFailedText: 'What this meaning names could not be read just now. Its URI page, above, has it.',
 		tupleHeadText: 'What it names',
-		tupleAbsentText: 'No citable tuple:',
+		// ⟪explorerTidy, Q97⟫ why a meaning has no citable tuple or no range list, in words, on the panel, the /edc meaning page (humanPage.js) and the Rosetta report. The
+		// names are the server's (hubCardTuple TUPLE_ABSENT_NAME_LIST, meaningRangeList RANGE_LIST_ABSENT_NAME_LIST) and never shown; a name with no words is refused
+		// by name (absentReasonTextOf), and a test holds every declared name to having words.
+		tupleAbsentTemplate: 'No citable tuple. {reasonText}',
+		rangeListAbsentTemplate: 'No range list. {reasonText}',
+		absentReasonTextByName: Object.freeze({
+			hubCardNotFound: 'The live graph does not hold this card.',
+			cardNotInLiveGraph: 'The live graph does not hold this card.',
+			hubSlotProfileUnreadable: "Its hub's list of slots could not be read.",
+			hubCardHasNoSlot: 'The card names no element in any slot.',
+			hubCardSlotAmbiguous: 'A slot of the card names more than one element.',
+			hubElementKindUnknown: 'An element it names is of a kind this site does not know.',
+			hubCardTupleUnreadable: 'Its tuple could not be read just now.',
+			judgedBeforeTupleRecorded: 'It was judged before tuples were recorded.',
+			cardHasNoRange: 'This meaning names no range.',
+			rangeListUnreadable: 'Its ranges could not be read just now.',
+			noLiveGraph: 'This page was made without the live graph.',
+			// ⟪review S4⟫ why an /edc page could not read the live graph (humanPageFacts FACTS_ABSENT_NAME_LIST); noLiveGraph and cardNotInLiveGraph are above
+			storeUnreadable: 'The published releases could not be read just now.',
+			elementNotInLiveGraph: 'The live graph does not hold this element.',
+			graphHoldsAnotherRelease: 'The live graph holds another release of this standard.',
+			factsUnreadable: 'The live graph could not be read just now.',
+		}),
+		// ⟪review S4⟫ why a part has no URI, by the minter's reasons (uriMinter); any other reason (eg one that could not be minted, with its error) is said plainly by
+		// uriAbsentOtherText, its words kept for programs in the API and in a data attribute
+		uriAbsentTextByReason: Object.freeze({ notInManifestStore: 'not in a published EDUcore release yet', standardNotInManifest: 'its standard is not in a published EDUcore release' }),
+		uriAbsentOtherText: 'its URI could not be made',
+		factsAbsentTemplate: 'The live graph was not read for this page. {reasonText}',
+		tupleNotReadTemplate: '[tuple not read: {reasonText}]',
+		// ⟪review N7⟫ a mapping's relation in words, by its SKOS match edge (humanPageRules.matchEdgeTypeList; a test holds every one to having words)
+		relationTextByEdgeType: Object.freeze({ EXACT_MATCH: 'exact match', CLOSE_MATCH: 'close match', BROAD_MATCH: 'broad match', NARROW_MATCH: 'narrow match' }),
 		rangesSummaryText: 'Ranges',
 		rangesAsideText: '(description, not part of what it names)',
 		datatypeTemplate: 'Datatype: {datatypeText}',
@@ -205,6 +456,8 @@ export const meaningsVocabulary = Object.freeze({
 		elementLinkTitleTemplate: 'Open {elementName} in the Standards Explorer',
 		elementOwnerTemplate: 'of {ownerName}',
 		pathAbsentTextByName: Object.freeze({ noClimbFromRoot: "no walk reaches it from its standard's root" }),
+		// ⟪review S4⟫ a reason the words do not name is said plainly, never by the server's name for it
+		pathAbsentOtherText: 'the walk does not reach it',
 	}),
 
 	// ---- the JSON-LD the page carries for agents (pages/explore/meanings.vue)
@@ -542,13 +795,40 @@ export const meaningElementCountTextOf = (elementCount) => countedNounTextOf(ele
 // as the server gave it, and its kind and its id in its hub's standard (hubCardTuple's nativeId: { <declared identifier name>: text }), as "property · CEDS id P000128";
 // a slot with no id says only its kind. The Meanings panel (MeaningSection.vue) and the Rosetta report (rosettaReportBlocks.js) both draw it.
 const tupleSlotHubIdTextOf = ({ slotPart, hubName }) => (slotPart.nativeId ? wordingOf(meaningsVocabulary.meaningSection.hubIdTemplate, { hubName, nativeIdText: Object.values(slotPart.nativeId)[0] }) : '');
+// ⟪explorerTidy, supervisor's ruling⟫ A SELECTED LEAF MEANING (a meaning row that opens to nothing) shows in the panel what its focus would: its own node, read by the store
+// (loadLeafMeaning, the drill's own request), under the row's own fields. The panel (DetailPanel.vue) reads these three; a test drives them with the store.
+export const isLeafMeaningRow = (selectedRow) => Boolean(selectedRow && selectedRow.kind === 'meaning' && !selectedRow.hasChildren);
+export const selectedLeafNodeOf = ({ selectedRow, leafMeaningState }) => (leafMeaningState && leafMeaningState.meaningNode ? { ...leafMeaningState.meaningNode, ...selectedRow } : null);
+export const leafFactsStateNameOf = (leafMeaningState) => {
+	if (!leafMeaningState) return '';
+	if (leafMeaningState.loading) return 'loading';
+	return leafMeaningState.failed ? 'failed' : 'read';
+};
+
+// ⟪explorerTidy, Q97⟫ why a tuple or a range list is absent, in words (meaningSection.absentReasonTextByName); a name with no words is refused by name
+export const absentReasonTextOf = (absentName) => {
+	const reasonText = meaningsVocabulary.meaningSection.absentReasonTextByName[absentName];
+	if (!reasonText) throw new Error(`explorerVocabulary: no words for the absent name '${absentName}' (meaningSection.absentReasonTextByName)`);
+	return reasonText;
+};
+export const uriAbsentTextOf = (uriAbsentReason) => meaningsVocabulary.meaningSection.uriAbsentTextByReason[uriAbsentReason] || meaningsVocabulary.meaningSection.uriAbsentOtherText;
+export const factsAbsentTextOf = (factsAbsentName) => wordingOf(meaningsVocabulary.meaningSection.factsAbsentTemplate, { reasonText: absentReasonTextOf(factsAbsentName) });
+// a relation the words do not name is a published answer's own value (the forge's), shown as it came, never refused: refusing would take the whole page down
+export const relationTextOf = (matchEdgeType) => meaningsVocabulary.meaningSection.relationTextByEdgeType[matchEdgeType] || String(matchEdgeType);
+export const tupleAbsentTextOf = (tupleAbsentName) => wordingOf(meaningsVocabulary.meaningSection.tupleAbsentTemplate, { reasonText: absentReasonTextOf(tupleAbsentName) });
+export const rangeListAbsentTextOf = (rangeListAbsentName) => wordingOf(meaningsVocabulary.meaningSection.rangeListAbsentTemplate, { reasonText: absentReasonTextOf(rangeListAbsentName) });
+// ⟪explorerTidy, Q97⟫ one tuple part's kind and id in words, "class · CEDS id C200159": the panel's slot line, and the /edc meaning page's part rows (humanPage.js requires this module)
+export const tuplePartDetailTextOf = ({ slotPart, hubName }) => {
+	const sectionWords = meaningsVocabulary.meaningSection;
+	return [sectionWords.partKindLabelByKind[slotPart.kind] || slotPart.kind, tupleSlotHubIdTextOf({ slotPart, hubName })].filter(Boolean).join(sectionWords.partDivider);
+};
 export const meaningTupleSlotListOf = ({ tuple, hubName }) => {
 	const sectionWords = meaningsVocabulary.meaningSection;
 	return Object.entries(tuple || {}).map(([slotName, slotPart]) => ({
 		slotName,
 		slotLabel: sectionWords.slotLabelByName[slotName] || slotName,
 		...slotPart,
-		detailText: [sectionWords.partKindLabelByKind[slotPart.kind] || slotPart.kind, tupleSlotHubIdTextOf({ slotPart, hubName })].filter(Boolean).join(sectionWords.partDivider),
+		detailText: tuplePartDetailTextOf({ slotPart, hubName }),
 	}));
 };
 
@@ -596,18 +876,22 @@ export const meaningSubtitleOf = ({ meaningNode, meaningFactsWording }) =>
 	meaningSubtitleTextOf({ referenceTier: meaningNode.referenceTier, hubName: meaningNode.hubName, domainName: meaningNode.hubDomainName || (meaningNode.meaningDomain && meaningNode.meaningDomain.name) || '', meaningFactsWording });
 
 // ⟪meaningsClarity Addendum B⟫ WHAT THE DIAGRAM SHOWS, written from the level's own facts: the sentences, and the counts they say (countByName), which are the same
-// numbers the diagram's labels and the table's counts show. Only what is true at this level is said. A level kind with no template says nothing.
+// numbers the diagram's labels and the table's counts show. Only what is true at this level is said; a count of 0 says no sentence. A level kind with no template
+// says nothing. ⟪explorerTidy⟫ one sentence per fact, naming no other domain and listing no property.
 const proseWords = meaningsVocabulary.levelProse;
-const nameListTextOf = (nameList) => {
-	const distinctNameList = Array.from(new Set(nameList));
-	const shownNameText = distinctNameList.slice(0, proseWords.nameListLimit).join(proseWords.nameListDivider);
-	return distinctNameList.length > proseWords.nameListLimit ? wordingOf(proseWords.nameListMoreTemplate, { nameListText: shownNameText, moreCount: distinctNameList.length - proseWords.nameListLimit }) : shownNameText;
-};
 // the counts as the page writes numbers ("2,777")
 const countTextByNameOf = (countByName) => Object.fromEntries(Object.entries(countByName).map(([countName, countValue]) => [countName, countTextOf(countValue)]));
+// the diagram key's entry for a mark, so the prose quotes the key's own sample words ("N elements map here"); a mark the key does not draw is refused by name
+const diagramKeyEntryOf = (markName) => {
+	const diagramKeyMarkEntry = meaningsVocabulary.diagramKey.entryList.find((oneEntry) => oneEntry.markName === markName);
+	if (!diagramKeyMarkEntry) throw new Error(`explorerVocabulary: the diagram key has no mark '${markName}'`);
+	return diagramKeyMarkEntry;
+};
+// a count's sentence, in its one or other form, or none for a count of 0
+const countedSentenceOf = ({ templateByCount, countValue, valueByName }) => (countValue ? wordingOf(countValue === 1 ? templateByCount.one : templateByCount.other, valueByName) : '');
 const levelProseReaderByKind = {
 	meaningCatalog: ({ levelRowList, templateSet }) => {
-		const countByName = { hubCount: levelRowList.length, meaningCount: levelRowList.reduce((soFar, oneRow) => soFar + (oneRow.meaningCount || 0), 0) };
+		const countByName = { meaningCount: levelRowList.reduce((soFar, oneRow) => soFar + (oneRow.meaningCount || 0), 0) };
 		return { countByName, sentenceList: [wordingOf(templateSet.catalogTemplate, countTextByNameOf(countByName))] };
 	},
 	meaningHub: ({ focusNode, templateSet }) => {
@@ -616,34 +900,32 @@ const levelProseReaderByKind = {
 	},
 	meaningDomain: ({ focusNode, levelRowList, templateSet }) => {
 		const incomingRowList = levelRowList.filter((oneRow) => oneRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE);
-		const valueHolderRowList = levelRowList.filter((oneRow) => oneRow.relationshipType === MEANING_RELATIONSHIP_TYPE && oneRow.valueMeaningCount);
-		const countByName = {
-			meaningCount: focusNode.meaningCount,
-			mappedMeaningCount: focusNode.mappedMeaningCount,
-			termMeaningCount: focusNode.termMeaningCount,
-			incomingMeaningCount: focusNode.incomingMeaningCount || 0,
-			...Object.fromEntries(valueHolderRowList.map((oneRow) => [`valueCount:${oneRow.name}`, oneRow.valueMeaningCount])),
-		};
-		const valueHolderList = valueHolderRowList.slice(0, proseWords.nameListLimit).map((oneRow) => wordingOf(proseWords.valueHolderTemplate, { meaningName: oneRow.displayName || oneRow.name, valueCount: countTextOf(oneRow.valueMeaningCount) }));
-		const incomingDomainNameText = nameListTextOf(incomingRowList.map((oneRow) => oneRow.hubDomainName).filter(Boolean));
+		const countByName = { meaningCount: focusNode.meaningCount, mappedMeaningCount: focusNode.mappedMeaningCount, incomingMeaningCount: focusNode.incomingMeaningCount || 0 };
+		const countTextByName = countTextByNameOf(countByName);
+		const slotText = Array.from(new Set(incomingRowList.flatMap((oneRow) => oneRow.incomingSlotNameList || []))).join(meaningsVocabulary.incomingSlotWordDivider);
 		return {
 			countByName,
 			sentenceList: [
-				wordingOf(templateSet.domainSquareTemplate, { hubName: focusNode.hubName, domainName: focusNode.name }),
-				focusNode.meaningCount ? wordingOf(templateSet.domainMeaningsTemplate, { meaningCountText: countedNounTextOf(focusNode.meaningCount, meaningsVocabulary.meaningNoun), mappedMeaningCount: countTextOf(focusNode.mappedMeaningCount) }) : '',
-				focusNode.termMeaningCount ? templateSet.domainOwnTermText : '',
-				countByName.incomingMeaningCount
-					? wordingOf(countByName.incomingMeaningCount === 1 ? templateSet.domainIncomingOneTemplate : templateSet.domainIncomingTemplate, { incomingCount: countTextOf(countByName.incomingMeaningCount), domainNameText: incomingDomainNameText, slotText: Array.from(new Set(incomingRowList.flatMap((oneRow) => oneRow.incomingSlotNameList || []))).join(meaningsVocabulary.incomingSlotWordDivider) })
-					: '',
-				valueHolderList.length ? wordingOf(templateSet.domainValuesTemplate, { valueHolderText: valueHolderRowList.length > proseWords.nameListLimit ? wordingOf(proseWords.nameListMoreTemplate, { nameListText: valueHolderList.join(proseWords.nameListDivider), moreCount: valueHolderRowList.length - proseWords.nameListLimit }) : valueHolderList.join(proseWords.nameListDivider) }) : '',
+				countedSentenceOf({ templateByCount: templateSet.domainMeaningsTemplate, countValue: countByName.meaningCount, valueByName: countTextByName }),
+				countedSentenceOf({ templateByCount: templateSet.domainMappedTemplate, countValue: countByName.mappedMeaningCount, valueByName: { ...countTextByName, expressedSampleText: diagramKeyEntryOf('expressedCount').sampleText } }),
+				!countByName.meaningCount && focusNode.termMeaningCount ? templateSet.domainOwnTermOnlyText : '',
+				countedSentenceOf({ templateByCount: templateSet.domainIncomingTemplate, countValue: countByName.incomingMeaningCount, valueByName: { ...countTextByName, slotText } }),
+				// ⟪review N1⟫ any row drawn with a › says it: its own meanings and the incoming ones, which carry their own value counts
+				levelRowList.some((oneRow) => [MEANING_RELATIONSHIP_TYPE, INCOMING_MEANING_RELATIONSHIP_TYPE].includes(oneRow.relationshipType) && oneRow.valueMeaningCount) ? templateSet.domainValuesText : '',
 			].filter(Boolean),
 		};
 	},
 	meaning: ({ focusNode, levelRowList, templateSet }) => {
-		const meaningName = displayNameOf(focusNode);
-		if (!focusNode.valueMeaningCount) return { countByName: { valueCount: 0 }, sentenceList: [wordingOf(templateSet.meaningNoValuesTemplate, { meaningName })] };
+		if (!focusNode.valueMeaningCount) return { countByName: { valueCount: 0 }, sentenceList: [templateSet.meaningNoValuesText] };
 		const countByName = { valueCount: focusNode.valueMeaningCount, mappedValueCount: levelRowList.filter((oneRow) => oneRow.elementCount > 0).length };
-		return { countByName, sentenceList: [wordingOf(templateSet.valuesTemplate, { ...countTextByNameOf(countByName), meaningName })] };
+		const countTextByName = countTextByNameOf(countByName);
+		return {
+			countByName,
+			sentenceList: [
+				countedSentenceOf({ templateByCount: templateSet.valuesTemplate, countValue: countByName.valueCount, valueByName: countTextByName }),
+				countedSentenceOf({ templateByCount: templateSet.valuesMappedTemplate, countValue: countByName.mappedValueCount, valueByName: countTextByName }),
+			].filter(Boolean),
+		};
 	},
 };
 export const levelProseOf = ({ focusNode, levelRowList, filterText, filterUnmatchedRowCount, effectiveViewMode }) => {

@@ -12,7 +12,7 @@
 //   mappedTo          the meanings it is mapped to (its match edges)
 // The Cypher is the walk's mapper's (named queries), so the walk's domain rows and these facts read one rule.
 //
-//   elementMeaningFactsFor({ mapper, runRows, elementStableId, readsInParallel }, done(errorText, { elementMeaningFacts, meaningRowsBySectionName }))
+//   elementMeaningFactsFor({ mapper, runRows, elementStableId, readsInParallel, withIncomingValueCount }, done(errorText, { elementMeaningFacts, meaningRowsBySectionName }))
 //     mapper: the standards-neighbourhood mapper (its getCypher and the meanings walk's ids); runRows(cypherText, cypherParameters, done(errorText, rowList)): plain rows
 //     elementMeaningFacts: { hubName, isMeaningDomain, takesPartCount, meaningsWalkPathStableIdList, sectionList: [section] } — the field both pages draw
 //       section: { sectionName, meaningCount, meaningsWalkPathStableIdList | null, ...its own lines: groupList (value or naming groups), unplacedMeaningCount, termList }
@@ -186,10 +186,12 @@ const FACT_READ_LIST = Object.freeze([
 
 // ⟪review S4⟫ readsInParallel (required, no default): true when runRows opens its own session per query (the golden handle's runQuery), so the reads go out at once
 // and the facts cost their slowest read, not their sum; false when runRows shares one driver session (the /edc page's), which runs one query at a time
-const elementMeaningFactsFor = ({ mapper, runRows, elementStableId, readsInParallel }, done) => {
+// ⟪explorerTidy review S1⟫ withIncomingValueCount (required, no default): true only for the meanings domain level, which opens its incoming rows by their value count
+const elementMeaningFactsFor = ({ mapper, runRows, elementStableId, readsInParallel, withIncomingValueCount }, done) => {
 	if (typeof readsInParallel !== 'boolean') throw new Error(`${moduleName}: readsInParallel must be true or false (received ${JSON.stringify(readsInParallel)})`);
+	if (typeof withIncomingValueCount !== 'boolean') throw new Error(`${moduleName}: withIncomingValueCount must be true or false (received ${JSON.stringify(withIncomingValueCount)})`);
 	const readOne = (oneRead, next) => {
-		const { cypher, params } = mapper.getCypher(oneRead.queryName, { elementStableId, domainStableId: elementStableId });
+		const { cypher, params } = mapper.getCypher(oneRead.queryName, { elementStableId, domainStableId: elementStableId, withIncomingValueCount });
 		runRows(cypher, params, (queryError, rowList) => next(queryError ? `${moduleName}: ${oneRead.queryName}: ${queryError}` : '', queryError ? null : oneRead.shapeOf(rowList || [])));
 	};
 	const whenAllRead = (readError, resultByName) => {

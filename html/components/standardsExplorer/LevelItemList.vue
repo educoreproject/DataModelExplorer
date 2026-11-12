@@ -9,19 +9,23 @@
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, kindDisplayNameOf, meaningCountTextOf, meaningRowSubTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, familyHoldingTextOf, kindDisplayNameOf, meaningCountTextOf, meaningRowSubTextOf, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const listWords = explorerComponentWords.levelItemList;
+const selectLabelOf = (oneItem) => wordingOf(oneItem.detailText ? listWords.selectLabelWithDetailTemplate : listWords.selectLabelTemplate, { itemName: oneItem.displayName, kindText: oneItem.kindText, detailText: oneItem.detailText || '' });
+const openLabelOf = (oneItem) => wordingOf(listWords.openLabelTemplate, { itemName: oneItem.displayName });
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
 
 const detailTextOf = (oneRow) => {
 	if (oneRow.kind === 'family') return [specStore.specByGraphFamily(oneRow.standardFamily)?.title, familyHoldingTextOf(oneRow)].filter(Boolean).join(', ');
-	if (oneRow.mapping) return `maps to ${oneRow.mapping.anchor.name} (${oneRow.mapping.matchKind})`;
+	if (oneRow.mapping) return wordingOf(explorerComponentWords.rowWords.mapsToTemplate, { anchorName: oneRow.mapping.anchor.name, matchKind: oneRow.mapping.matchKind });
 	// ⟪meaningsPolish⟫ the meanings walk's counts, drawn under its bubbles, said here too (a reader of the DOM cannot read the canvas)
 	if (oneRow.kind === 'meaning') return meaningRowSubTextOf(oneRow);
 	const meaningCountText = meaningCountTextOf(oneRow);
 	if (meaningCountText) return meaningCountText;
-	return oneRow.description || (oneRow.version ? `version ${oneRow.version}` : '');
+	return oneRow.description || (oneRow.version ? wordingOf(explorerComponentWords.rowWords.versionTemplate, { version: oneRow.version }) : '');
 };
 
 const itemList = computed(() =>
@@ -37,21 +41,21 @@ const itemList = computed(() =>
 </script>
 
 <template>
-	<nav class="level-items" aria-label="Items on this level" data-testid="level-item-list">
-		<span class="level-items-head">On this level</span>
+	<nav class="level-items" :aria-label="listWords.navLabelText" data-testid="level-item-list">
+		<span class="level-items-head">{{ listWords.headText }}</span>
 		<ul class="level-items-list">
 			<li v-for="oneItem in itemList" :key="oneItem.stableId" class="level-item" :class="{ 'level-item-selected': oneItem.isSelected }" :data-testid="`level-item-${oneItem.stableId}`">
 				<button
 					type="button"
 					class="level-item-select"
-					:aria-label="`Select ${oneItem.displayName} (${oneItem.kindText})${oneItem.detailText ? `: ${oneItem.detailText}` : ''}`"
+					:aria-label="selectLabelOf(oneItem)"
 					:aria-pressed="oneItem.isSelected ? 'true' : 'false'"
 					:title="oneItem.detailText || oneItem.kindText"
 					@click="store.selectRow(oneItem.stableId)"
 				>
 					{{ oneItem.displayName }}
 				</button>
-				<NuxtLink v-if="oneItem.openLink" :to="oneItem.openLink" class="level-item-open" :aria-label="`Open ${oneItem.displayName}`" :title="`Open ${oneItem.displayName}`">›</NuxtLink>
+				<NuxtLink v-if="oneItem.openLink" :to="oneItem.openLink" class="level-item-open" :aria-label="openLabelOf(oneItem)" :title="openLabelOf(oneItem)">›</NuxtLink>
 			</li>
 		</ul>
 	</nav>

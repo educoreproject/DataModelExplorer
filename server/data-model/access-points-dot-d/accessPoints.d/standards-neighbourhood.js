@@ -549,7 +549,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	// ⟪meaningsClarity, Addendum A⟫ an element's meaning facts, read by THE one reader the /edc element page reads too (lib/edc-resolver/elementMeaningFacts.js), on
 	// the golden's plain rows
 	const runRowsOnGolden = (cypherText, cypherParameters, done) => neo4jDb.runQuery(cypherText, cypherParameters, done);
-	const readElementMeaningFacts = ({ elementStableId }, callback) => elementMeaningFactsFor({ mapper, runRows: runRowsOnGolden, elementStableId, readsInParallel: true }, callback);
+	const readElementMeaningFacts = ({ elementStableId, withIncomingValueCount }, callback) => elementMeaningFactsFor({ mapper, runRows: runRowsOnGolden, elementStableId, readsInParallel: true, withIncomingValueCount }, callback);
 
 	const readMeaningDomainNode = ({ stableId, remainderText }, callback) => {
 		const domainStableId = remainderText;
@@ -576,7 +576,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		// ⟪meaningsPolish⟫ the domain's meanings themselves, one row per property meaning (no property level between); ⟪meaningsClarity, Addendum A⟫ read with its
 		// own term and the meanings of other domains that name it by the one reader of an element's meaning facts, so this level and the element's /edc page agree
 		taskList.push((args, next) =>
-			readElementMeaningFacts({ elementStableId: domainStableId }, (factsError, factsAnswer) => {
+			readElementMeaningFacts({ elementStableId: domainStableId, withIncomingValueCount: true }, (factsError, factsAnswer) => {
 				if (!factsError && !factsAnswer.elementMeaningFacts.isMeaningDomain) {
 					next(`${moduleName}: no meaning names '${domainStableId}' as its domain`, args);
 					return;
@@ -592,6 +592,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			const { domainContext, declarationList, declarationAbsentName, factsAnswer } = args;
 			const { elementMeaningFacts, meaningRowsBySectionName } = factsAnswer;
+			// ⟪explorerTidy review N3⟫ a meaning row read without its value count is refused by name, through the callback
+			const countRefusal = mapper.meaningCountAbsentRefusalOf([...meaningRowsBySectionName.propertyMeanings, ...meaningRowsBySectionName.ownTerm, ...meaningRowsBySectionName.namingMeanings.itemList.map(mapper.incomingMeaningRecordOf)]);
+			if (countRefusal) {
+				callback(countRefusal);
+				return;
+			}
 			const meaningItemList = meaningRowsBySectionName.propertyMeanings.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
 			const termItemList = meaningRowsBySectionName.ownTerm.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, domainContext.standardFamily));
 			const incomingRecord = meaningRowsBySectionName.namingMeanings;
@@ -715,7 +721,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			const { cardFacts, cardTupleFacts, fanOutRecordList, expressionRecordList, valueRecord } = args;
 			const expressedInGroupList = mapper.mapMeaningExpressionGroupList({ fanOutRecordList, expressionRecordList, cardStableId });
-			const meaningItem = mapper.mapMeaningItem(cardFacts.meaningRow, cardFacts.standardFamily);
+			// ⟪explorerTidy⟫ with the count of the values it holds, which says whether it opens to anything (⟪review N3⟫ refused by name through the callback when absent)
+			const focusMeaningRecord = { ...cardFacts.meaningRow, ...(cardFacts.meaningRow.referenceTier === mapper.MEANING_PROPERTY_TIER ? { valueMeaningCount: valueRecord.itemCount, valueElementCount: valueRecord.valueElementCount } : {}) };
+			const countRefusal = mapper.meaningCountAbsentRefusalOf([focusMeaningRecord, ...valueRecord.itemList]);
+			if (countRefusal) {
+				callback(countRefusal);
+				return;
+			}
+			const meaningItem = mapper.mapMeaningItem(focusMeaningRecord, cardFacts.standardFamily);
 			const valueItemList = valueRecord.itemList.map((meaningRecord) => mapper.mapMeaningItem(meaningRecord, cardFacts.standardFamily));
 			const { tuple, tupleAbsentName, rangePartList, rangeIsIdentity, rangeDatatypeList } = cardTupleFacts;
 			callback('', {
@@ -777,7 +790,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			callback('', { stableId, meaningFactsAbsentName: MEANING_FACTS_ABSENT_NAME_LIST[0] });
 			return;
 		}
-		readElementMeaningFacts({ elementStableId: stableId }, (factsError, factsAnswer) => callback(factsError, factsError ? undefined : { stableId, meaningFacts: factsAnswer.elementMeaningFacts }));
+		readElementMeaningFacts({ elementStableId: stableId, withIncomingValueCount: false }, (factsError, factsAnswer) => callback(factsError, factsError ? undefined : { stableId, meaningFacts: factsAnswer.elementMeaningFacts }));
 	};
 
 	const readNode = ({ stableId, compareVersion }, callback) => {

@@ -20,6 +20,10 @@ import {
 	meaningCountTextOf,
 	meaningRowSubTextOf,
 	versionBadgeTextOf,
+	explorerComponentWords,
+	explorerCommonWords,
+	walkEmptyLevelVocabulary,
+	wordingOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
@@ -55,8 +59,8 @@ const drawnRowList = computed(() => {
 const hiddenRowCount = computed(() => store.levelRowList.length - drawnRowList.value.length);
 
 const diagramLabelText = computed(() => {
-	const focusName = store.focusNode ? displayNameOf(store.focusNode) : 'this level';
-	return `Bubble diagram of ${drawnRowList.value.length} of the ${store.levelRowList.length} items in ${focusName}. The same items are listed after the diagram as buttons and links, and as rows in the Table view.`;
+	const focusName = store.focusNode ? displayNameOf(store.focusNode) : explorerComponentWords.diagram.noFocusNameText;
+	return wordingOf(explorerComponentWords.diagram.canvasLabelTemplate, { drawnCount: drawnRowList.value.length, levelCount: store.levelRowList.length, focusName });
 });
 
 const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' && store.crossing ? store.crossing.homeStandardKey : null));
@@ -64,18 +68,19 @@ const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' &&
 // ================================================================================
 // THE LABEL UNDER A BUBBLE — name, then what matters about it, then its badge
 
+const rowWords = explorerComponentWords.rowWords;
 const subTextOf = (oneRow) => {
 	const subByKind = {
-		family: () => `${familyHoldingTextOf(oneRow)} · ${oneRow.classCount} classes`,
-		class: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : ''),
-		hubDomain: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : ''),
+		family: () => [familyHoldingTextOf(oneRow), wordingOf(rowWords.classCountTemplate, { classCount: oneRow.classCount })].join(rowWords.partDivider),
+		class: () => (oneRow.propertyCount ? wordingOf(rowWords.mappedOfTemplate, { mappedCount: oneRow.mappedPropertyCount, propertyCount: oneRow.propertyCount }) : ''),
+		hubDomain: () => (oneRow.propertyCount ? wordingOf(rowWords.mappedToOfTemplate, { mappedCount: oneRow.mappedPropertyCount, propertyCount: oneRow.propertyCount }) : ''),
 		hubProperty: () => hubMappedTextOf(oneRow),
-		hubAnchor: () => [oneRow.hubDomainName ? `in ${oneRow.hubDomainName}` : '', hubMappedTextOf(oneRow)].filter(Boolean).join(' · '),
-		property: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : 'not mapped'),
-		instance: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : shortText(oneRow.path, 40)),
-		standard: () => (oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : ''),
-		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
-		standardGroup: () => `${oneRow.elementCount} elements`,
+		hubAnchor: () => [oneRow.hubDomainName ? wordingOf(rowWords.inDomainTemplate, { domainName: oneRow.hubDomainName }) : '', hubMappedTextOf(oneRow)].filter(Boolean).join(rowWords.partDivider),
+		property: () => (oneRow.mapping ? [oneRow.mapping.matchKind, confidenceText(oneRow.mapping.mappingConfidence)].join(rowWords.partDivider) : rowWords.notMappedText),
+		instance: () => (oneRow.mapping ? [oneRow.mapping.matchKind, confidenceText(oneRow.mapping.mappingConfidence)].join(rowWords.partDivider) : shortText(oneRow.path, 40)),
+		standard: () => (oneRow.classCount !== undefined ? wordingOf(rowWords.classCountTemplate, { classCount: oneRow.classCount }) : ''),
+		release: () => (oneRow.versionList ? wordingOf(rowWords.versionListTemplate, { versionListText: oneRow.versionList.map((oneVersion) => oneVersion.version).join(rowWords.versionListDivider) }) : ''),
+		standardGroup: () => wordingOf(rowWords.elementCountTemplate, { elementCount: oneRow.elementCount }),
 		// ⟪meaningsExplorer⟫
 		meaningHub: () => meaningCountTextOf(oneRow),
 		meaningDomain: () => meaningCountTextOf(oneRow),
@@ -87,7 +92,7 @@ const subTextOf = (oneRow) => {
 
 const labelOf = (oneRow) => {
 	const badgeText = oneRow.versionBadge && oneRow.versionBadge.badgeState !== 'unchanged' ? versionBadgeTextOf(oneRow.versionBadge) : '';
-	const homeText = homeStandardKey.value && oneRow.standardKey === homeStandardKey.value ? 'You started here' : '';
+	const homeText = homeStandardKey.value && oneRow.standardKey === homeStandardKey.value ? explorerCommonWords.homeChipText : '';
 	return [shortText(oneRow.displayName, 40), oneRow.relationshipType === 'MAPS_TO_HUB' ? '' : subTextOf(oneRow), badgeText, homeText].filter(Boolean).join('\n');
 };
 
@@ -367,9 +372,9 @@ onMounted(() => {
 		     as named chips and links (LevelItemList.vue) -->
 		<div ref="canvasElement" class="diagram-canvas" role="img" :aria-label="diagramLabelText" data-testid="explorer-diagram" />
 		<p v-if="hiddenRowCount > 0" class="diagram-note" data-testid="diagram-sample-note">
-			Showing {{ drawnRowList.length }} of {{ store.levelRowList.length }}. The dashed bubble opens the full list in the table.
+			{{ wordingOf(explorerComponentWords.diagram.sampleNoteTemplate, { drawnCount: drawnRowList.length, levelCount: store.levelRowList.length }) }}
 		</p>
-		<p v-if="store.levelRowList.length === 0" class="diagram-note" data-testid="diagram-empty">Nothing beneath this node. This is the end of the line.</p>
+		<p v-if="store.levelRowList.length === 0" class="diagram-note" data-testid="diagram-empty">{{ walkEmptyLevelVocabulary.emptyLevelText }}</p>
 	</div>
 </template>
 

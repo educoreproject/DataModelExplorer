@@ -3,7 +3,7 @@
 // confidence as a bar plus the printed number. A 0.5 close match must never look as solid as a 0.9 exact one.
 
 import { computed } from 'vue';
-import { confidenceTierOf, matchStyleByKind } from '@/components/standardsExplorer/explorerVocabulary';
+import { confidenceTierOf, explorerComponentWords, matchStyleByKind, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	matchKind: { type: String, required: true },
@@ -26,7 +26,7 @@ const confidenceText = computed(() => (typeof props.mappingConfidence === 'numbe
 		<span class="match-kind" :style="{ color: matchStyle.color }">{{ matchKind }}</span>
 		<template v-if="showConfidence">
 			<span aria-hidden="true" class="match-bar"><span class="match-bar-fill" :style="{ width: `${Math.round((mappingConfidence || 0) * 100)}%`, background: matchStyle.color, opacity: confidenceTier.edgeOpacity }" /></span>
-			<span class="match-confidence" :aria-label="`confidence ${confidenceText}`">{{ confidenceText }}</span>
+			<span class="match-confidence" :aria-label="wordingOf(explorerComponentWords.matchSummary.confidenceLabelTemplate, { confidenceText })">{{ confidenceText }}</span>
 		</template>
 	</span>
 </template>

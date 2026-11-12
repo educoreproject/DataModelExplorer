@@ -11,11 +11,14 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { INCOMING_MEANING_RELATIONSHIP_TYPE, OWN_TERM_RELATIONSHIP_TYPE, incomingSlotTextOf, meaningExpressionTextOf, meaningValuesTextOf, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { INCOMING_MEANING_RELATIONSHIP_TYPE, OWN_TERM_RELATIONSHIP_TYPE, incomingSlotTextOf, meaningExpressionTextOf, meaningValuesTextOf, displayNameOf, familyStyleOf, explorerLinkOf, kindDisplayNameOf, meaningElementCountTextOf, meaningTupleSlotListOf, meaningsVocabulary, wordingOf, tupleAbsentTextOf, uriAbsentTextOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	meaningNode: { type: Object, required: true },
-	isFocus: { type: Boolean, required: true },
+	// ⟪explorerTidy⟫ its tuple and Expressed-in are shown when the meaning is the focus, or a selected meaning that opens to nothing whose own node has been read
+	showsFullFacts: { type: Boolean, required: true },
+	// a selected leaf meaning's read of its own node: 'loading', 'failed', 'read', or '' for none asked
+	fullFactsStateName: { type: String, required: true },
 });
 
 const store = useStandardsNeighbourhoodStore();
@@ -31,6 +34,8 @@ const tierText = computed(() => {
 
 // the tuple's slots in the server's order, each with its kind and its id in its hub's standard (⟪rosettaReportLegible⟫ explorerVocabulary's, shared with the Rosetta report)
 const tupleSlotList = computed(() => meaningTupleSlotListOf({ tuple: props.meaningNode.tuple, hubName: props.meaningNode.hubName }));
+// ⟪explorerTidy, Q97⟫ why there is no tuple, in the words the /edc page uses, never the server's name for it
+const tupleAbsentText = computed(() => (props.meaningNode.tupleAbsentName ? tupleAbsentTextOf(props.meaningNode.tupleAbsentName) : ''));
 const rangeDisclosureList = computed(() => (props.meaningNode.rangeIsIdentity === false ? props.meaningNode.rangePartList || [] : []));
 const rangeDatatypeList = computed(() => props.meaningNode.rangeDatatypeList || []);
 const datatypeText = computed(() => rangeDatatypeList.value.join(sectionWords.datatypeDivider));
@@ -49,7 +54,7 @@ const expressedInGroupList = computed(() =>
 			explorerLink: oneElement.standardsWalkPathStableIdList ? explorerLinkOf(oneElement.standardsWalkPathStableIdList) : null,
 			linkTitleText: wordingOf(sectionWords.elementLinkTitleTemplate, { elementName: oneElement.name }),
 			ownerText: oneElement.ownerName && oneElement.ownerName !== oneElement.name ? wordingOf(sectionWords.elementOwnerTemplate, { ownerName: oneElement.ownerName }) : '',
-			pathAbsentText: oneElement.standardsWalkPathAbsentName ? sectionWords.pathAbsentTextByName[oneElement.standardsWalkPathAbsentName] || oneElement.standardsWalkPathAbsentName : '',
+			pathAbsentText: oneElement.standardsWalkPathAbsentName ? sectionWords.pathAbsentTextByName[oneElement.standardsWalkPathAbsentName] || sectionWords.pathAbsentOtherText : '',
 		})),
 	})),
 );
@@ -92,17 +97,19 @@ const domainLink = computed(() => store.walkLinkOf([store.walkProfile.rootStable
 			</template>
 		</dl>
 
-		<p v-if="!isFocus" class="meaning-note" data-testid="meaning-open-note">{{ openNoteText }}</p>
+		<p v-if="!showsFullFacts && fullFactsStateName === 'loading'" class="meaning-note" data-testid="meaning-leaf-loading">{{ sectionWords.leafLoadingText }}</p>
+		<p v-else-if="!showsFullFacts && fullFactsStateName === 'failed'" class="meaning-note" data-testid="meaning-leaf-failed">{{ sectionWords.leafFailedText }}</p>
+		<p v-else-if="!showsFullFacts" class="meaning-note" data-testid="meaning-open-note">{{ openNoteText }}</p>
 
 		<template v-else>
 			<div class="meaning-box" data-testid="meaning-tuple">
 				<span class="meaning-box-head">{{ sectionWords.tupleHeadText }}</span>
-				<p v-if="meaningNode.tupleAbsentName" class="meaning-note" data-testid="meaning-tuple-absent">{{ sectionWords.tupleAbsentText }} <code>{{ meaningNode.tupleAbsentName }}</code></p>
+				<p v-if="meaningNode.tupleAbsentName" class="meaning-note" data-testid="meaning-tuple-absent">{{ tupleAbsentText }}</p>
 				<ul v-else class="meaning-slots">
 					<li v-for="oneSlot in tupleSlotList" :key="oneSlot.slotName" class="meaning-slot" :data-testid="`meaning-slot-${oneSlot.slotName}`">
 						<span class="meaning-slot-name">{{ oneSlot.slotLabel }}</span>
 						<a v-if="oneSlot.uri" :href="oneSlot.uri" target="_blank" rel="noopener" class="meaning-slot-label">{{ oneSlot.label }}</a>
-						<span v-else class="meaning-slot-label" :title="oneSlot.uriAbsentReason">{{ oneSlot.label }}</span>
+						<span v-else class="meaning-slot-label" :title="uriAbsentTextOf(oneSlot.uriAbsentReason)" :data-uri-absent-reason="oneSlot.uriAbsentReason">{{ oneSlot.label }}</span>
 						<span class="meaning-slot-kind" data-testid="meaning-slot-detail">{{ oneSlot.detailText }}</span>
 						<!-- ⟪meaningsClarity Addendum C #6⟫ the part's URI as visible text, as the Rosetta report prints it -->
 						<span v-if="oneSlot.uri" class="meaning-slot-uri" data-testid="meaning-slot-uri">{{ oneSlot.uri }}</span>
