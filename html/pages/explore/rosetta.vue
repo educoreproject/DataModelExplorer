@@ -100,6 +100,7 @@ onUnmounted(() => store.stopPolling());
 	<v-container>
 		<h1 class="text-h4 mb-2">{{ rosettaPageWords.pageTitle }}</h1>
 		<p class="mb-2">{{ rosettaPageWords.introText }}</p>
+		<p class="mb-2" data-testid="rosetta-description-hint"><strong>{{ rosettaPageWords.descriptionHintText }}</strong></p>
 		<details class="mb-2" data-testid="rosetta-how-it-works">
 			<summary>{{ rosettaPageWords.howItWorksHeading }}</summary>
 			<ol class="mt-2 ml-6">

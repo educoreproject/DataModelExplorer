@@ -7,6 +7,8 @@ const TEMPLATE_SLOT_PATTERN = /\{([A-Za-z]+)\}/g;
 export const rosettaPageWords = Object.freeze({
 	pageTitle: 'Rosetta',
 	introText: 'Paste your fields: plain lines (a name, or a name and its description), a table copied from a spreadsheet, a field list, a JSON Schema or a JSON-LD @context. A model then reads each field against each hub\'s meanings and proposes the one it expresses. You need no account; signed in, you may send more fields.',
+	// TQ 2026-11-12 (Q104): a field given by name alone gives the search little to go on ('classes a student takes' put the right card 32nd; one sentence of description put it 10th)
+	descriptionHintText: 'Give each field a one-sentence description if you can. A name alone gives the search little to go on, and a short description often decides whether the right meaning is found.',
 	// TQ 2026-11-12: how Rosetta finds a match, in his words (LANGUOROUS_SOIREE). Each step's subList is shown indented under it.
 	howItWorksHeading: 'How Rosetta finds a match',
 	howItWorksStepList: Object.freeze([
