@@ -289,15 +289,6 @@ export const meaningsVocabulary = Object.freeze({
 	countedNounTemplate: '{countText} {nounText}',
 	countPartDivider: ' · ',
 	hubHoldingTemplate: '{domainCountText} · {meaningCountText}',
-	domainOwnTermText: '+ its own term',
-	domainHoldingTemplate: '{meaningCountText} {ownTermText}',
-	// ⟪review S6⟫ a domain no property meaning names: its only meaning is its own term
-	domainOwnTermOnlyText: 'its own term only',
-	// ⟪meaningsClarity⟫ a domain's meanings from other domains (they name it as their range), counted apart from its own: "4 meanings + its own term + 1 from another domain"
-	incomingNoun: Object.freeze({ one: 'from another domain', other: 'from other domains' }),
-	domainOwnTermBesideIncomingText: 'its own term',
-	domainIncomingAddedTemplate: '+ {incomingCountText}',
-	domainHoldingPartDivider: ' ',
 	// ⟪meaningsClarity⟫ a property meaning that holds value meanings says so ("48 values inside"); one whose values are mapped though it is not says that too
 	valueNoun: Object.freeze({ one: 'value', other: 'values' }),
 	valuesInsideTemplate: '{valueCountText} inside',
@@ -307,7 +298,6 @@ export const meaningsVocabulary = Object.freeze({
 	incomingDomainTemplate: 'in {domainName}',
 	incomingSlotTemplate: 'names this as its {slotText}',
 	incomingSlotWordDivider: ' and ',
-	expressedTemplate: '{countText} expressed in other standards',
 	meaningExpressionTemplate: '{elementCountText} map here',
 	meaningExpressionOneTemplate: '{elementCountText} maps here',
 	meaningUnexpressedText: 'nothing maps here',
@@ -755,22 +745,9 @@ const countedNounTextOf = (countValue, nounEntry) => wordingOf(meaningsVocabular
 const meaningCountTextReaderByKind = {
 	meaningHub: (hubRow) =>
 		wordingOf(meaningsVocabulary.hubHoldingTemplate, { domainCountText: countedNounTextOf(hubRow.domainCount, meaningsVocabulary.domainNoun), meaningCountText: countedNounTextOf(hubRow.meaningCount, meaningsVocabulary.meaningNoun) }),
-	meaningDomain: (domainRow) => {
-		const meaningCountText = countedNounTextOf(domainRow.meaningCount, meaningsVocabulary.meaningNoun);
-		// ⟪meaningsClarity⟫ the meanings of other domains that name it, apart from its own (an answer older than them lists none, and says none)
-		const incomingMeaningCount = domainRow.incomingMeaningCount || 0;
-		const ownHoldingText = !domainRow.termMeaningCount
-			? meaningCountText
-			: domainRow.meaningCount
-				? wordingOf(meaningsVocabulary.domainHoldingTemplate, { meaningCountText, ownTermText: meaningsVocabulary.domainOwnTermText })
-				: incomingMeaningCount
-					? meaningsVocabulary.domainOwnTermBesideIncomingText
-					: meaningsVocabulary.domainOwnTermOnlyText;
-		const incomingText = incomingMeaningCount ? wordingOf(meaningsVocabulary.domainIncomingAddedTemplate, { incomingCountText: countedNounTextOf(incomingMeaningCount, meaningsVocabulary.incomingNoun) }) : '';
-		const holdingText = [ownHoldingText, incomingText].filter(Boolean).join(meaningsVocabulary.domainHoldingPartDivider);
-		const expressedText = domainRow.mappedMeaningCount ? wordingOf(meaningsVocabulary.expressedTemplate, { countText: countTextOf(domainRow.mappedMeaningCount) }) : '';
-		return [holdingText, expressedText].filter(Boolean).join(meaningsVocabulary.countPartDivider);
-	},
+	// TQ 2026-11-12: a domain's row says one number, the meanings its level lists (its own, its own term, and those of other domains that name it), so the count
+	// matches the next page; what the meanings are is said on that page, not here
+	meaningDomain: (domainRow) => countedNounTextOf(domainRow.meaningCount + (domainRow.termMeaningCount || 0) + (domainRow.incomingMeaningCount || 0), meaningsVocabulary.meaningNoun),
 };
 // what a hub's or a domain's row holds, in words; any other row holds no meanings to count
 export const meaningCountTextOf = (meaningGroupRow) => {

@@ -148,7 +148,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		ok('opening it goes to that meaning in its own domain (C200157), not below C200159', JSON.stringify(incomingDrillPath) === JSON.stringify(['meanings:all', 'meaningHub:CEDS', 'meaningDomain:https://w3id.org/CEDStandards/terms/C200157', incomingRow.stableId]), JSON.stringify(incomingDrillPath));
 		const ownRow = store.levelRowList.find((oneRow) => oneRow.relationshipType === 'HAS_MEANING');
 		ok('opening one of its own meanings goes one step below this level', JSON.stringify(store.drillPathOf(ownRow.stableId)) === JSON.stringify([...domainPath, ownRow.stableId]));
-		ok('the level counts it apart from the domain\'s own meanings', vocabulary.meaningCountTextOf(store.focusNode) === '4 meanings + its own term + 1 from another domain · 3 expressed in other standards', vocabulary.meaningCountTextOf(store.focusNode));
+		ok('the level says one number, the meanings it lists: 4 of its own, its own term, 1 from another domain (TQ 2026-11-12)', vocabulary.meaningCountTextOf(store.focusNode) === '6 meanings', vocabulary.meaningCountTextOf(store.focusNode));
 
 		console.log('\n=== 5. values ===');
 		const valueHolderRow = store.levelRowList.find((oneRow) => oneRow.name === 'Has Accessibility Feature Type');
