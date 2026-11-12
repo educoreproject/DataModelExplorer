@@ -283,8 +283,8 @@ export const meaningsVocabulary = Object.freeze({
 	meaningKindPluralText: 'EDC meanings',
 
 	// TQ 2026-11-12: the table's button and the breadcrumb name what the next level shows: a hub lists its domains, a domain its meanings, a meaning its values
-	openTextByFocusKind: Object.freeze({ meaningHub: 'Show Meanings', meaningDomain: 'Show Values' }),
-	openLabelTemplateByFocusKind: Object.freeze({ meaningHub: 'Show the meanings of {itemName}', meaningDomain: 'Show the values of {itemName}' }),
+	openTextByFocusKind: Object.freeze({ meaningCatalog: 'Show Domains', meaningHub: 'Show Meanings', meaningDomain: 'Show Values' }),
+	openLabelTemplateByFocusKind: Object.freeze({ meaningCatalog: 'Show the domains of {itemName}', meaningHub: 'Show the meanings of {itemName}', meaningDomain: 'Show the values of {itemName}' }),
 	// TQ 2026-11-12: the meanings tables count two things in two columns: what a row contains (meanings, values) and the mappings to it
 	containsColumnTitle: 'Contains',
 	mappingColumnTitle: 'Mappings',
@@ -762,6 +762,8 @@ const meaningCountTextReaderByKind = {
 	// matches the next page; what the meanings are is said on that page, not here
 	meaningDomain: (domainRow) => countedNounTextOf(meaningTotalCountOf(domainRow), meaningsVocabulary.meaningNoun),
 };
+// a bare count in the walk's number format ('14,889'), for a column of numbers
+export const countFormattedTextOf = (countValue) => countTextOf(countValue);
 // a count and its noun ('16 values'), for a level whose walk profile names what its rows are (focusCountNounByKind)
 export const focusCountTextOf = (countValue, nounEntry) => countedNounTextOf(countValue, nounEntry);
 // what a hub's or a domain's row holds, in words; any other row holds no meanings to count
@@ -1066,6 +1068,8 @@ export const walkProfileByName = Object.freeze({
 		rowWalkPathFieldName: 'meaningsWalkPathStableIdList',
 		// TQ 2026-11-12: a hub's level lists classes only, so Kind and Detail say nothing a click on the row does not; each level's button names what it opens
 		levelTableByFocusKind: Object.freeze({
+			// the hubs: every row is a hub, so Kind says nothing; Detail is each hub's full name
+			meaningCatalog: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind']), openText: meaningsVocabulary.openTextByFocusKind.meaningCatalog, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningCatalog }),
 			meaningHub: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind', 'infoText']), openText: meaningsVocabulary.openTextByFocusKind.meaningHub, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningHub }),
 			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze(['kind']), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
 			// a meaning's values contain nothing, so its level has no Contains column

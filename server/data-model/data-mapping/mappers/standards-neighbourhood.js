@@ -516,19 +516,19 @@ const moduleFunction =
 				cypher: `
 					CALL {
 						MATCH (card:HubReference)-[:${hubSlotEdgeTypeList(hubNameList, 'DOMAIN').join('|')}]->(domain:ForgedNode) WHERE card.referenceTier = $propertyTier
-						RETURN card.hubName AS cardHubName, domain, count(card) AS domainMeaningCount
+						RETURN card.hubName AS cardHubName, domain, count(card) AS domainMeaningCount, sum(${cardMappedElementCountTextFor('card')}) AS domainMappingCount
 						UNION ALL
 						MATCH (termCard:HubReference)-[:${hubSlotEdgeTypeList(hubNameList, 'TERM').join('|')}]->(domain:ForgedNode)
 						WHERE termCard.referenceTier = $termTier AND termCard.termKind IN $termKindList
-						RETURN termCard.hubName AS cardHubName, domain, 0 AS domainMeaningCount
+						RETURN termCard.hubName AS cardHubName, domain, 0 AS domainMeaningCount, sum(${cardMappedElementCountTextFor('termCard')}) AS domainMappingCount
 					}
-					WITH cardHubName, count(DISTINCT domain) AS domainCount, sum(domainMeaningCount) AS domainMeaningCount
-					WITH collect({ hubName: cardHubName, domainCount: domainCount, domainMeaningCount: domainMeaningCount }) AS hubTotalList
+					WITH cardHubName, count(DISTINCT domain) AS domainCount, sum(domainMeaningCount) AS domainMeaningCount, sum(domainMappingCount) AS domainMappingCount
+					WITH collect({ hubName: cardHubName, domainCount: domainCount, domainMeaningCount: domainMeaningCount, domainMappingCount: domainMappingCount }) AS hubTotalList
 					MATCH (hub:HubDefinition)
 					OPTIONAL MATCH (hubRoot:DmeStandardRoot {_source: hub._source})
 					WITH hub, head(collect(hubRoot)) AS hubRoot, head([oneTotal IN hubTotalList WHERE oneTotal.hubName = hub.hubName]) AS hubTotal
 					RETURN hub.hubName AS hubName, coalesce(hub.displayName, hub.name, hub.hubName) AS hubTitle, hubRoot.standardFamily AS standardFamily, hubRoot.version AS version,
-					       coalesce(hubTotal.domainCount, 0) AS domainCount, coalesce(hubTotal.domainMeaningCount, 0) AS domainMeaningCount
+					       coalesce(hubTotal.domainCount, 0) AS domainCount, coalesce(hubTotal.domainMeaningCount, 0) AS domainMeaningCount, coalesce(hubTotal.domainMappingCount, 0) AS domainMappingCount
 					ORDER BY hubName
 				`,
 				params: { propertyTier: MEANING_PROPERTY_TIER, termTier: MEANING_TERM_TIER, termKindList: [...meaningTermKindByLevel.meaningDomain] },
@@ -1292,6 +1292,8 @@ const moduleFunction =
 			// ⟪meaningsPolish⟫ what its next level shows: its domains, and the property meanings they hold (the sum of the domains' meaningCount)
 			domainCount: hubRecord.domainCount,
 			meaningCount: hubRecord.domainMeaningCount,
+			// TQ 2026-11-12: the mappings its domains' rows add up to (the same rule as each domain's mappingCount)
+			mappingCount: hubRecord.domainMappingCount,
 			hasChildren: hubRecord.domainCount > 0,
 			...(hubRecord.version ? { version: hubRecord.version } : {}),
 		});

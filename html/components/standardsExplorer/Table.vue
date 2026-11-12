@@ -5,7 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf, meaningTotalCountOf, focusCountTextOf, meaningsVocabulary, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf, meaningTotalCountOf, focusCountTextOf, countFormattedTextOf, meaningsVocabulary, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -54,7 +54,7 @@ const countOf = (oneRow) => {
 	return countReader ? countReader() : { countValue: null, countText: '' };
 };
 // the Mappings column (a walk that names one): how many elements of other standards map to a row, the server's own count of it
-const mappingValueByKind = { meaningDomain: (oneRow) => oneRow.mappingCount, meaning: (oneRow) => oneRow.elementCount };
+const mappingValueByKind = { meaningHub: (oneRow) => oneRow.mappingCount, meaningDomain: (oneRow) => oneRow.mappingCount, meaning: (oneRow) => oneRow.elementCount };
 const mappingOf = (oneRow) => (mappingValueByKind[oneRow.kind] ? mappingValueByKind[oneRow.kind](oneRow) ?? null : null);
 
 const isAnchorLevel = computed(() => store.focusNode?.kind === 'hubAnchor');
@@ -70,7 +70,7 @@ const tableRowList = computed(() =>
 			countValue: countValue ?? -1,
 			countText,
 			mappingValue: mappingOf(oneRow) ?? -1,
-			mappingText: mappingOf(oneRow) === null ? '' : String(mappingOf(oneRow)),
+			mappingText: mappingOf(oneRow) === null ? '' : countFormattedTextOf(mappingOf(oneRow)),
 			matchKind: matchKind || '',
 			confidenceValue: oneRow.mapping ? oneRow.mapping.mappingConfidence : -1,
 			badgeOrder: oneRow.versionBadge ? { new: 0, changed: 1, unchanged: 2 }[oneRow.versionBadge.badgeState] : 3,
