@@ -24,14 +24,10 @@
 // day's spend read from the ledger, plus the worst case of every call in flight and of this one, may not pass interpreterDailyCeilingUsd (interpretSpendCeiling). The output
 // budget is sized from the input, so a small text that goes wrong costs little; a cut answer is refused and its spend ledgered.
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
-const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const interpreterSettings = require('./rosettaInterpreterSettings.json');
 const { reasonOf } = require('./rosettaReasonWords');
+const { createGuardedModelCall, buildForgeModelParts, PROVIDER_NAME_ANTHROPIC, GUARD_REFUSAL_BUSY, GUARD_REFUSAL_SPEND_CEILING } = require('./rosettaGuardedModelCall');
 
-const PROVIDER_NAME_ANTHROPIC = 'anthropic';
 const STOP_REASON_MAX_TOKENS = 'max_tokens';
 const INTEGER_SETTING_NAME_LIST = Object.freeze(['interpreterOutputTokenBudget', 'interpreterOutputTokenFloor', 'interpreterOutputTokensPerLine', 'interpreterMaxInputChars', 'interpreterMaxInputLines', 'interpreterMaxLineChars', 'interpreterMaxAttempts', 'interpreterMaxInFlight']);
 const POSITIVE_NUMBER_SETTING_NAME_LIST = Object.freeze(['interpreterOutputTokensPerInputChar', 'interpreterDailyCeilingUsd']);
@@ -41,9 +37,7 @@ const LINE_BREAK_PATTERN = /\r\n|\r|\n/;
 const BUSY_RETRY_SECONDS = 5;
 // the prompt's own words, around the text, in tokens: an upper bound, so the worst-case estimate is never under the bill
 const PROMPT_OVERHEAD_TOKENS = 1000;
-const UNBILLED_VENDOR_ERROR_PATTERN = new RegExp(interpreterSettings.unbilledVendorErrorPattern);
 const PROMPT_MARKER_PATTERN = new RegExp(interpreterSettings.promptMarkerPattern, 'gi');
-const LEDGER_RECIPE_NAME_LIST = Object.freeze([interpreterSettings.ledgerRecipeName, interpreterSettings.ledgerUnansweredRecipeName]);
 
 const rosettaInterpreterValuesOf = (judgeConfigValues) => {
 	const badSettingList = [
@@ -175,8 +169,16 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 	const systemPrompt = interpreterSettings.systemPromptLineList.join('\n');
 	const interpretedBy = { provider: PROVIDER_NAME_ANTHROPIC, model: forcedToolClient.wireModel };
 	const refusalOf = (refusedByName, refusalName, reason, extraFields = {}) => ({ refusedByName, refusalName, reason, ...extraFields });
-	let inFlightCount = 0;
-	let reservedUsd = 0; // the worst case of every call in flight, counted against the day's ceiling until its real spend is ledgered
+	const guardedModelCall = createGuardedModelCall({
+		guardValues: { maxInFlight: interpreterValues.interpreterMaxInFlight, dailyCeilingUsd: interpreterValues.interpreterDailyCeilingUsd, maxAttempts: interpreterValues.interpreterMaxAttempts, spendLedgerFilePath: interpreterValues.spendLedgerFilePath },
+		ledgerNaming: { recipeName: interpreterSettings.ledgerRecipeName, unansweredRecipeName: interpreterSettings.ledgerUnansweredRecipeName, bridgeName: interpreterSettings.ledgerBridgeName, pairName: interpreterSettings.ledgerPairName, storeDirName: interpreterSettings.ledgerStoreDirName },
+		ownerName: 'rosettaInterpreter',
+		forcedToolClient,
+		spendPricer,
+		spendRecordLib,
+		spendLedgerLib,
+		nowMs,
+	});
 
 	// the size caps, in characters, in lines and in one line's characters; an empty text is refused before anything is sent
 	const inputRefusalFor = ({ pastedText, refusedByName }) => {
@@ -197,51 +199,10 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 		return null;
 	};
 
-	const utcDayTextOf = (anyMs) => new Date(anyMs).toISOString().slice(0, 10);
-	// today's interpret spend, read from the ledger: every process that writes it is counted, and a restart forgets nothing. No ledger file yet is no spend yet.
-	const spentTodayUsd = (done) => fs.readFile(interpreterValues.spendLedgerFilePath, 'utf8', (readError, ledgerText) => {
-		if (readError) {
-			done(readError.code === 'ENOENT' ? '' : `rosettaInterpreter: the spend ledger would not read: ${readError.code}`, 0);
-			return;
-		}
-		const todayText = utcDayTextOf(nowMs());
-		const lineList = ledgerText.split('\n').filter((lineText) => lineText.trim() !== '' && lineText.includes(todayText));
-		const parsedLineList = lineList.map((lineText) => {
-			try { // a parse guard, not control flow: a line that is not JSON makes the day's spend unknown, which refuses below
-				return JSON.parse(lineText);
-			} catch (parseError) {
-				return null;
-			}
-		});
-		if (parsedLineList.includes(null)) {
-			done('rosettaInterpreter: the spend ledger holds a line that is not JSON, so today\'s spend is unknown');
-			return;
-		}
-		done('', parsedLineList.filter((oneLine) => LEDGER_RECIPE_NAME_LIST.includes(oneLine.recipeName) && String(oneLine.buildStartedAtIso).startsWith(todayText)).reduce((soFar, oneLine) => soFar + oneLine.usd, 0));
-	});
-
-	// one line in the lifetime ledger the judge writes to, built by the forge's own spend record and totals. The pasted text never reaches it: the stamp is a hash of a fresh id.
-	const writeLedger = ({ recipeName, spendCallList, latencyMs }, done) => {
-		const recordMade = spendRecordLib.judgeSpendRecordFor({ judgeName: PROVIDER_NAME_ANTHROPIC, judgeModel: forcedToolClient.wireModel, spendCallList, latencyMs, cacheHit: false, isDebugClient: false, spendPricer });
-		if (recordMade.error) {
-			done(`rosettaInterpreter: the spend would not price: ${recordMade.error}`);
-			return;
-		}
-		const judgeSpend = { asked: spendCallList.length, servedFromCache: 0, abstained: 0, ...spendRecordLib.judgeSpendTotalsWith({ judgeSpend: spendRecordLib.JUDGE_SPEND_TOTAL_SEED, spendRecord: recordMade.spendRecord }) };
-		const ledgerMade = spendLedgerLib.spendLedgerFor({
-			recipeName,
-			buildRunStamp: crypto.createHash('sha256').update(crypto.randomBytes(16)).digest('hex').slice(0, 16),
-			buildStartedAtIso: new Date(nowMs()).toISOString(),
-			storeDirPath: interpreterSettings.ledgerStoreDirName,
-			bridgeSpendList: [{ bridgeName: interpreterSettings.ledgerBridgeName, pairKey: interpreterSettings.ledgerPairName, judgeSpend }],
-			embeddingSpendRecordList: [],
-			spendPricer,
-		});
-		if (ledgerMade.error) {
-			done(`rosettaInterpreter: the spend would not ledger: ${ledgerMade.error}`);
-			return;
-		}
-		spendLedgerLib.appendLifetimeSpendLedger({ lifetimeLedgerFilePath: interpreterValues.spendLedgerFilePath, spendLedger: ledgerMade.spendLedger }, (appendError) => done(appendError ? `rosettaInterpreter: the spend would not ledger: ${appendError}` : '', recordMade.spendRecord.usd));
+	// the guard's two refusals, in the interpreter's own names and words
+	const guardRefusalByName = {
+		[GUARD_REFUSAL_BUSY]: ({ refusedByName, inFlightCount }) => refusalOf(refusedByName, 'interpretBusy', reasonOf('interpretBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS }), { retryAfterSeconds: BUSY_RETRY_SECONDS }),
+		[GUARD_REFUSAL_SPEND_CEILING]: ({ refusedByName }) => refusalOf(refusedByName, 'interpretSpendCeiling', reasonOf('interpretSpendCeiling', { ceilingUsd: interpreterValues.interpreterDailyCeilingUsd })),
 	};
 
 	const interpretText = ({ pastedText, refusedByName }, done) => {
@@ -250,87 +211,36 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 			done('', inputRefusal);
 			return;
 		}
-		if (inFlightCount >= interpreterValues.interpreterMaxInFlight) {
-			done('', refusalOf(refusedByName, 'interpretBusy', reasonOf('interpretBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS }), { retryAfterSeconds: BUSY_RETRY_SECONDS }));
-			return;
-		}
 		const maxTokens = outputTokenBudgetFor({ interpreterValues, pastedText });
-		const worstCaseCall = { provider: PROVIDER_NAME_ANTHROPIC, model: forcedToolClient.wireModel, inputTokens: pastedText.length + PROMPT_OVERHEAD_TOKENS, outputTokens: maxTokens };
-		const worstCasePrice = spendPricer.usdFor(worstCaseCall);
-		if (worstCasePrice.error) {
-			done(`rosettaInterpreter: judgeModelUnpriced: ${worstCasePrice.error}`);
-			return;
-		}
-		// held from here, before the ledger is read, so two calls that arrive together cannot both pass the ceiling
-		inFlightCount += 1;
-		reservedUsd += worstCasePrice.usd;
-		const finishWith = (finishError, finishAnswer) => {
-			inFlightCount -= 1;
-			reservedUsd -= worstCasePrice.usd;
-			done(finishError, finishAnswer);
-		};
-		const startedAtMs = nowMs();
-		const taskList = new taskListPlus();
-		const stopWith = (args, next, refusal) => next('skipRestOfPipe', { ...args, refusal });
-
-		taskList.push((args, next) => spentTodayUsd((readError, spentUsd) => {
-			if (readError) {
-				next(readError, args);
-				return;
-			}
-			const committedUsd = spentUsd + reservedUsd; // reservedUsd already holds this call's worst case
-			if (committedUsd > interpreterValues.interpreterDailyCeilingUsd) {
-				stopWith(args, next, refusalOf(refusedByName, 'interpretSpendCeiling', reasonOf('interpretSpendCeiling', { ceilingUsd: interpreterValues.interpreterDailyCeilingUsd })));
-				return;
-			}
-			next('', args);
-		}));
-
-		taskList.push((args, next) => forcedToolClient.callForcedTool({
+		guardedModelCall.callGuarded({
 			systemPrompt,
 			userPrompt: interpreterSettings.userPromptTemplate.replace(interpreterSettings.pastedTextPlaceholder, () => pastedText.replace(PROMPT_MARKER_PATTERN, interpreterSettings.promptMarkerReplacement)),
 			tool: interpreterSettings.tool,
 			maxTokens,
-			maxRetries: interpreterValues.interpreterMaxAttempts,
-		}, (callError, called) => {
-			if (!callError) {
-				next('', { ...args, called });
+			worstCaseInputTokens: pastedText.length + PROMPT_OVERHEAD_TOKENS,
+		}, (callError, outcome) => {
+			if (callError) {
+				done(callError);
 				return;
 			}
-			// a failure the vendor may still have billed is ledgered at its worst case, so the ceiling counts it; then the call fails
-			if (UNBILLED_VENDOR_ERROR_PATTERN.test(String(callError))) {
-				next(`rosettaInterpreter: the model call failed: ${callError}`, args);
+			if (outcome.guardRefusalName) {
+				done('', guardRefusalByName[outcome.guardRefusalName]({ refusedByName, inFlightCount: outcome.inFlightCount }));
 				return;
 			}
-			writeLedger({ recipeName: interpreterSettings.ledgerUnansweredRecipeName, spendCallList: Array.from({ length: interpreterValues.interpreterMaxAttempts }, () => worstCaseCall), latencyMs: nowMs() - startedAtMs }, (ledgerError) => next(`rosettaInterpreter: the model call failed: ${callError}${ledgerError ? `; and ${ledgerError}` : ''}`, args));
-		}));
-
-		taskList.push((args, next) => writeLedger({ recipeName: interpreterSettings.ledgerRecipeName, spendCallList: args.called.spendCallList, latencyMs: nowMs() - startedAtMs }, (ledgerError, usd) => next(ledgerError, { ...args, usd })));
-
-		pipeRunner(taskList.getList(), {}, (pipeError, args) => {
-			if (pipeError === 'skipRestOfPipe') {
-				finishWith('', args.refusal);
-				return;
-			}
-			if (pipeError) {
-				finishWith(pipeError);
-				return;
-			}
-			const { called, usd } = args;
-			const elapsedMs = nowMs() - startedAtMs;
+			const { called, usd, elapsedMs } = outcome;
 			if (called.toolInput === null) {
 				xLog.error(`rosettaInterpreter: no fields read (stopReason ${called.stopReason}, budget ${maxTokens}); ${usd.toFixed(6)} USD spent`);
 				const wasCut = called.stopReason === STOP_REASON_MAX_TOKENS;
-				finishWith('', refusalOf(refusedByName, 'noFieldsFound', reasonOf(wasCut ? 'interpretAnswerCut' : 'interpretNoFieldList')));
+				done('', refusalOf(refusedByName, 'noFieldsFound', reasonOf(wasCut ? 'interpretAnswerCut' : 'interpretNoFieldList')));
 				return;
 			}
 			const { keptFieldList, droppedFieldCount, droppedFailureList, offeredCount } = checkedFieldsOf({ pastedText, toolInput: called.toolInput });
 			xLog.status(`rosettaInterpreter: ${offeredCount} offered, ${keptFieldList.length} kept, ${droppedFieldCount} dropped (${droppedFailureList.join(', ') || 'none'}), budget ${maxTokens}, ${usd.toFixed(6)} USD, ${elapsedMs} ms`);
 			if (keptFieldList.length === 0) {
-				finishWith('', refusalOf(refusedByName, 'noFieldsFound', offeredCount === 0 ? reasonOf('interpretFoundNone') : reasonOf('interpretNoneVerbatim', { offeredCount }), { droppedFieldCount }));
+				done('', refusalOf(refusedByName, 'noFieldsFound', offeredCount === 0 ? reasonOf('interpretFoundNone') : reasonOf('interpretNoneVerbatim', { offeredCount }), { droppedFieldCount }));
 				return;
 			}
-			finishWith('', {
+			done('', {
 				fieldList: keptFieldList,
 				droppedFieldCount,
 				unusedLineCount: unusedLineCountOf({ pastedText, keptFieldList }),
@@ -340,11 +250,11 @@ const createRosettaInterpreter = ({ interpreterValues, forcedToolClient, spendPr
 		});
 	};
 
-	return { interpretText, interpreterFacts: { ...interpretedBy, maxInputChars: interpreterValues.interpreterMaxInputChars, maxInputLines: interpreterValues.interpreterMaxInputLines }, inFlightState: () => ({ inFlightCount, reservedUsd }) };
+	return { interpretText, interpreterFacts: { ...interpretedBy, maxInputChars: interpreterValues.interpreterMaxInputChars, maxInputLines: interpreterValues.interpreterMaxInputLines }, inFlightState: guardedModelCall.inFlightState };
 };
 
 // ================================================================================
-// ASSEMBLY: the forge's own client, prices, spend record and ledger, as the judge uses them
+// ASSEMBLY: the forge's own client, prices, spend record and ledger, as the judge uses them (rosettaGuardedModelCall.buildForgeModelParts)
 
 const buildRosettaInterpreter = ({ judgeConfigValues, forgeAdapter, nowMs, xLog }, callback) => {
 	const valuesRead = rosettaInterpreterValuesOf(judgeConfigValues || {});
@@ -353,46 +263,13 @@ const buildRosettaInterpreter = ({ judgeConfigValues, forgeAdapter, nowMs, xLog 
 		return;
 	}
 	const { interpreterValues } = valuesRead;
-	if (forgeAdapter.refusalText) {
-		callback({ refusalText: `the forge is not open: ${forgeAdapter.refusalText}` });
-		return;
-	}
-	const judgeModules = forgeAdapter.loadJudgeModules();
-	if (judgeModules.error) {
-		callback({ refusalText: judgeModules.error });
-		return;
-	}
-	if (!judgeModules.spendRecordLib || typeof judgeModules.spendRecordLib.judgeSpendRecordFor !== 'function') {
-		callback({ refusalText: 'the forge adapter gives no spendRecordLib, which the interpreter ledgers its spend with' });
-		return;
-	}
-	const pricing = judgeModules.loadSpendPricing({ pricingFilePath: interpreterValues.spendPricingFilePath });
-	if (pricing.error) {
-		callback({ refusalText: `the interpreter's prices would not read: ${pricing.error.message || pricing.error}` });
-		return;
-	}
-	const made = judgeModules.createLlmClient({ configFilePath: interpreterValues.anthropicConfigFilePath, wireModel: interpreterValues.interpreterWireModel });
-	if (made.error) {
-		callback({ refusalText: made.error });
-		return;
-	}
-	const forcedToolClient = made.judgeClient;
-	if (typeof forcedToolClient.callForcedTool !== 'function') {
-		callback({ refusalText: 'the forge\'s llmClient has no callForcedTool (it arrives with educoreForge feat/llmForcedTool); the interpreter is off' });
-		return;
-	}
-	const priceRead = pricing.spendPricer.priceRowFor({ provider: PROVIDER_NAME_ANTHROPIC, model: forcedToolClient.wireModel });
-	if (priceRead.error) {
-		callback({ refusalText: `the interpreter's model ${forcedToolClient.wireModel} is refused as unpriced: ${priceRead.error.message || priceRead.error}` });
-		return;
-	}
-	// the ledger will not create a home for itself; the judge makes the same directory
-	fs.mkdir(path.dirname(interpreterValues.spendLedgerFilePath), { recursive: true }, (mkdirError) => {
-		if (mkdirError) {
-			callback({ refusalText: `the interpreter's spend ledger has no home at ${interpreterValues.spendLedgerFilePath}: ${mkdirError.code}` });
+	buildForgeModelParts({ forgeAdapter, wireModel: interpreterValues.interpreterWireModel, anthropicConfigFilePath: interpreterValues.anthropicConfigFilePath, spendPricingFilePath: interpreterValues.spendPricingFilePath, spendLedgerFilePath: interpreterValues.spendLedgerFilePath, ownerLabel: 'the interpreter' }, (partsBuilt) => {
+		if (partsBuilt.refusalText) {
+			callback({ refusalText: partsBuilt.refusalText });
 			return;
 		}
-		callback({ rosettaInterpreter: createRosettaInterpreter({ interpreterValues, forcedToolClient, spendPricer: pricing.spendPricer, spendRecordLib: judgeModules.spendRecordLib, spendLedgerLib: judgeModules.spendLedgerLib, nowMs, xLog }) });
+		const { forcedToolClient, spendPricer, spendRecordLib, spendLedgerLib } = partsBuilt.forgeModelParts;
+		callback({ rosettaInterpreter: createRosettaInterpreter({ interpreterValues, forcedToolClient, spendPricer, spendRecordLib, spendLedgerLib, nowMs, xLog }) });
 	});
 };
 

@@ -69,6 +69,28 @@ export const rosettaPageWords = Object.freeze({
 	undoKeepButton: 'Keep my edits',
 	undoDiscardButton: 'Undo',
 
+	// ⟪rosettaDownloadAll⟫ DOWNLOAD ALL (TQ 2026-11-12: "a button that downloads all the tabs into files"): one zip, one file a tab, named by a model or by a stand-in
+	downloadAllButton: 'Download all',
+	downloadAllBusyText: 'Gathering every page of the report and the prompts into one zip…',
+	downloadAllSavedTemplate: 'Saved as {zipFileName}.',
+	// the name the model gave could not be used: the stand-in is said as one, with why (the reason words end the sentence)
+	downloadAllStandInSavedTemplate: 'Saved as {zipFileName}, a stand-in name: {reasonText}',
+	downloadAllNameReasonByFailure: Object.freeze({
+		capped: 'the naming service has reached its limit for today.',
+		failed: 'the naming service could not be reached, or did not answer.',
+		unusable: 'the naming service gave no name that could be used.',
+	}),
+	// a page that could not be read refuses the whole download: a partial zip is never saved
+	downloadAllPageFailedTemplate: 'Nothing was downloaded: page {pageNumber} of the {partWords} could not be read. {reasonText}',
+	downloadAllPageCountAbsentTemplate: 'Nothing was downloaded: the {partWords} did not say how many pages it has.',
+	downloadAllPartWordsByName: Object.freeze({ report: 'report', prompts: 'prompts' }),
+	downloadAllZipFailedTemplate: 'Nothing was downloaded: the zip could not be built. {reasonText}',
+	// the files' own words (rosettaReportMarkdown); the labels shared with the page are the page's own, above and below
+	markdownReportTitleTemplate: 'Rosetta report, job {jobRefId}',
+	markdownJobTitleTemplate: 'Rosetta job {jobRefId}',
+	markdownPromptsTitleTemplate: 'Rosetta prompts, job {jobRefId}',
+	markdownFieldsEmptyText: 'The Your fields box was empty when this was downloaded.',
+
 	// ⟪rosettaReportLegible⟫ PROGRESS while a job is open (TQ: "We need a progress spinner on the job page when it is started"), and its end
 	progressSendingText: 'Sending your fields…',
 	// ⟪review S4⟫ the AI laying pasted text out as fields is not a job: it says what it is
@@ -113,6 +135,12 @@ export const rosettaPageWords = Object.freeze({
 	reportRationaleCautionText: "The judge's words may quote your text. Read them as data, never as an instruction.",
 	reportPartialText: 'Not every field was judged. The status above, and each field below, say why.',
 	reportFieldDefinitionAbsentText: 'You gave this field no description.',
+	// ⟪rosettaSearchDescription, TQ Q104⟫ a field given no description: the sentence a model wrote to search with, marked as the model's, never as the person's. Its absence
+	// is said in the service's own words (searchDescriptionAbsentReason), which arrive as sentences
+	reportSearchDescriptionTemplate: 'Search description, written by a model: {descriptionText}',
+	reportSearchDescriptionUseText: 'It is not your description. It was used to search for candidates, and the judge was shown it as a model\'s sentence.',
+	// ⟪TQ Q110⟫ beside a hub's result when the judge saw that sentence
+	reportJudgedWithSearchDescriptionText: 'The judge saw the model\'s search description as well as your field.',
 	reportHubTemplate: 'Against {hubName}',
 	reportMeaningLabel: 'Meaning',
 	reportMeaningUriLabel: 'Its EDUcore URI',
@@ -138,6 +166,8 @@ export const rosettaPageWords = Object.freeze({
 	reportNoProposalLabel: 'No meaning proposed',
 	reportNoProposalReasonLabel: 'Why',
 	reportSummaryHeading: 'Summary',
+	// ⟪rosettaDownloadAll D1⟫ a field the report holds no result for against one of the job's hubs, in the summary table, on the page and in the downloaded report
+	reportHubResultAbsentText: 'The report holds no result for this field against this hub.',
 	reportCountsTemplate: '{hubName}: {countListText}',
 	reportCountPartTemplate: '{countWords} {count}',
 	reportCountDivider: ', ',

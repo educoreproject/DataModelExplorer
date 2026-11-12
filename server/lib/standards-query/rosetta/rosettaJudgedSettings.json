@@ -6,7 +6,9 @@
 		"CEDS": { "forgeBundleName": "ceds", "hubBridgingModuleName": "cedsHubBridging" },
 		"CTDL": { "forgeBundleName": "ctdl", "hubBridgingModuleName": "ctdlHubBridging" }
 	},
-	"subjectRenderingAllowList": ["name", "path", "description", "dataType"],
+	"_searchDescriptionSubjectComment": "TQ Q110 (2026-11-12): the judge SEES a field's search description, only when the person gave the field no description, as its own subject line, never as the field's description. It rides the subject allow-list (searchDescription); its value begins with searchDescriptionSubjectPrefix, so the line says whose words it is. A field with a description of its own never has the line, so its prompt is byte-identical to before; the line is in the rendered prompt, so it is in promptHash and a judgment with it never shares a cache entry with one without it.",
+	"subjectRenderingAllowList": ["name", "path", "description", "dataType", "searchDescription"],
+	"searchDescriptionSubjectPrefix": "written by a model from the field's name, not by the person: ",
 	"judgePredicateRule": "judgeSlot-v1",
 	"_rendererVersionPrefixComment": "P7b (TQ Q66): every forge renderer version begins with this (educoreForge lib/bridge-framework/evidenceRenderer.js, RENDERER_VERSION and its siblings). The fetch answer's using.promptVersion is a unit's recorded rendererVersion less this prefix; a version without it is named rendererVersionUnrecognised, never shown raw.",
 	"rendererVersionPrefix": "bridgeEvidenceRenderer-",

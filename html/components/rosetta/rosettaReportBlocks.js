@@ -4,6 +4,7 @@
 //
 //   fieldBlockListOf({ report, expressionByMeaningUri }) → one block per field sent: its name, its definition, and one hub block per hub (a proposal, or why none)
 //   countLineListOf(counts) → the summary's count lines, one per hub, in words
+//   summaryRowListOf({ fieldList, hubNameList }) → the summary table's rows: field, hub, result words, the judge's words; a missing hub said in words
 //   proposedMeaningUriListOf(report) → the distinct meanings the shown page proposes (each is asked of the Meanings answer until it is counted, for its expressed-in count)
 //   meaningReadPlanOf(meaningUriList) → which of them one read asks, within rosettaPageSettings' limit, and the reason the rest give
 //   meaningNodeStableIdOf(meaningUri) → the Meanings walk's id for that meaning (a hub card's stableId IS its meaning URI: server/lib/standards-query/uriMinter.js)
@@ -76,6 +77,7 @@ const proposalBlockOf = ({ hubName, oneResult, expressionByMeaningUri }) => {
 		...strengthOf(proposal.category),
 		relationText: relationTextOf(proposal.predicate),
 		rationaleText: oneResult.judgesRationale || '',
+		judgedWithSearchDescriptionText: oneResult.judgedWithSearchDescription ? rosettaPageWords.reportJudgedWithSearchDescriptionText : '',
 		expressedText: expressedTextOf(expressionByMeaningUri[proposal.uri]),
 		// ⟪review N3, S3⟫ the link to the elements only where some map; a failed read offers to try again
 		showsExpressedLink: Boolean(expressionByMeaningUri[proposal.uri] && expressionByMeaningUri[proposal.uri].expressionCount),
@@ -103,7 +105,16 @@ const noProposalBlockOf = ({ hubName, oneResult, reportJob }) => {
 		notJudgedReasonText,
 		whyText: [statusText, notJudgedReasonText].filter(Boolean).join(rosettaPageWords.endedPartDivider),
 		rationaleText: oneResult.judgesRationale || '',
+		judgedWithSearchDescriptionText: oneResult.judgedWithSearchDescription ? rosettaPageWords.reportJudgedWithSearchDescriptionText : '',
 	};
+};
+
+// ⟪rosettaSearchDescription⟫ the model's search description for a field given none, marked as the model's; or the service's words for why there is none; or nothing
+const searchDescriptionTextOf = (oneField) => {
+	if (oneField.searchDescription) {
+		return wordsOf(rosettaPageWords.reportSearchDescriptionTemplate, { descriptionText: oneField.searchDescription.descriptionText });
+	}
+	return oneField.searchDescriptionAbsentReason || '';
 };
 
 // ⟪P7a⟫ a field's results are a resultList, each naming its hub, in the job's hub order
@@ -111,13 +122,42 @@ export const fieldBlockListOf = ({ report, expressionByMeaningUri }) =>
 	report.fieldList.map((oneField) => ({
 		requestName: oneField.requestName,
 		definitionText: oneField.requestDefinition || rosettaPageWords.reportFieldDefinitionAbsentText,
+		searchDescriptionText: searchDescriptionTextOf(oneField),
+		hasSearchDescription: Boolean(oneField.searchDescription),
 		hubBlockList: oneField.resultList.map((oneResult) =>
 			oneResult.proposal ? proposalBlockOf({ hubName: oneResult.hub, oneResult, expressionByMeaningUri }) : noProposalBlockOf({ hubName: oneResult.hub, oneResult, reportJob: report.job }),
 		),
 	}));
 
+// ⟪TQ Q102⟫ a note whose sentence ends in a colon introduces a list: the sentences up to that one lead, and each sentence after it is one item. A note with no such
+// sentence is all lead. The words are the service's own (strongEvidenceNote); only where they break is read here.
+const NOTE_SENTENCE_BREAK_PATTERN = /(?<=[.:])\s+(?=[A-Z])/;
+export const noteLeadAndItemsOf = (noteText) => {
+	const sentenceList = String(noteText || '').split(NOTE_SENTENCE_BREAK_PATTERN);
+	const colonIndex = sentenceList.findIndex((oneSentence) => oneSentence.endsWith(':'));
+	if (colonIndex === -1 || colonIndex === sentenceList.length - 1) {
+		return { leadText: String(noteText || ''), itemList: [] };
+	}
+	return { leadText: sentenceList.slice(0, colonIndex + 1).join(' '), itemList: sentenceList.slice(colonIndex + 1) };
+};
+
 // ⟪rosettaLoginPolish #5⟫ the summary table's result cell: the strength and the meaning, or why there is none, in the same words as the blocks above it
 export const summaryResultTextOf = (oneResult) => (oneResult.proposal ? `${strengthOf(oneResult.proposal.category).strengthWords}${rosettaPageWords.summaryResultDivider}${oneResult.proposal.label}` : noProposalStatusTextOf(oneResult));
+
+// ⟪rosettaDownloadAll D1⟫ the summary table's rows, one per field per hub of the job, for the page and for the downloaded report alike. A hub a field has no result
+// for says so in words; it is never read through (the page's table once threw on it)
+export const summaryRowListOf = ({ fieldList, hubNameList }) =>
+	fieldList.flatMap((oneField) =>
+		hubNameList.map((hubName) => {
+			const oneResult = oneField.resultList.find((result) => result.hub === hubName);
+			return {
+				requestName: oneField.requestName,
+				hubName,
+				resultText: oneResult ? summaryResultTextOf(oneResult) : rosettaPageWords.reportHubResultAbsentText,
+				rationaleText: oneResult && oneResult.judgesRationale ? oneResult.judgesRationale : '',
+			};
+		}),
+	);
 
 export const proposedMeaningUriListOf = (report) => [...new Set(report.fieldList.flatMap((oneField) => oneField.resultList.filter((oneResult) => oneResult.proposal).map((oneResult) => oneResult.proposal.uri)))];
 // ⟪ROMANTIC_PARASOL⟫ the Meanings answers one shown page may ask, at most (rosettaPageSettings); the rest of the page's meanings say so, by the limit, never a count

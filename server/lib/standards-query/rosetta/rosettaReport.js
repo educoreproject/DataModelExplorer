@@ -2,7 +2,7 @@
 
 // rosettaReport — what a job's rows become: the report across all hubs, and one draft @context per hub (design 4.4). Pure: rows in, answer out.
 //
-//   reportOf({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) → the fetch answer. rowDetail full pages its fieldList; summary is shaped from the whole by answerSummaries.
+//   reportOf({ job, submission, describedList, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) → the fetch answer. rowDetail full pages its fieldList; summary is shaped from the whole by answerSummaries.
 //   usingOf({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) → the answer's using block: which prompt version judged, the provider and model, what this job spent, and whether it came wholly from the cache.
 //   promptVersionFieldsOf({ judgmentRowList }) → { promptVersion } | { promptVersionList } | { promptVersionAbsentName }: the renderer version the job's judged units recorded, its common prefix stripped (TQ Q66).
 //   ownerJobFactsOf({ job, spentUsd, unitsFinished }) → what the owner is told of a job, in status and in the report.
@@ -16,6 +16,7 @@ const { judgedSettings } = require('./rosettaJudgeEngine');
 const { absentOf } = require('./hubElementIdentity');
 const { tupleAbsentOf } = require('../hubCardTuple');
 const { DETAIL_LEAN, DETAIL_AUDIT, DETAIL_LIST } = require('./rosettaAnswerDetail');
+const { searchDescriptionFieldsOf, searchDescriptionAbsentOf, isBareField } = require('./rosettaSearchDescriber');
 
 if (typeof judgedSettings.rendererVersionPrefix !== 'string' || judgedSettings.rendererVersionPrefix === '') {
 	throw new Error('rosettaReport: rosettaJudgedSettings.json must give rendererVersionPrefix, the prefix every forge renderer version carries');
@@ -168,9 +169,21 @@ const usingOf = ({ job, spentUsd, judgmentRowList, judgeCallCount, detail }) => 
 	};
 };
 
-const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) => {
+// ⟪rosettaSearchDescription⟫ describedList is what the runner wrote when the job started (jobStore.readSearchDescribedList), or null before it has: a bare field then says
+// searchDescriptionPending. The description sits beside the person's field, under its own name, and never in requestDefinition.
+const describedOfField = ({ describedList, oneField, fieldIndex }) => {
+	if (describedList) {
+		return describedList[fieldIndex];
+	}
+	return isBareField(oneField) ? searchDescriptionAbsentOf('searchDescriptionPending') : undefined;
+};
+
+const reportOf = ({ job, submission, describedList, judgmentRowList, spentUsd, answerNoteValues, pageNumber, pageSize, rowDetail, detail, answeredFromNow }) => {
 	if (!DETAIL_LIST.includes(detail)) {
 		throw new Error(`rosettaReport: detail must be one of ${DETAIL_LIST.join(', ')} (got ${JSON.stringify(detail)}); the registry row declares the default`);
+	}
+	if (describedList !== null && !Array.isArray(describedList)) {
+		throw new Error(`rosettaReport: describedList must be the job's stored list, or null before the job has started (got ${JSON.stringify(describedList)})`);
 	}
 	const isAudit = detail === DETAIL_AUDIT;
 	const { fieldList, submissionNote } = submission;
@@ -181,6 +194,7 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		...(oneField.path === undefined ? {} : { requestPath: oneField.path }),
 		...(oneField.definition === undefined ? {} : { requestDefinition: oneField.definition }),
 		...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
+		...searchDescriptionFieldsOf(describedOfField({ describedList, oneField, fieldIndex })),
 		...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
 		resultList: job.hubNameList.map((hubName) => resultOf({ hubName, oneRow: rowByUnitName.get(`${fieldIndex}\u0000${hubName}`), stoppedReason, isAudit })),
 	}));
@@ -198,6 +212,7 @@ const reportOf = ({ job, submission, judgmentRowList, spentUsd, answerNoteValues
 		...(isAudit ? { job: ownerJobFactsOf({ job, spentUsd, unitsFinished: judgmentRowList.length }), judge: job.judgeFacts } : {}),
 		fieldList: isFullDetail ? reportedFieldList.slice((pageNumber - 1) * pageSize, pageNumber * pageSize) : reportedFieldList,
 		draftNote: answerNoteValues.draftNote,
+		...(fieldList.some(isBareField) ? { searchDescriptionNote: answerNoteValues.searchDescriptionNote } : {}),
 		...(isAudit ? { strongOnlyNote: answerNoteValues.strongOnlyNote, strongEvidenceNote: answerNoteValues.strongEvidenceNote, rationaleNote: answerNoteValues.rationaleNote } : {}),
 		draftContextByHub,
 		...(leftOutTermList.length ? { leftOutOfDraftList: leftOutTermList } : {}),

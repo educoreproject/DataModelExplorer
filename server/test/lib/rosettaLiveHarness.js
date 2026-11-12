@@ -22,6 +22,7 @@ const { createStandardsQueryCore } = require('../../lib/standards-query/standard
 const { createRosettaRetrieval, rosettaFuseValuesOf } = require('../../lib/standards-query/rosetta/rosettaRetrieval');
 const { createStrangerVectorStore } = require('../../lib/standards-query/rosetta/strangerVectorStore');
 const { assembleRosettaJudged } = require('../../lib/standards-query/rosetta/assembleRosettaJudged');
+const { searchDescriberAbsentOf } = require('../../lib/standards-query/rosetta/rosettaSearchDescriber');
 const registry = require('../../lib/standards-query/standardsQueryOperations.json');
 
 const CONFIG_DIR_PATH = path.join(__dirname, '..', '..', '..', '..', 'configs', 'instanceSpecific', 'qbook');
@@ -55,7 +56,8 @@ const qbookConfigOf = () => {
 	return configFileProcessor.getConfig('startApiServer.ini', CONFIG_DIR_PATH, { resolve: true });
 };
 
-const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, judgePromptVariant = 'derivedJudgeSlot', waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate, judgedOffAllowed, quietRunner } = {}, done) => {
+// ⟪rosettaSearchDescription⟫ searchDescriber: the describer retrieval and the runner use. Unnamed, it is off (describerOff), as the graph-text embedder can embed only the graph's own texts.
+const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOverrideValues = {}, embedder, storeFilePath, searchDescriber = searchDescriberAbsentOf('describerOff'), runCypher = runCypherQuery, vendorPostOnce, judgeConfigValues, judgePromptVariant = 'derivedJudgeSlot', waitMilliseconds, wrapJudgeModules, nowDate: suppliedNowDate, judgedOffAllowed, quietRunner } = {}, done) => {
 	// ⟪rosettaMeanings⟫ EDUCORE_FORGE_CODE_PATH points the forge adapter at a forge worktree (a variant the shared checkout does not carry yet); unset, the config's checkout
 	const edcConfigValues = { ...DIRECT_BLOCK_CONFIG_VALUES, ...qbookConfigOf()['edc-resolver'], ...(process.env.EDUCORE_FORGE_CODE_PATH ? { educoreForgeCodePath: process.env.EDUCORE_FORGE_CODE_PATH } : {}) };
 	dmeSearchModule.loadModuleConfig((configError, dmeModuleConfig) => {
@@ -96,7 +98,7 @@ const openHarness = ({ fuseOverrideValues = {}, limitOverrideValues = {}, doorOv
 				return;
 			}
 			const usedEmbedder = embedder || graphTextEmbedderFor({ goldenHandle, callLog: embedCallLog });
-			const rosettaRetrieval = createRosettaRetrieval({ fuseValues: fuseRead.fuseValues, strangerVectorStore, embedder: usedEmbedder, forgeRetrievalModules: forgeAdapter.retrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
+			const rosettaRetrieval = createRosettaRetrieval({ fuseValues: fuseRead.fuseValues, strangerVectorStore, embedder: usedEmbedder, forgeRetrievalModules: forgeAdapter.retrievalModules, searchDescriber, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf: neo4jDriver.int, nowDate, xLog });
 			const usageCountList = [];
 			if (vendorPostOnce) {
 				fs.writeFileSync(path.join(scratchDirPath, 'fakeAnthropic.ini'), FAKE_VENDOR_INI_TEXT);

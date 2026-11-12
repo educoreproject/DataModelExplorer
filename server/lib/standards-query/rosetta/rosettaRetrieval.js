@@ -3,10 +3,11 @@
 // rosettaRetrieval — POST rosetta/retrieval and rosetta_retrieve: a submission in, pools per field per hub out (design 4.1 to 4.3, 4.9). Nothing is judged and the judge is never reached: this module cannot reach it. The fuse is separate from search's (design 4.2): its own token ceiling, its own in-flight count, and tripping it never touches search's vector leg, because search's counting embedder is not the one used here.
 //
 //   rosettaFuseValuesOf(configValues) → { fuseValues } | { refusalText }
-//   retrievalAnswerOf({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, facts, fuseValues, detail }) → the answer (pure; detail lean | audit)
-//   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
-//     → { runRetrieval({ withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), hubRowListFor({ withReadSession, serviceFacts }, done(err, hubRowList)), stats() }
-//   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
+//   retrievalAnswerOf({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, describedList, facts, fuseValues, detail }) → the answer (pure; detail lean | audit)
+//   createRosettaRetrieval({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, searchDescriber, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog })
+//     searchDescriber (rosettaSearchDescriber) is required, off or on: a field sent with no definition gets its search description as a second text, and the runner reads it here too
+//     → { runRetrieval({ withReadSession, serviceFacts, input, principal, detail, namedSubjectList, answerNoteValues }, done(err, { answer, retryAfterSeconds? })), retrieveCandidates(...), hubRowListFor({ withReadSession, serviceFacts }, done(err, hubRowList)), searchDescriber, stats() }
+//   retrieveCandidates({ session, serviceFacts, queryTextList: [name, definition?, searchDescription?], target }, done(err, { refusal } | { candidateList, poolSize, admittedCount, cosineRankOneOutsidePool?, target, embeddingModelVersion, status })): hitsPerText, minScore and k are the fuse's values, read once
 //
 // WHERE A STRANGER'S TEXT GOES: to the embedding vendor, to become a vector, and into the answer it was sent for. Never to a log (an embedding failure logs the vendor's status, not its body), never to Neo4j (a vector goes, which is why the keyword leg is not fused: it would put the text in a query parameter), never to usageCounts (the hubs are counted, and no URI: a pool is what the service said, not what anyone asked). In the store: its sha256 and vector, with no text.
 
@@ -18,6 +19,8 @@ const { parseFieldList } = require('./parsers/fieldListParser');
 const { parseJsonSchema } = require('./parsers/jsonSchemaParser');
 const { parseJsonLdContext } = require('./parsers/jsonLdContextParser');
 const { DETAIL_LIST, DETAIL_AUDIT } = require('./rosettaAnswerDetail');
+const { searchDescriptionFieldsOf, isBareField } = require('./rosettaSearchDescriber');
+const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
 
 const moduleName = 'rosettaRetrieval';
 const OPERATION_NAME = 'rosettaRetrieval';
@@ -43,9 +46,14 @@ const SUBMISSION_FORM_LIST = Object.freeze([
 // ⟪P7b, TQ Q67b⟫ THE ANSWER, in fetch's words: a field is named as it was sent (requestName, requestPath, requestDefinition, requestType) and holds resultList, one
 // item per hub naming its hub, each the pool as it was made. detail is fetch's (ROMANTIC_PARASOL Q-A, Q-C, 2026-11-09): lean (the default, declared in the registry)
 // leaves the whole-answer counts out; audit gives them back, fieldCount and poolCountList, a list naming each hub. Pure: arguments in, answer out.
-const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, facts, fuseValues, detail }) => {
+// ⟪rosettaSearchDescription⟫ a field sent with no description carries searchDescription (the model's sentence, by its model) or searchDescriptionAbsent (why there is none),
+// added fields beside the person's own and never in them; the answer says once what a search description is (searchDescriptionNote)
+const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetName, fieldVectorList, describedList, facts, fuseValues, detail }) => {
 	if (!DETAIL_LIST.includes(detail)) {
 		throw new Error(`${moduleName}: detail must be one of ${DETAIL_LIST.join(', ')} (got ${JSON.stringify(detail)}); the registry row declares the default`);
+	}
+	if (!Array.isArray(describedList) || describedList.length !== parsed.fieldList.length) {
+		throw new Error(`${moduleName}: describedList must hold one entry per field (undefined for a field with a definition), as searchDescriber.describeFieldList answers; got ${Array.isArray(describedList) ? `${describedList.length} for ${parsed.fieldList.length} fields` : JSON.stringify(describedList)}`);
 	}
 	const isAudit = detail === DETAIL_AUDIT;
 	return {
@@ -54,6 +62,7 @@ const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetNam
 		hubList: hubRowList.map((oneHub) => oneHub.hubName),
 		nothingJudgedNote: facts.nothingJudgedNote,
 		rankNote: facts.rankNote,
+		...(parsed.fieldList.some(isBareField) ? { searchDescriptionNote: facts.searchDescriptionNote } : {}),
 		retrievalSetting: { hitsPerText: fuseValues.hitsPerText, minCosine: fuseValues.minScore, poolCap: fuseValues.poolCap, tier: TIER_OFFERED },
 		fieldList: parsed.fieldList.map((oneField, fieldIndex) => {
 			const { fieldRefId } = fieldVectorList[fieldIndex];
@@ -63,6 +72,7 @@ const retrievalAnswerOf = ({ submissionForm, parsed, hubRowList, poolByTargetNam
 				...(oneField.definition === undefined ? {} : { requestDefinition: oneField.definition }),
 				...(oneField.type === undefined ? {} : { requestType: oneField.type }),
 				...(oneField.definitionAbsent ? { definitionAbsent: true } : {}),
+				...searchDescriptionFieldsOf(describedList[fieldIndex]),
 				...(oneField.valueTierNotOffered ? { valueTierNotOffered: true } : {}),
 				// judgedViewLength is the judge's business (hubHybrid), never the answer's: the pool's shape is the same for every kind
 				resultList: hubRowList.map(({ hubName }) => { const { judgedViewLength, ...onePool } = poolByTargetName[hubName][fieldRefId]; return { hub: hubName, ...onePool }; }),
@@ -134,14 +144,19 @@ const eachInTurn = (itemList, workOnOne, done) => {
 	runNext(0);
 };
 
-// one row per distinct text of a field: the same words as name and as definition are one text and one vote, as a forge text node serving two properties is
-const fieldTextListOf = (oneField) => {
+// one row per distinct text of a field: the same words as name and as definition are one text and one vote, as a forge text node serving two properties is.
+// ⟪rosettaSearchDescription⟫ a field with no definition may carry a search description, the model's sentence: a text of its own role, so a card it reaches says so in admittedBy
+const SEARCH_DESCRIPTION_TEXT_ROLE = 'searchDescription';
+const fieldTextListOf = (oneField, searchDescriptionText) => {
 	const textRoleListByText = new Map();
-	[['name', oneField.name], ['definition', oneField.definition]].filter(([, textValue]) => textValue).forEach(([textRole, textValue]) => textRoleListByText.set(textValue, [...(textRoleListByText.get(textValue) || []), textRole]));
+	[['name', oneField.name], ['definition', oneField.definition], [SEARCH_DESCRIPTION_TEXT_ROLE, searchDescriptionText]].filter(([, textValue]) => textValue).forEach(([textRole, textValue]) => textRoleListByText.set(textValue, [...(textRoleListByText.get(textValue) || []), textRole]));
 	return [...textRoleListByText.entries()].map(([textValue, textRoleList]) => ({ textValue, textHash: textHashOf(textValue), textRoleList }));
 };
 
-const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog }) => {
+const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, forgeRetrievalModules, searchDescriber, runCypher, checkGraphEmbeddingContract, neo4jIntegerOf, nowDate, xLog }) => {
+	if (!searchDescriber || typeof searchDescriber.describeFieldList !== 'function') {
+		throw new Error(`${moduleName}: createRosettaRetrieval needs searchDescriber (rosettaSearchDescriber.buildRosettaSearchDescriber answers one, off or on)`);
+	}
 	const { candidateRetrievalLib, hubEdgeType, dmeRoles } = forgeRetrievalModules;
 	const baseRoleByBaseKind = Object.keys(BASE_ROLE_BY_KIND_FROM_VOCABULARY).reduce((soFar, baseKind) => ({ ...soFar, [baseKind]: dmeRoles[BASE_ROLE_BY_KIND_FROM_VOCABULARY[baseKind]] }), {});
 	const parserLimitValues = fuseValues;
@@ -297,19 +312,22 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 
 	const submissionFormOf = (input) => SUBMISSION_FORM_LIST.filter((oneForm) => input[oneForm.inputName] !== undefined);
 
-	const finished = (done) => (doneError, doneResult) => {
-		inFlightCount -= 1;
-		done(doneError, doneResult);
-	};
-
 	// THE ONE DOOR-INDEPENDENT RUN. Every cap here holds on MCP, which has no per-address limiter.
-	const runRetrieval = ({ withReadSession, serviceFacts, input, detail, namedSubjectList, answerNoteValues }, callback) => {
-		if (inFlightCount >= fuseValues.retrievalInFlightMax) {
-			callback('', { answer: refusalOf('busy', reasonOf('retrievalBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS })), retryAfterSeconds: BUSY_RETRY_SECONDS });
+	// ⟪rosettaSearchDescription review S4⟫ the slot is taken AFTER the search describer has answered: a model call never holds retrieval's slot (retrievalInFlightMax), and
+	// the registry row holds its own cap (holdsOwnInFlightCap), so it never holds a core slot either. Parsing, the graph's facts and the hub check come first, so a
+	// request refused by any of them spends nothing.
+	const runRetrieval = ({ withReadSession, serviceFacts, input, principal, detail, namedSubjectList, answerNoteValues }, callback) => {
+		if (!principal || typeof principal.kind !== 'string') {
+			callback(`${moduleName}: runRetrieval needs the caller's principal, whose kind picks the search describer's pot`);
 			return;
 		}
-		inFlightCount += 1;
-		const done = finished(callback);
+		let holdsSlot = false;
+		const done = (doneError, doneResult) => {
+			if (holdsSlot) {
+				inFlightCount -= 1;
+			}
+			callback(doneError, doneResult);
+		};
 		const taskList = new taskListPlus();
 		const stopWith = (args, next, refusal) => next(SKIP_REST_OF_PIPE, { ...args, refusal });
 
@@ -357,8 +375,23 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 			next('', { ...args, askedHubRowList });
 		});
 
+		// ⟪rosettaSearchDescription⟫ every bare field described, each in a call of its own, from the caller's pot; it never fails the request, and a field it could not
+		// describe says why. No slot is held while it runs.
+		taskList.push((args, next) => searchDescriber.describeFieldList({ fieldList: args.parsed.fieldList, isAnonymous: principal.kind === ANONYMOUS_PRINCIPAL_KIND }, (describeError, described) => (describeError ? next(describeError, args) : next('', { ...args, describedList: described.describedList }))));
+
 		taskList.push((args, next) => {
-			const fieldTextRowList = args.parsed.fieldList.map((oneField, fieldIndex) => ({ fieldRefId: `field${fieldIndex}`, textRowList: fieldTextListOf(oneField) }));
+			if (inFlightCount >= fuseValues.retrievalInFlightMax) {
+				next(SKIP_REST_OF_PIPE, { ...args, refusal: refusalOf('busy', reasonOf('retrievalBusy', { inFlightCount, retryAfterSeconds: BUSY_RETRY_SECONDS })), retryAfterSeconds: BUSY_RETRY_SECONDS });
+				return;
+			}
+			inFlightCount += 1;
+			holdsSlot = true;
+			next('', args);
+		});
+
+		taskList.push((args, next) => {
+			const searchDescriptionTextOf = (fieldIndex) => (args.describedList[fieldIndex] && args.describedList[fieldIndex].searchDescription ? args.describedList[fieldIndex].searchDescription.descriptionText : undefined);
+			const fieldTextRowList = args.parsed.fieldList.map((oneField, fieldIndex) => ({ fieldRefId: `field${fieldIndex}`, textRowList: fieldTextListOf(oneField, searchDescriptionTextOf(fieldIndex)) }));
 			const distinctTextRowByHash = new Map(fieldTextRowList.flatMap((oneRow) => oneRow.textRowList).map((oneRow) => [oneRow.textHash, oneRow]));
 			vectorsForTextRowList({ distinctTextRowList: [...distinctTextRowByHash.values()], embeddingModelVersion: args.graphFacts.embeddingModelVersion }, (vectorError, vectorRead) => {
 				if (vectorError) {
@@ -385,11 +418,11 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 				return;
 			}
 			if (args.refusal) {
-				done('', { answer: args.refusal });
+				done('', { answer: args.refusal, ...(args.retryAfterSeconds ? { retryAfterSeconds: args.retryAfterSeconds } : {}) });
 				return;
 			}
 			args.askedHubRowList.forEach(({ hubName }) => namedSubjectList.push({ subjectKind: 'hub', subjectText: hubName }));
-			done('', { answer: retrievalAnswerOf({ submissionForm: args.submissionForm, parsed: args.parsed, hubRowList: args.askedHubRowList, poolByTargetName: args.poolByTargetName, fieldVectorList: args.fieldVectorList, facts: answerNoteValues, fuseValues, detail }) });
+			done('', { answer: retrievalAnswerOf({ submissionForm: args.submissionForm, parsed: args.parsed, hubRowList: args.askedHubRowList, poolByTargetName: args.poolByTargetName, fieldVectorList: args.fieldVectorList, describedList: args.describedList, facts: answerNoteValues, fuseValues, detail }) });
 		});
 	};
 
@@ -419,7 +452,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 				return;
 			}
 			const resolvedTarget = HUB_TARGET_KIND_LIST.includes(target.kind) ? { ...target, sourceName: graphFacts.hubRowList.find((oneHub) => oneHub.hubName === target.hubName).sourceName } : target;
-			const textRowList = fieldTextListOf({ name: queryTextList[0], definition: queryTextList[1] });
+			const textRowList = fieldTextListOf({ name: queryTextList[0], definition: queryTextList[1] }, queryTextList[2]);
 			vectorsForTextRowList({ distinctTextRowList: textRowList, embeddingModelVersion: graphFacts.embeddingModelVersion, tokenAccountName, onTokensCharged }, (vectorError, vectorRead) => {
 				if (vectorError) {
 					done(vectorError);
@@ -448,7 +481,7 @@ const createRosettaRetrieval = ({ fuseValues, strangerVectorStore, embedder, for
 		done('', graphFacts.hubRowList);
 	});
 
-	return { runRetrieval, retrieveCandidates, hubRowListFor, hubTargetKind: fuseValues.hubTargetKind, stats: () => ({ ...retrievalStats, inFlightCount }) };
+	return { runRetrieval, retrieveCandidates, hubRowListFor, searchDescriber, hubTargetKind: fuseValues.hubTargetKind, stats: () => ({ ...retrievalStats, inFlightCount }) };
 };
 
 module.exports = { createRosettaRetrieval, rosettaFuseValuesOf, retrievalAnswerOf, SUBMISSION_FORM_LIST, HUB_TARGET_KIND_LIST };

@@ -15,7 +15,7 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { useDmeStandardListStore } from '@/stores/dmeStandardListStore';
 import { dmeExamplePromptList } from '@/data/dmeExamplePromptList';
 import { useRouter, useRoute } from 'vue-router';
-import axios from 'axios';
+import { useAiFilename } from '@/composables/useAiFilename';
 
 const LoginStore = useLoginStore();
 const route = useRoute();
@@ -113,21 +113,8 @@ onMounted(() => {
 	router.replace({ path: route.path, query: remainingQuery });
 });
 
-// AI-powered filename generation for download button
-const generateAiFilename = async (snippet) => {
-	const prompt = `Given this content, suggest a short camelCase filename (no extension, max 40 chars). Reply with ONLY the filename, nothing else.\n\n${snippet}`;
-	try {
-		const response = await axios.post(
-			'/api/askmilo-utility',
-			{ prompt, model: 'haiku' },
-			{ headers: { ...LoginStore.getAuthTokenProperty } },
-		);
-		return response.data.response;
-	} catch (err) {
-		console.warn('[explorer] AI filename generation failed:', err);
-		return null;
-	}
-};
+// AI-powered filename generation for download button (the shared Haiku call, composables/useAiFilename.js)
+const { generateAiFilename } = useAiFilename({ getAuthHeaders: () => ({ ...LoginStore.getAuthTokenProperty }), warnLabel: 'explorer' });
 
 // Fallback prompt options (used if server doesn't provide availablePrompts)
 const fallbackPromptOptions = [

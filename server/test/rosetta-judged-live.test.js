@@ -354,17 +354,21 @@ gate('G4.6', (done) => {
 	const vendor = fakeJudgeVendorFor();
 	withHarness({ vendorPostOnce: vendor.postOnce, nowDate: () => new Date(Date.now() + offsetMs) }, (harness, close) => {
 		const ask = askFor(harness);
-		ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, () => harness.rosettaJudged.sweepNow((sweepBefore, deletedBefore) => {
+		// ⟪rosettaSearchDescription review S2⟫ a search description written now, by the job store's own clock: it must go on the same day as the job's rows
+		const seedSearchDescription = (seeded) => harness.strangerVectorStore.storeHandle.run('INSERT INTO searchDescriptionCache (descriptionRefId, descriptionText, writtenAtMs) VALUES (?, ?, ?)', ['g46SeededRefId', 'A sentence a model wrote.', Date.now()], seeded);
+		ask('rosettaSubmit', { fieldList: fieldListOf(1), hubList: ['CEDS'] }, USER_A, ({ answer: submitted }) => untilClosed(ask, submitted.jobRefId, USER_A, () => seedSearchDescription(() => harness.rosettaJudged.sweepNow((sweepBefore, deletedBefore) => harness.rosettaJudged.jobStore.rowCounts((unusedCountError, rowCountBefore) => {
 			ok('G4.6: a job inside its days is not swept', deletedBefore.length === 0);
+			ok('G4.6: its search descriptions row and a fresh cached sentence are kept inside their days', rowCountBefore.submissionSearchDescriptions === 1 && rowCountBefore.searchDescriptionCache === 1, JSON.stringify(rowCountBefore));
 			offsetMs = 31 * MILLISECONDS_PER_DAY;
 			harness.rosettaJudged.sweepNow((sweepError, deletedList) => harness.rosettaJudged.jobStore.rowCounts((countError, rowCount) => ask('rosettaFetch', { jobRefId: submitted.jobRefId }, USER_A, (expiredAnswer) => {
 				ok('G4.6: a job past its days is deleted', JSON.stringify(deletedList) === JSON.stringify([submitted.jobRefId]), sweepError);
 				ok('G4.6: and named in the log', harness.logLineList.some((oneLine) => oneLine.includes(`deleted job ${submitted.jobRefId}`)));
 				ok('G4.6: its fetch is notFound', expiredAnswer.answer.refusalName === 'notFound');
 				ok('G4.6: submission, judgments, bill, prompts and cache rows go with it', rowCount.submissions === 0 && rowCount.judgments === 0 && rowCount.judgeCalls === 0 && rowCount.rosettaForensics === 0 && rowCount.rosettaJudgmentCache === 0, JSON.stringify(rowCount));
+				ok('G4.6: and its search descriptions, and every cached sentence past jobRetentionDays (rosettaSearchDescription review S2)', rowCount.submissionSearchDescriptions === 0 && rowCount.searchDescriptionCache === 0, JSON.stringify(rowCount));
 				close();
 			})));
-		})));
+		})))));
 	}, done);
 });
 
@@ -580,7 +584,7 @@ gate('G4.11', (done) => {
 			ok('G4.11: says a submitted text goes to the vendor', /go to Anthropic/.test(submitEntry.whatHappensToYourText));
 			ok('G4.11: the vendor sentence quotes the terms', /"Anthropic may not train models on Customer Content from Services\."/.test(submitEntry.whatHappensToYourText));
 			ok('G4.11: says how long, the number the config\'s', /for 30 days/.test(submitEntry.whatHappensToYourText) && about.limitsInForce.judgedStep.daysKept === 30);
-			ok('G4.11: says a draft is one model\'s reading, what strong-only means, that strong is not proof, and that the figures are CEDS only', /one model's reading/.test(submitEntry.whatThisDoesNot) && /Only proposals the judge calls strong/.test(submitEntry.whatThisDoesNot) && /Strong is not proof/.test(submitEntry.whatThisDoesNot) && /28 of 28/.test(submitEntry.whatThisDoesNot) && /CEDS alone/.test(submitEntry.whatThisDoesNot) && /Nothing is measured for CTDL/.test(submitEntry.whatThisDoesNot));
+			ok('G4.11: says a draft is one model\'s reading, what strong-only means, that strong is not proof, and that the figures are CEDS only and from before the search change (TQ Q102: the note\'s words, whole)', /one model's reading/.test(submitEntry.whatThisDoesNot) && /Only proposals the judge calls strong/.test(submitEntry.whatThisDoesNot) && /A strong rating is not proof/.test(submitEntry.whatThisDoesNot) && /all 28 strong picks/.test(submitEntry.whatThisDoesNot) && /on CEDS only/.test(submitEntry.whatThisDoesNot) && /before the search change of 2026-11-10/.test(submitEntry.whatThisDoesNot) && submitEntry.whatThisDoesNot.includes(registry.rosettaJudgedNote.strongEvidenceNote));
 			// ⟪rosettaMeanings R3⟫ the judged step is now open to a visitor on the API, within smaller limits; MCP still needs an OAuth sign-in, as the example does
 			ok('G4.11: says a visitor may judge on the API without sign-in, and that MCP needs OAuth', /Without sign-in the API takes smaller jobs, reached by jobRefId alone; MCP needs OAuth/.test(submitEntry.whatThisDoesNot) && submitEntry.needsSignedInAccount === true);
 			ok('price: about names no price', !/\$[0-9]|estimateUsd|spentUsd|usd\b/i.test(JSON.stringify({ ...about, operationList: about.operationList.map(({ exampleShows, ...restOfEntry }) => restOfEntry) })), 'about mentions a price');
