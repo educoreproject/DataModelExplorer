@@ -560,15 +560,15 @@ const moduleFunction =
 				cypher: `
 					CALL {
 						MATCH (card:HubReference)-[:${hubEdgeTypeFor(hubName, 'DOMAIN')}]->(domain:ForgedNode) WHERE card.referenceTier = $propertyTier
-						RETURN domain, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount, 0 AS termMeaningCount
+						RETURN domain, count(card) AS meaningCount, count(CASE WHEN EXISTS { (card)<-[:${MATCH_EDGE_TYPE_TEXT}]-() } THEN card END) AS mappedMeaningCount, 0 AS termMeaningCount, sum(${cardMappedElementCountTextFor('card')}) AS mappingCount
 						UNION ALL
 						MATCH (termCard:HubReference)-[:${hubEdgeTypeFor(hubName, 'TERM')}]->(domain:ForgedNode) WHERE termCard.referenceTier = $termTier AND termCard.termKind IN $termKindList
-						RETURN domain, 0 AS meaningCount, 0 AS mappedMeaningCount, count(termCard) AS termMeaningCount
+						RETURN domain, 0 AS meaningCount, 0 AS mappedMeaningCount, count(termCard) AS termMeaningCount, sum(${cardMappedElementCountTextFor('termCard')}) AS mappingCount
 					}
-					WITH domain, sum(meaningCount) AS meaningCount, sum(mappedMeaningCount) AS mappedMeaningCount, sum(termMeaningCount) AS termMeaningCount
+					WITH domain, sum(meaningCount) AS meaningCount, sum(mappedMeaningCount) AS mappedMeaningCount, sum(termMeaningCount) AS termMeaningCount, sum(mappingCount) AS mappingCount
 					RETURN domain.stableId AS stableId, domain.name AS name, coalesce(domain.definition, domain.description, '') AS description, domain._source AS sourceKey,
 					       ${declarationList ? nativeIdentifierCypherTextFor('domain', declarationList) : 'null'} AS nativeIdentifier,
-					       meaningCount, mappedMeaningCount, termMeaningCount,
+					       meaningCount, mappedMeaningCount, termMeaningCount, mappingCount,
 					       COUNT { MATCH (domain)<-[:${INCOMING_SLOT_NAME_LIST.map((slotName) => hubEdgeTypeFor(hubName, slotName)).join('|')}]-(incomingCard:HubReference)
 					               WHERE ${incomingCardWhereTextFor({ cardVariableName: 'incomingCard', domainVariableName: 'domain' })} RETURN DISTINCT incomingCard } AS incomingMeaningCount
 					ORDER BY name, stableId
@@ -1322,6 +1322,8 @@ const moduleFunction =
 			termMeaningCount: domainRecord.termMeaningCount,
 			// ⟪meaningsClarity⟫ and the meanings of other domains that name it (incomingCardWhereTextFor), listed on its level apart from its own
 			incomingMeaningCount: domainRecord.incomingMeaningCount,
+			// TQ 2026-11-12: the mappings to its own meanings and its own term (the shared count rule, cardMappedElementCountTextFor, summed over its cards)
+			mappingCount: domainRecord.mappingCount,
 			...nativeIdFieldsOf({ sourceKey: domainRecord.sourceKey, nativeIdentifier: domainRecord.nativeIdentifier, declarationList, declarationAbsentName }),
 		});
 

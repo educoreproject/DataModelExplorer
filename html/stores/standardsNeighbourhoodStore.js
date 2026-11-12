@@ -110,6 +110,8 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	termMeaningCount: oneItem.termMeaningCount,
 	// ⟪meaningsClarity⟫ a domain's meanings from other domains; a property meaning's values; an incoming meaning's slots and the walk's path to it in its own domain
 	incomingMeaningCount: oneItem.incomingMeaningCount,
+	// TQ 2026-11-12: the mappings to a domain's own meanings and own term, its Mappings column
+	mappingCount: oneItem.mappingCount,
 	valueMeaningCount: oneItem.valueMeaningCount,
 	valueElementCount: oneItem.valueElementCount,
 	incomingSlotNameList: oneItem.incomingSlotNameList || null,

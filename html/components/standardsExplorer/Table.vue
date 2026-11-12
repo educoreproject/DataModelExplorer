@@ -5,7 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
-import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningExpressionTextOf, meaningInfoTextOf, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
+import { familyHoldingTextOf, familyStyleOf, hubMappedTextOf, isOpenAtOnceClick, kindDisplayNameOf, meaningCountTextOf, meaningInfoTextOf, meaningTotalCountOf, focusCountTextOf, meaningsVocabulary, emptyLevelOf, walkFilterVocabulary, walkTableVocabulary, wordingOf, explorerCommonWords, explorerComponentWords } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
 const specStore = useSpecificationMetadataStore();
@@ -46,12 +46,16 @@ const countOf = (oneRow) => {
 		property: () => ({ countValue: oneRow.occurrenceCount, countText: oneRow.occurrenceCount ? `${oneRow.occurrenceCount}` : '' }),
 		// ⟪meaningsExplorer⟫ a group of meanings counts its meanings; a meaning, the elements that express it
 		meaningHub: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaningDomain: () => ({ countValue: oneRow.meaningCount, countText: meaningCountTextOf(oneRow) }),
-		meaning: () => ({ countValue: oneRow.elementCount ?? null, countText: meaningExpressionTextOf(oneRow) }),
+		// TQ 2026-11-12: a domain contains the meanings its level lists; a meaning contains its values; the mappings to either have their own column (mappingOf)
+		meaningDomain: () => ({ countValue: meaningTotalCountOf(oneRow), countText: meaningCountTextOf(oneRow) }),
+		meaning: () => ({ countValue: oneRow.valueMeaningCount || 0, countText: oneRow.valueMeaningCount ? focusCountTextOf(oneRow.valueMeaningCount, meaningsVocabulary.valueNoun) : '' }),
 	};
 	const countReader = countByKind[oneRow.kind];
 	return countReader ? countReader() : { countValue: null, countText: '' };
 };
+// the Mappings column (a walk that names one): how many elements of other standards map to a row, the server's own count of it
+const mappingValueByKind = { meaningDomain: (oneRow) => oneRow.mappingCount, meaning: (oneRow) => oneRow.elementCount };
+const mappingOf = (oneRow) => (mappingValueByKind[oneRow.kind] ? mappingValueByKind[oneRow.kind](oneRow) ?? null : null);
 
 const isAnchorLevel = computed(() => store.focusNode?.kind === 'hubAnchor');
 const homeStandardKey = computed(() => (isAnchorLevel.value && store.crossing ? store.crossing.homeStandardKey : null));
@@ -65,6 +69,8 @@ const tableRowList = computed(() =>
 			infoText: infoTextOf(oneRow),
 			countValue: countValue ?? -1,
 			countText,
+			mappingValue: mappingOf(oneRow) ?? -1,
+			mappingText: mappingOf(oneRow) === null ? '' : String(mappingOf(oneRow)),
 			matchKind: matchKind || '',
 			confidenceValue: oneRow.mapping ? oneRow.mapping.mappingConfidence : -1,
 			badgeOrder: oneRow.versionBadge ? { new: 0, changed: 1, unchanged: 2 }[oneRow.versionBadge.badgeState] : 3,
@@ -86,7 +92,8 @@ const headerList = computed(() =>
 		{ title: columnTitleByName.displayName, key: 'displayName', sortable: true },
 		{ title: columnTitleByName.kind, key: 'kind', sortable: true },
 		{ title: columnTitleByName.infoText, key: 'infoText', sortable: false, minWidth: '160px' },
-		{ title: columnTitleByName.countValue, key: 'countValue', sortable: true },
+		{ title: store.walkProfile.countColumnTitle || columnTitleByName.countValue, key: 'countValue', sortable: true },
+		store.walkProfile.mappingColumnTitle ? { title: store.walkProfile.mappingColumnTitle, key: 'mappingValue', sortable: true, align: 'end' } : null,
 		hasMatchColumn.value ? { title: columnTitleByName.confidenceValue, key: 'confidenceValue', sortable: true } : null,
 		versionComparison.value ? { title: wordingOf(walkTableVocabulary.comparedVersionColumnTemplate, { comparedVersion: versionComparison.value.comparedVersion }), key: 'badgeOrder', sortable: true } : null,
 		{ title: columnTitleByName.openAction, key: 'openAction', sortable: false, align: 'end' },
@@ -169,6 +176,9 @@ const openLabelOf = (item) => wordingOf(levelTable.value.openLabelTemplate || wa
 			</template>
 			<template #item.countValue="{ item }">
 				<span class="explorer-row-count" :class="{ 'explorer-row-count-wraps': store.walkProfile.countTextWraps }">{{ item.countText }}</span>
+			</template>
+			<template #item.mappingValue="{ item }">
+				<span class="explorer-row-count">{{ item.mappingText }}</span>
 			</template>
 			<template #item.confidenceValue="{ item }">
 				<StandardsExplorerMatchSummary v-if="item.mapping" :match-kind="item.mapping.matchKind" :mapping-confidence="item.mapping.mappingConfidence" />
