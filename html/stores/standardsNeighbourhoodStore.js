@@ -420,6 +420,12 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			this.selectedStableId = stableId;
 		},
 
+		// TQ 2026-11-12: a crumb shows its level as itself: no row selected, and the panel back in its column
+		showCrumbLevel() {
+			this.selectedStableId = '';
+			this.panelFullWidth = false;
+		},
+
 		togglePanelFullWidth() {
 			this.panelFullWidth = !this.panelFullWidth;
 		},
