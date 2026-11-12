@@ -279,7 +279,7 @@ export const meaningsVocabulary = Object.freeze({
 	viewBarTitleText: 'Meanings',
 	titleText: 'Meanings Explorer',
 	introText:
-		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (e.g., CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element that expresses it.',
+		'A meaning is one idea the standards can express. It is built from one or more terms in an ontology (e.g., CEDS or CTDL), and elements of other standards map to it as a common point. Each meaning has a permanent URI. Sometimes a meaning is a single element of a standard; often it is a tuple, such as a property within a particular CEDS domain. Pick a hub, then a domain; open a meaning to see what it names and every standard element mapped to it.',
 	rootLevelText: 'every group of meanings',
 	metaDescriptionText: 'Walk the meanings in the EDUcore graph: each hub, its domains, the meanings they name, and every standard element mapped to each meaning.',
 
@@ -362,7 +362,7 @@ export const meaningsVocabulary = Object.freeze({
 				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
 				valuesRangeTemplate: 'They are the codes of {rangeName}.',
 				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
-				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element mapped to it.',
 				filterTemplate: "The filter '{filterText}' dims {unmatchedCount} of them.",
 			}),
 			table: Object.freeze({
@@ -377,7 +377,7 @@ export const meaningsVocabulary = Object.freeze({
 				// TQ 2026-11-12 (Q109): the values' shared range, said once here rather than on every row
 				valuesRangeTemplate: 'They are the codes of {rangeName}.',
 				valuesMappedTemplate: Object.freeze({ one: '1 value has elements of other standards mapped to it.', other: '{mappedValueCount} values have elements of other standards mapped to them.' }),
-				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element that expresses it.',
+				meaningNoValuesText: 'This meaning holds no values. Its panel says what it names and every element mapped to it.',
 				filterTemplate: "The filter '{filterText}' hides {unmatchedCount} of them.",
 			}),
 		}),
@@ -413,8 +413,8 @@ export const meaningsVocabulary = Object.freeze({
 		// a slot's own id in its hub's standard: "CEDS id P000043" (punch-list item 8)
 		hubIdTemplate: '{hubName} id {nativeIdText}',
 		partDivider: ' · ',
-		openNoteExpressedTemplate: 'Expressed in {elementCountText}. ',
-		openNoteText: 'Open this meaning for its tuple and every element that expresses it.',
+		openNoteExpressedTemplate: '{elementCountText} mapped here. ',
+		openNoteText: 'Open this meaning for its tuple and every element mapped to it.',
 		// ⟪explorerTidy⟫ a selected meaning that opens to nothing reads its own facts into the panel
 		leafLoadingText: 'Reading what this meaning names…',
 		leafFailedText: 'What this meaning names could not be read just now. Its URI page, above, has it.',
@@ -455,7 +455,7 @@ export const meaningsVocabulary = Object.freeze({
 		datatypeTemplate: 'Datatype: {datatypeText}',
 		datatypeRangeTemplate: 'Datatype range: {datatypeText}',
 		datatypeDivider: ', ',
-		expressedInHeadText: 'Expressed in',
+		expressedInHeadText: 'Mapped here',
 		unexpressedText: 'No element of any standard is mapped to this meaning.',
 		expressionsCappedTemplate: 'Showing {shownCount} of {expressionCount}: each standard lists at most its first {groupItemCap}, strongest first.',
 		groupCappedTemplate: '{elementCount}, showing {shownCount}',
