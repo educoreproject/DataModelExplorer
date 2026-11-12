@@ -29,6 +29,7 @@ const shownCrumbList = computed(() => {
 });
 
 const lastPathIndex = computed(() => props.crumbList.length - 1);
+// TQ 2026-11-12: clicking a crumb, the current one included, clears the row selection, so the panel shows that level's own facts again
 // TQ 2026-11-12: a walk may name a crumb by what its level lists ('CEDS Domains', 'Adult Education Course Meanings'); a fold keeps its own words
 const crumbTextOf = (oneCrumb) => {
 	const crumbTemplate = !oneCrumb.isFold && store.walkProfile.crumbTemplateByKind[oneCrumb.kind];
@@ -49,6 +50,7 @@ const crumbTextOf = (oneCrumb) => {
 					:title="oneCrumb.titleText || oneCrumb.displayName"
 					:aria-label="oneCrumb.isFold ? wordingOf(crumbWords.foldLabelTemplate, { titleText: oneCrumb.titleText }) : undefined"
 					:data-testid="`crumb-${crumbIndex}`"
+					@click="store.selectRow('')"
 				>
 					<span v-if="!oneCrumb.isFold" aria-hidden="true" class="crumb-dot" :style="{ background: familyStyleOf(oneCrumb.standardFamily).fill || familyStyleOf(oneCrumb.standardFamily).color }" />
 					{{ crumbTextOf(oneCrumb) }}

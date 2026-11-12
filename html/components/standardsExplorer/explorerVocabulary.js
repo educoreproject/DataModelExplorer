@@ -285,7 +285,7 @@ export const meaningsVocabulary = Object.freeze({
 	// TQ 2026-11-12: the table's button and the breadcrumb name what the next level shows: a hub lists its domains, a domain its meanings, a meaning its values
 	openTextByFocusKind: Object.freeze({ meaningHub: 'Show Meanings', meaningDomain: 'Show Values' }),
 	openLabelTemplateByFocusKind: Object.freeze({ meaningHub: 'Show the meanings of {itemName}', meaningDomain: 'Show the values of {itemName}' }),
-	crumbTemplateByKind: Object.freeze({ meaningHub: '{crumbName} Domains', meaningDomain: '{crumbName} Meanings' }),
+	crumbTemplateByKind: Object.freeze({ meaningHub: '{crumbName} Domains', meaningDomain: '{crumbName} Meanings', meaning: '{crumbName} Values' }),
 	// ---- counts (punch-list items 3, 4, 5, 7): each says what the next level shows
 	domainNoun: Object.freeze({ one: 'domain', other: 'domains' }),
 	meaningNoun: Object.freeze({ one: 'meaning', other: 'meanings' }),
@@ -753,6 +753,8 @@ const meaningCountTextReaderByKind = {
 	// matches the next page; what the meanings are is said on that page, not here
 	meaningDomain: (domainRow) => countedNounTextOf(domainRow.meaningCount + (domainRow.termMeaningCount || 0) + (domainRow.incomingMeaningCount || 0), meaningsVocabulary.meaningNoun),
 };
+// a count and its noun ('16 values'), for a level whose walk profile names what its rows are (focusCountNounByKind)
+export const focusCountTextOf = (countValue, nounEntry) => countedNounTextOf(countValue, nounEntry);
 // what a hub's or a domain's row holds, in words; any other row holds no meanings to count
 export const meaningCountTextOf = (meaningGroupRow) => {
 	const countTextReader = meaningCountTextReaderByKind[meaningGroupRow.kind];
@@ -1023,6 +1025,7 @@ export const walkProfileByName = Object.freeze({
 		rowWalkPathFieldName: null,
 		levelTableByFocusKind: Object.freeze({}),
 		crumbTemplateByKind: Object.freeze({}),
+		focusCountNounByKind: Object.freeze({}),
 	}),
 	// ⟪meaningsPolish⟫ its words are meaningsVocabulary's; its walk is hub → domain → meaning (no property level)
 	meanings: Object.freeze({
@@ -1050,6 +1053,8 @@ export const walkProfileByName = Object.freeze({
 			meaningDomain: Object.freeze({ hiddenColumnNameList: Object.freeze([]), openText: meaningsVocabulary.openTextByFocusKind.meaningDomain, openLabelTemplate: meaningsVocabulary.openLabelTemplateByFocusKind.meaningDomain }),
 		}),
 		crumbTemplateByKind: meaningsVocabulary.crumbTemplateByKind,
+		// TQ 2026-11-12: a meaning's level lists its values, so its toolbar counts values ('16 values'), from the meaning's own count
+		focusCountNounByKind: Object.freeze({ meaning: Object.freeze({ countFieldName: 'valueMeaningCount', nounEntry: meaningsVocabulary.valueNoun }) }),
 	}),
 });
 
