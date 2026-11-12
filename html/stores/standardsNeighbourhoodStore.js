@@ -14,6 +14,7 @@
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 import {
+	DEFAULT_VIEW_MODE_NAME,
 	LARGE_LEVEL_ITEM_COUNT,
 	displayNameOf,
 	isSecondaryRelationshipType,
@@ -31,7 +32,7 @@ const standardsNeighbourhoodStoreInitObject = {
 	statusMsg: '',
 	// ⟪meaningsPolish review S3⟫ the last neighbourhood request was refused by the server (HTTP 4xx, its words in statusMsg), not left unanswered
 	statusIsRefusal: false,
-	viewModeChoice: 'diagram',
+	viewModeChoice: DEFAULT_VIEW_MODE_NAME,
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
 	filterText: '',

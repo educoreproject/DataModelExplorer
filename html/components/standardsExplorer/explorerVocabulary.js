@@ -959,6 +959,8 @@ export const meaningFactListOf = (meaningGroupNode) => {
 export const isOpenAtOnceClick = (domEvent) => Boolean(domEvent && (domEvent.metaKey || domEvent.ctrlKey));
 
 // a level with more items than this opens in the table (spec §6.4)
+// TQ 2026-11-12: every walk opens as a table; the diagram stays a choice in the toolbar
+export const DEFAULT_VIEW_MODE_NAME = 'table';
 export const LARGE_LEVEL_ITEM_COUNT = 40;
 
 // ================================================================================
