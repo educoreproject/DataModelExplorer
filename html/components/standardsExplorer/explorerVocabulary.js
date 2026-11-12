@@ -351,7 +351,7 @@ export const meaningsVocabulary = Object.freeze({
 			diagram: Object.freeze({
 				catalogTemplate: 'Each circle is a hub, a reference standard whose meanings EDUcore names. Together they hold {meaningCount} meanings.',
 				hubTemplate: 'Each square is one of the {domainCount} domains of {hubName}. Together they hold {meaningCount} meanings.',
-				domainMeaningsTemplate: Object.freeze({ one: 'This domain takes part in 1 meaning (solid hexagon).', other: 'This domain takes part in {meaningCount} meanings (solid hexagons).' }),
+				domainMeaningsTemplate: Object.freeze({ one: 'This domain contributes to 1 meaning (solid hexagon).', other: 'This domain contributes to {meaningCount} meanings (solid hexagons).' }),
 				domainMappedTemplate: Object.freeze({ one: '1 meaning has elements of other standards mapped to it (marked "{expressedSampleText}").', other: '{mappedMeaningCount} meanings have elements of other standards mapped to them (marked "{expressedSampleText}").' }),
 				domainOwnTermOnlyText: 'It holds only its own term (dashed hexagon).',
 				domainIncomingTemplate: Object.freeze({ one: '1 meaning in another domain names it as its {slotText} (outlined hexagon, dashed arrow).', other: '{incomingMeaningCount} meanings in other domains name it as their {slotText} (outlined hexagons, dashed arrow).' }),

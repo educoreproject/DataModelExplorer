@@ -179,7 +179,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		ok(`C200159: every number in its prose (${JSON.stringify(numbersOf(domainProseText))}) is one the diagram and table count (${JSON.stringify(diagramCountList)}), and every count is said`,
 			JSON.stringify([...numbersOf(domainProseText)].sort((left, right) => left - right)) === JSON.stringify([...diagramCountList].sort((left, right) => left - right)), domainProseText);
 		// ⟪explorerTidy, TQ: "too long and too much detail"⟫ one sentence per fact; no other domain named, no property with values listed, never "this domain as"
-		ok('C200159: the short shape: its meanings, the incoming one as its range, the › hint; no other domain, no property listed, never "this domain as"', /^This domain takes part in 4 meanings \(solid hexagons\)\./.test(domainProseText)
+		ok('C200159: the short shape: its meanings, the incoming one as its range, the › hint; no other domain, no property listed, never "this domain as"', /^This domain contributes to 4 meanings \(solid hexagons\)\./.test(domainProseText)
 			&& /1 meaning in another domain names it as its range/.test(domainProseText) && /A › means the meaning holds values/.test(domainProseText)
 			&& !/Individualized Program,|Has Accessibility Feature Type|holds 48|this domain as/.test(domainProseText), domainProseText);
 		ok('C200159: no sentence about dimming while nothing is dimmed', !/dims/.test(domainProseText));
