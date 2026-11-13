@@ -171,6 +171,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			...(outcome.judgesRationale ? { judgesRationale: outcome.judgesRationale } : {}),
 			...(outcome.answerWasCut ? { answerWasCut: true } : {}),
 			...(outcome.notJudgedReason ? { notJudgedReason: outcome.notJudgedReason } : {}),
+			...(outcome.judgedWithSearchDescription ? { judgedWithSearchDescription: true } : {}),
 			...(outcome.rendererVersion ? { rendererVersion: outcome.rendererVersion } : {}),
 			...(chosenCandidate ? {
 				proposal: {
@@ -189,7 +190,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		};
 	};
 
-	const runUnit = ({ job, oneField, fieldIndex, hubName }, unitDone) => {
+	const runUnit = ({ job, oneField, searchDescriptionText, fieldIndex, hubName }, unitDone) => {
 		// the graph is reconnecting: the job lets go, keeps its status, and the next tick picks it up where it was
 		const serviceFacts = getServiceFacts();
 		if (!serviceFacts) {
@@ -207,7 +208,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 				return;
 			}
 			// a session of its own, closed before the judge is asked: a judge call takes seconds and no graph session waits on it
-			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: rosettaRetrieval.hubTargetKind, hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
+			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition, searchDescriptionText], target: { kind: rosettaRetrieval.hubTargetKind, hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
 				if (poolError || pool.refusal || pool.status === UNIT_STATUS_NO_CANDIDATE) {
 					sessionDone(poolError, { pool });
 					return;
@@ -250,7 +251,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					writeUnit({ unitStatus: UNIT_STATUS_NO_CANDIDATE, judgment: { poolSize: 0, admittedCount: 0, runnerUpList: [] } }, () => unitDone('', null));
 					return;
 				}
-				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, ownerPrincipalKind: job.ownerPrincipalKind, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
+				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, ownerPrincipalKind: job.ownerPrincipalKind, fieldIndex, oneField, searchDescriptionText, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
 					if (judgeError) {
 						xLog.error(`rosettaJobRunner: job ${job.jobRefId}: judging could not start: ${judgeError}`);
 						unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeUnavailable', stopReasonText: reasonOf('judgeUnavailable') });
@@ -321,7 +322,27 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('submissionUnreadable') });
 					return;
 				}
-				jobStore.judgedUnitNameSet(job.jobRefId, (doneError, finishedUnitNameSet) => {
+				// ⟪rosettaSearchDescription⟫ the bare fields' search descriptions, written once when the job first runs and read back on a resume. Each unit searches with it, and
+				// (TQ Q110) the judge is shown it on its own labelled line beside oneField, which stays exactly as the person sent it. It draws on its owner's pot (review S3).
+				// A describer that is off, busy or over its ceiling names that per field, once, and the job goes on.
+				const withDescribedList = (useDescribedList) => jobStore.readSearchDescribedList(job.jobRefId, (describedReadError, storedDescribedList) => {
+					if (describedReadError) {
+						finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('submissionUnreadable') });
+						return;
+					}
+					if (storedDescribedList) {
+						useDescribedList(storedDescribedList);
+						return;
+					}
+					rosettaRetrieval.searchDescriber.describeFieldList({ fieldList: submission.fieldList, isAnonymous: job.ownerPrincipalKind === ANONYMOUS_PRINCIPAL_KIND }, (unusedDescribeError, described) => jobStore.writeSearchDescribedList({ jobRefId: job.jobRefId, describedList: described.describedList }, (describedWriteError) => {
+						if (describedWriteError) {
+							finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeRefusedSearchDescriptions') });
+							return;
+						}
+						useDescribedList(described.describedList);
+					}));
+				});
+				withDescribedList((describedList) => jobStore.judgedUnitNameSet(job.jobRefId, (doneError, finishedUnitNameSet) => {
 					if (doneError) {
 						finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('finishedUnitsUnreadable') });
 						return;
@@ -337,7 +358,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 							runNextUnit(unitIndex + 1);
 							return;
 						}
-						runUnit({ job, oneField: submission.fieldList[fieldIndex], fieldIndex, hubName }, (unusedError, stopReason) => {
+						const described = describedList[fieldIndex];
+						runUnit({ job, oneField: submission.fieldList[fieldIndex], searchDescriptionText: described && described.searchDescription ? described.searchDescription.descriptionText : undefined, fieldIndex, hubName }, (unusedError, stopReason) => {
 							if (stopReason === RELEASE_JOB) {
 								jobDone();
 								return;
@@ -350,7 +372,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 						});
 					};
 					runNextUnit(0);
-				});
+				}));
 			});
 		});
 	};

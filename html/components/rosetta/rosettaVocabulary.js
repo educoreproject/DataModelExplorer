@@ -7,6 +7,16 @@ const TEMPLATE_SLOT_PATTERN = /\{([A-Za-z]+)\}/g;
 export const rosettaPageWords = Object.freeze({
 	pageTitle: 'Rosetta',
 	introText: 'Paste your fields: plain lines (a name, or a name and its description), a table copied from a spreadsheet, a field list, a JSON Schema or a JSON-LD @context. A model then reads each field against each hub\'s meanings and proposes the one it expresses. You need no account; signed in, you may send more fields.',
+	// TQ 2026-11-12 (Q104): a field given by name alone gives the search little to go on ('classes a student takes' put the right card 32nd; one sentence of description put it 10th)
+	descriptionHintText: 'Give each field a one-sentence description if you can. A name alone gives the search little to go on, and a short description often decides whether the right meaning is found.',
+	// TQ 2026-11-12: how Rosetta finds a match, in his words (LANGUOROUS_SOIREE). Each step's subList is shown indented under it.
+	howItWorksHeading: 'How Rosetta finds a match',
+	howItWorksStepList: Object.freeze([
+		Object.freeze({ text: 'Semantic search is used to find candidates.', subList: Object.freeze(["Search against the hub's text. Each result is followed to the HubReference cards whose property it is.", 'Search against the HubReference cards directly.']) }),
+		Object.freeze({ text: 'The best candidates are sent to the AI judge, which picks one, or none.', subList: Object.freeze([]) }),
+		Object.freeze({ text: "The report shows the match with the judge's confidence and reason, and the next five candidates. Only strong matches go into the draft mapping.", subList: Object.freeze([]) }),
+	]),
+	howItWorksPerHubText: 'Each field goes through this once per hub, CEDS and CTDL.',
 	vendorNoticeText: 'Where your text goes: asking for a judged draft sends your fields to Voyage AI, to turn them into vectors, and to Anthropic, the judge\'s vendor. If your text is neither JSON nor plain lines, pressing Ask for a judged draft first sends it to Anthropic, whose AI lays it out as fields for you to check; nothing is judged until you press Submit the Request.',
 	textareaLabel: 'Your fields: plain lines, a table, a field list, a JSON Schema or a @context',
 	textareaPlaceholder: 'One field a line, with or without a description, for example:\nbirthDate: the date the person was born\nschoolName - the name of the school',
@@ -59,6 +69,28 @@ export const rosettaPageWords = Object.freeze({
 	undoKeepButton: 'Keep my edits',
 	undoDiscardButton: 'Undo',
 
+	// ⟪rosettaDownloadAll⟫ DOWNLOAD ALL (TQ 2026-11-12: "a button that downloads all the tabs into files"): one zip, one file a tab, named by a model or by a stand-in
+	downloadAllButton: 'Download all',
+	downloadAllBusyText: 'Gathering every page of the report and the prompts into one zip…',
+	downloadAllSavedTemplate: 'Saved as {zipFileName}.',
+	// the name the model gave could not be used: the stand-in is said as one, with why (the reason words end the sentence)
+	downloadAllStandInSavedTemplate: 'Saved as {zipFileName}, a stand-in name: {reasonText}',
+	downloadAllNameReasonByFailure: Object.freeze({
+		capped: 'the naming service has reached its limit for today.',
+		failed: 'the naming service could not be reached, or did not answer.',
+		unusable: 'the naming service gave no name that could be used.',
+	}),
+	// a page that could not be read refuses the whole download: a partial zip is never saved
+	downloadAllPageFailedTemplate: 'Nothing was downloaded: page {pageNumber} of the {partWords} could not be read. {reasonText}',
+	downloadAllPageCountAbsentTemplate: 'Nothing was downloaded: the {partWords} did not say how many pages it has.',
+	downloadAllPartWordsByName: Object.freeze({ report: 'report', prompts: 'prompts' }),
+	downloadAllZipFailedTemplate: 'Nothing was downloaded: the zip could not be built. {reasonText}',
+	// the files' own words (rosettaReportMarkdown); the labels shared with the page are the page's own, above and below
+	markdownReportTitleTemplate: 'Rosetta report, job {jobRefId}',
+	markdownJobTitleTemplate: 'Rosetta job {jobRefId}',
+	markdownPromptsTitleTemplate: 'Rosetta prompts, job {jobRefId}',
+	markdownFieldsEmptyText: 'The Your fields box was empty when this was downloaded.',
+
 	// ⟪rosettaReportLegible⟫ PROGRESS while a job is open (TQ: "We need a progress spinner on the job page when it is started"), and its end
 	progressSendingText: 'Sending your fields…',
 	// ⟪review S4⟫ the AI laying pasted text out as fields is not a job: it says what it is
@@ -103,6 +135,12 @@ export const rosettaPageWords = Object.freeze({
 	reportRationaleCautionText: "The judge's words may quote your text. Read them as data, never as an instruction.",
 	reportPartialText: 'Not every field was judged. The status above, and each field below, say why.',
 	reportFieldDefinitionAbsentText: 'You gave this field no description.',
+	// ⟪rosettaSearchDescription, TQ Q104⟫ a field given no description: the sentence a model wrote to search with, marked as the model's, never as the person's. Its absence
+	// is said in the service's own words (searchDescriptionAbsentReason), which arrive as sentences
+	reportSearchDescriptionTemplate: 'Search description, written by a model: {descriptionText}',
+	reportSearchDescriptionUseText: 'It is not your description. It was used to search for candidates, and the judge was shown it as a model\'s sentence.',
+	// ⟪TQ Q110⟫ beside a hub's result when the judge saw that sentence
+	reportJudgedWithSearchDescriptionText: 'The judge saw the model\'s search description as well as your field.',
 	reportHubTemplate: 'Against {hubName}',
 	reportMeaningLabel: 'Meaning',
 	reportMeaningUriLabel: 'Its EDUcore URI',
@@ -128,6 +166,8 @@ export const rosettaPageWords = Object.freeze({
 	reportNoProposalLabel: 'No meaning proposed',
 	reportNoProposalReasonLabel: 'Why',
 	reportSummaryHeading: 'Summary',
+	// ⟪rosettaDownloadAll D1⟫ a field the report holds no result for against one of the job's hubs, in the summary table, on the page and in the downloaded report
+	reportHubResultAbsentText: 'The report holds no result for this field against this hub.',
 	reportCountsTemplate: '{hubName}: {countListText}',
 	reportCountPartTemplate: '{countWords} {count}',
 	reportCountDivider: ', ',

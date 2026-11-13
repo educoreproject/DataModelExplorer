@@ -17,7 +17,7 @@ const vocabularyText = readHtmlFile('components/rosetta/rosettaVocabulary.js');
 const loginPageText = readHtmlFile('pages/login.vue');
 const piiNoticeComponentText = readHtmlFile('components/siteNotice/PiiNotice.vue');
 const siteNoticeVocabularyText = readHtmlFile('components/siteNotice/siteNoticeVocabulary.js');
-const TQ_PII_NOTICE_TEXT = 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site.';
+const TQ_PII_NOTICE_TEXT = 'Do not enter personal information (PII) in any search or other input on this site. All queries and results are recorded and used to improve the site. They are never sold or shared, except with the AI services that process them, which are set to keep nothing.';
 
 // the words between tags once every interpolation and every tag is gone: what is left must be no word at all
 const bareWordListOf = (oneTemplateText) => oneTemplateText.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\{\{[\s\S]*?\}\}/g, ' ').replace(/<(?:[^>"']|"[^"]*"|'[^']*')*>/g, ' ').split(/\s+/).filter((oneWord) => /[A-Za-z]/.test(oneWord));
@@ -27,9 +27,10 @@ const checkList = [
 	['the template uses no v-html', !/v-html/.test(templateText)],
 	['the page writes no HTML by hand', !/innerHTML|outerHTML|insertAdjacentHTML/.test(pageText)],
 	// ⟪P7a⟫ a field's results are a resultList, each naming its hub: the page reads one through resultFor
-	['the rationale is shown by interpolation', /\{\{ resultFor\(oneField, hubName\)\.judgesRationale \}\}/.test(templateText)],
+	// ⟪rosettaDownloadAll D1⟫ the summary table's rows come from summaryRowListOf, which never throws on a hub a field has no result for
+	['the rationale is shown by interpolation', /\{\{ oneSummaryRow\.rationaleText \}\}/.test(templateText)],
 	['the rationale is labelled as the judge\'s words', /\{\{ rosettaPageWords\.reportRationaleHeading \}\}/.test(templateText) && /reportRationaleHeading: 'The judge\\'s words'/.test(vocabularyText)],
-	['the report reads requestName and resultList, never byHub or a field\'s bare name', !/byHub|oneField\.name\b/.test(templateText) && /\{\{ oneField\.requestName \}\}/.test(templateText)],
+	['the report reads requestName and resultList, never byHub or a field\'s bare name', !/byHub|oneField\.name\b/.test(templateText) && /\{\{ oneSummaryRow\.requestName \}\}/.test(templateText)],
 	// R1
 	['R1: no Show candidates button, no Candidates tab', !/rosetta-show-candidates|showCandidates|value="pools"|retrievalAnswer/.test(pageText)],
 	['R1: the store no longer calls retrieval', !/`\$\{ROUTE_BASE_PATH\}\/retrieval`|async retrieve\(|retrievalAnswer/.test(storeText)],
@@ -65,6 +66,12 @@ const checkList = [
 	['review S3: a failed expressed-in read offers a retry', /v-if="oneHubBlock\.expressedReadFailed"[^>]*@click="store\.readExpressions\(\)"/.test(templateText)],
 	['review N7: hrefs are the blocks\' https-only ones', /:href="oneHubBlock\.meaningHref"/.test(templateText) && /:href="oneSlot\.href"/.test(templateText) && !/:href="oneHubBlock\.meaningUri"|:href="oneSlot\.uri"/.test(templateText)],
 	['review N4: the page declares no job status list of its own', !/\['queued', 'running', 'cancelling'\]/.test(pageText)],
+	// ⟪rosettaDownloadAll⟫ one Download all button above the tabs, enabled once a report exists, busy while it builds; its note and refusal shown by interpolation;
+	// the per-hub draft button and the zip share one content builder
+	['download all: the button stands above the tabs, disabled until a report exists, busy while it builds', /<v-btn[^>]*:disabled="!store\.report"[^>]*:loading="downloadAllStore\.isBuilding"[^>]*data-testid="rosetta-download-all"[^>]*>\{\{ rosettaPageWords\.downloadAllButton \}\}/.test(templateText) && templateText.indexOf('rosetta-download-all"') < templateText.indexOf('<v-tabs')],
+	['download all: the button area shows the note and the refusal by interpolation', /\{\{ downloadAllStore\.noteText \}\}/.test(templateText) && /\{\{ downloadAllStore\.refusalText \}\}/.test(templateText)],
+	['download all: the per-hub draft button and the Drafts tab use draftFileTextOf, the zip\'s own builder', /draftFileTextOf\(store\.report\.draftContextByHub\[hubName\]\)/.test(pageText) && !/JSON\.stringify\(store\.report\.draftContextByHub/.test(pageText)],
+	['D1: the summary table is drawn from summaryRowListOf, and the page no longer reads a result it may not have', /summaryRowListOf\(\{ fieldList: store\.report\.fieldList, hubNameList: hubNameList\.value \}\)/.test(pageText) && /v-for="oneSummaryRow in summaryRowList"/.test(templateText) && !/resultFor\(/.test(pageText)],
 	// no magic strings
 	['no bare word between the page\'s tags: every word is from the vocabulary', bareWordListOf(templateText).length === 0, bareWordListOf(templateText).slice(0, 8).join(' ')],
 	['no bare word in the PII notice component', bareWordListOf(templateSectionOf(piiNoticeComponentText)).length === 0],

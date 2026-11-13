@@ -4,7 +4,8 @@
 //
 //   rosettaJudgedValuesOf({ fuseConfigValues, judgeConfigValues }) → { judgedValues } | { refusalText }. The fuse limits and the judge's config are read together, once, at startup.
 //   createRosettaJudgeEngine({ judgedValues, judgeModules, jobStore, componentOverrides?, nowMs, waitMilliseconds, xLog }) → { refusalText } | engine
-//   engine.judgeFieldAgainstPool({ jobRefId, ownerPrincipalRefId, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, done(errText, outcome))
+//   engine.judgeFieldAgainstPool({ jobRefId, ownerPrincipalRefId, fieldIndex, oneField, searchDescriptionText?, hubName, candidateCardList, stopReasonNow }, done(errText, outcome))
+//     searchDescriptionText (TQ Q110): a field with no description of its own is shown it on a labelled line of its own; the outcome then says judgedWithSearchDescription
 //     candidateCardList: the cards the judge is offered, each { stableId, ...its text }. THE MASKED TEST'S HOOK IS THIS ARGUMENT: a gate takes a true card out of the list before calling. No route, tool, config or request holds it, because the runner always passes what retrieval gave.
 //     outcome: { unitStatus: 'proposed' | 'abstained' | 'identifierInSourceText' | 'identifierInCandidateText' | 'judgeRefused', chosenCardStableId?, collapsedMemberStableIdList?, category?, confidence?, judgesRationale?, predicate?, promptHash?, rendererVersion?, cacheHit? }
 //            | { vendorStop: { faultName, reason } } (the job must end: nothing about the field was learned) | { stoppedBy: { stopReasonName, ... } } (stopReasonNow said so between attempts)
@@ -71,10 +72,28 @@ const normalFormListOf = (fieldText) => {
 	const closedText = String(fieldText).replace(FORMAT_CHARACTER_PATTERN, '').normalize('NFKC').replace(SEPARATOR_INSIDE_IDENTIFIER_PATTERN, '$1');
 	return [String(fieldText), closedText, closedText.replace(IDENTIFIER_LETTER_PATTERN, (identifierLetter) => identifierLetter.toUpperCase()), closedText.toLowerCase()];
 };
-const sourceSurfacesOf = (oneField) => ['name', 'definition', 'path', 'type'].reduce((soFar, partName) => {
-	const partText = oneField[partName] || '';
-	return normalFormListOf(partText).reduce((formsSoFar, formText, formIndex) => ({ ...formsSoFar, [`${partName}${formIndex}`]: formText }), soFar);
-}, {});
+// one text's surfaces for a scan, each normal form named by its part: name0..name3
+const surfacesOfPart = ({ partName, partText }) => normalFormListOf(partText || '').reduce((formsSoFar, formText, formIndex) => ({ ...formsSoFar, [`${partName}${formIndex}`]: formText }), {});
+const sourceSurfacesOf = (oneField) => ['name', 'definition', 'path', 'type'].reduce((soFar, partName) => ({ ...soFar, ...surfacesOfPart({ partName, partText: oneField[partName] }) }), {});
+
+// ⟪rosettaSearchDescription⟫ one hub's identifier scan, from the forge's own bridging: the judge reads it per hub, and the search describer scans its own sentence with
+// every judged hub's scan, so a model's sentence holding a hub identifier never becomes a search text
+const hubIdentifierScanFor = ({ judgeModules, hubName }) => {
+	const hubRow = judgedSettings.hubRowByName[hubName];
+	if (!hubRow) {
+		return { refusalText: `this service has no judge wording for hub ${hubName}` };
+	}
+	const bridgingRead = judgeModules.hubBridgingFor(hubRow);
+	if (bridgingRead.error) {
+		return { refusalText: bridgingRead.error };
+	}
+	const { hubBridging } = bridgingRead;
+	const scanMade = judgeModules.promptIdentifierScanFor({ scanDeclaration: hubBridging.promptIdentifierScan, standardKey: hubRow.forgeBundleName });
+	if (scanMade.error) {
+		return { refusalText: scanMade.error };
+	}
+	return { hubBridging, identifierScan: scanMade };
+};
 
 // a NONE from a response that was cut may be the model running out of room, so it is not reported as a judge declining
 const unitStatusOfJudged = ({ chosenCardStableId, answerWasCut }) => {
@@ -121,20 +140,12 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		if (hubFactsByName[hubName]) {
 			return hubFactsByName[hubName];
 		}
-		const hubRow = judgedSettings.hubRowByName[hubName];
-		if (!hubRow) {
-			return { refusalText: `this service has no judge wording for hub ${hubName}` };
+		const scanRead = hubIdentifierScanFor({ judgeModules, hubName });
+		if (scanRead.refusalText) {
+			return scanRead;
 		}
-		const bridgingRead = judgeModules.hubBridgingFor(hubRow);
-		if (bridgingRead.error) {
-			return { refusalText: bridgingRead.error };
-		}
-		const { hubBridging } = bridgingRead;
-		const scanMade = judgeModules.promptIdentifierScanFor({ scanDeclaration: hubBridging.promptIdentifierScan, standardKey: hubRow.forgeBundleName });
-		if (scanMade.error) {
-			return { refusalText: scanMade.error };
-		}
-		hubFactsByName[hubName] = { hubBridging, identifierScan: scanMade, candidateFieldNameList: hubBridging.candidateRenderingAllowList };
+		const { hubBridging, identifierScan } = scanRead;
+		hubFactsByName[hubName] = { hubBridging, identifierScan, candidateFieldNameList: hubBridging.candidateRenderingAllowList };
 		return hubFactsByName[hubName];
 	};
 
@@ -300,16 +311,21 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 
 	// what the stranger wrote, as the forge's source element: the subject side of the allow-list, so a property nobody declared cannot reach a prompt. On one line each: the renderer prints a value raw, so a newline in a stranger's text would make lines that look like the prompt's own sections.
 	const oneLineOf = (fieldText) => String(fieldText).replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ');
-	const sourceElementOf = (oneField) => ({
+	// ⟪rosettaSearchDescription, TQ Q110⟫ a field the person gave no description may carry the model's search description, on its own labelled line (searchDescription, its
+	// value prefixed with whose words they are), never as the field's description. A field with a description of its own never carries it.
+	const searchDescriptionMaterialOf = ({ oneField, searchDescriptionText }) => (!oneField.definition && searchDescriptionText ? { searchDescription: `${judgedSettings.searchDescriptionSubjectPrefix}${oneLineOf(searchDescriptionText)}` } : {});
+	const sourceElementOf = ({ oneField, searchDescriptionText }) => ({
 		name: oneLineOf(oneField.name),
 		stableId: oneLineOf(oneField.name),
-		material: { name: oneLineOf(oneField.name), ...(oneField.definition ? { description: oneLineOf(oneField.definition) } : {}), ...(oneField.path ? { path: oneLineOf(oneField.path) } : {}), ...(oneField.type ? { dataType: oneLineOf(oneField.type) } : {}) },
+		material: { name: oneLineOf(oneField.name), ...(oneField.definition ? { description: oneLineOf(oneField.definition) } : {}), ...(oneField.path ? { path: oneLineOf(oneField.path) } : {}), ...(oneField.type ? { dataType: oneLineOf(oneField.type) } : {}), ...searchDescriptionMaterialOf({ oneField, searchDescriptionText }) },
 		evidence: { subject: {}, assertion: {} },
 		sourceLabelByColumn: {},
 		sourceNoteByColumn: {},
 	});
 
-	const judgeFieldAgainstPool = ({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, done) => {
+	const judgeFieldAgainstPool = ({ jobRefId, ownerPrincipalRefId, ownerPrincipalKind, fieldIndex, oneField, searchDescriptionText, hubName, candidateCardList, stopReasonNow }, done) => {
+		const searchDescriptionMaterial = searchDescriptionMaterialOf({ oneField, searchDescriptionText });
+		const isJudgedWithSearchDescription = Boolean(searchDescriptionMaterial.searchDescription);
 		const hubFacts = hubFactsFor(hubName);
 		if (hubFacts.refusalText) {
 			done(hubFacts.refusalText);
@@ -317,14 +333,14 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 		}
 		const { hubBridging, identifierScan } = hubFacts;
 		// a stranger who pastes ids is no attacker, but an id lets the judge match by id instead of meaning: this one field is not judged, and the job goes on (design 4.8)
-		const sourceHit = identifierScan.firstHitIn(sourceSurfacesOf(oneField));
+		const sourceHit = identifierScan.firstHitIn({ ...sourceSurfacesOf(oneField), ...surfacesOfPart({ partName: 'searchDescription', partText: searchDescriptionMaterial.searchDescription }) });
 		if (sourceHit) {
 			done('', { unitStatus: 'identifierInSourceText', identifierScanPatternName: sourceHit.patternName, identifierScanSurfaceName: sourceHit.surfaceName });
 			return;
 		}
 		const sortedPool = candidateCardList.slice().sort((left, right) => (left.stableId < right.stableId ? -1 : left.stableId > right.stableId ? 1 : 0)); // retrieval's rank never reaches the judge, as in the forge
 		const rendered = judgeModules.renderQuestion({
-			sourceElement: sourceElementOf(oneField),
+			sourceElement: sourceElementOf({ oneField, searchDescriptionText }),
 			candidatePool: sortedPool.map((oneCard) => ({ card: oneCard, seatReason: 'retrieval' })),
 			globalGuidanceList: [],
 			perCandidateNoteByStableId: {},
@@ -378,7 +394,7 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 					return;
 				}
 				xLog.status(`rosettaJudgeEngine: job ${jobRefId}: judgeOne refused one answer`);
-				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash, rendererVersion: rendered.rendererVersion, judgedPrompt: judgedPromptOf() });
+				done('', { unitStatus: 'judgeRefused', notJudgedReason: 'answerRefused', promptHash: question.promptHash, rendererVersion: rendered.rendererVersion, judgedPrompt: judgedPromptOf(), ...(isJudgedWithSearchDescription ? { judgedWithSearchDescription: true } : {}) });
 				return;
 			}
 			const collapse = (rendered.cardCollapseList || []).find((oneEntry) => oneEntry.renderedStableId === judged.chosenCardStableId);
@@ -395,6 +411,8 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 				judgedPrompt: judgedPromptOf(),
 				choiceCount: rendered.choiceEnum.length - 1,
 				...(stopHolder.answerWasCut ? { answerWasCut: true } : {}),
+				// ⟪TQ Q110⟫ the judge was shown the model's search description beside the field
+				...(isJudgedWithSearchDescription ? { judgedWithSearchDescription: true } : {}),
 			});
 		});
 	};
@@ -402,4 +420,4 @@ const createRosettaJudgeEngine = ({ judgedValues, judgeModules, jobStore, compon
 	return { judgeFieldAgainstPool, hubFactsFor, judgeClient, spendPricer, ledgerModules: { spendLedgerLib: judgeModules.spendLedgerLib }, judgeFacts: { provider: PROVIDER_NAME_ANTHROPIC, model: judgeClient.wireModel, promptVariant: judgedValues.judgePromptVariant } };
 };
 
-module.exports = { createRosettaJudgeEngine, rosettaJudgedValuesOf, vendorFaultRowOf, judgedSettings };
+module.exports = { createRosettaJudgeEngine, rosettaJudgedValuesOf, vendorFaultRowOf, judgedSettings, hubIdentifierScanFor, surfacesOfPart };

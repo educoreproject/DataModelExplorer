@@ -148,7 +148,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		ok('opening it goes to that meaning in its own domain (C200157), not below C200159', JSON.stringify(incomingDrillPath) === JSON.stringify(['meanings:all', 'meaningHub:CEDS', 'meaningDomain:https://w3id.org/CEDStandards/terms/C200157', incomingRow.stableId]), JSON.stringify(incomingDrillPath));
 		const ownRow = store.levelRowList.find((oneRow) => oneRow.relationshipType === 'HAS_MEANING');
 		ok('opening one of its own meanings goes one step below this level', JSON.stringify(store.drillPathOf(ownRow.stableId)) === JSON.stringify([...domainPath, ownRow.stableId]));
-		ok('the level counts it apart from the domain\'s own meanings', vocabulary.meaningCountTextOf(store.focusNode) === '4 meanings + its own term + 1 from another domain · 3 expressed in other standards', vocabulary.meaningCountTextOf(store.focusNode));
+		ok('the level says one number, the meanings it lists: 4 of its own, its own term, 1 from another domain (TQ 2026-11-12)', vocabulary.meaningCountTextOf(store.focusNode) === '6 meanings', vocabulary.meaningCountTextOf(store.focusNode));
 
 		console.log('\n=== 5. values ===');
 		const valueHolderRow = store.levelRowList.find((oneRow) => oneRow.name === 'Has Accessibility Feature Type');
@@ -179,7 +179,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 		ok(`C200159: every number in its prose (${JSON.stringify(numbersOf(domainProseText))}) is one the diagram and table count (${JSON.stringify(diagramCountList)}), and every count is said`,
 			JSON.stringify([...numbersOf(domainProseText)].sort((left, right) => left - right)) === JSON.stringify([...diagramCountList].sort((left, right) => left - right)), domainProseText);
 		// ⟪explorerTidy, TQ: "too long and too much detail"⟫ one sentence per fact; no other domain named, no property with values listed, never "this domain as"
-		ok('C200159: the short shape: its meanings, the incoming one as its range, the › hint; no other domain, no property listed, never "this domain as"', /^This domain takes part in 4 meanings \(solid hexagons\)\./.test(domainProseText)
+		ok('C200159: the short shape: its meanings, the incoming one as its range, the › hint; no other domain, no property listed, never "this domain as"', /^This domain contributes to 4 meanings \(solid hexagons\)\./.test(domainProseText)
 			&& /1 meaning in another domain names it as its range/.test(domainProseText) && /A › means the meaning holds values/.test(domainProseText)
 			&& !/Individualized Program,|Has Accessibility Feature Type|holds 48|this domain as/.test(domainProseText), domainProseText);
 		ok('C200159: no sentence about dimming while nothing is dimmed', !/dims/.test(domainProseText));
@@ -257,7 +257,7 @@ Promise.all([import(vocabularyUrl), import(piniaUrl), import(storeUrl)])
 			const valuelessShownNode = vocabulary.selectedLeafNodeOf({ selectedRow: valuelessRow, leafMeaningState: store.leafMeaningStateByStableId[valuelessRow.stableId] });
 			ok('selected again after a failure it is asked again, and the value-less property shows its tuple and Expressed-in', globalThis.clarityAxiosDouble.leafRequestCountByStableId[valuelessRow.stableId] === 2 && Boolean(valuelessShownNode && valuelessShownNode.tuple && valuelessShownNode.expressedInGroupList));
 			const detailPanelSourceText = fs.readFileSync(path.join(explorerDirPath, 'DetailPanel.vue'), 'utf8');
-			ok('the panel reads them: a selected leaf is loaded, merged and shown with its full facts', /isLeafMeaningRow\(store\.selectedRow\)/.test(detailPanelSourceText) && /store\.loadLeafMeaning\(leafStableId\)/.test(detailPanelSourceText) && /selectedLeafNodeOf\(\{ selectedRow: store\.selectedRow/.test(detailPanelSourceText) && /:shows-full-facts="isFocus \|\| Boolean\(leafMeaningState && leafMeaningState\.meaningNode\)"/.test(detailPanelSourceText));
+			ok('the panel reads them: a selected leaf is loaded, merged and shown with its full facts', /isMeaningRow\(store\.selectedRow\)/.test(detailPanelSourceText) && /store\.loadLeafMeaning\(leafStableId\)/.test(detailPanelSourceText) && /selectedLeafNodeOf\(\{ selectedRow: store\.selectedRow/.test(detailPanelSourceText) && /:shows-full-facts="isFocus \|\| Boolean\(leafMeaningState && leafMeaningState\.meaningNode\)"/.test(detailPanelSourceText));
 		}
 		ok('#15: the explainer\'s words are visible beside its icon', /data-testid="meaning-explainer-label">\{\{ explainerWords\.openButtonLabel \}\}/.test(fs.readFileSync(path.join(explorerDirPath, 'MeaningExplainer.vue'), 'utf8')));
 		finish();

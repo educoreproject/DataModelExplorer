@@ -85,13 +85,13 @@ Promise.all([
 		const proseTextOf = (proseArgs) => vocabulary.levelProseOf({ filterText: '', filterUnmatchedRowCount: 0, effectiveViewMode: 'diagram', ...proseArgs }).sentenceList.join(' ');
 		const domainProseText = proseTextOf({ focusNode: domainNode, levelRowList: domainRowList });
 		console.log(`    ${domainProseText}`);
-		ok('the domain prose is the approved shape, one sentence per fact', domainProseText === 'This domain takes part in 36 meanings (solid hexagons). 2 have elements of other standards mapped to them (marked "N elements map here"). 3 meanings in other domains name it as their range (outlined hexagons, dashed arrow). A › means the meaning holds values; open it to see them.', domainProseText);
+		ok('the domain prose is the approved shape, one sentence per fact', domainProseText === 'This domain contributes to 36 meanings (solid hexagons). 2 meanings have elements of other standards mapped to them (marked "N elements map here"). 3 meanings in other domains name it as their range (outlined hexagons, dashed arrow). A › means the meaning holds values; open it to see them.', domainProseText);
 		ok('it names no other domain and lists no property', !/Assessment Registration|Application Type|holds 4/.test(domainProseText));
 		const quietProseText = proseTextOf({ focusNode: { ...domainNode, mappedMeaningCount: 0, incomingMeaningCount: 0 }, levelRowList: [] });
-		ok('a count of 0 says no sentence (nothing mapped, nothing incoming, no value holder)', quietProseText === 'This domain takes part in 36 meanings (solid hexagons).', quietProseText);
+		ok('a count of 0 says no sentence (nothing mapped, nothing incoming, no value holder)', quietProseText === 'This domain contributes to 36 meanings (solid hexagons).', quietProseText);
 		ok('review N2: a domain holding only its own term says so, without counting it a meaning', proseTextOf({ focusNode: { ...domainNode, meaningCount: 0, mappedMeaningCount: 0, incomingMeaningCount: 0 }, levelRowList: [] }) === 'It holds only its own term (dashed hexagon).');
 		ok('review N1: a › on an incoming meaning is explained too', /A › means the meaning holds values/.test(proseTextOf({ focusNode: { ...domainNode, meaningCount: 1, mappedMeaningCount: 0, incomingMeaningCount: 1 }, levelRowList: [{ relationshipType: 'HAS_INCOMING_MEANING', name: 'x', valueMeaningCount: 3, incomingSlotNameList: ['range'] }] })));
-		ok('one meaning and one incoming are said in the one form', /takes part in 1 meaning \(solid hexagon\)\. 1 has elements .* mapped to it .* 1 meaning in another domain names it as its range \(outlined hexagon, dashed arrow\)\./.test(proseTextOf({ focusNode: { ...domainNode, meaningCount: 1, mappedMeaningCount: 1, incomingMeaningCount: 1 }, levelRowList: domainRowList.slice(0, 2) })));
+		ok('one meaning and one incoming are said in the one form', /contributes to 1 meaning \(solid hexagon\)\. 1 meaning has elements .* mapped to it .* 1 meaning in another domain names it as its range \(outlined hexagon, dashed arrow\)\./.test(proseTextOf({ focusNode: { ...domainNode, meaningCount: 1, mappedMeaningCount: 1, incomingMeaningCount: 1 }, levelRowList: domainRowList.slice(0, 2) })));
 
 		console.log('\n=== 2. a meaning row opens only to rows ===');
 		const mapper = require(path.join(codePath, 'server', 'data-model', 'data-mapping', 'mappers', 'standards-neighbourhood.js'))({});
@@ -143,7 +143,7 @@ Promise.all([
 			ok(`${oneComponent.fileName}: no words built in its script`, oneComponent.scriptWordList.length === 0, oneComponent.scriptWordList.slice(0, 6).join(' | '));
 		});
 		if (UNSWEPT_COMPONENT_LIST.length) console.log(`  NOTE: not yet swept: ${UNSWEPT_COMPONENT_LIST.join(', ')}`);
-		ok('Table.vue says Open, its screen-reader Open and its Open label from the vocabulary', /\{\{ walkTableVocabulary\.openText \}\}/.test(tableText) && /\{\{ walkTableVocabulary\.openColumnLabelText \}\}/.test(tableText) && /:aria-label="openLabelOf\(item\)"/.test(tableText) && !/`Open \$\{item\.displayName\}`/.test(tableText));
+		ok('Table.vue says Open, its screen-reader Open and its Open label from the vocabulary (the level\'s own words first, TQ 2026-11-12)', /\{\{ openText \}\}/.test(tableText) && /levelTable\.value\.openText \|\| walkTableVocabulary\.openText/.test(tableText) && /\{\{ walkTableVocabulary\.openColumnLabelText \}\}/.test(tableText) && /:aria-label="openLabelOf\(item\)"/.test(tableText) && !/`Open \$\{item\.displayName\}`/.test(tableText));
 
 		console.log('\n=== 5. no program names on the page ===');
 		const rosettaPageText = sourceOf('html/pages/explore/rosetta.vue');

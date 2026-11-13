@@ -158,7 +158,7 @@ stepList.push((done) => proseCheckOf({ domainStableId: C200012, domainName: 'Acc
 stepList.push((done) => proseCheckOf({ domainStableId: C200159, domainName: 'Individualized Program Accessibility Feature', expectedCountByName: { meaningCount: 4, incomingMeaningCount: 1 } })(done));
 stepList.push((done) => {
 	const proseText = vocabulary.levelProseOf({ focusNode: levelByStableId[`meaningDomain:${C200012}`].node, levelRowList: rowListOf(levelByStableId[`meaningDomain:${C200012}`]), filterText: '', filterUnmatchedRowCount: 0, effectiveViewMode: 'diagram' }).sentenceList.join(' ');
-	ok('Accessibility Feature reads as TQ approved it', proseText === 'This domain takes part in 36 meanings (solid hexagons). 2 have elements of other standards mapped to them (marked "N elements map here"). 3 meanings in other domains name it as their range (outlined hexagons, dashed arrow). A › means the meaning holds values; open it to see them.', proseText);
+	ok('Accessibility Feature reads as TQ approved it', proseText === 'This domain contributes to 36 meanings (solid hexagons). 2 meanings have elements of other standards mapped to them (marked "N elements map here"). 3 meanings in other domains name it as their range (outlined hexagons, dashed arrow). A › means the meaning holds values; open it to see them.', proseText);
 	done();
 });
 

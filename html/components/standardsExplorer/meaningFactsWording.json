@@ -1,6 +1,6 @@
 {
 	"_comment": "⟪meaningsClarity Addendum A, TQ 2026-11-11: an element's explorer page and its URI page must match⟫ THE WORDS OF AN ELEMENT'S MEANING FACTS, one list for both pages. The one reader (server/lib/edc-resolver/elementMeaningFacts.js) builds its sections in sectionNameList's order and its lines (lineList) in these words; the /edc element page (server/lib/edc-resolver/humanPage.js) and the explorer (MeaningFactsSection.vue) draw those lines and read their headings here. A {name} in a template is filled by a wording function that refuses a missing name.",
-	"sectionHeadText": "Meanings it takes part in",
+	"sectionHeadText": "Meanings it contributes to",
 	"sectionNameList": [
 		"propertyMeanings",
 		"valueMeanings",
@@ -42,6 +42,6 @@
 		"term": "one {hubName} term, meant on its own"
 	},
 	"numberLocaleName": "en-US",
-	"loadingText": "Reading the meanings it takes part in…",
-	"unreadableText": "The meanings it takes part in could not be read just now."
+	"loadingText": "Reading the meanings it contributes to…",
+	"unreadableText": "The meanings it contributes to could not be read just now."
 }

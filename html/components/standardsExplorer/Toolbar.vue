@@ -6,7 +6,7 @@
 
 import { computed } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { explorerComponentWords, wordingOf, kindDisplayNameOf, meaningCountTextOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, wordingOf, kindDisplayNameOf, meaningCountTextOf, focusCountTextOf, pluralKindNameOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const toolbarWords = explorerComponentWords.toolbar;
 const summaryWords = explorerComponentWords.levelSummary;
@@ -23,7 +23,10 @@ const levelSummaryText = computed(() => {
 	});
 	// ⟪meaningsPolish review B1⟫ a meanings hub or domain states what it holds exactly as the row that opened it does (meaningCountTextOf, from the node's own
 	// counts), so its own term is never counted in among its meanings; any other level counts its rows by kind, as before
-	const meaningLevelText = meaningCountTextOf(store.focusNode || {});
+	// TQ 2026-11-12: a walk may say what a level's rows are from the focus node's own count ('16 values', not '16 EDC meanings')
+	const focusCountNoun = store.walkProfile.focusCountNounByKind[store.focusNode?.kind];
+	const focusCountValue = focusCountNoun ? store.focusNode[focusCountNoun.countFieldName] : undefined;
+	const meaningLevelText = Number.isFinite(focusCountValue) ? focusCountTextOf(focusCountValue, focusCountNoun.nounEntry) : meaningCountTextOf(store.focusNode || {});
 	const kindText = meaningLevelText || Object.entries(countByKind)
 		.map(([nodeKind, itemCount]) => `${itemCount} ${itemCount === 1 ? kindDisplayNameOf(nodeKind, hubNameByKind[nodeKind]).replace(/^([A-Z])(?=[a-z])/, (initialLetter) => initialLetter.toLowerCase()) : pluralKindNameOf(nodeKind, hubNameByKind[nodeKind])}`)
 		.join(', ');
