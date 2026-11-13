@@ -1,11 +1,11 @@
 'use strict';
-// public-download-token-tolerance.test.js — the downloads are public (TQ, 2026-10-30: "all public"), and so is the Standards
-// Explorer's walk (BD 2026-11-04), and a visitor whose browser still holds a stale, expired or garbled token must be
-// served, not refused. The global hasValidToken middleware refuses a bad Authorization header (401) before any route
-// runs, so the four download endpoints and standards-neighbourhood DECLARE their routes token-tolerant
-// (accessTokenHeaderTools.declareTokenTolerantRoute), and on exactly those routes a bad token is read as no token:
-// authclaims become the anonymous { noToken, user: { role: 'public' } }. Nowhere else.
-//   1. CONTRACT: exactly those five endpoints declare a token-tolerant route; no other endpoint source does;
+// public-download-token-tolerance.test.js — the downloads are public (TQ, 2026-10-30: "all public"), and so are the Standards
+// Explorer's walk (BD 2026-11-04) and the Certification page (TQ 2026-11-08), and a visitor whose browser still holds a stale,
+// expired or garbled token must be served, not refused. The global hasValidToken middleware refuses a bad Authorization header
+// (401) before any route runs, so the four download endpoints, standards-neighbourhood and the three quality-report endpoints
+// DECLARE their routes token-tolerant (accessTokenHeaderTools.declareTokenTolerantRoute), and on exactly those routes a bad token
+// is read as no token: authclaims become the anonymous { noToken, user: { role: 'public' } }. Nowhere else.
+//   1. CONTRACT: exactly those eight endpoints declare a token-tolerant route; no other endpoint source does;
 //   2. on each download route a garbled token, 'Bearer undefined', an expired token and a token signed with another
 //      secret are each read as no token (no error, role 'public');
 //   3. a valid token on a download route keeps its own claims (a signed-in person is not demoted);
@@ -39,8 +39,9 @@ const CODE_ROOT_PATH = path.join(__dirname, '..', '..');
 const ENDPOINTS_DIR_PATH = path.join(CODE_ROOT_PATH, 'server/endpoints-dot-d/qtDotLib.d');
 const TOKEN_TOOLS_PATH = path.join(CODE_ROOT_PATH, 'server/lib/access-token-header-tools.js');
 
-// the public endpoints whose routes are token-tolerant: the four downloads, and the Standards Explorer's walk
-const DOWNLOAD_ENDPOINT_NAME_LIST = Object.freeze(['standard-downloads-manifest', 'standard-downloads-file', 'standard-downloads-publications', 'standard-downloads-publication-file', 'standards-neighbourhood']);
+// the public endpoints whose routes are token-tolerant: the four downloads, the Standards Explorer's walk, and the
+// Certification page's three quality-report endpoints
+const DOWNLOAD_ENDPOINT_NAME_LIST = Object.freeze(['standard-downloads-manifest', 'standard-downloads-file', 'standard-downloads-publications', 'standard-downloads-publication-file', 'standards-neighbourhood', 'quality-report-catalog', 'quality-report-page', 'quality-report-file']);
 const DOWNLOAD_ROUTE_PATH_LIST = Object.freeze(DOWNLOAD_ENDPOINT_NAME_LIST.map((endpointName) => `/api/${endpointName}`));
 const KNOWN_USERNAME = 'tolerance-test-user';
 
@@ -92,7 +93,7 @@ const nestedDeclaringList = fs.readdirSync(ENDPOINTS_DIR_PATH, { withFileTypes: 
 	.filter((oneEntry) => oneEntry.isDirectory())
 	.flatMap((oneEntry) => fs.readdirSync(path.join(ENDPOINTS_DIR_PATH, oneEntry.name)).filter((fileName) => /\.js$/.test(fileName)).map((fileName) => path.join(oneEntry.name, fileName)))
 	.filter((relativePath) => /declareTokenTolerantRoute\(/.test(fs.readFileSync(path.join(ENDPOINTS_DIR_PATH, relativePath), 'utf8')));
-ok('CONTRACT: exactly the four download endpoints and standards-neighbourhood declare a token-tolerant route', JSON.stringify(declaringEndpointNameList) === JSON.stringify([...DOWNLOAD_ENDPOINT_NAME_LIST].sort()) && nestedDeclaringList.length === 0, `declaring: ${declaringEndpointNameList.join(', ') || 'none'}; nested: ${nestedDeclaringList.join(', ') || 'none'}`);
+ok('CONTRACT: exactly the eight public endpoints (four downloads, standards-neighbourhood, three quality reports) declare a token-tolerant route', JSON.stringify(declaringEndpointNameList) === JSON.stringify([...DOWNLOAD_ENDPOINT_NAME_LIST].sort()) && nestedDeclaringList.length === 0, `declaring: ${declaringEndpointNameList.join(', ') || 'none'}; nested: ${nestedDeclaringList.join(', ') || 'none'}`);
 
 const toolsWithDownloads = makeTokenToolsWithDownloadEndpoints();
 const toolsWithNothingDeclared = require(TOKEN_TOOLS_PATH)({ expressApp: {}, userByUsername });

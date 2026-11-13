@@ -29,6 +29,10 @@ const selectTab = (value) => {
 
 <template>
 	<div class="sub-page-nav">
+		<!-- start: optional left-hand content (the Data Models menu); the tabs stay on the right -->
+		<div v-if="$slots.start" class="sub-page-nav-start">
+			<slot name="start" />
+		</div>
 		<v-btn-toggle
 			:model-value="modelValue"
 			@update:model-value="selectTab"
@@ -58,5 +62,10 @@ const selectTab = (value) => {
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
+}
+.sub-page-nav-start {
+	margin-right: auto;
+	display: flex;
+	align-items: center;
 }
 </style>

@@ -1,0 +1,3391 @@
+{
+	"reportFormatVersion": 1,
+	"graphStamp": {
+		"goldenContainerName": "GOLD_261106_useCases",
+		"graphName": "GOLD_261106_useCases",
+		"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+		"manifestLabel": "educore-2026-10-30",
+		"manifestUri": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+		"builtAt": "2026-11-06T21:23:29.132Z",
+		"graphContractSha256": "f65db22ad18450dade497b56d8298002591dc47bcb9a568500fd2abcf6f2426d",
+		"structuralVersion": "V.09",
+		"standardsIncluded": [
+			"CASE",
+			"CEDS",
+			"CLR",
+			"CTDL",
+			"CTDLASN",
+			"CTDLQData",
+			"EdFi",
+			"EduAPI",
+			"JEDx",
+			"LIF",
+			"MedBiquitous",
+			"OneRoster-Gradebook-1.2",
+			"OneRoster-Resources-1.2",
+			"OneRoster-Rostering-1.2",
+			"OpenBadges",
+			"PESC-AcademicEportfolio-1.0.0",
+			"PESC-CollegeTranscript-1.7.0",
+			"PESC-CollegeTranscript-1.8.0",
+			"PESC-DocumentRequest-1.0.0",
+			"PESC-DocumentResponse-1.0.0",
+			"PESC-HighSchoolTranscript-1.6.0",
+			"PESC-LearningRecord-1.0.0",
+			"PESC-TestScoreReport-1.1.0",
+			"PESCLD",
+			"SEDM",
+			"SIF260928",
+			"UseCase"
+		]
+	},
+	"generatorCommit": {
+		"commitRefId": "a0dc4985baadfe08646fea4901fa821baf9d6702",
+		"isWorkingTreeClean": true
+	},
+	"inputFingerprintList": [
+		{
+			"fileName": "raterTool-20261108-031501.sqlite3",
+			"byteCount": 192512,
+			"sha256": "7d5cbc07545fb4a3051b4c84a3e0e4065b26d8abf3fde261a9335fc33316e263"
+		},
+		{
+			"fileName": "sample.json",
+			"byteCount": 231910,
+			"sha256": "068bfca2889d8b7d0946ef445faf63bde5a8e9b121f2c3aa9052b9b5a77589c5"
+		},
+		{
+			"fileName": "suggested.json",
+			"byteCount": 3346351,
+			"sha256": "43b0d110ff7b0d78ee38c54e7087e36f471aad7d6b8497f1ee013225802f8d0c"
+		},
+		{
+			"fileName": "qualityReportRules.json",
+			"byteCount": 5645,
+			"sha256": "545c798e458319a7f1b48b46423c79023650e9b54c520f50624a3c47e4e9c440"
+		}
+	],
+	"overall": {
+		"nodeCount": 315273,
+		"standardCount": 27,
+		"hubList": [
+			{
+				"hubName": "CEDS",
+				"hubDisplayName": "CEDS",
+				"hubVersion": "14.0.0.0"
+			},
+			{
+				"hubName": "CTDL",
+				"hubDisplayName": "CTDL",
+				"hubVersion": "Release 20260927"
+			}
+		],
+		"coverage": {
+			"totalProperties": 23331,
+			"mappedProperties": 8999,
+			"hubPropertyCount": 2721,
+			"hubPolicy": "excludeHub",
+			"hubStandardList": [
+				"CEDS",
+				"CTDL"
+			],
+			"mappedPropertyCountByHub": {
+				"CEDS": 7909,
+				"CTDL": 3328
+			},
+			"mappedShare": 0.3857099995713857
+		},
+		"mcpMappingEdgeCountByType": {
+			"EXACT_MATCH": 5368,
+			"CLOSE_MATCH": 9341,
+			"BROAD_MATCH": 5007,
+			"NARROW_MATCH": 2975
+		},
+		"edgeMixAll": {
+			"edgeCount": 22691,
+			"relationCount": {
+				"exact": 5368,
+				"close": 9341,
+				"broad": 5007,
+				"narrow": 2975
+			},
+			"originCount": {
+				"publisher-stated": 454,
+				"machine-proposed": 22237
+			},
+			"confidenceCount": {
+				"strong": 9321,
+				"moderate": 7755,
+				"weak but real": 5161
+			},
+			"confidenceNotApplicableCount": 454,
+			"mappingSourceCount": {
+				"bridge-jev": 22237,
+				"declared-pescldCedsDeclaredIdentity": 219,
+				"declared-pescldCtdlDeclaredIdentity": 18,
+				"declared-sedmCedsDeclaredIdentity": 217
+			}
+		},
+		"edgeMixByHub": {
+			"CEDS": {
+				"edgeCount": 15307,
+				"relationCount": {
+					"exact": 4001,
+					"close": 6530,
+					"broad": 2193,
+					"narrow": 2583
+				},
+				"originCount": {
+					"publisher-stated": 436,
+					"machine-proposed": 14871
+				},
+				"confidenceCount": {
+					"strong": 6042,
+					"moderate": 5044,
+					"weak but real": 3785
+				},
+				"confidenceNotApplicableCount": 436,
+				"mappingSourceCount": {
+					"bridge-jev": 14871,
+					"declared-pescldCedsDeclaredIdentity": 219,
+					"declared-sedmCedsDeclaredIdentity": 217
+				}
+			},
+			"CTDL": {
+				"edgeCount": 7384,
+				"relationCount": {
+					"exact": 1367,
+					"close": 2811,
+					"broad": 2814,
+					"narrow": 392
+				},
+				"originCount": {
+					"publisher-stated": 18,
+					"machine-proposed": 7366
+				},
+				"confidenceCount": {
+					"strong": 3279,
+					"moderate": 2711,
+					"weak but real": 1376
+				},
+				"confidenceNotApplicableCount": 18,
+				"mappingSourceCount": {
+					"bridge-jev": 7366,
+					"declared-pescldCtdlDeclaredIdentity": 18
+				}
+			}
+		},
+		"judgeCertaintyByHub": {
+			"CEDS": {
+				"edgeCountByBucket": [
+					0,
+					3,
+					282,
+					1277,
+					1962,
+					2502,
+					1371,
+					1387,
+					1747,
+					4340
+				],
+				"closeCallEdgeCount": 1862,
+				"edgeCount": 14871
+			},
+			"CTDL": {
+				"edgeCountByBucket": [
+					0,
+					0,
+					67,
+					289,
+					923,
+					1044,
+					861,
+					899,
+					1250,
+					2033
+				],
+				"closeCallEdgeCount": 986,
+				"edgeCount": 7366
+			}
+		}
+	},
+	"standardList": [
+		{
+			"source": "CASE",
+			"name": "CASE",
+			"standardName": "CASE 1.1 (CASE)",
+			"version": "1.1",
+			"standardFamily": "CASE",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 547,
+			"coverage": {
+				"totalPropertyCount": 201,
+				"mappedPropertyCount": 101,
+				"mappedShare": 0.5024875621890548,
+				"mappedPropertyCountByHub": {
+					"CEDS": 95,
+					"CTDL": 30
+				}
+			},
+			"edgeCount": 125,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 95,
+					"relationCount": {
+						"exact": 18,
+						"close": 66,
+						"broad": 2,
+						"narrow": 9
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 95
+					},
+					"confidenceCount": {
+						"strong": 28,
+						"moderate": 38,
+						"weak but real": 29
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 95
+					}
+				},
+				"CTDL": {
+					"edgeCount": 30,
+					"relationCount": {
+						"exact": 2,
+						"close": 20,
+						"broad": 7,
+						"narrow": 1
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 30
+					},
+					"confidenceCount": {
+						"strong": 5,
+						"moderate": 13,
+						"weak but real": 12
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 30
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "CEDS",
+			"name": "CEDS",
+			"standardName": "Common Education Data Standards",
+			"version": "14.0.0.0",
+			"standardFamily": "CEDS",
+			"standardKind": "dataStandard",
+			"isHub": true,
+			"nodeCount": 149726,
+			"coverage": null,
+			"edgeCount": 0,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				},
+				"CTDL": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "CLR",
+			"name": "CLR",
+			"standardName": "CLR 2.0 (CLR)",
+			"version": "2.0",
+			"standardFamily": "CLR",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 717,
+			"coverage": {
+				"totalPropertyCount": 206,
+				"mappedPropertyCount": 91,
+				"mappedShare": 0.441747572815534,
+				"mappedPropertyCountByHub": {
+					"CEDS": 79,
+					"CTDL": 51
+				}
+			},
+			"edgeCount": 130,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 79,
+					"relationCount": {
+						"exact": 12,
+						"close": 46,
+						"broad": 8,
+						"narrow": 13
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 79
+					},
+					"confidenceCount": {
+						"strong": 22,
+						"moderate": 24,
+						"weak but real": 33
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 79
+					}
+				},
+				"CTDL": {
+					"edgeCount": 51,
+					"relationCount": {
+						"exact": 17,
+						"close": 30,
+						"broad": 4,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 51
+					},
+					"confidenceCount": {
+						"strong": 14,
+						"moderate": 15,
+						"weak but real": 22
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 51
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "CTDL",
+			"name": "CTDL",
+			"standardName": "Credential Transparency Description Language",
+			"version": "Release 20260927",
+			"standardFamily": "CTDL",
+			"standardKind": "dataStandard",
+			"isHub": true,
+			"nodeCount": 16127,
+			"coverage": null,
+			"edgeCount": 0,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				},
+				"CTDL": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "CTDLASN",
+			"name": "CTDLASN",
+			"standardName": "Credential Transparency Description Language — Achievement Standards Network (CTDL-ASN)",
+			"version": "20260626",
+			"standardFamily": "CTDLASN",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 119,
+			"coverage": {
+				"totalPropertyCount": 97,
+				"mappedPropertyCount": 0,
+				"mappedShare": 0,
+				"mappedPropertyCountByHub": {
+					"CEDS": 0,
+					"CTDL": 0
+				}
+			},
+			"edgeCount": 0,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				},
+				"CTDL": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "CTDLQData",
+			"name": "CTDLQData",
+			"standardName": "Credential Transparency Description Language — Quantitative Data (CTDL-QData)",
+			"version": "20260626",
+			"standardFamily": "CTDLQData",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 215,
+			"coverage": {
+				"totalPropertyCount": 82,
+				"mappedPropertyCount": 0,
+				"mappedShare": 0,
+				"mappedPropertyCountByHub": {
+					"CEDS": 0,
+					"CTDL": 0
+				}
+			},
+			"edgeCount": 0,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				},
+				"CTDL": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "EdFi",
+			"name": "EdFi",
+			"standardName": "Ed-Fi Data Standard",
+			"version": "5.2.0",
+			"standardFamily": "EdFi",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 9617,
+			"coverage": {
+				"totalPropertyCount": 1904,
+				"mappedPropertyCount": 1190,
+				"mappedShare": 0.625,
+				"mappedPropertyCountByHub": {
+					"CEDS": 1106,
+					"CTDL": 283
+				}
+			},
+			"edgeCount": 1389,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 1106,
+					"relationCount": {
+						"exact": 179,
+						"close": 644,
+						"broad": 153,
+						"narrow": 130
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 1106
+					},
+					"confidenceCount": {
+						"strong": 494,
+						"moderate": 374,
+						"weak but real": 238
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 1106
+					}
+				},
+				"CTDL": {
+					"edgeCount": 283,
+					"relationCount": {
+						"exact": 10,
+						"close": 146,
+						"broad": 111,
+						"narrow": 16
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 283
+					},
+					"confidenceCount": {
+						"strong": 84,
+						"moderate": 117,
+						"weak but real": 82
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 283
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "Ed-Fi",
+				"drawSourceList": null,
+				"groupValue": "Ed-Fi",
+				"answerCount": 35,
+				"scoredAnswerCount": 35,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 14,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 9,
+					"graphAbstainedHumanChose": 3,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 6
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 17,
+						"trialCount": 35,
+						"rate": 0.4857142857142857,
+						"interval": {
+							"lowerRate": 0.32993980391252736,
+							"upperRate": 0.6443146037328837
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 17,
+						"trialCount": 35,
+						"rate": 0.4857142857142857,
+						"interval": {
+							"lowerRate": 0.32993980391252736,
+							"upperRate": 0.6443146037328837
+						}
+					}
+				},
+				"acceptsGraphCardCount": 16
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "EduAPI",
+			"name": "EduAPI",
+			"standardName": "EduAPI 1.0 (EduAPI)",
+			"version": "1.0",
+			"standardFamily": "EduAPI",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 1056,
+			"coverage": {
+				"totalPropertyCount": 341,
+				"mappedPropertyCount": 226,
+				"mappedShare": 0.6627565982404692,
+				"mappedPropertyCountByHub": {
+					"CEDS": 184,
+					"CTDL": 131
+				}
+			},
+			"edgeCount": 315,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 184,
+					"relationCount": {
+						"exact": 12,
+						"close": 111,
+						"broad": 30,
+						"narrow": 31
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 184
+					},
+					"confidenceCount": {
+						"strong": 56,
+						"moderate": 87,
+						"weak but real": 41
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 184
+					}
+				},
+				"CTDL": {
+					"edgeCount": 131,
+					"relationCount": {
+						"exact": 27,
+						"close": 65,
+						"broad": 35,
+						"narrow": 4
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 131
+					},
+					"confidenceCount": {
+						"strong": 42,
+						"moderate": 53,
+						"weak but real": 36
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 131
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "JEDx",
+			"name": "JEDx",
+			"standardName": "Jobs and Employment Data Exchange (JEDx)",
+			"version": "1.0.0",
+			"standardFamily": "JEDx",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 3594,
+			"coverage": {
+				"totalPropertyCount": 694,
+				"mappedPropertyCount": 320,
+				"mappedShare": 0.4610951008645533,
+				"mappedPropertyCountByHub": {
+					"CEDS": 258,
+					"CTDL": 139
+				}
+			},
+			"edgeCount": 397,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 258,
+					"relationCount": {
+						"exact": 27,
+						"close": 146,
+						"broad": 34,
+						"narrow": 51
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 258
+					},
+					"confidenceCount": {
+						"strong": 69,
+						"moderate": 109,
+						"weak but real": 80
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 258
+					}
+				},
+				"CTDL": {
+					"edgeCount": 139,
+					"relationCount": {
+						"exact": 12,
+						"close": 66,
+						"broad": 42,
+						"narrow": 19
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 139
+					},
+					"confidenceCount": {
+						"strong": 47,
+						"moderate": 51,
+						"weak but real": 41
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 139
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "LIF",
+			"name": "LIF",
+			"standardName": "LIF 2.0 (LIF)",
+			"version": "2.0",
+			"standardFamily": "LIF",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 4519,
+			"coverage": {
+				"totalPropertyCount": 1393,
+				"mappedPropertyCount": 892,
+				"mappedShare": 0.6403445800430725,
+				"mappedPropertyCountByHub": {
+					"CEDS": 771,
+					"CTDL": 450
+				}
+			},
+			"edgeCount": 1221,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 771,
+					"relationCount": {
+						"exact": 272,
+						"close": 353,
+						"broad": 28,
+						"narrow": 118
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 771
+					},
+					"confidenceCount": {
+						"strong": 352,
+						"moderate": 182,
+						"weak but real": 237
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 771
+					}
+				},
+				"CTDL": {
+					"edgeCount": 450,
+					"relationCount": {
+						"exact": 108,
+						"close": 199,
+						"broad": 129,
+						"narrow": 14
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 450
+					},
+					"confidenceCount": {
+						"strong": 166,
+						"moderate": 173,
+						"weak but real": 111
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 450
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "MedBiquitous",
+			"name": "MedBiquitous",
+			"standardName": "MedBiquitous (AAMC health professions education standards)",
+			"version": "unknown",
+			"standardFamily": "MedBiquitous",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 6337,
+			"coverage": {
+				"totalPropertyCount": 1768,
+				"mappedPropertyCount": 324,
+				"mappedShare": 0.1832579185520362,
+				"mappedPropertyCountByHub": {
+					"CEDS": 234,
+					"CTDL": 168
+				}
+			},
+			"edgeCount": 402,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 234,
+					"relationCount": {
+						"exact": 46,
+						"close": 129,
+						"broad": 16,
+						"narrow": 43
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 234
+					},
+					"confidenceCount": {
+						"strong": 45,
+						"moderate": 105,
+						"weak but real": 84
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 234
+					}
+				},
+				"CTDL": {
+					"edgeCount": 168,
+					"relationCount": {
+						"exact": 44,
+						"close": 96,
+						"broad": 20,
+						"narrow": 8
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 168
+					},
+					"confidenceCount": {
+						"strong": 49,
+						"moderate": 73,
+						"weak but real": 46
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 168
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "OneRoster-Gradebook-1.2",
+			"name": "OneRoster-Gradebook-1.2",
+			"standardName": "OneRoster 1.2 Gradebook (OneRoster)",
+			"version": "1.2",
+			"standardFamily": "OneRoster",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 471,
+			"coverage": {
+				"totalPropertyCount": 138,
+				"mappedPropertyCount": 48,
+				"mappedShare": 0.34782608695652173,
+				"mappedPropertyCountByHub": {
+					"CEDS": 44,
+					"CTDL": 10
+				}
+			},
+			"edgeCount": 54,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 44,
+					"relationCount": {
+						"exact": 1,
+						"close": 25,
+						"broad": 13,
+						"narrow": 5
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 44
+					},
+					"confidenceCount": {
+						"strong": 9,
+						"moderate": 13,
+						"weak but real": 22
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 44
+					}
+				},
+				"CTDL": {
+					"edgeCount": 10,
+					"relationCount": {
+						"exact": 0,
+						"close": 5,
+						"broad": 4,
+						"narrow": 1
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 10
+					},
+					"confidenceCount": {
+						"strong": 2,
+						"moderate": 5,
+						"weak but real": 3
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 10
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "OneRoster-Resources-1.2",
+			"name": "OneRoster-Resources-1.2",
+			"standardName": "OneRoster 1.2 Resources (OneRoster)",
+			"version": "1.2",
+			"standardFamily": "OneRoster",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 111,
+			"coverage": {
+				"totalPropertyCount": 19,
+				"mappedPropertyCount": 7,
+				"mappedShare": 0.3684210526315789,
+				"mappedPropertyCountByHub": {
+					"CEDS": 6,
+					"CTDL": 1
+				}
+			},
+			"edgeCount": 7,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 6,
+					"relationCount": {
+						"exact": 0,
+						"close": 4,
+						"broad": 2,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 6
+					},
+					"confidenceCount": {
+						"strong": 2,
+						"moderate": 4,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 6
+					}
+				},
+				"CTDL": {
+					"edgeCount": 1,
+					"relationCount": {
+						"exact": 0,
+						"close": 1,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 1
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 1,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 1
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "OneRoster-Rostering-1.2",
+			"name": "OneRoster-Rostering-1.2",
+			"standardName": "OneRoster 1.2 Rostering (OneRoster)",
+			"version": "1.2",
+			"standardFamily": "OneRoster",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 591,
+			"coverage": {
+				"totalPropertyCount": 158,
+				"mappedPropertyCount": 87,
+				"mappedShare": 0.5506329113924051,
+				"mappedPropertyCountByHub": {
+					"CEDS": 76,
+					"CTDL": 30
+				}
+			},
+			"edgeCount": 106,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 76,
+					"relationCount": {
+						"exact": 13,
+						"close": 41,
+						"broad": 17,
+						"narrow": 5
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 76
+					},
+					"confidenceCount": {
+						"strong": 21,
+						"moderate": 30,
+						"weak but real": 25
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 76
+					}
+				},
+				"CTDL": {
+					"edgeCount": 30,
+					"relationCount": {
+						"exact": 3,
+						"close": 18,
+						"broad": 8,
+						"narrow": 1
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 30
+					},
+					"confidenceCount": {
+						"strong": 14,
+						"moderate": 12,
+						"weak but real": 4
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 30
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "OpenBadges",
+			"name": "OpenBadges",
+			"standardName": "Open Badges 3.0 (OpenBadges)",
+			"version": "3.0",
+			"standardFamily": "OpenBadges",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 710,
+			"coverage": {
+				"totalPropertyCount": 201,
+				"mappedPropertyCount": 91,
+				"mappedShare": 0.4527363184079602,
+				"mappedPropertyCountByHub": {
+					"CEDS": 79,
+					"CTDL": 53
+				}
+			},
+			"edgeCount": 132,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 79,
+					"relationCount": {
+						"exact": 14,
+						"close": 44,
+						"broad": 10,
+						"narrow": 11
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 79
+					},
+					"confidenceCount": {
+						"strong": 20,
+						"moderate": 30,
+						"weak but real": 29
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 79
+					}
+				},
+				"CTDL": {
+					"edgeCount": 53,
+					"relationCount": {
+						"exact": 16,
+						"close": 29,
+						"broad": 8,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 53
+					},
+					"confidenceCount": {
+						"strong": 14,
+						"moderate": 15,
+						"weak but real": 24
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 53
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "PESC-AcademicEportfolio-1.0.0",
+			"name": "PESC-AcademicEportfolio-1.0.0",
+			"standardName": "PESC Academic ePortfolio v1.0.0",
+			"version": "1.0.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 16885,
+			"coverage": {
+				"totalPropertyCount": 1933,
+				"mappedPropertyCount": 729,
+				"mappedShare": 0.3771339886187274,
+				"mappedPropertyCountByHub": {
+					"CEDS": 675,
+					"CTDL": 220
+				}
+			},
+			"edgeCount": 4949,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 3290,
+					"relationCount": {
+						"exact": 826,
+						"close": 1617,
+						"broad": 441,
+						"narrow": 406
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 3290
+					},
+					"confidenceCount": {
+						"strong": 1583,
+						"moderate": 997,
+						"weak but real": 710
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 3290
+					}
+				},
+				"CTDL": {
+					"edgeCount": 1659,
+					"relationCount": {
+						"exact": 354,
+						"close": 783,
+						"broad": 431,
+						"narrow": 91
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 1659
+					},
+					"confidenceCount": {
+						"strong": 931,
+						"moderate": 556,
+						"weak but real": 172
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 1659
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-CollegeTranscript-1.7.0",
+			"name": "PESC-CollegeTranscript-1.7.0",
+			"standardName": "PESC College Transcript v1.7.0",
+			"version": "1.7.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8501,
+			"coverage": {
+				"totalPropertyCount": 1185,
+				"mappedPropertyCount": 212,
+				"mappedShare": 0.17890295358649788,
+				"mappedPropertyCountByHub": {
+					"CEDS": 197,
+					"CTDL": 80
+				}
+			},
+			"edgeCount": 876,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 575,
+					"relationCount": {
+						"exact": 148,
+						"close": 273,
+						"broad": 99,
+						"narrow": 55
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 575
+					},
+					"confidenceCount": {
+						"strong": 244,
+						"moderate": 189,
+						"weak but real": 142
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 575
+					}
+				},
+				"CTDL": {
+					"edgeCount": 301,
+					"relationCount": {
+						"exact": 44,
+						"close": 136,
+						"broad": 96,
+						"narrow": 25
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 301
+					},
+					"confidenceCount": {
+						"strong": 151,
+						"moderate": 107,
+						"weak but real": 43
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 301
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "familySampledFromOtherReleases",
+			"familyDrawSourceList": [
+				"PESC-CollegeTranscript-1.8.0",
+				"PESC-HighSchoolTranscript-1.6.0",
+				"PESC-TestScoreReport-1.1.0",
+				"PESC-LearningRecord-1.0.0",
+				"PESC-AcademicEportfolio-1.0.0",
+				"PESC-DocumentRequest-1.0.0",
+				"PESC-DocumentResponse-1.0.0"
+			]
+		},
+		{
+			"source": "PESC-CollegeTranscript-1.8.0",
+			"name": "PESC-CollegeTranscript-1.8.0",
+			"standardName": "PESC College Transcript v1.8.0",
+			"version": "1.8.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8997,
+			"coverage": {
+				"totalPropertyCount": 1241,
+				"mappedPropertyCount": 227,
+				"mappedShare": 0.18291700241740533,
+				"mappedPropertyCountByHub": {
+					"CEDS": 210,
+					"CTDL": 87
+				}
+			},
+			"edgeCount": 1064,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 713,
+					"relationCount": {
+						"exact": 182,
+						"close": 329,
+						"broad": 133,
+						"narrow": 69
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 713
+					},
+					"confidenceCount": {
+						"strong": 280,
+						"moderate": 247,
+						"weak but real": 186
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 713
+					}
+				},
+				"CTDL": {
+					"edgeCount": 351,
+					"relationCount": {
+						"exact": 44,
+						"close": 159,
+						"broad": 116,
+						"narrow": 32
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 351
+					},
+					"confidenceCount": {
+						"strong": 168,
+						"moderate": 133,
+						"weak but real": 50
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 351
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-DocumentRequest-1.0.0",
+			"name": "PESC-DocumentRequest-1.0.0",
+			"standardName": "PESC Document Request v1.0.0",
+			"version": "1.0.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8253,
+			"coverage": {
+				"totalPropertyCount": 1282,
+				"mappedPropertyCount": 98,
+				"mappedShare": 0.07644305772230889,
+				"mappedPropertyCountByHub": {
+					"CEDS": 84,
+					"CTDL": 48
+				}
+			},
+			"edgeCount": 538,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 327,
+					"relationCount": {
+						"exact": 85,
+						"close": 127,
+						"broad": 72,
+						"narrow": 43
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 327
+					},
+					"confidenceCount": {
+						"strong": 166,
+						"moderate": 107,
+						"weak but real": 54
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 327
+					}
+				},
+				"CTDL": {
+					"edgeCount": 211,
+					"relationCount": {
+						"exact": 44,
+						"close": 129,
+						"broad": 15,
+						"narrow": 23
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 211
+					},
+					"confidenceCount": {
+						"strong": 128,
+						"moderate": 73,
+						"weak but real": 10
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 211
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-DocumentResponse-1.0.0",
+			"name": "PESC-DocumentResponse-1.0.0",
+			"standardName": "PESC Document Response v1.0.0",
+			"version": "1.0.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8057,
+			"coverage": {
+				"totalPropertyCount": 1282,
+				"mappedPropertyCount": 95,
+				"mappedShare": 0.07410296411856475,
+				"mappedPropertyCountByHub": {
+					"CEDS": 84,
+					"CTDL": 40
+				}
+			},
+			"edgeCount": 393,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 243,
+					"relationCount": {
+						"exact": 55,
+						"close": 101,
+						"broad": 51,
+						"narrow": 36
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 243
+					},
+					"confidenceCount": {
+						"strong": 124,
+						"moderate": 70,
+						"weak but real": 49
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 243
+					}
+				},
+				"CTDL": {
+					"edgeCount": 150,
+					"relationCount": {
+						"exact": 36,
+						"close": 81,
+						"broad": 20,
+						"narrow": 13
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 150
+					},
+					"confidenceCount": {
+						"strong": 93,
+						"moderate": 44,
+						"weak but real": 13
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 150
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-HighSchoolTranscript-1.6.0",
+			"name": "PESC-HighSchoolTranscript-1.6.0",
+			"standardName": "PESC High School Transcript v1.6.0",
+			"version": "1.6.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8503,
+			"coverage": {
+				"totalPropertyCount": 1185,
+				"mappedPropertyCount": 214,
+				"mappedShare": 0.18059071729957807,
+				"mappedPropertyCountByHub": {
+					"CEDS": 199,
+					"CTDL": 75
+				}
+			},
+			"edgeCount": 906,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 626,
+					"relationCount": {
+						"exact": 111,
+						"close": 338,
+						"broad": 119,
+						"narrow": 58
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 626
+					},
+					"confidenceCount": {
+						"strong": 213,
+						"moderate": 256,
+						"weak but real": 157
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 626
+					}
+				},
+				"CTDL": {
+					"edgeCount": 280,
+					"relationCount": {
+						"exact": 54,
+						"close": 102,
+						"broad": 105,
+						"narrow": 19
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 280
+					},
+					"confidenceCount": {
+						"strong": 122,
+						"moderate": 100,
+						"weak but real": 58
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 280
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-LearningRecord-1.0.0",
+			"name": "PESC-LearningRecord-1.0.0",
+			"standardName": "PESC Learning Record v1.0.0",
+			"version": "1.0.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8829,
+			"coverage": {
+				"totalPropertyCount": 1235,
+				"mappedPropertyCount": 216,
+				"mappedShare": 0.1748987854251012,
+				"mappedPropertyCountByHub": {
+					"CEDS": 197,
+					"CTDL": 92
+				}
+			},
+			"edgeCount": 1044,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 690,
+					"relationCount": {
+						"exact": 165,
+						"close": 317,
+						"broad": 119,
+						"narrow": 89
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 690
+					},
+					"confidenceCount": {
+						"strong": 267,
+						"moderate": 251,
+						"weak but real": 172
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 690
+					}
+				},
+				"CTDL": {
+					"edgeCount": 354,
+					"relationCount": {
+						"exact": 50,
+						"close": 169,
+						"broad": 91,
+						"narrow": 44
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 354
+					},
+					"confidenceCount": {
+						"strong": 175,
+						"moderate": 125,
+						"weak but real": 54
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 354
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESC-TestScoreReport-1.1.0",
+			"name": "PESC-TestScoreReport-1.1.0",
+			"standardName": "PESC Test Score Report v1.1.0",
+			"version": "1.1.0",
+			"standardFamily": "PESC",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 8898,
+			"coverage": {
+				"totalPropertyCount": 1181,
+				"mappedPropertyCount": 292,
+				"mappedShare": 0.2472480948348857,
+				"mappedPropertyCountByHub": {
+					"CEDS": 272,
+					"CTDL": 109
+				}
+			},
+			"edgeCount": 1069,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 720,
+					"relationCount": {
+						"exact": 173,
+						"close": 354,
+						"broad": 116,
+						"narrow": 77
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 720
+					},
+					"confidenceCount": {
+						"strong": 290,
+						"moderate": 268,
+						"weak but real": 162
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 720
+					}
+				},
+				"CTDL": {
+					"edgeCount": 349,
+					"relationCount": {
+						"exact": 46,
+						"close": 173,
+						"broad": 109,
+						"narrow": 21
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 349
+					},
+					"confidenceCount": {
+						"strong": 165,
+						"moderate": 126,
+						"weak but real": 58
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 349
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "PESC",
+				"drawSourceList": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				],
+				"groupValue": "PESC",
+				"answerCount": 34,
+				"scoredAnswerCount": 34,
+				"verdictCountByName": {
+					"humanUnsure": 0,
+					"bothChoseSameCard": 18,
+					"sameCedsPropertyOtherCard": 0,
+					"differentCard": 6,
+					"graphAbstainedHumanChose": 0,
+					"bothSayNoMatch": 3,
+					"graphMappedHumanNoMatch": 7
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 21,
+						"trialCount": 34,
+						"rate": 0.6176470588235294,
+						"interval": {
+							"lowerRate": 0.4504071999938267,
+							"upperRate": 0.7610003514839122
+						}
+					}
+				},
+				"acceptsGraphCardCount": 20
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "PESCLD",
+			"name": "PESCLD",
+			"standardName": "PESC College Transcript in JSON-LD (PESC_LD)",
+			"version": "0.0.2",
+			"standardFamily": "PESCLD",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 1084,
+			"coverage": {
+				"totalPropertyCount": 266,
+				"mappedPropertyCount": 141,
+				"mappedShare": 0.5300751879699248,
+				"mappedPropertyCountByHub": {
+					"CEDS": 120,
+					"CTDL": 31
+				}
+			},
+			"edgeCount": 322,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 285,
+					"relationCount": {
+						"exact": 234,
+						"close": 38,
+						"broad": 6,
+						"narrow": 7
+					},
+					"originCount": {
+						"publisher-stated": 219,
+						"machine-proposed": 66
+					},
+					"confidenceCount": {
+						"strong": 19,
+						"moderate": 24,
+						"weak but real": 23
+					},
+					"confidenceNotApplicableCount": 219,
+					"mappingSourceCount": {
+						"bridge-jev": 66,
+						"declared-pescldCedsDeclaredIdentity": 219
+					}
+				},
+				"CTDL": {
+					"edgeCount": 37,
+					"relationCount": {
+						"exact": 21,
+						"close": 9,
+						"broad": 4,
+						"narrow": 3
+					},
+					"originCount": {
+						"publisher-stated": 18,
+						"machine-proposed": 19
+					},
+					"confidenceCount": {
+						"strong": 6,
+						"moderate": 7,
+						"weak but real": 6
+					},
+					"confidenceNotApplicableCount": 18,
+					"mappingSourceCount": {
+						"bridge-jev": 19,
+						"declared-pescldCtdlDeclaredIdentity": 18
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "SEDM",
+			"name": "SEDM",
+			"standardName": "SEDM (Special Education Data Model), working documents",
+			"version": "unknown",
+			"standardFamily": "SEDM",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 2819,
+			"coverage": {
+				"totalPropertyCount": 321,
+				"mappedPropertyCount": 221,
+				"mappedShare": 0.6884735202492211,
+				"mappedPropertyCountByHub": {
+					"CEDS": 217,
+					"CTDL": 63
+				}
+			},
+			"edgeCount": 280,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 217,
+					"relationCount": {
+						"exact": 217,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 217,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 217,
+					"mappingSourceCount": {
+						"declared-sedmCedsDeclaredIdentity": 217
+					}
+				},
+				"CTDL": {
+					"edgeCount": 63,
+					"relationCount": {
+						"exact": 6,
+						"close": 25,
+						"broad": 25,
+						"narrow": 7
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 63
+					},
+					"confidenceCount": {
+						"strong": 29,
+						"moderate": 28,
+						"weak but real": 6
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 63
+					}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		},
+		{
+			"source": "SIF260928",
+			"name": "SIF260928",
+			"standardName": "SIF Implementation Specification (sif260928 rebuild)",
+			"version": "4.3",
+			"standardFamily": "SIF",
+			"standardKind": "dataStandard",
+			"isHub": false,
+			"nodeCount": 39268,
+			"coverage": {
+				"totalPropertyCount": 5018,
+				"mappedPropertyCount": 3177,
+				"mappedShare": 0.6331207652451176,
+				"mappedPropertyCountByHub": {
+					"CEDS": 2722,
+					"CTDL": 1137
+				}
+			},
+			"edgeCount": 6972,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 4689,
+					"relationCount": {
+						"exact": 1211,
+						"close": 1427,
+						"broad": 724,
+						"narrow": 1327
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 4689
+					},
+					"confidenceCount": {
+						"strong": 1738,
+						"moderate": 1639,
+						"weak but real": 1312
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 4689
+					}
+				},
+				"CTDL": {
+					"edgeCount": 2283,
+					"relationCount": {
+						"exact": 429,
+						"close": 370,
+						"broad": 1434,
+						"narrow": 50
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 2283
+					},
+					"confidenceCount": {
+						"strong": 874,
+						"moderate": 884,
+						"weak but real": 525
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {
+						"bridge-jev": 2283
+					}
+				}
+			},
+			"humanAgreement": {
+				"sampleStandardName": "SIF",
+				"drawSourceList": [
+					"SIF260928"
+				],
+				"groupValue": "SIF",
+				"answerCount": 34,
+				"scoredAnswerCount": 32,
+				"verdictCountByName": {
+					"humanUnsure": 2,
+					"bothChoseSameCard": 15,
+					"sameCedsPropertyOtherCard": 1,
+					"differentCard": 2,
+					"graphAbstainedHumanChose": 3,
+					"bothSayNoMatch": 7,
+					"graphMappedHumanNoMatch": 4
+				},
+				"rateByName": {
+					"cardAgreement": {
+						"successCount": 22,
+						"trialCount": 32,
+						"rate": 0.6875,
+						"interval": {
+							"lowerRate": 0.514330003019676,
+							"upperRate": 0.8204764788338126
+						}
+					},
+					"propertyAgreement": {
+						"successCount": 23,
+						"trialCount": 32,
+						"rate": 0.71875,
+						"interval": {
+							"lowerRate": 0.546251630618882,
+							"upperRate": 0.8443559315435214
+						}
+					}
+				},
+				"acceptsGraphCardCount": 17
+			},
+			"humanAgreementAbsentReason": null
+		},
+		{
+			"source": "UseCase",
+			"name": "UseCase",
+			"standardName": "EDUcore Enhanced Cockburn Use Cases (UseCase)",
+			"version": "1.0",
+			"standardFamily": "UseCase",
+			"standardKind": "useCaseCorpus",
+			"isHub": false,
+			"nodeCount": 191,
+			"coverage": null,
+			"edgeCount": 0,
+			"edgeMixByHub": {
+				"CEDS": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				},
+				"CTDL": {
+					"edgeCount": 0,
+					"relationCount": {
+						"exact": 0,
+						"close": 0,
+						"broad": 0,
+						"narrow": 0
+					},
+					"originCount": {
+						"publisher-stated": 0,
+						"machine-proposed": 0
+					},
+					"confidenceCount": {
+						"strong": 0,
+						"moderate": 0,
+						"weak but real": 0
+					},
+					"confidenceNotApplicableCount": 0,
+					"mappingSourceCount": {}
+				}
+			},
+			"humanAgreement": null,
+			"humanAgreementAbsentReason": "noSampleOfThisStandard"
+		}
+	],
+	"humanAgreement": {
+		"hubName": "CEDS",
+		"sampleFacts": {
+			"sampleGoldenContainerName": "GOLD_EVAL_261013_jevQuestionPerBridge",
+			"sampleSeedText": "cedsRater-humanTruthSet-101426-r2",
+			"sampleElementCount": 150,
+			"perStandardDrawCount": 50,
+			"drawCountByPart": {
+				"mapped": 40,
+				"unmapped": 10
+			},
+			"surveyNameList": [
+				"A",
+				"B",
+				"C"
+			],
+			"standardList": [
+				"Ed-Fi",
+				"PESC",
+				"SIF"
+			],
+			"drawSourceListBySampleStandard": {
+				"Ed-Fi": null,
+				"SIF": [
+					"SIF260928"
+				],
+				"PESC": [
+					"PESC-CollegeTranscript-1.8.0",
+					"PESC-HighSchoolTranscript-1.6.0",
+					"PESC-TestScoreReport-1.1.0",
+					"PESC-LearningRecord-1.0.0",
+					"PESC-AcademicEportfolio-1.0.0",
+					"PESC-DocumentRequest-1.0.0",
+					"PESC-DocumentResponse-1.0.0"
+				]
+			}
+		},
+		"storeFacts": {
+			"raterAccountCount": 6,
+			"raterWithCountedAnswerCount": 3,
+			"finishedRaterCount": 2,
+			"storedAnswerCount": 103,
+			"historyRowCount": 174,
+			"firstSavedAt": "2026-10-20T20:15:21.257Z",
+			"lastSavedAt": "2026-10-29T05:48:57.599Z",
+			"answeredSurveyNameList": [
+				"A",
+				"B"
+			]
+		},
+		"scored": {
+			"answerCount": 103,
+			"scoredAnswerCount": 101,
+			"verdictCountByName": {
+				"humanUnsure": 2,
+				"bothChoseSameCard": 47,
+				"sameCedsPropertyOtherCard": 1,
+				"differentCard": 17,
+				"graphAbstainedHumanChose": 6,
+				"bothSayNoMatch": 13,
+				"graphMappedHumanNoMatch": 17
+			},
+			"rateByName": {
+				"cardAgreement": {
+					"successCount": 60,
+					"trialCount": 101,
+					"rate": 0.594059405940594,
+					"interval": {
+						"lowerRate": 0.49654808521743277,
+						"upperRate": 0.6846776877581798
+					}
+				},
+				"propertyAgreement": {
+					"successCount": 61,
+					"trialCount": 101,
+					"rate": 0.6039603960396039,
+					"interval": {
+						"lowerRate": 0.5064548776364763,
+						"upperRate": 0.6938472924944641
+					}
+				}
+			},
+			"acceptsGraphCardCount": 53,
+			"elementCount": 100,
+			"ratesByStandard": [
+				{
+					"groupValue": "Ed-Fi",
+					"answerCount": 35,
+					"scoredAnswerCount": 35,
+					"verdictCountByName": {
+						"humanUnsure": 0,
+						"bothChoseSameCard": 14,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 9,
+						"graphAbstainedHumanChose": 3,
+						"bothSayNoMatch": 3,
+						"graphMappedHumanNoMatch": 6
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 17,
+							"trialCount": 35,
+							"rate": 0.4857142857142857,
+							"interval": {
+								"lowerRate": 0.32993980391252736,
+								"upperRate": 0.6443146037328837
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 17,
+							"trialCount": 35,
+							"rate": 0.4857142857142857,
+							"interval": {
+								"lowerRate": 0.32993980391252736,
+								"upperRate": 0.6443146037328837
+							}
+						}
+					},
+					"acceptsGraphCardCount": 16
+				},
+				{
+					"groupValue": "PESC",
+					"answerCount": 34,
+					"scoredAnswerCount": 34,
+					"verdictCountByName": {
+						"humanUnsure": 0,
+						"bothChoseSameCard": 18,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 6,
+						"graphAbstainedHumanChose": 0,
+						"bothSayNoMatch": 3,
+						"graphMappedHumanNoMatch": 7
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 21,
+							"trialCount": 34,
+							"rate": 0.6176470588235294,
+							"interval": {
+								"lowerRate": 0.4504071999938267,
+								"upperRate": 0.7610003514839122
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 21,
+							"trialCount": 34,
+							"rate": 0.6176470588235294,
+							"interval": {
+								"lowerRate": 0.4504071999938267,
+								"upperRate": 0.7610003514839122
+							}
+						}
+					},
+					"acceptsGraphCardCount": 20
+				},
+				{
+					"groupValue": "SIF",
+					"answerCount": 34,
+					"scoredAnswerCount": 32,
+					"verdictCountByName": {
+						"humanUnsure": 2,
+						"bothChoseSameCard": 15,
+						"sameCedsPropertyOtherCard": 1,
+						"differentCard": 2,
+						"graphAbstainedHumanChose": 3,
+						"bothSayNoMatch": 7,
+						"graphMappedHumanNoMatch": 4
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 22,
+							"trialCount": 32,
+							"rate": 0.6875,
+							"interval": {
+								"lowerRate": 0.514330003019676,
+								"upperRate": 0.8204764788338126
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 23,
+							"trialCount": 32,
+							"rate": 0.71875,
+							"interval": {
+								"lowerRate": 0.546251630618882,
+								"upperRate": 0.8443559315435214
+							}
+						}
+					},
+					"acceptsGraphCardCount": 17
+				}
+			],
+			"ratesBySplitHalf": [
+				{
+					"groupValue": "dev",
+					"answerCount": 50,
+					"scoredAnswerCount": 49,
+					"verdictCountByName": {
+						"humanUnsure": 1,
+						"bothChoseSameCard": 25,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 6,
+						"graphAbstainedHumanChose": 2,
+						"bothSayNoMatch": 8,
+						"graphMappedHumanNoMatch": 8
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 33,
+							"trialCount": 49,
+							"rate": 0.673469387755102,
+							"interval": {
+								"lowerRate": 0.5337894368740628,
+								"upperRate": 0.7879267867073578
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 33,
+							"trialCount": 49,
+							"rate": 0.673469387755102,
+							"interval": {
+								"lowerRate": 0.5337894368740628,
+								"upperRate": 0.7879267867073578
+							}
+						}
+					},
+					"acceptsGraphCardCount": 26
+				},
+				{
+					"groupValue": "sealed",
+					"answerCount": 53,
+					"scoredAnswerCount": 52,
+					"verdictCountByName": {
+						"humanUnsure": 1,
+						"bothChoseSameCard": 22,
+						"sameCedsPropertyOtherCard": 1,
+						"differentCard": 11,
+						"graphAbstainedHumanChose": 4,
+						"bothSayNoMatch": 5,
+						"graphMappedHumanNoMatch": 9
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 27,
+							"trialCount": 52,
+							"rate": 0.5192307692307693,
+							"interval": {
+								"lowerRate": 0.3868545397052721,
+								"upperRate": 0.6489610529711556
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 28,
+							"trialCount": 52,
+							"rate": 0.5384615384615384,
+							"interval": {
+								"lowerRate": 0.405033783976834,
+								"upperRate": 0.6665974013760211
+							}
+						}
+					},
+					"acceptsGraphCardCount": 27
+				}
+			],
+			"ratesByGraphConfidence": [
+				{
+					"groupValue": 0.5,
+					"answerCount": 16,
+					"scoredAnswerCount": 16,
+					"verdictCountByName": {
+						"humanUnsure": 0,
+						"bothChoseSameCard": 3,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 6,
+						"graphAbstainedHumanChose": 0,
+						"bothSayNoMatch": 0,
+						"graphMappedHumanNoMatch": 7
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 3,
+							"trialCount": 16,
+							"rate": 0.1875,
+							"interval": {
+								"lowerRate": 0.06591478773586765,
+								"upperRate": 0.4300935986845823
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 3,
+							"trialCount": 16,
+							"rate": 0.1875,
+							"interval": {
+								"lowerRate": 0.06591478773586765,
+								"upperRate": 0.4300935986845823
+							}
+						}
+					},
+					"acceptsGraphCardCount": 3
+				},
+				{
+					"groupValue": 0.7,
+					"answerCount": 27,
+					"scoredAnswerCount": 26,
+					"verdictCountByName": {
+						"humanUnsure": 1,
+						"bothChoseSameCard": 15,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 3,
+						"graphAbstainedHumanChose": 0,
+						"bothSayNoMatch": 0,
+						"graphMappedHumanNoMatch": 8
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 15,
+							"trialCount": 26,
+							"rate": 0.5769230769230769,
+							"interval": {
+								"lowerRate": 0.3894829692111983,
+								"upperRate": 0.744558100972706
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 15,
+							"trialCount": 26,
+							"rate": 0.5769230769230769,
+							"interval": {
+								"lowerRate": 0.3894829692111983,
+								"upperRate": 0.744558100972706
+							}
+						}
+					},
+					"acceptsGraphCardCount": 16
+				},
+				{
+					"groupValue": 0.9,
+					"answerCount": 40,
+					"scoredAnswerCount": 40,
+					"verdictCountByName": {
+						"humanUnsure": 0,
+						"bothChoseSameCard": 29,
+						"sameCedsPropertyOtherCard": 1,
+						"differentCard": 8,
+						"graphAbstainedHumanChose": 0,
+						"bothSayNoMatch": 0,
+						"graphMappedHumanNoMatch": 2
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 29,
+							"trialCount": 40,
+							"rate": 0.725,
+							"interval": {
+								"lowerRate": 0.5716474916687543,
+								"upperRate": 0.8389214656685692
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 30,
+							"trialCount": 40,
+							"rate": 0.75,
+							"interval": {
+								"lowerRate": 0.598057409330299,
+								"upperRate": 0.8581303210445048
+							}
+						}
+					},
+					"acceptsGraphCardCount": 34
+				},
+				{
+					"groupValue": null,
+					"answerCount": 20,
+					"scoredAnswerCount": 19,
+					"verdictCountByName": {
+						"humanUnsure": 1,
+						"bothChoseSameCard": 0,
+						"sameCedsPropertyOtherCard": 0,
+						"differentCard": 0,
+						"graphAbstainedHumanChose": 6,
+						"bothSayNoMatch": 13,
+						"graphMappedHumanNoMatch": 0
+					},
+					"rateByName": {
+						"cardAgreement": {
+							"successCount": 13,
+							"trialCount": 19,
+							"rate": 0.6842105263157895,
+							"interval": {
+								"lowerRate": 0.4601001017506463,
+								"upperRate": 0.846358289955714
+							}
+						},
+						"propertyAgreement": {
+							"successCount": 13,
+							"trialCount": 19,
+							"rate": 0.6842105263157895,
+							"interval": {
+								"lowerRate": 0.4601001017506463,
+								"upperRate": 0.846358289955714
+							}
+						}
+					},
+					"acceptsGraphCardCount": 0
+				}
+			]
+		},
+		"interRater": {
+			"multiRatedElementCount": 3,
+			"sameCardElementCount": 2,
+			"samePropertyElementCount": 2
+		},
+		"graphCardListing": {
+			"graphMappedAnsweredElementCount": 81,
+			"graphCardOffListElementCount": 0
+		},
+		"sampleGraphMappingCount": {
+			"mappedInSampleGold": 120,
+			"mappedInThisGraph": 120,
+			"mappedInBoth": 120
+		}
+	},
+	"consistency": {
+		"instanceAgreementRowList": [
+			{
+				"standardSource": "PESC-AcademicEportfolio-1.0.0",
+				"hubName": "CEDS",
+				"declarationCount": 300,
+				"oneCardDeclarationCount": 274,
+				"onePropertyDeclarationCount": 284,
+				"mappedInstanceCount": 2915
+			},
+			{
+				"standardSource": "PESC-AcademicEportfolio-1.0.0",
+				"hubName": "CTDL",
+				"declarationCount": 119,
+				"oneCardDeclarationCount": 116,
+				"onePropertyDeclarationCount": 117,
+				"mappedInstanceCount": 1558
+			},
+			{
+				"standardSource": "PESC-CollegeTranscript-1.7.0",
+				"hubName": "CEDS",
+				"declarationCount": 129,
+				"oneCardDeclarationCount": 127,
+				"onePropertyDeclarationCount": 128,
+				"mappedInstanceCount": 507
+			},
+			{
+				"standardSource": "PESC-CollegeTranscript-1.7.0",
+				"hubName": "CTDL",
+				"declarationCount": 69,
+				"oneCardDeclarationCount": 69,
+				"onePropertyDeclarationCount": 69,
+				"mappedInstanceCount": 290
+			},
+			{
+				"standardSource": "PESC-CollegeTranscript-1.8.0",
+				"hubName": "CEDS",
+				"declarationCount": 138,
+				"oneCardDeclarationCount": 136,
+				"onePropertyDeclarationCount": 137,
+				"mappedInstanceCount": 641
+			},
+			{
+				"standardSource": "PESC-CollegeTranscript-1.8.0",
+				"hubName": "CTDL",
+				"declarationCount": 75,
+				"oneCardDeclarationCount": 75,
+				"onePropertyDeclarationCount": 75,
+				"mappedInstanceCount": 339
+			},
+			{
+				"standardSource": "PESC-DocumentRequest-1.0.0",
+				"hubName": "CEDS",
+				"declarationCount": 66,
+				"oneCardDeclarationCount": 60,
+				"onePropertyDeclarationCount": 62,
+				"mappedInstanceCount": 309
+			},
+			{
+				"standardSource": "PESC-DocumentRequest-1.0.0",
+				"hubName": "CTDL",
+				"declarationCount": 37,
+				"oneCardDeclarationCount": 36,
+				"onePropertyDeclarationCount": 37,
+				"mappedInstanceCount": 200
+			},
+			{
+				"standardSource": "PESC-DocumentResponse-1.0.0",
+				"hubName": "CEDS",
+				"declarationCount": 67,
+				"oneCardDeclarationCount": 63,
+				"onePropertyDeclarationCount": 64,
+				"mappedInstanceCount": 226
+			},
+			{
+				"standardSource": "PESC-DocumentResponse-1.0.0",
+				"hubName": "CTDL",
+				"declarationCount": 31,
+				"oneCardDeclarationCount": 31,
+				"onePropertyDeclarationCount": 31,
+				"mappedInstanceCount": 141
+			},
+			{
+				"standardSource": "PESC-HighSchoolTranscript-1.6.0",
+				"hubName": "CEDS",
+				"declarationCount": 131,
+				"oneCardDeclarationCount": 126,
+				"onePropertyDeclarationCount": 128,
+				"mappedInstanceCount": 558
+			},
+			{
+				"standardSource": "PESC-HighSchoolTranscript-1.6.0",
+				"hubName": "CTDL",
+				"declarationCount": 66,
+				"oneCardDeclarationCount": 65,
+				"onePropertyDeclarationCount": 66,
+				"mappedInstanceCount": 271
+			},
+			{
+				"standardSource": "PESC-LearningRecord-1.0.0",
+				"hubName": "CEDS",
+				"declarationCount": 116,
+				"oneCardDeclarationCount": 112,
+				"onePropertyDeclarationCount": 114,
+				"mappedInstanceCount": 609
+			},
+			{
+				"standardSource": "PESC-LearningRecord-1.0.0",
+				"hubName": "CTDL",
+				"declarationCount": 50,
+				"oneCardDeclarationCount": 50,
+				"onePropertyDeclarationCount": 50,
+				"mappedInstanceCount": 312
+			},
+			{
+				"standardSource": "PESC-TestScoreReport-1.1.0",
+				"hubName": "CEDS",
+				"declarationCount": 155,
+				"oneCardDeclarationCount": 150,
+				"onePropertyDeclarationCount": 152,
+				"mappedInstanceCount": 603
+			},
+			{
+				"standardSource": "PESC-TestScoreReport-1.1.0",
+				"hubName": "CTDL",
+				"declarationCount": 76,
+				"oneCardDeclarationCount": 76,
+				"onePropertyDeclarationCount": 76,
+				"mappedInstanceCount": 316
+			},
+			{
+				"standardSource": "SIF260928",
+				"hubName": "CEDS",
+				"declarationCount": 271,
+				"oneCardDeclarationCount": 241,
+				"onePropertyDeclarationCount": 244,
+				"mappedInstanceCount": 2238
+			},
+			{
+				"standardSource": "SIF260928",
+				"hubName": "CTDL",
+				"declarationCount": 141,
+				"oneCardDeclarationCount": 141,
+				"onePropertyDeclarationCount": 141,
+				"mappedInstanceCount": 1287
+			}
+		],
+		"triangulationRowList": [
+			{
+				"fromHubName": "CEDS",
+				"toHubName": "CTDL",
+				"declaredCorrespondenceCount": 0,
+				"mappedFromCardCount": 0,
+				"checkablePairCount": 0,
+				"agreeingPairCount": 0,
+				"bothHubElementCount": 4900
+			},
+			{
+				"fromHubName": "CTDL",
+				"toHubName": "CEDS",
+				"declaredCorrespondenceCount": 53,
+				"mappedFromCardCount": 0,
+				"checkablePairCount": 0,
+				"agreeingPairCount": 0,
+				"bothHubElementCount": 4900
+			}
+		],
+		"instanceAgreementTotal": {
+			"declarationCount": 2037,
+			"oneCardDeclarationCount": 1948,
+			"onePropertyDeclarationCount": 1975
+		}
+	},
+	"crossCheckList": [
+		{
+			"checkName": "coverage.totalProperties",
+			"mcpFigure": 23331,
+			"breakdownFigure": 23331,
+			"isEqual": true
+		},
+		{
+			"checkName": "coverage.mappedProperties",
+			"mcpFigure": 8999,
+			"breakdownFigure": 8999,
+			"isEqual": true
+		},
+		{
+			"checkName": "coverage.mappedPropertyCountByHub.CEDS",
+			"mcpFigure": 7909,
+			"breakdownFigure": 7909,
+			"isEqual": true
+		},
+		{
+			"checkName": "coverage.mappedPropertyCountByHub.CTDL",
+			"mcpFigure": 3328,
+			"breakdownFigure": 3328,
+			"isEqual": true
+		},
+		{
+			"checkName": "mappings.EXACT_MATCH",
+			"mcpFigure": 5368,
+			"breakdownFigure": 5368,
+			"isEqual": true
+		},
+		{
+			"checkName": "mappings.CLOSE_MATCH",
+			"mcpFigure": 9341,
+			"breakdownFigure": 9341,
+			"isEqual": true
+		},
+		{
+			"checkName": "mappings.BROAD_MATCH",
+			"mcpFigure": 5007,
+			"breakdownFigure": 5007,
+			"isEqual": true
+		},
+		{
+			"checkName": "mappings.NARROW_MATCH",
+			"mcpFigure": 2975,
+			"breakdownFigure": 2975,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CASE.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 95,
+			"breakdownFigure": 95,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CASE.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 30,
+			"breakdownFigure": 30,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CEDS.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CEDS.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CLR.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 79,
+			"breakdownFigure": 79,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CLR.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 51,
+			"breakdownFigure": 51,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDL.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDL.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDLASN.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDLASN.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDLQData.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.CTDLQData.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.EdFi.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 1106,
+			"breakdownFigure": 1106,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.EdFi.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 283,
+			"breakdownFigure": 283,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.EduAPI.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 184,
+			"breakdownFigure": 184,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.EduAPI.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 131,
+			"breakdownFigure": 131,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.JEDx.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 258,
+			"breakdownFigure": 258,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.JEDx.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 139,
+			"breakdownFigure": 139,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.LIF.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 771,
+			"breakdownFigure": 771,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.LIF.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 450,
+			"breakdownFigure": 450,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.MedBiquitous.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 234,
+			"breakdownFigure": 234,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.MedBiquitous.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 168,
+			"breakdownFigure": 168,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Gradebook-1.2.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 44,
+			"breakdownFigure": 44,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Gradebook-1.2.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 10,
+			"breakdownFigure": 10,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Resources-1.2.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 6,
+			"breakdownFigure": 6,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Resources-1.2.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 1,
+			"breakdownFigure": 1,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Rostering-1.2.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 76,
+			"breakdownFigure": 76,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OneRoster-Rostering-1.2.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 30,
+			"breakdownFigure": 30,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OpenBadges.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 79,
+			"breakdownFigure": 79,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.OpenBadges.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 53,
+			"breakdownFigure": 53,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-AcademicEportfolio-1.0.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 3290,
+			"breakdownFigure": 3290,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-AcademicEportfolio-1.0.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 1659,
+			"breakdownFigure": 1659,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-CollegeTranscript-1.7.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 575,
+			"breakdownFigure": 575,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-CollegeTranscript-1.7.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 301,
+			"breakdownFigure": 301,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-CollegeTranscript-1.8.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 713,
+			"breakdownFigure": 713,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-CollegeTranscript-1.8.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 351,
+			"breakdownFigure": 351,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-DocumentRequest-1.0.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 327,
+			"breakdownFigure": 327,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-DocumentRequest-1.0.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 211,
+			"breakdownFigure": 211,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-DocumentResponse-1.0.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 243,
+			"breakdownFigure": 243,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-DocumentResponse-1.0.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 150,
+			"breakdownFigure": 150,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-HighSchoolTranscript-1.6.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 626,
+			"breakdownFigure": 626,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-HighSchoolTranscript-1.6.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 280,
+			"breakdownFigure": 280,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-LearningRecord-1.0.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 690,
+			"breakdownFigure": 690,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-LearningRecord-1.0.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 354,
+			"breakdownFigure": 354,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-TestScoreReport-1.1.0.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 720,
+			"breakdownFigure": 720,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESC-TestScoreReport-1.1.0.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 349,
+			"breakdownFigure": 349,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESCLD.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 285,
+			"breakdownFigure": 285,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.PESCLD.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 37,
+			"breakdownFigure": 37,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.SEDM.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 217,
+			"breakdownFigure": 217,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.SEDM.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 63,
+			"breakdownFigure": 63,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.SIF260928.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 4689,
+			"breakdownFigure": 4689,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.SIF260928.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 2283,
+			"breakdownFigure": 2283,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.UseCase.hubMatchEdgeCountByHub.CEDS",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		},
+		{
+			"checkName": "standards.UseCase.hubMatchEdgeCountByHub.CTDL",
+			"mcpFigure": 0,
+			"breakdownFigure": 0,
+			"isEqual": true
+		}
+	],
+	"priorMeasurementList": [
+		{
+			"measuredOn": "2026-08-03",
+			"measuredWhatText": "Ed-Fi to CEDS, property tier: the AI judge, run blind, against Ed-Fi's own published CEDS crosswalk, on the 65 sampled Ed-Fi elements that crosswalk maps",
+			"resultText": "the judge chose Ed-Fi's mapped CEDS property for 47 of the 65 (72.3%)",
+			"buildText": "blind-evaluation build DEV_edfiBlindEvalV2_080326 (an earlier hub and judge configuration)",
+			"sourceText": "educoreForge/system/management/zNotesPlansDocs/REPORT-blindEvalVsProduction-080326.md"
+		},
+		{
+			"measuredOn": "2026-08-17",
+			"measuredWhatText": "Ed-Fi to CEDS, every element: the AI judge's mappings against Ed-Fi's published crosswalk (666 authored mappings)",
+			"resultText": "421 agreed; precision 80.96% (of the judge's 520 mappings), recall 63.2% (of the crosswalk's 666)",
+			"buildText": "DEV_edfiDerived_260817 against GOLD_EVAL_260817_edfiBridge (an earlier build)",
+			"sourceText": "educore/system/management/zNotesPlansDocs/continuityArchive-preCollapse-103126.json (topFindings.recallNeverMeasured)"
+		},
+		{
+			"measuredOn": "2026-11-03",
+			"measuredWhatText": "A peer bridge pilot, Ed-Fi to LIF directly (no hub): the judge's 49 picks from 300 Ed-Fi subjects, each ruled by a separate AI agent working blind, NOT by people (the pilot's report says so)",
+			"resultText": "19 of 49 picks ruled same or close (2 same, 17 close), 10 of 10 at confidence 0.8 and above; the supervisor's stand-down, removing rulings that rest on an undefined LIF element, puts it at 13 of 49 and 7 of 10",
+			"buildText": "peer bridge pilot run; peer mappings are not part of this graph",
+			"sourceText": "educoreForge/system/management/zNotesPlansDocs/peerBridgePilot-110326/REPORT-peerBridgePilot-110326.md and STANDDOWN-RAFFISH_TRINKET-110326.md"
+		}
+	]
+}
