@@ -83,7 +83,7 @@
 <template>
 	<!-- Top banner (not an app bar) -->
 	<div class="banner justify-center align-center">
-		<h1 class="banner-title" style="cursor: pointer" @click="router.push('/')">EDUcore</h1>
+		<h1 class="banner-title" style="cursor: pointer" @click="router.push('/explore/use-cases')">EDUcore</h1>
 	</div>
 
 	<!-- Navigation bar -->
