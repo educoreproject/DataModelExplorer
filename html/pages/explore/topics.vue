@@ -11,6 +11,11 @@ onMounted(() => {
 	forgedUseCaseStore.fetchCitedStandardList();
 });
 const forgedCaseLinkOf = (caseStableId) => `/explore/use-cases/forged/${encodeURIComponent(caseStableId)}`;
+
+useHead({
+	title: 'Topics: Use Cases by Standard',
+	meta: [{ name: 'description', content: 'EDUcore use cases grouped by the education data standard each one cites (CEDS, PESC, SIF, Ed-Fi, CTDL and more), read from the knowledge graph\'s own citations.' }],
+});
 </script>
 
 <template>

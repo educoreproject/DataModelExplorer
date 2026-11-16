@@ -1,5 +1,9 @@
 <script setup>
 	definePageMeta({ layout: 'blank' });
+	useHead({
+		title: 'Who We Are',
+		meta: [{ name: 'description', content: 'The EDUcore team: the people building the shared semantic backbone for education and workforce data interoperability, with their roles, affiliations and bios.' }],
+	});
 
 	// Sorted alphabetically by last name.
 	const people = [

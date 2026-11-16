@@ -131,8 +131,29 @@
       "access": "public"
     },
     {
+      "name": "Use cases by the standard they cite",
+      "url": "https://educore.org/explore/topics",
+      "access": "public"
+    },
+    {
+      "name": "Rosetta (map your own fields to the hub meanings)",
+      "url": "https://educore.org/explore/rosetta",
+      "urlTemplate": "https://educore.org/explore/rosetta?job={jobRefId}",
+      "access": "public"
+    },
+    {
       "name": "Access guide",
       "url": "https://educore.org/explore/access-guide",
+      "access": "public"
+    },
+    {
+      "name": "Implementation burden rubric",
+      "url": "https://educore.org/explore/implementation-burden",
+      "access": "public"
+    },
+    {
+      "name": "Who we are",
+      "url": "https://educore.org/who-we-are",
       "access": "public"
     }
   ]

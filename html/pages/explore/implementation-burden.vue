@@ -2,6 +2,11 @@
 import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
 const specStore = useSpecificationMetadataStore();
 
+useHead({
+	title: 'Implementation Burden Rubric',
+	meta: [{ name: 'description', content: 'The criteria EDUcore uses to assess the implementation burden of education data specifications: the dimensions, their indicators and what each score level means, so implementers can compare specifications.' }],
+});
+
 // ── Rubric Definition ──────────────────────────────────────────────────
 // The assessment framework: what we evaluate and what each level means.
 

@@ -1,4 +1,9 @@
 <script setup>
+useHead({
+	title: 'How to Access the Reference Library',
+	meta: [{ name: 'description', content: 'Three ways into the EDUcore Reference Library of education data standards: browse the site starting from use cases, connect an AI agent via MCP, or query the API directly.' }],
+});
+
 const claudeCodeConfig = `{
   "mcpServers": {
     "educore-standards": {
