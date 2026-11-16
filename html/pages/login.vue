@@ -4,7 +4,7 @@ definePageMeta({ layout: 'blank' });
 
 <template>
 	<div class="login-page">
-		<div class="login-header" @click="navigateTo('/')" style="cursor: pointer;">
+		<div class="login-header" @click="navigateTo('/explore/use-cases')" style="cursor: pointer;">
 			<img src="/educore-logo.png" alt="EDUcore" class="login-logo" />
 		</div>
 		<form_login />

@@ -8,8 +8,10 @@
 import { computed, onMounted } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, familyStyleOf, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 import { standardKeyListOfFocus } from '@/components/standardsExplorer/focusStandardKeyList';
+
+const downloadsWords = explorerComponentWords.downloadsSection;
 
 const neighbourhoodStore = useStandardsNeighbourhoodStore();
 const downloadsStore = useStandardDownloadsStore();
@@ -32,30 +34,30 @@ const standardDownloadList = computed(() =>
 	}),
 );
 
-const familyLinkText = computed(() => `All downloads for ${familyStyleOf(standardFamily.value).displayName}`);
+const familyLinkText = computed(() => wordingOf(downloadsWords.familyAllTemplate, { familyName: familyStyleOf(standardFamily.value).displayName }));
 const familyLinkTarget = computed(() => ({ path: '/explore/standards/downloads', query: { family: standardFamily.value } }));
 </script>
 
 <template>
-	<section v-if="focusNode" class="downloads-section" aria-label="Downloads" data-testid="downloads-section">
-		<span class="downloads-section-head">Downloads</span>
+	<section v-if="focusNode" class="downloads-section" :aria-label="downloadsWords.headText" data-testid="downloads-section">
+		<span class="downloads-section-head">{{ downloadsWords.headText }}</span>
 		<template v-if="isCatalog">
-			<p class="downloads-section-note">The source of every standard, and each written back out of this graph (experimental).</p>
-			<NuxtLink to="/explore/standards/downloads" class="downloads-section-link" data-testid="downloads-all-link">All downloads ›</NuxtLink>
+			<p class="downloads-section-note">{{ downloadsWords.catalogNoteText }}</p>
+			<NuxtLink to="/explore/standards/downloads" class="downloads-section-link" data-testid="downloads-all-link">{{ downloadsWords.allDownloadsText }}</NuxtLink>
 		</template>
 		<template v-else>
-			<p v-if="downloadsStore.manifestLoading" class="downloads-section-note">Looking for downloads…</p>
-			<p v-else-if="downloadsStore.statusMsg" class="downloads-section-error" data-testid="downloads-section-error">The downloads could not be read: {{ downloadsStore.statusMsg }}</p>
+			<p v-if="downloadsStore.manifestLoading" class="downloads-section-note">{{ downloadsWords.loadingText }}</p>
+			<p v-else-if="downloadsStore.statusMsg" class="downloads-section-error" data-testid="downloads-section-error">{{ wordingOf(downloadsWords.unreadTemplate, { statusMsg: downloadsStore.statusMsg }) }}</p>
 			<template v-else>
 				<div v-for="oneStandard in standardDownloadList" :key="oneStandard.standardKey" class="downloads-section-standard" :data-testid="`downloads-standard-${oneStandard.standardKey}`">
 					<span class="downloads-section-title">{{ oneStandard.titleText }}</span>
 					<StandardsExplorerSourceUrlNote v-if="oneStandard.entryList.length" :download-entry="oneStandard.entryList[0]" />
-					<p v-if="oneStandard.entryList.length === 0" class="downloads-section-note">No downloads for this standard in this graph.</p>
+					<p v-if="oneStandard.entryList.length === 0" class="downloads-section-note">{{ downloadsWords.noneText }}</p>
 					<StandardsExplorerDownloadEntryButton v-for="oneEntry in oneStandard.entryList" :key="oneEntry.downloadId" :download-entry="oneEntry" />
 				</div>
 				<p v-if="downloadsStore.downloadStatusMsg" class="downloads-section-error" data-testid="downloads-download-error">{{ downloadsStore.downloadStatusMsg }}</p>
 			</template>
-			<NuxtLink v-if="standardFamily" :to="familyLinkTarget" class="downloads-section-link" data-testid="downloads-family-link">{{ familyLinkText }} ›</NuxtLink>
+			<NuxtLink v-if="standardFamily" :to="familyLinkTarget" class="downloads-section-link" data-testid="downloads-family-link">{{ wordingOf(downloadsWords.familyLinkTemplate, { familyLinkText }) }}</NuxtLink>
 		</template>
 	</section>
 </template>

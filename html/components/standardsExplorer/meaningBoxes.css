@@ -1,0 +1,136 @@
+/* The meaning panel's boxes (MeaningSection, MeaningMappedHere, ClassMappingsSection): one stylesheet, scoped into each component that uses it */
+.meaning {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+.meaning-facts {
+	margin: 0;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 6px 12px;
+	font-size: 14px;
+}
+.meaning-facts dt {
+	color: #6b7280;
+}
+.meaning-facts dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+.meaning-box {
+	border: 1px solid #e3e7ef;
+	border-radius: 10px;
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background: #fbfcfe;
+	min-width: 0;
+}
+.meaning-box-head {
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #6b7280;
+}
+.meaning-count {
+	font-weight: 400;
+	color: #6b7280;
+	text-transform: none;
+	letter-spacing: 0;
+}
+.meaning-note {
+	margin: 0;
+	font-size: 13px;
+	color: #6b7280;
+}
+.meaning-slots,
+.meaning-elements {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.meaning-slot {
+	display: grid;
+	grid-template-columns: 6.5em 1fr;
+	gap: 0 8px;
+	font-size: 14px;
+}
+/* the slot's title (Domain, Property…) in bold; it spans its label and kind rows, and the URI below runs across both columns as the slot's separator */
+.meaning-slot-name {
+	font-weight: 700;
+	color: #374151;
+	grid-row: span 2;
+}
+.meaning-slot-label {
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+.meaning-slot-kind {
+	font-size: 12px;
+	color: #6b7280;
+}
+.meaning-slot-uri {
+	grid-column: 1 / -1;
+	margin-top: 2px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid #e3e7ef;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	color: #374151;
+	overflow-wrap: anywhere;
+}
+.meaning-slot:last-child .meaning-slot-uri {
+	padding-bottom: 0;
+	border-bottom: none;
+}
+.meaning-ranges summary,
+.meaning-group summary {
+	cursor: pointer;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.meaning-ranges .meaning-slot {
+	grid-template-columns: 1fr;
+	margin-top: 6px;
+}
+.meaning-group {
+	border-top: 1px solid #e3e7ef;
+	padding-top: 8px;
+}
+.meaning-group-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex: none;
+}
+.meaning-group-name {
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+.meaning-elements {
+	margin-top: 8px;
+}
+.meaning-element {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+	font-size: 14px;
+}
+.meaning-element-name {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+.meaning-element-owner,
+.meaning-element-basis {
+	font-size: 12px;
+	color: #6b7280;
+}

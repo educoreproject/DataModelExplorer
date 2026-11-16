@@ -3,7 +3,9 @@
 // crumbs and folds the middle into one '…' that names what it hides.
 
 import { computed } from 'vue';
-import { familyStyleOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, familyStyleOf, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const crumbWords = explorerComponentWords.breadcrumb;
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 
 const props = defineProps({
@@ -27,10 +29,16 @@ const shownCrumbList = computed(() => {
 });
 
 const lastPathIndex = computed(() => props.crumbList.length - 1);
+// TQ 2026-11-12: clicking a crumb, the current one included, clears the row selection and puts a full-width panel back in its column, so the level shows as itself
+// TQ 2026-11-12: a walk may name a crumb by what its level lists ('CEDS Domains', 'Adult Education Course Meanings'); a fold keeps its own words
+const crumbTextOf = (oneCrumb) => {
+	const crumbTemplate = !oneCrumb.isFold && store.walkProfile.crumbTemplateByKind[oneCrumb.kind];
+	return crumbTemplate ? wordingOf(crumbTemplate, { crumbName: oneCrumb.displayName }) : oneCrumb.displayName;
+};
 </script>
 
 <template>
-	<nav aria-label="Breadcrumb" class="crumb-bar" data-testid="breadcrumb">
+	<nav :aria-label="crumbWords.navLabelText" class="crumb-bar" data-testid="breadcrumb">
 		<ol class="crumb-list">
 			<li v-for="(oneCrumb, crumbIndex) in shownCrumbList" :key="`${oneCrumb.stableId}-${crumbIndex}`" class="crumb-item">
 				<span v-if="crumbIndex > 0" aria-hidden="true" class="crumb-divider">›</span>
@@ -40,11 +48,12 @@ const lastPathIndex = computed(() => props.crumbList.length - 1);
 					:class="{ 'crumb-current': oneCrumb.pathIndex === lastPathIndex && !oneCrumb.isFold }"
 					:aria-current="oneCrumb.pathIndex === lastPathIndex && !oneCrumb.isFold ? 'page' : undefined"
 					:title="oneCrumb.titleText || oneCrumb.displayName"
-					:aria-label="oneCrumb.isFold ? `${oneCrumb.titleText} (hidden steps of the walk)` : undefined"
+					:aria-label="oneCrumb.isFold ? wordingOf(crumbWords.foldLabelTemplate, { titleText: oneCrumb.titleText }) : undefined"
 					:data-testid="`crumb-${crumbIndex}`"
+					@click="store.showCrumbLevel()"
 				>
 					<span v-if="!oneCrumb.isFold" aria-hidden="true" class="crumb-dot" :style="{ background: familyStyleOf(oneCrumb.standardFamily).fill || familyStyleOf(oneCrumb.standardFamily).color }" />
-					{{ oneCrumb.displayName }}
+					{{ crumbTextOf(oneCrumb) }}
 				</NuxtLink>
 			</li>
 		</ol>

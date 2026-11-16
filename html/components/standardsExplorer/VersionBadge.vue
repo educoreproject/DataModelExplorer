@@ -2,7 +2,7 @@
 // The version badge: "Changed" and "New in 1.8" are noticeable; unchanged is nearly invisible.
 
 import { computed } from 'vue';
-import { versionBadgeStyleByState, versionBadgeTextOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { explorerComponentWords, versionBadgeStyleByState, versionBadgeTextOf, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const props = defineProps({
 	versionBadge: { type: Object, required: true },
@@ -12,7 +12,7 @@ const badgeStyle = computed(() => versionBadgeStyleByState[props.versionBadge.ba
 </script>
 
 <template>
-	<span class="version-badge" :data-badge-state="versionBadge.badgeState" :style="badgeStyle" :title="`compared with ${versionBadge.comparedVersion}`">
+	<span class="version-badge" :data-badge-state="versionBadge.badgeState" :style="badgeStyle" :title="wordingOf(explorerComponentWords.versionBadge.comparedTitleTemplate, { comparedVersion: versionBadge.comparedVersion })">
 		{{ versionBadgeTextOf(versionBadge) }}
 	</span>
 </template>

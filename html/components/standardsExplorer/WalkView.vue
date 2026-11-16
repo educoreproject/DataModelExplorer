@@ -15,10 +15,12 @@
 // ⟪meaningsPolish⟫ A page may put something beside the heading in the titleAside slot (the Meanings page's ⓘ explainer); with nothing there the heading is
 // drawn exactly as it was.
 
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
-import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, walkPathOf, walkProfileOf } from '@/components/standardsExplorer/explorerVocabulary';
+import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const walkWords = explorerComponentWords.walkView;
 
 const props = defineProps({
 	// the Standards Explorer's page passes none; any other walk names itself
@@ -28,6 +30,25 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 const store = useStandardsNeighbourhoodStore();
+
+// TQ 2026-11-12: a full-width panel goes back to its column on a click anywhere outside it (its own collapse button and any navigation do too)
+const detailPanelRef = ref(null);
+const collapseOnOutsideClick = (clickEvent) => {
+	const panelElement = detailPanelRef.value && detailPanelRef.value.$el;
+	if (!store.panelFullWidth || !panelElement || panelElement.contains(clickEvent.target)) return;
+	store.panelFullWidth = false;
+};
+watch(
+	() => store.panelFullWidth,
+	(isFullWidth) => {
+		if (isFullWidth) document.addEventListener('click', collapseOnOutsideClick, true);
+		else document.removeEventListener('click', collapseOnOutsideClick, true);
+	},
+);
+onBeforeUnmount(() => {
+	document.removeEventListener('click', collapseOnOutsideClick, true);
+	store.panelFullWidth = false;
+});
 const walkProfile = walkProfileOf(props.walkProfileName);
 store.setWalkProfileName(props.walkProfileName);
 
@@ -47,14 +68,43 @@ watch(
 	{ immediate: true },
 );
 
+// ⟪meaningsClarity⟫ THE LEVEL'S FILTER LIVES IN ITS URL (walkFilterVocabulary): the URL's text is the box's on every visit, so a move to another level (whose URL
+// carries none) clears it, and Back or Forward to a level brings its own text back. A URL carrying the parameter twice reads as its first text (⟪review S2⟫).
+const FILTER_QUERY_NAME = walkFilterVocabulary.walkFilterQueryName;
+watch(
+	() => route.query[FILTER_QUERY_NAME],
+	() => store.setFilterText(walkFilterTextOfRouteQuery(route.query)),
+	{ immediate: true },
+);
+// what is typed goes into this level's own URL, replacing it (typing is not a move, so it adds no history entry); the URL then says what the box says
+watch(
+	() => store.filterText,
+	(filterText) => {
+		if (walkFilterTextOfRouteQuery(route.query) === filterText) return;
+		const { [FILTER_QUERY_NAME]: replacedFilterText, ...otherQueryByName } = route.query;
+		router.replace({ path: route.path, query: { ...otherQueryByName, ...walkRouteQueryOf({ pathStableIdList: pathStableIdListOf(route.query.path), filterText }) } });
+	},
+);
+
+// ⟪meaningsClarity Addendum C #12⟫ a meaning reached by a deep link gets its hub and domain crumbs: the URL is rewritten in place to the meaning's whole path,
+// which its own answer names (meaningFullPathOf), so the person can climb up
+watch(
+	() => store.focusNode,
+	(focusNode) => {
+		const fullPathStableIdList = meaningFullPathOf({ pathStableIdList: store.pathStableIdList, focusNode });
+		if (fullPathStableIdList) router.replace({ path: route.path, query: { ...route.query, path: pathTextOf(fullPathStableIdList) } });
+	},
+);
+
 // ================================================================================
-// NAVIGATION — every move is a new ?path=, so back and forward work
+// NAVIGATION — every move is a new ?path=, so back and forward work; a move carries no filter, so it clears the box (⟪meaningsClarity⟫)
 
-const goToPath = (pathStableIdList) => router.push({ path: route.path, query: { path: pathTextOf(pathStableIdList) } });
+const goToPath = (pathStableIdList) => router.push({ path: route.path, query: walkRouteQueryOf({ pathStableIdList, filterText: '' }) });
 
+// ⟪meaningsClarity⟫ one step into a row: below this level, or, for a row that lives elsewhere (an incoming meaning), to it in its own place (store.drillPathOf)
 const drillInto = (stableId) => {
 	if (!stableId) return;
-	goToPath([...store.pathStableIdList, stableId]);
+	goToPath(store.drillPathOf(stableId));
 };
 
 
@@ -64,7 +114,7 @@ const copyShareUrl = async () => {
 	try {
 		await navigator.clipboard.writeText(shareUrlText.value);
 	} catch (error) {
-		store.statusMsg = `could not copy the link: ${error.message}`;
+		store.statusMsg = wordingOf(explorerComponentWords.walkLevelLabel.copyFailedTemplate, { errorText: error.message });
 	}
 };
 
@@ -81,8 +131,8 @@ const focusNameText = computed(() => (store.focusNode && !isAtRoot.value ? displ
 const levelLabelText = computed(() => {
 	if (!store.focusNode) return 'Explorer';
 	const kindText = isAtRoot.value ? walkProfile.rootLevelText : `${focusNameText.value} (${kindDisplayNameOf(store.focusNode.kind, store.focusNode.hubName)})`;
-	if (store.effectiveViewMode === 'schema') return `Explorer: the schema of ${kindText}, in the Schema Viewer`;
-	return `Explorer: ${store.levelRowList.length} items in ${kindText}, shown as a ${store.effectiveViewMode}`;
+	if (store.effectiveViewMode === 'schema') return wordingOf(explorerComponentWords.walkLevelLabel.schemaTemplate, { kindText });
+	return wordingOf(explorerComponentWords.walkLevelLabel.levelTemplate, { itemCount: store.levelRowList.length, kindText, viewModeName: store.effectiveViewMode });
 });
 useHead(() => ({
 	title: focusNameText.value ? `${focusNameText.value} · ${walkProfile.titleText}` : walkProfile.titleText,
@@ -102,9 +152,9 @@ useHead(() => ({
 				<p class="explorer-intro">{{ walkProfile.introText }}</p>
 			</div>
 			<div class="explorer-share">
-				<span>Link to this view:</span>
+				<span>{{ walkWords.shareLabelText }}</span>
 				<code class="explorer-share-url" data-testid="share-url">{{ shareUrlText }}</code>
-				<v-btn size="small" variant="outlined" color="primary" @click="copyShareUrl">Copy link</v-btn>
+				<v-btn size="small" variant="outlined" color="primary" @click="copyShareUrl">{{ walkWords.copyLinkText }}</v-btn>
 			</div>
 		</div>
 
@@ -118,10 +168,12 @@ useHead(() => ({
 		<StandardsExplorerToolbar />
 
 		<div class="explorer-body">
-			<section class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
+			<section v-show="!store.panelFullWidth" class="explorer-main" :aria-label="levelLabelText" :aria-busy="showLoading ? 'true' : 'false'" data-testid="explorer-level">
 				<StandardsExplorerStateNotice v-if="showLoading" state-name="loading" />
 				<StandardsExplorerStateNotice v-else-if="showError" :state-name="store.walkProfile.showsRefusalsByName && store.statusIsRefusal ? 'refusal' : 'error'" :detail-text="store.statusMsg" @retry="store.retry()" />
 				<template v-else-if="showLevel">
+					<StandardsExplorerLevelProse v-if="store.walkProfile.showsLevelProse && store.effectiveViewMode !== 'schema'" />
+					<StandardsExplorerFilterNotice v-if="store.filterUnmatchedRowCount > 0 && store.effectiveViewMode !== 'schema'" />
 					<v-alert
 						v-if="store.isLargeLevel && store.effectiveViewMode === 'table'"
 						type="info"
@@ -131,8 +183,8 @@ useHead(() => ({
 						data-testid="large-level-notice"
 					>
 						<div class="explorer-large-notice">
-							<span>{{ store.levelRowList.length }} items is too many to draw at once, so this level opened as a table.</span>
-							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">Show diagram</v-btn>
+							<span>{{ wordingOf(walkWords.largeLevelTemplate, { itemCount: store.levelRowList.length }) }}</span>
+							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">{{ walkWords.showDiagramText }}</v-btn>
 						</div>
 					</v-alert>
 					<template v-if="store.effectiveViewMode === 'diagram'">
@@ -146,7 +198,7 @@ useHead(() => ({
 				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
 			</section>
 
-			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" class="explorer-panel" @drill="drillInto" @go-to-path="goToPath" />
+			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" ref="detailPanelRef" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
 		</div>
 	</div>
 </template>
@@ -220,6 +272,23 @@ useHead(() => ({
 .explorer-panel {
 	flex: 1 1 300px;
 	min-width: 0;
+}
+/* TQ 2026-11-12: given the page's whole width, the panel is no longer pinned beside a list */
+.explorer-panel.explorer-panel-full {
+	flex: 1 1 100%;
+	position: static;
+	max-height: none;
+	overflow-y: visible;
+}
+/* Beside the list (wide screens), the panel stays in view while the list scrolls, below the app bar (--v-layout-top, set by v-main); a panel taller than the window scrolls on its own. */
+@media (min-width: 1100px) {
+	.explorer-panel {
+		position: sticky;
+		top: calc(var(--v-layout-top, 0px) + 12px);
+		max-height: calc(100vh - var(--v-layout-top, 0px) - 24px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
 }
 .explorer-large-notice {
 	display: flex;

@@ -106,7 +106,7 @@ ok('twin: a CEDS property with CEDS elements is drillable even when nothing belo
 // ⟪lane R6⟫ a hub's own property and domain are named by the hub the node belongs to (hubName, read from the graph), never by a label
 const ctdlPropertyItem = mapper.mapChildItem({ stableId: 'c', name: 'C', labelList: ['CtdlProperty', 'DmeProperty'], hubName: 'CTDL', mappingList: [], hasStructuralChildren: false, hubElementCount: 1, mappedElementCount: 0 });
 const ctdlClassItem = mapper.mapChildItem({ stableId: 'k', name: 'K', labelList: ['CtdlClass', 'DmeClass'], hubName: 'CTDL', mappingList: [], hasStructuralChildren: true, propertyCount: 3, mappedPropertyCount: 1 });
-const edfiPropertyItem = mapper.mapChildItem({ stableId: 'e', name: 'E', labelList: ['EdfiProperty', 'DmeProperty'], hubName: null, mappingList: [], hasStructuralChildren: false, hubElementCount: 0, mappedElementCount: 0 });
+const edfiPropertyItem = mapper.mapChildItem({ stableId: 'e', name: 'E', labelList: ['EdfiProperty', 'DmeProperty'], hubName: null, mappingList: [], hasStructuralChildren: false, hasNonInstanceStructuralChildren: false, hubElementCount: 0, mappedElementCount: 0 });
 ok('twin: a CTDL hub property and class are hubProperty / hubDomain, carrying hubName CTDL; a non-hub property stays property', ctdlPropertyItem.kind === 'hubProperty' && ctdlPropertyItem.hubName === 'CTDL' && ctdlPropertyItem.hubElementCount === 1 && ctdlClassItem.kind === 'hubDomain' && ctdlClassItem.hubName === 'CTDL' && edfiPropertyItem.kind === 'property' && !('hubName' in edfiPropertyItem), JSON.stringify([ctdlPropertyItem, ctdlClassItem, edfiPropertyItem]));
 ok('twin: only families:all is the catalog id', mapper.isFamilyCatalogId('families:all') && !mapper.isFamilyCatalogId('families:PESC'));
 

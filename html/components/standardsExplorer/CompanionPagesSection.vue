@@ -10,6 +10,9 @@
 import { computed, onMounted, watch } from 'vue';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import { useStandardDownloadsStore } from '@/stores/standardDownloadsStore';
+import { explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
+
+const companionWords = explorerComponentWords.companionPages;
 import { useCompanionPagesStore } from '@/stores/companionPagesStore';
 import { useLoginStore } from '@/stores/loginStore';
 import { standardKeyListOfFocus } from '@/components/standardsExplorer/focusStandardKeyList';
@@ -45,13 +48,13 @@ const cardTargetOf = (companionPage) =>
 </script>
 
 <template>
-	<section v-if="loginStore.validUser && (companionPagesStore.companionPageList.length || companionPagesStore.statusMsg)" class="companion-section" aria-label="Companion pages" data-testid="companion-section">
-		<span class="companion-section-head">Companion pages</span>
-		<p v-if="companionPagesStore.statusMsg" class="companion-section-error" data-testid="companion-section-error">The companion pages could not be read: {{ companionPagesStore.statusMsg }}</p>
+	<section v-if="loginStore.validUser && (companionPagesStore.companionPageList.length || companionPagesStore.statusMsg)" class="companion-section" :aria-label="companionWords.headText" data-testid="companion-section">
+		<span class="companion-section-head">{{ companionWords.headText }}</span>
+		<p v-if="companionPagesStore.statusMsg" class="companion-section-error" data-testid="companion-section-error">{{ wordingOf(companionWords.unreadTemplate, { statusMsg: companionPagesStore.statusMsg }) }}</p>
 		<NuxtLink v-for="companionPage in companionPagesStore.companionPageList" :key="companionPage.pageSlug" v-bind="cardTargetOf(companionPage)" class="companion-card" :data-testid="`companion-card-${companionPage.pageSlug}`">
 			<span class="companion-card-title">{{ companionPage.title }} ›</span>
 			<span v-if="companionPage.summary" class="companion-card-summary">{{ companionPage.summary }}</span>
-			<span v-if="companionPage.audienceText" class="companion-card-audience">For {{ companionPage.audienceText }}</span>
+			<span v-if="companionPage.audienceText" class="companion-card-audience">{{ wordingOf(companionWords.audienceTemplate, { audienceText: companionPage.audienceText }) }}</span>
 		</NuxtLink>
 	</section>
 </template>

@@ -1,0 +1,4 @@
+{
+	"_comment": "DATA for rosettaGuardedModelCall.js, shared by rosetta/interpret and the search describer. A call that failed in a way the vendor may still have billed (a timeout, a dropped connection, a 5xx) is ledgered at its worst-case estimate under the caller's unanswered recipe, so the daily ceiling counts it. A 4xx is the vendor refusing the request, which it does not bill; this pattern names it.",
+	"unbilledVendorErrorPattern": "API error \\(4[0-9][0-9]\\)"
+}

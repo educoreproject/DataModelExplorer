@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const { unitNameOf, OPEN_STATUS_LIST } = require('./rosettaJobStore');
 const { judgedSettings } = require('./rosettaJudgeEngine');
+const { reasonOf } = require('./rosettaReasonWords');
 const { hubElementIdentityFor, absentOf } = require('./hubElementIdentity');
 const { hubCardTupleFor, tupleAbsentOf } = require('../hubCardTuple');
 
@@ -25,8 +26,8 @@ const RELEASE_JOB = Object.freeze({ releaseJob: true });
 const { ANONYMOUS_PRINCIPAL_KIND } = require('../admitRequest');
 // the two pots the fuse reads before every unit, keyed by whether the job is anonymous (DATA: a kind filter, the ceiling and per-owner settings, and what a stop says)
 const RUNNER_POT_BY_IS_ANONYMOUS = Object.freeze({
-	false: Object.freeze({ kindFilter: { exceptOwnerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'dailyJudgeCeilingUsd', ownerDailySettingName: 'perPrincipalDailyUsd', dailyStop: { stopReasonName: 'dailyCeilingReached', stopReasonText: 'this service reached the most it spends on judging in any 24 hours' }, ownerStop: { stopReasonName: 'perPrincipalCeilingReached', stopReasonText: 'this account reached the most one person may spend in any 24 hours' } }),
-	true: Object.freeze({ kindFilter: { ownerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'anonymousDailyCeilingUsd', ownerDailySettingName: 'anonymousPerVisitorDailyUsd', dailyStop: { stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousDailyCeilingReached }, ownerStop: { stopReasonName: 'anonymousVisitorDailyCeilingReached', stopReasonText: judgedSettings.anonymousStopReasonTextByName.anonymousVisitorDailyCeilingReached } }),
+	false: Object.freeze({ kindFilter: { exceptOwnerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'dailyJudgeCeilingUsd', ownerDailySettingName: 'perPrincipalDailyUsd', dailyStop: { stopReasonName: 'dailyCeilingReached', stopReasonText: reasonOf('dailyCeilingStop') }, ownerStop: { stopReasonName: 'perPrincipalCeilingReached', stopReasonText: reasonOf('perPrincipalCeilingStop') } }),
+	true: Object.freeze({ kindFilter: { ownerPrincipalKindList: [ANONYMOUS_PRINCIPAL_KIND] }, dailyCeilingSettingName: 'anonymousDailyCeilingUsd', ownerDailySettingName: 'anonymousPerVisitorDailyUsd', dailyStop: { stopReasonName: 'anonymousDailyCeilingReached', stopReasonText: reasonOf('anonymousDailyCeilingStop') }, ownerStop: { stopReasonName: 'anonymousVisitorDailyCeilingReached', stopReasonText: reasonOf('anonymousVisitorDailyCeilingStop') } }),
 });
 const RUNNER_LANE_LIST = Object.freeze([
 	Object.freeze({ laneName: 'signedIn', maxRunningSettingName: 'maxRunningJobs', isAnonymousLane: false }),
@@ -86,11 +87,11 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 				return;
 			}
 			if (!currentJob) {
-				done('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'jobDeleted', stopReasonText: 'the job is gone from the store' });
+				done('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'jobDeleted', stopReasonText: reasonOf('jobDeleted') });
 				return;
 			}
 			if (currentJob.status === 'cancelling') {
-				done('', { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' });
+				done('', { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: reasonOf('cancelledByOwner') });
 				return;
 			}
 			// compared before every unit: the graph can come back on another golden under a running job, and pools from it are not this job's. No facts just now is not a change: the unit will wait for them.
@@ -106,7 +107,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					return;
 				}
 				if (jobSpentUsd >= judgedValues.perJobCeilingUsd) {
-					done('', { jobStatus: JOB_STATUS.fuseTripped, stopReasonName: 'perJobCeilingReached', stopReasonText: 'this job reached the most one job may spend' });
+					done('', { jobStatus: JOB_STATUS.fuseTripped, stopReasonName: 'perJobCeilingReached', stopReasonText: reasonOf('perJobCeilingStop') });
 					return;
 				}
 				// ⟪rosettaMeanings review S1, S4⟫ each kind of job is held to its own pot and its own per-owner share (RUNNER_POT_BY_IS_ANONYMOUS); a visitor never spends the signed-in day
@@ -154,7 +155,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		});
 	};
 
-	const manifestChangedStop = ({ job, serviceFacts }) => ({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'manifestChanged', stopReasonText: `this job began on manifest ${job.answeredFrom.manifestRefId}; the instance now answers from ${serviceFacts.passport.manifestRefId}` });
+	const manifestChangedStop = ({ job, serviceFacts }) => ({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'manifestChanged', stopReasonText: reasonOf('manifestChanged', { startedManifestRefId: job.answeredFrom.manifestRefId, currentManifestRefId: serviceFacts.passport.manifestRefId }) });
 
 	const runnerUpListOf = ({ candidateList, chosenCardStableId }) => candidateList.filter((oneCandidate) => oneCandidate.stableId !== chosenCardStableId).slice(0, judgedSettings.runnerUpListLength).map(({ uri, label, cosine }) => ({ uri, label, cosine }));
 
@@ -170,6 +171,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			...(outcome.judgesRationale ? { judgesRationale: outcome.judgesRationale } : {}),
 			...(outcome.answerWasCut ? { answerWasCut: true } : {}),
 			...(outcome.notJudgedReason ? { notJudgedReason: outcome.notJudgedReason } : {}),
+			...(outcome.judgedWithSearchDescription ? { judgedWithSearchDescription: true } : {}),
 			...(outcome.rendererVersion ? { rendererVersion: outcome.rendererVersion } : {}),
 			...(chosenCandidate ? {
 				proposal: {
@@ -188,7 +190,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		};
 	};
 
-	const runUnit = ({ job, oneField, fieldIndex, hubName }, unitDone) => {
+	const runUnit = ({ job, oneField, searchDescriptionText, fieldIndex, hubName }, unitDone) => {
 		// the graph is reconnecting: the job lets go, keeps its status, and the next tick picks it up where it was
 		const serviceFacts = getServiceFacts();
 		if (!serviceFacts) {
@@ -198,7 +200,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 		const stopReasonNow = stopReasonFor(job);
 		stopReasonNow((stopError, stopReason) => {
 			if (stopError) {
-				unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store could not be read' });
+				unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeUnreadable') });
 				return;
 			}
 			if (stopReason) {
@@ -206,7 +208,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 				return;
 			}
 			// a session of its own, closed before the judge is asked: a judge call takes seconds and no graph session waits on it
-			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition], target: { kind: rosettaRetrieval.hubTargetKind, hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
+			withReadSession((session, sessionDone) => rosettaRetrieval.retrieveCandidates({ session, serviceFacts, queryTextList: [oneField.name, oneField.definition, searchDescriptionText], target: { kind: rosettaRetrieval.hubTargetKind, hubName, tier: TIER_OFFERED }, tokenAccountName: JUDGED_TOKEN_ACCOUNT_NAME, onTokensCharged: (tokenFacts) => jobStore.addEmbeddingTokens({ jobRefId: job.jobRefId, ...tokenFacts }, (tokenError) => (tokenError ? xLog.error(`rosettaJobRunner: job ${job.jobRefId}: the embedding count would not write: ${tokenError}`) : undefined)) }, (poolError, pool) => {
 				if (poolError || pool.refusal || pool.status === UNIT_STATUS_NO_CANDIDATE) {
 					sessionDone(poolError, { pool });
 					return;
@@ -216,11 +218,13 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			}), (readError, poolRead) => {
 				if (readError) {
 					xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a pool could not be read: ${readError}`);
-					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'poolUnreadable', stopReasonText: 'a pool could not be read from the graph' });
+					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'poolUnreadable', stopReasonText: reasonOf('poolUnreadable') });
 					return;
 				}
 				const { pool, judgedCandidateList, candidateCardList } = poolRead;
 				if (pool.refusal) {
+					// ⟪rosettaLoginPolish review B1⟫ the refusal's own words: retrieval refuses for a ceiling, a vendor or a size as well as the graph, and its reason is
+					// already a rosettaReasonWords sentence
 					unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: pool.refusal.refusalName, stopReasonText: pool.refusal.reason });
 					return;
 				}
@@ -230,13 +234,13 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					writePrompt((promptError) => {
 						if (promptError) {
 							xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a prompt would not write: ${promptError}`);
-							unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take a prompt' });
+							unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeRefusedPrompt') });
 							return;
 						}
 						jobStore.writeJudgment({ jobRefId: job.jobRefId, fieldIndex, hubName, unitStatus, promptHash, judgment }, (writeError) => {
 							if (writeError) {
 								xLog.error(`rosettaJobRunner: job ${job.jobRefId}: a judgment would not write: ${writeError}`);
-								unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the job store would not take a judgment' });
+								unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeRefusedJudgment') });
 								return;
 							}
 							afterWrite();
@@ -247,10 +251,10 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 					writeUnit({ unitStatus: UNIT_STATUS_NO_CANDIDATE, judgment: { poolSize: 0, admittedCount: 0, runnerUpList: [] } }, () => unitDone('', null));
 					return;
 				}
-				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, ownerPrincipalKind: job.ownerPrincipalKind, fieldIndex, oneField, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
+				judgeEngine.judgeFieldAgainstPool({ jobRefId: job.jobRefId, ownerPrincipalRefId: job.ownerPrincipalRefId, ownerPrincipalKind: job.ownerPrincipalKind, fieldIndex, oneField, searchDescriptionText, hubName, candidateCardList, stopReasonNow }, (judgeError, outcome) => {
 					if (judgeError) {
 						xLog.error(`rosettaJobRunner: job ${job.jobRefId}: judging could not start: ${judgeError}`);
-						unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeUnavailable', stopReasonText: 'this instance could not put the question to the judge' });
+						unitDone('', { jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeUnavailable', stopReasonText: reasonOf('judgeUnavailable') });
 						return;
 					}
 					if (outcome.stoppedBy) {
@@ -297,7 +301,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			return;
 		}
 		if (!judgeEngine) {
-			finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeNotConfigured', stopReasonText: judgeAbsentReason || 'this instance has no judge' });
+			xLog.error(`rosettaJobRunner: job ${job.jobRefId}: there is no judge: ${judgeAbsentReason}`);
+			finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'judgeNotConfigured', stopReasonText: reasonOf('judgeAbsentStop') });
 			return;
 		}
 		if (serviceFacts.passport.manifestRefId !== job.answeredFrom.manifestRefId) {
@@ -314,12 +319,32 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			}
 			jobStore.readSubmission(job.jobRefId, (submissionError, submission) => {
 				if (submissionError || !submission) {
-					finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the submission could not be read' });
+					finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('submissionUnreadable') });
 					return;
 				}
-				jobStore.judgedUnitNameSet(job.jobRefId, (doneError, finishedUnitNameSet) => {
+				// ⟪rosettaSearchDescription⟫ the bare fields' search descriptions, written once when the job first runs and read back on a resume. Each unit searches with it, and
+				// (TQ Q110) the judge is shown it on its own labelled line beside oneField, which stays exactly as the person sent it. It draws on its owner's pot (review S3).
+				// A describer that is off, busy or over its ceiling names that per field, once, and the job goes on.
+				const withDescribedList = (useDescribedList) => jobStore.readSearchDescribedList(job.jobRefId, (describedReadError, storedDescribedList) => {
+					if (describedReadError) {
+						finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('submissionUnreadable') });
+						return;
+					}
+					if (storedDescribedList) {
+						useDescribedList(storedDescribedList);
+						return;
+					}
+					rosettaRetrieval.searchDescriber.describeFieldList({ fieldList: submission.fieldList, isAnonymous: job.ownerPrincipalKind === ANONYMOUS_PRINCIPAL_KIND }, (unusedDescribeError, described) => jobStore.writeSearchDescribedList({ jobRefId: job.jobRefId, describedList: described.describedList }, (describedWriteError) => {
+						if (describedWriteError) {
+							finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('storeRefusedSearchDescriptions') });
+							return;
+						}
+						useDescribedList(described.describedList);
+					}));
+				});
+				withDescribedList((describedList) => jobStore.judgedUnitNameSet(job.jobRefId, (doneError, finishedUnitNameSet) => {
 					if (doneError) {
-						finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: 'the finished units could not be read' });
+						finishWith({ jobStatus: JOB_STATUS.stopped, stopReasonName: 'storeFailed', stopReasonText: reasonOf('finishedUnitsUnreadable') });
 						return;
 					}
 					const runNextUnit = (unitIndex) => {
@@ -333,7 +358,8 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 							runNextUnit(unitIndex + 1);
 							return;
 						}
-						runUnit({ job, oneField: submission.fieldList[fieldIndex], fieldIndex, hubName }, (unusedError, stopReason) => {
+						const described = describedList[fieldIndex];
+						runUnit({ job, oneField: submission.fieldList[fieldIndex], searchDescriptionText: described && described.searchDescription ? described.searchDescription.descriptionText : undefined, fieldIndex, hubName }, (unusedError, stopReason) => {
 							if (stopReason === RELEASE_JOB) {
 								jobDone();
 								return;
@@ -346,7 +372,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 						});
 					};
 					runNextUnit(0);
-				});
+				}));
 			});
 		});
 	};
@@ -414,7 +440,7 @@ const createRosettaJobRunner = ({ jobStore, judgeEngine, judgeAbsentReason, judg
 			const unheldCancelling = cancellingError ? undefined : cancellingJobList.filter(isLaneJob).find((oneJob) => !heldJobRefIdSet.has(oneJob.jobRefId));
 			if (unheldCancelling) {
 				heldJobRefIdSet.add(unheldCancelling.jobRefId);
-				finishJob({ job: unheldCancelling, stopReason: { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: 'the owner cancelled this job' } }, () => {
+				finishJob({ job: unheldCancelling, stopReason: { jobStatus: JOB_STATUS.cancelled, stopReasonName: 'cancelledByOwner', stopReasonText: reasonOf('cancelledByOwner') } }, () => {
 					heldJobRefIdSet.delete(unheldCancelling.jobRefId);
 					released();
 				});

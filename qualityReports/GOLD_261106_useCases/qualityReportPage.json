@@ -1,0 +1,7855 @@
+{
+	"pageFormat": "educoreQualityReportPage/1",
+	"graphStamp": {
+		"goldenContainerName": "GOLD_261106_useCases",
+		"graphName": "GOLD_261106_useCases",
+		"manifestRefId": "783aef401fafe0189b551972ba801b1dababf2fec2b7bd3e4653424d544e0999",
+		"manifestLabel": "educore-2026-10-30",
+		"manifestUri": "https://w3id.org/EDUcore/manifest/educore-2026-10-30",
+		"builtAt": "2026-11-06T21:23:29.132Z",
+		"graphContractSha256": "f65db22ad18450dade497b56d8298002591dc47bcb9a568500fd2abcf6f2426d",
+		"structuralVersion": "V.09",
+		"standardsIncluded": [
+			"CASE",
+			"CEDS",
+			"CLR",
+			"CTDL",
+			"CTDLASN",
+			"CTDLQData",
+			"EdFi",
+			"EduAPI",
+			"JEDx",
+			"LIF",
+			"MedBiquitous",
+			"OneRoster-Gradebook-1.2",
+			"OneRoster-Resources-1.2",
+			"OneRoster-Rostering-1.2",
+			"OpenBadges",
+			"PESC-AcademicEportfolio-1.0.0",
+			"PESC-CollegeTranscript-1.7.0",
+			"PESC-CollegeTranscript-1.8.0",
+			"PESC-DocumentRequest-1.0.0",
+			"PESC-DocumentResponse-1.0.0",
+			"PESC-HighSchoolTranscript-1.6.0",
+			"PESC-LearningRecord-1.0.0",
+			"PESC-TestScoreReport-1.1.0",
+			"PESCLD",
+			"SEDM",
+			"SIF260928",
+			"UseCase"
+		]
+	},
+	"generatorCommit": {
+		"commitRefId": "a0dc4985baadfe08646fea4901fa821baf9d6702",
+		"isWorkingTreeClean": true
+	},
+	"raterDataLastSavedAt": "2026-10-29T05:48:57.599Z",
+	"report": {
+		"titleText": "EDUcore mapping-quality report: the first baseline",
+		"blockList": [
+			{
+				"blockKind": "stamp",
+				"fieldList": [
+					{
+						"labelText": "Graph",
+						"valueText": "`GOLD_261106_useCases`"
+					},
+					{
+						"labelText": "Manifest",
+						"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+					},
+					{
+						"labelText": "Graph built",
+						"valueText": "2026-11-06T21:23:29.132Z"
+					},
+					{
+						"labelText": "Graph contract",
+						"valueText": "`f65db22ad184…`"
+					},
+					{
+						"labelText": "Human judgments",
+						"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+					},
+					{
+						"labelText": "Generator",
+						"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+					}
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "This is the first published measurement of the mappings in EDUcore, for one build: `GOLD_261106_useCases`, manifest educore-2026-10-30. It reports what can be counted today and states the size of every sample beside the figure drawn from it. Most of the graph's mappings were proposed by an AI judge and have not been reviewed by people; a first sample of human judgments exists, and it is reported here as a baseline to measure against as the human gold set grows, ahead of the evaluation harness that is the next step."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "1. At a glance"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Measure",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Figure",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Drawn from",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"Standards loaded",
+						"27",
+						"every standard root in the graph (`standards_standards`)"
+					],
+					[
+						"Graph nodes",
+						"315,273",
+						"every node, by standard (`standards_stats`)"
+					],
+					[
+						"Non-hub properties mapped to at least one hub",
+						"8,999 of 23,331 (38.6%)",
+						"`standards_stats` coverage, all 24 non-hub standards with properties"
+					],
+					[
+						"… mapped to CEDS",
+						"7,909 of 23,331 (33.9%)",
+						"the CEDS hub only"
+					],
+					[
+						"… mapped to CTDL",
+						"3,328 of 23,331 (14.3%)",
+						"the CTDL hub only"
+					],
+					[
+						"Mappings (match edges)",
+						"22,691",
+						"5,368 exact, 9,341 close, 5,007 broad, 2,975 narrow"
+					],
+					[
+						"Publisher-stated mappings",
+						"454 of 22,691 (2.0%)",
+						"edges whose source is the standard's own document"
+					],
+					[
+						"Machine-proposed mappings",
+						"22,237 of 22,691 (98.0%)",
+						"edges chosen by the AI judge"
+					],
+					[
+						"Human-reviewed mappings in the graph",
+						"0",
+						"no edge records a review yet (see section 4)"
+					],
+					[
+						"Agreement with human raters, same CEDS card",
+						"60 of 101 (59.4%) answers; 95% interval 50% to 68%",
+						"a first sample: 3 raters, 100 elements of Ed-Fi, SIF and PESC, CEDS hub only"
+					],
+					[
+						"… where the judge was confident (strong)",
+						"29 of 40 (72.5%)",
+						"answers whose element the graph maps with strong confidence"
+					],
+					[
+						"… where the judge was least sure (weak)",
+						"3 of 16 (18.8%)",
+						"answers whose element the graph maps with weak-but-real confidence"
+					],
+					[
+						"Same hub property wherever one element recurs",
+						"1,975 of 2,037 (97.0%)",
+						"SIF and PESC elements judged separately in two or more places, both hubs"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "2. How to read the figures"
+			},
+			{
+				"blockKind": "list",
+				"itemTextList": [
+					"**Hubs.** This build has two hubs, CEDS 14.0.0.0 and CTDL Release 20260927. Other standards' elements are mapped onto hub **cards** (a hub class, property and qualifiers). The hubs are peers: two elements correspond only through one card of one hub, never across hubs, so every mapping figure below names its hub.",
+					"**Properties and edges are different units.** A *property* is one element of a standard (a SIF Question or a PESC element declaration counts once, however many places it appears). An *edge* is one mapping in the graph. SIF and PESC carry their mappings on each place an element appears, so one property can own many edges.",
+					"**Relations** (SKOS): **exact**, the hub card means the same thing as the element; **close**, nearly the same, differing slightly in scope or detail; **broad**, the hub card is BROADER than the element; **narrow**, the hub card is NARROWER than the element.",
+					"**Confidence** is the AI judge's own confidence in its pick, stored in three bands: **strong** (the judge's own confidence in its pick was 0.8 or more); **moderate** (the judge's confidence was 0.5 to under 0.8); **weak but real** (the judge's confidence was under 0.5). It is the judge's view of itself, not a measured accuracy; section 5 compares it with human answers.",
+					"**Every count here is read from the graph or the rater store named on the stamp above.** The overall counts are the same answers the public `standards_stats` and `standards_standards` tools give for this graph; each per-standard table was checked to add up to them (appendix)."
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "3. Coverage"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Of the 23,331 properties of the non-hub standards, **8,999 of 23,331 (38.6%)** are mapped to at least one hub card. 7,909 are mapped to CEDS and 3,328 are mapped to CTDL; a property mapped to both counts once in the total. The hubs' own 2,721 properties are counted apart: a hub is not mapped to itself."
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "An unmapped property is not necessarily a gap. Many have no counterpart in either hub (a standard's internal identifiers, message plumbing, or concepts the hubs do not model), and the judge is allowed to decline. How much of the unmapped share is a true miss is not yet measured; section 5 gives the first evidence from human raters."
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Standard",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Version",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Properties",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Mapped to any hub",
+						"alignName": "right"
+					},
+					{
+						"titleText": "to CEDS",
+						"alignName": "right"
+					},
+					{
+						"titleText": "to CTDL",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"CASE",
+						"1.1",
+						"201",
+						"101 of 201 (50.2%)",
+						"95",
+						"30"
+					],
+					[
+						"CLR",
+						"2.0",
+						"206",
+						"91 of 206 (44.2%)",
+						"79",
+						"51"
+					],
+					[
+						"CTDLASN",
+						"20260626",
+						"97",
+						"0 of 97 (0.0%)",
+						"0",
+						"0"
+					],
+					[
+						"CTDLQData",
+						"20260626",
+						"82",
+						"0 of 82 (0.0%)",
+						"0",
+						"0"
+					],
+					[
+						"EdFi",
+						"5.2.0",
+						"1,904",
+						"1,190 of 1,904 (62.5%)",
+						"1,106",
+						"283"
+					],
+					[
+						"EduAPI",
+						"1.0",
+						"341",
+						"226 of 341 (66.3%)",
+						"184",
+						"131"
+					],
+					[
+						"JEDx",
+						"1.0.0",
+						"694",
+						"320 of 694 (46.1%)",
+						"258",
+						"139"
+					],
+					[
+						"LIF",
+						"2.0",
+						"1,393",
+						"892 of 1,393 (64.0%)",
+						"771",
+						"450"
+					],
+					[
+						"MedBiquitous",
+						"unknown",
+						"1,768",
+						"324 of 1,768 (18.3%)",
+						"234",
+						"168"
+					],
+					[
+						"OneRoster-Gradebook-1.2",
+						"1.2",
+						"138",
+						"48 of 138 (34.8%)",
+						"44",
+						"10"
+					],
+					[
+						"OneRoster-Resources-1.2",
+						"1.2",
+						"19",
+						"7 of 19 (36.8%)",
+						"6",
+						"1"
+					],
+					[
+						"OneRoster-Rostering-1.2",
+						"1.2",
+						"158",
+						"87 of 158 (55.1%)",
+						"76",
+						"30"
+					],
+					[
+						"OpenBadges",
+						"3.0",
+						"201",
+						"91 of 201 (45.3%)",
+						"79",
+						"53"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"1.0.0",
+						"1,933",
+						"729 of 1,933 (37.7%)",
+						"675",
+						"220"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"1.7.0",
+						"1,185",
+						"212 of 1,185 (17.9%)",
+						"197",
+						"80"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"1.8.0",
+						"1,241",
+						"227 of 1,241 (18.3%)",
+						"210",
+						"87"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"1.0.0",
+						"1,282",
+						"98 of 1,282 (7.6%)",
+						"84",
+						"48"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"1.0.0",
+						"1,282",
+						"95 of 1,282 (7.4%)",
+						"84",
+						"40"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"1.6.0",
+						"1,185",
+						"214 of 1,185 (18.1%)",
+						"199",
+						"75"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"1.0.0",
+						"1,235",
+						"216 of 1,235 (17.5%)",
+						"197",
+						"92"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"1.1.0",
+						"1,181",
+						"292 of 1,181 (24.7%)",
+						"272",
+						"109"
+					],
+					[
+						"PESCLD",
+						"0.0.2",
+						"266",
+						"141 of 266 (53.0%)",
+						"120",
+						"31"
+					],
+					[
+						"SEDM",
+						"unknown",
+						"321",
+						"221 of 321 (68.8%)",
+						"217",
+						"63"
+					],
+					[
+						"SIF260928",
+						"4.3",
+						"5,018",
+						"3,177 of 5,018 (63.3%)",
+						"2,722",
+						"1,137"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Not counted for coverage: UseCase (useCaseCorpus, 191 nodes, no properties of its own). Loaded but not yet mapped: CTDLASN, CTDLQData."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "4. Relation mix, mapping origin and confidence"
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "4.1 Relation mix"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Relation",
+						"alignName": "left"
+					},
+					{
+						"titleText": "CEDS edges",
+						"alignName": "right"
+					},
+					{
+						"titleText": "CTDL edges",
+						"alignName": "right"
+					},
+					{
+						"titleText": "All edges",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Meaning",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"exact",
+						"4,001 of 15,307 (26.1%)",
+						"1,367 of 7,384 (18.5%)",
+						"5,368 of 22,691 (23.7%)",
+						"the hub card means the same thing as the element"
+					],
+					[
+						"close",
+						"6,530 of 15,307 (42.7%)",
+						"2,811 of 7,384 (38.1%)",
+						"9,341 of 22,691 (41.2%)",
+						"nearly the same, differing slightly in scope or detail"
+					],
+					[
+						"broad",
+						"2,193 of 15,307 (14.3%)",
+						"2,814 of 7,384 (38.1%)",
+						"5,007 of 22,691 (22.1%)",
+						"the hub card is BROADER than the element"
+					],
+					[
+						"narrow",
+						"2,583 of 15,307 (16.9%)",
+						"392 of 7,384 (5.3%)",
+						"2,975 of 22,691 (13.1%)",
+						"the hub card is NARROWER than the element"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Only exact and close mappings are offered as equivalents by the query tools, and an equivalence composed of two exact mappings is still labelled a composition of two judgments. Broad and narrow mappings say an element and a card are related, not that they are interchangeable. Per standard and hub, in edges:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Standard",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Hub",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Edges",
+						"alignName": "right"
+					},
+					{
+						"titleText": "exact",
+						"alignName": "right"
+					},
+					{
+						"titleText": "close",
+						"alignName": "right"
+					},
+					{
+						"titleText": "broad",
+						"alignName": "right"
+					},
+					{
+						"titleText": "narrow",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"CASE",
+						"CEDS",
+						"95",
+						"18 (19%)",
+						"66 (69%)",
+						"2 (2%)",
+						"9 (9%)"
+					],
+					[
+						"CASE",
+						"CTDL",
+						"30",
+						"2 (7%)",
+						"20 (67%)",
+						"7 (23%)",
+						"1 (3%)"
+					],
+					[
+						"CLR",
+						"CEDS",
+						"79",
+						"12 (15%)",
+						"46 (58%)",
+						"8 (10%)",
+						"13 (16%)"
+					],
+					[
+						"CLR",
+						"CTDL",
+						"51",
+						"17 (33%)",
+						"30 (59%)",
+						"4 (8%)",
+						"0 (0%)"
+					],
+					[
+						"EdFi",
+						"CEDS",
+						"1,106",
+						"179 (16%)",
+						"644 (58%)",
+						"153 (14%)",
+						"130 (12%)"
+					],
+					[
+						"EdFi",
+						"CTDL",
+						"283",
+						"10 (4%)",
+						"146 (52%)",
+						"111 (39%)",
+						"16 (6%)"
+					],
+					[
+						"EduAPI",
+						"CEDS",
+						"184",
+						"12 (7%)",
+						"111 (60%)",
+						"30 (16%)",
+						"31 (17%)"
+					],
+					[
+						"EduAPI",
+						"CTDL",
+						"131",
+						"27 (21%)",
+						"65 (50%)",
+						"35 (27%)",
+						"4 (3%)"
+					],
+					[
+						"JEDx",
+						"CEDS",
+						"258",
+						"27 (10%)",
+						"146 (57%)",
+						"34 (13%)",
+						"51 (20%)"
+					],
+					[
+						"JEDx",
+						"CTDL",
+						"139",
+						"12 (9%)",
+						"66 (47%)",
+						"42 (30%)",
+						"19 (14%)"
+					],
+					[
+						"LIF",
+						"CEDS",
+						"771",
+						"272 (35%)",
+						"353 (46%)",
+						"28 (4%)",
+						"118 (15%)"
+					],
+					[
+						"LIF",
+						"CTDL",
+						"450",
+						"108 (24%)",
+						"199 (44%)",
+						"129 (29%)",
+						"14 (3%)"
+					],
+					[
+						"MedBiquitous",
+						"CEDS",
+						"234",
+						"46 (20%)",
+						"129 (55%)",
+						"16 (7%)",
+						"43 (18%)"
+					],
+					[
+						"MedBiquitous",
+						"CTDL",
+						"168",
+						"44 (26%)",
+						"96 (57%)",
+						"20 (12%)",
+						"8 (5%)"
+					],
+					[
+						"OneRoster-Gradebook-1.2",
+						"CEDS",
+						"44",
+						"1 (2%)",
+						"25 (57%)",
+						"13 (30%)",
+						"5 (11%)"
+					],
+					[
+						"OneRoster-Gradebook-1.2",
+						"CTDL",
+						"10",
+						"0 (0%)",
+						"5 (50%)",
+						"4 (40%)",
+						"1 (10%)"
+					],
+					[
+						"OneRoster-Resources-1.2",
+						"CEDS",
+						"6",
+						"0 (0%)",
+						"4 (67%)",
+						"2 (33%)",
+						"0 (0%)"
+					],
+					[
+						"OneRoster-Resources-1.2",
+						"CTDL",
+						"1",
+						"0 (0%)",
+						"1 (100%)",
+						"0 (0%)",
+						"0 (0%)"
+					],
+					[
+						"OneRoster-Rostering-1.2",
+						"CEDS",
+						"76",
+						"13 (17%)",
+						"41 (54%)",
+						"17 (22%)",
+						"5 (7%)"
+					],
+					[
+						"OneRoster-Rostering-1.2",
+						"CTDL",
+						"30",
+						"3 (10%)",
+						"18 (60%)",
+						"8 (27%)",
+						"1 (3%)"
+					],
+					[
+						"OpenBadges",
+						"CEDS",
+						"79",
+						"14 (18%)",
+						"44 (56%)",
+						"10 (13%)",
+						"11 (14%)"
+					],
+					[
+						"OpenBadges",
+						"CTDL",
+						"53",
+						"16 (30%)",
+						"29 (55%)",
+						"8 (15%)",
+						"0 (0%)"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CEDS",
+						"3,290",
+						"826 (25%)",
+						"1,617 (49%)",
+						"441 (13%)",
+						"406 (12%)"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CTDL",
+						"1,659",
+						"354 (21%)",
+						"783 (47%)",
+						"431 (26%)",
+						"91 (5%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CEDS",
+						"575",
+						"148 (26%)",
+						"273 (47%)",
+						"99 (17%)",
+						"55 (10%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CTDL",
+						"301",
+						"44 (15%)",
+						"136 (45%)",
+						"96 (32%)",
+						"25 (8%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CEDS",
+						"713",
+						"182 (26%)",
+						"329 (46%)",
+						"133 (19%)",
+						"69 (10%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CTDL",
+						"351",
+						"44 (13%)",
+						"159 (45%)",
+						"116 (33%)",
+						"32 (9%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CEDS",
+						"327",
+						"85 (26%)",
+						"127 (39%)",
+						"72 (22%)",
+						"43 (13%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CTDL",
+						"211",
+						"44 (21%)",
+						"129 (61%)",
+						"15 (7%)",
+						"23 (11%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CEDS",
+						"243",
+						"55 (23%)",
+						"101 (42%)",
+						"51 (21%)",
+						"36 (15%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CTDL",
+						"150",
+						"36 (24%)",
+						"81 (54%)",
+						"20 (13%)",
+						"13 (9%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CEDS",
+						"626",
+						"111 (18%)",
+						"338 (54%)",
+						"119 (19%)",
+						"58 (9%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CTDL",
+						"280",
+						"54 (19%)",
+						"102 (36%)",
+						"105 (38%)",
+						"19 (7%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CEDS",
+						"690",
+						"165 (24%)",
+						"317 (46%)",
+						"119 (17%)",
+						"89 (13%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CTDL",
+						"354",
+						"50 (14%)",
+						"169 (48%)",
+						"91 (26%)",
+						"44 (12%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CEDS",
+						"720",
+						"173 (24%)",
+						"354 (49%)",
+						"116 (16%)",
+						"77 (11%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CTDL",
+						"349",
+						"46 (13%)",
+						"173 (50%)",
+						"109 (31%)",
+						"21 (6%)"
+					],
+					[
+						"PESCLD",
+						"CEDS",
+						"285",
+						"234 (82%)",
+						"38 (13%)",
+						"6 (2%)",
+						"7 (2%)"
+					],
+					[
+						"PESCLD",
+						"CTDL",
+						"37",
+						"21 (57%)",
+						"9 (24%)",
+						"4 (11%)",
+						"3 (8%)"
+					],
+					[
+						"SEDM",
+						"CEDS",
+						"217",
+						"217 (100%)",
+						"0 (0%)",
+						"0 (0%)",
+						"0 (0%)"
+					],
+					[
+						"SEDM",
+						"CTDL",
+						"63",
+						"6 (10%)",
+						"25 (40%)",
+						"25 (40%)",
+						"7 (11%)"
+					],
+					[
+						"SIF260928",
+						"CEDS",
+						"4,689",
+						"1,211 (26%)",
+						"1,427 (30%)",
+						"724 (15%)",
+						"1,327 (28%)"
+					],
+					[
+						"SIF260928",
+						"CTDL",
+						"2,283",
+						"429 (19%)",
+						"370 (16%)",
+						"1,434 (63%)",
+						"50 (2%)"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "4.2 Who made each mapping"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Origin",
+						"alignName": "left"
+					},
+					{
+						"titleText": "CEDS",
+						"alignName": "right"
+					},
+					{
+						"titleText": "CTDL",
+						"alignName": "right"
+					},
+					{
+						"titleText": "All",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Meaning",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"publisher-stated",
+						"436",
+						"18",
+						"454 of 22,691 (2.0%)",
+						"the standard's own published document names the hub element (matchBasis declaredIdentity)"
+					],
+					[
+						"machine-proposed",
+						"14,871",
+						"7,366",
+						"22,237 of 22,691 (98.0%)",
+						"an AI judge chose the hub card from ranked candidates (matchBasis derived)"
+					],
+					[
+						"human-reviewed",
+						"0",
+						"0",
+						"0",
+						"a person confirmed the mapping in the graph"
+					]
+				]
+			},
+			{
+				"blockKind": "callout",
+				"text": "No edge in the graph records a human review: the graph's vocabulary has no such mapping kind yet. Human judgments are kept apart, in the CEDS Rater's store, and are compared with the graph in the agreement section."
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "The recorded source of each edge (`mappingSource`), in edges:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "mappingSource",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Edges",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"`bridge-jev`",
+						"22,237"
+					],
+					[
+						"`declared-pescldCedsDeclaredIdentity`",
+						"219"
+					],
+					[
+						"`declared-pescldCtdlDeclaredIdentity`",
+						"18"
+					],
+					[
+						"`declared-sedmCedsDeclaredIdentity`",
+						"217"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "4.3 The judge's confidence"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Publisher-stated edges carry no confidence (454 edges); the machine-proposed ones, by band:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Band",
+						"alignName": "left"
+					},
+					{
+						"titleText": "CEDS",
+						"alignName": "right"
+					},
+					{
+						"titleText": "CTDL",
+						"alignName": "right"
+					},
+					{
+						"titleText": "All machine-proposed",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"strong (0.9)",
+						"6,042 of 14,871 (40.6%)",
+						"3,279 of 7,366 (44.5%)",
+						"9,321 of 22,237 (41.9%)"
+					],
+					[
+						"moderate (0.7)",
+						"5,044 of 14,871 (33.9%)",
+						"2,711 of 7,366 (36.8%)",
+						"7,755 of 22,237 (34.9%)"
+					],
+					[
+						"weak but real (0.5)",
+						"3,785 of 14,871 (25.5%)",
+						"1,376 of 7,366 (18.7%)",
+						"5,161 of 22,237 (23.2%)"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Per standard and hub, machine-proposed edges by band:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Standard",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Hub",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Machine edges",
+						"alignName": "right"
+					},
+					{
+						"titleText": "strong",
+						"alignName": "right"
+					},
+					{
+						"titleText": "moderate",
+						"alignName": "right"
+					},
+					{
+						"titleText": "weak but real",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"CASE",
+						"CEDS",
+						"95",
+						"28 (29%)",
+						"38 (40%)",
+						"29 (31%)"
+					],
+					[
+						"CASE",
+						"CTDL",
+						"30",
+						"5 (17%)",
+						"13 (43%)",
+						"12 (40%)"
+					],
+					[
+						"CLR",
+						"CEDS",
+						"79",
+						"22 (28%)",
+						"24 (30%)",
+						"33 (42%)"
+					],
+					[
+						"CLR",
+						"CTDL",
+						"51",
+						"14 (27%)",
+						"15 (29%)",
+						"22 (43%)"
+					],
+					[
+						"EdFi",
+						"CEDS",
+						"1,106",
+						"494 (45%)",
+						"374 (34%)",
+						"238 (22%)"
+					],
+					[
+						"EdFi",
+						"CTDL",
+						"283",
+						"84 (30%)",
+						"117 (41%)",
+						"82 (29%)"
+					],
+					[
+						"EduAPI",
+						"CEDS",
+						"184",
+						"56 (30%)",
+						"87 (47%)",
+						"41 (22%)"
+					],
+					[
+						"EduAPI",
+						"CTDL",
+						"131",
+						"42 (32%)",
+						"53 (40%)",
+						"36 (27%)"
+					],
+					[
+						"JEDx",
+						"CEDS",
+						"258",
+						"69 (27%)",
+						"109 (42%)",
+						"80 (31%)"
+					],
+					[
+						"JEDx",
+						"CTDL",
+						"139",
+						"47 (34%)",
+						"51 (37%)",
+						"41 (29%)"
+					],
+					[
+						"LIF",
+						"CEDS",
+						"771",
+						"352 (46%)",
+						"182 (24%)",
+						"237 (31%)"
+					],
+					[
+						"LIF",
+						"CTDL",
+						"450",
+						"166 (37%)",
+						"173 (38%)",
+						"111 (25%)"
+					],
+					[
+						"MedBiquitous",
+						"CEDS",
+						"234",
+						"45 (19%)",
+						"105 (45%)",
+						"84 (36%)"
+					],
+					[
+						"MedBiquitous",
+						"CTDL",
+						"168",
+						"49 (29%)",
+						"73 (43%)",
+						"46 (27%)"
+					],
+					[
+						"OneRoster-Gradebook-1.2",
+						"CEDS",
+						"44",
+						"9 (20%)",
+						"13 (30%)",
+						"22 (50%)"
+					],
+					[
+						"OneRoster-Gradebook-1.2",
+						"CTDL",
+						"10",
+						"2 (20%)",
+						"5 (50%)",
+						"3 (30%)"
+					],
+					[
+						"OneRoster-Resources-1.2",
+						"CEDS",
+						"6",
+						"2 (33%)",
+						"4 (67%)",
+						"0 (0%)"
+					],
+					[
+						"OneRoster-Resources-1.2",
+						"CTDL",
+						"1",
+						"0 (0%)",
+						"1 (100%)",
+						"0 (0%)"
+					],
+					[
+						"OneRoster-Rostering-1.2",
+						"CEDS",
+						"76",
+						"21 (28%)",
+						"30 (39%)",
+						"25 (33%)"
+					],
+					[
+						"OneRoster-Rostering-1.2",
+						"CTDL",
+						"30",
+						"14 (47%)",
+						"12 (40%)",
+						"4 (13%)"
+					],
+					[
+						"OpenBadges",
+						"CEDS",
+						"79",
+						"20 (25%)",
+						"30 (38%)",
+						"29 (37%)"
+					],
+					[
+						"OpenBadges",
+						"CTDL",
+						"53",
+						"14 (26%)",
+						"15 (28%)",
+						"24 (45%)"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CEDS",
+						"3,290",
+						"1,583 (48%)",
+						"997 (30%)",
+						"710 (22%)"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CTDL",
+						"1,659",
+						"931 (56%)",
+						"556 (34%)",
+						"172 (10%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CEDS",
+						"575",
+						"244 (42%)",
+						"189 (33%)",
+						"142 (25%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CTDL",
+						"301",
+						"151 (50%)",
+						"107 (36%)",
+						"43 (14%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CEDS",
+						"713",
+						"280 (39%)",
+						"247 (35%)",
+						"186 (26%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CTDL",
+						"351",
+						"168 (48%)",
+						"133 (38%)",
+						"50 (14%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CEDS",
+						"327",
+						"166 (51%)",
+						"107 (33%)",
+						"54 (17%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CTDL",
+						"211",
+						"128 (61%)",
+						"73 (35%)",
+						"10 (5%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CEDS",
+						"243",
+						"124 (51%)",
+						"70 (29%)",
+						"49 (20%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CTDL",
+						"150",
+						"93 (62%)",
+						"44 (29%)",
+						"13 (9%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CEDS",
+						"626",
+						"213 (34%)",
+						"256 (41%)",
+						"157 (25%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CTDL",
+						"280",
+						"122 (44%)",
+						"100 (36%)",
+						"58 (21%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CEDS",
+						"690",
+						"267 (39%)",
+						"251 (36%)",
+						"172 (25%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CTDL",
+						"354",
+						"175 (49%)",
+						"125 (35%)",
+						"54 (15%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CEDS",
+						"720",
+						"290 (40%)",
+						"268 (37%)",
+						"162 (23%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CTDL",
+						"349",
+						"165 (47%)",
+						"126 (36%)",
+						"58 (17%)"
+					],
+					[
+						"PESCLD",
+						"CEDS",
+						"66",
+						"19 (29%)",
+						"24 (36%)",
+						"23 (35%)"
+					],
+					[
+						"PESCLD",
+						"CTDL",
+						"19",
+						"6 (32%)",
+						"7 (37%)",
+						"6 (32%)"
+					],
+					[
+						"SEDM",
+						"CTDL",
+						"63",
+						"29 (46%)",
+						"28 (44%)",
+						"6 (10%)"
+					],
+					[
+						"SIF260928",
+						"CEDS",
+						"4,689",
+						"1,738 (37%)",
+						"1,639 (35%)",
+						"1,312 (28%)"
+					],
+					[
+						"SIF260928",
+						"CTDL",
+						"2,283",
+						"874 (38%)",
+						"884 (39%)",
+						"525 (23%)"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "5. Agreement with human judgment (CEDS hub)"
+			},
+			{
+				"blockKind": "callout",
+				"text": "This is a first sample, and it is small. 103 answers from 3 raters, on 100 elements of three standards, compared with this graph's CEDS mappings. It is reported as a baseline for the method, not as the accuracy of the graph's 22,691 mappings; the interval beside each rate shows how far a sample this size can move."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.1 What the raters were asked"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "The CEDS Rater shows a person one element of a standard, with its definition and context, beside up to 20 candidate CEDS cards found by meaning and by words; the rater can also search all of CEDS. The rater picks the **Best** card, may tick other cards as the **Same**, or answers **No match in CEDS** or **Unsure**. For an element the graph maps, the graph's own card was always among the candidates, unmarked: raters were not told which card the graph had chosen."
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "The sample is 150 elements, 50 each from Ed-Fi, PESC, SIF: per standard 40 elements the sampling build had mapped and 10 it had not, each part stratified by kind of element (identifier, code, date, number, indicator, free text). It was drawn from `GOLD_EVAL_261013_jevQuestionPerBridge` with seed `cedsRater-humanTruthSet-101426-r2` and dealt into surveys A, B, C. This graph maps 120 of the 150 sample elements; the sampling build mapped 120, and 120 are mapped in both. Of the 81 answered elements this graph maps, 0 had a card of this graph's missing from the rater's list."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.2 What exists so far"
+			},
+			{
+				"blockKind": "list",
+				"itemTextList": [
+					"103 current answers (174 saves in all, counting edits), saved between 2026-10-20 and 2026-10-29.",
+					"3 raters answered; 2 finished a whole survey. 6 rater accounts exist.",
+					"Surveys answered: A and B. The remaining survey has not been answered yet.",
+					"103 answers counted, on 100 elements; 2 were Unsure and are not scored, leaving **101 scored answers**."
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.3 How the graph and the raters compare"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Outcome",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Answers",
+						"alignName": "right"
+					},
+					{
+						"titleText": "What it means",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"same card",
+						"47",
+						"the rater's Best card is the graph's card"
+					],
+					[
+						"same CEDS property, other class",
+						"1",
+						"the same CEDS property and qualifiers, placed in a different CEDS class"
+					],
+					[
+						"different card",
+						"17",
+						"both chose a card, and they are different CEDS properties"
+					],
+					[
+						"graph maps, rater says no match",
+						"17",
+						"the rater found nothing in CEDS that fits; the graph maps the element anyway"
+					],
+					[
+						"both say no match",
+						"13",
+						"the graph maps nothing, and the rater found nothing that fits"
+					],
+					[
+						"graph maps nothing, rater chose a card",
+						"6",
+						"a possible gap in the graph"
+					],
+					[
+						"unsure (not scored)",
+						"2",
+						"the rater could not decide"
+					]
+				]
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Agreement",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Scored answers",
+						"alignName": "right"
+					},
+					{
+						"titleText": "95% interval",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"same card, or both say no match",
+						"60 of 101 (59.4%)",
+						"50% to 68%"
+					],
+					[
+						"same CEDS property (class aside), or both say no match",
+						"61 of 101 (60.4%)",
+						"51% to 69%"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Seen from the graph's side: where the graph maps the element (82 scored answers), the rater chose the graph's card in 47 of 82 (57.3%) and accepted it as Best or Same in 53 of 82 (64.6%). Where the graph maps nothing (19 scored answers), the rater agreed nothing fits in 13 of 19 (68.4%)."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.4 Agreement follows the judge's confidence"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "The judge's confidence band, read from the graph's edge for each answered element (its strongest edge, where it has several), against the raters' answers. Agreement is the same card; on the last row, where the graph maps nothing, it is the rater also finding nothing that fits. The bands rank the way they should; the samples behind each are small."
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Graph's confidence",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Scored answers",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Agreement",
+						"alignName": "right"
+					},
+					{
+						"titleText": "95% interval",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"weak but real",
+						"16",
+						"3 of 16 (18.8%)",
+						"7% to 43%"
+					],
+					[
+						"moderate",
+						"26",
+						"15 of 26 (57.7%)",
+						"39% to 74%"
+					],
+					[
+						"strong",
+						"40",
+						"29 of 40 (72.5%)",
+						"57% to 84%"
+					],
+					[
+						"graph maps nothing",
+						"19",
+						"13 of 19 (68.4%)",
+						"46% to 85%"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.5 By standard"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Standard (sample)",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Scored answers",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Same card or both no match",
+						"alignName": "right"
+					},
+					{
+						"titleText": "95% interval",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Same property or both no match",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"Ed-Fi",
+						"35",
+						"17 of 35 (48.6%)",
+						"33% to 64%",
+						"17 of 35 (48.6%)"
+					],
+					[
+						"PESC",
+						"34",
+						"21 of 34 (61.8%)",
+						"45% to 76%",
+						"21 of 34 (61.8%)"
+					],
+					[
+						"SIF",
+						"32",
+						"22 of 32 (68.8%)",
+						"51% to 82%",
+						"23 of 32 (71.9%)"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "The sample is split in two: a dev half that may be looked at while the judge is tuned, and a sealed half that is scored only for reports such as this one, never for tuning. Agreement (same card, or both say no match): dev half 33 of 49 (67.3%) (interval 53% to 79%); sealed half 27 of 52 (51.9%) (interval 39% to 65%)."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "5.6 Rater with rater"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "3 elements have answers from two raters; they chose the same Best card on 2. That is too few to say how often people agree with each other, which bounds how well any judge can be expected to agree with one person. It will be measured once each survey has a second rater."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "6. Automatic consistency signals"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "These need no human and are recomputed on every build. None of them is accuracy: each says whether the judge is consistent with itself or with what the standards publish."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "6.1 One element, many places"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "A SIF Question or a PESC element declaration appears in many places (SIF objects, PESC document sections), and the judge was asked about each place on its own. Where two or more places are mapped onto one hub, did every place get the same card? The same hub property? A different class in a different place can be right, since the class follows the context, so the property column is the fairer one."
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Standard",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Hub",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Elements in 2+ mapped places",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Same card everywhere",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Same property everywhere",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CEDS",
+						"300",
+						"274 of 300 (91.3%)",
+						"284 of 300 (94.7%)"
+					],
+					[
+						"PESC-AcademicEportfolio-1.0.0",
+						"CTDL",
+						"119",
+						"116 of 119 (97.5%)",
+						"117 of 119 (98.3%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CEDS",
+						"129",
+						"127 of 129 (98.4%)",
+						"128 of 129 (99.2%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.7.0",
+						"CTDL",
+						"69",
+						"69 of 69 (100.0%)",
+						"69 of 69 (100.0%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CEDS",
+						"138",
+						"136 of 138 (98.6%)",
+						"137 of 138 (99.3%)"
+					],
+					[
+						"PESC-CollegeTranscript-1.8.0",
+						"CTDL",
+						"75",
+						"75 of 75 (100.0%)",
+						"75 of 75 (100.0%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CEDS",
+						"66",
+						"60 of 66 (90.9%)",
+						"62 of 66 (93.9%)"
+					],
+					[
+						"PESC-DocumentRequest-1.0.0",
+						"CTDL",
+						"37",
+						"36 of 37 (97.3%)",
+						"37 of 37 (100.0%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CEDS",
+						"67",
+						"63 of 67 (94.0%)",
+						"64 of 67 (95.5%)"
+					],
+					[
+						"PESC-DocumentResponse-1.0.0",
+						"CTDL",
+						"31",
+						"31 of 31 (100.0%)",
+						"31 of 31 (100.0%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CEDS",
+						"131",
+						"126 of 131 (96.2%)",
+						"128 of 131 (97.7%)"
+					],
+					[
+						"PESC-HighSchoolTranscript-1.6.0",
+						"CTDL",
+						"66",
+						"65 of 66 (98.5%)",
+						"66 of 66 (100.0%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CEDS",
+						"116",
+						"112 of 116 (96.6%)",
+						"114 of 116 (98.3%)"
+					],
+					[
+						"PESC-LearningRecord-1.0.0",
+						"CTDL",
+						"50",
+						"50 of 50 (100.0%)",
+						"50 of 50 (100.0%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CEDS",
+						"155",
+						"150 of 155 (96.8%)",
+						"152 of 155 (98.1%)"
+					],
+					[
+						"PESC-TestScoreReport-1.1.0",
+						"CTDL",
+						"76",
+						"76 of 76 (100.0%)",
+						"76 of 76 (100.0%)"
+					],
+					[
+						"SIF260928",
+						"CEDS",
+						"271",
+						"241 of 271 (88.9%)",
+						"244 of 271 (90.0%)"
+					],
+					[
+						"SIF260928",
+						"CTDL",
+						"141",
+						"141 of 141 (100.0%)",
+						"141 of 141 (100.0%)"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "All together: the same property everywhere for 1,975 of 2,037 (97.0%) elements, the same card for 1,948 of 2,037 (95.6%)."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "6.2 How decided the judge was"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "For each machine-proposed edge the judge recorded the probability it gave its chosen card. Edges by that probability, and the \"close calls\", where the runner-up card was within 0.1 of the winner:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Top probability",
+						"alignName": "left"
+					},
+					{
+						"titleText": "CEDS",
+						"alignName": "right"
+					},
+					{
+						"titleText": "CTDL",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"0.0–0.1",
+						"0",
+						"0"
+					],
+					[
+						"0.1–0.2",
+						"3",
+						"0"
+					],
+					[
+						"0.2–0.3",
+						"282",
+						"67"
+					],
+					[
+						"0.3–0.4",
+						"1,277",
+						"289"
+					],
+					[
+						"0.4–0.5",
+						"1,962",
+						"923"
+					],
+					[
+						"0.5–0.6",
+						"2,502",
+						"1,044"
+					],
+					[
+						"0.6–0.7",
+						"1,371",
+						"861"
+					],
+					[
+						"0.7–0.8",
+						"1,387",
+						"899"
+					],
+					[
+						"0.8–0.9",
+						"1,747",
+						"1,250"
+					],
+					[
+						"0.9–1.0",
+						"4,340",
+						"2,033"
+					],
+					[
+						"close calls",
+						"1,862 of 14,871 (12.5%)",
+						"986 of 7,366 (13.4%)"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 3,
+				"text": "6.3 Triangulation across the hubs: not yet measurable"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Where an element maps to a card on one hub and a card on the other, the hubs' own published correspondences could confirm or contradict the pair. This build cannot check that yet:"
+			},
+			{
+				"blockKind": "list",
+				"itemTextList": [
+					"CEDS publishes 0 correspondences to CTDL; 0 of them sit under a card any element is mapped to, so 0 pairs can be checked.",
+					"CTDL publishes 53 correspondences to CEDS; 0 of them sit under a card any element is mapped to, so 0 pairs can be checked."
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "(CTDL's published correspondences to CEDS are between code values, and this build's judge maps at the property level.) Meanwhile 4,900 mapped places (edge owners) reach a card on both hubs: the population a property-level crosswalk between the hubs would let us check."
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "7. Earlier measurements (not of this graph)"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "3 earlier experiments checked the judge against a reference: a publisher's own crosswalk, or another AI reading its picks. They measured earlier builds, earlier judge configurations or mappings not in this graph, and are cited for their method, not as this graph's accuracy."
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "When",
+						"alignName": "left"
+					},
+					{
+						"titleText": "What was measured",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Result",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Build",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Source",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"2026-08-03",
+						"Ed-Fi to CEDS, property tier: the AI judge, run blind, against Ed-Fi's own published CEDS crosswalk, on the 65 sampled Ed-Fi elements that crosswalk maps",
+						"the judge chose Ed-Fi's mapped CEDS property for 47 of the 65 (72.3%)",
+						"blind-evaluation build DEV_edfiBlindEvalV2_080326 (an earlier hub and judge configuration)",
+						"`educoreForge/system/management/zNotesPlansDocs/REPORT-blindEvalVsProduction-080326.md`"
+					],
+					[
+						"2026-08-17",
+						"Ed-Fi to CEDS, every element: the AI judge's mappings against Ed-Fi's published crosswalk (666 authored mappings)",
+						"421 agreed; precision 80.96% (of the judge's 520 mappings), recall 63.2% (of the crosswalk's 666)",
+						"DEV_edfiDerived_260817 against GOLD_EVAL_260817_edfiBridge (an earlier build)",
+						"`educore/system/management/zNotesPlansDocs/continuityArchive-preCollapse-103126.json (topFindings.recallNeverMeasured)`"
+					],
+					[
+						"2026-11-03",
+						"A peer bridge pilot, Ed-Fi to LIF directly (no hub): the judge's 49 picks from 300 Ed-Fi subjects, each ruled by a separate AI agent working blind, NOT by people (the pilot's report says so)",
+						"19 of 49 picks ruled same or close (2 same, 17 close), 10 of 10 at confidence 0.8 and above; the supervisor's stand-down, removing rulings that rest on an undefined LIF element, puts it at 13 of 49 and 7 of 10",
+						"peer bridge pilot run; peer mappings are not part of this graph",
+						"`educoreForge/system/management/zNotesPlansDocs/peerBridgePilot-110326/REPORT-peerBridgePilot-110326.md and STANDDOWN-RAFFISH_TRINKET-110326.md`"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "8. Method and limits"
+			},
+			{
+				"blockKind": "list",
+				"itemTextList": [
+					"**Coverage** counts DmeProperty nodes of non-hub standards; a property is mapped when it, or one of its instances, has an edge into a hub card (the rule `standards_stats` uses). It says a mapping exists, not that it is right.",
+					"**Relation, origin and confidence** count match edges, read from each edge's `mappingKind`, `mappingSource` and `mappingConfidence`. Confidence is the judge's self-assessment.",
+					"**Agreement with human judgment** compares each rater's current answer (edits replace earlier ones) with the CEDS cards this graph maps the element to, by the CEDS Rater's own rules for \"the graph's card\" and \"the same property\". An answer counts only while its rater is still assigned to the element's survey. The rate is over scored answers (Unsure excluded); the interval is a 95% Wilson interval.",
+					"**The human sample is not the population.** It is stratified (80% elements the sampling build had mapped, 20% it had not, by kind), covers three standards and one hub, and is not re-weighted to the graph. Its rates describe these answers, and they are not extrapolated to the graph as a whole.",
+					"**One rater per element**, almost everywhere. Where a rater and the graph disagree, either may be wrong; the rater's answer is treated as the reference only because it is the human one.",
+					"**The raters judged cards, not relations.** Whether a mapping is exact, close, broad or narrow is not yet checked by people.",
+					"**Consistency signals** say the judge agrees with itself; a judge can be consistently wrong.",
+					"**Reproducible.** The generator reads only what the stamp names. Rerun it on the same graph and the same rater snapshot and it writes the same files."
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "9. Not yet measured, and what would measure it"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Not yet measured",
+						"alignName": "left"
+					},
+					{
+						"titleText": "What would measure it",
+						"alignName": "left"
+					}
+				],
+				"rowList": [
+					[
+						"Accuracy of the graph's mappings as a whole",
+						"a human gold set large enough, and drawn widely enough, to weight to the population: the remaining survey, more raters, more standards"
+					],
+					[
+						"How often people agree with each other",
+						"a second rater on every element of a survey"
+					],
+					[
+						"Agreement on the CTDL hub",
+						"a rater survey of CTDL cards, as the CEDS Rater does for CEDS"
+					],
+					[
+						"The other loaded standards",
+						"samples from CASE, CLR, JEDx, LIF, MedBiquitous, OneRoster, Open Badges, EduAPI and the rest"
+					],
+					[
+						"Whether the relation (exact, close, broad, narrow) is right",
+						"a relation question in the rater tool"
+					],
+					[
+						"Recall: mappings the graph is missing",
+						"rerunning the earlier Ed-Fi crosswalk comparison against this graph, and the \"graph maps nothing, rater chose a card\" count as the human sample grows"
+					],
+					[
+						"Run-to-run variance of the judge",
+						"re-judging a fixed sample with the judgment cache bypassed; the cache returns the same verdict for the same prompt, so a rebuild alone does not measure it"
+					],
+					[
+						"Triangulation across the hubs",
+						"a property-level crosswalk between CEDS and CTDL, or judging at the code-value level where CTDL publishes its CEDS correspondences"
+					],
+					[
+						"Accuracy of AI answers grounded in EDUcore",
+						"the evaluation harness: real questions with expert-verified answers, asked with and without EDUcore"
+					]
+				]
+			},
+			{
+				"blockKind": "heading",
+				"headingLevel": 2,
+				"text": "Appendix: the breakdowns add up to the public tools' figures"
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Every per-standard breakdown in this report was summed and compared with the answer of the handler behind `standards_stats` or `standards_standards` on the same graph: 62 of 62 checks equal (the generator refuses to write a report when any is not). The overall ones:"
+			},
+			{
+				"blockKind": "table",
+				"columnList": [
+					{
+						"titleText": "Figure",
+						"alignName": "left"
+					},
+					{
+						"titleText": "Public tool",
+						"alignName": "right"
+					},
+					{
+						"titleText": "Sum of breakdown",
+						"alignName": "right"
+					}
+				],
+				"rowList": [
+					[
+						"`coverage.totalProperties`",
+						"23,331",
+						"23,331"
+					],
+					[
+						"`coverage.mappedProperties`",
+						"8,999",
+						"8,999"
+					],
+					[
+						"`coverage.mappedPropertyCountByHub.CEDS`",
+						"7,909",
+						"7,909"
+					],
+					[
+						"`coverage.mappedPropertyCountByHub.CTDL`",
+						"3,328",
+						"3,328"
+					],
+					[
+						"`mappings.EXACT_MATCH`",
+						"5,368",
+						"5,368"
+					],
+					[
+						"`mappings.CLOSE_MATCH`",
+						"9,341",
+						"9,341"
+					],
+					[
+						"`mappings.BROAD_MATCH`",
+						"5,007",
+						"5,007"
+					],
+					[
+						"`mappings.NARROW_MATCH`",
+						"2,975",
+						"2,975"
+					]
+				]
+			},
+			{
+				"blockKind": "paragraph",
+				"text": "Each loaded standard has its own one-page certificate drawn from the same figures, in `certificates/` beside this report."
+			}
+		]
+	},
+	"certificateList": [
+		{
+			"certificateStem": "CASE",
+			"source": "CASE",
+			"standardName": "CASE 1.1 (CASE)",
+			"titleText": "Quality certificate: CASE (version 1.1)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CASE is represented and mapped in one EDUcore build, measured from the graph itself. 547 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"201"
+						],
+						[
+							"Mapped to at least one hub",
+							"101 of 201 (50.2%)"
+						],
+						[
+							"Mapped to CEDS",
+							"95 of 201 (47.3%)"
+						],
+						[
+							"Mapped to CTDL",
+							"30 of 201 (14.9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"95",
+							"18 (19%)",
+							"66 (69%)",
+							"2 (2%)",
+							"9 (9%)"
+						],
+						[
+							"CTDL",
+							"30",
+							"2 (7%)",
+							"20 (67%)",
+							"7 (23%)",
+							"1 (3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"95",
+							"0",
+							"28 (29%)",
+							"38 (40%)",
+							"29 (31%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"30",
+							"0",
+							"5 (17%)",
+							"13 (43%)",
+							"12 (40%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "CEDS",
+			"source": "CEDS",
+			"standardName": "Common Education Data Standards",
+			"titleText": "Quality certificate: CEDS (version 14.0.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CEDS is represented and mapped in one EDUcore build, measured from the graph itself. 149,726 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "CEDS is a **hub** in this build: other standards are mapped onto its cards, and it is not mapped to itself. 7,909 properties of 22 standards are mapped onto it, through 15,307 mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Mappings onto this hub"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Relation",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"exact",
+							"4,001 of 15,307 (26.1%)"
+						],
+						[
+							"close",
+							"6,530 of 15,307 (42.7%)"
+						],
+						[
+							"broad",
+							"2,193 of 15,307 (14.3%)"
+						],
+						[
+							"narrow",
+							"2,583 of 15,307 (16.9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Origin",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"publisher-stated",
+							"436 of 15,307 (2.8%)"
+						],
+						[
+							"machine-proposed",
+							"14,871 of 15,307 (97.2%)"
+						],
+						[
+							"human-reviewed",
+							"0"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Standards mapped onto it"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Standard",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Its properties mapped here",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"SIF260928",
+							"2,722 of 5,018 (54.2%)",
+							"4,689"
+						],
+						[
+							"EdFi",
+							"1,106 of 1,904 (58.1%)",
+							"1,106"
+						],
+						[
+							"LIF",
+							"771 of 1,393 (55.3%)",
+							"771"
+						],
+						[
+							"PESC-AcademicEportfolio-1.0.0",
+							"675 of 1,933 (34.9%)",
+							"3,290"
+						],
+						[
+							"PESC-TestScoreReport-1.1.0",
+							"272 of 1,181 (23.0%)",
+							"720"
+						],
+						[
+							"JEDx",
+							"258 of 694 (37.2%)",
+							"258"
+						],
+						[
+							"MedBiquitous",
+							"234 of 1,768 (13.2%)",
+							"234"
+						],
+						[
+							"SEDM",
+							"217 of 321 (67.6%)",
+							"217"
+						],
+						[
+							"PESC-CollegeTranscript-1.8.0",
+							"210 of 1,241 (16.9%)",
+							"713"
+						],
+						[
+							"PESC-HighSchoolTranscript-1.6.0",
+							"199 of 1,185 (16.8%)",
+							"626"
+						],
+						[
+							"PESC-CollegeTranscript-1.7.0",
+							"197 of 1,185 (16.6%)",
+							"575"
+						],
+						[
+							"PESC-LearningRecord-1.0.0",
+							"197 of 1,235 (16.0%)",
+							"690"
+						],
+						[
+							"EduAPI",
+							"184 of 341 (54.0%)",
+							"184"
+						],
+						[
+							"PESCLD",
+							"120 of 266 (45.1%)",
+							"285"
+						],
+						[
+							"CASE",
+							"95 of 201 (47.3%)",
+							"95"
+						],
+						[
+							"PESC-DocumentRequest-1.0.0",
+							"84 of 1,282 (6.6%)",
+							"327"
+						],
+						[
+							"PESC-DocumentResponse-1.0.0",
+							"84 of 1,282 (6.6%)",
+							"243"
+						],
+						[
+							"CLR",
+							"79 of 206 (38.3%)",
+							"79"
+						],
+						[
+							"OpenBadges",
+							"79 of 201 (39.3%)",
+							"79"
+						],
+						[
+							"OneRoster-Rostering-1.2",
+							"76 of 158 (48.1%)",
+							"76"
+						],
+						[
+							"OneRoster-Gradebook-1.2",
+							"44 of 138 (31.9%)",
+							"44"
+						],
+						[
+							"OneRoster-Resources-1.2",
+							"6 of 19 (31.6%)",
+							"6"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "CLR",
+			"source": "CLR",
+			"standardName": "CLR 2.0 (CLR)",
+			"titleText": "Quality certificate: CLR (version 2.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CLR is represented and mapped in one EDUcore build, measured from the graph itself. 717 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"206"
+						],
+						[
+							"Mapped to at least one hub",
+							"91 of 206 (44.2%)"
+						],
+						[
+							"Mapped to CEDS",
+							"79 of 206 (38.3%)"
+						],
+						[
+							"Mapped to CTDL",
+							"51 of 206 (24.8%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"79",
+							"12 (15%)",
+							"46 (58%)",
+							"8 (10%)",
+							"13 (16%)"
+						],
+						[
+							"CTDL",
+							"51",
+							"17 (33%)",
+							"30 (59%)",
+							"4 (8%)",
+							"0 (0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"79",
+							"0",
+							"22 (28%)",
+							"24 (30%)",
+							"33 (42%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"51",
+							"0",
+							"14 (27%)",
+							"15 (29%)",
+							"22 (43%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "CTDL",
+			"source": "CTDL",
+			"standardName": "Credential Transparency Description Language",
+			"titleText": "Quality certificate: CTDL (version Release 20260927)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CTDL is represented and mapped in one EDUcore build, measured from the graph itself. 16,127 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "CTDL is a **hub** in this build: other standards are mapped onto its cards, and it is not mapped to itself. 3,328 properties of 22 standards are mapped onto it, through 7,384 mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Mappings onto this hub"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Relation",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"exact",
+							"1,367 of 7,384 (18.5%)"
+						],
+						[
+							"close",
+							"2,811 of 7,384 (38.1%)"
+						],
+						[
+							"broad",
+							"2,814 of 7,384 (38.1%)"
+						],
+						[
+							"narrow",
+							"392 of 7,384 (5.3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Origin",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"publisher-stated",
+							"18 of 7,384 (0.2%)"
+						],
+						[
+							"machine-proposed",
+							"7,366 of 7,384 (99.8%)"
+						],
+						[
+							"human-reviewed",
+							"0"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Standards mapped onto it"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Standard",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Its properties mapped here",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"SIF260928",
+							"1,137 of 5,018 (22.7%)",
+							"2,283"
+						],
+						[
+							"LIF",
+							"450 of 1,393 (32.3%)",
+							"450"
+						],
+						[
+							"EdFi",
+							"283 of 1,904 (14.9%)",
+							"283"
+						],
+						[
+							"PESC-AcademicEportfolio-1.0.0",
+							"220 of 1,933 (11.4%)",
+							"1,659"
+						],
+						[
+							"MedBiquitous",
+							"168 of 1,768 (9.5%)",
+							"168"
+						],
+						[
+							"JEDx",
+							"139 of 694 (20.0%)",
+							"139"
+						],
+						[
+							"EduAPI",
+							"131 of 341 (38.4%)",
+							"131"
+						],
+						[
+							"PESC-TestScoreReport-1.1.0",
+							"109 of 1,181 (9.2%)",
+							"349"
+						],
+						[
+							"PESC-LearningRecord-1.0.0",
+							"92 of 1,235 (7.4%)",
+							"354"
+						],
+						[
+							"PESC-CollegeTranscript-1.8.0",
+							"87 of 1,241 (7.0%)",
+							"351"
+						],
+						[
+							"PESC-CollegeTranscript-1.7.0",
+							"80 of 1,185 (6.8%)",
+							"301"
+						],
+						[
+							"PESC-HighSchoolTranscript-1.6.0",
+							"75 of 1,185 (6.3%)",
+							"280"
+						],
+						[
+							"SEDM",
+							"63 of 321 (19.6%)",
+							"63"
+						],
+						[
+							"OpenBadges",
+							"53 of 201 (26.4%)",
+							"53"
+						],
+						[
+							"CLR",
+							"51 of 206 (24.8%)",
+							"51"
+						],
+						[
+							"PESC-DocumentRequest-1.0.0",
+							"48 of 1,282 (3.7%)",
+							"211"
+						],
+						[
+							"PESC-DocumentResponse-1.0.0",
+							"40 of 1,282 (3.1%)",
+							"150"
+						],
+						[
+							"PESCLD",
+							"31 of 266 (11.7%)",
+							"37"
+						],
+						[
+							"CASE",
+							"30 of 201 (14.9%)",
+							"30"
+						],
+						[
+							"OneRoster-Rostering-1.2",
+							"30 of 158 (19.0%)",
+							"30"
+						],
+						[
+							"OneRoster-Gradebook-1.2",
+							"10 of 138 (7.2%)",
+							"10"
+						],
+						[
+							"OneRoster-Resources-1.2",
+							"1 of 19 (5.3%)",
+							"1"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "CTDLASN",
+			"source": "CTDLASN",
+			"standardName": "Credential Transparency Description Language — Achievement Standards Network (CTDL-ASN)",
+			"titleText": "Quality certificate: CTDLASN (version 20260626)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CTDLASN is represented and mapped in one EDUcore build, measured from the graph itself. 119 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"97"
+						],
+						[
+							"Mapped to at least one hub",
+							"0 of 97 (0.0%)"
+						],
+						[
+							"Mapped to CEDS",
+							"0 of 97 (0.0%)"
+						],
+						[
+							"Mapped to CTDL",
+							"0 of 97 (0.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "callout",
+					"text": "No property of this standard is mapped to a hub in this build yet. It is loaded and searchable; its mappings are still to come."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "CTDLQData",
+			"source": "CTDLQData",
+			"standardName": "Credential Transparency Description Language — Quantitative Data (CTDL-QData)",
+			"titleText": "Quality certificate: CTDLQData (version 20260626)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How CTDLQData is represented and mapped in one EDUcore build, measured from the graph itself. 215 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"82"
+						],
+						[
+							"Mapped to at least one hub",
+							"0 of 82 (0.0%)"
+						],
+						[
+							"Mapped to CEDS",
+							"0 of 82 (0.0%)"
+						],
+						[
+							"Mapped to CTDL",
+							"0 of 82 (0.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "callout",
+					"text": "No property of this standard is mapped to a hub in this build yet. It is loaded and searchable; its mappings are still to come."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "EdFi",
+			"source": "EdFi",
+			"standardName": "Ed-Fi Data Standard",
+			"titleText": "Quality certificate: EdFi (version 5.2.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How EdFi is represented and mapped in one EDUcore build, measured from the graph itself. 9,617 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,904"
+						],
+						[
+							"Mapped to at least one hub",
+							"1,190 of 1,904 (62.5%)"
+						],
+						[
+							"Mapped to CEDS",
+							"1,106 of 1,904 (58.1%)"
+						],
+						[
+							"Mapped to CTDL",
+							"283 of 1,904 (14.9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"1,106",
+							"179 (16%)",
+							"644 (58%)",
+							"153 (14%)",
+							"130 (12%)"
+						],
+						[
+							"CTDL",
+							"283",
+							"10 (4%)",
+							"146 (52%)",
+							"111 (39%)",
+							"16 (6%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"1,106",
+							"0",
+							"494 (45%)",
+							"374 (34%)",
+							"238 (22%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"283",
+							"0",
+							"84 (30%)",
+							"117 (41%)",
+							"82 (29%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only: the rater and the graph chose the same card, or both said nothing fits, in **17 of 35 (48.6%)** scored answers (95% interval 33% to 64%). The same CEDS property, class aside: 17 of 35 (48.6%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "EduAPI",
+			"source": "EduAPI",
+			"standardName": "EduAPI 1.0 (EduAPI)",
+			"titleText": "Quality certificate: EduAPI (version 1.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How EduAPI is represented and mapped in one EDUcore build, measured from the graph itself. 1,056 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"341"
+						],
+						[
+							"Mapped to at least one hub",
+							"226 of 341 (66.3%)"
+						],
+						[
+							"Mapped to CEDS",
+							"184 of 341 (54.0%)"
+						],
+						[
+							"Mapped to CTDL",
+							"131 of 341 (38.4%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"184",
+							"12 (7%)",
+							"111 (60%)",
+							"30 (16%)",
+							"31 (17%)"
+						],
+						[
+							"CTDL",
+							"131",
+							"27 (21%)",
+							"65 (50%)",
+							"35 (27%)",
+							"4 (3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"184",
+							"0",
+							"56 (30%)",
+							"87 (47%)",
+							"41 (22%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"131",
+							"0",
+							"42 (32%)",
+							"53 (40%)",
+							"36 (27%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "JEDx",
+			"source": "JEDx",
+			"standardName": "Jobs and Employment Data Exchange (JEDx)",
+			"titleText": "Quality certificate: JEDx (version 1.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How JEDx is represented and mapped in one EDUcore build, measured from the graph itself. 3,594 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"694"
+						],
+						[
+							"Mapped to at least one hub",
+							"320 of 694 (46.1%)"
+						],
+						[
+							"Mapped to CEDS",
+							"258 of 694 (37.2%)"
+						],
+						[
+							"Mapped to CTDL",
+							"139 of 694 (20.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"258",
+							"27 (10%)",
+							"146 (57%)",
+							"34 (13%)",
+							"51 (20%)"
+						],
+						[
+							"CTDL",
+							"139",
+							"12 (9%)",
+							"66 (47%)",
+							"42 (30%)",
+							"19 (14%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"258",
+							"0",
+							"69 (27%)",
+							"109 (42%)",
+							"80 (31%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"139",
+							"0",
+							"47 (34%)",
+							"51 (37%)",
+							"41 (29%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "LIF",
+			"source": "LIF",
+			"standardName": "LIF 2.0 (LIF)",
+			"titleText": "Quality certificate: LIF (version 2.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How LIF is represented and mapped in one EDUcore build, measured from the graph itself. 4,519 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,393"
+						],
+						[
+							"Mapped to at least one hub",
+							"892 of 1,393 (64.0%)"
+						],
+						[
+							"Mapped to CEDS",
+							"771 of 1,393 (55.3%)"
+						],
+						[
+							"Mapped to CTDL",
+							"450 of 1,393 (32.3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"771",
+							"272 (35%)",
+							"353 (46%)",
+							"28 (4%)",
+							"118 (15%)"
+						],
+						[
+							"CTDL",
+							"450",
+							"108 (24%)",
+							"199 (44%)",
+							"129 (29%)",
+							"14 (3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"771",
+							"0",
+							"352 (46%)",
+							"182 (24%)",
+							"237 (31%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"450",
+							"0",
+							"166 (37%)",
+							"173 (38%)",
+							"111 (25%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "MedBiquitous",
+			"source": "MedBiquitous",
+			"standardName": "MedBiquitous (AAMC health professions education standards)",
+			"titleText": "Quality certificate: MedBiquitous",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How MedBiquitous is represented and mapped in one EDUcore build, measured from the graph itself. 6,337 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,768"
+						],
+						[
+							"Mapped to at least one hub",
+							"324 of 1,768 (18.3%)"
+						],
+						[
+							"Mapped to CEDS",
+							"234 of 1,768 (13.2%)"
+						],
+						[
+							"Mapped to CTDL",
+							"168 of 1,768 (9.5%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"234",
+							"46 (20%)",
+							"129 (55%)",
+							"16 (7%)",
+							"43 (18%)"
+						],
+						[
+							"CTDL",
+							"168",
+							"44 (26%)",
+							"96 (57%)",
+							"20 (12%)",
+							"8 (5%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"234",
+							"0",
+							"45 (19%)",
+							"105 (45%)",
+							"84 (36%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"168",
+							"0",
+							"49 (29%)",
+							"73 (43%)",
+							"46 (27%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "OneRoster-Gradebook-1.2",
+			"source": "OneRoster-Gradebook-1.2",
+			"standardName": "OneRoster 1.2 Gradebook (OneRoster)",
+			"titleText": "Quality certificate: OneRoster-Gradebook-1.2 (version 1.2)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How OneRoster-Gradebook-1.2 is represented and mapped in one EDUcore build, measured from the graph itself. 471 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"138"
+						],
+						[
+							"Mapped to at least one hub",
+							"48 of 138 (34.8%)"
+						],
+						[
+							"Mapped to CEDS",
+							"44 of 138 (31.9%)"
+						],
+						[
+							"Mapped to CTDL",
+							"10 of 138 (7.2%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"44",
+							"1 (2%)",
+							"25 (57%)",
+							"13 (30%)",
+							"5 (11%)"
+						],
+						[
+							"CTDL",
+							"10",
+							"0 (0%)",
+							"5 (50%)",
+							"4 (40%)",
+							"1 (10%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"44",
+							"0",
+							"9 (20%)",
+							"13 (30%)",
+							"22 (50%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"10",
+							"0",
+							"2 (20%)",
+							"5 (50%)",
+							"3 (30%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "OneRoster-Resources-1.2",
+			"source": "OneRoster-Resources-1.2",
+			"standardName": "OneRoster 1.2 Resources (OneRoster)",
+			"titleText": "Quality certificate: OneRoster-Resources-1.2 (version 1.2)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How OneRoster-Resources-1.2 is represented and mapped in one EDUcore build, measured from the graph itself. 111 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"19"
+						],
+						[
+							"Mapped to at least one hub",
+							"7 of 19 (36.8%)"
+						],
+						[
+							"Mapped to CEDS",
+							"6 of 19 (31.6%)"
+						],
+						[
+							"Mapped to CTDL",
+							"1 of 19 (5.3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"6",
+							"0 (0%)",
+							"4 (67%)",
+							"2 (33%)",
+							"0 (0%)"
+						],
+						[
+							"CTDL",
+							"1",
+							"0 (0%)",
+							"1 (100%)",
+							"0 (0%)",
+							"0 (0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"6",
+							"0",
+							"2 (33%)",
+							"4 (67%)",
+							"0 (0%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"1",
+							"0",
+							"0 (0%)",
+							"1 (100%)",
+							"0 (0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "OneRoster-Rostering-1.2",
+			"source": "OneRoster-Rostering-1.2",
+			"standardName": "OneRoster 1.2 Rostering (OneRoster)",
+			"titleText": "Quality certificate: OneRoster-Rostering-1.2 (version 1.2)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How OneRoster-Rostering-1.2 is represented and mapped in one EDUcore build, measured from the graph itself. 591 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"158"
+						],
+						[
+							"Mapped to at least one hub",
+							"87 of 158 (55.1%)"
+						],
+						[
+							"Mapped to CEDS",
+							"76 of 158 (48.1%)"
+						],
+						[
+							"Mapped to CTDL",
+							"30 of 158 (19.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"76",
+							"13 (17%)",
+							"41 (54%)",
+							"17 (22%)",
+							"5 (7%)"
+						],
+						[
+							"CTDL",
+							"30",
+							"3 (10%)",
+							"18 (60%)",
+							"8 (27%)",
+							"1 (3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"76",
+							"0",
+							"21 (28%)",
+							"30 (39%)",
+							"25 (33%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"30",
+							"0",
+							"14 (47%)",
+							"12 (40%)",
+							"4 (13%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "OpenBadges",
+			"source": "OpenBadges",
+			"standardName": "Open Badges 3.0 (OpenBadges)",
+			"titleText": "Quality certificate: OpenBadges (version 3.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How OpenBadges is represented and mapped in one EDUcore build, measured from the graph itself. 710 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"201"
+						],
+						[
+							"Mapped to at least one hub",
+							"91 of 201 (45.3%)"
+						],
+						[
+							"Mapped to CEDS",
+							"79 of 201 (39.3%)"
+						],
+						[
+							"Mapped to CTDL",
+							"53 of 201 (26.4%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"79",
+							"14 (18%)",
+							"44 (56%)",
+							"10 (13%)",
+							"11 (14%)"
+						],
+						[
+							"CTDL",
+							"53",
+							"16 (30%)",
+							"29 (55%)",
+							"8 (15%)",
+							"0 (0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"79",
+							"0",
+							"20 (25%)",
+							"30 (38%)",
+							"29 (37%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"53",
+							"0",
+							"14 (26%)",
+							"15 (28%)",
+							"24 (45%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-AcademicEportfolio-1.0.0",
+			"source": "PESC-AcademicEportfolio-1.0.0",
+			"standardName": "PESC Academic ePortfolio v1.0.0",
+			"titleText": "Quality certificate: PESC-AcademicEportfolio-1.0.0 (version 1.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-AcademicEportfolio-1.0.0 is represented and mapped in one EDUcore build, measured from the graph itself. 16,885 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,933"
+						],
+						[
+							"Mapped to at least one hub",
+							"729 of 1,933 (37.7%)"
+						],
+						[
+							"Mapped to CEDS",
+							"675 of 1,933 (34.9%)"
+						],
+						[
+							"Mapped to CTDL",
+							"220 of 1,933 (11.4%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"3,290",
+							"826 (25%)",
+							"1,617 (49%)",
+							"441 (13%)",
+							"406 (12%)"
+						],
+						[
+							"CTDL",
+							"1,659",
+							"354 (21%)",
+							"783 (47%)",
+							"431 (26%)",
+							"91 (5%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"3,290",
+							"0",
+							"1,583 (48%)",
+							"997 (30%)",
+							"710 (22%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"1,659",
+							"0",
+							"931 (56%)",
+							"556 (34%)",
+							"172 (10%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"300",
+							"284 of 300 (94.7%)"
+						],
+						[
+							"CTDL",
+							"119",
+							"117 of 119 (98.3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-CollegeTranscript-1.7.0",
+			"source": "PESC-CollegeTranscript-1.7.0",
+			"standardName": "PESC College Transcript v1.7.0",
+			"titleText": "Quality certificate: PESC-CollegeTranscript-1.7.0 (version 1.7.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-CollegeTranscript-1.7.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,501 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,185"
+						],
+						[
+							"Mapped to at least one hub",
+							"212 of 1,185 (17.9%)"
+						],
+						[
+							"Mapped to CEDS",
+							"197 of 1,185 (16.6%)"
+						],
+						[
+							"Mapped to CTDL",
+							"80 of 1,185 (6.8%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"575",
+							"148 (26%)",
+							"273 (47%)",
+							"99 (17%)",
+							"55 (10%)"
+						],
+						[
+							"CTDL",
+							"301",
+							"44 (15%)",
+							"136 (45%)",
+							"96 (32%)",
+							"25 (8%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"575",
+							"0",
+							"244 (42%)",
+							"189 (33%)",
+							"142 (25%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"301",
+							"0",
+							"151 (50%)",
+							"107 (36%)",
+							"43 (14%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"129",
+							"128 of 129 (99.2%)"
+						],
+						[
+							"CTDL",
+							"69",
+							"69 of 69 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured for this release. The first rater sample drew its PESC elements from PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0; this release was not among them."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-CollegeTranscript-1.8.0",
+			"source": "PESC-CollegeTranscript-1.8.0",
+			"standardName": "PESC College Transcript v1.8.0",
+			"titleText": "Quality certificate: PESC-CollegeTranscript-1.8.0 (version 1.8.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-CollegeTranscript-1.8.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,997 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,241"
+						],
+						[
+							"Mapped to at least one hub",
+							"227 of 1,241 (18.3%)"
+						],
+						[
+							"Mapped to CEDS",
+							"210 of 1,241 (16.9%)"
+						],
+						[
+							"Mapped to CTDL",
+							"87 of 1,241 (7.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"713",
+							"182 (26%)",
+							"329 (46%)",
+							"133 (19%)",
+							"69 (10%)"
+						],
+						[
+							"CTDL",
+							"351",
+							"44 (13%)",
+							"159 (45%)",
+							"116 (33%)",
+							"32 (9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"713",
+							"0",
+							"280 (39%)",
+							"247 (35%)",
+							"186 (26%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"351",
+							"0",
+							"168 (48%)",
+							"133 (38%)",
+							"50 (14%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"138",
+							"137 of 138 (99.3%)"
+						],
+						[
+							"CTDL",
+							"75",
+							"75 of 75 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-DocumentRequest-1.0.0",
+			"source": "PESC-DocumentRequest-1.0.0",
+			"standardName": "PESC Document Request v1.0.0",
+			"titleText": "Quality certificate: PESC-DocumentRequest-1.0.0 (version 1.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-DocumentRequest-1.0.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,253 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,282"
+						],
+						[
+							"Mapped to at least one hub",
+							"98 of 1,282 (7.6%)"
+						],
+						[
+							"Mapped to CEDS",
+							"84 of 1,282 (6.6%)"
+						],
+						[
+							"Mapped to CTDL",
+							"48 of 1,282 (3.7%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"327",
+							"85 (26%)",
+							"127 (39%)",
+							"72 (22%)",
+							"43 (13%)"
+						],
+						[
+							"CTDL",
+							"211",
+							"44 (21%)",
+							"129 (61%)",
+							"15 (7%)",
+							"23 (11%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"327",
+							"0",
+							"166 (51%)",
+							"107 (33%)",
+							"54 (17%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"211",
+							"0",
+							"128 (61%)",
+							"73 (35%)",
+							"10 (5%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"66",
+							"62 of 66 (93.9%)"
+						],
+						[
+							"CTDL",
+							"37",
+							"37 of 37 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-DocumentResponse-1.0.0",
+			"source": "PESC-DocumentResponse-1.0.0",
+			"standardName": "PESC Document Response v1.0.0",
+			"titleText": "Quality certificate: PESC-DocumentResponse-1.0.0 (version 1.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-DocumentResponse-1.0.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,057 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,282"
+						],
+						[
+							"Mapped to at least one hub",
+							"95 of 1,282 (7.4%)"
+						],
+						[
+							"Mapped to CEDS",
+							"84 of 1,282 (6.6%)"
+						],
+						[
+							"Mapped to CTDL",
+							"40 of 1,282 (3.1%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"243",
+							"55 (23%)",
+							"101 (42%)",
+							"51 (21%)",
+							"36 (15%)"
+						],
+						[
+							"CTDL",
+							"150",
+							"36 (24%)",
+							"81 (54%)",
+							"20 (13%)",
+							"13 (9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"243",
+							"0",
+							"124 (51%)",
+							"70 (29%)",
+							"49 (20%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"150",
+							"0",
+							"93 (62%)",
+							"44 (29%)",
+							"13 (9%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"67",
+							"64 of 67 (95.5%)"
+						],
+						[
+							"CTDL",
+							"31",
+							"31 of 31 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-HighSchoolTranscript-1.6.0",
+			"source": "PESC-HighSchoolTranscript-1.6.0",
+			"standardName": "PESC High School Transcript v1.6.0",
+			"titleText": "Quality certificate: PESC-HighSchoolTranscript-1.6.0 (version 1.6.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-HighSchoolTranscript-1.6.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,503 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,185"
+						],
+						[
+							"Mapped to at least one hub",
+							"214 of 1,185 (18.1%)"
+						],
+						[
+							"Mapped to CEDS",
+							"199 of 1,185 (16.8%)"
+						],
+						[
+							"Mapped to CTDL",
+							"75 of 1,185 (6.3%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"626",
+							"111 (18%)",
+							"338 (54%)",
+							"119 (19%)",
+							"58 (9%)"
+						],
+						[
+							"CTDL",
+							"280",
+							"54 (19%)",
+							"102 (36%)",
+							"105 (38%)",
+							"19 (7%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"626",
+							"0",
+							"213 (34%)",
+							"256 (41%)",
+							"157 (25%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"280",
+							"0",
+							"122 (44%)",
+							"100 (36%)",
+							"58 (21%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"131",
+							"128 of 131 (97.7%)"
+						],
+						[
+							"CTDL",
+							"66",
+							"66 of 66 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-LearningRecord-1.0.0",
+			"source": "PESC-LearningRecord-1.0.0",
+			"standardName": "PESC Learning Record v1.0.0",
+			"titleText": "Quality certificate: PESC-LearningRecord-1.0.0 (version 1.0.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-LearningRecord-1.0.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,829 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,235"
+						],
+						[
+							"Mapped to at least one hub",
+							"216 of 1,235 (17.5%)"
+						],
+						[
+							"Mapped to CEDS",
+							"197 of 1,235 (16.0%)"
+						],
+						[
+							"Mapped to CTDL",
+							"92 of 1,235 (7.4%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"690",
+							"165 (24%)",
+							"317 (46%)",
+							"119 (17%)",
+							"89 (13%)"
+						],
+						[
+							"CTDL",
+							"354",
+							"50 (14%)",
+							"169 (48%)",
+							"91 (26%)",
+							"44 (12%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"690",
+							"0",
+							"267 (39%)",
+							"251 (36%)",
+							"172 (25%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"354",
+							"0",
+							"175 (49%)",
+							"125 (35%)",
+							"54 (15%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"116",
+							"114 of 116 (98.3%)"
+						],
+						[
+							"CTDL",
+							"50",
+							"50 of 50 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESC-TestScoreReport-1.1.0",
+			"source": "PESC-TestScoreReport-1.1.0",
+			"standardName": "PESC Test Score Report v1.1.0",
+			"titleText": "Quality certificate: PESC-TestScoreReport-1.1.0 (version 1.1.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESC-TestScoreReport-1.1.0 is represented and mapped in one EDUcore build, measured from the graph itself. 8,898 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"1,181"
+						],
+						[
+							"Mapped to at least one hub",
+							"292 of 1,181 (24.7%)"
+						],
+						[
+							"Mapped to CEDS",
+							"272 of 1,181 (23.0%)"
+						],
+						[
+							"Mapped to CTDL",
+							"109 of 1,181 (9.2%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"720",
+							"173 (24%)",
+							"354 (49%)",
+							"116 (16%)",
+							"77 (11%)"
+						],
+						[
+							"CTDL",
+							"349",
+							"46 (13%)",
+							"173 (50%)",
+							"109 (31%)",
+							"21 (6%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"720",
+							"0",
+							"290 (40%)",
+							"268 (37%)",
+							"162 (23%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"349",
+							"0",
+							"165 (47%)",
+							"126 (36%)",
+							"58 (17%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"155",
+							"152 of 155 (98.1%)"
+						],
+						[
+							"CTDL",
+							"76",
+							"76 of 76 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only, pooled across the 7 PESC schemas the sample was drawn from (PESC-CollegeTranscript-1.8.0, PESC-HighSchoolTranscript-1.6.0, PESC-TestScoreReport-1.1.0, PESC-LearningRecord-1.0.0, PESC-AcademicEportfolio-1.0.0, PESC-DocumentRequest-1.0.0, PESC-DocumentResponse-1.0.0): the rater and the graph chose the same card, or both said nothing fits, in **21 of 34 (61.8%)** scored answers (95% interval 45% to 76%). The same CEDS property, class aside: 21 of 34 (61.8%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "PESCLD",
+			"source": "PESCLD",
+			"standardName": "PESC College Transcript in JSON-LD (PESC_LD)",
+			"titleText": "Quality certificate: PESCLD (version 0.0.2)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How PESCLD is represented and mapped in one EDUcore build, measured from the graph itself. 1,084 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"266"
+						],
+						[
+							"Mapped to at least one hub",
+							"141 of 266 (53.0%)"
+						],
+						[
+							"Mapped to CEDS",
+							"120 of 266 (45.1%)"
+						],
+						[
+							"Mapped to CTDL",
+							"31 of 266 (11.7%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"285",
+							"234 (82%)",
+							"38 (13%)",
+							"6 (2%)",
+							"7 (2%)"
+						],
+						[
+							"CTDL",
+							"37",
+							"21 (57%)",
+							"9 (24%)",
+							"4 (11%)",
+							"3 (8%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"219",
+							"66",
+							"0",
+							"19 (29%)",
+							"24 (36%)",
+							"23 (35%)"
+						],
+						[
+							"CTDL",
+							"18",
+							"19",
+							"0",
+							"6 (32%)",
+							"7 (37%)",
+							"6 (32%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "SEDM",
+			"source": "SEDM",
+			"standardName": "SEDM (Special Education Data Model), working documents",
+			"titleText": "Quality certificate: SEDM",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How SEDM is represented and mapped in one EDUcore build, measured from the graph itself. 2,819 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"321"
+						],
+						[
+							"Mapped to at least one hub",
+							"221 of 321 (68.8%)"
+						],
+						[
+							"Mapped to CEDS",
+							"217 of 321 (67.6%)"
+						],
+						[
+							"Mapped to CTDL",
+							"63 of 321 (19.6%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"217",
+							"217 (100%)",
+							"0 (0%)",
+							"0 (0%)",
+							"0 (0%)"
+						],
+						[
+							"CTDL",
+							"63",
+							"6 (10%)",
+							"25 (40%)",
+							"25 (40%)",
+							"7 (11%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"217",
+							"0",
+							"0",
+							"–",
+							"–",
+							"–"
+						],
+						[
+							"CTDL",
+							"0",
+							"63",
+							"0",
+							"29 (46%)",
+							"28 (44%)",
+							"6 (10%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Not yet measured: no human rater sample covers this standard yet. A rater survey drawn from it would measure it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "SIF260928",
+			"source": "SIF260928",
+			"standardName": "SIF Implementation Specification (sif260928 rebuild)",
+			"titleText": "Quality certificate: SIF260928 (version 4.3)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How SIF260928 is represented and mapped in one EDUcore build, measured from the graph itself. 39,268 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Coverage"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Measure",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Figure",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"Properties in this standard",
+							"5,018"
+						],
+						[
+							"Mapped to at least one hub",
+							"3,177 of 5,018 (63.3%)"
+						],
+						[
+							"Mapped to CEDS",
+							"2,722 of 5,018 (54.2%)"
+						],
+						[
+							"Mapped to CTDL",
+							"1,137 of 5,018 (22.7%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "How it is mapped"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Mappings (match edges), by hub and relation. A property that appears in many places carries one edge per place."
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Edges",
+							"alignName": "right"
+						},
+						{
+							"titleText": "exact",
+							"alignName": "right"
+						},
+						{
+							"titleText": "close",
+							"alignName": "right"
+						},
+						{
+							"titleText": "broad",
+							"alignName": "right"
+						},
+						{
+							"titleText": "narrow",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"4,689",
+							"1,211 (26%)",
+							"1,427 (30%)",
+							"724 (15%)",
+							"1,327 (28%)"
+						],
+						[
+							"CTDL",
+							"2,283",
+							"429 (19%)",
+							"370 (16%)",
+							"1,434 (63%)",
+							"50 (2%)"
+						]
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Who made them, and the judge's confidence in the machine-proposed ones:"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Publisher-stated",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Machine-proposed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Human-reviewed",
+							"alignName": "right"
+						},
+						{
+							"titleText": "strong",
+							"alignName": "right"
+						},
+						{
+							"titleText": "moderate",
+							"alignName": "right"
+						},
+						{
+							"titleText": "weak but real",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"0",
+							"4,689",
+							"0",
+							"1,738 (37%)",
+							"1,639 (35%)",
+							"1,312 (28%)"
+						],
+						[
+							"CTDL",
+							"0",
+							"2,283",
+							"0",
+							"874 (38%)",
+							"884 (39%)",
+							"525 (23%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Consistency"
+				},
+				{
+					"blockKind": "table",
+					"columnList": [
+						{
+							"titleText": "Hub",
+							"alignName": "left"
+						},
+						{
+							"titleText": "Elements mapped in 2+ places",
+							"alignName": "right"
+						},
+						{
+							"titleText": "Same hub property everywhere",
+							"alignName": "right"
+						}
+					],
+					"rowList": [
+						[
+							"CEDS",
+							"271",
+							"244 of 271 (90.0%)"
+						],
+						[
+							"CTDL",
+							"141",
+							"141 of 141 (100.0%)"
+						]
+					]
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Agreement with human judgment"
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "From the first CEDS Rater sample, CEDS hub only: the rater and the graph chose the same card, or both said nothing fits, in **22 of 32 (68.8%)** scored answers (95% interval 51% to 82%). The same CEDS property, class aside: 23 of 32 (71.9%)."
+				},
+				{
+					"blockKind": "callout",
+					"text": "A small first sample: a baseline for the method, not a measured accuracy for this standard's mappings."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		},
+		{
+			"certificateStem": "UseCase",
+			"source": "UseCase",
+			"standardName": "EDUcore Enhanced Cockburn Use Cases (UseCase)",
+			"titleText": "Quality certificate: UseCase (version 1.0)",
+			"blockList": [
+				{
+					"blockKind": "paragraph",
+					"text": "How UseCase is represented and mapped in one EDUcore build, measured from the graph itself. 191 nodes of this standard are loaded."
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "UseCase is loaded as a useCaseCorpus with 191 nodes and no properties of its own, so coverage and mapping figures do not apply to it."
+				},
+				{
+					"blockKind": "heading",
+					"headingLevel": 2,
+					"text": "Measured on"
+				},
+				{
+					"blockKind": "stamp",
+					"fieldList": [
+						{
+							"labelText": "Graph",
+							"valueText": "`GOLD_261106_useCases`"
+						},
+						{
+							"labelText": "Manifest",
+							"valueText": "educore-2026-10-30 (`783aef401faf…`)"
+						},
+						{
+							"labelText": "Graph built",
+							"valueText": "2026-11-06T21:23:29.132Z"
+						},
+						{
+							"labelText": "Graph contract",
+							"valueText": "`f65db22ad184…`"
+						},
+						{
+							"labelText": "Human judgments",
+							"valueText": "CEDS Rater store snapshot `raterTool-20261108-031501.sqlite3` (sha256 `7d5cbc07545f…`)"
+						},
+						{
+							"labelText": "Generator",
+							"valueText": "`cli/lib.d/quality-report` at `a0dc4985ba`"
+						}
+					]
+				},
+				{
+					"blockKind": "paragraph",
+					"text": "Every figure is defined, with its limits, in the full EDUcore mapping-quality report for this build (`qualityReport.md`)."
+				}
+			]
+		}
+	]
+}

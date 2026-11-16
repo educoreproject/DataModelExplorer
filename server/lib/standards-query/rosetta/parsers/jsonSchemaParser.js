@@ -5,6 +5,7 @@
 // What is not walked (anyOf, oneOf, allOf past its first level) is named in notWalkedList, never dropped in silence.
 
 const { isPlainRecord, depthRefusalFor, fieldCollectorFor, cappedRowListFor, omittedCountsOf } = require('./parserLimits');
+const { reasonOf } = require('../rosettaReasonWords');
 
 const LOCAL_REF_PREFIX = '#';
 const UNWALKED_COMPOSITION_NAME_LIST = Object.freeze(['anyOf', 'oneOf', 'not']);
@@ -47,11 +48,11 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 			return {};
 		}
 		if (refStack.includes(refText)) {
-			return { refusal: { refusalName: 'refCycle', reason: `$ref ${refText} at ${pathText} refers back to itself`, path: pathText } };
+			return { refusal: { refusalName: 'refCycle', reason: reasonOf('refCycle', { refText, pathText }), path: pathText } };
 		}
 		refExpansionCount += 1;
 		if (refExpansionCount > parserLimitValues.maxRefExpansions) {
-			return { refusal: { refusalName: 'refExpansionsExceeded', reason: `the document expands more than ${parserLimitValues.maxRefExpansions} $ref`, maxRefExpansions: parserLimitValues.maxRefExpansions } };
+			return { refusal: { refusalName: 'refExpansionsExceeded', reason: reasonOf('refExpansionsExceeded', { maxRefExpansions: parserLimitValues.maxRefExpansions }), maxRefExpansions: parserLimitValues.maxRefExpansions } };
 		}
 		const refTarget = localRefTargetOf(submittedDocument, refText);
 		if (!isPlainRecord(refTarget)) {
@@ -63,7 +64,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 
 	const walkChildren = ({ schemaPart, pathText, depth, refStack, allOfDepth }) => {
 		if (depth > parserLimitValues.maxDocumentDepth) {
-			return { refusalName: 'depthExceeded', reason: `the schema at ${pathText} walks deeper than ${parserLimitValues.maxDocumentDepth} levels`, maxDepth: parserLimitValues.maxDocumentDepth, path: pathText };
+			return { refusalName: 'depthExceeded', reason: reasonOf('schemaTooDeep', { pathText, maxDepth: parserLimitValues.maxDocumentDepth }), maxDepth: parserLimitValues.maxDocumentDepth, path: pathText };
 		}
 		UNWALKED_COMPOSITION_NAME_LIST.filter((compositionName) => schemaPart[compositionName] !== undefined).forEach((compositionName) => notWalkedRows.add({ path: pathText, reason: `${compositionName} is not walked` }));
 		const propertyByName = isPlainRecord(schemaPart.properties) ? schemaPart.properties : {};
@@ -140,7 +141,7 @@ const parseJsonSchema = ({ submittedDocument, parserLimitValues }) => {
 		return { refusal: walkRefusal };
 	}
 	if (collector.fieldList.length === 0) {
-		return { refusal: { refusalName: 'noFieldsFound', reason: 'this schema has no properties to read as fields', unresolvedRefList, notWalkedList } };
+		return { refusal: { refusalName: 'noFieldsFound', reason: reasonOf('schemaHasNoProperties'), unresolvedRefList, notWalkedList } };
 	}
 	return { fieldList: collector.fieldList, unresolvedRefList, unresolvedContextList: [], notWalkedList, ...omittedCountsOf({ unresolvedRefOmittedCount: unresolvedRefs.omittedCount(), notWalkedOmittedCount: notWalkedRows.omittedCount() }) };
 };

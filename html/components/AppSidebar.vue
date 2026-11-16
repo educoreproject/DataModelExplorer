@@ -13,7 +13,7 @@ const emit = defineEmits(['update:modelValue']);
 
 const handleLogout = () => {
 	LoginStore.logout();
-	router.push('/');
+	router.push('/explore/use-cases');
 };
 
 const isAdmin = computed(() =>
@@ -33,24 +33,12 @@ const isAdmin = computed(() =>
 		aria-label="Site"
 	>
 		<!-- Logo: a real link home, so it can be followed and named, not a clickable div -->
-		<NuxtLink to="/" class="sidebar-header" aria-label="EDUcore home" data-testid="menu-logo">
+		<NuxtLink to="/explore/use-cases" class="sidebar-header" aria-label="EDUcore home" data-testid="menu-logo">
 			<img src="/educore-logo.png" alt="EDUcore" class="sidebar-logo-img" />
 		</NuxtLink>
 
-		<!-- Home -->
+		<!-- Explore (public); the site opens on Use Cases, so there is no separate Home item -->
 		<!-- each section is a named navigation landmark of links (Vuetify's default role=list wants listitem children) -->
-		<v-list density="compact" nav class="pt-1 pb-0" role="navigation" aria-label="Home">
-			<v-list-item
-				to="/"
-				prepend-icon="mdi-home-outline"
-				title="Home"
-				exact
-			/>
-		</v-list>
-
-		<v-divider class="my-1" />
-
-		<!-- Explore (public) -->
 		<v-list density="compact" nav role="navigation" aria-label="Explore">
 			<v-list-subheader>Explore</v-list-subheader>
 			<v-list-item

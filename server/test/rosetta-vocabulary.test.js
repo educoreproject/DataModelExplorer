@@ -17,6 +17,7 @@ const { parseFieldList } = require('../lib/standards-query/rosetta/parsers/field
 const { parseJsonSchema } = require('../lib/standards-query/rosetta/parsers/jsonSchemaParser');
 const { SUMMARY_SHAPER_BY_NAME } = require('../lib/standards-query/answerSummaries');
 const registry = require('../lib/standards-query/standardsQueryOperations.json');
+const { searchDescriptionAbsentOf } = require('../lib/standards-query/rosetta/rosettaSearchDescriber');
 
 const FETCH_FIXTURE_DIR_PATH = path.join(__dirname, 'fixtures', 'rosettaFetchShape');
 const RETRIEVAL_FIXTURE_DIR_PATH = path.join(__dirname, 'fixtures', 'rosettaRetrievalShape');
@@ -60,7 +61,7 @@ console.log('- 1. Q66: using.promptVersion');
 	ok('using: { promptVersion, provider, model, costUsd, cached }; no judge', sameJson(usingLean, { promptVersion: 'derivedJudgeSlot-v1', provider: 'anthropic', model: 'claude-opus-5', costUsd: 0, cached: true }), JSON.stringify(usingLean));
 	const usingOld = usingOf({ job: storedFixture.job, spentUsd: 0, judgmentRowList: storedFixture.judgmentRowList, judgeCallCount: 0, detail: 'lean' });
 	ok('a job judged before this ships says so by name in using', usingOld.promptVersionAbsentName === 'judgedBeforePromptVersionRecorded' && !('promptVersion' in usingOld) && !('judge' in usingOld), JSON.stringify(usingOld));
-	const reportArguments = { job: storedFixture.job, submission: storedFixture.submission, judgmentRowList: recordedRowList, spentUsd: 0, answerNoteValues: storedFixture.answerNoteValues, pageNumber: 1, pageSize: 20, answeredFromNow: storedFixture.answeredFromNow, rowDetail: 'full' };
+	const reportArguments = { job: storedFixture.job, submission: storedFixture.submission, describedList: null, judgmentRowList: recordedRowList, spentUsd: 0, answerNoteValues: storedFixture.answerNoteValues, pageNumber: 1, pageSize: 20, answeredFromNow: storedFixture.answeredFromNow, rowDetail: 'full' };
 	const leanReport = reportOf({ ...reportArguments, detail: 'lean' });
 	const auditReport = reportOf({ ...reportArguments, detail: 'audit' });
 	ok('a unit\'s recorded rendererVersion stays out of the lean result', leanReport.fieldList.every((oneField) => oneField.resultList.every((oneResult) => !('rendererVersion' in oneResult))));
@@ -70,7 +71,7 @@ console.log('- 1. Q66: using.promptVersion');
 // ---- 2. Q67a: requestPath on fetch
 console.log('- 2. Q67a: requestPath');
 {
-	const leanReport = reportOf({ job: storedFixture.job, submission: storedFixture.submission, judgmentRowList: storedFixture.judgmentRowList, spentUsd: 0, answerNoteValues: storedFixture.answerNoteValues, pageNumber: 1, pageSize: 20, answeredFromNow: storedFixture.answeredFromNow, rowDetail: 'full', detail: 'lean' });
+	const leanReport = reportOf({ job: storedFixture.job, submission: storedFixture.submission, describedList: null, judgmentRowList: storedFixture.judgmentRowList, spentUsd: 0, answerNoteValues: storedFixture.answerNoteValues, pageNumber: 1, pageSize: 20, answeredFromNow: storedFixture.answeredFromNow, rowDetail: 'full', detail: 'lean' });
 	const pathField = leanReport.fieldList.find((oneField) => oneField.requestName === 'assessmentIdentifierType');
 	ok('a field with a place in the document carries requestPath, and no path', pathField.requestPath === '$.assessment.identifierType' && !('path' in pathField), JSON.stringify(pathField && Object.keys(pathField)));
 	ok('a fetch field reads requestName, requestPath, requestDefinition, in that order', sameJson(Object.keys(pathField).slice(0, 3), ['requestName', 'requestPath', 'requestDefinition']), JSON.stringify(Object.keys(pathField)));
@@ -94,7 +95,9 @@ const retrievalArgumentsOf = (capture, detail) => {
 		hubRowList: beforeAnswer.hubList.map((hubName) => ({ hubName })),
 		poolByTargetName,
 		fieldVectorList,
-		facts: { nothingJudgedNote: beforeAnswer.nothingJudgedNote, rankNote: beforeAnswer.rankNote },
+		// ⟪rosettaSearchDescription⟫ captured before search descriptions: each bare field as a describer that is off would answer it
+		describedList: parsed.fieldList.map((oneField) => (oneField.definition ? undefined : searchDescriptionAbsentOf('describerOff'))),
+		facts: { nothingJudgedNote: beforeAnswer.nothingJudgedNote, rankNote: beforeAnswer.rankNote, searchDescriptionNote: registry.rosettaAnswerNote.searchDescriptionNote },
 		fuseValues: { hitsPerText: beforeAnswer.retrievalSetting.hitsPerText, minScore: beforeAnswer.retrievalSetting.minCosine, poolCap: beforeAnswer.retrievalSetting.poolCap },
 		detail,
 	};
@@ -108,7 +111,7 @@ const beforeSchemaSummary = require(path.join(RETRIEVAL_FIXTURE_DIR_PATH, 'befor
 	const leanSchema = retrievalAnswerOf(retrievalArgumentsOf(beforeSchemaFull, 'lean'));
 	const field0 = leanList.fieldList[0];
 	ok('a field sent with a definition and a type: requestName, requestDefinition, requestType, then resultList', sameJson(Object.keys(field0), ['requestName', 'requestDefinition', 'requestType', 'resultList']) && field0.requestName === beforeFieldListFull.input.fieldList[0].name && field0.requestDefinition === beforeFieldListFull.input.fieldList[0].definition.trim() && field0.requestType === 'string', JSON.stringify(Object.keys(field0)));
-	ok('a field sent with a name alone: requestName, definitionAbsent, resultList', sameJson(Object.keys(leanList.fieldList[2]), ['requestName', 'definitionAbsent', 'resultList']), JSON.stringify(Object.keys(leanList.fieldList[2])));
+	ok('a field sent with a name alone: requestName, definitionAbsent, why it has no search description (rosettaSearchDescription), resultList', sameJson(Object.keys(leanList.fieldList[2]), ['requestName', 'definitionAbsent', 'searchDescriptionAbsent', 'searchDescriptionAbsentReason', 'resultList']), JSON.stringify(Object.keys(leanList.fieldList[2])));
 	ok('a schema property: requestName, requestPath, requestDefinition, requestType', sameJson(Object.keys(leanSchema.fieldList[0]).slice(0, 4), ['requestName', 'requestPath', 'requestDefinition', 'requestType']) && leanSchema.fieldList[0].requestPath === beforeSchemaFull.body.answer.fieldList[0].path, JSON.stringify(leanSchema.fieldList[0] && Object.keys(leanSchema.fieldList[0])));
 	ok('resultList: one item per hub, in hub order, each { hub, ...the pool }', sameJson(field0.resultList.map((oneResult) => oneResult.hub), ['CEDS', 'CTDL']) && sameJson(field0.resultList[0], { hub: 'CEDS', ...beforeFieldListFull.body.answer.fieldList[0].byHub.CEDS }));
 	ok('no field carries name, path, type or byHub', [...leanList.fieldList, ...leanSchema.fieldList].every((oneField) => ['name', 'path', 'type', 'byHub'].every((fieldName) => !(fieldName in oneField))));
@@ -127,8 +130,9 @@ const renamedRetrievalPathOf = (oldPath, hubNameList) => oldPath
 	.replace(/^fieldList\.(\d+)\.type$/, 'fieldList.$1.requestType')
 	.replace(/^fieldList\.(\d+)\.byHub\.([A-Za-z0-9]+)\./, (unusedMatch, fieldIndex, hubName) => `fieldList.${fieldIndex}.resultList.${hubNameList.indexOf(hubName)}.`)
 	.replace(/^poolCountByHub\.([A-Za-z0-9]+)\./, (unusedMatch, hubName) => `poolCountList.${hubNameList.indexOf(hubName)}.`);
-// what the audit answer has that eb866fc did not: each item's hub, and the definition as sent
-const ADDED_ON_PURPOSE_PATTERN = /\.resultList\.\d+\.hub$|^poolCountList\.\d+\.hub$|^fieldList\.\d+\.requestDefinition$/;
+// what the audit answer has that eb866fc did not: each item's hub, and the definition as sent; ⟪rosettaSearchDescription⟫ and, for a field given no description,
+// why it has no search description (these captures run as a describer that is off), with the note saying what one is
+const ADDED_ON_PURPOSE_PATTERN = /\.resultList\.\d+\.hub$|^poolCountList\.\d+\.hub$|^fieldList\.\d+\.requestDefinition$|^fieldList\.\d+\.searchDescription(Absent|AbsentReason|\.descriptionText|\.writtenByModel)$|^searchDescriptionNote$/;
 [[beforeFieldListFull, 'fieldList'], [beforeSchemaFull, 'jsonSchema']].forEach(([capture, formLabel]) => {
 	const hubNameList = capture.body.answer.hubList;
 	const auditLeafMap = leafMapOf(retrievalAnswerOf(retrievalArgumentsOf(capture, 'audit')));

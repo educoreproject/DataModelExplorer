@@ -56,6 +56,8 @@ const meaningHexagonPoints = [
 			<template #activator="{ props: activatorProps }">
 				<button v-bind="activatorProps" type="button" class="meaning-explainer-open" :aria-label="explainerWords.openButtonLabel" :title="explainerWords.openButtonLabel" data-testid="meaning-explainer-open">
 					<v-icon icon="mdi-information-outline" size="22" aria-hidden="true" />
+					<!-- ⟪meaningsClarity Addendum C #15⟫ its words visible beside the icon, not only as a tooltip -->
+					<span class="meaning-explainer-label" data-testid="meaning-explainer-label">{{ explainerWords.openButtonLabel }}</span>
 				</button>
 			</template>
 			<section class="meaning-explainer-panel" role="document" :aria-labelledby="EXPLAINER_TITLE_ID" data-testid="meaning-explainer-panel">
@@ -113,6 +115,16 @@ const meaningHexagonPoints = [
 	background: transparent;
 	color: #072a6c;
 	cursor: pointer;
+}
+.meaning-explainer-open {
+	width: auto;
+	gap: 4px;
+	padding: 0 10px 0 6px;
+	border-radius: 18px;
+}
+.meaning-explainer-label {
+	font-size: 14px;
+	font-weight: 600;
 }
 .meaning-explainer-open:hover,
 .meaning-explainer-open:focus-visible,

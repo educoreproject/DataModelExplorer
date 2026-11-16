@@ -8,6 +8,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import cytoscape from 'cytoscape';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
 import {
+	INCOMING_MEANING_RELATIONSHIP_TYPE,
 	LARGE_LEVEL_ITEM_COUNT,
 	confidenceTierOf,
 	displayNameOf,
@@ -19,6 +20,10 @@ import {
 	meaningCountTextOf,
 	meaningRowSubTextOf,
 	versionBadgeTextOf,
+	explorerComponentWords,
+	explorerCommonWords,
+	walkEmptyLevelVocabulary,
+	wordingOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
 
 const store = useStandardsNeighbourhoodStore();
@@ -42,14 +47,20 @@ const confidenceText = (mappingConfidence) => (typeof mappingConfidence === 'num
 const drawnRowList = computed(() => {
 	const levelRowList = store.levelRowList;
 	if (levelRowList.length <= LARGE_LEVEL_ITEM_COUNT) return levelRowList;
-	const rankOf = (oneRow) => (oneRow.kind === 'class' ? oneRow.mappedPropertyCount || 0 : oneRow.mapping ? 1 : 0);
+	// ⟪meaningsClarity, supervisor's ruling 2⟫ a domain's own meanings are sampled before the meanings of other domains that name it (one CTDL domain is the range of
+	// 1,253): the sample shows the domain first, and the "+N more" bubble and the prose carry the true count
+	const rankOf = (oneRow) => {
+		if (oneRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE) return -1;
+		if (oneRow.kind === 'meaning') return oneRow.elementCount > 0 ? 1 : 0;
+		return oneRow.kind === 'class' ? oneRow.mappedPropertyCount || 0 : oneRow.mapping ? 1 : 0;
+	};
 	return [...levelRowList].sort((left, right) => rankOf(right) - rankOf(left)).slice(0, SAMPLE_ITEM_COUNT);
 });
 const hiddenRowCount = computed(() => store.levelRowList.length - drawnRowList.value.length);
 
 const diagramLabelText = computed(() => {
-	const focusName = store.focusNode ? displayNameOf(store.focusNode) : 'this level';
-	return `Bubble diagram of ${drawnRowList.value.length} of the ${store.levelRowList.length} items in ${focusName}. The same items are listed after the diagram as buttons and links, and as rows in the Table view.`;
+	const focusName = store.focusNode ? displayNameOf(store.focusNode) : explorerComponentWords.diagram.noFocusNameText;
+	return wordingOf(explorerComponentWords.diagram.canvasLabelTemplate, { drawnCount: drawnRowList.value.length, levelCount: store.levelRowList.length, focusName });
 });
 
 const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' && store.crossing ? store.crossing.homeStandardKey : null));
@@ -57,18 +68,19 @@ const homeStandardKey = computed(() => (store.focusNode?.kind === 'hubAnchor' &&
 // ================================================================================
 // THE LABEL UNDER A BUBBLE — name, then what matters about it, then its badge
 
+const rowWords = explorerComponentWords.rowWords;
 const subTextOf = (oneRow) => {
 	const subByKind = {
-		family: () => `${familyHoldingTextOf(oneRow)} · ${oneRow.classCount} classes`,
-		class: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped` : ''),
-		hubDomain: () => (oneRow.propertyCount ? `${oneRow.mappedPropertyCount} of ${oneRow.propertyCount} mapped to` : ''),
+		family: () => [familyHoldingTextOf(oneRow), wordingOf(rowWords.classCountTemplate, { classCount: oneRow.classCount })].join(rowWords.partDivider),
+		class: () => (oneRow.propertyCount ? wordingOf(rowWords.mappedOfTemplate, { mappedCount: oneRow.mappedPropertyCount, propertyCount: oneRow.propertyCount }) : ''),
+		hubDomain: () => (oneRow.propertyCount ? wordingOf(rowWords.mappedToOfTemplate, { mappedCount: oneRow.mappedPropertyCount, propertyCount: oneRow.propertyCount }) : ''),
 		hubProperty: () => hubMappedTextOf(oneRow),
-		hubAnchor: () => [oneRow.hubDomainName ? `in ${oneRow.hubDomainName}` : '', hubMappedTextOf(oneRow)].filter(Boolean).join(' · '),
-		property: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : 'not mapped'),
-		instance: () => (oneRow.mapping ? `${oneRow.mapping.matchKind} · ${confidenceText(oneRow.mapping.mappingConfidence)}` : shortText(oneRow.path, 40)),
-		standard: () => (oneRow.classCount !== undefined ? `${oneRow.classCount} classes` : ''),
-		release: () => (oneRow.versionList ? `versions ${oneRow.versionList.map((oneVersion) => oneVersion.version).join(', ')}` : ''),
-		standardGroup: () => `${oneRow.elementCount} elements`,
+		hubAnchor: () => [oneRow.hubDomainName ? wordingOf(rowWords.inDomainTemplate, { domainName: oneRow.hubDomainName }) : '', hubMappedTextOf(oneRow)].filter(Boolean).join(rowWords.partDivider),
+		property: () => (oneRow.mapping ? [oneRow.mapping.matchKind, confidenceText(oneRow.mapping.mappingConfidence)].join(rowWords.partDivider) : rowWords.notMappedText),
+		instance: () => (oneRow.mapping ? [oneRow.mapping.matchKind, confidenceText(oneRow.mapping.mappingConfidence)].join(rowWords.partDivider) : shortText(oneRow.path, 40)),
+		standard: () => (oneRow.classCount !== undefined ? wordingOf(rowWords.classCountTemplate, { classCount: oneRow.classCount }) : ''),
+		release: () => (oneRow.versionList ? wordingOf(rowWords.versionListTemplate, { versionListText: oneRow.versionList.map((oneVersion) => oneVersion.version).join(rowWords.versionListDivider) }) : ''),
+		standardGroup: () => wordingOf(rowWords.elementCountTemplate, { elementCount: oneRow.elementCount }),
 		// ⟪meaningsExplorer⟫
 		meaningHub: () => meaningCountTextOf(oneRow),
 		meaningDomain: () => meaningCountTextOf(oneRow),
@@ -80,7 +92,7 @@ const subTextOf = (oneRow) => {
 
 const labelOf = (oneRow) => {
 	const badgeText = oneRow.versionBadge && oneRow.versionBadge.badgeState !== 'unchanged' ? versionBadgeTextOf(oneRow.versionBadge) : '';
-	const homeText = homeStandardKey.value && oneRow.standardKey === homeStandardKey.value ? 'You started here' : '';
+	const homeText = homeStandardKey.value && oneRow.standardKey === homeStandardKey.value ? explorerCommonWords.homeChipText : '';
 	return [shortText(oneRow.displayName, 40), oneRow.relationshipType === 'MAPS_TO_HUB' ? '' : subTextOf(oneRow), badgeText, homeText].filter(Boolean).join('\n');
 };
 
@@ -100,6 +112,8 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		kind: oneRow.kind,
 		// ⟪meaningsPolish⟫ a meaning's tier, so the domain's own term is drawn apart from its meanings
 		referenceTier: oneRow.referenceTier || '',
+		// ⟪meaningsClarity⟫ a meaning of another domain that names this one: drawn outlined, its edge a dashed arrow into the focus
+		isIncoming: oneRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE,
 		familyColor: familyStyle.color,
 		familyTint: familyStyle.tint,
 		familyFill: familyStyle.fill || familyStyle.color,
@@ -115,7 +129,8 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 		hasChildren: Boolean(oneRow.hasChildren),
 		// the home halo marks a standard group; never the focus, which on a walk begun in a hub shares the home's key
 		isHome: !isFocus && Boolean(homeStandardKey.value) && oneRow.standardKey === homeStandardKey.value,
-		isMatching: store.rowMatchesFilter(oneRow),
+		// ⟪review S1⟫ the focus is never dimmed: the filter is about this level's rows, and the notice counts exactly what fades
+		isMatching: isFocus || store.rowMatchesFilter(oneRow),
 	};
 };
 
@@ -123,6 +138,10 @@ const nodeDataOf = (oneRow, { isFocus }) => {
 // double line, drawn as two thin parallel edges because Cytoscape edges have no double style
 const edgeDataListOf = ({ focusStableId, oneRow }) => {
 	const edgeIdText = `${focusStableId}->${oneRow.stableId}`;
+	// ⟪meaningsClarity⟫ an incoming meaning points at the focus: it names the focus (as its range), the focus does not hold it
+	if (oneRow.relationshipType === INCOMING_MEANING_RELATIONSHIP_TYPE) {
+		return [{ id: `${oneRow.stableId}->${focusStableId}`, source: oneRow.stableId, target: focusStableId, edgeKind: 'incoming', isMatching: store.rowMatchesFilter(oneRow) }];
+	}
 	const isMappingEdge = oneRow.relationshipType === 'MAPS_TO_HUB' || oneRow.relationshipType === 'MAPPED_TO_ANCHOR' || oneRow.relationshipType === 'MAPPED_FROM_STANDARD';
 	const matchKind = oneRow.mapping ? oneRow.mapping.matchKind : oneRow.strongestMatchKind;
 	if (!isMappingEdge || !matchKind) {
@@ -224,6 +243,8 @@ const styleList = [
 	{ selector: 'node[kind = "meaning"][?isFocus]', style: { width: 120, height: 104 } },
 	// ⟪meaningsPolish⟫ the domain's own term (punch-list item 4): an outlined hexagon in its hub's tint, so it is not read as one of the domain's meanings
 	{ selector: 'node[kind = "meaning"][referenceTier = "term"][!isFocus]', style: { 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 2.5, 'border-style': 'dashed' } },
+	// ⟪meaningsClarity⟫ a meaning of another domain naming this one: an outlined hexagon (white, its hub's colour as the edge), apart from the domain's own meanings
+	{ selector: 'node[kind = "meaning"][?isIncoming][!isFocus]', style: { 'background-color': '#FFFFFF', 'border-color': 'data(familyColor)', 'border-width': 2.5, 'border-style': 'solid' } },
 	{ selector: 'node[kind = "meaningDomain"]', style: { shape: 'round-rectangle', 'background-color': 'data(familyTint)', 'border-color': 'data(familyColor)', 'border-width': 1.5, width: 74, height: 44 } },
 	{ selector: 'node[kind = "standardGroup"]', style: { 'background-color': 'data(familyTint)', 'border-width': 3, width: 'data(groupSize)', height: 'data(groupSize)' } },
 	{ selector: 'node[kind = "standardGroup"][?isFocus]', style: { width: 110, height: 110 } },
@@ -260,6 +281,8 @@ const styleList = [
 			'text-background-shape': 'roundrectangle',
 		},
 	},
+	// ⟪meaningsClarity⟫ "names this as its range": a dashed arrow from the incoming meaning into the focus
+	{ selector: 'edge[edgeKind = "incoming"]', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'target-arrow-shape': 'triangle', 'target-arrow-color': STRUCTURAL_EDGE_COLOR, 'arrow-scale': 1.2 } },
 	{ selector: 'edge[!isMatching]', style: { opacity: 0.12 } },
 ];
 
@@ -338,8 +361,8 @@ watch(
 
 // the test hook: what the diagram drew, read from the Cytoscape instance itself
 onMounted(() => {
-	if (canvasElement.value) canvasElement.value.explorerDiagramSnapshot = () => (cyInstance ? cyInstance.nodes().map((oneNode) => ({ id: oneNode.id(), kind: oneNode.data('kind'), label: oneNode.data('label'), isHome: Boolean(oneNode.data('isHome')), isMatching: oneNode.data('isMatching') !== false, renderedPosition: oneNode.renderedPosition() })) : []);
-	if (canvasElement.value) canvasElement.value.explorerDiagramEdgeSnapshot = () => (cyInstance ? cyInstance.edges().map((oneEdge) => ({ id: oneEdge.id(), edgeKind: oneEdge.data('edgeKind'), lineStyle: oneEdge.data('lineStyle'), width: oneEdge.data('edgeWidth'), opacity: oneEdge.data('edgeOpacity'), chipText: oneEdge.data('chipText') })) : []);
+	if (canvasElement.value) canvasElement.value.explorerDiagramSnapshot = () => (cyInstance ? cyInstance.nodes().map((oneNode) => ({ id: oneNode.id(), kind: oneNode.data('kind'), label: oneNode.data('label'), isHome: Boolean(oneNode.data('isHome')), isMatching: oneNode.data('isMatching') !== false, isIncoming: Boolean(oneNode.data('isIncoming')), renderedPosition: oneNode.renderedPosition() })) : []);
+	if (canvasElement.value) canvasElement.value.explorerDiagramEdgeSnapshot = () => (cyInstance ? cyInstance.edges().map((oneEdge) => ({ id: oneEdge.id(), edgeKind: oneEdge.data('edgeKind'), lineStyle: oneEdge.data('lineStyle'), width: oneEdge.data('edgeWidth'), opacity: oneEdge.data('edgeOpacity'), chipText: oneEdge.data('chipText'), source: oneEdge.data('source'), target: oneEdge.data('target') })) : []);
 });
 </script>
 
@@ -349,9 +372,9 @@ onMounted(() => {
 		     as named chips and links (LevelItemList.vue) -->
 		<div ref="canvasElement" class="diagram-canvas" role="img" :aria-label="diagramLabelText" data-testid="explorer-diagram" />
 		<p v-if="hiddenRowCount > 0" class="diagram-note" data-testid="diagram-sample-note">
-			Showing {{ drawnRowList.length }} of {{ store.levelRowList.length }}. The dashed bubble opens the full list in the table.
+			{{ wordingOf(explorerComponentWords.diagram.sampleNoteTemplate, { drawnCount: drawnRowList.length, levelCount: store.levelRowList.length }) }}
 		</p>
-		<p v-if="store.levelRowList.length === 0" class="diagram-note" data-testid="diagram-empty">Nothing beneath this node. This is the end of the line.</p>
+		<p v-if="store.levelRowList.length === 0" class="diagram-note" data-testid="diagram-empty">{{ walkEmptyLevelVocabulary.emptyLevelText }}</p>
 	</div>
 </template>
 

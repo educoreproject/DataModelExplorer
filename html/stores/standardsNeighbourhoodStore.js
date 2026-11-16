@@ -14,10 +14,12 @@
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 import {
+	DEFAULT_VIEW_MODE_NAME,
 	LARGE_LEVEL_ITEM_COUNT,
 	displayNameOf,
 	isSecondaryRelationshipType,
 	relationshipDisplayNameOf,
+	rowWalkPathOf,
 	walkLinkOf,
 	walkProfileOf,
 } from '@/components/standardsExplorer/explorerVocabulary';
@@ -30,12 +32,18 @@ const standardsNeighbourhoodStoreInitObject = {
 	statusMsg: '',
 	// ⟪meaningsPolish review S3⟫ the last neighbourhood request was refused by the server (HTTP 4xx, its words in statusMsg), not left unanswered
 	statusIsRefusal: false,
-	viewModeChoice: 'diagram',
+	viewModeChoice: DEFAULT_VIEW_MODE_NAME,
 	diagramRequestedForStableId: '',
 	selectedStableId: '',
+	// TQ 2026-11-12: the detail panel shown across the page's whole width, the level's table set aside until it is given back
+	panelFullWidth: false,
 	filterText: '',
 	legendVisible: true,
 	versionTileStateByStableId: {},
+	// ⟪meaningsClarity review S4⟫ an element's meaning facts, asked for apart from its node (action meaningFacts), once per stableId: { loading, meaningFacts, meaningFactsAbsentName, failed }
+	meaningFactsStateByStableId: {},
+	// ⟪explorerTidy, supervisor's ruling⟫ a selected leaf meaning's own node (its tuple and Expressed-in), read with the request a drill makes, once per stableId: { loading, meaningNode, failed }
+	leafMeaningStateByStableId: {},
 	// ⟪meaningsExplorer⟫ which walk the views are drawing (explorerVocabulary's walkProfileByName); WalkView sets it from its page on every mount
 	walkProfileName: 'standards',
 };
@@ -103,6 +111,14 @@ const rowOfItem = ({ oneItem, oneGroup, focusNode }) => ({
 	// ⟪meaningsPolish⟫ what a hub's and a domain's next level lists: a hub's domains; a domain's own term meaning (0 or 1) beside its meanings
 	domainCount: oneItem.domainCount,
 	termMeaningCount: oneItem.termMeaningCount,
+	// ⟪meaningsClarity⟫ a domain's meanings from other domains; a property meaning's values; an incoming meaning's slots and the walk's path to it in its own domain
+	incomingMeaningCount: oneItem.incomingMeaningCount,
+	// TQ 2026-11-12: the mappings to a domain's own meanings and own term, its Mappings column
+	mappingCount: oneItem.mappingCount,
+	valueMeaningCount: oneItem.valueMeaningCount,
+	valueElementCount: oneItem.valueElementCount,
+	incomingSlotNameList: oneItem.incomingSlotNameList || null,
+	meaningsWalkPathStableIdList: oneItem.meaningsWalkPathStableIdList || null,
 	// ⟪review S4⟫ a domain's id in its hub's standard
 	nativeId: oneItem.nativeId || null,
 	// ⟪explorerUris⟫ its EDUcore URI as the server minted it, or why there is none (a synthetic row has neither)
@@ -171,6 +187,17 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 		rowMatchesFilter() {
 			const filterText = this.filterText.trim().toLowerCase();
 			return (oneRow) => !filterText || `${oneRow.displayName} ${oneRow.name}`.toLowerCase().includes(filterText);
+		},
+
+		// ⟪meaningsClarity⟫ how many of this level's rows the filter dims (diagram) or hides (table): the filter notice says it whenever it is more than none
+		filterUnmatchedRowCount() {
+			return this.levelRowList.length - this.filteredRowList.length;
+		},
+
+		// ⟪meaningsClarity⟫ the walk's path one step into a row: below this level, or to where the row lives when it carries its own path (an incoming meaning,
+		// opened in its own domain). Every drill, Open and item link goes through here
+		drillPathOf() {
+			return (stableId) => rowWalkPathOf({ walkProfileName: this.walkProfileName, pathStableIdList: this.pathStableIdList, stableId, row: this.levelRowList.find((oneRow) => oneRow.stableId === stableId) || null });
 		},
 
 		truncatedGroupList: (state) => (state.neighbourhood ? state.neighbourhood.childGroupList.filter((oneGroup) => oneGroup.truncated) : []),
@@ -246,6 +273,8 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 	actions: {
 		// loads what a path names: the last stableId's neighbourhood, and names for any crumb not yet known
 		async loadPath(pathStableIdList) {
+			// TQ 2026-11-12: any navigation puts a full-width panel back in its column
+			this.panelFullWidth = false;
 			this.pathStableIdList = pathStableIdList;
 			this.selectedStableId = '';
 			const unknownStableIdList = pathStableIdList.filter((oneStableId) => !this.nodeSummaryByStableId[oneStableId]);
@@ -357,8 +386,50 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 			}
 		},
 
+		// ⟪meaningsClarity review S4⟫ the meanings an element takes part in, for the panel: fetched once per stableId, after the node, so a walk step costs what it did.
+		// A synthetic id answers meaningFactsAbsentName (notAGraphElement) and the panel says nothing; a failed read is kept, and the panel says so in its own words.
+		async loadMeaningFacts(stableId) {
+			const existingState = this.meaningFactsStateByStableId[stableId];
+			if (existingState && !existingState.failed) return;
+			const loginStore = useLoginStore();
+			this.meaningFactsStateByStableId[stableId] = { loading: true, meaningFacts: null, meaningFactsAbsentName: '', failed: false };
+			try {
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'meaningFacts', stableId }, { headers: authHeadersOf(loginStore) });
+				const factsAnswer = Array.isArray(response.data) ? response.data[0] : null;
+				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: (factsAnswer && factsAnswer.meaningFacts) || null, meaningFactsAbsentName: (factsAnswer && factsAnswer.meaningFactsAbsentName) || '', failed: !factsAnswer };
+			} catch (error) {
+				this.meaningFactsStateByStableId[stableId] = { loading: false, meaningFacts: null, meaningFactsAbsentName: '', failed: true };
+			}
+		},
+
+		// ⟪explorerTidy, supervisor's ruling⟫ a meaning row that opens to nothing has no Open, so its panel shows what its focus would: its own node, read by the same
+		// request a drill sends (action node), kept apart from the level on screen. Once per stableId; a failed read is kept, and the panel says so in its own words.
+		async loadLeafMeaning(stableId) {
+			const existingState = this.leafMeaningStateByStableId[stableId];
+			if (existingState && !existingState.failed) return;
+			const loginStore = useLoginStore();
+			this.leafMeaningStateByStableId[stableId] = { loading: true, meaningNode: null, failed: false };
+			try {
+				const response = await axios.post(NEIGHBOURHOOD_URL, { action: 'node', stableId }, { headers: authHeadersOf(loginStore) });
+				const leafNeighbourhood = Array.isArray(response.data) ? response.data[0] : null;
+				this.leafMeaningStateByStableId[stableId] = { loading: false, meaningNode: (leafNeighbourhood && leafNeighbourhood.node) || null, failed: !(leafNeighbourhood && leafNeighbourhood.node) };
+			} catch (error) {
+				this.leafMeaningStateByStableId[stableId] = { loading: false, meaningNode: null, failed: true };
+			}
+		},
+
 		selectRow(stableId) {
 			this.selectedStableId = stableId;
+		},
+
+		// TQ 2026-11-12: a crumb shows its level as itself: no row selected, and the panel back in its column
+		showCrumbLevel() {
+			this.selectedStableId = '';
+			this.panelFullWidth = false;
+		},
+
+		togglePanelFullWidth() {
+			this.panelFullWidth = !this.panelFullWidth;
 		},
 
 		setViewModeChoice(viewMode) {

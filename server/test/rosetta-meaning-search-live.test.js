@@ -18,6 +18,7 @@ const { openHarness, LIVE_FUSE_VALUES } = require('./lib/rosettaLiveHarness');
 const { rosettaFuseValuesOf, HUB_TARGET_KIND_LIST, retrievalAnswerOf } = require('../lib/standards-query/rosetta/rosettaRetrieval');
 const { MEANING_SCORE_BY_NAME, hybridPoolOf } = require('../lib/standards-query/rosetta/retrieveCandidates');
 const { judgedCandidateListOf } = require('../lib/standards-query/rosetta/rosettaJobRunner');
+const { searchDescriptionAbsentOf } = require('../lib/standards-query/rosetta/rosettaSearchDescriber');
 
 let passedCount = 0;
 let failedCount = 0;
@@ -85,7 +86,7 @@ const hybridGate = ({ cardRowList, qualifiedRow }) => {
 			const judgedIdList = idListOf(judgedCandidateListOf({ pool: hybridPool, judgedPoolCap: JUDGED_POOL_CAP }));
 			ok('7: and the runner\'s judged list holds them all', expectedAddedIdList.every((stableId) => judgedIdList.includes(stableId)) && viewIdList.every((stableId) => judgedIdList.includes(stableId)), JSON.stringify(judgedIdList));
 			ok('7: without judgedViewLength, the runner\'s list is the cap as before', judgedCandidateListOf({ pool: cardsPool, judgedPoolCap: JUDGED_POOL_CAP }).slice(0, JUDGED_POOL_CAP).length === Math.min(JUDGED_POOL_CAP, cardsPool.candidateList.length));
-			const answer = retrievalAnswerOf({ submissionForm: { formatName: 'fieldList' }, parsed: { fieldList: [{ name: 'x' }], unresolvedRefList: [], unresolvedContextList: [], notWalkedList: [] }, hubRowList: [{ hubName: 'CEDS' }], poolByTargetName: { CEDS: { field0: hybridPool } }, fieldVectorList: [{ fieldRefId: 'field0' }], facts: { nothingJudgedNote: '', rankNote: '' }, fuseValues: { hitsPerText: 1, minScore: 0.3, poolCap: 1 }, detail: 'lean' });
+			const answer = retrievalAnswerOf({ submissionForm: { formatName: 'fieldList' }, parsed: { fieldList: [{ name: 'x' }], unresolvedRefList: [], unresolvedContextList: [], notWalkedList: [] }, hubRowList: [{ hubName: 'CEDS' }], poolByTargetName: { CEDS: { field0: hybridPool } }, fieldVectorList: [{ fieldRefId: 'field0' }], describedList: [searchDescriptionAbsentOf('describerOff')], facts: { nothingJudgedNote: '', rankNote: '', searchDescriptionNote: '' }, fuseValues: { hitsPerText: 1, minScore: 0.3, poolCap: 1 }, detail: 'lean' });
 			ok('7: retrieval\'s answer never carries judgedViewLength', !JSON.stringify(answer).includes('judgedViewLength') && answer.fieldList[0].resultList[0].candidateList.length === hybridPool.candidateList.length);
 			harness.runner.stopTicking();
 			harness.close(finish);
