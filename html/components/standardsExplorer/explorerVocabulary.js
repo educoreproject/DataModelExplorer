@@ -93,6 +93,25 @@ export const explorerComponentWords = Object.freeze({
 		openLabelTemplate: 'Open {itemName}',
 	}),
 	toolbar: Object.freeze({ diagramText: 'Diagram', tableText: 'Table', schemaText: 'Schema Viewer', filterLabelText: 'Filter', filterPlaceholderText: 'Type a name', hideLegendText: 'Hide legend', showLegendText: 'Show legend' }),
+	// ⟪dataModelMap, BD 2026-11-17⟫ the Diagram tab inside a standard: the data model map the server draws (DataModelMap.vue), and the specification's own
+	// card above the level (WalkView.vue)
+	dataModelMap: Object.freeze({
+		sectionLabelText: 'Data model map',
+		headText: 'Data model',
+		loadingText: 'Drawing the data model from the graph…',
+		unreadTemplate: 'The data model map could not be drawn: {statusMsg}',
+		retryText: 'Try again',
+		openFullSizeText: 'Open full size',
+		downloadText: 'Download SVG',
+		altTemplate: 'Data model map of {mapName}: {summaryText}',
+		tooLargeTemplate: '{standardName} has {classCount} classes{linkText}, too many to draw as one map. Open a class in the Table to see its own data model.',
+		tooLargeLinkTemplate: ' and {linkCount} links between them',
+		chooseStandardText: 'This family holds several standards. Open one to see its data model:',
+		noneText: 'There is no data model to draw at this level. Open a standard, a class or a property to see one.',
+		showBubblesText: 'Show the items as bubbles instead',
+		showMapText: 'Show the data model map',
+	}),
+	focusSpecification: Object.freeze({ headText: 'About this specification' }),
 	diagram: Object.freeze({
 		sampleNoteTemplate: 'Showing {drawnCount} of {levelCount}. The dashed bubble opens the full list in the table.',
 		canvasLabelTemplate: 'Bubble diagram of {drawnCount} of the {levelCount} items in {focusName}. The same items are listed after the diagram as buttons and links, and as rows in the Table view.',

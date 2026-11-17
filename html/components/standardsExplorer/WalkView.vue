@@ -18,6 +18,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStandardsNeighbourhoodStore } from '@/stores/standardsNeighbourhoodStore';
+import { useSpecificationMetadataStore } from '@/stores/specificationMetadataStore';
 import { displayNameOf, kindDisplayNameOf, pathStableIdListOf, pathTextOf, meaningFullPathOf, walkFilterTextOfRouteQuery, walkFilterVocabulary, walkPathOf, walkProfileOf, walkRouteQueryOf, explorerComponentWords, wordingOf } from '@/components/standardsExplorer/explorerVocabulary';
 
 const walkWords = explorerComponentWords.walkView;
@@ -134,6 +135,24 @@ const levelLabelText = computed(() => {
 	if (store.effectiveViewMode === 'schema') return wordingOf(explorerComponentWords.walkLevelLabel.schemaTemplate, { kindText });
 	return wordingOf(explorerComponentWords.walkLevelLabel.levelTemplate, { itemCount: store.levelRowList.length, kindText, viewModeName: store.effectiveViewMode });
 });
+// ================================================================================
+// ⟪dataModelMap, BD 2026-11-17⟫ THE SPECIFICATION, ABOVE THE LEVEL — on a family, release or standard of the standards walk, the catalog's card for
+// it is the page's main text, under the breadcrumb and above the table (the detail panel then leaves it out); and the Diagram tab there,
+// and on every class and property below, is the standard's data model map (DataModelMap.vue). The bubbles stay one click away.
+
+const specStore = useSpecificationMetadataStore();
+const FOCUS_SPEC_KIND_LIST = ['family', 'release', 'standard'];
+const focusSpec = computed(() => {
+	const focusNode = store.focusNode;
+	if (!walkProfile.offersSchemaViewer || !focusNode || !FOCUS_SPEC_KIND_LIST.includes(focusNode.kind)) return null;
+	return specStore.specByGraphFamily(focusNode.standardFamily || (focusNode.kind === 'family' ? focusNode.name : null)) || null;
+});
+const focusSpecWords = explorerComponentWords.focusSpecification;
+const dataModelMapWords = explorerComponentWords.dataModelMap;
+
+const showsBubbleDiagram = ref(false);
+const showsDataModelMap = computed(() => Boolean(store.walkStandard) && !showsBubbleDiagram.value);
+
 useHead(() => ({
 	title: focusNameText.value ? `${focusNameText.value} · ${walkProfile.titleText}` : walkProfile.titleText,
 	meta: [{ name: 'description', content: walkProfile.metaDescriptionText }],
@@ -165,6 +184,11 @@ useHead(() => ({
 			:crossing="store.crossing"
 		/>
 
+		<section v-if="focusSpec" class="explorer-focus-spec" :aria-label="focusSpecWords.headText" data-testid="focus-spec">
+			<span class="explorer-focus-spec-head">{{ focusSpecWords.headText }}</span>
+			<StandardsExplorerSpecificationCard :spec="focusSpec" :heading-level="3" :shows-links="false" />
+		</section>
+
 		<StandardsExplorerToolbar />
 
 		<div class="explorer-body">
@@ -187,7 +211,9 @@ useHead(() => ({
 							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">{{ walkWords.showDiagramText }}</v-btn>
 						</div>
 					</v-alert>
-					<template v-if="store.effectiveViewMode === 'diagram'">
+					<StandardsExplorerDataModelMap v-if="store.effectiveViewMode === 'diagram' && showsDataModelMap" @show-bubbles="showsBubbleDiagram = true" />
+					<template v-else-if="store.effectiveViewMode === 'diagram'">
+						<v-btn v-if="store.walkStandard" variant="text" size="small" color="primary" class="mb-2" data-testid="show-data-model-map" @click="showsBubbleDiagram = false">{{ dataModelMapWords.showMapText }}</v-btn>
 						<StandardsExplorerDiagram @drill="drillInto" />
 						<StandardsExplorerLevelItemList />
 					</template>
@@ -254,6 +280,18 @@ useHead(() => ({
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+.explorer-focus-spec {
+	margin: 0 0 16px;
+}
+.explorer-focus-spec-head {
+	display: block;
+	margin-bottom: 6px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #4b5563;
 }
 .explorer-body {
 	display: flex;

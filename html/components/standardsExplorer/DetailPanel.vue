@@ -140,6 +140,16 @@ const shownSpec = computed(() => {
 	return specStore.specByGraphFamily(oneNode.standardFamily || (oneNode.kind === 'family' ? oneNode.name : null)) || null;
 });
 
+// ⟪dataModelMap, BD 2026-11-17⟫ on a family, release or standard of the standards walk, the page shows the card above the level (WalkView.vue); the
+// panel leaves that same card out rather than repeat it, and still shows another family's card (a selected row of another family)
+const focusSpecId = computed(() => {
+	const focusNode = store.focusNode;
+	if (!store.walkProfile.offersSchemaViewer || !focusNode || !SPEC_CARD_KIND_LIST.includes(focusNode.kind)) return null;
+	const focusSpecEntry = specStore.specByGraphFamily(focusNode.standardFamily || (focusNode.kind === 'family' ? focusNode.name : null));
+	return focusSpecEntry ? focusSpecEntry.id : null;
+});
+const panelSpec = computed(() => (shownSpec.value && shownSpec.value.id !== focusSpecId.value ? shownSpec.value : null));
+
 // at the families catalog: the catalog's specifications no family row on this level stands for
 const isFamilyCatalog = computed(() => isFocus.value && store.focusNode?.stableId === FAMILY_CATALOG_STABLE_ID);
 const specNotInGraphList = computed(() => {
@@ -235,9 +245,9 @@ const definitionText = computed(() => {
 		<p v-else-if="!shownNode.hasChildren && !(isMeaning && isFocus)" class="detail-leaf" data-testid="detail-leaf">{{ panelWords.leafText }}</p>
 		<p v-else-if="isFocus" class="detail-note">{{ panelWords.focusNoteText }}</p>
 
-		<section v-if="shownSpec" class="detail-catalog" :aria-label="panelWords.specHeadText" data-testid="detail-spec">
+		<section v-if="panelSpec" class="detail-catalog" :aria-label="panelWords.specHeadText" data-testid="detail-spec">
 			<span class="detail-box-head">{{ panelWords.specHeadText }}</span>
-			<StandardsExplorerSpecificationCard :spec="shownSpec" compact :heading-level="3" />
+			<StandardsExplorerSpecificationCard :spec="panelSpec" compact :heading-level="3" />
 		</section>
 		<section v-else-if="isFamilyCatalog" class="detail-catalog" :aria-label="panelWords.catalogHeadText" data-testid="detail-spec-catalog">
 			<span class="detail-box-head">{{ panelWords.catalogHeadText }}</span>

@@ -53,8 +53,9 @@ const levelSummaryText = computed(() => {
 			data-testid="view-switch"
 			@update:model-value="store.setViewModeChoice($event)"
 		>
-			<v-btn value="diagram" data-testid="view-diagram">{{ toolbarWords.diagramText }}</v-btn>
+			<!-- BD 2026-11-17: the table first; inside a standard the diagram is its data model map (DataModelMap.vue) -->
 			<v-btn value="table" data-testid="view-table">{{ toolbarWords.tableText }}</v-btn>
+			<v-btn value="diagram" data-testid="view-diagram">{{ toolbarWords.diagramText }}</v-btn>
 			<!-- the standard being walked, in the Specification Viewer: only once the walk is inside one standard -->
 			<v-btn v-if="store.walkStandard" value="schema" data-testid="view-schema">{{ toolbarWords.schemaText }}</v-btn>
 		</v-btn-toggle>

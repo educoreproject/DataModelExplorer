@@ -50,6 +50,7 @@ const FILES = [
 	'components/standardsExplorer/Breadcrumb.vue',
 	'components/standardsExplorer/CrossingBanner.vue',
 	'components/standardsExplorer/Diagram.vue',
+	'components/standardsExplorer/DataModelMap.vue',
 	'app.vue',
 	// the home page (what EDUcore is, the video, where to start, the contact form)
 	'pages/index.vue',
