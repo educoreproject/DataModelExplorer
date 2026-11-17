@@ -113,6 +113,7 @@ const sendContact = async () => {
 <style scoped>
 .home-video {
 	margin: 0;
+	max-width: 560px;
 }
 .home-video video {
 	display: block;
