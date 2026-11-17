@@ -39,6 +39,8 @@ const standardsNeighbourhoodStoreInitObject = {
 	panelFullWidth: false,
 	filterText: '',
 	legendVisible: true,
+	// ⟪dataModelMap, BD 2026-11-17⟫ inside a standard the Diagram view is its data model map; the person may ask for the bubbles instead
+	bubbleDiagramChosen: false,
 	versionTileStateByStableId: {},
 	// ⟪meaningsClarity review S4⟫ an element's meaning facts, asked for apart from its node (action meaningFacts), once per stableId: { loading, meaningFacts, meaningFactsAbsentName, failed }
 	meaningFactsStateByStableId: {},
@@ -204,6 +206,12 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		isLargeLevel() {
 			return this.levelRowList.length > LARGE_LEVEL_ITEM_COUNT;
+		},
+
+		// ⟪dataModelMap⟫ the Diagram view is showing the standard's data model map (DataModelMap.vue), not the bubbles: inside a standard,
+		// unless the bubbles were asked for. The filter, legend and level summary are about the bubbles, so they step aside while it shows
+		showsDataModelMap() {
+			return this.effectiveViewMode === 'diagram' && Boolean(this.walkStandard) && !this.bubbleDiagramChosen;
 		},
 
 		// a large level opens in the table unless the person asked for the diagram of THIS level
@@ -430,6 +438,10 @@ export const useStandardsNeighbourhoodStore = defineStore('standardsNeighbourhoo
 
 		togglePanelFullWidth() {
 			this.panelFullWidth = !this.panelFullWidth;
+		},
+
+		setBubbleDiagramChosen(isChosen) {
+			this.bubbleDiagramChosen = Boolean(isChosen);
 		},
 
 		setViewModeChoice(viewMode) {

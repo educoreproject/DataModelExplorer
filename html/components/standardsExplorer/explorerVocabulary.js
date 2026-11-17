@@ -100,6 +100,7 @@ export const explorerComponentWords = Object.freeze({
 		headText: 'Data model',
 		loadingText: 'Drawing the data model from the graph…',
 		unreadTemplate: 'The data model map could not be drawn: {statusMsg}',
+		endpointAbsentText: 'The data model map is not available on this server yet: its server code has not been updated. The Table and Schema Viewer still show this standard.',
 		retryText: 'Try again',
 		openFullSizeText: 'Open full size',
 		downloadText: 'Download SVG',

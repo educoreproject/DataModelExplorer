@@ -84,7 +84,7 @@ const downloadSvg = () => {
 		</div>
 		<v-alert v-else-if="statusMsg" type="warning" variant="tonal" density="compact" data-testid="data-model-map-error">
 			<div class="data-model-map-alert">
-				<span>{{ wordingOf(mapWords.unreadTemplate, { statusMsg }) }}</span>
+				<span>{{ dataModelStore.endpointAbsent ? mapWords.endpointAbsentText : wordingOf(mapWords.unreadTemplate, { statusMsg }) }}</span>
 				<v-btn size="small" variant="outlined" @click="dataModelStore.fetchMap(focusStableId)">{{ mapWords.retryText }}</v-btn>
 			</div>
 		</v-alert>

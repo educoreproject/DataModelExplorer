@@ -18,13 +18,23 @@ const MAP_KIND_LIST = Object.freeze(['standard', 'class', 'standardTooLarge', 'c
 
 const authHeadersOf = (loginStore) => (loginStore.authtoken ? { ...loginStore.getAuthTokenProperty } : {});
 
-const refusalTextOf = (error) => (typeof error.response?.data === 'string' && error.response.data) || error.message || 'the data model map request failed';
+// a server answering with a web page (Express's "Cannot POST" for a route it does not have, a proxy's error page) is read as its
+// words, never shown as markup
+const plainTextOf = (bodyText) => bodyText.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const refusalTextOf = (error) => {
+	const bodyText = typeof error.response?.data === 'string' ? error.response.data : '';
+	return (/<[a-z!]/i.test(bodyText) ? plainTextOf(bodyText) : bodyText) || error.message || 'the data model map request failed';
+};
+// the backend answering has no data model map yet (its code predates the endpoint): a 404, or Express's own "Cannot POST"
+const isEndpointAbsent = (error) => error.response?.status === 404 || /Cannot POST \/api\/standard-data-model/.test(String(error.response?.data || ''));
 
 export const useStandardDataModelStore = defineStore('standardDataModelStore', {
 	state: () => ({
 		mapByFocusStableId: {},
 		loadingFocusStableId: '',
 		statusMsgByFocusStableId: {},
+		// the backend has no data model map at all (its code predates the endpoint), so the page can say so in its own words
+		endpointAbsent: false,
 	}),
 
 	getters: {
@@ -47,8 +57,10 @@ export const useStandardDataModelStore = defineStore('standardDataModelStore', {
 					this.statusMsgByFocusStableId = { ...this.statusMsgByFocusStableId, [focusStableId]: 'the server answered without a data model map' };
 					return;
 				}
+				this.endpointAbsent = false;
 				this.mapByFocusStableId = { ...this.mapByFocusStableId, [focusStableId]: mapResult };
 			} catch (error) {
+				this.endpointAbsent = isEndpointAbsent(error);
 				this.statusMsgByFocusStableId = { ...this.statusMsgByFocusStableId, [focusStableId]: refusalTextOf(error) };
 			} finally {
 				if (this.loadingFocusStableId === focusStableId) this.loadingFocusStableId = '';

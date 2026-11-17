@@ -138,7 +138,8 @@ const levelLabelText = computed(() => {
 // ================================================================================
 // ⟪dataModelMap, BD 2026-11-17⟫ THE SPECIFICATION, ABOVE THE LEVEL — on a family, release or standard of the standards walk, the catalog's card for
 // it is the page's main text, under the breadcrumb and above the table (the detail panel then leaves it out); and the Diagram tab there,
-// and on every class and property below, is the standard's data model map (DataModelMap.vue). The bubbles stay one click away.
+// and on every class and property below, is the standard's data model map (DataModelMap.vue). The bubbles stay one click away
+// (store.bubbleDiagramChosen); the bubbles' legend steps aside while the map shows.
 
 const specStore = useSpecificationMetadataStore();
 const FOCUS_SPEC_KIND_LIST = ['family', 'release', 'standard'];
@@ -150,8 +151,6 @@ const focusSpec = computed(() => {
 const focusSpecWords = explorerComponentWords.focusSpecification;
 const dataModelMapWords = explorerComponentWords.dataModelMap;
 
-const showsBubbleDiagram = ref(false);
-const showsDataModelMap = computed(() => Boolean(store.walkStandard) && !showsBubbleDiagram.value);
 
 useHead(() => ({
 	title: focusNameText.value ? `${focusNameText.value} · ${walkProfile.titleText}` : walkProfile.titleText,
@@ -211,9 +210,9 @@ useHead(() => ({
 							<v-btn size="small" variant="outlined" color="primary" data-testid="show-diagram" @click="store.setViewModeChoice('diagram')">{{ walkWords.showDiagramText }}</v-btn>
 						</div>
 					</v-alert>
-					<StandardsExplorerDataModelMap v-if="store.effectiveViewMode === 'diagram' && showsDataModelMap" @show-bubbles="showsBubbleDiagram = true" />
+					<StandardsExplorerDataModelMap v-if="store.showsDataModelMap" @show-bubbles="store.setBubbleDiagramChosen(true)" />
 					<template v-else-if="store.effectiveViewMode === 'diagram'">
-						<v-btn v-if="store.walkStandard" variant="text" size="small" color="primary" class="mb-2" data-testid="show-data-model-map" @click="showsBubbleDiagram = false">{{ dataModelMapWords.showMapText }}</v-btn>
+						<v-btn v-if="store.walkStandard" variant="text" size="small" color="primary" class="mb-2" data-testid="show-data-model-map" @click="store.setBubbleDiagramChosen(false)">{{ dataModelMapWords.showMapText }}</v-btn>
 						<StandardsExplorerDiagram @drill="drillInto" />
 						<StandardsExplorerLevelItemList />
 					</template>
@@ -221,7 +220,7 @@ useHead(() => ({
 					<StandardsExplorerSchemaView v-else-if="store.effectiveViewMode === 'schema'" />
 					<StandardsExplorerTable v-else @drill="drillInto" />
 				</template>
-				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema'" />
+				<StandardsExplorerLegend v-if="store.legendVisible && store.effectiveViewMode !== 'schema' && !store.showsDataModelMap" />
 			</section>
 
 			<StandardsExplorerDetailPanel v-if="store.effectiveViewMode !== 'schema'" ref="detailPanelRef" class="explorer-panel" :class="{ 'explorer-panel-full': store.panelFullWidth }" @drill="drillInto" @go-to-path="goToPath" />
