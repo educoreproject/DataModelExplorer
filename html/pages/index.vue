@@ -9,7 +9,7 @@ import { onBeforeUnmount, ref } from 'vue';
 
 const SUPPORT_EMAIL_ADDRESS = 'support@ed-core.org';
 const CONTACT_FORM_PATH = '/forms/bigin-contact.html';
-const CONTACT_FRAME_START_HEIGHT = 630; // the form's measured height, so the page does not jump while the form loads
+const CONTACT_FRAME_START_HEIGHT = 714; // the form's measured height, so the page does not jump while the form loads
 const VIDEO_PATH = '/media/educore-universal-data-translation.mp4';
 const VIDEO_POSTER_PATH = '/media/educore-universal-data-translation-poster.jpg';
 
