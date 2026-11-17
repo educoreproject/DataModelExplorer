@@ -1,16 +1,17 @@
 <script setup>
 // @concept: [[DataModelExplorer]]
 // Home, '/': what EDUcore is, the explainer video, where to start (Use Cases, the specifications, the Data Model Explorer),
-// and a contact form. The site has no mail server, so the form opens the visitor's own email app with a message to
-// SUPPORT_EMAIL_ADDRESS whose body carries the form's fields inline; nothing is stored or sent by this site.
+// and the contact form. The form is Bigin's web form (each submission a contact in EDUcore's Bigin), kept as Bigin gave it
+// in public/forms/bigin-contact.html and shown here in an iframe: its styles reset a whole document and its scripts are
+// inline, so it cannot live inside this page. The frame is same-origin, so it is sized to the form's own height.
 
-import { computed, ref } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 
 const SUPPORT_EMAIL_ADDRESS = 'support@ed-core.org';
-const CONTACT_SUBJECT_TEXT = 'EDUcore contact request';
+const CONTACT_FORM_PATH = '/forms/bigin-contact.html';
+const CONTACT_FRAME_START_HEIGHT = 630; // the form's measured height, so the page does not jump while the form loads
 const VIDEO_PATH = '/media/educore-universal-data-translation.mp4';
 const VIDEO_POSTER_PATH = '/media/educore-universal-data-translation-poster.jpg';
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 useHead({
 	title: 'Home',
@@ -23,31 +24,26 @@ const startLinkList = [
 	{ to: '/dm/explorer', icon: 'mdi-graph-outline', title: 'Ask the Data Model Explorer', text: 'Ask questions of the database in plain language (sign-in required).' },
 ];
 
-// ---- the contact form: name, organization, email
-const contactForm = ref(null);
-const contactName = ref('');
-const contactOrganization = ref('');
-const contactEmail = ref('');
-const isContactOpened = ref(false);
+// ---- the contact form's frame: as tall as the form inside it, following it as it changes (an error line, the thank-you)
+const contactFrame = ref(null);
+const contactFrameHeight = ref(CONTACT_FRAME_START_HEIGHT);
+let contactFrameResizeObserver = null;
 
-const requiredRule = (fieldLabel) => (value) => (String(value || '').trim() ? true : `${fieldLabel} is required`);
-const emailRule = (value) => (EMAIL_PATTERN.test(String(value || '').trim()) ? true : 'Enter a valid email address');
-
-const contactMailtoHref = computed(() => {
-	const bodyText = [
-		`Name: ${contactName.value.trim()}`,
-		`Organization: ${contactOrganization.value.trim()}`,
-		`Email: ${contactEmail.value.trim()}`,
-	].join('\n');
-	return `mailto:${SUPPORT_EMAIL_ADDRESS}?subject=${encodeURIComponent(CONTACT_SUBJECT_TEXT)}&body=${encodeURIComponent(bodyText)}`;
-});
-
-const sendContact = async () => {
-	const { valid } = await contactForm.value.validate();
-	if (!valid) return;
-	window.location.href = contactMailtoHref.value;
-	isContactOpened.value = true;
+const fitContactFrame = () => {
+	const frameDocument = contactFrame.value?.contentDocument;
+	// the body's own height, not the document's: a document is never shorter than its frame, so the frame could only grow
+	if (frameDocument?.body) contactFrameHeight.value = Math.ceil(frameDocument.body.getBoundingClientRect().height);
 };
+const watchContactFrame = () => {
+	fitContactFrame();
+	contactFrameResizeObserver?.disconnect();
+	const frameBody = contactFrame.value?.contentDocument?.body;
+	if (frameBody && typeof ResizeObserver !== 'undefined') {
+		contactFrameResizeObserver = new ResizeObserver(fitContactFrame);
+		contactFrameResizeObserver.observe(frameBody);
+	}
+};
+onBeforeUnmount(() => contactFrameResizeObserver?.disconnect());
 </script>
 
 <template>
@@ -92,21 +88,17 @@ const sendContact = async () => {
 
 		<h2 id="contact" class="text-h5 font-weight-bold mb-2">Contact us</h2>
 		<p class="text-body-1 mb-4">
-			Send this form and your email app opens a message to <a :href="`mailto:${SUPPORT_EMAIL_ADDRESS}`">{{ SUPPORT_EMAIL_ADDRESS }}</a> with your details in it, ready to send.
+			Interested in EDUcore? Leave your details and we will be in touch. You can also write to <a :href="`mailto:${SUPPORT_EMAIL_ADDRESS}`">{{ SUPPORT_EMAIL_ADDRESS }}</a>.
 		</p>
-		<v-card variant="outlined" style="max-width: 560px;">
-			<v-card-text>
-				<v-form ref="contactForm" aria-labelledby="contact" data-testid="home-contact-form" @submit.prevent="sendContact">
-					<v-text-field v-model="contactName" label="Name" autocomplete="name" :rules="[requiredRule('Name')]" class="mb-2" />
-					<v-text-field v-model="contactOrganization" label="Organization" autocomplete="organization" :rules="[requiredRule('Organization')]" class="mb-2" />
-					<v-text-field v-model="contactEmail" label="Email" type="email" autocomplete="email" :rules="[requiredRule('Email'), emailRule]" class="mb-2" />
-					<v-btn type="submit" color="primary" prepend-icon="mdi-email-outline">Send</v-btn>
-				</v-form>
-				<v-alert v-if="isContactOpened" type="info" variant="tonal" density="compact" class="mt-4" role="status" data-testid="home-contact-opened">
-					Your email app should now show the message; press send there. If nothing opened, write to {{ SUPPORT_EMAIL_ADDRESS }}.
-				</v-alert>
-			</v-card-text>
-		</v-card>
+		<iframe
+			ref="contactFrame"
+			:src="CONTACT_FORM_PATH"
+			title="Contact EDUcore: interest form"
+			class="home-contact-frame"
+			:style="{ height: `${contactFrameHeight}px` }"
+			data-testid="home-contact-form"
+			@load="watchContactFrame"
+		/>
 	</v-container>
 </template>
 
@@ -121,5 +113,11 @@ const sendContact = async () => {
 	aspect-ratio: 16 / 9;
 	border-radius: 8px;
 	background: #f5f5f0;
+}
+.home-contact-frame {
+	display: block;
+	width: 100%;
+	max-width: 568px;
+	border: 0;
 }
 </style>
