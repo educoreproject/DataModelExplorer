@@ -4,6 +4,69 @@ useHead({
 	meta: [{ name: 'description', content: 'Three ways into the EDUcore Reference Library of education data standards: browse the site starting from use cases, connect an AI agent via MCP, or query the API directly.' }],
 });
 
+// The one address every AI client connects to (BD 2026-11-17)
+const MCP_SERVER_URL = 'https://ed-core.org/mcp';
+const SUPPORT_EMAIL_ADDRESS = 'support@educore.org';
+
+// Adding EDUcore to the three big AI assistants: the same server URL in each, through the app's own connector settings,
+// or a one-line command in the provider's command-line agent. Menu names follow each provider's help pages as of November 2026.
+const assistantSetupList = [
+	{
+		name: 'Google Gemini',
+		icon: 'mdi-google',
+		appStepList: [
+			'Open gemini.google.com and go to Settings → Connected apps.',
+			'Choose to add a custom app (an MCP server).',
+			'Name it EDUcore and paste the server URL.',
+			'Save, then choose Connect.',
+		],
+		appNote: 'Custom apps are rolling out to personal Google accounts and may not be on yours yet; Gemini CLI works today.',
+		cliName: 'Gemini CLI',
+		cliCommand: `gemini mcp add --transport http educore-standards ${MCP_SERVER_URL}`,
+		cliAfter: 'Inside Gemini CLI, run /mcp auth educore-standards to sign in.',
+		helpUrl: 'https://geminicli.com/docs/tools/mcp-server/',
+		helpText: 'Gemini CLI MCP guide',
+	},
+	{
+		name: 'Anthropic Claude',
+		icon: 'mdi-asterisk',
+		appStepList: [
+			'Open claude.ai (or Claude Desktop) and go to Settings → Connectors.',
+			'Choose Add custom connector.',
+			'Name it EDUcore and paste the server URL.',
+			'Choose Add, then Connect.',
+		],
+		appNote: 'On Team and Enterprise plans an owner adds the connector first; each member then connects.',
+		cliName: 'Claude Code',
+		cliCommand: `claude mcp add --transport http educore-standards ${MCP_SERVER_URL}`,
+		cliAfter: 'Inside Claude Code, run /mcp and choose educore-standards to sign in.',
+		helpUrl: 'https://claude.com/docs/connectors/custom/remote-mcp',
+		helpText: 'Claude custom connector guide',
+	},
+	{
+		name: 'OpenAI ChatGPT',
+		icon: 'mdi-creation',
+		appStepList: [
+			'Open chatgpt.com and go to Settings → Apps & Connectors → Advanced settings.',
+			'Turn on Developer mode.',
+			'Back in Apps & Connectors, choose Create, name it EDUcore and paste the server URL.',
+			'Set Authentication to OAuth, tick “I trust this application”, then Create.',
+		],
+		appNote: 'Developer mode is on paid ChatGPT plans; in a chat, pick EDUcore from the tools (+) menu.',
+		cliName: 'Codex CLI',
+		cliCommand: `codex mcp add educore-standards --url ${MCP_SERVER_URL}`,
+		cliAfter: 'Then run codex mcp login educore-standards to sign in.',
+		helpUrl: 'https://platform.openai.com/docs/guides/developer-mode',
+		helpText: 'ChatGPT developer mode guide',
+	},
+];
+
+const signInStepList = [
+	{ head: 'Your assistant opens EDUcore', text: 'The first time it connects, your assistant opens an EDUcore sign-in page in your browser.' },
+	{ head: 'Sign in with your EDUcore account', text: 'Enter your EDUcore username and password. Your password goes only to EDUcore, never to the AI provider.' },
+	{ head: 'Back to your conversation', text: 'Approve the connection and you return to your assistant, which can now read the EDUcore graph (read-only).' },
+];
+
 const claudeCodeConfig = `{
   "mcpServers": {
     "educore-standards": {
@@ -163,11 +226,67 @@ const { response } = await res.json();`;
 				The MCP server is read-only. All queries are validated before execution — no data can be modified through this interface.
 			</v-alert>
 
-			<v-alert type="warning" variant="tonal" density="compact" class="mb-5">
-				<strong>Authentication required.</strong> You'll be prompted to log in to the MCP server with your
-				educore.org credentials the first time your client connects. To register a username and password,
-				email <a href="mailto:support@educore.org">support@educore.org</a>.
-			</v-alert>
+			<!-- Add EDUcore to Gemini, Claude or ChatGPT: the same server URL in all three -->
+			<h3 class="text-subtitle-1 font-weight-bold mb-2">Add EDUcore to your AI assistant</h3>
+			<p class="text-body-2 text-medium-emphasis mb-3">
+				Every assistant connects to the same EDUcore server address. Paste it into your assistant's connector settings,
+				or run the one-line command in its command-line tool:
+			</p>
+			<pre class="code-block mb-4" data-testid="mcp-server-url">{{ MCP_SERVER_URL }}</pre>
+
+			<v-row class="mb-2" data-testid="mcp-assistant-columns">
+				<v-col v-for="assistant in assistantSetupList" :key="assistant.name" cols="12" md="4" class="d-flex">
+					<v-card variant="outlined" class="assistant-card flex-grow-1 d-flex flex-column">
+						<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
+							<v-icon :icon="assistant.icon" size="20" color="primary" />
+							{{ assistant.name }}
+						</v-card-title>
+						<v-card-text class="d-flex flex-column flex-grow-1">
+							<div class="text-overline text-medium-emphasis">In the app</div>
+							<ol class="assistant-steps text-body-2 mb-2">
+								<li v-for="oneStep in assistant.appStepList" :key="oneStep">{{ oneStep }}</li>
+							</ol>
+							<p class="text-caption text-medium-emphasis mb-3">{{ assistant.appNote }}</p>
+
+							<div class="text-overline text-medium-emphasis">Or in {{ assistant.cliName }}</div>
+							<pre class="code-block code-block--wrap mb-2">{{ assistant.cliCommand }}</pre>
+							<p class="text-caption text-medium-emphasis mb-3">{{ assistant.cliAfter }}</p>
+
+							<a :href="assistant.helpUrl" target="_blank" rel="noopener" class="text-body-2 mt-auto">
+								{{ assistant.helpText }} <v-icon icon="mdi-open-in-new" size="14" />
+							</a>
+						</v-card-text>
+					</v-card>
+				</v-col>
+			</v-row>
+			<p class="text-caption text-medium-emphasis mb-5">
+				Menu names change as the providers update their apps; if a step doesn't match, the provider's guide linked in each column has the current path.
+			</p>
+
+			<!-- What happens when the assistant first connects -->
+			<v-card variant="tonal" color="primary" class="mb-5" data-testid="mcp-sign-in">
+				<v-card-text class="pa-5">
+					<h3 class="text-subtitle-1 font-weight-bold mb-3">Then EDUcore asks you to sign in</h3>
+					<v-row dense>
+						<v-col v-for="(oneStep, stepIndex) in signInStepList" :key="oneStep.head" cols="12" md="4">
+							<div class="d-flex align-start ga-2">
+								<v-avatar color="primary" size="24" class="flex-shrink-0">
+									<span class="text-caption font-weight-bold" style="color: #fff;">{{ stepIndex + 1 }}</span>
+								</v-avatar>
+								<div>
+									<div class="text-body-2 font-weight-bold">{{ oneStep.head }}</div>
+									<div class="text-body-2">{{ oneStep.text }}</div>
+								</div>
+							</div>
+						</v-col>
+					</v-row>
+					<p class="text-body-2 mt-4 mb-0">
+						<strong>No account yet?</strong> Email
+						<a :href="`mailto:${SUPPORT_EMAIL_ADDRESS}?subject=EDUcore%20account%20request`">{{ SUPPORT_EMAIL_ADDRESS }}</a>
+						to ask for one.
+					</p>
+				</v-card-text>
+			</v-card>
 
 			<!-- MCP Server Info -->
 			<v-card variant="outlined" class="mb-5">
@@ -465,5 +584,21 @@ const { response } = await res.json();`;
 	overflow-x: auto;
 	white-space: pre;
 	font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* a command in a narrow column wraps instead of scrolling */
+.code-block--wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+	padding: 10px 12px;
+	font-size: 0.76rem;
+}
+
+.assistant-steps {
+	padding-left: 1.2em;
+}
+
+.assistant-steps li {
+	margin-bottom: 4px;
 }
 </style>

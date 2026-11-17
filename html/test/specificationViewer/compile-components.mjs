@@ -54,6 +54,7 @@ const FILES = [
 	'app.vue',
 	// the home page (what EDUcore is, the video, where to start, the contact form)
 	'pages/index.vue',
+	'pages/explore/access-guide.vue',
 	'pages/login.vue',
 	'pages/who-we-are.vue',
 	// the use case map on a forged use case's Overview
