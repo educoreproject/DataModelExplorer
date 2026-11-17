@@ -51,6 +51,10 @@ const FILES = [
 	'components/standardsExplorer/CrossingBanner.vue',
 	'components/standardsExplorer/Diagram.vue',
 	'app.vue',
+	// the home page (what EDUcore is, the video, where to start, the contact form)
+	'pages/index.vue',
+	'pages/login.vue',
+	'pages/who-we-are.vue',
 	// the use case map on a forged use case's Overview
 	'components/forgedUseCases/UseCaseDiagram.vue',
 	'pages/explore/use-cases/forged/[caseStableId].vue',
