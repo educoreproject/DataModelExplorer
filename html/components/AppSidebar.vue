@@ -81,7 +81,7 @@ const isAdmin = computed(() =>
 			<v-list-item
 				to="/explore/access-guide"
 				prepend-icon="mdi-compass-outline"
-				title="Access Guide"
+				title="MCP Access Guide"
 			/>
 			<v-list-item
 				to="/explore/implementation-burden"

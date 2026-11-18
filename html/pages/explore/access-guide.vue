@@ -1,7 +1,7 @@
 <script setup>
 useHead({
-	title: 'How to Access the Reference Library',
-	meta: [{ name: 'description', content: 'Three ways into the EDUcore Reference Library of education data standards: browse the site starting from use cases, connect an AI agent via MCP, or query the API directly.' }],
+	title: 'MCP Access Guide',
+	meta: [{ name: 'description', content: 'Connect Google Gemini, Anthropic Claude or OpenAI ChatGPT to the EDUcore standards graph through its MCP server (https://ed-core.org/mcp), and sign in with an EDUcore account.' }],
 });
 
 // The one address every AI client connects to (BD 2026-11-17)
@@ -85,136 +85,20 @@ const mcpConfigExample = `{
   }
 }`;
 
-const cypherExample = `// Elements of one standard and the hub cards they map to, with each judgment
-MATCH (element:ForgedNode {_source: $source})-[match:EXACT_MATCH|CLOSE_MATCH|BROAD_MATCH|NARROW_MATCH]->(card:HubReference)
-RETURN element.name, card.hubName, card.name, type(match) AS relation, match.mappingConfidence
-LIMIT 25`;
-
-const fetchExample = `// Query the knowledge graph via REST
-const res = await fetch('/api/dme-cypher-query', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    action: 'query',
-    query: 'MATCH (hub:HubDefinition) RETURN hub.hubName, hub.version, hub.canonicalKeyName',
-    params: {}
-  })
-});
-const data = await res.json();`;
-
-const lookupExample = `// Every standard in the graph, which of them are hubs, and how much maps to each hub (requires a login)
-GET /api/dme-list-standards`;
-
-const utilityExample = `// Quick AI-powered question about standards
-const res = await fetch('/api/askmilo-utility', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    prompt: 'Compare CLR v2 and Open Badges v3 for workforce credentials',
-    model: 'haiku',
-    maxTokens: 2048
-  })
-});
-const { response } = await res.json();`;
 </script>
 
 <template>
 	<v-container class="py-8" style="max-width: 960px;">
 		<!-- Page header -->
-		<h1 class="text-h4 font-weight-bold text-primary mb-2">How to Access the Reference Library</h1>
+		<h1 class="text-h4 font-weight-bold text-primary mb-2">MCP Access Guide</h1>
 		<p class="text-body-1 text-medium-emphasis mb-8">
-			Three ways to explore education data standards: browse the site starting from use cases, connect an AI agent via MCP, or query the API directly.
+			Connect your AI assistant to the EDUcore standards graph, so it can answer questions about education data standards from the graph itself.
 		</p>
 
 		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- APPROACH 1: USE-CASE-FIRST BROWSING -->
+		<!-- MCP (AI agent access) -->
 		<!-- ═══════════════════════════════════════════════════════════ -->
 		<div class="mb-12">
-			<div class="d-flex align-center mb-4">
-				<v-avatar color="primary" size="36" class="mr-3">
-					<span class="text-body-1 font-weight-bold" style="color: #fff;">1</span>
-				</v-avatar>
-				<h2 class="text-h5 font-weight-bold">Start from Use Cases (Recommended)</h2>
-			</div>
-
-			<p class="text-body-1 mb-4">
-				The fastest way to find relevant standards is to start with <strong>what you're trying to accomplish</strong>, not the specs themselves.
-				The site is organized around real-world education and workforce scenarios, and each one maps directly to the standards that support it.
-			</p>
-
-			<!-- Step cards -->
-			<v-card variant="outlined" class="mb-4">
-				<v-card-text class="pa-5">
-					<div class="text-overline text-medium-emphasis mb-2">STEP 1</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Pick a topic</h3>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						Go to <strong>Explore &rarr; Topics</strong> in the sidebar. Topics are organized by value driver:
-						learner mobility, workforce alignment, credential transparency, and more.
-						Each topic shows how many use cases and value drivers it contains.
-					</p>
-					<v-btn variant="tonal" size="small" to="/explore/topics" prepend-icon="mdi-book-open-variant">
-						Browse Topics
-					</v-btn>
-				</v-card-text>
-			</v-card>
-
-			<v-card variant="outlined" class="mb-4">
-				<v-card-text class="pa-5">
-					<div class="text-overline text-medium-emphasis mb-2">STEP 2</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Choose a use case</h3>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						Each topic contains specific scenarios like "Adult Learner LER Assembly" or "Disability Accommodations-Aware Record Sharing."
-						Use cases are linked to GitHub issues for community discussion and tagged with their CEDS data domains.
-					</p>
-					<v-btn variant="tonal" size="small" to="/explore/use-cases" prepend-icon="mdi-lightbulb-on-outline">
-						Browse Use Cases
-					</v-btn>
-				</v-card-text>
-			</v-card>
-
-			<v-card variant="outlined" class="mb-4">
-				<v-card-text class="pa-5">
-					<div class="text-overline text-medium-emphasis mb-2">STEP 3</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Review the Implementation Guide</h3>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						Inside each use case, the <strong>Implementation Guide</strong> tab shows which interoperability specifications
-						are relevant, scored by how well they align with the use case's CEDS domains. Standards with full alignment
-						are pre-selected as chips; lower-alignment options surface alongside them as opt-in additions.
-					</p>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						Adjust which standards you want to work with, then click <strong>"Generate Implementation Roadmap"</strong>
-						to produce a tailored plan via the AI Explorer.
-					</p>
-				</v-card-text>
-			</v-card>
-
-			<v-card variant="outlined" class="mb-4">
-				<v-card-text class="pa-5">
-					<div class="text-overline text-medium-emphasis mb-2">ALSO AVAILABLE</div>
-					<h3 class="text-subtitle-1 font-weight-bold mb-2">Browse all standards directly</h3>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						If you already know what you're looking for, the <strong>Standards</strong> page lists all specifications
-						grouped by category. Each entry includes implementation burden, access level, equity considerations,
-						sample payloads, and links to technical documentation.
-					</p>
-					<v-btn variant="tonal" size="small" to="/explore/standards" prepend-icon="mdi-certificate-outline">
-						Browse Standards
-					</v-btn>
-				</v-card-text>
-			</v-card>
-		</div>
-
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- APPROACH 2: MCP (AI Agent Access) -->
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<div class="mb-12">
-			<div class="d-flex align-center mb-4">
-				<v-avatar color="primary" size="36" class="mr-3">
-					<span class="text-body-1 font-weight-bold" style="color: #fff;">2</span>
-				</v-avatar>
-				<h2 class="text-h5 font-weight-bold">Connect via MCP (AI Agent Access)</h2>
-			</div>
-
 			<p class="text-body-1 mb-4">
 				The EDUcore knowledge graph is exposed as a
 				<a href="https://modelcontextprotocol.io" target="_blank">Model Context Protocol</a> (MCP) server.
@@ -434,90 +318,6 @@ const { response } = await res.json();`;
 		</div>
 
 		<!-- ═══════════════════════════════════════════════════════════ -->
-		<!-- APPROACH 3: REST API -->
-		<!-- ═══════════════════════════════════════════════════════════ -->
-		<div class="mb-12">
-			<div class="d-flex align-center mb-4">
-				<v-avatar color="primary" size="36" class="mr-3">
-					<span class="text-body-1 font-weight-bold" style="color: #fff;">3</span>
-				</v-avatar>
-				<h2 class="text-h5 font-weight-bold">Query the REST API</h2>
-			</div>
-
-			<p class="text-body-1 mb-4">
-				For programmatic access, the server exposes REST endpoints for querying the knowledge graph,
-				browsing the data model tree, and running AI-powered questions.
-			</p>
-
-			<!-- Cypher Query endpoint -->
-			<v-card variant="outlined" class="mb-4">
-				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
-					<v-chip size="x-small" color="success" variant="flat">POST</v-chip>
-					/api/dme-cypher-query
-				</v-card-title>
-				<v-card-text>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						Execute read-only Cypher queries directly against the knowledge graph.
-						Same engine as the MCP <code>cypherQuery</code> tool.
-					</p>
-					<pre class="code-block mb-3">{{ fetchExample }}</pre>
-					<p class="text-body-2 text-medium-emphasis mb-0">
-						Also supports <code>GET /api/dme-cypher-query?action=schema</code> to retrieve the graph schema.
-					</p>
-				</v-card-text>
-			</v-card>
-
-			<!-- Lookup endpoint -->
-			<v-card variant="outlined" class="mb-4">
-				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
-					<v-chip size="x-small" color="info" variant="flat">GET</v-chip>
-					/api/dme-list-standards
-				</v-card-title>
-				<v-card-text>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						The standards the graph holds, read live: each standard's family, version and size, which standards are hubs
-						(the standards every other one maps to), and how many of each standard's properties map to each hub.
-					</p>
-					<pre class="code-block mb-0">{{ lookupExample }}</pre>
-				</v-card-text>
-			</v-card>
-
-			<!-- AI Utility endpoint -->
-			<v-card variant="outlined" class="mb-4">
-				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
-					<v-chip size="x-small" color="warning" variant="flat">POST</v-chip>
-					/api/askmilo-utility
-				</v-card-title>
-				<v-card-text>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						A lightweight AI relay for quick, single-turn questions about standards.
-						Accepts a prompt and optional model selection (<code>haiku</code>, <code>sonnet</code>, or <code>opus</code>).
-					</p>
-					<pre class="code-block mb-0">{{ utilityExample }}</pre>
-				</v-card-text>
-			</v-card>
-
-			<!-- WebSocket -->
-			<v-card variant="outlined" class="mb-4">
-				<v-card-title class="d-flex align-center ga-2 text-subtitle-1 font-weight-bold">
-					<v-chip size="x-small" color="secondary" variant="flat">WS</v-chip>
-					/ws/explorer
-				</v-card-title>
-				<v-card-text>
-					<p class="text-body-2 text-medium-emphasis mb-3">
-						WebSocket endpoint for the full AI Explorer experience. Supports streaming responses, multi-perspective
-						chorus mode, tool use, and session persistence. This is what powers the AI Explorer tool in the UI.
-					</p>
-					<p class="text-body-2 text-medium-emphasis mb-0">
-						Send a JSON message with <code>type: "prompt"</code> and <code>text</code> to start a query.
-						The server streams back responses on <code>stdout</code>, <code>stderr</code>, and <code>done</code> channels.
-						See the <strong>AI Explorer</strong> in the Tools section for an interactive version.
-					</p>
-				</v-card-text>
-			</v-card>
-		</div>
-
-		<!-- ═══════════════════════════════════════════════════════════ -->
 		<!-- QUICK REFERENCE -->
 		<!-- ═══════════════════════════════════════════════════════════ -->
 		<div class="mb-8">
@@ -559,12 +359,6 @@ const { response } = await res.json();`;
 						<td class="text-body-2">Let my AI agent query the knowledge graph</td>
 						<td>
 							<span class="text-body-2">Connect via MCP at <code>/mcp</code></span>
-						</td>
-					</tr>
-					<tr>
-						<td class="text-body-2">Query the graph programmatically</td>
-						<td>
-							<span class="text-body-2"><code>POST /api/dme-cypher-query</code></span>
 						</td>
 					</tr>
 				</tbody>

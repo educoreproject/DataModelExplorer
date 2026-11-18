@@ -12,7 +12,7 @@ Pages are a single-page app: their content is drawn by JavaScript, and each page
 - [Specifications](https://educore.org/explore/standards/specifications): the Specification Viewer: pick a specification and walk its elements with their cross-specification mappings, or load an OpenAPI schema and map its fields
 - [Downloads](https://educore.org/explore/standards/downloads): each standard's source as taken in, and the standard written back out of the graph with its round-trip validation files (?family=, ?group=, ?standardKey= filter); then the published SSSOM mapping sets and hub cards
 - [Rosetta](https://educore.org/explore/rosetta): map your own data fields to the standards: paste field names, a table, a JSON Schema or a JSON-LD @context, and a model proposes the hub meaning (CEDS, CTDL) each field expresses; no account needed (a job opens at ?job=)
-- [Access guide](https://educore.org/explore/access-guide): the three ways in (the site, MCP, the REST API), with examples
+- [MCP access guide](https://educore.org/explore/access-guide): connect Gemini, Claude or ChatGPT to the graph through the MCP server, and sign in
 - [Implementation burden](https://educore.org/explore/implementation-burden): what implementing each specification takes
 
 ## MCP server (AI agents)
