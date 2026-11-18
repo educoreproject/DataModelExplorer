@@ -34,4 +34,6 @@ Pages are a single-page app: their content is drawn by JavaScript, and each page
 ## Optional
 
 - [Who we are](https://educore.org/who-we-are)
+- [Privacy policy](https://educore.org/privacy)
+- [Terms of service](https://educore.org/terms)
 - Contact: support@educore.org

@@ -17,8 +17,11 @@ watch(mdAndUp, (isWide) => {
 	<v-app>
 		<AppSidebar v-model="drawerOpen" :permanent="mdAndUp" />
 		<AppTopBar @toggle-drawer="drawerOpen = !drawerOpen" />
-		<v-main>
-			<slot />
+		<v-main class="d-flex flex-column">
+			<div class="flex-grow-1">
+				<slot />
+			</div>
+			<AppFooter />
 		</v-main>
 	</v-app>
 </template>

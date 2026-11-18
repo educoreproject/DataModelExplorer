@@ -142,6 +142,7 @@
 		<footer>
 			&copy; 2026 EDUcore Project. Building interoperability for education, together.
 		</footer>
+		<AppFooter />
 	</div>
 </template>
 

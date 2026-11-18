@@ -155,6 +155,18 @@
       "name": "Who we are",
       "url": "https://educore.org/who-we-are",
       "access": "public"
+    },
+    {
+      "name": "Privacy policy",
+      "url": "https://educore.org/privacy",
+      "access": "public"
+    },
+    {
+      "name": "Terms of service",
+      "url": "https://educore.org/terms",
+      "access": "public"
     }
-  ]
+  ],
+  "privacyPolicy": "https://educore.org/privacy",
+  "termsOfService": "https://educore.org/terms"
 }
