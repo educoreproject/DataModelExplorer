@@ -17,7 +17,7 @@ const assistantSetupList = [
 		appStepList: [
 			'Open gemini.google.com and go to Settings → Connected apps.',
 			'Choose to add a custom app (an MCP server).',
-			'Name it EDUcore and paste the server URL.',
+			`Name it EDUcore and paste the server URL: ${MCP_SERVER_URL}`,
 			'Save, then choose Connect.',
 		],
 		appNote: 'Custom apps are rolling out to personal Google accounts and may not be on yours yet; Gemini CLI works today.',
@@ -33,7 +33,7 @@ const assistantSetupList = [
 		appStepList: [
 			'Open claude.ai (or Claude Desktop) and go to Settings → Connectors.',
 			'Choose Add custom connector.',
-			'Name it EDUcore and paste the server URL.',
+			`Name it EDUcore and paste the server URL: ${MCP_SERVER_URL}`,
 			'Choose Add, then Connect.',
 		],
 		appNote: 'On Team and Enterprise plans an owner adds the connector first; each member then connects.',
@@ -49,7 +49,7 @@ const assistantSetupList = [
 		appStepList: [
 			'Open chatgpt.com and go to Settings → Apps & Connectors → Advanced settings.',
 			'Turn on Developer mode.',
-			'Back in Apps & Connectors, choose Create, name it EDUcore and paste the server URL.',
+			`Back in Apps & Connectors, choose Create, name it EDUcore and paste the server URL: ${MCP_SERVER_URL}`,
 			'Set Authentication to OAuth, tick “I trust this application”, then Create.',
 		],
 		appNote: 'Developer mode is on paid ChatGPT plans; in a chat, pick EDUcore from the tools (+) menu.',
