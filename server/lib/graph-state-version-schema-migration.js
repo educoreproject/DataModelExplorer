@@ -39,14 +39,21 @@ const moduleFunction = ({ sqlDb }) => (callback) => {
 			next('', args);
 			return;
 		}
-		const statements = args.retiredPresentList.map((oneName) => `ALTER TABLE <!tableName!> DROP COLUMN [${oneName}];`).join('\n');
+		// sqlite-instance 11.0 opens the database in WAL mode: the pre-drop pages stay in the -wal file, and pages the
+		// rewrite frees keep their bytes, unless secure_delete zeroes them and a TRUNCATE checkpoint empties the -wal
+		const statements = [
+			'PRAGMA secure_delete = ON;',
+			...args.retiredPresentList.map((oneName) => `ALTER TABLE <!tableName!> DROP COLUMN [${oneName}];`),
+			'PRAGMA wal_checkpoint(TRUNCATE);',
+		].join('\n');
 		args.versionsTable.runStatement(statements, { suppressStatementLog: true }, (err) => {
 			if (err) {
 				next(`${VERSIONS_TABLE_NAME}: dropping the retired column(s) ${args.retiredPresentList.join(', ')} failed (SQLite 3.35+ is required for DROP COLUMN): ${err}`, args);
 				return;
 			}
-			// MEASURED (2026-10-06, SQLite 3.51 and the server's sqlite3): DROP COLUMN rewrites the table, and the dropped
-			// values' bytes are gone from the file without a VACUUM; the test checks the file's bytes, not this sentence
+			// MEASURED (2026-10-06, SQLite 3.51 and the server's sqlite3, rollback journal): DROP COLUMN rewrites the table,
+			// and the dropped values' bytes are gone from the file without a VACUUM. Under better-sqlite3 + WAL (2026-11-19)
+			// they were NOT gone until the two pragmas above; the test checks the file's bytes, not this sentence
 			logInfoList.push(`${VERSIONS_TABLE_NAME}: dropped retired column(s) ${args.retiredPresentList.join(', ')}`);
 			next('', args);
 		});
