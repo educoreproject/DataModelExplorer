@@ -59,7 +59,7 @@ const stepList = [
 
 	// absent input is refused by name, not crashed on
 	(state, next) => httpRequest({ ...state, httpMethod: 'POST', routePath: '/api/dmeSessionSave', requestBody: { refId: state.largeSessionRefId } }, (requestError, answer) => {
-		check('a save with no sessionData is refused by name', !requestError && answer.statusCode !== 200 && /sessionData must be a list of turns/.test(answer.bodyText), requestError || describe(answer));
+		check('a save with no sessionData is refused by name, as a bad request (400)', !requestError && answer.statusCode === 400 && /sessionData must be a list of turns/.test(answer.bodyText), requestError || describe(answer));
 		next(requestError, state);
 	}),
 

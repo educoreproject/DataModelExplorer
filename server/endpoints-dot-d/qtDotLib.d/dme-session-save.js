@@ -70,7 +70,7 @@ const moduleFunction = function ({
 			const { refId, sessionData } = xReq.qtGetSurePath('body', {}) || {};
 
 			if (!Array.isArray(sessionData)) {
-				next('sessionData must be a list of turns', args);
+				next('sessionData must be a list of turns', { ...args, isInputRefused: true });
 				return;
 			}
 
@@ -94,11 +94,16 @@ const moduleFunction = function ({
 			largeBodyJsonParser,
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { result, parseErrorStatus } = args;
+			const { result, parseErrorStatus, isInputRefused } = args;
 
 			if (err && parseErrorStatus) {
 				xLog.error(`${moduleName}: request body refused (${err}, status ${parseErrorStatus})`);
 				xRes.status(parseErrorStatus).json({ refusalName: err });
+				return;
+			}
+
+			if (err && isInputRefused) {
+				xRes.status(400).send(`${err.toString()}`);
 				return;
 			}
 
