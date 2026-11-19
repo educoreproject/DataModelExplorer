@@ -279,13 +279,14 @@ watch(() => graphStore.value.loading, (loading, wasLoading) => {
 	}
 });
 
-// Re-render when navigating to a previously completed response
-watch(() => graphStore.value.currentIndex, () => {
+// Re-render when navigating to a previously completed response, or when a saved session is loaded (the
+// response object changes even if the index does not). Saved sessions no longer carry controlHtml, so the
+// panel is drawn from the <control> blocks in stdout, which renderControlBlocks also serializes back.
+watch(() => graphStore.value.currentResponse, () => {
 	multipartMode.value = false;
 	if (controlPanelRef.value) controlPanelRef.value.innerHTML = '';
-	// If navigating to a response that has controlHtml already rendered, show it
 	const resp = graphStore.value.currentResponse;
-	if (resp && resp.controlHtml && !graphStore.value.loading) {
+	if (resp && splitContent.value.control && !graphStore.value.loading) {
 		renderControlBlocks(splitContent.value.control);
 	}
 });

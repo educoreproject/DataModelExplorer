@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const { buildGraphConnection } = require('../data-model/lib/user-graph/user-graph');
 const { buildUserModeAskmiloContext } = require('./dme-usermode-context');
+const { askMiloSessionExists, resumedPromptOf } = require('./dme-resume-context');
 
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -247,10 +248,25 @@ const moduleFunction = ({ server }) => {
 					askmiloUserEnv = userCtx.env;
 				}
 
+				// A reopened DME session sends its saved turns with the first prompt after reload. If the askMilo
+				// session it names is gone from this server, the saved turns become the prompt's prior context.
+				const resumeSessionName = !settings.newSession ? settings.resumeSessionName : '';
+				const resumedPrompt = resumedPromptOf({ promptText: msg.text, resumeSessionName, savedTurnList: msg.savedTurnList, askMiloSessionExists });
+				if (resumedPrompt.refusalText) {
+					xLog.error(`[ws-graphinator] RESUME refused: ${resumedPrompt.refusalText}`);
+					ws.send(JSON.stringify({ channel: 'stderr', delta: `<span class="ws-error">${escapeHtml(resumedPrompt.refusalText)}</span>\n` }));
+					ws.send(JSON.stringify({ channel: 'done', exitCode: 1 }));
+					return;
+				}
+				if (resumedPrompt.rebuiltTurnCount) {
+					xLog.status(`[ws-graphinator] RESUME rebuilt resume=${resumeSessionName} from ${resumedPrompt.rebuiltTurnCount} saved turn(s)`);
+					ws.send(JSON.stringify({ channel: 'contextRebuilt', noticeText: resumedPrompt.noticeText }));
+				}
+
 				const askMiloInput = JSON.stringify({
 					switches,
 					values,
-					fileList: [msg.text],
+					fileList: [resumedPrompt.promptText],
 				});
 
 				const queryPreview = msg.text.length > 400
