@@ -85,8 +85,8 @@ jobs:
       - name: install the secret-free CI config (fresh random secrets for this run)
         run: bash server/test/ciConfig/installCiConfig.sh ../configs
 
-      - name: server test suite, gated except for ciExcludedTestList.txt
-        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs"
+      - name: server test suite, gated except for ciExcludedTestList.txt (each test killed after 120 s)
+        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs" 120
 
       - name: keep the suite logs
         if: always()
