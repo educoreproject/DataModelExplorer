@@ -17,6 +17,7 @@ const RETIRED_COLUMN_BY_NAME = Object.freeze({
 });
 
 const moduleFunction = ({ sqlDb }) => (callback) => {
+	const { xLog } = process.global;
 	const logInfoList = [];
 	const taskList = new taskListPlus();
 
@@ -40,22 +41,39 @@ const moduleFunction = ({ sqlDb }) => (callback) => {
 			return;
 		}
 		// sqlite-instance 11.0 opens the database in WAL mode: the pre-drop pages stay in the -wal file, and pages the
-		// rewrite frees keep their bytes, unless secure_delete zeroes them and a TRUNCATE checkpoint empties the -wal
-		const statements = [
-			'PRAGMA secure_delete = ON;',
-			...args.retiredPresentList.map((oneName) => `ALTER TABLE <!tableName!> DROP COLUMN [${oneName}];`),
-			'PRAGMA wal_checkpoint(TRUNCATE);',
-		].join('\n');
-		args.versionsTable.runStatement(statements, { suppressStatementLog: true }, (err) => {
-			if (err) {
-				next(`${VERSIONS_TABLE_NAME}: dropping the retired column(s) ${args.retiredPresentList.join(', ')} failed (SQLite 3.35+ is required for DROP COLUMN): ${err}`, args);
+		// rewrite frees keep their bytes, unless secure_delete zeroes them and a TRUNCATE checkpoint empties the -wal.
+		// secure_delete is put back as it was found (it is per connection, and this connection serves every table).
+		args.versionsTable.getData('PRAGMA secure_delete;', { suppressStatementLog: true, noTableNameOk: true }, (readError, secureDeleteRowList = []) => {
+			if (readError) {
+				next(`${VERSIONS_TABLE_NAME}: reading secure_delete failed: ${readError}`, args);
 				return;
 			}
-			// MEASURED (2026-10-06, SQLite 3.51 and the server's sqlite3, rollback journal): DROP COLUMN rewrites the table,
-			// and the dropped values' bytes are gone from the file without a VACUUM. Under better-sqlite3 + WAL (2026-11-19)
-			// they were NOT gone until the two pragmas above; the test checks the file's bytes, not this sentence
-			logInfoList.push(`${VERSIONS_TABLE_NAME}: dropped retired column(s) ${args.retiredPresentList.join(', ')}`);
-			next('', args);
+			const secureDeleteFound = (secureDeleteRowList[0] || {}).secure_delete ? 'ON' : 'OFF';
+			const statements = [
+				'PRAGMA secure_delete = ON;',
+				...args.retiredPresentList.map((oneName) => `ALTER TABLE <!tableName!> DROP COLUMN [${oneName}];`),
+				`PRAGMA secure_delete = ${secureDeleteFound};`,
+			].join('\n');
+			args.versionsTable.runStatement(statements, { suppressStatementLog: true }, (err) => {
+				if (err) {
+					next(`${VERSIONS_TABLE_NAME}: dropping the retired column(s) ${args.retiredPresentList.join(', ')} failed (SQLite 3.35+ is required for DROP COLUMN): ${err}`, args);
+					return;
+				}
+				// MEASURED (2026-10-06, SQLite 3.51 and the server's sqlite3, rollback journal): DROP COLUMN rewrites the
+				// table, and the dropped values' bytes are gone from the file without a VACUUM. Under better-sqlite3 + WAL
+				// (2026-11-19) they were NOT gone without secure_delete and the checkpoint; the test checks the file's bytes.
+				logInfoList.push(`${VERSIONS_TABLE_NAME}: dropped retired column(s) ${args.retiredPresentList.join(', ')}`);
+				args.versionsTable.getData('PRAGMA wal_checkpoint(TRUNCATE);', { suppressStatementLog: true, noTableNameOk: true }, (checkpointError, checkpointRowList = []) => {
+					const checkpointRow = checkpointRowList[0] || {};
+					// busy: another connection held a read transaction, so the -wal (with the dropped values) was not emptied
+					if (checkpointError || checkpointRow.busy) {
+						const warningText = `${VERSIONS_TABLE_NAME}: the -wal file still holds the dropped column's old values until a later checkpoint (${checkpointError || 'checkpoint busy'})`;
+						xLog.error(`${moduleName}: ${warningText}`);
+						logInfoList.push(warningText);
+					}
+					next('', args);
+				});
+			});
 		});
 	});
 

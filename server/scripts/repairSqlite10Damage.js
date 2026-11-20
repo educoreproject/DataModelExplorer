@@ -13,72 +13,138 @@
 //   node server/scripts/repairSqlite10Damage.js --databaseFilePath=/abs/path.sqlite3 -dryRun
 //   node server/scripts/repairSqlite10Damage.js --databaseFilePath=/abs/path.sqlite3 --backupFilePath=/abs/new.sqlite3 -apply
 //
-// -dryRun changes nothing and prints what -apply would do. -apply first writes a consistent copy of the database to
-// backupFilePath (VACUUM INTO; refused if that file exists), then repairs inside ONE transaction. Idempotent: a second
-// -apply finds nothing to do. Stop the API server first: the repair must not race a save.
+// RUN IT BEFORE THE 11.0 SERVER FIRST OPENS THE DATABASE. Rows saved by 11.0 hold typed apostrophes exactly, and a typed
+// pair (SQL '') in them would read as one doubling. The marker is the journal mode: the old module never set WAL and
+// 11.0 sets it on every open, so -apply REFUSES a database already in WAL mode. -acceptWalDatabase overrides that, for
+// an operator who knows no 11.0 server has saved to this file (another tool may have set WAL).
 //
-// HOW THE UN-DOUBLING DECIDES. Each save doubled every apostrophe in the whole session, so text that has been through
-// n saves holds each typed apostrophe as a run of 2^n. A turn's prompt, stdout and stderr entered the session together,
-// so they share one n; later turns have been through fewer saves, so n never rises from one turn to the next. Per turn,
-// n is read from the SHORTEST apostrophe run (a typed single apostrophe), and every run is divided by 2^n. A turn is
-// FLAGGED, and its row left untouched, when that reading is not trustworthy: a run that 2^n does not divide, or an n
-// greater than the previous turn's (which happens when a turn's only apostrophes were typed as pairs, as in SQL '').
-// sessionName is regenerated on every save and written once, so it is a single unit with its own n.
+// -dryRun opens the file READ-ONLY and changes nothing, not even the journal mode. -apply writes a consistent copy to
+// backupFilePath (VACUUM INTO; refused if that file exists), then reads and repairs inside ONE BEGIN IMMEDIATE
+// transaction, so no save can land between the read and the write. It keeps the journal mode as it found it and keeps
+// each session's updatedAt, and marks the file repaired (PRAGMA user_version 1001): a second -apply is refused by name
+// and a -dryRun reports isAlreadyRepaired. Stop the API server first all the same.
+//
+// HOW THE UN-DOUBLING DECIDES, AND WHEN IT REFUSES TO GUESS. Each save doubled every apostrophe in the whole session, so
+// text that has been through n saves holds each typed apostrophe as a run of 2^n. A turn's prompt, stdout and stderr
+// entered together and share one n; later turns have been through no more saves than earlier ones.
+//   - A turn's n is PINNED by its word-internal apostrophes (a letter on both sides: John's, don't), which nobody types
+//     as pairs: n = log2 of the shortest such run. Every run in the turn must then divide by 2^n.
+//   - A turn with apostrophes but none word-internal (only SQL '', or HTML attributes quoted with ') is not pinned by
+//     itself. Its n is bounded: at least 1 (every stored turn went through the session's last save) and at least any
+//     later turn's; at most what its own runs allow (each typed run is at least 1 long and divides by 2^n) and at most
+//     any earlier turn's. When the bounds meet, that is n. When they do not, the ROW IS FLAGGED: never guessed.
+//   - A pinned n outside those bounds, or a shortest word-internal run that is not a power of two: FLAGGED.
+// A flagged row is left exactly as it is, with its reason in the report, for a person to look at.
+// sessionName is regenerated on every save and written once: one unit, pinned the same way, flagged if it cannot be.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const path = require('path');
 const fs = require('fs');
 const qt = require('qtools-functional-library');
-const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
+const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 
 const SESSIONS_TABLE_NAME = 'dme_sessions';
-const DOUBLED_APOSTROPHE_LIKE_PATTERN = "%''%"; // the VALUE (sqlString.escape quotes it): two apostrophes in a row
+const DOUBLED_APOSTROPHE_LIKE_VALUE = "%''%"; // a bound value, not SQL text: two apostrophes in a row
+// PRAGMA user_version written by -apply (nothing else in educore uses user_version): repaired text is single-escaped,
+// and the rule (every stored turn went through at least one save) no longer holds for it, so a repaired file is not
+// examined again
+const REPAIRED_USER_VERSION = 1001;
 
 // ================================================================================
 // PURE: the un-doubling
 
-const apostropheRunLengthListOf = (text) => (String(text).match(/'+/g) || []).map((run) => run.length);
+const isPowerOfTwo = (runLength) => runLength > 0 && Number.isInteger(Math.log2(runLength));
 
-// n for one unit of text: log2 of its shortest apostrophe run (0 when it has none), or null when that is not a power of two
-const saveCountOf = (runLengthList) => {
-	if (!runLengthList.length) return 0;
-	const shortestRunLength = Math.min(...runLengthList);
-	return Math.round(Math.log2(shortestRunLength)) === Math.log2(shortestRunLength) ? Math.log2(shortestRunLength) : null;
+// every apostrophe run in a text, with whether a letter sits on both sides of it
+const apostropheRunListOf = (text) =>
+	[...String(text).matchAll(/'+/g)].map((runMatch) => {
+		const beforeText = String(text).slice(0, runMatch.index);
+		const afterText = String(text).slice(runMatch.index + runMatch[0].length);
+		return { runLength: runMatch[0].length, isWordInternal: /\p{L}$/u.test(beforeText) && /^\p{L}/u.test(afterText) };
+	});
+
+// -> { saveCount: n | null (not pinned), flagText }
+const pinnedSaveCountOf = (runList) => {
+	const wordInternalLengthList = runList.filter((run) => run.isWordInternal).map((run) => run.runLength);
+	if (!wordInternalLengthList.length) return { saveCount: null, flagText: '' };
+	const shortestWordInternalLength = Math.min(...wordInternalLengthList);
+	if (!isPowerOfTwo(shortestWordInternalLength)) return { saveCount: null, flagText: `shortest word-internal apostrophe run ${shortestWordInternalLength} is not a power of two` };
+	return { saveCount: Math.log2(shortestWordInternalLength), flagText: '' };
 };
 
 const undoubledTextOf = (text, saveCount) => String(text).replace(/'+/g, (run) => "'".repeat(run.length / 2 ** saveCount));
 
-const stringLeafListOf = (turn) => Object.keys(turn).filter((propertyName) => typeof turn[propertyName] === 'string').map((propertyName) => turn[propertyName]);
+const runListOfTurn = (turn) =>
+	Object.keys(turn)
+		.filter((propertyName) => typeof turn[propertyName] === 'string')
+		.flatMap((propertyName) => apostropheRunListOf(turn[propertyName]));
+
+// the most saves a set of runs allows: a typed run is at least 1 long, and every run must divide by 2^n
+const twoAdicValuationOf = (runLength) => (runLength % 2 === 0 ? 1 + twoAdicValuationOf(runLength / 2) : 0);
+const saveCountUpperBoundOf = (runList) => Math.min(...runList.map((run) => Math.min(Math.floor(Math.log2(run.runLength)), twoAdicValuationOf(run.runLength))));
 
 // -> { repairedTurnList, flagText }   flagText non-empty means: do not repair this row, a person must look
 const undoubledTurnListOf = (turnList) => {
-	let previousSaveCount = Infinity;
-	const repairedTurnList = [];
-	for (let turnIndex = 0; turnIndex < turnList.length; turnIndex++) {
-		const turn = turnList[turnIndex];
-		const runLengthList = stringLeafListOf(turn).flatMap(apostropheRunLengthListOf);
-		const saveCount = saveCountOf(runLengthList);
-		if (saveCount === null) {
-			return { repairedTurnList: [], flagText: `turn ${turnIndex + 1}: shortest apostrophe run ${Math.min(...runLengthList)} is not a power of two` };
-		}
-		if (runLengthList.length && saveCount > previousSaveCount) {
-			return { repairedTurnList: [], flagText: `turn ${turnIndex + 1}: reads as ${saveCount} saves after an earlier turn read as ${previousSaveCount} (typed pairs, such as SQL '', cannot be told from doubling)` };
-		}
-		const indivisibleRunLength = runLengthList.find((runLength) => runLength % 2 ** saveCount !== 0);
-		if (indivisibleRunLength !== undefined) {
-			return { repairedTurnList: [], flagText: `turn ${turnIndex + 1}: a run of ${indivisibleRunLength} apostrophes is not a multiple of ${2 ** saveCount}` };
-		}
-		if (runLengthList.length) previousSaveCount = saveCount;
-		repairedTurnList.push(Object.keys(turn).reduce((soFar, propertyName) => ({ ...soFar, [propertyName]: typeof turn[propertyName] === 'string' ? undoubledTextOf(turn[propertyName], saveCount) : turn[propertyName] }), {}));
+	const turnInfoList = turnList.map((turn) => {
+		const runList = runListOfTurn(turn);
+		return { runList, ...pinnedSaveCountOf(runList), upperBound: runList.length ? saveCountUpperBoundOf(runList) : Infinity };
+	});
+	const pinFlagIndex = turnInfoList.findIndex((turnInfo) => turnInfo.flagText);
+	if (pinFlagIndex !== -1) return { repairedTurnList: [], flagText: `turn ${pinFlagIndex + 1}: ${turnInfoList[pinFlagIndex].flagText}` };
+
+	// resolved n per turn: pinned turns first; then, until nothing changes, a turn whose bounds meet. Every stored turn went
+	// through at least the session's last save (n >= 1), no later turn through more saves than it, no earlier through fewer.
+	const resolvedList = turnInfoList.map((turnInfo) => turnInfo.saveCount);
+	const boundsOf = (turnIndex) => {
+		const laterList = resolvedList.slice(turnIndex + 1).filter((saveCount) => saveCount !== null);
+		const earlierList = resolvedList.slice(0, turnIndex).filter((saveCount) => saveCount !== null);
+		return { lowerBound: Math.max(1, ...laterList), upperBound: Math.min(turnInfoList[turnIndex].upperBound, ...earlierList) };
+	};
+	let isChanged = true;
+	while (isChanged) {
+		isChanged = false;
+		turnInfoList.forEach((turnInfo, turnIndex) => {
+			if (resolvedList[turnIndex] !== null || !turnInfo.runList.length) return;
+			const { lowerBound, upperBound } = boundsOf(turnIndex);
+			if (lowerBound === upperBound) {
+				resolvedList[turnIndex] = lowerBound;
+				isChanged = true;
+			}
+		});
 	}
+
+	for (let turnIndex = 0; turnIndex < turnInfoList.length; turnIndex++) {
+		const { runList } = turnInfoList[turnIndex];
+		if (!runList.length) continue;
+		const saveCount = resolvedList[turnIndex];
+		const { lowerBound, upperBound } = boundsOf(turnIndex);
+		if (saveCount === null) {
+			return {
+				repairedTurnList: [],
+				flagText: `turn ${turnIndex + 1}: none of its apostrophes is inside a word, and its save count could be anything from ${lowerBound} to ${upperBound} (typed pairs such as SQL '' cannot be told from doubling)`,
+			};
+		}
+		if (saveCount < lowerBound || saveCount > upperBound) {
+			return { repairedTurnList: [], flagText: `turn ${turnIndex + 1}: reads as ${saveCount} saves, outside the ${lowerBound} to ${upperBound} its neighbours and its own runs allow` };
+		}
+	}
+
+	const repairedTurnList = turnList.map((turn, turnIndex) =>
+		Object.keys(turn).reduce(
+			(soFar, propertyName) => ({ ...soFar, [propertyName]: typeof turn[propertyName] === 'string' && turnInfoList[turnIndex].runList.length ? undoubledTextOf(turn[propertyName], resolvedList[turnIndex]) : turn[propertyName] }),
+			{},
+		),
+	);
 	return { repairedTurnList, flagText: '' };
 };
 
-// -> { repairedSessionName, flagText }
+// -> { repairedSessionName, flagText }   one unit with its own n, bounded and pinned as a turn is
 const undoubledSessionNameOf = (sessionName) => {
-	const saveCount = saveCountOf(apostropheRunLengthListOf(sessionName));
-	if (saveCount === null) return { repairedSessionName: sessionName, flagText: 'sessionName: shortest apostrophe run is not a power of two' };
-	return { repairedSessionName: undoubledTextOf(sessionName, saveCount), flagText: '' };
+	const runList = apostropheRunListOf(sessionName);
+	if (!runList.length) return { repairedSessionName: sessionName, flagText: '' };
+	const nameRepair = undoubledTurnListOf([{ sessionName }]);
+	if (nameRepair.flagText) return { repairedSessionName: sessionName, flagText: nameRepair.flagText.replace(/^turn 1/, 'sessionName') };
+	return { repairedSessionName: nameRepair.repairedTurnList[0].sessionName, flagText: '' };
 };
 
 // -> { repairedRow | null, flagText }  repairedRow null means nothing to change
@@ -87,7 +153,7 @@ const repairOfSessionRow = (sessionRow) => {
 	if (!/^\s*\[[\s\S]*\]\s*$/.test(sessionDataText)) {
 		return { repairedRow: null, flagText: 'sessionData is not a JSON list' };
 	}
-	const turnList = JSON.parse(sessionDataText); // a malformed list throws here, before any write: loud, and nothing changed
+	const turnList = JSON.parse(sessionDataText); // a malformed list throws here, inside the database boundary: rolled back, nothing changed
 	const turnRepair = undoubledTurnListOf(turnList);
 	if (turnRepair.flagText) return { repairedRow: null, flagText: turnRepair.flagText };
 	const nameRepair = undoubledSessionNameOf(sessionRow.sessionName || '');
@@ -106,16 +172,109 @@ const correctTriggerSqlOf = (tableName) =>
 const isWherelessTimestampTrigger = (triggerRow) => /UpdateTimestamp$/.test(triggerRow.name) && !/\bWHERE\b/i.test(triggerRow.sql || '');
 
 // ================================================================================
+// THE DATABASE BOUNDARY
+
+// better-sqlite3 has no non-throwing calls; THIS is the script's one try/catch, where a throw becomes an error string
+// (the same boundary sqlite-instance 11.0 keeps in callbackFromThrowingCall). The callback runs outside the try.
+const databaseCallOf = (throwingCall, callback) => {
+	let outcome;
+	try {
+		outcome = { result: throwingCall() };
+	} catch (thrownError) {
+		outcome = { errString: String(thrownError && thrownError.message ? thrownError.message : thrownError) };
+	}
+	callback(outcome.errString || '', outcome.result);
+};
+
+// everything the report needs, read on an open connection; repairs are prepared, not written
+const surveyOf = (db, isAlreadyRepaired) => {
+	const triggerRowList = db.prepare("SELECT name, tbl_name AS tableName, sql FROM sqlite_master WHERE type = 'trigger'").all();
+	const tableNameList = db
+		.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+		.all()
+		.map((tableRow) => tableRow.name);
+	const otherDoubledByColumn = {};
+	tableNameList.forEach((tableName) => {
+		db.prepare('SELECT name FROM pragma_table_info(?)')
+			.all(tableName)
+			.forEach((columnRow) => {
+				const doubledRowCount = db.prepare(`SELECT count(*) AS doubledRowCount FROM [${tableName}] WHERE CAST([${columnRow.name}] AS TEXT) LIKE ?`).get(DOUBLED_APOSTROPHE_LIKE_VALUE).doubledRowCount;
+				if (doubledRowCount > 0) otherDoubledByColumn[`${tableName}.${columnRow.name}`] = doubledRowCount;
+			});
+	});
+	const hasSessionsTable = tableNameList.includes(SESSIONS_TABLE_NAME);
+	const sessionRowList = hasSessionsTable ? db.prepare(`SELECT refId, sessionName, sessionData FROM [${SESSIONS_TABLE_NAME}]`).all() : [];
+	const doubledRowList = isAlreadyRepaired ? [] : sessionRowList.filter((sessionRow) => /''/.test(String(sessionRow.sessionData)) || /''/.test(String(sessionRow.sessionName)));
+	const repairedRowList = [];
+	const sessionFlaggedList = [];
+	doubledRowList.forEach((sessionRow) => {
+		const { repairedRow, flagText } = repairOfSessionRow(sessionRow);
+		if (flagText) sessionFlaggedList.push({ refId: sessionRow.refId, flagText });
+		if (repairedRow) repairedRowList.push(repairedRow);
+	});
+	return { wherelessList: triggerRowList.filter(isWherelessTimestampTrigger), otherDoubledByColumn, hasSessionsTable, sessionRowCount: sessionRowList.length, sessionDoubledRowCount: doubledRowList.length, repairedRowList, sessionFlaggedList };
+};
+
+// replace the WHERE-less triggers; then, with dme_sessions' trigger out of the way so each row keeps its updatedAt,
+// write the repaired rows and put that trigger back in its correct form
+const writeRepairs = (db, survey) => {
+	survey.wherelessList.forEach((triggerRow) => {
+		db.exec(`DROP TRIGGER [${triggerRow.name}];`);
+		db.exec(correctTriggerSqlOf(triggerRow.tableName));
+	});
+	if (!survey.repairedRowList.length) return;
+	db.exec(`DROP TRIGGER IF EXISTS [${SESSIONS_TABLE_NAME}UpdateTimestamp];`);
+	const updateStatement = db.prepare(`UPDATE [${SESSIONS_TABLE_NAME}] SET [sessionData] = ?, [sessionName] = ? WHERE [refId] = ?`);
+	survey.repairedRowList.forEach((repairedRow) => updateStatement.run(repairedRow.sessionData, repairedRow.sessionName, repairedRow.refId));
+	db.exec(correctTriggerSqlOf(SESSIONS_TABLE_NAME));
+};
+
+const doubledCountAfterOf = (db, hasSessionsTable) =>
+	hasSessionsTable
+		? db.prepare(`SELECT count(*) AS doubledRowCount FROM [${SESSIONS_TABLE_NAME}] WHERE [sessionData] LIKE ? OR [sessionName] LIKE ?`).get(DOUBLED_APOSTROPHE_LIKE_VALUE, DOUBLED_APOSTROPHE_LIKE_VALUE).doubledRowCount
+		: 0;
+
+// ================================================================================
 // THE RUN
 
-const runRepair = ({ databaseFilePath, backupFilePath, isApply, sqlString }, callback) => {
-	const report = { databaseFilePath, mode: isApply ? 'apply' : 'dryRun', triggerReplacedList: [], otherDoubledByColumn: {}, sessionRowCount: 0, sessionDoubledRowCount: 0, sessionRepairedRowCount: 0, sessionFlaggedList: [], afterDoubledRowCount: null };
-	const sqlDbGen = require(path.join(__dirname, '..', 'data-model', 'lib', 'sqlite-instance'))({});
+const runRepair = ({ databaseFilePath, backupFilePath, isApply, isWalAccepted }, callback) => {
+	const Database = require('better-sqlite3');
+	const report = { databaseFilePath, mode: isApply ? 'apply' : 'dryRun', journalModeFound: '', triggerReplacedList: [], otherDoubledByColumn: {}, sessionRowCount: 0, sessionDoubledRowCount: 0, sessionRepairedRowCount: 0, sessionFlaggedList: [], afterDoubledRowCount: null };
 	const taskList = new taskListPlus();
 
-	taskList.push((args, next) => sqlDbGen.initDatabaseInstance(databaseFilePath, mergeArgs(args, next, 'sqlDb')));
-	// a handle for catalogue reads; suppressDynamicSchema so it never creates a table
-	taskList.push((args, next) => args.sqlDb.getTable(SESSIONS_TABLE_NAME, { suppressDynamicSchema: true }, mergeArgs(args, next, 'sessionsTable')));
+	taskList.push((args, next) => databaseCallOf(() => new Database(databaseFilePath, { readonly: !isApply, fileMustExist: true }), (err, db) => next(err, { ...args, db })));
+
+	taskList.push((args, next) =>
+		databaseCallOf(
+			() => args.db.pragma('user_version', { simple: true }),
+			(err, userVersion) => {
+				report.isAlreadyRepaired = userVersion === REPAIRED_USER_VERSION;
+				if (!err && isApply && report.isAlreadyRepaired) {
+					next('refused: this database was already repaired (user_version ' + REPAIRED_USER_VERSION + '); a second repair would halve typed apostrophe pairs', args);
+					return;
+				}
+				if (!err && isApply && userVersion !== 0 && !report.isAlreadyRepaired) {
+					next(`refused: the database's user_version is ${userVersion}, not 0, so something else uses it and this repair will not overwrite it`, args);
+					return;
+				}
+				next(err, args);
+			},
+		),
+	);
+
+	taskList.push((args, next) =>
+		databaseCallOf(
+			() => args.db.pragma('journal_mode', { simple: true }),
+			(err, journalMode) => {
+				report.journalModeFound = journalMode;
+				if (!err && isApply && journalMode === 'wal' && !isWalAccepted) {
+					next('refused: the database is already in WAL mode, so an 11.0 server has probably opened it, and rows it saved can hold typed apostrophe pairs this repair would halve. If you know no 11.0 server has saved to it, add -acceptWalDatabase', args);
+					return;
+				}
+				next(err, args);
+			},
+		),
+	);
 
 	taskList.push((args, next) => {
 		if (!isApply) {
@@ -126,122 +285,67 @@ const runRepair = ({ databaseFilePath, backupFilePath, isApply, sqlString }, cal
 			next(`backupFilePath already exists, refusing to overwrite it: ${backupFilePath}`, args);
 			return;
 		}
-		args.sessionsTable.runStatement(`VACUUM INTO ${sqlString.escape(backupFilePath)};`, { noTableNameOk: true }, (backupError) => {
-			if (backupError || !fs.existsSync(backupFilePath)) {
-				next(`backup to ${backupFilePath} failed: ${backupError || 'no file written'}`, args);
-				return;
-			}
-			report.backupFilePath = backupFilePath;
-			next('', args);
-		});
-	});
-
-	taskList.push((args, next) => args.sessionsTable.getData(`SELECT name, tbl_name AS tableName, sql FROM sqlite_master WHERE type = 'trigger';`, { noTableNameOk: true }, (err, triggerRowList = []) => {
-		const wherelessList = triggerRowList.filter(isWherelessTimestampTrigger);
-		report.triggerReplacedList = wherelessList.map((triggerRow) => triggerRow.tableName);
-		next(err, { ...args, wherelessList });
-	}));
-
-	// the scan of every text column (reported only, except dme_sessions which is repaired below)
-	taskList.push((args, next) => args.sessionsTable.getData(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';`, { noTableNameOk: true }, (err, tableRowList = []) => {
-		const countStatementList = [];
-		tableRowList.forEach((tableRow) => countStatementList.push(tableRow.name));
-		next(err, { ...args, tableNameList: countStatementList });
-	}));
-	taskList.push((args, next) => {
-		const scanNext = (remainingTableNameList) => {
-			if (!remainingTableNameList.length) {
-				next('', args);
-				return;
-			}
-			const tableName = remainingTableNameList[0];
-			args.sessionsTable.getData(`SELECT name FROM pragma_table_info(${sqlString.escape(tableName)});`, { noTableNameOk: true }, (columnError, columnRowList = []) => {
-				if (columnError) {
-					next(columnError, args);
+		databaseCallOf(
+			() => args.db.prepare('VACUUM INTO ?').run(backupFilePath),
+			(err) => {
+				if (err || !fs.existsSync(backupFilePath)) {
+					next(`backup to ${backupFilePath} failed: ${err || 'no file written'}`, args);
 					return;
 				}
-				const countSql = columnRowList.map((columnRow) => `SELECT ${sqlString.escape(columnRow.name)} AS columnName, count(*) AS doubledRowCount FROM [${tableName}] WHERE CAST([${columnRow.name}] AS TEXT) LIKE ${sqlString.escape(DOUBLED_APOSTROPHE_LIKE_PATTERN)}`).join(' UNION ALL ');
-				args.sessionsTable.getData(`${countSql};`, { noTableNameOk: true }, (countError, countRowList = []) => {
-					if (countError) {
-						next(countError, args);
-						return;
-					}
-					countRowList.filter((countRow) => countRow.doubledRowCount > 0).forEach((countRow) => {
-						report.otherDoubledByColumn[`${tableName}.${countRow.columnName}`] = countRow.doubledRowCount;
-					});
-					scanNext(remainingTableNameList.slice(1));
-				});
-			});
-		};
-		scanNext(args.tableNameList);
+				report.backupFilePath = backupFilePath;
+				next('', args);
+			},
+		);
 	});
 
-	taskList.push((args, next) => {
-		if (!args.tableNameList.includes(SESSIONS_TABLE_NAME)) {
-			next('', { ...args, repairedRowList: [] });
-			return;
-		}
-		args.sessionsTable.getData(`SELECT refId, sessionName, sessionData FROM <!tableName!>;`, {}, (err, sessionRowList = []) => {
-			if (err) {
+	// -apply: from here to COMMIT is one BEGIN IMMEDIATE transaction, so no save lands between the read and the write
+	taskList.push((args, next) => (isApply ? databaseCallOf(() => args.db.exec('BEGIN IMMEDIATE;'), (err) => next(err, { ...args, isInTransaction: !err })) : next('', args)));
+
+	taskList.push((args, next) =>
+		databaseCallOf(
+			() => {
+				const survey = surveyOf(args.db, report.isAlreadyRepaired);
+				if (isApply) {
+					writeRepairs(args.db, survey);
+					args.db.pragma(`user_version = ${REPAIRED_USER_VERSION}`);
+				}
+				return survey;
+			},
+			(err, survey) => {
+				if (err) {
+					next(isApply ? `repair rolled back, nothing changed: ${err}` : err, args);
+					return;
+				}
+				report.triggerReplacedList = survey.wherelessList.map((triggerRow) => triggerRow.tableName);
+				report.otherDoubledByColumn = survey.otherDoubledByColumn;
+				report.sessionRowCount = survey.sessionRowCount;
+				report.sessionDoubledRowCount = survey.sessionDoubledRowCount;
+				report.sessionRepairedRowCount = isApply ? survey.repairedRowList.length : 0;
+				report.sessionRepairableRowCount = survey.repairedRowList.length;
+				report.sessionFlaggedList = survey.sessionFlaggedList;
+				next('', { ...args, hasSessionsTable: survey.hasSessionsTable });
+			},
+		),
+	);
+
+	taskList.push((args, next) => (args.isInTransaction ? databaseCallOf(() => args.db.exec('COMMIT;'), (err) => next(err, { ...args, isInTransaction: !!err })) : next('', args)));
+
+	taskList.push((args, next) =>
+		databaseCallOf(
+			() => doubledCountAfterOf(args.db, args.hasSessionsTable),
+			(err, doubledRowCount) => {
+				report.afterDoubledRowCount = doubledRowCount;
 				next(err, args);
-				return;
-			}
-			report.sessionRowCount = sessionRowList.length;
-			const doubledRowList = sessionRowList.filter((sessionRow) => /''/.test(String(sessionRow.sessionData)) || /''/.test(String(sessionRow.sessionName)));
-			report.sessionDoubledRowCount = doubledRowList.length;
-			const repairedRowList = [];
-			doubledRowList.forEach((sessionRow) => {
-				const { repairedRow, flagText } = repairOfSessionRow(sessionRow);
-				if (flagText) report.sessionFlaggedList.push({ refId: sessionRow.refId, flagText });
-				if (repairedRow) repairedRowList.push(repairedRow);
-			});
-			report.sessionRepairedRowCount = repairedRowList.length;
-			next('', { ...args, repairedRowList });
-		});
-	});
+			},
+		),
+	);
 
-	// ONE transaction: replace the WHERE-less triggers; then, with dme_sessions' trigger out of the way so the repair
-	// keeps each row's updatedAt, write the repaired rows, and put that trigger back in its correct form
-	taskList.push((args, next) => {
-		if (!isApply) {
-			next('', args);
-			return;
-		}
-		const sessionsTriggerName = `${SESSIONS_TABLE_NAME}UpdateTimestamp`;
-		const triggerStatementList = args.wherelessList.flatMap((triggerRow) => [`DROP TRIGGER [${triggerRow.name}];`, correctTriggerSqlOf(triggerRow.tableName)]);
-		const rowStatementList = args.repairedRowList.length
-			? [
-					`DROP TRIGGER IF EXISTS [${sessionsTriggerName}];`,
-					...args.repairedRowList.map((repairedRow) => `UPDATE [${SESSIONS_TABLE_NAME}] SET [sessionData] = ${sqlString.escape(repairedRow.sessionData)}, [sessionName] = ${sqlString.escape(repairedRow.sessionName)} WHERE [refId] = ${sqlString.escape(repairedRow.refId)};`),
-					correctTriggerSqlOf(SESSIONS_TABLE_NAME),
-				]
-			: [];
-		const statementList = [...triggerStatementList, ...rowStatementList];
-		if (!statementList.length) {
-			next('', args);
-			return;
-		}
-		args.sessionsTable.runStatement(['BEGIN;', ...statementList, 'COMMIT;'].join('\n'), { noTableNameOk: true }, (err) => {
-			if (err) {
-				args.sessionsTable.runStatement('ROLLBACK;', { noTableNameOk: true }, () => next(`repair rolled back, nothing changed: ${err}`, args));
-				return;
-			}
-			next('', args);
-		});
+	pipeRunner(taskList.getList(), {}, (err, args) => {
+		const { db, isInTransaction } = args || {};
+		if (db && isInTransaction) databaseCallOf(() => db.exec('ROLLBACK;'), () => {});
+		if (db) databaseCallOf(() => db.close(), () => {});
+		callback(err ? `${moduleName}: ${err}` : '', report);
 	});
-
-	taskList.push((args, next) => {
-		if (!args.tableNameList.includes(SESSIONS_TABLE_NAME)) {
-			next('', args);
-			return;
-		}
-		args.sessionsTable.getData(`SELECT count(*) AS doubledRowCount FROM <!tableName!> WHERE [sessionData] LIKE ${sqlString.escape(DOUBLED_APOSTROPHE_LIKE_PATTERN)} OR [sessionName] LIKE ${sqlString.escape(DOUBLED_APOSTROPHE_LIKE_PATTERN)};`, {}, (err, countRowList = []) => {
-			report.afterDoubledRowCount = (countRowList[0] || {}).doubledRowCount;
-			next(err, args);
-		});
-	});
-
-	pipeRunner(taskList.getList(), {}, (err) => callback(err ? `${moduleName}: ${err}` : '', report));
 };
 
 // ================================================================================
@@ -253,6 +357,7 @@ if (require.main === module) {
 	const backupFilePath = commandLineParameters.qtGetSurePath('values.backupFilePath[0]', '');
 	const isApply = !!commandLineParameters.switches.apply;
 	const isDryRun = !!commandLineParameters.switches.dryRun;
+	const isWalAccepted = !!commandLineParameters.switches.acceptWalDatabase;
 
 	const refusalText = !databaseFilePath
 		? '--databaseFilePath is required'
@@ -268,9 +373,7 @@ if (require.main === module) {
 		process.exit(1);
 	}
 
-	process.global = { xLog: { status: () => {}, error: (errorText) => process.stderr.write(`${errorText}\n`), verbose: () => {}, result: () => {}, debug: () => {}, color: {} }, getConfig: () => ({}), rawConfig: {}, commandLineParameters };
-	const sqlString = require('sqlstring-sqlite');
-	runRepair({ databaseFilePath: path.resolve(databaseFilePath), backupFilePath: backupFilePath && path.resolve(backupFilePath), isApply, sqlString }, (err, report) => {
+	runRepair({ databaseFilePath: path.resolve(databaseFilePath), backupFilePath: backupFilePath && path.resolve(backupFilePath), isApply, isWalAccepted }, (err, report) => {
 		process.stdout.write(`${JSON.stringify(report, null, '\t')}\n`);
 		if (err) {
 			process.stderr.write(`${err}\n`);
