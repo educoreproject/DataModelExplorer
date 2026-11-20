@@ -8,7 +8,8 @@
 // case map is. Input { focusStableId }: the node the explorer's walk is on. Answers one of:
 //   { mapKind: 'standard', focusStableId, standard, svgText, width, height, summary }  a standard's main classes as entity tables and
 //        the properties joining them (render-data-model-diagram chooses them): the focus is a standard's root, or a family (or
-//        release) holding exactly one standard
+//        release) holding exactly one standard. The use-case standard (standardKind useCaseCorpus, no classes) answers this kind
+//        too: its kinds of node (UseCase, UserStory, Actor ...) as the tables, the relationships between them as the lines
 //   { mapKind: 'class', focusStableId, standard, focusClass, svgText, width, height, summary }  one class and its neighbours: the
 //        focus is a class, or a property (its owning class, the property marked)
 //   { mapKind: 'standardTooLarge', focusStableId, standard, classCount, linkCount }  a standard too large to draw whole
@@ -20,7 +21,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const { makeRequiredLabelProbe } = require('../../lib/required-label-probe');
-const { renderStandardDataModel, renderClassDataModel } = require('../../lib/data-model-diagram/render-data-model-diagram');
+const { renderStandardDataModel, renderUseCaseModel, renderClassDataModel } = require('../../lib/data-model-diagram/render-data-model-diagram');
 
 //START OF moduleFunction() ============================================================
 
@@ -73,6 +74,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			const { classCount, ...standard } = standardRecordList[0];
+			if (mapper.isStandardKindUseCase(standard)) {
+				readUseCaseModelMap({ focusStableId, source, standard }, callback);
+				return;
+			}
 			const classTotal = mapper.numberOf(classCount);
 			if (classTotal > mapper.WHOLE_MAP_CLASS_LIMIT) {
 				callback('', { mapKind: 'standardTooLarge', focusStableId, standard, classCount: classTotal, linkCount: null });
@@ -102,6 +107,32 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 							callback(drawError, drawError ? undefined : { mapKind: 'standard', focusStableId, standard, ...diagram }),
 						);
 					});
+				});
+			});
+		});
+	};
+
+	// the use-case standard: the kinds of node it holds and the relationships between them
+	const readUseCaseModelMap = ({ focusStableId, source, standard }, callback) => {
+		runNamedQuery('useCaseKindList', { source }, (kindError, kindRecordList) => {
+			if (kindError) {
+				callback(kindError);
+				return;
+			}
+			runNamedQuery('useCaseKeyList', { source }, (keyError, keyRecordList) => {
+				if (keyError) {
+					callback(keyError);
+					return;
+				}
+				runNamedQuery('useCaseRelationshipList', { source }, (relationshipError, relationshipRecordList) => {
+					if (relationshipError) {
+						callback(relationshipError);
+						return;
+					}
+					const useCaseModel = mapper.mapUseCaseModel({ kindRecordList, keyRecordList, relationshipRecordList });
+					drawWithin(source, () => renderUseCaseModel({ standard, ...useCaseModel }), (drawError, diagram) =>
+						callback(drawError, drawError ? undefined : { mapKind: 'standard', focusStableId, standard, ...diagram }),
+					);
 				});
 			});
 		});
