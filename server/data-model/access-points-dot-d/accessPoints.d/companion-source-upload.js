@@ -73,7 +73,10 @@ const refusalOfUpload = (uploadRequest) => {
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
-	const { sqlDb, dataMapping, companionSourcesDirPath } = passThroughParameters;
+	const { sqlDb, dataMapping, companionSourcesDirPath, companionMomentClock } = passThroughParameters;
+	if (!companionMomentClock) {
+		throw new Error(`${moduleName}: passThroughParameters.companionMomentClock is required (data-model.js makes one); uploadedAt must come from the clock compiles use`);
+	}
 	const pageMapper = dataMapping['companion-page'];
 	const sourceMapper = dataMapping['companion-source'];
 
@@ -122,7 +125,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				originNote: uploadRequest.originNote,
 				documentDate: uploadRequest.documentDate,
 				uploadedBy: uploadRequest.uploadedBy,
-				uploadedAt: new Date().toISOString(),
+				uploadedAt: companionMomentClock.nextMomentText(),
 				isCurrent: true,
 			};
 			writeSourceFile({ companionSourcesDirPath, pageSlug: sourceRecord.pageSlug, storedFileName: sourceRecord.storedFileName, contentBuffer }, (err) =>

@@ -76,7 +76,8 @@ const bootCompanionServer = ({ scratchDirPath, accessPointModulePathByName = {},
 				return;
 			}
 			const accessPointByName = {};
-			const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb, slackAccess: null, companionSourcesDirPath, accessPointsDotD: accessPointByName };
+			const companionMomentClock = require(path.join(SERVER_PATH, 'data-model', 'lib', 'companion-pages', 'companion-moment-clock')).companionMomentClockOf();
+			const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb, slackAccess: null, companionSourcesDirPath, companionMomentClock, accessPointsDotD: accessPointByName };
 			const dotD = { logList: [], library: { add: (addedName, serviceFunction) => { accessPointByName[addedName] = serviceFunction; } } };
 			USER_ACCESS_POINT_NAME_LIST.forEach((accessPointName) => require(path.join(ACCESS_POINT_DIR_PATH, accessPointName))({ dotD, passThroughParameters }));
 			COMPANION_ACCESS_POINT_NAME_LIST.forEach((accessPointName) => {

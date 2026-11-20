@@ -1,0 +1,15 @@
+{
+  "name": "sqlite-instance-tests",
+  "version": "1.0.0",
+  "description": "Tests for the sqlite-instance module",
+  "main": "index.test.js",
+  "scripts": {
+    "test": "node index.test.js",
+    "test:clean": "node index.test.js && rm -f /tmp/sqliteTesting/sqlite-instance-test.sqlite3"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

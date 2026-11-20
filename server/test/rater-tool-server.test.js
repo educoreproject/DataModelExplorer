@@ -447,15 +447,19 @@ const stepList = [
 	// ---------------------------------------------------------------- T3.10 hashed passwords
 	(state, next) => {
 		console.log('T3.10 passwords stored hashed');
+		// sqlite-instance 11.0 runs in WAL mode: recent writes live in the -wal file beside each database until a
+		// checkpoint, so the scan reads both, or it would pass without having seen the newest rows
 		const sqliteFilePathList = fs.readdirSync(path.join(scratchDirPath, 'main')).filter((fileName) => /\.sqlite3$/.test(fileName)).map((fileName) => path.join(scratchDirPath, 'main', fileName));
+		const scannedFilePathList = sqliteFilePathList.flatMap((filePath) => [filePath, `${filePath}-wal`]).filter((filePath) => fs.existsSync(filePath));
 		const passwordList = [ADMIN_PASSWORD, ...Object.values(RATER_PASSWORD_BY_NAME)];
-		const plainFoundList = sqliteFilePathList.reduce((soFar, filePath) => {
+		const plainFoundList = scannedFilePathList.reduce((soFar, filePath) => {
 			const fileBuffer = fs.readFileSync(filePath);
 			return soFar.concat(passwordList.filter((password) => fileBuffer.indexOf(Buffer.from(password, 'utf8')) !== -1).map((password) => `${path.basename(filePath)}:${password.slice(0, 4)}…`));
 		}, []);
 		check(`no test password appears in ${sqliteFilePathList.length} sqlite files`, sqliteFilePathList.length === 2 && plainFoundList.length === 0, plainFoundList.join(', '));
 		// red twin: a known plain value written by the tool IS found by the same scan (the scan can see text)
-		const storeBuffer = fs.readFileSync(path.join(scratchDirPath, 'main', 'rater.sqlite3'));
+		const storeFilePath = path.join(scratchDirPath, 'main', 'rater.sqlite3');
+		const storeBuffer = Buffer.concat([storeFilePath, `${storeFilePath}-wal`].filter((filePath) => fs.existsSync(filePath)).map((filePath) => fs.readFileSync(filePath)));
 		check('red twin: the same scan finds a known plain text the tool stored ("written by x")', storeBuffer.indexOf(Buffer.from('written by x', 'utf8')) !== -1);
 		next(state);
 	},
