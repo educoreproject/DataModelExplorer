@@ -1,0 +1,124 @@
+# Deploy educore from git (PLAN-gitAutoDeploy-112026).
+#
+#   push to dev  -> build, test, deploy demo.educore.dev
+#   push to main -> build, test, wait for tqii's approval (environment 'prod'), deploy production
+#   pull request -> build and test only
+#
+# The server side is server/scripts/deploy/deployFromGit.sh, run as the ssh forced command of the deploy key,
+# so the key can do nothing but deploy a commit that is already on the branch.
+#
+# Per-environment settings (GitHub > Settings > Environments, environments 'demo' and 'prod'):
+#   variables: DEPLOY_SSH_HOST, DEPLOY_SSH_PORT, DEPLOY_SSH_USER, DEPLOY_SITE_URL
+#   secrets:   DEPLOY_SSH_PRIVATE_KEY (the restricted key), DEPLOY_SSH_KNOWN_HOSTS (the server's host keys)
+
+name: deploy
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.1'
+          cache: npm
+          cache-dependency-path: html/package-lock.json
+
+      - name: install front-end packages
+        working-directory: html
+        run: npm ci --no-audit --no-fund
+
+      - name: build front end (nuxt generate)
+        working-directory: html
+        env:
+          NODE_ENV: production
+        run: npx nuxt generate
+
+      - name: check and pack the build
+        run: |
+          test -s html/.output/public/index.html || { echo "build has no index.html"; exit 1; }
+          tar -czf frontEndBuild.tgz -C html/.output/public .
+          ls -l frontEndBuild.tgz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontEndBuild
+          path: frontEndBuild.tgz
+          retention-days: 7
+
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # some tests read older versions of files with git show
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.1'
+
+      - name: install server packages (the folders deployFromGit.sh installs)
+        run: |
+          grep -vE '^(#|$)' server/scripts/deploy/npmInstallDirectoryList.txt | while read -r packageDirPath; do
+            echo "npm ci in $packageDirPath"
+            (cd "$packageDirPath" && npm ci --omit=dev --no-audit --no-fund --loglevel=error) || exit 1
+          done
+          echo "npm ci in html (some server tests load browser stores)"
+          (cd html && npm ci --no-audit --no-fund --loglevel=error) || exit 1
+
+      - name: server test suite, gated except for ciExcludedTestList.txt
+        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs"
+
+      - name: keep the suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serverSuiteLogs
+          path: ${{ runner.temp }}/suiteLogs
+          retention-days: 7
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prod' || 'demo' }}
+      url: ${{ vars.DEPLOY_SITE_URL }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontEndBuild
+
+      - name: deploy over ssh (forced command deployFromGit.sh)
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT }}
+          DEPLOY_SSH_USER: ${{ vars.DEPLOY_SSH_USER }}
+        run: |
+          for settingName in DEPLOY_SSH_PRIVATE_KEY DEPLOY_SSH_KNOWN_HOSTS DEPLOY_SSH_HOST DEPLOY_SSH_PORT DEPLOY_SSH_USER; do
+            if [ -z "${!settingName}" ]; then echo "REFUSED: $settingName is not set on this environment"; exit 2; fi
+          done
+          sshDirPath="$RUNNER_TEMP/deploySsh"
+          mkdir -m 700 "$sshDirPath"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$sshDirPath/deployPrivateKey"
+          chmod 600 "$sshDirPath/deployPrivateKey"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$sshDirPath/knownHosts"
+          ssh -i "$sshDirPath/deployPrivateKey" -p "$DEPLOY_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$sshDirPath/knownHosts" \
+            "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" "deploy ${GITHUB_REF_NAME} ${GITHUB_SHA}" < frontEndBuild.tgz
