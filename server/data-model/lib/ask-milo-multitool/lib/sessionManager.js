@@ -130,12 +130,37 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 		fs.unlinkSync(oldPath);
 	};
 
-	const buildSessionContext = (session) => {
-		const lines = [];
-		lines.push(`=== PRIOR RESEARCH SESSION: ${session.sessionName} ===`);
-		lines.push('');
+	// characterBudget (optional): keep the newest turns that fit, then the newest end of session.priorContextText (the
+	// context a DME rebuild started this session with); with no budget, everything, exactly as before.
+	const buildSessionContext = (session, { characterBudget } = {}) => {
+		const titleText = `=== PRIOR RESEARCH SESSION: ${session.sessionName} ===`;
+		const turnTextList = (session.turns || []).map((turn) => turnContextTextOf(turn));
+		const priorContextText = session.priorContextText || '';
+		if (!characterBudget) {
+			return `${titleText}\n\n${[priorContextText, ...turnTextList].filter(Boolean).join('\n')}`;
+		}
+		const keptTurnTextList = [];
+		let remainingCharacterCount = characterBudget - titleText.length - 2;
+		for (let turnIndex = turnTextList.length - 1; turnIndex >= 0 && turnTextList[turnIndex].length + 1 <= remainingCharacterCount; turnIndex--) {
+			keptTurnTextList.unshift(turnTextList[turnIndex]);
+			remainingCharacterCount -= turnTextList[turnIndex].length + 1;
+		}
+		const omittedTurnCount = turnTextList.length - keptTurnTextList.length;
+		const omittedNoteText = omittedTurnCount ? `[${omittedTurnCount} earlier turn(s) left out to fit]` : '';
+		remainingCharacterCount -= omittedNoteText.length + 1;
+		// the prior context is older than every turn: it is kept only when no turn was left out, newest end first
+		const PRIOR_OMITTED_MARKER = '[earlier context left out to fit]\n';
+		const keptPriorText = omittedTurnCount || remainingCharacterCount <= PRIOR_OMITTED_MARKER.length
+			? ''
+			: priorContextText.length <= remainingCharacterCount
+				? priorContextText
+				: `${PRIOR_OMITTED_MARKER}${priorContextText.slice(priorContextText.length - (remainingCharacterCount - PRIOR_OMITTED_MARKER.length))}`;
+		return `${titleText}\n\n${[omittedNoteText, keptPriorText, ...keptTurnTextList].filter(Boolean).join('\n')}`;
+	};
 
-		for (const turn of (session.turns || [])) {
+	const turnContextTextOf = (turn) => {
+		const lines = [];
+		{ // one turn, as buildSessionContext has always written it
 			lines.push(`--- Turn ${turn.turnNumber} ---`);
 			lines.push(`PROMPT: ${turn.prompt}`);
 			lines.push('');
