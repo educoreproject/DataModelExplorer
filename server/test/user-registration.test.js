@@ -26,8 +26,12 @@ const check = (label, passed, detail = '') => {
 	console.log(`  ${passed ? 'PASS' : 'FAIL'}: ${label}${passed || !detail ? '' : ` — ${detail}`}`);
 };
 
-const seedUserList = [{ username: 'alice', password: 'alice-original-pass', first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' }];
-const newcomerOf = (overrideByName = {}) => ({ username: 'Newcomer', password: 'newcomer-pass-1', first: 'New', last: 'Comer', emailAdr: 'New.Comer@Example.org', ...overrideByName });
+const ALICE_PASSWORD = 'alice-original-pass';
+const NEWCOMER_PASSWORD = 'newcomer-pass-1';
+const WRONG_PASSWORD = 'wrong-password-here';
+const ELEVEN_CHARACTER_PASSWORD = 'elevenchars';
+const seedUserList = [{ username: 'alice', password: ALICE_PASSWORD, first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' }];
+const newcomerOf = (overrideByName = {}) => ({ username: 'Newcomer', password: NEWCOMER_PASSWORD, first: 'New', last: 'Comer', emailAdr: 'New.Comer@Example.org', ...overrideByName });
 
 const bootWith = (registrationSettingOverrideByName, callback) =>
 	bootAccountFlowServer({ registrationSettingOverrideByName, seedUserList, accessPointNameList: REGISTRATION_ACCESS_POINT_NAME_LIST, endpointFileNameList: REGISTRATION_ENDPOINT_FILE_NAME_LIST }, (bootError, harness) => {
@@ -66,12 +70,12 @@ step((done) => bootWith({}, (harness) => {
 			check('T4.5 the row has its own refId, not the one in the body', newRow.refId && newRow.refId !== 'chosenByCaller', newRow.refId);
 			check('T4.5 disabled is pendingConfirmation, not the body\'s blank', newRow.disabled === 'pendingConfirmation', newRow.disabled);
 			check('T4.5 source is selfRegistration, not the body\'s', newRow.source === 'selfRegistration', newRow.source);
-			check('T4.5 the password is stored hashed', newRow.password && newRow.password !== 'newcomer-pass-1' && newRow.password.includes(':'));
+			check('T4.5 the password is stored hashed', newRow.password && newRow.password !== NEWCOMER_PASSWORD && newRow.password.includes(':'));
 			const noticeMail = noticeMailsOf(harness)[0];
 			check('T4.6 the new-account notice went to every address on the list', noticeMail && JSON.stringify(noticeMail.toList) === '["notice-one@example.org","notice-two@example.org"]' && /newcomer/.test(noticeMail.text), JSON.stringify(noticeMail && noticeMail.toList));
-			post('/api/login', { username: 'newcomer', password: 'newcomer-pass-1' }, (pendingLogin) => {
+			post('/api/login', { username: 'newcomer', password: NEWCOMER_PASSWORD }, (pendingLogin) => {
 				check('T4.1 sign-in before confirmation is refused by name (emailNotConfirmed)', pendingLogin.statusCode === 403 && pendingLogin.bodyJson && pendingLogin.bodyJson.refusalName === 'emailNotConfirmed', `${pendingLogin.statusCode} ${pendingLogin.bodyText}`);
-				post('/api/login', { username: 'newcomer', password: 'wrong-password-here' }, (wrongLogin) => {
+				post('/api/login', { username: 'newcomer', password: WRONG_PASSWORD }, (wrongLogin) => {
 					check('T4.1 a wrong password on a pending account says only "Authentication failed" (the refusal needs the right password)', wrongLogin.statusCode === 401 && !/emailNotConfirmed/.test(wrongLogin.bodyText), wrongLogin.bodyText);
 					done();
 				});
@@ -108,7 +112,7 @@ step((done) => {
 			check('T4.1 the confirmation sign-in token works', saveResponse.statusCode === 200, `${saveResponse.statusCode} ${saveResponse.bodyText}`);
 			post('/api/confirmRegistration', { token: state.secondConfirmToken }, (againResponse) => {
 				check('T4.1 the confirmation link works once (second use: linkNotValid)', againResponse.statusCode === 400 && againResponse.bodyJson && againResponse.bodyJson.refusalName === 'linkNotValid', againResponse.bodyText);
-				post('/api/login', { username: 'newcomer', password: 'newcomer-pass-1' }, (activeLogin) => {
+				post('/api/login', { username: 'newcomer', password: NEWCOMER_PASSWORD }, (activeLogin) => {
 					check('T4.1 after confirmation sign-in works', activeLogin.statusCode === 200 && activeLogin.bodyJson[0].username === 'newcomer', `${activeLogin.statusCode} ${activeLogin.bodyText}`);
 					done();
 				});
@@ -123,7 +127,7 @@ step((done) => {
 		post('/api/registerUser', newcomerOf({ username: 'brandnew', emailAdr: 'ALICE@EXAMPLE.ORG' }), (emailResponse) => {
 			check('T4.4 a username already in use (in another case) is refused by name (usernameTaken)', usernameResponse.statusCode === 409 && usernameResponse.bodyJson && usernameResponse.bodyJson.refusalName === 'usernameTaken', usernameResponse.bodyText);
 			check('T4.4 an email address already in use (in another case) is refused by name (emailAdrTaken)', emailResponse.statusCode === 409 && emailResponse.bodyJson && emailResponse.bodyJson.refusalName === 'emailAdrTaken', emailResponse.bodyText);
-			post('/api/registerUser', newcomerOf({ username: 'shortpass', emailAdr: 'short@example.org', password: 'elevenchars' }), (weakResponse) => {
+			post('/api/registerUser', newcomerOf({ username: 'shortpass', emailAdr: 'short@example.org', password: ELEVEN_CHARACTER_PASSWORD }), (weakResponse) => {
 				check('T4.4 the password rule applies (11 characters: passwordNotAccepted)', weakResponse.statusCode === 400 && weakResponse.bodyJson && weakResponse.bodyJson.refusalName === 'passwordNotAccepted', weakResponse.bodyText);
 				httpGet({ baseUrl: state.confirmHarness.baseUrl, routePath: '/api/registrationOptions' }, (getError, optionsResponse) => {
 					check('T4.3 where registration is on, the public read says so', optionsResponse && optionsResponse.statusCode === 200 && optionsResponse.bodyJson[0].selfRegistrationEnabled === true && optionsResponse.bodyJson[0].requireEmailConfirmation === true, optionsResponse && optionsResponse.bodyText);
@@ -144,7 +148,7 @@ step((done) => bootWith({ requireEmailConfirmation: 'false', newAccountNoticeLis
 		check('T4.6 an empty notice list sends no notice (nothing captured at all)', harness.capturedMailList.length === 0, String(harness.capturedMailList.length));
 		post('/api/saveUserData', { first: 'Newest' }, (saveResponse) => {
 			check('T4.2 the registration token works', saveResponse.statusCode === 200, `${saveResponse.statusCode} ${saveResponse.bodyText}`);
-			post('/api/login', { username: 'newcomer', password: 'newcomer-pass-1' }, (loginResponse) => {
+			post('/api/login', { username: 'newcomer', password: NEWCOMER_PASSWORD }, (loginResponse) => {
 				check('T4.2 and the account signs in by password', loginResponse.statusCode === 200, loginResponse.bodyText);
 				harness.close();
 				done();

@@ -23,9 +23,12 @@ const check = (label, passed, detail = '') => {
 	console.log(`  ${passed ? 'PASS' : 'FAIL'}: ${label}${passed || !detail ? '' : ` — ${detail}`}`);
 };
 
+const DORA_PASSWORD = 'dora-original-pass';
+const PETE_PASSWORD = 'pete-original-pass';
+const WRONG_PASSWORD = 'wrong-password-here';
 const seedUserList = [
-	{ username: 'dora', password: 'dora-original-pass', first: 'Dora', last: 'Disabled', emailAdr: 'dora@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
-	{ username: 'pete', password: 'pete-original-pass', first: 'Pete', last: 'Pending', emailAdr: 'pete@example.org', phone: '', source: 'test', role: 'user', disabled: 'pendingConfirmation' },
+	{ username: 'dora', password: DORA_PASSWORD, first: 'Dora', last: 'Disabled', emailAdr: 'dora@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
+	{ username: 'pete', password: PETE_PASSWORD, first: 'Pete', last: 'Pending', emailAdr: 'pete@example.org', phone: '', source: 'test', role: 'user', disabled: 'pendingConfirmation' },
 ];
 
 const finish = () => {
@@ -97,11 +100,11 @@ bootUserAccountServer({ serverPath, scratchDirPath: fs.mkdtempSync(path.join(os.
 		return;
 	}
 	const login = (username, password, callback) => httpPost({ baseUrl: harness.baseUrl, routePath: '/api/login', requestBody: { username, password } }, (errText, response) => callback(response || {}));
-	login('dora', 'dora-original-pass', (disabledResponse) => {
+	login('dora', DORA_PASSWORD, (disabledResponse) => {
 		check('T4b.1 an admin-disabled account is refused at website login, by name (accountDisabled, 403)', disabledResponse.statusCode === 403 && disabledResponse.bodyJson && disabledResponse.bodyJson.refusalName === 'accountDisabled', `${disabledResponse.statusCode} ${disabledResponse.bodyText}`);
-		login('pete', 'pete-original-pass', (pendingResponse) => {
+		login('pete', PETE_PASSWORD, (pendingResponse) => {
 			check('T4b.1 a pending account is refused by emailNotConfirmed', pendingResponse.statusCode === 403 && pendingResponse.bodyJson && pendingResponse.bodyJson.refusalName === 'emailNotConfirmed', `${pendingResponse.statusCode} ${pendingResponse.bodyText}`);
-			login('dora', 'wrong-password-here', (wrongResponse) => {
+			login('dora', WRONG_PASSWORD, (wrongResponse) => {
 				check('T4b.1 a wrong password on a disabled account says only "Authentication failed"', wrongResponse.statusCode === 401 && !/accountDisabled/.test(wrongResponse.bodyText), wrongResponse.bodyText);
 				const reEnabledTextList = ['', '0', 'false'];
 				const tryNext = (remainingList) => {
@@ -111,7 +114,7 @@ bootUserAccountServer({ serverPath, scratchDirPath: fs.mkdtempSync(path.join(os.
 						return;
 					}
 					setDisabled(harness, 'dora', remainingList[0], () =>
-						login('dora', 'dora-original-pass', (enabledResponse) => {
+						login('dora', DORA_PASSWORD, (enabledResponse) => {
 							check(`T4b.1 re-enabled (disabled='${remainingList[0]}'), the account signs in`, enabledResponse.statusCode === 200 && enabledResponse.bodyJson && enabledResponse.bodyJson[0].username === 'dora', `${enabledResponse.statusCode} ${enabledResponse.bodyText}`);
 							tryNext(remainingList.slice(1));
 						}),

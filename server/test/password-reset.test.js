@@ -27,12 +27,17 @@ const check = (label, passed, detail = '') => {
 
 const ALICE_PASSWORD = 'alice-original-pass';
 const ALICE_NEW_PASSWORD = 'alice-brand-new-pass';
+const BOB_PASSWORD = 'bob-original-pass';
+const CAROL_PASSWORD = 'carol-original-pass';
+const DAVE_PASSWORD = 'dave-original-pass';
+const ERIN_PASSWORD = 'erin-original-pass';
+const TWELVE_CHARACTER_PASSWORD = 'twelve-chars';
 const seedUserList = [
 	{ username: 'alice', password: ALICE_PASSWORD, first: 'Alice', last: 'Able', emailAdr: 'Alice@Example.org', phone: '', source: 'test', role: 'user', disabled: '' },
-	{ username: 'bob', password: 'bob-original-pass', first: 'Bob', last: 'Barred', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
-	{ username: 'carol', password: 'carol-original-pass', first: 'Carol', last: 'Cant', emailAdr: '', phone: '', source: 'test', role: 'user', disabled: '' },
-	{ username: 'dave', password: 'dave-original-pass', first: 'Dave', last: 'Dup', emailAdr: 'Shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
-	{ username: 'erin', password: 'erin-original-pass', first: 'Erin', last: 'Dup', emailAdr: 'shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'bob', password: BOB_PASSWORD, first: 'Bob', last: 'Barred', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
+	{ username: 'carol', password: CAROL_PASSWORD, first: 'Carol', last: 'Cant', emailAdr: '', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'dave', password: DAVE_PASSWORD, first: 'Dave', last: 'Dup', emailAdr: 'Shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'erin', password: ERIN_PASSWORD, first: 'Erin', last: 'Dup', emailAdr: 'shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
 ];
 
 const stepList = [];
@@ -110,7 +115,7 @@ step((done) => {
 			check('T3.4 the old password signed in before the reset (so the old token is a real session)', loginResponse.statusCode === 200, `${loginResponse.statusCode} ${loginResponse.bodyText}`);
 			state.oldSessionToken = loginResponse.authtoken;
 			state.oldSessionIssuedSeconds = loginResponse.authtoken ? JSON.parse(Buffer.from(loginResponse.authtoken.split('.')[1], 'base64url').toString('utf8')).iat : undefined;
-			completeReset(state.secondToken, 'twelve-chars', (response) => {
+			completeReset(state.secondToken, TWELVE_CHARACTER_PASSWORD, (response) => {
 				state.completedSeconds = Math.floor(Date.now() / 1000);
 				state.completeResponse = response;
 				done();
@@ -141,7 +146,7 @@ step((done) => post('/api/saveUserData', { first: 'Alicia' }, (response) => {
 	check('T3.4 the token the reset signed in with works', response.statusCode === 200, `${response.statusCode} ${response.bodyText}`);
 	done();
 }, state.resetSessionToken));
-step((done) => post('/api/login', { username: 'alice', password: 'twelve-chars' }, (newResponse) => {
+step((done) => post('/api/login', { username: 'alice', password: TWELVE_CHARACTER_PASSWORD }, (newResponse) => {
 	post('/api/login', { username: 'alice', password: ALICE_PASSWORD }, (oldResponse) => {
 		check('T3.4 the new password signs in', newResponse.statusCode === 200 && !!newResponse.authtoken, `${newResponse.statusCode} ${newResponse.bodyText}`);
 		check('T3.4 the old password does not', oldResponse.statusCode === 401, `${oldResponse.statusCode} ${oldResponse.bodyText}`);

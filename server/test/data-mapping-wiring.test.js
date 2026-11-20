@@ -29,15 +29,16 @@ const passwordTools = require(path.join(__dirname, '..', 'data-model', 'lib', 'p
 const passedTools = Object.fromEntries(passedNameList.map((toolName) => [toolName, passwordTools[toolName]]));
 check('every name data-model.js passes is a password-hash function', passedNameList.every((toolName) => typeof passwordTools[toolName] === 'function'), passedNameList.join(','));
 
+const TWELVE_CHARACTER_PASSWORD = 'a-twelve-char-password';
 const dataMapping = require(path.join(__dirname, '..', 'data-model', 'data-mapping', 'data-mapping'))(passedTools);
 let mappedRecord = {};
 let mapErrorText = '';
 try {
-	mappedRecord = dataMapping['profile-user'].map({ refId: 'r1', password: 'a-twelve-char-password' }, 'reverse');
+	mappedRecord = dataMapping['profile-user'].map({ refId: 'r1', password: TWELVE_CHARACTER_PASSWORD }, 'reverse');
 } catch (mapError) {
 	mapErrorText = mapError.message;
 }
-check('profile-user writes a password with exactly what data-model.js passes (hashed, not thrown)', !mapErrorText && passwordTools.isStoredPasswordHash(mappedRecord.password) && mappedRecord.password !== 'a-twelve-char-password', mapErrorText || JSON.stringify(mappedRecord));
+check('profile-user writes a password with exactly what data-model.js passes (hashed, not thrown)', !mapErrorText && passwordTools.isStoredPasswordHash(mappedRecord.password) && mappedRecord.password !== TWELVE_CHARACTER_PASSWORD, mapErrorText || JSON.stringify(mappedRecord));
 
 const failedCount = resultList.filter((passed) => !passed).length;
 console.log(`data-mapping-wiring: ${resultList.length - failedCount} passed, ${failedCount} failed`);
