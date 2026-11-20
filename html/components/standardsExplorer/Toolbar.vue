@@ -53,12 +53,14 @@ const levelSummaryText = computed(() => {
 			data-testid="view-switch"
 			@update:model-value="store.setViewModeChoice($event)"
 		>
-			<v-btn value="diagram" data-testid="view-diagram">{{ toolbarWords.diagramText }}</v-btn>
+			<!-- BD 2026-11-17: the table first; inside a standard the diagram is its data model map (DataModelMap.vue) -->
 			<v-btn value="table" data-testid="view-table">{{ toolbarWords.tableText }}</v-btn>
+			<v-btn value="diagram" data-testid="view-diagram">{{ toolbarWords.diagramText }}</v-btn>
 			<!-- the standard being walked, in the Specification Viewer: only once the walk is inside one standard -->
 			<v-btn v-if="store.walkStandard" value="schema" data-testid="view-schema">{{ toolbarWords.schemaText }}</v-btn>
 		</v-btn-toggle>
-		<template v-if="store.effectiveViewMode !== 'schema'">
+		<!-- ⟪dataModelMap⟫ the filter, legend and summary are about the bubbles and the table: they step aside for the data model map too -->
+		<template v-if="store.effectiveViewMode !== 'schema' && !store.showsDataModelMap">
 		<v-text-field
 			:model-value="store.filterText"
 			:label="toolbarWords.filterLabelText"

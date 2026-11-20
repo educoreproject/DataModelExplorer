@@ -6,6 +6,8 @@ const TEMPLATE_SLOT_PATTERN = /\{([A-Za-z]+)\}/g;
 
 export const rosettaPageWords = Object.freeze({
 	pageTitle: 'Rosetta',
+	// the page's <meta name="description">, so a search engine or an AI agent can tell what the page does without running it
+	pageDescription: 'Rosetta maps your data fields to education data standards: paste field names, a table, a JSON Schema or a JSON-LD @context, and a model proposes the EDUcore hub meaning (CEDS, CTDL) each field expresses. No account needed.',
 	introText: 'Paste your fields: plain lines (a name, or a name and its description), a table copied from a spreadsheet, a field list, a JSON Schema or a JSON-LD @context. A model then reads each field against each hub\'s meanings and proposes the one it expresses. You need no account; signed in, you may send more fields.',
 	// TQ 2026-11-12 (Q104): a field given by name alone gives the search little to go on ('classes a student takes' put the right card 32nd; one sentence of description put it 10th)
 	descriptionHintText: 'Give each field a one-sentence description if you can. A name alone gives the search little to go on, and a short description often decides whether the right meaning is found.',

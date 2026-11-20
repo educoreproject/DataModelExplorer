@@ -1,5 +1,9 @@
 <script setup>
 	definePageMeta({ layout: 'blank' });
+	useHead({
+		title: 'Who We Are',
+		meta: [{ name: 'description', content: 'The EDUcore team: the people building the shared semantic backbone for education and workforce data interoperability, with their roles, affiliations and bios.' }],
+	});
 
 	// Sorted alphabetically by last name.
 	const people = [
@@ -99,11 +103,11 @@
 		<!-- Top Nav (same as landing) -->
 		<nav class="top-nav">
 			<div class="nav-inner">
-				<NuxtLink to="/explore/use-cases" class="nav-brand">
+				<NuxtLink to="/" class="nav-brand">
 					<img src="/educore-logo.png" alt="EDUcore" class="nav-logo" />
 				</NuxtLink>
 				<div class="nav-links">
-					<NuxtLink to="/explore/use-cases" class="nav-link">Use Cases</NuxtLink>
+					<NuxtLink to="/" class="nav-link">Home</NuxtLink>
 					<NuxtLink to="/explore/standards" class="nav-cta">
 						Reference Library
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
@@ -138,6 +142,7 @@
 		<footer>
 			&copy; 2026 EDUcore Project. Building interoperability for education, together.
 		</footer>
+		<AppFooter />
 	</div>
 </template>
 

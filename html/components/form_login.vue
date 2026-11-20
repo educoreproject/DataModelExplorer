@@ -33,7 +33,7 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					const redirect = route.query.redirect || '/explore/use-cases';
+					const redirect = route.query.redirect || '/';
 					router.push(redirect);
 				}
 			})

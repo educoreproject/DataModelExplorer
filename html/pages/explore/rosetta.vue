@@ -26,6 +26,11 @@ const activeTab = ref(TAB_NAME.submit);
 const isUndoConfirmOpen = ref(false);
 const JOB_LINK_QUERY_NAME = 'job';
 
+useHead({
+	title: rosettaPageWords.pageTitle,
+	meta: [{ name: 'description', content: rosettaPageWords.pageDescription }],
+});
+
 // a reading stops for review; only an answer moves the page on to its tab, and puts the job's link in the address bar
 const askForDraft = () => store.submitJob().then((outcomeName) => {
 	if (outcomeName === 'sent') {

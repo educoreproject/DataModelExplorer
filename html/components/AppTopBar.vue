@@ -25,7 +25,7 @@ const pageTitle = computed(() => {
 <template>
 	<v-app-bar elevation="0">
 		<v-app-bar-nav-icon
-			class="d-lg-none"
+			class="d-md-none"
 			@click="$emit('toggle-drawer')"
 		/>
 

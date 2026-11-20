@@ -4,9 +4,10 @@ definePageMeta({ layout: 'blank' });
 
 <template>
 	<div class="login-page">
-		<div class="login-header" @click="navigateTo('/explore/use-cases')" style="cursor: pointer;">
+		<!-- the logo is a real link home, so it can be followed and named, not a clickable div -->
+		<NuxtLink to="/" class="login-header" aria-label="EDUcore home">
 			<img src="/educore-logo.png" alt="EDUcore" class="login-logo" />
-		</div>
+		</NuxtLink>
 		<form_login />
 		<!-- ⟪rosettaMeanings R6⟫ TQ's personal-information notice, below the login form (TQ, 2026-11-10); its words in siteNoticeVocabulary -->
 		<div class="login-notice"><SiteNoticePiiNotice /></div>
@@ -20,6 +21,7 @@ definePageMeta({ layout: 'blank' });
 }
 
 .login-header {
+	display: block;
 	padding: 24px;
 	text-align: center;
 	background: #fff;

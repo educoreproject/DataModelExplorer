@@ -16,6 +16,9 @@ const props = defineProps({
 	// the card is an article named by its own heading; its level follows the page it sits in (h4 under the catalog's
 	// category h3, h3 under the detail panel's h2)
 	headingLevel: { type: Number, default: 4 },
+	// ⟪dataModelMap, BD 2026-11-17⟫ the explorer shows the card above the level it describes: its links (to the explorer it is in, and to the
+	// downloads the detail panel lists) step aside there
+	showsLinks: { type: Boolean, default: true },
 });
 
 const specStore = useSpecificationMetadataStore();
@@ -207,7 +210,7 @@ const burdenColor = (burden) => {
 					</v-expansion-panel-text>
 				</v-expansion-panel>
 			</v-expansion-panels>
-			<div v-if="!compact && (explorerLink || downloadsLink)" class="spec-card-links">
+			<div v-if="!compact && showsLinks && (explorerLink || downloadsLink)" class="spec-card-links">
 				<v-btn v-if="explorerLink" :to="explorerLink" size="small" variant="tonal" color="primary" prepend-icon="mdi-graph-outline" :aria-label="wordingOf(cardWords.exploreLabelTemplate, { specTitle: spec.title })" :data-testid="`spec-card-explore-${spec.id}`">{{ cardWords.exploreText }}</v-btn>
 				<v-btn v-if="downloadsLink" :to="downloadsLink" size="small" variant="text" color="primary" prepend-icon="mdi-download-box-outline" :aria-label="wordingOf(cardWords.downloadsLabelTemplate, { specTitle: spec.title })" :data-testid="`spec-card-downloads-${spec.id}`">{{ cardWords.downloadsText }}</v-btn>
 			</div>

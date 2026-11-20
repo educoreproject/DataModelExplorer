@@ -38,6 +38,13 @@ const panelList = computed(() => (pageRecord.value && companionPanelListByCompil
 
 const reloadPage = () => companionPageStore.loadPage(pageSlug.value);
 
+// the browser tab and a screen reader name the page by its record's title (and its summary as the description); until the record arrives, 'Companion Page'
+const COMPANION_TITLE_FALLBACK_TEXT = 'Companion Page';
+useHead(() => ({
+	title: pageRecord.value?.title || COMPANION_TITLE_FALLBACK_TEXT,
+	meta: pageRecord.value?.summary ? [{ name: 'description', content: pageRecord.value.summary }] : [],
+}));
+
 const ADMIN_TAB_NAME = 'admin';
 // the panels show only with a compile to show; the Administration tab shows whenever the viewer is an admin
 const shownPanelList = computed(() => (compileAnswer.value && panelList.value) || []);
