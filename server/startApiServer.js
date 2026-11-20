@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+throw new Error('DELIBERATELY BROKEN DEPLOY (PLAN-gitAutoDeploy-112026 rollback test); the next PR reverts this line');
 // @concept: [[PipelinePattern]]
 // @concept: [[DependencyInjection]]
 // @concept: [[DynamicModuleLoading]]
