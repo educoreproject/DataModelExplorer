@@ -48,12 +48,14 @@ const tocUploadOf = (contentText) => ({
 });
 
 const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'companionMomentTie-'));
+let serverHandle = null;
 bootCompanionServer({ scratchDirPath }, (bootError, server) => {
 	if (bootError) {
 		console.log(`companion-moment-tie: harness did not boot: ${bootError}`);
 		process.exit(1);
 	}
 	const { accessPointByName } = server;
+	serverHandle = server;
 	accessPointByName['companion-page-save']({ pageRecord: SEED_MANIFEST.pageRecord }, (saveError) => {
 		accessPointByName['companion-source-upload'](tocUploadOf('original'), (firstError) => {
 			accessPointByName['companion-source-upload'](tocUploadOf('revision'), (secondError) => {
@@ -67,19 +69,28 @@ bootCompanionServer({ scratchDirPath }, (bootError, server) => {
 					const currentAtOriginalList = sourceRecordListCurrentAt({ sourceHistoryList, momentText: originalRecord.uploadedAt });
 					check('and the source current at the original moment is still the original', currentAtOriginalList.length === 1 && currentAtOriginalList[0].refId === originalRecord.refId, JSON.stringify(currentAtOriginalList.map((sourceRecord) => sourceRecord.fileName)));
 
-					// legacy rows stamped before the clock can tie: the pick must not depend on the list's order
-					const tiedList = [{ ...originalRecord, uploadedAt: 'T' }, { ...revisionRecord, uploadedAt: 'T' }];
-					const forwardPick = sourceRecordListCurrentAt({ sourceHistoryList: tiedList, momentText: 'T' })[0].refId;
-					const reversePick = sourceRecordListCurrentAt({ sourceHistoryList: [...tiedList].reverse(), momentText: 'T' })[0].refId;
-					check('rows with equal stamps (stamped before the clock) give the same pick in either list order', forwardPick === reversePick);
-
-					server.close();
-					fs.rmSync(scratchDirPath, { recursive: true, force: true });
-					const failedCount = resultList.filter((passed) => !passed).length;
-					console.log(`companion-moment-tie: ${resultList.length - failedCount} passed, ${failedCount} failed`);
-					process.exit(failedCount ? 1 : 0);
+					// legacy rows (stamped before the clock) can tie: make these two tie, as old rows do, and read the history again
+					const { getCompanionTables } = require('../data-model/lib/companion-pages/companion-tables');
+					getCompanionTables({ sqlDb: server.sqlDb, dataMapping: server.dataMapping }, (tablesError, companionTables) => {
+						companionTables.sourceTable.runStatement(`UPDATE <!tableName!> SET [uploadedAt] = '2026-01-01T00:00:00.000Z', [createdAt] = '2026-01-01 00:00:00' WHERE [pageSlug] = '${PAGE_SLUG}';`, { suppressStatementLog: true }, (tieError) => {
+							accessPointByName['companion-source-list']({ pageSlug: PAGE_SLUG, listScope: 'history' }, (relistError, tiedHistoryList = []) => {
+								const tiedPickList = sourceRecordListCurrentAt({ sourceHistoryList: tiedHistoryList, momentText: '2026-01-01T00:00:00.000Z' });
+								check('legacy tie (equal uploadedAt AND createdAt): the history lists the later INSERT (the revision) first', !tablesError && !tieError && !relistError && tiedHistoryList[0] && tiedHistoryList[0].refId === revisionRecord.refId, JSON.stringify(tiedHistoryList.map((sourceRecord) => sourceRecord.fileName)));
+								check('and the compile pick agrees with the list: the revision', tiedPickList.length === 1 && tiedPickList[0].refId === revisionRecord.refId, JSON.stringify(tiedPickList.map((sourceRecord) => sourceRecord.fileName)));
+								finish();
+							});
+						});
+					});
 				});
 			});
 		});
 	});
 });
+
+const finish = () => {
+	serverHandle.close();
+	fs.rmSync(scratchDirPath, { recursive: true, force: true });
+	const failedCount = resultList.filter((passed) => !passed).length;
+	console.log(`companion-moment-tie: ${resultList.length - failedCount} passed, ${failedCount} failed`);
+	process.exit(failedCount ? 1 : 0);
+};
