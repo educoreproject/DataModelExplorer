@@ -1,13 +1,13 @@
 # Deploy educore from git (PLAN-gitAutoDeploy-112026).
 #
 #   push to dev  -> build, test, deploy demo.educore.dev
-#   push to main -> build, test, wait for tqii's approval (environment 'production'), deploy production
+#   push to main -> build, test, wait for tqii's approval (environment 'prod'), deploy production
 #   pull request -> build and test only
 #
 # The server side is server/scripts/deploy/deployFromGit.sh, run as the ssh forced command of the deploy key,
 # so the key can do nothing but deploy a commit that is already on the branch.
 #
-# Per-environment settings (GitHub > Settings > Environments, environments 'demo' and 'production'):
+# Per-environment settings (GitHub > Settings > Environments, environments 'demo' and 'prod'):
 #   variables: DEPLOY_SSH_HOST, DEPLOY_SSH_PORT, DEPLOY_SSH_USER, DEPLOY_SITE_URL
 #   secrets:   DEPLOY_SSH_PRIVATE_KEY (the restricted key), DEPLOY_SSH_KNOWN_HOSTS (the server's host keys)
 
@@ -92,7 +92,7 @@ jobs:
     needs: [build, test]
     runs-on: ubuntu-24.04
     environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'demo' }}
+      name: ${{ github.ref_name == 'main' && 'prod' || 'demo' }}
       url: ${{ vars.DEPLOY_SITE_URL }}
     concurrency:
       group: deploy-${{ github.ref_name }}

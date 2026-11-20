@@ -34,6 +34,10 @@
 # Exit status: 0 deployed; 1 deploy failed and was rolled back; 2 refused before anything changed;
 # 3 deploy failed AND the rollback failed (the site needs a person).
 #
+# The checkout's origin is https://github.com/educoreproject/DataModelExplorer.git, read anonymously: the repository
+# is public and GitHub deploy keys are disabled for the educoreproject organisation (2026-11-20). If the repository
+# ever becomes private, every server's fetch fails until it is given a read-only credential.
+#
 # The whole body is inside main(), called on the last line, so bash has parsed all of it before step 5
 # rewrites this file on disk.
 
