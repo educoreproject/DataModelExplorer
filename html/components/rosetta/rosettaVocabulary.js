@@ -21,7 +21,8 @@ export const rosettaPageWords = Object.freeze({
 	howItWorksPerHubText: 'Each field goes through this once per hub, CEDS and CTDL.',
 	vendorNoticeText: 'Where your text goes: asking for a judged draft sends your fields to Voyage AI, to turn them into vectors, and to Anthropic, the judge\'s vendor. If your text is neither JSON nor plain lines, pressing Ask for a judged draft first sends it to Anthropic, whose AI lays it out as fields for you to check; nothing is judged until you press Submit the Request.',
 	textareaLabel: 'Your fields: plain lines, a table, a field list, a JSON Schema or a @context',
-	textareaPlaceholder: 'One field a line, with or without a description, for example:\nbirthDate: the date the person was born\nschoolName - the name of the school',
+	// TQ 2026-11-20: one example of each kind of input the page reads (free text, field lines, JSON, a JSON-LD @context)
+	textareaPlaceholder: 'Any of these, for example:\n\nA sentence:\nthe student\'s birth date and the name of the school they attend\n\nFields, one a line, with or without a description:\nbirthDate: the date the person was born\nschoolName - the name of the school\n\nJSON:\n{"birthDate": "the date the person was born", "schoolName": "the name of the school"}\n\nA JSON-LD @context:\n{"@context": {"birthDate": "https://schema.org/birthDate", "schoolName": "https://schema.org/name"}}',
 	askDraftButton: 'Ask for a judged draft',
 	// ⟪rosettaReportLegible, TQ⟫ the button's words while the page shows its reading of the text for review; Undo, or a JSON paste, keeps askDraftButton
 	submitRequestButton: 'Submit the Request',

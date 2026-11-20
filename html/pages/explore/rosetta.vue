@@ -182,7 +182,7 @@ onUnmounted(() => store.stopPolling());
 					</div>
 				</v-alert>
 				<SiteNoticePiiNotice class="mb-3" />
-				<v-textarea v-model="store.pastedText" :label="rosettaPageWords.textareaLabel" :placeholder="rosettaPageWords.textareaPlaceholder" persistent-placeholder rows="12" data-testid="rosetta-text" />
+				<v-textarea v-model="store.pastedText" :label="rosettaPageWords.textareaLabel" :placeholder="rosettaPageWords.textareaPlaceholder" persistent-placeholder rows="16" data-testid="rosetta-text" />
 				<v-btn color="primary" :loading="store.isBusy" data-testid="rosetta-ask-draft" @click="askForDraft">{{ askButtonText }}</v-btn>
 				<p v-if="!loginStore.validUser" class="mt-2 text-caption" data-testid="rosetta-anonymous-note">{{ rosettaPageWords.anonymousLimitsNote }}</p>
 			</v-window-item>
