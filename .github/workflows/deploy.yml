@@ -58,9 +58,15 @@ jobs:
 
   test:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: system/code
     steps:
+      # checked out at system/code, the layout the servers and workstations use, so code/../configs and the
+      # config resolver's search for a 'system' folder both find the CI config installed below
       - uses: actions/checkout@v4
         with:
+          path: system/code
           fetch-depth: 0  # some tests read older versions of files with git show
 
       - uses: actions/setup-node@v4
@@ -76,8 +82,11 @@ jobs:
           echo "npm ci in html (some server tests load browser stores)"
           (cd html && npm ci --no-audit --no-fund --loglevel=error) || exit 1
 
-      - name: server test suite, gated except for ciExcludedTestList.txt
-        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs"
+      - name: install the secret-free CI config (fresh random secrets for this run)
+        run: bash server/test/ciConfig/installCiConfig.sh ../configs
+
+      - name: server test suite, gated except for ciExcludedTestList.txt (each test killed after 120 s)
+        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs" 120
 
       - name: keep the suite logs
         if: always()
