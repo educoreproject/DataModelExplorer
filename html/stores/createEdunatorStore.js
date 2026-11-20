@@ -15,7 +15,7 @@
 import { defineStore } from 'pinia';
 import { nextTick } from 'vue';
 import axios from 'axios';
-import { ASKMILO_SESSION_SAVED_PATTERN, resumePlanOf, savedTurnListOf, priorTurnListOf } from './dmeSessionTurns.js';
+import { resumePlanOf, savedTurnListOf, priorTurnListOf } from './dmeSessionTurns.js';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -67,7 +67,7 @@ export function createEdunatorStore({
 
 	return defineStore(storeId, {
 		state: () => ({
-			responses: [],     // Array of { prompt, stdout, stderr, controlHtml, timestamp, askMiloSessionName }
+			responses: [],     // Array of { prompt, stdout, stderr, controlHtml, timestamp, askMiloSessionName, askMiloResumeProof }
 			currentIndex: -1,  // Which slide is displayed (-1 = none/welcome)
 			loading: false,
 			lastHeartbeat: null,
@@ -81,8 +81,9 @@ export function createEdunatorStore({
 			_activeSessionName: '',
 			sessionList: [],
 			_saveInFlight: false,
-			// Set by loadSession: the saved turns ride along with the NEXT prompt only, so the server can rebuild
-			// the conversation if the askMilo session is gone (or was never trustworthy). Cleared once sent.
+			// Set by loadSession: the saved turns ride along with EVERY prompt until askMilo confirms a save
+			// (askMiloSessionSaved), so the server can rebuild the conversation if the askMilo session is gone or
+			// untrustworthy, and a prompt that is killed, dropped or fails does not leave later prompts without context.
 			_priorTurnListPending: null,
 			// Multi-tenant version selector (08): the user's graph-state versions, the
 			// active version, and whether the current view is read-only (soft lock).
@@ -109,6 +110,7 @@ export function createEdunatorStore({
 				promptName: defaultPromptName,
 				newSession: true,
 				resumeSessionName: '',
+				resumeProof: '',   // the server's proof that this browser may resume resumeSessionName
 				// Multi-tenant: which graph the user is exploring.
 				// 'standard' = the public 18-standard graph (default, unchanged
 				// behavior); 'user' = the user's own graph leg. Rides along in
@@ -228,15 +230,18 @@ export function createEdunatorStore({
 					} else if (msg.channel === 'stderr') {
 						const current = this.responses[this.responses.length - 1];
 						if (current) current.stderr += msg.delta;
-						// Auto-detect session name from stderr.
-						// askMilo outputs "Session saved: session_name" via xLog.status.
-						const sessionMatch = msg.delta.match(ASKMILO_SESSION_SAVED_PATTERN);
-						if (sessionMatch) {
-							this.settings.resumeSessionName = sessionMatch[1];
-							this.settings.newSession = false;
-							// saved with the turn, so a reopened session resumes the askMilo session that answered it
-							if (current) current.askMiloSessionName = sessionMatch[1];
+					} else if (msg.channel === 'askMiloSessionSaved') {
+						// ws-graphinator read askMilo's "Session saved: NAME" and sends it with the proof that lets
+						// this browser resume NAME later. Both are saved with the turn.
+						const current = this.responses[this.responses.length - 1];
+						this.settings.resumeSessionName = msg.askMiloSessionName;
+						this.settings.resumeProof = msg.resumeProof;
+						this.settings.newSession = false;
+						if (current) {
+							current.askMiloSessionName = msg.askMiloSessionName;
+							current.askMiloResumeProof = msg.resumeProof;
 						}
+						this._priorTurnListPending = null;
 					} else if (msg.channel === 'contextRebuilt') {
 						const current = this.responses[this.responses.length - 1];
 						if (current) current.stderr += `<span class="ws-notice">${msg.noticeText}</span>\n`;
@@ -347,7 +352,6 @@ export function createEdunatorStore({
 				};
 				if (this._priorTurnListPending) {
 					promptMessage.savedTurnList = this._priorTurnListPending;
-					this._priorTurnListPending = null;
 				}
 				ws.send(JSON.stringify(promptMessage));
 			},
@@ -375,6 +379,7 @@ export function createEdunatorStore({
 				this.responses = [];
 				this.currentIndex = -1;
 				this.settings.resumeSessionName = '';
+				this.settings.resumeProof = '';
 				this.settings.newSession = true;
 				this._activeSessionRefId = null;
 				this._activeSessionName = '';
@@ -477,8 +482,9 @@ export function createEdunatorStore({
 						this._activeSessionName = session.sessionName || '';
 
 						// Continue the askMilo conversation that answered these turns, not a blank one.
-						const { resumeSessionName, isRebuildNeeded } = resumePlanOf(sessionData);
+						const { resumeSessionName, resumeProof, isRebuildNeeded } = resumePlanOf(sessionData);
 						this.settings.resumeSessionName = resumeSessionName;
+						this.settings.resumeProof = resumeProof;
 						this.settings.newSession = isRebuildNeeded;
 						this._priorTurnListPending = priorTurnListOf(sessionData);
 					}

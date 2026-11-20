@@ -1,0 +1,5 @@
+{
+	"_comment": "Limits for resuming a reopened DME session (lib/dme-resume-context.js). rebuiltContextCharacterBudget: the most saved-turn text prepended to one prompt when a conversation is rebuilt; the newest turns that fit are kept and the user is told how many were left out (about 100k tokens at 4 characters a token, inside the models' context window with room for tools and the answer). savedTurnCountLimit: the most saved turns one prompt may carry; more is refused by name.",
+	"rebuiltContextCharacterBudget": 400000,
+	"savedTurnCountLimit": 1000
+}

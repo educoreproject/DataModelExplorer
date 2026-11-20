@@ -5,7 +5,7 @@
 // reopened it answered by a NEW session, opal_valley, because loadSession restored no name.
 // Run: node html/test/dmeSessionTurns.test.mjs
 
-import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf } from '../stores/dmeSessionTurns.js';
+import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf, controlStringOf, turnIndexListNeedingControlHtmlOf } from '../stores/dmeSessionTurns.js';
 
 const resultList = [];
 const check = (label, passed, detail = '') => {
@@ -28,10 +28,20 @@ check('a new turn names it in askMiloSessionName, which wins over the log', askM
 check('a turn with neither names none', askMiloSessionNameOfTurn({ stderr: 'nothing here' }) === '');
 
 const firstTurnOnly = resumePlanOf(johnTurnList.slice(0, 1));
-check('a session answered by one askMilo session resumes it (the 11/19 failure: it resumed nothing)', firstTurnOnly.resumeSessionName === 'noble_cedar' && firstTurnOnly.isRebuildNeeded === false, JSON.stringify(firstTurnOnly));
+check('a turn saved before resume proofs existed is rebuilt, not resumed by bare name (P-1)', firstTurnOnly.resumeSessionName === '' && firstTurnOnly.isRebuildNeeded === true, JSON.stringify(firstTurnOnly));
+
+const provenTurnList = [
+	{ prompt: 'q1', stdout: 'a1', stderr: '', askMiloSessionName: 'ivory_tide', askMiloResumeProof: 'a'.repeat(64) },
+	{ prompt: 'q2', stdout: 'a2', stderr: '', askMiloSessionName: 'ivory_tide', askMiloResumeProof: 'b'.repeat(64) },
+];
+const provenPlan = resumePlanOf(provenTurnList);
+check('one askMilo session behind every turn, with its proof: resumed with the NEWEST proof (the 11/19 failure: it resumed nothing)', provenPlan.resumeSessionName === 'ivory_tide' && provenPlan.resumeProof === 'b'.repeat(64) && provenPlan.isRebuildNeeded === false, JSON.stringify(provenPlan));
 
 const damaged = resumePlanOf(johnTurnList);
 check("John's damaged session (noble_cedar then opal_valley) resumes neither and asks for a rebuild from all turns", damaged.resumeSessionName === '' && damaged.isRebuildNeeded === true, JSON.stringify(damaged));
+
+const provenButSplit = resumePlanOf([provenTurnList[0], { ...provenTurnList[1], askMiloSessionName: 'amber_arch' }]);
+check('two askMilo sessions behind the turns, even with proofs: rebuilt, not resumed', provenButSplit.isRebuildNeeded === true && provenButSplit.resumeSessionName === '');
 
 check('a session with no named turn asks for a rebuild', resumePlanOf([{ prompt: 'q', stdout: 'a', stderr: '' }]).isRebuildNeeded === true);
 
@@ -44,6 +54,11 @@ check(`leaving controlHtml out shrinks John's 4 turns (${fullBytes} -> ${savedBy
 
 const priorTurnList = priorTurnListOf(johnTurnList);
 check('the turns sent for a rebuild carry only prompt and stdout', priorTurnList.length === 4 && priorTurnList.every((turn) => Object.keys(turn).join(',') === 'prompt,stdout'));
+
+// S-6: Save All after a load must draw the panels of turns never viewed
+check('controlStringOf joins control blocks as the panel splits them', controlStringOf('a<control>X</control>b<control type="y">Y</control>') === '\x00X\x00Y');
+const loadedTurnList = [{ stdout: '<control>P1</control>' }, { stdout: 'no panel' }, { stdout: '<control>P3</control>', controlHtml: '<div>drawn</div>' }, { stdout: '<control>P4</control>' }];
+check('S-6: the turns needing their panel drawn for Save All are those with control blocks and no controlHtml (1 and 4)', JSON.stringify(turnIndexListNeedingControlHtmlOf(loadedTurnList)) === '[0,3]', JSON.stringify(turnIndexListNeedingControlHtmlOf(loadedTurnList)));
 
 const failedCount = resultList.filter((passed) => !passed).length;
 console.log(`dmeSessionTurns: ${resultList.length - failedCount} passed, ${failedCount} failed`);

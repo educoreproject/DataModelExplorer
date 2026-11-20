@@ -12,6 +12,7 @@ import { marked } from 'marked';
 import { parseMultipartContent, resolveCidReferences } from '../composables/useMultipartContent.js';
 import { vizLoading } from '../composables/useVizRenderer.js';
 import { buildZip } from './buildZip.js';
+import { controlStringOf, turnIndexListNeedingControlHtmlOf } from '../stores/dmeSessionTurns.js';
 
 // Configure marked for streaming-friendly rendering
 marked.setOptions({
@@ -221,54 +222,66 @@ const renderedStdout = computed(() => {
 // During streaming, splitContent.control accumulates raw block contents but
 // the panel shows "Rendering..." until done. On done, we process all blocks
 // in one pass — multipart JSON gets CID-resolved, plain HTML appended as-is.
-const renderControlBlocks = async (controlString) => {
-	if (!controlString) return;
 
-	const blocks = controlString.split('\x00').filter(Boolean);
-	const resp = graphStore.value.currentResponse;
-	let accumulatedHtml = '';
-
-	// Always use the DOM ref panel for consistent mixed-content rendering
-	multipartMode.value = true;
-	await nextTick();
-
-	if (!controlPanelRef.value) return;
-	controlPanelRef.value.innerHTML = '';
-
-	for (const block of blocks) {
+// Render a control string's blocks into targetElement (multipart JSON gets CID-resolved, plain HTML appended as-is).
+const renderControlStringInto = async (controlString, targetElement) => {
+	targetElement.innerHTML = '';
+	for (const block of controlString.split('\x00').filter(Boolean)) {
 		const multipart = parseMultipartContent(block);
-
+		const wrapper = document.createElement('div');
+		wrapper.innerHTML = multipart ? multipart.html : block;
+		targetElement.appendChild(wrapper);
 		if (multipart) {
-			const wrapper = document.createElement('div');
-			wrapper.innerHTML = multipart.html;
-			controlPanelRef.value.appendChild(wrapper);
 			const errors = await resolveCidReferences(wrapper, multipart.attachments);
 			if (errors.length > 0) {
 				console.warn('[EdunatorPanel] CID resolution errors:', errors);
 			}
-			accumulatedHtml += multipart.html;
-		} else {
-			const wrapper = document.createElement('div');
-			wrapper.innerHTML = block;
-			controlPanelRef.value.appendChild(wrapper);
-			accumulatedHtml += block;
 		}
 	}
+};
 
-	// Serialize the rendered DOM (with SVG diagrams) back into controlHtml.
-	// This replaces <img src="cid:..."> with inline data URIs so downloads
-	// include the rendered diagrams as self-contained images.
+// Serialize rendered DOM (with SVG diagrams) to self-contained HTML: each <svg> becomes a data-URI <img>, so a
+// download carries its diagrams.
+const serializedControlHtmlOf = (renderedElement) => {
+	const rendered = renderedElement.cloneNode(true);
+	rendered.querySelectorAll('svg').forEach((svg) => {
+		const svgString = new XMLSerializer().serializeToString(svg);
+		const dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+		const img = document.createElement('img');
+		img.src = dataUri;
+		img.style.maxWidth = '100%';
+		svg.parentNode.replaceChild(img, svg);
+	});
+	return rendered.innerHTML;
+};
+
+const renderControlBlocks = async (controlString) => {
+	if (!controlString) return;
+	const resp = graphStore.value.currentResponse;
+
+	// Always use the DOM ref panel for consistent mixed-content rendering
+	multipartMode.value = true;
+	await nextTick();
+	if (!controlPanelRef.value) return;
+
+	await renderControlStringInto(controlString, controlPanelRef.value);
 	if (resp && controlPanelRef.value) {
-		const rendered = controlPanelRef.value.cloneNode(true);
-		rendered.querySelectorAll('svg').forEach((svg) => {
-			const svgString = new XMLSerializer().serializeToString(svg);
-			const dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-			const img = document.createElement('img');
-			img.src = dataUri;
-			img.style.maxWidth = '100%';
-			svg.parentNode.replaceChild(img, svg);
-		});
-		resp.controlHtml = rendered.innerHTML;
+		resp.controlHtml = serializedControlHtmlOf(controlPanelRef.value);
+	}
+};
+
+// Saved sessions do not carry controlHtml (the panel redraws it), so a turn never viewed since loading has none.
+// Save All draws those off-screen, in the page so layout-dependent diagrams render, then removes the scratch node.
+const ensureControlHtmlOf = async (resp) => {
+	const controlString = controlStringOf(resp.stdout);
+	const offscreenElement = document.createElement('div');
+	offscreenElement.style.cssText = 'position:absolute; left:-100000px; top:0; width:900px;';
+	document.body.appendChild(offscreenElement);
+	try {
+		await renderControlStringInto(controlString, offscreenElement);
+		resp.controlHtml = serializedControlHtmlOf(offscreenElement);
+	} finally {
+		offscreenElement.remove();
 	}
 };
 
@@ -613,6 +626,7 @@ const saveAll = async () => {
 		const files = [];
 		const promptLines = [];
 
+		const needingControlHtmlIndexList = turnIndexListNeedingControlHtmlOf(responses);
 		for (let i = 0; i < responses.length; i++) {
 			const resp = responses[i];
 			const num = String(i + 1).padStart(2, '0');
@@ -638,6 +652,9 @@ const saveAll = async () => {
 
 			if (stdoutText) {
 				files.push({ name: `${fileName}.md`, content: stdoutText });
+			}
+			if (needingControlHtmlIndexList.includes(i)) {
+				await ensureControlHtmlOf(resp);
 			}
 			if (resp.controlHtml) {
 				files.push({ name: `${fileName}.html`, content: resp.controlHtml });
