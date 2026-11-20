@@ -26,7 +26,8 @@ const requestGuardOf = ({ userRegistrationSettings }) => {
 	const identifierLimiter = requestLimiterOf({ requestLimit: registrationSettings.identifierRequestLimit, windowMinutes: registrationSettings.identifierWindowMinutes });
 
 	const refusalOfRequest = ({ clientAddress, identifierText }) => {
-		const addressAdmission = addressLimiter.admissionOf(`address:${clientAddress || 'unknown'}`);
+		// a request with no req.ip (none seen behind nginx) is not let through uncounted: all such share one named bucket
+		const addressAdmission = addressLimiter.admissionOf(`address:${clientAddress || 'noClientAddress'}`);
 		if (!addressAdmission.isAdmitted) {
 			return refusalOf('tooManyRequests', { detailList: [addressAdmission.retryAfterSeconds] });
 		}
