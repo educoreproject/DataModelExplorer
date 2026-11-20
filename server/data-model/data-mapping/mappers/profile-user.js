@@ -223,6 +223,32 @@ const moduleFunction =
 				'byRefId': `
 					SELECT * FROM <!tableName!> WHERE refId = <!refId!>
 				`,
+				// PLAN-userRegistrationReset-112026 (R3, R4): a reset finds the account by exact username OR by email address,
+				// the address compared without regard to case. Whole rows: the caller needs disabled and emailAdr.
+				'byUsernameOrEmail': `
+					SELECT * FROM <!tableName!> WHERE username = <!identifier!> OR lower(trim(emailAdr)) = lower(trim(<!identifier!>))
+				`,
+				// registration refuses a username or an address already in use, both compared without regard to case
+				'byUsernameInsensitive': `
+					SELECT refId FROM <!tableName!> WHERE lower(username) = lower(<!username!>)
+				`,
+				'byEmailInsensitive': `
+					SELECT refId FROM <!tableName!> WHERE lower(trim(emailAdr)) = lower(trim(<!emailAdr!>))
+				`,
+				// the account state column (oauth-schema-init adds it): '' is active, 'pendingConfirmation' awaits the emailed
+				// link, anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
+				'disabledByRefId': `
+					UPDATE <!tableName!> SET [disabled] = <!disabled!> WHERE refId = <!refId!>
+				`,
+				// the startup check (R4 depends on one account per address): addresses held by more than one user, with
+				// the usernames that share each. The address itself is not returned, so the log line names no address.
+				'duplicateEmailList': `
+					SELECT group_concat(username, ', ') AS usernameListText, count(*) AS userCount
+					FROM <!tableName!>
+					WHERE emailAdr IS NOT NULL AND trim(emailAdr) != ''
+					GROUP BY lower(trim(emailAdr))
+					HAVING count(*) > 1
+				`,
 				// updateByRefId: an UPDATE of the columns present, by refId, every value escaped ONCE by safeSql. User
 				// rows are written this way, not through sqlite-instance saveObject, because this project's (pre-10.0)
 				// saveObject doubles every apostrophe before escaping it again: O'Brien was stored as O''Brien, and each

@@ -169,11 +169,8 @@ const repairOfSessionRow = (sessionRow) => {
 	return { repairedRow: { refId: sessionRow.refId, sessionData: repairedSessionData, sessionName: nameRepair.repairedSessionName }, flagText: '' };
 };
 
-// the 10.0 trigger, as sqlite-instance's initTable writes it
-const correctTriggerSqlOf = (tableName) =>
-	`CREATE TRIGGER [${tableName}UpdateTimestamp] AFTER UPDATE ON [${tableName}] FOR EACH ROW BEGIN UPDATE [${tableName}] SET [updatedAt] = CURRENT_TIMESTAMP WHERE [refId] = NEW.[refId]; END;`;
-
-const isWherelessTimestampTrigger = (triggerRow) => /UpdateTimestamp$/.test(triggerRow.name) && !/\bWHERE\b/i.test(triggerRow.sql || '');
+// the 10.0 trigger, as sqlite-instance's initTable writes it, and what counts as stale: shared with the startup migration
+const { correctTriggerSqlOf, isWherelessTimestampTrigger } = require('../lib/timestamp-trigger-repair');
 
 // ================================================================================
 // THE DATABASE BOUNDARY
