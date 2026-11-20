@@ -18,9 +18,12 @@
 // 11.0 sets it on every open, so -apply REFUSES a database already in WAL mode. -acceptWalDatabase overrides that, for
 // an operator who knows no 11.0 server has saved to this file (another tool may have set WAL).
 //
-// -dryRun opens the file READ-ONLY and changes nothing, not even the journal mode. -apply writes a consistent copy to
-// backupFilePath (VACUUM INTO; refused if that file exists), then reads and repairs inside ONE BEGIN IMMEDIATE
-// transaction, so no save can land between the read and the write. It keeps the journal mode as it found it and keeps
+// -dryRun opens the file READ-ONLY and changes nothing, not even the journal mode. -apply takes ONE BEGIN IMMEDIATE
+// lock, copies the file to backupFilePath inside it (refused if that file exists; a WAL database is backed up with
+// VACUUM INTO just before), then reads and repairs inside the same transaction, so no save can land between the
+// backup, the read and the write.
+// KNOWN RESIDUE (second review N2-1): a turn whose ONLY word-internal apostrophes are a typed pair (O''Brien, with no
+// other apostrophe in the turn) pins its count one too high when no other turn bounds it. Contrived; 0 such rows locally. It keeps the journal mode as it found it and keeps
 // each session's updatedAt, and marks the file repaired (PRAGMA user_version 1001): a second -apply is refused by name
 // and a -dryRun reports isAlreadyRepaired. Stop the API server first all the same.
 //
@@ -276,6 +279,10 @@ const runRepair = ({ databaseFilePath, backupFilePath, isApply, isWalAccepted },
 		),
 	);
 
+	// -apply: from here to COMMIT is one BEGIN IMMEDIATE transaction, so no save lands between the backup, the read and
+	// the write. In the usual (rollback journal) case the backup is a copy of the file taken INSIDE that lock, so it holds
+	// exactly what was repaired. A WAL database (only with -acceptWalDatabase) keeps its newest writes in the -wal file,
+	// so it is backed up with VACUUM INTO just before the lock instead; stop the API server first all the same.
 	taskList.push((args, next) => {
 		if (!isApply) {
 			next('', args);
@@ -285,21 +292,24 @@ const runRepair = ({ databaseFilePath, backupFilePath, isApply, isWalAccepted },
 			next(`backupFilePath already exists, refusing to overwrite it: ${backupFilePath}`, args);
 			return;
 		}
+		const isWalDatabase = report.journalModeFound === 'wal';
 		databaseCallOf(
-			() => args.db.prepare('VACUUM INTO ?').run(backupFilePath),
+			() => {
+				if (isWalDatabase) args.db.prepare('VACUUM INTO ?').run(backupFilePath);
+				args.db.exec('BEGIN IMMEDIATE;');
+				if (!isWalDatabase) fs.copyFileSync(databaseFilePath, backupFilePath, fs.constants.COPYFILE_EXCL);
+				return true;
+			},
 			(err) => {
 				if (err || !fs.existsSync(backupFilePath)) {
-					next(`backup to ${backupFilePath} failed: ${err || 'no file written'}`, args);
+					next(`backup to ${backupFilePath} failed: ${err || 'no file written'}`, { ...args, isInTransaction: args.db.inTransaction });
 					return;
 				}
 				report.backupFilePath = backupFilePath;
-				next('', args);
+				next('', { ...args, isInTransaction: true });
 			},
 		);
 	});
-
-	// -apply: from here to COMMIT is one BEGIN IMMEDIATE transaction, so no save lands between the read and the write
-	taskList.push((args, next) => (isApply ? databaseCallOf(() => args.db.exec('BEGIN IMMEDIATE;'), (err) => next(err, { ...args, isInTransaction: !err })) : next('', args)));
 
 	taskList.push((args, next) =>
 		databaseCallOf(
