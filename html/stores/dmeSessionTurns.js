@@ -19,16 +19,15 @@ export const askMiloSessionNameOfTurn = (turn) => {
 	return sessionMatch ? sessionMatch[1] : '';
 };
 
-// One askMilo session behind every named turn, and the server's proof for it (askMiloResumeProof, issued with each
-// save since 2026-11-19): resume it; the server still rebuilds if askMilo no longer has it or holds other turns.
-// No name, more than one (sessions damaged by the pre-fix reload bug), or no proof (turns saved before proofs
-// existed): resume none, and the server rebuilds the conversation from the saved turns.
+// The askMilo session that answered the NEWEST named turn, with the server's proof for it (askMiloResumeProof): resume
+// it. It holds every later turn and, after a rebuild, the earlier ones as prior context; the server still checks that
+// askMilo's turn count matches the turns this session says it answered, and rebuilds if not. The newest named turn
+// has no proof (saved before proofs existed, or damaged by the pre-fix reload bug): resume none, and the server
+// rebuilds the conversation from the saved turns into a new session.
 export const resumePlanOf = (turnList) => {
-	const namedTurnList = (turnList || []).filter((turn) => askMiloSessionNameOfTurn(turn));
-	const distinctNameList = [...new Set(namedTurnList.map(askMiloSessionNameOfTurn))];
-	const provenTurn = [...namedTurnList].reverse().find((turn) => turn.askMiloResumeProof);
-	if (distinctNameList.length === 1 && provenTurn) {
-		return { resumeSessionName: distinctNameList[0], resumeProof: provenTurn.askMiloResumeProof, isRebuildNeeded: false };
+	const newestNamedTurn = [...(turnList || [])].reverse().find((turn) => askMiloSessionNameOfTurn(turn));
+	if (newestNamedTurn && newestNamedTurn.askMiloSessionName && newestNamedTurn.askMiloResumeProof) {
+		return { resumeSessionName: newestNamedTurn.askMiloSessionName, resumeProof: newestNamedTurn.askMiloResumeProof, isRebuildNeeded: false };
 	}
 	return { resumeSessionName: '', resumeProof: '', isRebuildNeeded: true };
 };
@@ -41,7 +40,26 @@ export const savedTurnListOf = (turnList) =>
 		return savedTurn;
 	});
 
-export const priorTurnListOf = (turnList) => (turnList || []).map((turn) => ({ prompt: turn.prompt || '', stdout: turn.stdout || '' }));
+// MUST equal savedTurnCharacterLimit in server/lib/dme-resume-limits.json (html/test/dmeSessionTurns.test.mjs checks).
+// The server refuses a prompt whose saved turns exceed it, so the browser sends the newest turns whole within it and
+// the older ones as empty placeholders: the server still counts every turn an askMilo session answered.
+export const SAVED_TURN_CHARACTER_LIMIT = 800000;
+
+export const priorTurnListOf = (turnList) => {
+	let remainingCharacterCount = SAVED_TURN_CHARACTER_LIMIT;
+	const priorTurnList = [];
+	for (let turnIndex = (turnList || []).length - 1; turnIndex >= 0; turnIndex--) {
+		const turn = turnList[turnIndex];
+		const askMiloSessionName = askMiloSessionNameOfTurn(turn);
+		const prompt = turn.prompt || '';
+		const stdout = turn.stdout || '';
+		const characterCount = prompt.length + stdout.length + askMiloSessionName.length;
+		const isWithinLimit = characterCount <= remainingCharacterCount && (priorTurnList.length === 0 || priorTurnList[0].prompt || priorTurnList[0].stdout);
+		remainingCharacterCount -= isWithinLimit ? characterCount : askMiloSessionName.length;
+		priorTurnList.unshift(isWithinLimit ? { prompt, stdout, askMiloSessionName } : { prompt: '', stdout: '', askMiloSessionName });
+	}
+	return priorTurnList;
+};
 
 // '\x00' before each block's inner text, exactly as EdunatorPanel splits stdout for the right-hand panel
 export const controlStringOf = (stdoutText) =>

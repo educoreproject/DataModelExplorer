@@ -350,6 +350,11 @@ export function createEdunatorStore({
 						activeVersionRefId: this.activeVersionRefId,
 					},
 				};
+				// "New Session" ticked after reopening a session: the user wants a fresh conversation, so the saved
+				// turns are dropped rather than rebuilt into it
+				if (this.settings.newSession) {
+					this._priorTurnListPending = null;
+				}
 				if (this._priorTurnListPending) {
 					promptMessage.savedTurnList = this._priorTurnListPending;
 				}
@@ -482,10 +487,11 @@ export function createEdunatorStore({
 						this._activeSessionName = session.sessionName || '';
 
 						// Continue the askMilo conversation that answered these turns, not a blank one.
-						const { resumeSessionName, resumeProof, isRebuildNeeded } = resumePlanOf(sessionData);
+						// (isRebuildNeeded leaves no name: the server rebuilds from the saved turns sent with the prompt)
+						const { resumeSessionName, resumeProof } = resumePlanOf(sessionData);
 						this.settings.resumeSessionName = resumeSessionName;
 						this.settings.resumeProof = resumeProof;
-						this.settings.newSession = isRebuildNeeded;
+						this.settings.newSession = false;
 						this._priorTurnListPending = priorTurnListOf(sessionData);
 					}
 				} catch (err) {

@@ -8,19 +8,25 @@ const path = require('path');
 const { buildGraphConnection } = require('../data-model/lib/user-graph/user-graph');
 const { buildUserModeAskmiloContext } = require('./dme-usermode-context');
 const dmeResumeContextGen = require('./dme-resume-context');
-const { askMiloSessionNameOfLogLine } = dmeResumeContextGen;
+const resumeLimitByName = require('./dme-resume-limits.json');
 
 const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const moduleFunction = ({ server }) => {
 	const { xLog, getConfig } = process.global;
 
-	// Every resume is checked here (dme-resume-context.js): the proof that lets a browser continue an askMilo session is
-	// an HMAC keyed by the token secret this server already holds; absent, the module throws at startup.
+	// Every askMilo session the DME uses is named, and every resume decided, by dme-resume-context.js. Its proofs are
+	// keyed by THIS instance's own secret, startApiServer.ini [dmeResumeProof] secret; absent, startup refuses by name.
 	const resumeContext = dmeResumeContextGen({
-		resumeProofSecret: (getConfig('access-token-header-tools') || {}).secret,
-		limitByName: require('./dme-resume-limits.json'),
+		resumeProofSecret: (getConfig('dmeResumeProof') || {}).secret,
+		limitByName: resumeLimitByName,
 	});
+
+	// a pipe to or from an askMilo child can fail (EPIPE when the child dies before reading a large prompt); with no
+	// listener that 'error' would exit the API process, so every spawned child's pipes report into its own stream
+	const reportPipeErrorsOf = (child, onPipeError) => {
+		['stdin', 'stdout', 'stderr'].forEach((pipeName) => child[pipeName].on('error', (pipeError) => onPipeError(`${pipeName}: ${pipeError && pipeError.code ? pipeError.code : pipeError}`)));
+	};
 
 	// Derive askMilo config directory from the server's own config file path.
 	// process.global.configurationSourceFilePath is set in startApiServer.js
@@ -41,7 +47,8 @@ const moduleFunction = ({ server }) => {
 
 	// noServer: true — upgrade routing handled centrally in startApiServer.js
 	// to avoid conflicts when multiple WebSocketServer instances share one HTTP server.
-	const wss = new WebSocketServer({ noServer: true });
+	// maxPayload: the largest message the DME needs (lib/dme-resume-limits.json), not the ws default of 100 MiB
+	const wss = new WebSocketServer({ noServer: true, maxPayload: resumeLimitByName.webSocketMaxPayloadBytes });
 
 	// Prevent unhandled error from crashing the process (e.g., EADDRINUSE on restart)
 	wss.on('error', (err) => {
@@ -85,6 +92,8 @@ const moduleFunction = ({ server }) => {
 	// Includes toolsByRole from [explorerToolsByRole] config section.
 	const sendConfigDefaults = (ws) => {
 		const child = spawn(askMiloCommand, [], { shell: true, env: process.env });
+		reportPipeErrorsOf(child, (pipeErrorText) => xLog.error(`[ws-graphinator] askMilo defaults child pipe failed: ${pipeErrorText}`));
+		child.on('error', (spawnError) => xLog.error(`[ws-graphinator] askMilo defaults child failed: ${spawnError && spawnError.message}`));
 		let stdout = '';
 		const defaultsInput = { switches: { getDefaults: true }, values: {}, fileList: [] };
 		if (askMiloConfigPath) { defaultsInput.values.configPath = [askMiloConfigPath]; }
@@ -106,6 +115,10 @@ const moduleFunction = ({ server }) => {
 
 	wss.on('connection', (ws) => {
 		let activeChild = null;
+
+		// a socket-level error (a message over maxPayload, a bad frame) closes this connection; unheard, it would exit
+		// the API process
+		ws.on('error', (socketError) => xLog.error(`[ws-graphinator] connection error, closed: ${socketError && socketError.message}`));
 
 		// WebSocket keepalive — send ping every 30s to prevent timeouts.
 		// The ws library handles pong responses automatically on the client side.
@@ -254,9 +267,10 @@ const moduleFunction = ({ server }) => {
 					askmiloUserEnv = userCtx.env;
 				}
 
-				// Which askMilo conversation this prompt continues (askMilo CLI: --resumeSession=NAME), decided in ONE
-				// place: a name is resumed only with the proof this server issued for it; a reopened DME session's saved
-				// turns (sent until a save is confirmed) are rebuilt as context when the name cannot be resumed as is.
+				// Which askMilo conversation this prompt continues, decided in ONE place: a name is resumed (--resumeSession)
+				// only with the proof this server issued for it; otherwise the SERVER names a new session (--sessionName).
+				// A reopened DME session's saved turns (sent until a save is confirmed) become --priorContextText when the
+				// name cannot be resumed as is. askMilo replays context within the same budget (--sessionContextCharacterBudget).
 				const resumeDecision = resumeContext.resumeDecisionOf({
 					promptText: msg.text,
 					requestedSessionName: settings.newSession ? '' : settings.resumeSessionName,
@@ -271,7 +285,15 @@ const moduleFunction = ({ server }) => {
 				}
 				if (resumeDecision.resumeSessionName) {
 					values.resumeSession = [resumeDecision.resumeSessionName];
+				} else {
+					values.sessionName = [resumeDecision.newSessionName];
 				}
+				if (resumeDecision.priorContextText) {
+					values.priorContextText = [resumeDecision.priorContextText];
+				}
+				values.sessionContextCharacterBudget = [String(resumeLimitByName.rebuiltContextCharacterBudget)];
+				// the session this run writes, known BEFORE it starts; its proof goes to the browser only once askMilo has saved it
+				const askMiloSessionName = resumeDecision.resumeSessionName || resumeDecision.newSessionName;
 				if (resumeDecision.rebuiltTurnCount) {
 					xLog.status(`[ws-graphinator] RESUME rebuilt resume=${resumeDecision.resumeSessionName || '(new)'} from ${resumeDecision.rebuiltTurnCount} saved turn(s), ${resumeDecision.omittedTurnCount} left out`);
 					ws.send(JSON.stringify({ channel: 'contextRebuilt', noticeText: resumeDecision.noticeText }));
@@ -280,7 +302,7 @@ const moduleFunction = ({ server }) => {
 				const askMiloInput = JSON.stringify({
 					switches,
 					values,
-					fileList: [resumeDecision.promptText],
+					fileList: [msg.text],
 				});
 
 				const queryPreview = msg.text.length > 400
@@ -289,15 +311,22 @@ const moduleFunction = ({ server }) => {
 				const modelInfo = settings.model || '(default)';
 				const promptInfo = settings.promptName || '(default)';
 				const perspectivesInfo = settings.perspectives || 0;
-				const sessionInfo = resumeDecision.resumeSessionName ? `resume=${resumeDecision.resumeSessionName}` : 'newSession';
+				const sessionInfo = resumeDecision.resumeSessionName ? `resume=${resumeDecision.resumeSessionName}` : `newSession=${resumeDecision.newSessionName}`;
 				xLog.status(`[ws-graphinator] QUERY model=${modelInfo} prompt=${promptInfo} perspectives=${perspectivesInfo} ${sessionInfo}`);
 				xLog.status(`[ws-graphinator] QUERY text: ${queryPreview}`);
 
+				const spawnStartMs = Date.now();
 				const child = spawn(askMiloCommand, [], {
 					shell: true,
 					env: { ...process.env, ...askmiloUserEnv },
 				});
 				activeChild = child;
+				reportPipeErrorsOf(child, (pipeErrorText) => {
+					xLog.error(`[ws-graphinator] askMilo pipe failed (${askMiloSessionName}): ${pipeErrorText}`);
+					if (ws.readyState === ws.OPEN) {
+						ws.send(JSON.stringify({ channel: 'stderr', delta: `<span class="ws-error">The connection to the answering process broke (${escapeHtml(pipeErrorText)}).</span>\n` }));
+					}
+				});
 
 				// Write prompt via stdin
 				child.stdin.write(askMiloInput);
@@ -315,18 +344,9 @@ const moduleFunction = ({ server }) => {
 					}
 				});
 
-				// Pipe stderr chunks to WebSocket stderr channel (HTML-escaped for v-html rendering). Whole lines are also
-				// scanned for askMilo's "Session saved: NAME" (a chunk can split a line), and each save is sent to the
-				// browser with the proof that lets it resume NAME later.
-				let partialStderrLine = '';
+				// Pipe stderr chunks to WebSocket stderr channel (HTML-escaped for v-html rendering). Nothing in it is
+				// trusted: the session name and its proof come from the server's own decision, after askMilo exits.
 				child.stderr.on('data', (chunk) => {
-					const lineList = `${partialStderrLine}${chunk.toString()}`.split('\n');
-					partialStderrLine = lineList.pop();
-					lineList.map(askMiloSessionNameOfLogLine).filter(Boolean).forEach((askMiloSessionName) => {
-						if (ws.readyState === ws.OPEN) {
-							ws.send(JSON.stringify({ channel: 'askMiloSessionSaved', askMiloSessionName, resumeProof: resumeContext.resumeProofOf(askMiloSessionName) }));
-						}
-					});
 					if (ws.readyState === ws.OPEN) {
 						ws.send(
 							JSON.stringify({
@@ -367,6 +387,11 @@ const moduleFunction = ({ server }) => {
 				// Process exit signals done
 				child.on('close', (exitCode) => {
 					clearInterval(heartbeatInterval);
+					// the save is confirmed by the session FILE, written by this run, not by anything askMilo printed
+					const isSaveConfirmed = exitCode === 0 && resumeContext.askMiloSessionSavedSinceOf(askMiloSessionName, spawnStartMs);
+					if (isSaveConfirmed && ws.readyState === ws.OPEN) {
+						ws.send(JSON.stringify({ channel: 'askMiloSessionSaved', askMiloSessionName, resumeProof: resumeContext.resumeProofOf(askMiloSessionName) }));
+					}
 					if (ws.readyState === ws.OPEN) {
 						ws.send(
 							JSON.stringify({ channel: 'done', exitCode }),

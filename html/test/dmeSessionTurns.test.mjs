@@ -5,7 +5,8 @@
 // reopened it answered by a NEW session, opal_valley, because loadSession restored no name.
 // Run: node html/test/dmeSessionTurns.test.mjs
 
-import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf, controlStringOf, turnIndexListNeedingControlHtmlOf } from '../stores/dmeSessionTurns.js';
+import fs from 'fs';
+import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf, controlStringOf, turnIndexListNeedingControlHtmlOf, SAVED_TURN_CHARACTER_LIMIT } from '../stores/dmeSessionTurns.js';
 
 const resultList = [];
 const check = (label, passed, detail = '') => {
@@ -40,8 +41,10 @@ check('one askMilo session behind every turn, with its proof: resumed with the N
 const damaged = resumePlanOf(johnTurnList);
 check("John's damaged session (noble_cedar then opal_valley) resumes neither and asks for a rebuild from all turns", damaged.resumeSessionName === '' && damaged.isRebuildNeeded === true, JSON.stringify(damaged));
 
-const provenButSplit = resumePlanOf([provenTurnList[0], { ...provenTurnList[1], askMiloSessionName: 'amber_arch' }]);
-check('two askMilo sessions behind the turns, even with proofs: rebuilt, not resumed', provenButSplit.isRebuildNeeded === true && provenButSplit.resumeSessionName === '');
+const afterRebuildPlan = resumePlanOf([provenTurnList[0], { ...provenTurnList[1], askMiloSessionName: 'dme_session_000000000000000000000001' }]);
+check('N2-3: two askMilo sessions behind the turns (a rebuild happened): the NEWEST proven one is resumed, not rebuilt again', afterRebuildPlan.isRebuildNeeded === false && afterRebuildPlan.resumeSessionName === 'dme_session_000000000000000000000001' && afterRebuildPlan.resumeProof === 'b'.repeat(64), JSON.stringify(afterRebuildPlan));
+const newestUnproven = resumePlanOf([provenTurnList[0], { prompt: 'q', stdout: 'a', stderr: 'Session saved: opal_valley' }]);
+check('the newest named turn has no proof (legacy): rebuild, even if an older one had a proof', newestUnproven.isRebuildNeeded === true && newestUnproven.resumeSessionName === '');
 
 check('a session with no named turn asks for a rebuild', resumePlanOf([{ prompt: 'q', stdout: 'a', stderr: '' }]).isRebuildNeeded === true);
 
@@ -53,7 +56,14 @@ const savedBytes = JSON.stringify(savedTurnList).length;
 check(`leaving controlHtml out shrinks John's 4 turns (${fullBytes} -> ${savedBytes} bytes)`, savedBytes < fullBytes * 0.8, `${savedBytes} of ${fullBytes}`);
 
 const priorTurnList = priorTurnListOf(johnTurnList);
-check('the turns sent for a rebuild carry only prompt and stdout', priorTurnList.length === 4 && priorTurnList.every((turn) => Object.keys(turn).join(',') === 'prompt,stdout'));
+check('the turns sent for a rebuild carry prompt, stdout and the askMilo session that answered each', priorTurnList.length === 4 && priorTurnList.every((turn) => Object.keys(turn).join(',') === 'prompt,stdout,askMiloSessionName') && priorTurnList[0].askMiloSessionName === 'noble_cedar');
+
+const serverLimitByName = JSON.parse(fs.readFileSync(new URL('../../server/lib/dme-resume-limits.json', import.meta.url), 'utf8'));
+check('the browser cap equals the server cap (server/lib/dme-resume-limits.json savedTurnCharacterLimit)', SAVED_TURN_CHARACTER_LIMIT === serverLimitByName.savedTurnCharacterLimit, `${SAVED_TURN_CHARACTER_LIMIT} vs ${serverLimitByName.savedTurnCharacterLimit}`);
+const hugeTurnList = Array.from({ length: 6 }, (unused, turnIndex) => ({ prompt: `q${turnIndex + 1}`, stdout: 'z'.repeat(200000), askMiloSessionName: 'amber_arch' }));
+const cappedPriorList = priorTurnListOf(hugeTurnList);
+const sentCharacterCount = cappedPriorList.reduce((soFar, turn) => soFar + turn.prompt.length + turn.stdout.length + turn.askMiloSessionName.length, 0);
+check('B2-2: a 1.2-million-character session is sent within the cap: newest turns whole, older ones as placeholders, every turn still counted', sentCharacterCount <= SAVED_TURN_CHARACTER_LIMIT && cappedPriorList.length === 6 && cappedPriorList[5].stdout.length === 200000 && cappedPriorList[0].stdout === '' && cappedPriorList[0].askMiloSessionName === 'amber_arch', `${sentCharacterCount}`);
 
 // S-6: Save All after a load must draw the panels of turns never viewed
 check('controlStringOf joins control blocks as the panel splits them', controlStringOf('a<control>X</control>b<control type="y">Y</control>') === '\x00X\x00Y');

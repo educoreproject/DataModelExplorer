@@ -66,6 +66,12 @@ check('after a confirmed save the saved turns are no longer sent; the prompt res
 await serverSays({ channel: 'stderr', delta: 'Session saved: noble_cedar\n' });
 check('a "Session saved:" line in stderr no longer changes what is resumed (only askMiloSessionSaved does)', store.settings.resumeSessionName === 'ivory_tide');
 
+// N2-5: reopen, then tick "New Session": the saved turns are not rebuilt into the fresh conversation
+await store.loadSession('sessionRefIdProbe');
+store.settings.newSession = true;
+store.sendPrompt('a fresh topic');
+check('N2-5: "New Session" ticked after reopening: the prompt carries no saved turns and asks for no resume', lastSent().savedTurnList === undefined && lastSent().settings.newSession === true && store._priorTurnListPending === null, JSON.stringify(lastSent()).slice(0, 200));
+
 store.startNewSession();
 check('a new session forgets name, proof and pending turns', store.settings.resumeSessionName === '' && store.settings.resumeProof === '' && store.settings.newSession === true && store._priorTurnListPending === null);
 
