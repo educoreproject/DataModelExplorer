@@ -321,7 +321,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess', 'companionSourcesDirPath']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess', 'companionSourcesDirPath', 'companionMomentClock']),
 				localCallback,
 			);
 		});
@@ -341,6 +341,8 @@ const moduleFunction =
 			databaseTypeName,
 			// companion page source files (SPEC-companionPages-102826) live beside the database
 			companionSourcesDirPath: require('./lib/companion-pages/companion-source-files').companionSourcesDirPathOf(databaseContainerDirPath),
+			// ONE clock for companion uploadedAt and compiledAt, so no two stamps tie (companion-moment-clock.js)
+			companionMomentClock: require('./lib/companion-pages/companion-moment-clock').companionMomentClockOf(),
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {

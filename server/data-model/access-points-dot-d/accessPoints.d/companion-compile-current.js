@@ -42,7 +42,10 @@ const QUIET = { suppressStatementLog: true };
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
-	const { sqlDb, dataMapping, neo4jDb, accessPointsDotD } = passThroughParameters;
+	const { sqlDb, dataMapping, neo4jDb, accessPointsDotD, companionMomentClock } = passThroughParameters;
+	if (!companionMomentClock) {
+		throw new Error(`${moduleName}: passThroughParameters.companionMomentClock is required (data-model.js makes one); compiledAt must come from the clock uploads use`);
+	}
 	const pageMapper = dataMapping['companion-page'];
 	const compileMapper = dataMapping['companion-compile'];
 
@@ -142,7 +145,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			const sourceList = sourceRecordList.map((sourceRecord) => sourceRecord.qtSelectProperties(['refId', 'sourceRole', 'sourcePart', 'fileName', 'documentDate', 'originUrl', 'originNote', 'sha256', 'uploadedAt']));
-			const compileRow = { refId: newRefId(), pageSlug, ...liveStampByName, compiledAt: new Date().toISOString(), payloadJson: JSON.stringify({ ...payloadBody, sourceList }), statusText: 'compiled' };
+			const compileRow = { refId: newRefId(), pageSlug, ...liveStampByName, compiledAt: companionMomentClock.nextMomentText(), payloadJson: JSON.stringify({ ...payloadBody, sourceList }), statusText: 'compiled' };
 			next('', { ...args, compileRow });
 		});
 

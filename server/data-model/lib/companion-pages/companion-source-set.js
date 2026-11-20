@@ -30,7 +30,10 @@ const sourceRecordListCurrentAt = ({ sourceHistoryList, momentText }) => {
 		.forEach((sourceRecord) => {
 			const partName = `${sourceRecord.sourceRole}\t${sourceRecord.sourcePart}`;
 			const heldRecord = newestByPartName[partName];
-			if (!heldRecord || heldRecord.uploadedAt < sourceRecord.uploadedAt) newestByPartName[partName] = sourceRecord;
+			// stamps from companion-moment-clock never tie; rows stamped before it can, and then the larger refId wins,
+			// so the answer does not depend on the order the history list arrives in
+			const isNewer = !heldRecord || heldRecord.uploadedAt < sourceRecord.uploadedAt || (heldRecord.uploadedAt === sourceRecord.uploadedAt && heldRecord.refId < sourceRecord.refId);
+			if (isNewer) newestByPartName[partName] = sourceRecord;
 		});
 	return Object.values(newestByPartName);
 };
