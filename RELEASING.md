@@ -85,13 +85,28 @@ GitHub logs in with a key that can run `deployFromGit.sh` and nothing else. Each
 
 Vercel's own environments (`Production`, `Preview` and the rest) are separate. GitHub environment names ignore case, so never name a new one `production`.
 
-## Not yet proven
+## Proven by drill
 
-These parts have been built but have never fired for real:
+On 2026-11-20 each of these was set off on purpose and behaved as described:
 
-1. Production's automatic rollback and its hold file. Both are proven on demo.
-2. The lock against two deploys running at once.
-3. The limits on the GitHub key, which were checked by reading the settings, not by trying to break them.
+1. Pushing straight to `dev` or `main` is refused, even for an admin.
+2. The GitHub key runs `deployFromGit.sh` and nothing else: other commands, a terminal, port forwarding, scp and sftp are all refused. demo and prod can each restart only their own service.
+3. A deploy is refused while another holds the lock.
+4. A changed package lock makes the deploy run `npm ci` in that folder.
+5. Production refuses a deploy while its hold file exists, and deploys once it is gone.
+6. After a droplet reboot, the volume, Docker, nginx, every service and the two live graph containers come back by themselves, and each app reconnects to its graph with no restart.
+
+Rollback is proven on demo only. Production uses the same script, and each step a rollback takes (the git reset and the restart) has already run there as `prod`.
+
+## After a restart
+
+A restarted app takes a while to be fully ready, and `/api/health` shows only part of it. After the 2026-11-20 reboot:
+
+1. The service answers within seconds, with `graphState: waiting`.
+2. It reports `graphState: connected` about 40 seconds later, once Neo4j in the graph container has started.
+3. About 50 seconds after that, it finishes checking its URIs. Until then every standards query, including over MCP, is refused with `uriPromiseUnavailable`.
+
+Wait for the line `URI promise proved` in the service's journal before judging the MCP tools.
 
 ## More detail
 
