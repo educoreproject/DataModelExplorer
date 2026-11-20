@@ -60,6 +60,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # some tests read older versions of files with git show
 
       - uses: actions/setup-node@v4
         with:
@@ -71,9 +73,11 @@ jobs:
             echo "npm ci in $packageDirPath"
             (cd "$packageDirPath" && npm ci --omit=dev --no-audit --no-fund --loglevel=error) || exit 1
           done
+          echo "npm ci in html (some server tests load browser stores)"
+          (cd html && npm ci --no-audit --no-fund --loglevel=error) || exit 1
 
-      - name: server test suite
-        run: SUITE_NODE_BIN_PATH="$(command -v node)" bash server/test/runServerSuite.sh "$RUNNER_TEMP/suiteLogs"
+      - name: server test suite, gated except for ciExcludedTestList.txt
+        run: bash server/scripts/deploy/runCiTestGate.sh "$RUNNER_TEMP/suiteLogs"
 
       - name: keep the suite logs
         if: always()
