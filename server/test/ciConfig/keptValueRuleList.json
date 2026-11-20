@@ -1,0 +1,18 @@
+{
+	"_comment": "Which config VALUES buildCiConfig.js may copy verbatim from the real (qbook) configs into the committed CI config. Every other value becomes __CI_RANDOM__ (a fresh random string per GitHub run, see installCiConfig.sh) or, for a multi-line quoted value, the fixed placeholder below. A setting whose NAME matches sensitiveSettingNamePattern is never kept, whatever its value looks like, except an empty value or a pure <!substitution!> reference. Patterns are JavaScript regular expressions matched against the whole value.",
+	"mirroredDirNameList": ["qbook", "_globalPrompts"],
+	"sensitiveSettingNamePattern": "(pass|secret|token|key|auth|cred|cookie|salt|signing|apiKey|private|webhook|bearer|email|userName|^user$)",
+	"multiLineValuePlaceholderText": "CI placeholder text: the real value lives only in the configs repository",
+	"keptValueRuleList": [
+		{ "ruleName": "empty", "pattern": "^$" },
+		{ "ruleName": "number", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" },
+		{ "ruleName": "boolean", "pattern": "^(true|false|yes|no)$" },
+		{ "ruleName": "substitutionPath", "pattern": "^([A-Za-z0-9_./-]*<![A-Za-z0-9_]+!>)+[A-Za-z0-9_./-]*$" },
+		{ "ruleName": "relativeIniPath", "pattern": "^(\\.{1,2}/)*[A-Za-z0-9_./-]+\\.ini$" },
+		{ "ruleName": "localUrl", "pattern": "^(bolt|http|https|ws)://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?(/[A-Za-z0-9_./-]*)?$" },
+		{ "ruleName": "claudeModelName", "pattern": "^claude-[a-z0-9.-]+$" },
+		{ "ruleName": "singleIdentifier", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+		{ "ruleName": "identifierList", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(,\\s*[A-Za-z_][A-Za-z0-9_]*)+$" },
+		{ "ruleName": "timeZoneName", "pattern": "^[A-Z][A-Za-z]+/[A-Z][A-Za-z_]+$" }
+	]
+}
