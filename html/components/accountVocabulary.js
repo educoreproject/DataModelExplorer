@@ -33,6 +33,7 @@ export const accountVocabulary = Object.freeze({
 	firstNameLabel: 'First name',
 	lastNameLabel: 'Last name',
 	emailLabel: 'Email address',
+	emailNotValidText: 'Enter an email address such as name@example.org.',
 	passwordLabel: 'Password',
 	registerButtonText: 'Create account',
 	registrationClosedText: 'New accounts cannot be created here at present.',

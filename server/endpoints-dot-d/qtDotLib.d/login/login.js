@@ -174,8 +174,8 @@ const moduleFunction = function ({
 		taskList.push((args, next) => {
 			const { accessPointsDotD, xQuery } = args;
 
-			const localCallback = (err, { user }) => {
-				next(err, { ...args, user });
+			const localCallback = (err, { user, refusal } = {}) => {
+				next(err, { ...args, user, refusal });
 			};
 
 			accessPointsDotD['user-login'](xQuery, localCallback);
@@ -309,7 +309,13 @@ const moduleFunction = function ({
 		const xQuery = xReq.method === 'POST' ? xReq.qtGetSurePath('body', {}) : xReq.qtGetSurePath('query', {});
 		const initialData = { accessTokenHeaderTools, accessPointsDotD, xQuery, permissionValidator };
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
-			const { user } = args;
+			const { user, refusal } = args;
+
+			// a named refusal (emailNotConfirmed) answers { refusalName, reason }, so the form can offer the next step
+			if (refusal) {
+				xRes.status(refusal.httpStatus).send({ refusalName: refusal.refusalName, reason: refusal.reason });
+				return;
+			}
 
 			if (err) {
 				xRes.status(401).send(`${err.toString()} (Q6520254429344293203)`);

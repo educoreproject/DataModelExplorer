@@ -2,8 +2,18 @@
 	// @concept: [[JwtTokenManagement]]
 	// @concept: [[ReactiveFormValidation]]
 	import { useLoginStore } from '@/stores/loginStore';
+	import { useAccountStore } from '@/stores/accountStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
 	const LoginStore = useLoginStore();
+	const accountStore = useAccountStore();
+
+	// "Create an account" only where the server says registration is on (WORKORDER-userRegistrationReset-112026)
+	onMounted(() => accountStore.loadRegistrationOptions());
+
+	const isResendSent = ref(false);
+	const resendConfirmation = async () => {
+		isResendSent.value = await accountStore.resendConfirmation(username.value.trim());
+	};
 	const { gitCommitHash } = useRuntimeConfig().public;
 
 	const router = useRouter();
@@ -89,9 +99,15 @@
 
 					<v-btn class="mt-2" color="primary" @click="submitButton" block>Login</v-btn>
 				</v-form>
-				<!-- WORKORDER-userRegistrationReset-112026: reset is always offered -->
+				<!-- WORKORDER-userRegistrationReset-112026: an account awaiting confirmation is offered a new link -->
+				<div v-if="LoginStore.loginRefusalName === 'emailNotConfirmed' && !isResendSent" class="mt-3">
+					<v-btn variant="tonal" block :loading="accountStore.loading" data-testid="login-resend-confirmation" @click="resendConfirmation">{{ accountVocabulary.resendConfirmationButtonText }}</v-btn>
+				</div>
+				<v-alert v-if="isResendSent && accountStore.noticeMsg" type="success" density="compact" class="mt-3" data-testid="login-resend-notice">{{ accountStore.noticeMsg }}</v-alert>
+				<!-- reset is always offered; registration only where it is on -->
 				<div class="account-links mt-4">
 					<NuxtLink to="/forgot-password" data-testid="login-forgot-password">{{ accountVocabulary.forgotPasswordLinkText }}</NuxtLink>
+					<NuxtLink v-if="accountStore.registrationOptions.selfRegistrationEnabled" to="/register" data-testid="login-create-account">{{ accountVocabulary.createAccountLinkText }}</NuxtLink>
 				</div>
 			</v-sheet>
 		</v-sheet>

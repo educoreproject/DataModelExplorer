@@ -20,7 +20,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
-const { refusalOf, refusalText, textIdentifierRefusalOf } = require('../../../lib/user-profile-rules');
+const { refusalOf, refusalText, textIdentifierRefusalOf, isAccountDisabled, PENDING_CONFIRMATION_TEXT } = require('../../../lib/user-profile-rules');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
 const { issueToken } = require('../../../lib/user-account-tokens');
 const { accountMailOf, lifetimeTextOf } = require('../../../lib/user-account-mail');
@@ -80,8 +80,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			const [userRow] = userRowList;
-			if (String(userRow.disabled || '').trim()) {
-				noSendOf(`accountNotActive: ${userRow.username} (${userRow.disabled === 'pendingConfirmation' ? 'awaiting email confirmation' : 'disabled'})`);
+			if (isAccountDisabled(userRow.disabled)) {
+				noSendOf(`accountNotActive: ${userRow.username} (${String(userRow.disabled).trim() === PENDING_CONFIRMATION_TEXT ? 'awaiting email confirmation' : 'disabled'})`);
 				return;
 			}
 			if (!String(userRow.emailAdr || '').trim()) {

@@ -39,11 +39,15 @@ check('data-model.js hands the loader companionMomentClock', selectedPropertyLis
 const passedResourceByName = selectedPropertyList.reduce((soFar, propertyName) => ({ ...soFar, [propertyName]: { placeholderFor: propertyName } }), {});
 passedResourceByName.companionMomentClock = require('../data-model/lib/companion-pages/companion-moment-clock').companionMomentClockOf();
 passedResourceByName.dataMapping = new Proxy({}, { get: () => ({ getSql: () => '', map: (inData) => inData }) });
+// the registration and reset access points refuse to load without the email sender (WORKORDER-userRegistrationReset-112026)
+check('data-model.js hands the loader emailSender and userRegistrationSettings', selectedPropertyList.includes('emailSender') && selectedPropertyList.includes('userRegistrationSettings'), selectedPropertyList.join(','));
+passedResourceByName.emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: undefined });
+passedResourceByName.userRegistrationSettings = require('../lib/user-registration-settings').registrationSettingsOf(undefined);
 
 require('../data-model/access-points-dot-d/access-points-dot-d')(passedResourceByName, (loadError, accessPointsDotD) => {
 	console.log = realConsoleLog;
 	check('the loader ran', !loadError, loadError);
-	['companion-source-upload', 'companion-compile-current'].forEach((accessPointName) => {
+	['companion-source-upload', 'companion-compile-current', 'password-reset-request', 'password-reset-complete', 'user-registration-register', 'user-registration-confirm', 'user-registration-resend', 'user-registration-options'].forEach((accessPointName) => {
 		check(`${accessPointName} is loaded (not skipped as an invalid file)`, accessPointsDotD && typeof accessPointsDotD[accessPointName] === 'function', skippedLogList.filter((logText) => logText.includes(accessPointName)).join(' | ').slice(0, 200));
 	});
 	const failedCount = resultList.filter((passed) => !passed).length;

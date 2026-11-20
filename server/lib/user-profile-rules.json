@@ -50,6 +50,7 @@
 		"tooManyRequests": { "refusalName": "tooManyRequests", "httpStatus": 429, "reason": "too many requests; please try again in <!detailListText!> seconds" },
 		"usernameTaken": { "refusalName": "usernameTaken", "httpStatus": 409, "reason": "that username is already in use" },
 		"emailAdrTaken": { "refusalName": "emailAdrTaken", "httpStatus": 409, "reason": "an account already uses that email address; you can reset its password instead" },
+		"accountDisabled": { "refusalName": "accountDisabled", "httpStatus": 403, "reason": "this account is disabled; please contact the site's administrators" },
 		"requiredPropertyMissing": { "refusalName": "requiredPropertyMissing", "httpStatus": 400, "reason": "these are required: <!detailListText!>" }
 	}
 }

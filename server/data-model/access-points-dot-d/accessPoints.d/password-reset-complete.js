@@ -18,7 +18,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
-const { refusalOf, refusalText, textIdentifierRefusalOf, valueLengthRefusalOf } = require('../../../lib/user-profile-rules');
+const { refusalOf, refusalText, textIdentifierRefusalOf, valueLengthRefusalOf, isAccountDisabled, PENDING_CONFIRMATION_TEXT } = require('../../../lib/user-profile-rules');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
 const { redeemToken } = require('../../../lib/user-account-tokens');
 const { revokeSessionsOf } = require('../../../lib/user-session-revocation');
@@ -66,7 +66,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				}
 				const userRow = userRowList.qtLast();
 				// an account removed or disabled after the link was sent: the link no longer works
-				if (!userRow || String(userRow.disabled || '').trim()) {
+				if (!userRow || isAccountDisabled(userRow.disabled)) {
 					const linkRefusal = refusalOf('linkNotValid');
 					next(refusalText(linkRefusal), { ...args, refusal: linkRefusal });
 					return;
