@@ -6,6 +6,11 @@
 # configsDirPath is the checkout's sibling configs/ directory (code/../configs). Copies configs/instanceSpecific/
 # from this folder into it, then replaces every __CI_RANDOM__ with its own fresh random string, so every secret-shaped
 # setting has a value no one has seen and no run reuses. Refuses to write over an existing configs directory.
+#
+# Two layouts, because the code looks in both: code that knows the dev Mac by hostname reads
+# configs/instanceSpecific/qbook/, and everywhere else (servers, and this runner) reads configs/ FLAT, as deployPrograms
+# leaves it. So the randomised qbook files are also copied flat into configs/, with _globalPrompts beside them and the
+# merge paths '../_globalPrompts/' rewritten to './_globalPrompts/' as on a server. Both layouts share one set of values.
 
 main() {
 	set -u -o pipefail
@@ -32,8 +37,14 @@ main() {
 		echo "installCiConfig: FAILED: a __CI_RANDOM__ placeholder was left unreplaced" >&2
 		return 1
 	fi
+	cp "$configsDirPath"/instanceSpecific/qbook/*.ini "$configsDirPath/" &&
+		cp -R "$configsDirPath/instanceSpecific/_globalPrompts" "$configsDirPath/_globalPrompts" &&
+		perl -i -pe 's#\.\./_globalPrompts/#./_globalPrompts/#g' "$configsDirPath"/*.ini || {
+		echo "installCiConfig: FAILED: could not make the flat layout in $configsDirPath" >&2
+		return 1
+	}
 	replacedCount="$(grep -rhoE 'ci[0-9a-f]{48}' "$configsDirPath" | sort -u | wc -l | tr -d ' ')"
-	echo "installCiConfig: $(find "$configsDirPath" -name '*.ini' | wc -l | tr -d ' ') files installed in $configsDirPath, $replacedCount distinct random values"
+	echo "installCiConfig: $(find "$configsDirPath" -name '*.ini' | wc -l | tr -d ' ') files installed in $configsDirPath (instanceSpecific/ and flat), $replacedCount distinct random values"
 	return 0
 }
 

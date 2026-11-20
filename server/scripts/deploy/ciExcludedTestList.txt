@@ -97,3 +97,4 @@ server/test/standards-neighbourhood.test.js	needs configs/ (not in the repositor
 server/test/standards-query-card-uri-live.test.js	needs configs/ (not in the repository)
 server/test/standards-query-core-live.test.js	needs configs/ (not in the repository)
 server/test/standards-query-size-live.test.js	needs configs/ (not in the repository)
+server/test/ci-config-names-match.test.js	needs the real configs repository (it checks the CI copy against it)
