@@ -16,8 +16,8 @@
 	"_adminEditablePropertyList": "what admin-create-user and admin-update-user accept (the admin user form sends exactly these; the rater tool sends a subset); anything else is refused by name (propertyNotAdminEditable), never dropped (re-verification 2026-11-10).",
 	"adminEditablePropertyList": ["refId", "username", "password", "first", "last", "emailAdr", "phone", "role"],
 
-	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling.",
-	"maxLengthByPropertyName": { "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64 },
+	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling. username (2026-11-20) bounds self-registration and the admin tools alike.",
+	"maxLengthByPropertyName": { "username": 64, "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64 },
 
 	"_emailPatternText": "the email rule for the self-save path, the same pattern admin-create-user and admin-update-user apply (review N-2).",
 	"emailPatternText": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
@@ -41,6 +41,15 @@
 		"sessionRevoked": { "refusalName": "sessionRevoked", "httpStatus": 401, "reason": "this sign-in ended when the account's password was changed; please sign in again" },
 		"noSuchUser": { "refusalName": "noSuchUser", "httpStatus": 404, "reason": "no user record has that refId" },
 		"currentPasswordRequired": { "refusalName": "currentPasswordRequired", "httpStatus": 400, "reason": "a new password is saved only with the current password" },
-		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" }
+		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" },
+		"_registrationAndReset": "the refusals of self-registration and password reset (PLAN-userRegistrationReset-112026). linkNotValid covers an unknown, altered, used or expired link alike, so a refusal tells a guesser nothing about which.",
+		"registrationNotConfigured": { "refusalName": "registrationNotConfigured", "httpStatus": 503, "reason": "account registration and password reset are not set up on this server" },
+		"registrationDisabled": { "refusalName": "registrationDisabled", "httpStatus": 403, "reason": "new accounts cannot be created here at present" },
+		"emailNotConfirmed": { "refusalName": "emailNotConfirmed", "httpStatus": 403, "reason": "this account's email address has not been confirmed yet; follow the link we emailed, or ask for a new one" },
+		"linkNotValid": { "refusalName": "linkNotValid", "httpStatus": 400, "reason": "this link is not valid: it may have expired or already been used; please ask for a new one" },
+		"tooManyRequests": { "refusalName": "tooManyRequests", "httpStatus": 429, "reason": "too many requests; please try again in <!detailListText!> seconds" },
+		"usernameTaken": { "refusalName": "usernameTaken", "httpStatus": 409, "reason": "that username is already in use" },
+		"emailAdrTaken": { "refusalName": "emailAdrTaken", "httpStatus": 409, "reason": "an account already uses that email address; you can reset its password instead" },
+		"requiredPropertyMissing": { "refusalName": "requiredPropertyMissing", "httpStatus": 400, "reason": "these are required: <!detailListText!>" }
 	}
 }

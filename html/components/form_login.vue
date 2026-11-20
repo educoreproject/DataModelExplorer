@@ -2,6 +2,7 @@
 	// @concept: [[JwtTokenManagement]]
 	// @concept: [[ReactiveFormValidation]]
 	import { useLoginStore } from '@/stores/loginStore';
+	import { accountVocabulary } from '@/components/accountVocabulary.js';
 	const LoginStore = useLoginStore();
 	const { gitCommitHash } = useRuntimeConfig().public;
 
@@ -88,6 +89,10 @@
 
 					<v-btn class="mt-2" color="primary" @click="submitButton" block>Login</v-btn>
 				</v-form>
+				<!-- WORKORDER-userRegistrationReset-112026: reset is always offered -->
+				<div class="account-links mt-4">
+					<NuxtLink to="/forgot-password" data-testid="login-forgot-password">{{ accountVocabulary.forgotPasswordLinkText }}</NuxtLink>
+				</div>
 			</v-sheet>
 		</v-sheet>
 		<div class="version-tag">build {{ gitCommitHash }}</div>
@@ -95,6 +100,13 @@
 </template>
 
 <style scoped>
+.account-links {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	font-size: 0.875rem;
+}
 .version-tag {
 	font-size: 8pt;
 	color: #bbb;

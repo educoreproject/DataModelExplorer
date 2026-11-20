@@ -30,6 +30,7 @@ const RULES_FILE_PATH = path.join(__dirname, 'user-profile-rules.json');
 const REQUIRED_CASE_NAME_LIST = [
 	'noSignedInUser', 'bodyNotAnObject', 'notOwnRecord', 'propertyNotSelfEditable', 'propertyNotAdminEditable', 'propertyValueNotText', 'propertyTooLong', 'emailAdrNotValid',
 	'usernameNotAllowed', 'identifierNotText', 'noSuchUser', 'passwordNotAccepted', 'currentPasswordRequired', 'currentPasswordWrong', 'sessionRevoked',
+	'registrationNotConfigured', 'registrationDisabled', 'emailNotConfirmed', 'linkNotValid', 'tooManyRequests', 'usernameTaken', 'emailAdrTaken', 'requiredPropertyMissing',
 ];
 const BLANK_VALUE_LIST = Object.freeze([undefined, null, '']);
 

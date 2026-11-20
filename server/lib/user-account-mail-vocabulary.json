@@ -1,0 +1,55 @@
+{
+	"_comment": "The words of every account email and of the public account replies (PLAN-userRegistrationReset-112026 4.7), here so tqii can edit them without touching code. Read by lib/user-account-mail.js, which refuses at load if a message lacks subjectText or paragraphList. <!name!> tokens are filled per message; every filled value is HTML-escaped in the html part. Keep it plain: no internal names, nothing a stranger could not read.",
+
+	"messageByName": {
+		"passwordReset": {
+			"subjectText": "Reset your EDUcore password",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Someone (we hope you) asked to reset the password of the EDUcore account <!username!>. To choose a new password, open this link within <!lifetimeText!>:",
+				"<!linkUrl!>",
+				"If you did not ask for this, ignore this message: your password stays as it is.",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"passwordChanged": {
+			"subjectText": "Your EDUcore password was changed",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The password of the EDUcore account <!username!> was just changed, and every earlier sign-in to it has ended.",
+				"If you did not do this, reset your password at once: <!forgotPasswordUrl!>",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"confirmEmail": {
+			"subjectText": "Confirm your EDUcore account",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Thank you for creating the EDUcore account <!username!>. To confirm this email address and start using it, open this link within <!lifetimeText!>:",
+				"<!linkUrl!>",
+				"If you did not create this account, ignore this message and it will not be activated.",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"newAccountNotice": {
+			"subjectText": "New EDUcore account: <!username!>",
+			"paragraphList": [
+				"A new account was created on <!siteUrl!>.",
+				"Username: <!username!>",
+				"Name: <!firstName!> <!lastName!>",
+				"Email: <!emailAdr!>",
+				"Email confirmation required: <!confirmationText!>"
+			]
+		}
+	},
+
+	"_replyByName": "what the public endpoints answer. resetRequested and confirmationResent are the SAME for every request, whether or not an account matched, so the form cannot be used to learn who has an account.",
+	"replyByName": {
+		"resetRequested": "If an account matches, we have emailed a link to its address. The link works once and expires soon.",
+		"confirmationResent": "If an account is waiting for confirmation, we have emailed a new link to its address.",
+		"registeredCheckEmail": "Your account was created. We have emailed a link to confirm your address; open it to sign in.",
+		"registeredSignedIn": "Your account was created and you are signed in.",
+		"passwordResetDone": "Your password was changed and you are signed in. Every earlier sign-in has ended.",
+		"registrationConfirmed": "Your email address is confirmed and you are signed in."
+	}
+}

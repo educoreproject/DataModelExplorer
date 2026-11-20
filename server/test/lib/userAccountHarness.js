@@ -10,7 +10,11 @@
 // Every statement any access point sends to the users table through getData is recorded, in order, in
 // statementList, so a gate can read the exact SQL a hostile value produced.
 //
-//   bootUserAccountServer({ serverPath, scratchDirPath, seedUserList }, callback(errText, { baseUrl, accessPointByName, statementList, userTable, close }))
+//   bootUserAccountServer({ serverPath, scratchDirPath, seedUserList, extraAccessPointNameList, extraEndpointFileNameList, extraPassThroughByName }, callback(errText, { baseUrl, accessPointByName, statementList, userTable, sqlDb, dataMapping, close }))
+//
+// The extra* parameters (WORKORDER-userRegistrationReset-112026) add access points and endpoints to the standard set, and
+// resources to what the access points are handed (the email sender, the registration settings); a caller that gives
+// none boots exactly the standard server.
 //   httpPost({ baseUrl, routePath, requestBody, authtoken }, callback(errText, { statusCode, bodyText, bodyJson, authtoken, authclaimsText }))
 
 const fs = require('fs');
@@ -58,7 +62,7 @@ const recordingSqlDbOf = (sqlDb, statementList) => ({
 		}),
 });
 
-const bootUserAccountServer = ({ serverPath, scratchDirPath, seedUserList }, callback) => {
+const bootUserAccountServer = ({ serverPath, scratchDirPath, seedUserList, extraAccessPointNameList = [], extraEndpointFileNameList = [], extraPassThroughByName = {} }, callback) => {
 	installProcessGlobal();
 	const accessPointDirPath = path.join(serverPath, 'data-model', 'access-points-dot-d', 'accessPoints.d');
 	const endpointDirPath = path.join(serverPath, 'endpoints-dot-d', 'qtDotLib.d');
@@ -100,8 +104,8 @@ const bootUserAccountServer = ({ serverPath, scratchDirPath, seedUserList }, cal
 				const statementList = [];
 				const sqlDb = recordingSqlDbOf(realSqlDb, statementList);
 				const accessPointByName = {};
-				const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb: null, slackAccess: null, accessPointsDotD: accessPointByName };
-				LOADED_ACCESS_POINT_NAME_LIST.forEach((accessPointName) => {
+				const passThroughParameters = { sqlDb, hxAccess: {}, dataMapping, neo4jDb: null, slackAccess: null, accessPointsDotD: accessPointByName, ...extraPassThroughByName };
+				[...LOADED_ACCESS_POINT_NAME_LIST, ...extraAccessPointNameList].forEach((accessPointName) => {
 					require(path.join(accessPointDirPath, accessPointName))({ dotD: { logList: [], library: { add: (addedName, serviceFunction) => { accessPointByName[addedName] = serviceFunction; } } }, passThroughParameters });
 				});
 				const expressApp = express();
@@ -118,6 +122,7 @@ const bootUserAccountServer = ({ serverPath, scratchDirPath, seedUserList }, cal
 				const endpointPassThrough = { expressApp, accessTokenHeaderTools, accessPointsDotD: accessPointByName, routingPrefix: '/api/' };
 				require(path.join(endpointDirPath, 'login', 'login.js'))({ dotD: endpointsDotD, passThroughParameters: endpointPassThrough });
 				require(path.join(endpointDirPath, 'save-user-data.js'))({ dotD: endpointsDotD, passThroughParameters: endpointPassThrough });
+				extraEndpointFileNameList.forEach((endpointFileName) => require(path.join(endpointDirPath, endpointFileName))({ dotD: endpointsDotD, passThroughParameters: endpointPassThrough }));
 				const httpServer = expressApp.listen(0, '127.0.0.1', () => {
 					callback('', {
 						baseUrl: `http://127.0.0.1:${httpServer.address().port}`,
@@ -125,6 +130,8 @@ const bootUserAccountServer = ({ serverPath, scratchDirPath, seedUserList }, cal
 						statementList,
 						seededUserList,
 						userTable,
+						sqlDb: realSqlDb,
+						dataMapping,
 						tokenSecret: HARNESS_TOKEN_SECRET,
 						close: () => httpServer.close(),
 					});
