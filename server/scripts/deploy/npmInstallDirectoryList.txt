@@ -2,11 +2,12 @@
 # These are the package folders whose node_modules is NOT committed to git. Folders whose node_modules
 # IS committed (server/, cli/, server/lib/x-log, sqlite-instance, hxconnector-instance,
 # assemble-configuration-show-help-maybe-exit) are deliberately absent: git already delivers them.
+# figure-out-config-path is absent on purpose: its code requires only node built-ins, and its package-lock.json is out
+# of step with its package.json, so npm ci refuses it.
 # A folder is reinstalled only when its package-lock.json differs from the one its node_modules was built from.
 .
 server/data-model/lib/ask-milo-multitool
 server/data-model/data-mapping
-server/lib/assemble-configuration-show-help-maybe-exit/lib/figure-out-config-path
 cli/lib.d/data-model-explorer
 cli/lib.d/index-data-model-explorer-for-milo
 cli/lib.d/sif-search
