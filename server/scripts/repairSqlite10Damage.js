@@ -21,11 +21,12 @@
 // -dryRun opens the file READ-ONLY and changes nothing, not even the journal mode. -apply takes ONE BEGIN IMMEDIATE
 // lock, copies the file to backupFilePath inside it (refused if that file exists; a WAL database is backed up with
 // VACUUM INTO just before), then reads and repairs inside the same transaction, so no save can land between the
-// backup, the read and the write.
+// backup, the read and the write. It keeps the journal mode as it found it and keeps each session's updatedAt, and
+// marks the file repaired (PRAGMA user_version 1001): a second -apply is refused by name and a -dryRun reports
+// isAlreadyRepaired. Stop the API server first all the same.
+//
 // KNOWN RESIDUE (second review N2-1): a turn whose ONLY word-internal apostrophes are a typed pair (O''Brien, with no
-// other apostrophe in the turn) pins its count one too high when no other turn bounds it. Contrived; 0 such rows locally. It keeps the journal mode as it found it and keeps
-// each session's updatedAt, and marks the file repaired (PRAGMA user_version 1001): a second -apply is refused by name
-// and a -dryRun reports isAlreadyRepaired. Stop the API server first all the same.
+// other apostrophe in the turn) pins its count one too high when no other turn bounds it. Contrived; 0 such rows locally.
 //
 // HOW THE UN-DOUBLING DECIDES, AND WHEN IT REFUSES TO GUESS. Each save doubled every apostrophe in the whole session, so
 // text that has been through n saves holds each typed apostrophe as a run of 2^n. A turn's prompt, stdout and stderr

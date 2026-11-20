@@ -136,8 +136,10 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 		const titleText = `=== PRIOR RESEARCH SESSION: ${session.sessionName} ===`;
 		const turnTextList = (session.turns || []).map((turn) => turnContextTextOf(turn));
 		const priorContextText = session.priorContextText || '';
+		// [title, '', ...] joined by newlines: the old layout exactly, a session with no turns included
+		const layoutOf = (bodyTextList) => [titleText, '', ...bodyTextList.filter(Boolean)].join('\n');
 		if (!characterBudget) {
-			return `${titleText}\n\n${[priorContextText, ...turnTextList].filter(Boolean).join('\n')}`;
+			return layoutOf([priorContextText, ...turnTextList]);
 		}
 		const keptTurnTextList = [];
 		let remainingCharacterCount = characterBudget - titleText.length - 2;
@@ -155,7 +157,9 @@ const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 			: priorContextText.length <= remainingCharacterCount
 				? priorContextText
 				: `${PRIOR_OMITTED_MARKER}${priorContextText.slice(priorContextText.length - (remainingCharacterCount - PRIOR_OMITTED_MARKER.length))}`;
-		return `${titleText}\n\n${[omittedNoteText, keptPriorText, ...keptTurnTextList].filter(Boolean).join('\n')}`;
+		const budgetedText = layoutOf([omittedNoteText, keptPriorText, ...keptTurnTextList]);
+		// a budget smaller than the title and the note cannot hold them; it still is never exceeded
+		return budgetedText.length <= characterBudget ? budgetedText : budgetedText.slice(0, characterBudget);
 	};
 
 	const turnContextTextOf = (turn) => {

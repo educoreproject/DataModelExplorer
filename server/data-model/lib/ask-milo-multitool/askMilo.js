@@ -438,6 +438,7 @@ Examples:
 	const sessionContextCharacterBudget = sessionContextCharacterBudgetText === undefined ? undefined : Number(sessionContextCharacterBudgetText);
 	if (sessionContextCharacterBudgetText !== undefined && !(sessionContextCharacterBudget > 0)) {
 		xLog.error(`--sessionContextCharacterBudget must be a positive number, not '${sessionContextCharacterBudgetText}'.`);
+		process.exitCode = 1;
 		return;
 	}
 	const resumeSessionName = (commandLineParameters.values.resumeSession || [])[0];

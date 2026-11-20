@@ -29,6 +29,10 @@ const crowdedSession = { sessionName: 'dme_session_000000000000000000000002', pr
 const crowdedText = sessionManager.buildSessionContext(crowdedSession, { characterBudget: 2500 });
 check('S2-3: when even its own turns do not fit, the oldest are left out (and said so), and the prior context with them', crowdedText.length <= 2500 && crowdedText.includes('--- Turn 12 ---') && !crowdedText.includes('--- Turn 1 ---') && /\[\d+ earlier turn\(s\) left out to fit\]/.test(crowdedText) && !crowdedText.includes('PRIOR\n'), crowdedText.slice(0, 160));
 
+// review 3 N3-2 and N3-3
+check('N3-2: a session with NO turns lays out exactly as before ("===\\n", not "===\\n\\n")', sessionManager.buildSessionContext({ sessionName: 'amber_arch', turns: [] }) === '=== PRIOR RESEARCH SESSION: amber_arch ===\n' && sessionManager.buildSessionContext({ sessionName: 'amber_arch' }) === '=== PRIOR RESEARCH SESSION: amber_arch ===\n');
+check('N3-3: a budget smaller than the title and note is still never exceeded', sessionManager.buildSessionContext(crowdedSession, { characterBudget: 52 }).length <= 52);
+
 const failedCount = resultList.filter((passed) => !passed).length;
 console.log(`askmilo-session-context-budget: ${resultList.length - failedCount} passed, ${failedCount} failed`);
 process.exit(failedCount ? 1 : 0);
