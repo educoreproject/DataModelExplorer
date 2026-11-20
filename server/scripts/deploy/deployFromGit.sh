@@ -18,7 +18,9 @@
 #   3. unpack the uploaded build into the staging directory and check it has an index.html
 #   4. fetch the branch and refuse a commit that is not on it
 #   5. record the running commit, then git reset --hard to the new one (configs and data live outside code/)
-#   6. npm ci in each directory named in npmInstallDirectoryList.txt whose package-lock.json changed
+#   6. npm ci in each directory named in npmInstallDirectoryList.txt whose package-lock.json changed (a rollback
+#      uses stagingDirPath/installedNpmDirectoryList.txt, the list the running commit was installed with; a
+#      deploy refuses before changing anything if that file is missing)
 #   7. put the uploaded build in place as html/.output/public, keeping the previous one
 #   8. restart the service through the user's one sudo rule
 #   9. smoke test: /api/ping answers, /api/health answers, the site's / serves the new index.html, and the
@@ -170,7 +172,14 @@ main() {
 	# cleared before anything moves, so a rollback never restores a build older than the running one
 	rm -rf "$previousPublicDirPath"
 
-	if ! applyCommit "$commitSha"; then
+	local checkoutNpmListFilePath="$codeDirPath/server/scripts/deploy/npmInstallDirectoryList.txt"
+	local installedNpmListFilePath="$stagingDirPath/installedNpmDirectoryList.txt"
+	if [ ! -r "$installedNpmListFilePath" ]; then
+		logLine "REFUSED: $installedNpmListFilePath is missing, so a rollback could not reinstall packages (seed it with the running commit's npmInstallDirectoryList.txt)"
+		return 2
+	fi
+
+	if ! applyCommit "$commitSha" "$checkoutNpmListFilePath"; then
 		rollBack
 		return $?
 	fi
@@ -197,6 +206,7 @@ main() {
 		return $?
 	fi
 
+	cp "$checkoutNpmListFilePath" "$installedNpmListFilePath" || logLine "WARNING: could not record $installedNpmListFilePath; the next rollback may refuse"
 	logLine "DEPLOYED $commitSha to $siteBaseUrl (was $previousCommitSha)"
 	return 0
 }
@@ -217,20 +227,22 @@ configValueOf() {
 	echo "$settingText"
 }
 
-# git reset to a commit, then npm ci where a lock file changed
+# git reset to a commit, then npm ci where a lock file changed, in the folders named by the list file given
 applyCommit() {
-	local targetCommitSha="$1"
+	local targetCommitSha="$1" npmListFilePath="$2"
 	if ! git -C "$codeDirPath" reset --quiet --hard "$targetCommitSha"; then
 		logLine "FAILED: git reset --hard $targetCommitSha"
 		return 1
 	fi
 	logLine "code at $(git -C "$codeDirPath" rev-parse --short HEAD)"
-	installPackages
+	installPackages "$npmListFilePath"
 }
 
-# 6. npm ci in each listed directory whose package-lock.json differs from the one its node_modules was built from
+# 6. npm ci in each listed directory whose package-lock.json differs from the one its node_modules was built from.
+# A deploy uses the new commit's list; a rollback uses the list the running commit was installed with
+# (installedNpmDirectoryList.txt in stagingDirPath), because an older commit may predate the list file.
 installPackages() {
-	local directoryListFilePath="$codeDirPath/server/scripts/deploy/npmInstallDirectoryList.txt"
+	local directoryListFilePath="$1"
 	if [ ! -r "$directoryListFilePath" ]; then
 		logLine "FAILED: $directoryListFilePath is missing"
 		return 1
@@ -314,7 +326,7 @@ smokeTest() {
 rollBack() {
 	logLine "ROLLING BACK to $previousCommitSha"
 	local rollbackFailed=''
-	applyCommit "$previousCommitSha" || rollbackFailed='code'
+	applyCommit "$previousCommitSha" "$installedNpmListFilePath" || rollbackFailed='code'
 	if [ -d "$previousPublicDirPath" ]; then
 		rm -rf "$publicDirPath"
 		mv "$previousPublicDirPath" "$publicDirPath" || rollbackFailed="$rollbackFailed build"
