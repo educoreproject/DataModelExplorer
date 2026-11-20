@@ -2,8 +2,9 @@
 'use strict';
 
 // registration-options.js — ENDPOINT GET /api/registrationOptions (public) (PLAN-userRegistrationReset-112026 4.1): tells
-// the login page whether to offer "Create an account" and "Forgot password?". Answers
-// [{ selfRegistrationEnabled, requireEmailConfirmation, passwordResetEnabled }].
+// the login page whether to offer "Create an account", and the register page whether to expect a confirmation step.
+// Answers [{ selfRegistrationEnabled, requireEmailConfirmation, passwordResetEnabled }]. (The login form offers
+// "Forgot password?" always; on a server without [user-registration] that request is refused registrationNotConfigured.)
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { pipeRunner, taskListPlus, forwardArgs } = new require('qtools-asynchronous-pipe-plus')();

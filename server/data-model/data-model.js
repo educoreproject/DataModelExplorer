@@ -59,7 +59,7 @@ const moduleFunction =
 		} = getConfig(moduleName); //moduleName is closure
 		
 
-		const { pwHash, hashPassword, verifyPassword, validatePasswordStrength } = require('./lib/password-hash')();
+		const { pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash } = require('./lib/password-hash')();
 		
 
 		// ======================================================================================
@@ -91,7 +91,9 @@ const moduleFunction =
 
 			let sqlDbGen = require(`./lib/${databaseTypeName}`)({ getConfig }); //not visible to the rest of the system, hence, ./lib
 			let syncDataGen = require(`./lib/${syncDataSourceName}`)({ getConfig }); //not visible to the rest of the system, hence, ./lib
-			let dataMapping = require(`./data-mapping`)({ pwHash, hashPassword, verifyPassword, validatePasswordStrength });
+			// isStoredPasswordHash: profile-user's reverse map calls it on every password write; without it every password
+			// save threw on the real server while the harnesses (which pass all of password-hash) passed (2026-11-20)
+			let dataMapping = require(`./data-mapping`)({ pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash });
 			
 
 			next('', { ...args, sqlDbGen, dataMapping, syncDataGen });

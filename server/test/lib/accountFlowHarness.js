@@ -78,8 +78,9 @@ const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUse
 					callback(`harness: oauth-schema-init: ${oauthError}`);
 					return;
 				}
-				// the OAuth adapter materializes oauthAdapterStore's columns at init, as oauth-server does on a real server;
-				// without them revokeSessionsOf's grant delete fails (noted in the DEVLOG: an instance with oauth-server off)
+				// the OAuth adapter materializes oauthAdapterStore's columns at init, as oauth-server does on a real server, so
+				// these gates exercise revokeSessionsOf's grant cleanup (the oauth-server-off shape is gated separately, in
+				// account-disabled-and-revocation.test.js)
 				require(path.join(serverPath, 'lib', 'oauth-adapter'))({ sqlDb: harness.sqlDb })((adapterError) => {
 					if (adapterError) {
 						callback(`harness: oauth-adapter: ${adapterError}`);
