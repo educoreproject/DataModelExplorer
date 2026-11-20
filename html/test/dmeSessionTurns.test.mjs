@@ -6,7 +6,7 @@
 // Run: node html/test/dmeSessionTurns.test.mjs
 
 import fs from 'fs';
-import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf, controlStringOf, turnIndexListNeedingControlHtmlOf, SAVED_TURN_CHARACTER_LIMIT } from '../stores/dmeSessionTurns.js';
+import { askMiloSessionNameOfTurn, resumePlanOf, savedTurnListOf, priorTurnListOf, controlStringOf, turnIndexListNeedingControlHtmlOf, messageByteLengthOf, SAVED_TURN_CHARACTER_LIMIT, SAVED_TURN_COUNT_LIMIT, WEB_SOCKET_MAX_PAYLOAD_BYTES } from '../stores/dmeSessionTurns.js';
 
 const resultList = [];
 const check = (label, passed, detail = '') => {
@@ -59,7 +59,14 @@ const priorTurnList = priorTurnListOf(johnTurnList);
 check('the turns sent for a rebuild carry prompt, stdout and the askMilo session that answered each', priorTurnList.length === 4 && priorTurnList.every((turn) => Object.keys(turn).join(',') === 'prompt,stdout,askMiloSessionName') && priorTurnList[0].askMiloSessionName === 'noble_cedar');
 
 const serverLimitByName = JSON.parse(fs.readFileSync(new URL('../../server/lib/dme-resume-limits.json', import.meta.url), 'utf8'));
-check('the browser cap equals the server cap (server/lib/dme-resume-limits.json savedTurnCharacterLimit)', SAVED_TURN_CHARACTER_LIMIT === serverLimitByName.savedTurnCharacterLimit, `${SAVED_TURN_CHARACTER_LIMIT} vs ${serverLimitByName.savedTurnCharacterLimit}`);
+check('the browser caps equal the server caps (server/lib/dme-resume-limits.json: characters, turns, message bytes)', SAVED_TURN_CHARACTER_LIMIT === serverLimitByName.savedTurnCharacterLimit && SAVED_TURN_COUNT_LIMIT === serverLimitByName.savedTurnCountLimit && WEB_SOCKET_MAX_PAYLOAD_BYTES === serverLimitByName.webSocketMaxPayloadBytes, JSON.stringify(serverLimitByName));
+const manyTurnList = Array.from({ length: SAVED_TURN_COUNT_LIMIT + 5 }, (unused, turnIndex) => ({ prompt: `q${turnIndex + 1}`, stdout: 'a', askMiloSessionName: 'amber_arch' }));
+check('N3-6: a session of more turns than the server allows sends only the newest SAVED_TURN_COUNT_LIMIT', priorTurnListOf(manyTurnList).length === SAVED_TURN_COUNT_LIMIT && priorTurnListOf(manyTurnList)[SAVED_TURN_COUNT_LIMIT - 1].prompt === `q${SAVED_TURN_COUNT_LIMIT + 5}`);
+const oneHugeTurnList = [{ prompt: 'older', stdout: 'small', askMiloSessionName: 'amber_arch' }, { prompt: 'newest', stdout: `${'w'.repeat(900000)}THE-END`, askMiloSessionName: 'amber_arch' }];
+const oneHugePriorList = priorTurnListOf(oneHugeTurnList);
+const oneHugeCharacterCount = oneHugePriorList.reduce((soFar, turn) => soFar + turn.prompt.length + turn.stdout.length + turn.askMiloSessionName.length, 0);
+check('N3-1: a newest turn alone over the cap is sent cut to its newest end (it used to become an empty placeholder)', oneHugeCharacterCount <= SAVED_TURN_CHARACTER_LIMIT && oneHugePriorList[1].stdout.endsWith('THE-END') && oneHugePriorList[1].prompt === 'newest' && oneHugePriorList[0].stdout === '', `${oneHugeCharacterCount}`);
+check('messageByteLengthOf counts UTF-8 bytes, as the server does', messageByteLengthOf('aé漢') === 6);
 const hugeTurnList = Array.from({ length: 6 }, (unused, turnIndex) => ({ prompt: `q${turnIndex + 1}`, stdout: 'z'.repeat(200000), askMiloSessionName: 'amber_arch' }));
 const cappedPriorList = priorTurnListOf(hugeTurnList);
 const sentCharacterCount = cappedPriorList.reduce((soFar, turn) => soFar + turn.prompt.length + turn.stdout.length + turn.askMiloSessionName.length, 0);

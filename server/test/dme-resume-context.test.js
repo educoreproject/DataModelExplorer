@@ -17,9 +17,11 @@ const check = (label, passed, detail = '') => {
 
 const limitByName = { rebuiltContextCharacterBudget: 2000, savedTurnCountLimit: 50, savedTurnCharacterLimit: 100000, resumeProofLifetimeDays: 1 };
 let nowMs = Date.parse('2026-11-19T20:00:00Z');
-const resumeContext = dmeResumeContextGen({ resumeProofSecret: 'resume-context-test-secret', limitByName, nowMsOf: () => nowMs });
+const TEST_SECRET = 'a1'.repeat(32);
+const OTHER_INSTANCE_SECRET = 'b2'.repeat(32);
+const resumeContext = dmeResumeContextGen({ resumeProofSecret: TEST_SECRET, limitByName, nowMsOf: () => nowMs });
 const { resumeProofOf, isResumeProofValid, resumeDecisionOf, askMiloSessionTurnCountOf, askMiloSessionSavedSinceOf, newAskMiloSessionNameOf } = resumeContext;
-const { isAskMiloSessionName, answerTextOf } = dmeResumeContextGen;
+const { isAskMiloSessionName, answerTextOf, UNREADABLE_SESSION } = dmeResumeContextGen;
 
 const savedTurnList = [
 	{ prompt: "John's first question", stdout: 'An answer.<control>{"diagram":1}</control> More answer.', askMiloSessionName: 'noble_cedar' },
@@ -28,7 +30,7 @@ const savedTurnList = [
 const turnCountOf = (turnCountByName) => (askMiloSessionName) => (askMiloSessionName in turnCountByName ? turnCountByName[askMiloSessionName] : null);
 const decide = (overrideByName) => resumeDecisionOf({ promptText: 'next?', requestedSessionName: '', resumeProof: '', savedTurnList: undefined, askMiloSessionTurnCountOf: turnCountOf({}), ...overrideByName });
 
-// --- construction refuses absent configuration by name
+// --- construction: absent limits are refused by name; a missing or weak SECRET does not stop anything (review 3 S3-1)
 const constructionErrorOf = (constructionArgs) => {
 	let errorText = '';
 	try {
@@ -38,9 +40,17 @@ const constructionErrorOf = (constructionArgs) => {
 	}
 	return errorText;
 };
-const missingSecretText = constructionErrorOf({ limitByName });
-check('S2-2: no instance secret: refused at construction, naming the section, the key and how to generate one', /\[dmeResumeProof\]/.test(missingSecretText) && /secret=/.test(missingSecretText) && /randomBytes\(32\)/.test(missingSecretText) && /never copied/.test(missingSecretText), missingSecretText);
-check('no limits: refused by name at construction', /limitByName needs/.test(constructionErrorOf({ resumeProofSecret: 'x' })));
+check('no limits: refused by name at construction', /limitByName needs/.test(constructionErrorOf({ resumeProofSecret: TEST_SECRET })));
+check('S3-1: no secret: construction does NOT throw', constructionErrorOf({ limitByName }) === '');
+const noSecretContext = dmeResumeContextGen({ limitByName, nowMsOf: () => nowMs });
+check('S3-1: no secret: proofs are off, and the reason names the section, the key and how to generate one', noSecretContext.isProofEnabled === false && /\[dmeResumeProof\]/.test(noSecretContext.proofDisabledReasonText) && /secret=/.test(noSecretContext.proofDisabledReasonText) && /randomBytes\(32\)/.test(noSecretContext.proofDisabledReasonText) && /never copied/.test(noSecretContext.proofDisabledReasonText), noSecretContext.proofDisabledReasonText);
+check('S3-1: no secret: no proof is issued, and none is accepted, not even one made with a real key', noSecretContext.resumeProofOf('noble_cedar') === '' && !noSecretContext.isResumeProofValid('noble_cedar', dmeResumeContextGen({ resumeProofSecret: TEST_SECRET, limitByName, nowMsOf: () => nowMs }).resumeProofOf('noble_cedar')));
+const noSecretReopen = noSecretContext.resumeDecisionOf({ promptText: 'q', requestedSessionName: 'noble_cedar', resumeProof: 'x', savedTurnList: [{ prompt: 'mine', stdout: 'answer', askMiloSessionName: 'noble_cedar' }] });
+check('S3-1: no secret: a reopened session is rebuilt into a new session, not refused', !noSecretReopen.refusalText && !noSecretReopen.resumeSessionName && /^dme_session_\d{24}$/.test(noSecretReopen.newSessionName) && /PROMPT: mine/.test(noSecretReopen.priorContextText));
+const noSecretFollowUp = noSecretContext.resumeDecisionOf({ promptText: 'q', requestedSessionName: 'dme_session_000000000000000000000009', resumeProof: '', isNameKnownToConnection: (askMiloSessionName) => askMiloSessionName === 'dme_session_000000000000000000000009' });
+check('S3-1: no secret: a follow-up on the same connection still continues its session', noSecretFollowUp.resumeSessionName === 'dme_session_000000000000000000000009' && !noSecretFollowUp.refusalText);
+check('N3-4: a weak secret (not 64 hex) is treated as missing, by name', dmeResumeContextGen({ resumeProofSecret: 'changeme', limitByName }).isProofEnabled === false && /not 64 lower-case hex/.test(dmeResumeContextGen({ resumeProofSecret: 'changeme', limitByName }).proofDisabledReasonText));
+check('a good secret: proofs are on, with no warning', resumeContext.isProofEnabled === true && resumeContext.proofDisabledReasonText === '');
 
 // --- B2-1: names come from the server, not from askMilo
 const newNameList = Array.from({ length: 5 }, () => newAskMiloSessionNameOf());
@@ -57,6 +67,19 @@ check('askMiloSessionSavedSinceOf: written after the moment given, yes; not afte
 sessionManager.deleteSession(probeSessionName);
 check('and reads no session once it is deleted', askMiloSessionTurnCountOf(probeSessionName) === null && askMiloSessionSavedSinceOf(probeSessionName, 0) === false);
 
+// S3-2: a session file that is there but cannot be read (askMilo killed mid-write) is UNREADABLE, never a throw
+const fs = require('fs');
+const path = require('path');
+const truncatedFilePath = path.join(dmeResumeContextGen.ASKMILO_SESSION_DIRECTORY, `${probeSessionName}.json`);
+const unreadableResultList = ['{"sessionName":"x","turns":[{"prompt":"half', '', 'null', '[]'].map((fileText) => {
+	fs.writeFileSync(truncatedFilePath, fileText);
+	return askMiloSessionTurnCountOf(probeSessionName);
+});
+fs.unlinkSync(truncatedFilePath);
+check('S3-2: a truncated, empty, null or non-session file reads as unreadable, without throwing', unreadableResultList.every((turnCountResult) => turnCountResult === UNREADABLE_SESSION), JSON.stringify(unreadableResultList));
+const unreadableDecision = resumeDecisionOf({ promptText: 'q', requestedSessionName: 'noble_cedar', resumeProof: resumeProofOf('noble_cedar'), savedTurnList: [{ prompt: 'mine', stdout: 'answer', askMiloSessionName: 'noble_cedar' }], askMiloSessionTurnCountOf: () => UNREADABLE_SESSION });
+check('S3-2: a proven session whose file is unreadable is rebuilt into a NEW session, with a notice saying why', !unreadableDecision.refusalText && !unreadableDecision.resumeSessionName && unreadableDecision.newSessionName && /could not be read on the server/.test(unreadableDecision.noticeText), unreadableDecision.noticeText);
+
 // --- names (P-2)
 check('a path-like name is not a session name and never reaches the filesystem', !isAskMiloSessionName('../../etc/passwd') && askMiloSessionTurnCountOf('../../etc/passwd') === null);
 check('askMilo names and server names are session names; a non-string is not', isAskMiloSessionName('noble_cedar') && isAskMiloSessionName('amber_arch_1763584718000') && !isAskMiloSessionName(['noble_cedar']));
@@ -66,7 +89,7 @@ const proof = resumeProofOf('noble_cedar');
 check('S2-2: a proof carries its expiry: <10-digit seconds>.<64 hex>', /^\d{10}\.[0-9a-f]{64}$/.test(proof), proof);
 check('the proof is valid for its name now', isResumeProofValid('noble_cedar', proof));
 check('not for another name', !isResumeProofValid('amber_arch', proof));
-check("S2-2: not under another instance's key", !dmeResumeContextGen({ resumeProofSecret: 'another instance', limitByName, nowMsOf: () => nowMs }).isResumeProofValid('noble_cedar', proof));
+check("S2-2: not under another instance's key", !dmeResumeContextGen({ resumeProofSecret: OTHER_INSTANCE_SECRET, limitByName, nowMsOf: () => nowMs }).isResumeProofValid('noble_cedar', proof));
 check('not with its expiry edited (the signature covers it)', !isResumeProofValid('noble_cedar', proof.replace(/^\d{10}/, (secondsText) => String(Number(secondsText) + 86400 * 365))));
 nowMs += 2 * 86400 * 1000;
 check('S2-2: not after it expires (lifetime 1 day here)', !isResumeProofValid('noble_cedar', proof));
@@ -81,7 +104,7 @@ check('more turns than the limit is refused by name', /more than the 50 allowed/
 check('B2-2: more characters than the limit is refused by name', /more than the 100000 characters allowed/.test(decide({ savedTurnList: [{ prompt: 'p', stdout: 'x'.repeat(100000) }] }).refusalText));
 
 // B2-2: the timing gate, at the REAL cap, with the input that was quadratic: unclosed <control> openings
-const realContext = dmeResumeContextGen({ resumeProofSecret: 'timing', limitByName: realLimitByName });
+const realContext = dmeResumeContextGen({ resumeProofSecret: TEST_SECRET, limitByName: realLimitByName });
 const hostileStdout = '<control>'.repeat(Math.floor((realLimitByName.savedTurnCharacterLimit - 10) / 9));
 const startMs = Date.now();
 const hostileDecision = realContext.resumeDecisionOf({ promptText: 'q', requestedSessionName: '', resumeProof: '', savedTurnList: [{ prompt: 'p', stdout: hostileStdout }] });
@@ -128,6 +151,9 @@ check('S-4: the rebuilt context stays within its character budget', capped.prior
 check('S-4: the NEWEST turns are kept, the oldest left out, and the user is told how many', capped.priorContextText.includes('PROMPT: question 10') && !capped.priorContextText.includes('PROMPT: question 1\n') && new RegExp(`The ${capped.omittedTurnCount} oldest turns were left out`).test(capped.noticeText), capped.noticeText);
 const withPlaceholders = decide({ savedTurnList: [{ prompt: '', stdout: '', askMiloSessionName: 'noble_cedar' }, { prompt: 'kept', stdout: 'kept answer' }] });
 check('a placeholder turn (sent empty) is not written into the rebuilt context', !withPlaceholders.priorContextText.includes('--- Turn 1 ---') && withPlaceholders.priorContextText.includes('PROMPT: kept'));
+const oversizedNewest = decide({ savedTurnList: [{ prompt: 'small older', stdout: 'small answer' }, { prompt: 'huge newest', stdout: `${'h'.repeat(5000)}THE-END` }] });
+check('N3-1: a newest turn alone over the budget keeps its newest end (it used to keep nothing)', oversizedNewest.rebuiltTurnCount === 1 && oversizedNewest.priorContextText.includes('THE-END') && oversizedNewest.priorContextText.includes('[the start of this turn was left out to fit]') && oversizedNewest.priorContextText.length <= limitByName.rebuiltContextCharacterBudget + 100, `${oversizedNewest.rebuiltTurnCount} ${oversizedNewest.priorContextText.length}`);
+check('N3-1: and the notice says so without contradicting itself', /Only the end of the newest turn fits; the 1 older turn was left out/.test(oversizedNewest.noticeText) && !/newest 0/.test(oversizedNewest.noticeText), oversizedNewest.noticeText);
 
 check('answerTextOf strips a control block with attributes, as EdunatorPanel splits it, and keeps an unclosed one as text', answerTextOf('a<control type="x">b</control>c') === 'ac' && answerTextOf('a<control>b') === 'a<control>b');
 

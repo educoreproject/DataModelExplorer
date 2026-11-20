@@ -40,26 +40,45 @@ export const savedTurnListOf = (turnList) =>
 		return savedTurn;
 	});
 
-// MUST equal savedTurnCharacterLimit in server/lib/dme-resume-limits.json (html/test/dmeSessionTurns.test.mjs checks).
-// The server refuses a prompt whose saved turns exceed it, so the browser sends the newest turns whole within it and
-// the older ones as empty placeholders: the server still counts every turn an askMilo session answered.
+// MUST equal savedTurnCharacterLimit, savedTurnCountLimit and webSocketMaxPayloadBytes in
+// server/lib/dme-resume-limits.json (html/test/dmeSessionTurns.test.mjs checks). The server refuses a prompt over any of
+// them, so the browser keeps within them: the newest turns whole, older ones as empty placeholders (the server still
+// counts every turn an askMilo session answered), a newest turn that alone is too long cut to its newest end, and at
+// most the newest SAVED_TURN_COUNT_LIMIT turns.
 export const SAVED_TURN_CHARACTER_LIMIT = 800000;
+export const SAVED_TURN_COUNT_LIMIT = 1000;
+export const WEB_SOCKET_MAX_PAYLOAD_BYTES = 4194304;
 
 export const priorTurnListOf = (turnList) => {
+	const newestTurnList = (turnList || []).slice(-SAVED_TURN_COUNT_LIMIT);
 	let remainingCharacterCount = SAVED_TURN_CHARACTER_LIMIT;
 	const priorTurnList = [];
-	for (let turnIndex = (turnList || []).length - 1; turnIndex >= 0; turnIndex--) {
-		const turn = turnList[turnIndex];
+	for (let turnIndex = newestTurnList.length - 1; turnIndex >= 0; turnIndex--) {
+		const turn = newestTurnList[turnIndex];
 		const askMiloSessionName = askMiloSessionNameOfTurn(turn);
 		const prompt = turn.prompt || '';
 		const stdout = turn.stdout || '';
 		const characterCount = prompt.length + stdout.length + askMiloSessionName.length;
-		const isWithinLimit = characterCount <= remainingCharacterCount && (priorTurnList.length === 0 || priorTurnList[0].prompt || priorTurnList[0].stdout);
+		const isNewestTurn = priorTurnList.length === 0;
+		const isWithinLimit = characterCount <= remainingCharacterCount && (isNewestTurn || priorTurnList[0].prompt || priorTurnList[0].stdout);
+		if (isNewestTurn && !isWithinLimit) {
+			// room is kept for the session names the older turns still send as placeholders
+			const olderNameCharacterCount = newestTurnList.slice(0, turnIndex).reduce((soFar, olderTurn) => soFar + askMiloSessionNameOfTurn(olderTurn).length, 0);
+			const roomCharacterCount = SAVED_TURN_CHARACTER_LIMIT - olderNameCharacterCount - askMiloSessionName.length;
+			const keptPromptText = prompt.slice(0, Math.floor(roomCharacterCount / 10));
+			const keptStdoutText = stdout.slice(Math.max(0, stdout.length - (roomCharacterCount - keptPromptText.length)));
+			remainingCharacterCount -= keptPromptText.length + keptStdoutText.length + askMiloSessionName.length;
+			priorTurnList.unshift({ prompt: keptPromptText, stdout: keptStdoutText, askMiloSessionName });
+			continue;
+		}
 		remainingCharacterCount -= isWithinLimit ? characterCount : askMiloSessionName.length;
 		priorTurnList.unshift(isWithinLimit ? { prompt, stdout, askMiloSessionName } : { prompt: '', stdout: '', askMiloSessionName });
 	}
 	return priorTurnList;
 };
+
+// the bytes a WebSocket message takes, as the server's maxPayload counts them
+export const messageByteLengthOf = (messageText) => new TextEncoder().encode(messageText).length;
 
 // '\x00' before each block's inner text, exactly as EdunatorPanel splits stdout for the right-hand panel
 export const controlStringOf = (stdoutText) =>

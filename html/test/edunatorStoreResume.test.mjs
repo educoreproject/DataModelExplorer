@@ -72,6 +72,17 @@ store.settings.newSession = true;
 store.sendPrompt('a fresh topic');
 check('N2-5: "New Session" ticked after reopening: the prompt carries no saved turns and asks for no resume', lastSent().savedTurnList === undefined && lastSent().settings.newSession === true && store._priorTurnListPending === null, JSON.stringify(lastSent()).slice(0, 200));
 
+// N3-5: a question too big for the socket is refused here, by name, instead of the server cutting the connection
+const sentCountBeforeHuge = sentMessageList.length;
+const responseCountBeforeHuge = store.responses.length;
+store.settings.newSession = true;
+store.sendPrompt('x'.repeat(4194304 + 10));
+check('N3-5: a prompt over the 4 MB the server accepts is not sent, the user is told, and no empty turn is left behind', sentMessageList.length === sentCountBeforeHuge && /was NOT sent/.test(store.statusMsg) && store.responses.length === responseCountBeforeHuge && store.loading === false, store.statusMsg);
+
+// with no [dmeResumeProof] secret the server announces a save with an empty proof: recorded, and a reload rebuilds
+await serverSays({ channel: 'askMiloSessionSaved', askMiloSessionName: 'dme_session_000000000000000000000007', resumeProof: '' });
+check('a save announced with an EMPTY proof (server without a secret) is recorded; the next reopen will rebuild', store.settings.resumeSessionName === 'dme_session_000000000000000000000007' && store.settings.resumeProof === '');
+
 store.startNewSession();
 check('a new session forgets name, proof and pending turns', store.settings.resumeSessionName === '' && store.settings.resumeProof === '' && store.settings.newSession === true && store._priorTurnListPending === null);
 

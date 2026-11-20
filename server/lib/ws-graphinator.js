@@ -16,11 +16,15 @@ const moduleFunction = ({ server }) => {
 	const { xLog, getConfig } = process.global;
 
 	// Every askMilo session the DME uses is named, and every resume decided, by dme-resume-context.js. Its proofs are
-	// keyed by THIS instance's own secret, startApiServer.ini [dmeResumeProof] secret; absent, startup refuses by name.
+	// keyed by THIS instance's own secret, startApiServer.ini [dmeResumeProof] secret. Without a good one the server
+	// still starts (only reopened-session resume is affected: those sessions are rebuilt), and says so once, loudly.
 	const resumeContext = dmeResumeContextGen({
 		resumeProofSecret: (getConfig('dmeResumeProof') || {}).secret,
 		limitByName: resumeLimitByName,
 	});
+	if (!resumeContext.isProofEnabled) {
+		xLog.error(`\n${'!'.repeat(100)}\n[ws-graphinator] WARNING: ${resumeContext.proofDisabledReasonText}\n${'!'.repeat(100)}\n`);
+	}
 
 	// a pipe to or from an askMilo child can fail (EPIPE when the child dies before reading a large prompt); with no
 	// listener that 'error' would exit the API process, so every spawned child's pipes report into its own stream
@@ -115,6 +119,8 @@ const moduleFunction = ({ server }) => {
 
 	wss.on('connection', (ws) => {
 		let activeChild = null;
+		// the askMilo sessions this server named for THIS connection and saw saved: their follow-ups need no proof
+		const connectionSessionNameSet = new Set();
 
 		// a socket-level error (a message over maxPayload, a bad frame) closes this connection; unheard, it would exit
 		// the API process
@@ -276,6 +282,7 @@ const moduleFunction = ({ server }) => {
 					requestedSessionName: settings.newSession ? '' : settings.resumeSessionName,
 					resumeProof: settings.resumeProof,
 					savedTurnList: msg.savedTurnList,
+					isNameKnownToConnection: (askMiloSessionName) => connectionSessionNameSet.has(askMiloSessionName),
 				});
 				if (resumeDecision.refusalText) {
 					xLog.error(`[ws-graphinator] RESUME refused: ${resumeDecision.refusalText}`);
@@ -389,6 +396,8 @@ const moduleFunction = ({ server }) => {
 					clearInterval(heartbeatInterval);
 					// the save is confirmed by the session FILE, written by this run, not by anything askMilo printed
 					const isSaveConfirmed = exitCode === 0 && resumeContext.askMiloSessionSavedSinceOf(askMiloSessionName, spawnStartMs);
+					if (isSaveConfirmed) connectionSessionNameSet.add(askMiloSessionName);
+					// with proofs off (no [dmeResumeProof] secret) resumeProof is '': the browser still learns the save happened
 					if (isSaveConfirmed && ws.readyState === ws.OPEN) {
 						ws.send(JSON.stringify({ channel: 'askMiloSessionSaved', askMiloSessionName, resumeProof: resumeContext.resumeProofOf(askMiloSessionName) }));
 					}

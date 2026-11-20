@@ -18,7 +18,7 @@ const childProcess = require('child_process');
 
 const SERVER_PATH = path.join(__dirname, '..');
 const WebSocket = require(require.resolve('ws', { paths: [SERVER_PATH] }));
-const TEST_SECRET = 'ws-resume-test-secret-not-a-real-one';
+const TEST_SECRET = 'c3'.repeat(32);
 
 const resultList = [];
 const check = (label, passed, detail = '') => {
@@ -69,6 +69,24 @@ const sessionManager = require('../data-model/lib/ask-milo-multitool/lib/session
 
 const httpServer = http.createServer();
 httpServer.on('upgrade', (request, socket, head) => wssExplorer.handleUpgrade(request, socket, head, (ws) => wssExplorer.emit('connection', ws, request)));
+
+// a SECOND ws-graphinator, built with NO [dmeResumeProof] secret (review 3 S3-1: the server must still start)
+const bootErrorLogList = [];
+const savedGetConfig = process.global.getConfig;
+const savedLogError = process.global.xLog.error;
+process.global.getConfig = (sectionName) => ({ 'access-token-header-tools': { secret: 'the-shared-token-secret' } })[sectionName] || {};
+process.global.xLog.error = (logText) => bootErrorLogList.push(String(logText));
+let noSecretConstructionError = '';
+let wssNoSecret = null;
+try {
+	wssNoSecret = require('../lib/ws-graphinator')({ server: null });
+} catch (constructionError) {
+	noSecretConstructionError = constructionError.message;
+}
+process.global.getConfig = savedGetConfig;
+process.global.xLog.error = savedLogError;
+const noSecretHttpServer = http.createServer();
+noSecretHttpServer.on('upgrade', (request, socket, head) => wssNoSecret.handleUpgrade(request, socket, head, (ws) => wssNoSecret.emit('connection', ws, request)));
 
 const isPromptRun = (child) => child.askMiloInput && !child.askMiloInput.switches.getDefaults;
 
@@ -154,7 +172,7 @@ const stepList = [
 		check('P-1: a proof issued for a different name does not unlock this one', newSpawnList.length === 0);
 		next();
 	}),
-	(port, next) => exchange(port, promptOf({ settings: { resumeSessionName: 'noble_cedar', resumeProof: require('../lib/dme-resume-context')({ resumeProofSecret: 'another instance', limitByName: resumeLimitByName }).resumeProofOf('noble_cedar') } }), null, ({ newSpawnList }) => {
+	(port, next) => exchange(port, promptOf({ settings: { resumeSessionName: 'noble_cedar', resumeProof: require('../lib/dme-resume-context')({ resumeProofSecret: 'd4'.repeat(32), limitByName: resumeLimitByName }).resumeProofOf('noble_cedar') } }), null, ({ newSpawnList }) => {
 		check("S2-2: a proof made with ANOTHER instance's key does not unlock the name here", newSpawnList.length === 0);
 		next();
 	}),
@@ -196,18 +214,80 @@ const stepList = [
 		check('a run that exits 0 but wrote no session file gets no proof', !receivedList.some((received) => received.channel === 'askMiloSessionSaved'));
 		next();
 	}),
+	// S3-2: a proven session whose file was cut short by a kill mid-write
+	(port, next) => {
+		const fs = require('fs');
+		const truncatedSessionName = `zztest_truncated_${process.pid}`;
+		const truncatedFilePath = path.join(require('../lib/dme-resume-context').ASKMILO_SESSION_DIRECTORY, `${truncatedSessionName}.json`);
+		fs.writeFileSync(truncatedFilePath, '{"sessionName":"x","turns":[{"prompt":"cut sh');
+		exchange(port, promptOf({ settings: { resumeSessionName: truncatedSessionName, resumeProof: resumeContext.resumeProofOf(truncatedSessionName) }, savedTurnList: [{ prompt: 'mine', stdout: 'answer', askMiloSessionName: truncatedSessionName }] }), closeAs(1), ({ receivedList, newSpawnList }) => {
+			fs.unlinkSync(truncatedFilePath);
+			const askMiloInput = (newSpawnList[0] || {}).askMiloInput || { values: {} };
+			check('S3-2: a reopened session whose askMilo file is truncated is rebuilt into a new session with a notice, not SERVER ERROR', !/SERVER ERROR/.test(textOf(receivedList)) && /could not be read on the server/.test(textOf(receivedList)) && /^dme_session_\d{24}$/.test(String(askMiloInput.values.sessionName)), textOf(receivedList).slice(0, 200));
+			next();
+		});
+	},
+];
+
+// --- S3-1: the same server, started with no secret
+const noSecretStepList = [
+	(port, next) => {
+		check('S3-1: with no [dmeResumeProof] secret the server STARTS (no throw)', !noSecretConstructionError && !!wssNoSecret, noSecretConstructionError);
+		check('S3-1: and says so once at boot, naming the section, the key and the generate command', bootErrorLogList.filter((logText) => /WARNING/.test(logText)).length === 1 && bootErrorLogList.some((logText) => /\[dmeResumeProof\]/.test(logText) && /randomBytes\(32\)/.test(logText)), bootErrorLogList.join(' | ').slice(0, 300));
+		next();
+	},
+	(port, next) => {
+		// one connection: a new session, its save confirmed, then a follow-up on the SAME connection
+		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/explorer`);
+		const receivedList = [];
+		const spawnCountBefore = spawnList.length;
+		ws.on('message', (raw) => receivedList.push(JSON.parse(raw.toString())));
+		ws.on('open', () => {
+			ws.send(JSON.stringify(promptOf({ settings: { newSession: true } })));
+			setTimeout(() => {
+				const firstChild = spawnList.slice(spawnCountBefore).find(isPromptRun);
+				const assignedSessionName = String(firstChild.askMiloInput.values.sessionName[0]);
+				sessionManager.saveSession({ sessionName: assignedSessionName, turns: [{}] });
+				firstChild.emit('close', 0);
+				setTimeout(() => {
+					const savedMessage = receivedList.find((received) => received.channel === 'askMiloSessionSaved') || {};
+					check('S3-1: no secret: a confirmed save is still announced, with an EMPTY proof', savedMessage.askMiloSessionName === assignedSessionName && savedMessage.resumeProof === '', JSON.stringify(savedMessage));
+					ws.send(JSON.stringify(promptOf({ settings: { resumeSessionName: assignedSessionName, resumeProof: '' } })));
+					setTimeout(() => {
+						const followUpChild = spawnList.slice(spawnCountBefore).filter(isPromptRun)[1] || { askMiloInput: { values: {} } };
+						check('S3-1: no secret: the follow-up on the same connection resumes that session', JSON.stringify(followUpChild.askMiloInput.values.resumeSession) === JSON.stringify([assignedSessionName]), JSON.stringify(followUpChild.askMiloInput.values).slice(0, 200));
+						ws.close();
+						exchange(port, promptOf({ settings: { resumeSessionName: assignedSessionName, resumeProof: '' }, savedTurnList: [{ prompt: 'mine', stdout: 'answer', askMiloSessionName: assignedSessionName }] }), closeAs(1), ({ newSpawnList }) => {
+							const askMiloInput = (newSpawnList[0] || {}).askMiloInput || { values: {} };
+							check('S3-1: no secret: after a reload (a new connection) the session is rebuilt into a new one from its saved turns, not refused', newSpawnList.length === 1 && !askMiloInput.values.resumeSession && /^dme_session_\d{24}$/.test(String(askMiloInput.values.sessionName)) && /PROMPT: mine/.test(String(askMiloInput.values.priorContextText)), JSON.stringify(askMiloInput.values).slice(0, 200));
+							exchange(port, promptOf({ settings: { resumeSessionName: assignedSessionName, resumeProof: '' } }), null, ({ receivedList: strangerReceivedList, newSpawnList: strangerSpawnList }) => {
+								check('S3-1: no secret: ANOTHER connection naming that session with no turns is refused, nothing spawned', strangerSpawnList.length === 0 && /could not be confirmed/.test(textOf(strangerReceivedList)));
+								sessionManager.deleteSession(assignedSessionName);
+								next();
+							});
+						});
+					}, 200);
+				}, 200);
+			}, 200);
+		});
+	},
 ];
 
 httpServer.listen(0, '127.0.0.1', () => {
 	const port = httpServer.address().port;
-	const runFrom = (stepIndex) => {
-		if (stepIndex >= stepList.length) {
-			const failedCount = resultList.filter((passed) => !passed).length;
-			console.log(`ws-graphinator-resume: ${resultList.length - failedCount} passed, ${failedCount} failed`);
-			httpServer.close();
-			realExit(failedCount ? 1 : 0);
-		}
-		stepList[stepIndex](port, () => runFrom(stepIndex + 1));
-	};
-	runFrom(0);
+	noSecretHttpServer.listen(0, '127.0.0.1', () => {
+		const noSecretPort = noSecretHttpServer.address().port;
+		const allStepList = [...stepList.map((step) => (next) => step(port, next)), ...noSecretStepList.map((step) => (next) => step(noSecretPort, next))];
+		const runFrom = (stepIndex) => {
+			if (stepIndex >= allStepList.length) {
+				const failedCount = resultList.filter((passed) => !passed).length;
+				console.log(`ws-graphinator-resume: ${resultList.length - failedCount} passed, ${failedCount} failed`);
+				httpServer.close();
+				noSecretHttpServer.close();
+				realExit(failedCount ? 1 : 0);
+			}
+			allStepList[stepIndex](() => runFrom(stepIndex + 1));
+		};
+		runFrom(0);
+	});
 });

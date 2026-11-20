@@ -27,6 +27,7 @@
 // only the browser that ran a session receives it (and keeps it inside its own owner-checked dme_sessions row). It is
 // keyed by a secret of THIS instance (startApiServer.ini [dmeResumeProof] secret), so a proof from one server means
 // nothing on another, and it expires (resumeProofLifetimeDays); an expired proof is not refused: the session is rebuilt.
+// Without a good secret the server still starts; proofs are simply off (see moduleFunction).
 //
 // WHY A TURN COUNT. A session damaged by the pre-fix reload bug can name an askMilo session holding other turns. The
 // saved turns say which askMilo session answered each; when askMilo's turn count differs from the number of saved
@@ -92,27 +93,55 @@ const savedTurnListRefusalOf = (savedTurnList, { savedTurnCountLimit, savedTurnC
 
 const turnTextOf = (savedTurn, turnNumber) => [`--- Turn ${turnNumber} ---`, `PROMPT: ${savedTurn.prompt || ''}`, '', `RESPONSE: ${answerTextOf(savedTurn.stdout)}`, ''].join('\n');
 
-// the newest turns whose text fits the budget, oldest first; placeholder turns (sent empty to keep the count) are skipped
+const TRUNCATED_TURN_MARKER = '[the start of this turn was left out to fit]\n';
+
+// the newest turns whose text fits the budget, oldest first; placeholder turns (sent empty to keep the count) are
+// skipped. A newest turn that alone is over the budget keeps its newest end (review 3, N3-1: it used to keep nothing).
+// -> { keptTextList, isNewestTruncated }
 const turnTextListWithinBudgetOf = (savedTurnList, characterBudget) => {
 	const keptTextList = [];
 	let usedCharacterCount = 0;
+	let isNewestTruncated = false;
 	for (let turnIndex = savedTurnList.length - 1; turnIndex >= 0; turnIndex--) {
 		const savedTurn = savedTurnList[turnIndex];
 		if (!savedTurn.prompt && !savedTurn.stdout) break;
 		const turnText = turnTextOf(savedTurn, turnIndex + 1);
-		if (usedCharacterCount + turnText.length > characterBudget) break;
+		if (usedCharacterCount + turnText.length > characterBudget) {
+			if (!keptTextList.length) {
+				keptTextList.push(`${TRUNCATED_TURN_MARKER}${turnText.slice(turnText.length - (characterBudget - TRUNCATED_TURN_MARKER.length))}`);
+				isNewestTruncated = true;
+			}
+			break;
+		}
 		usedCharacterCount += turnText.length;
 		keptTextList.unshift(turnText);
 	}
-	return keptTextList;
+	return { keptTextList, isNewestTruncated };
 };
 
-const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) => {
-	if (!resumeProofSecret) {
-		throw new Error(
-			'dme-resume-context: the resume proof secret is missing. Add to this instance\'s startApiServer.ini a section [dmeResumeProof] with secret=<64 hex characters>, generated for THIS instance only (never copied from another): node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
-		);
+// JSON.parse has no non-throwing form; THIS is the one boundary where a throw becomes a result. The caller decides.
+const jsonParseResultOf = (jsonText) => {
+	let parseResult;
+	try {
+		parseResult = { parsedValue: JSON.parse(jsonText), isParsed: true };
+	} catch (parseError) {
+		parseResult = { parsedValue: undefined, isParsed: false };
 	}
+	return parseResult;
+};
+
+const SECRET_PATTERN = /^[0-9a-f]{64}$/;
+const UNREADABLE_SESSION = 'unreadable';
+
+// A missing or weak secret does NOT stop the server (FRIVOLOUS_TEAPOT ruling, review 3 S3-1): proofs are then neither
+// issued nor accepted, proofDisabledReasonText says why (ws-graphinator logs it once at boot), and a reopened session
+// is always rebuilt into a new askMilo session. Follow-ups on the same connection still continue (isNameKnownToConnection).
+const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) => {
+	const secretProblemText = !resumeProofSecret ? 'is missing' : !SECRET_PATTERN.test(String(resumeProofSecret)) ? 'is not 64 lower-case hex characters (32 random bytes)' : '';
+	const isProofEnabled = !secretProblemText;
+	const proofDisabledReasonText = isProofEnabled
+		? ''
+		: `dme-resume-context: the resume proof secret ${secretProblemText}, so reopened DME sessions will be REBUILT from their saved turns instead of resumed (everything else runs normally). Fix: add to this instance's startApiServer.ini a section [dmeResumeProof] with secret=<64 hex characters>, generated for THIS instance only (never copied from another): node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`;
 	const { rebuiltContextCharacterBudget, savedTurnCountLimit, savedTurnCharacterLimit, resumeProofLifetimeDays } = limitByName || {};
 	if (![rebuiltContextCharacterBudget, savedTurnCountLimit, savedTurnCharacterLimit, resumeProofLifetimeDays].every((limitValue) => limitValue > 0)) {
 		throw new Error('dme-resume-context: limitByName needs rebuiltContextCharacterBudget, savedTurnCountLimit, savedTurnCharacterLimit and resumeProofLifetimeDays (lib/dme-resume-limits.json)');
@@ -122,11 +151,13 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 		crypto.createHmac('sha256', String(resumeProofSecret)).update(`${RESUME_PROOF_LABEL}${askMiloSessionName}:${expiresAtSecondsText}`, 'utf8').digest('hex');
 
 	const resumeProofOf = (askMiloSessionName) => {
+		if (!isProofEnabled) return '';
 		const expiresAtSecondsText = String(Math.floor(nowMsOf() / 1000) + resumeProofLifetimeDays * 86400).padStart(10, '0');
 		return `${expiresAtSecondsText}.${signatureOf(askMiloSessionName, expiresAtSecondsText)}`;
 	};
 
 	const isResumeProofValid = (askMiloSessionName, resumeProof) => {
+		if (!isProofEnabled) return false;
 		const proofMatch = typeof resumeProof === 'string' ? resumeProof.match(RESUME_PROOF_PATTERN) : null;
 		if (!proofMatch || Number(proofMatch[1]) * 1000 < nowMsOf()) return false;
 		return crypto.timingSafeEqual(Buffer.from(signatureOf(askMiloSessionName, proofMatch[1]), 'hex'), Buffer.from(proofMatch[2], 'hex'));
@@ -143,12 +174,13 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 		throw new Error('dme-resume-context: five random askMilo session names in a row already exist; the session directory is not what it should be');
 	};
 
-	// null when there is no such session. A file that is not a JSON object throws in JSON.parse; ws-graphinator's
-	// message boundary turns that into a visible error for this one prompt.
+	// -> the turn count; null when there is no such session; UNREADABLE_SESSION ('unreadable') when the file is there but
+	// is not a session (truncated by a kill during askMilo's write, empty, null): review 3 S3-2, rebuilt, never an error
 	const askMiloSessionTurnCountOf = (askMiloSessionName) => {
 		if (!isAskMiloSessionName(askMiloSessionName) || !fs.existsSync(sessionFilePathOf(askMiloSessionName))) return null;
-		const sessionTurnList = JSON.parse(fs.readFileSync(sessionFilePathOf(askMiloSessionName), 'utf8')).turns;
-		return Array.isArray(sessionTurnList) ? sessionTurnList.length : null;
+		const { parsedValue, isParsed } = jsonParseResultOf(fs.readFileSync(sessionFilePathOf(askMiloSessionName), 'utf8'));
+		const sessionTurnList = isParsed && parsedValue && typeof parsedValue === 'object' ? parsedValue.turns : undefined;
+		return Array.isArray(sessionTurnList) ? sessionTurnList.length : UNREADABLE_SESSION;
 	};
 
 	const askMiloSessionSavedSinceOf = (askMiloSessionName, sinceMs) =>
@@ -157,11 +189,13 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 	const plainDecisionOf = (promptText) => ({ resumeSessionName: '', newSessionName: '', priorContextText: '', rebuiltTurnCount: 0, omittedTurnCount: 0, noticeText: '', refusalText: '' });
 
 	const rebuiltDecisionOf = ({ promptText, resumeSessionName, savedTurnList, reasonText }) => {
-		const keptTextList = turnTextListWithinBudgetOf(savedTurnList, rebuiltContextCharacterBudget);
+		const { keptTextList, isNewestTruncated } = turnTextListWithinBudgetOf(savedTurnList, rebuiltContextCharacterBudget);
 		const omittedTurnCount = savedTurnList.length - keptTextList.length;
-		const omittedText = omittedTurnCount
-			? ` The ${omittedTurnCount} oldest turn${omittedTurnCount === 1 ? ' was' : 's were'} left out to fit; only the newest ${keptTextList.length} ${keptTextList.length === 1 ? 'is' : 'are'} remembered.`
-			: '';
+		const omittedText = isNewestTruncated
+			? ` Only the end of the newest turn fits${omittedTurnCount ? `; the ${omittedTurnCount} older turn${omittedTurnCount === 1 ? ' was' : 's were'} left out` : ''}.`
+			: omittedTurnCount
+				? ` The ${omittedTurnCount} oldest turn${omittedTurnCount === 1 ? ' was' : 's were'} left out to fit; only the newest ${keptTextList.length} ${keptTextList.length === 1 ? 'is' : 'are'} remembered.`
+				: '';
 		return {
 			...plainDecisionOf(promptText),
 			resumeSessionName,
@@ -173,7 +207,9 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 		};
 	};
 
-	const resumeDecisionOf = ({ promptText, requestedSessionName, resumeProof, savedTurnList, askMiloSessionTurnCountOf: turnCountOf = askMiloSessionTurnCountOf }) => {
+	// isNameKnownToConnection(name): true when THIS server named that session for the same WebSocket connection (an
+	// ordinary follow-up), which needs no proof; ws-graphinator keeps that list per connection.
+	const resumeDecisionOf = ({ promptText, requestedSessionName, resumeProof, savedTurnList, askMiloSessionTurnCountOf: turnCountOf = askMiloSessionTurnCountOf, isNameKnownToConnection = () => false }) => {
 		const hasSavedTurns = savedTurnList !== undefined && savedTurnList !== null;
 		if (hasSavedTurns) {
 			const listRefusalText = savedTurnListRefusalOf(savedTurnList, { savedTurnCountLimit, savedTurnCharacterLimit });
@@ -187,7 +223,7 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 				: { ...plainDecisionOf(promptText), newSessionName: newAskMiloSessionNameOf() };
 		}
 
-		if (!isAskMiloSessionName(requestedSessionName) || !isResumeProofValid(requestedSessionName, resumeProof)) {
+		if (!isAskMiloSessionName(requestedSessionName) || !(isNameKnownToConnection(requestedSessionName) || isResumeProofValid(requestedSessionName, resumeProof))) {
 			return savedTurnCount
 				? rebuiltDecisionOf({ promptText, resumeSessionName: '', savedTurnList, reasonText: "The earlier conversation could not be confirmed as this session's" })
 				: { ...plainDecisionOf(promptText), refusalText: "This prompt was not run: the conversation it asks to continue could not be confirmed as this session's. Start a new session, or reopen this one from the saved sessions list." };
@@ -202,6 +238,9 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 		if (askMiloTurnCount !== null && askMiloTurnCount === answeredTurnCount) {
 			return { ...plainDecisionOf(promptText), resumeSessionName: requestedSessionName };
 		}
+		if (askMiloTurnCount === UNREADABLE_SESSION) {
+			return rebuiltDecisionOf({ promptText, resumeSessionName: '', savedTurnList, reasonText: `The earlier conversation (${requestedSessionName}) could not be read on the server` });
+		}
 		if (askMiloTurnCount === null) {
 			// askMilo starts a NEW session under this name (askMilo.js, session resume logic), so its proof stays valid
 			return rebuiltDecisionOf({ promptText, resumeSessionName: requestedSessionName, savedTurnList, reasonText: `The earlier conversation (${requestedSessionName}) was no longer on the server` });
@@ -214,10 +253,11 @@ const moduleFunction = ({ resumeProofSecret, limitByName, nowMsOf = Date.now }) 
 		});
 	};
 
-	return { newAskMiloSessionNameOf, resumeProofOf, isResumeProofValid, askMiloSessionTurnCountOf, askMiloSessionSavedSinceOf, resumeDecisionOf };
+	return { isProofEnabled, proofDisabledReasonText, newAskMiloSessionNameOf, resumeProofOf, isResumeProofValid, askMiloSessionTurnCountOf, askMiloSessionSavedSinceOf, resumeDecisionOf };
 };
 
 moduleFunction.isAskMiloSessionName = isAskMiloSessionName;
+moduleFunction.UNREADABLE_SESSION = UNREADABLE_SESSION;
 moduleFunction.answerTextOf = answerTextOf;
 moduleFunction.ASKMILO_SESSION_DIRECTORY = ASKMILO_SESSION_DIRECTORY;
 module.exports = moduleFunction;

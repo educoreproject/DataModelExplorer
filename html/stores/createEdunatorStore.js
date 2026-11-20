@@ -15,7 +15,7 @@
 import { defineStore } from 'pinia';
 import { nextTick } from 'vue';
 import axios from 'axios';
-import { resumePlanOf, savedTurnListOf, priorTurnListOf } from './dmeSessionTurns.js';
+import { resumePlanOf, savedTurnListOf, priorTurnListOf, messageByteLengthOf, WEB_SOCKET_MAX_PAYLOAD_BYTES } from './dmeSessionTurns.js';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -231,8 +231,9 @@ export function createEdunatorStore({
 						const current = this.responses[this.responses.length - 1];
 						if (current) current.stderr += msg.delta;
 					} else if (msg.channel === 'askMiloSessionSaved') {
-						// ws-graphinator read askMilo's "Session saved: NAME" and sends it with the proof that lets
-						// this browser resume NAME later. Both are saved with the turn.
+						// ws-graphinator confirms askMilo saved the session IT named for this prompt (by the session file,
+						// not by anything askMilo printed) and sends the proof that lets this browser resume it after a
+						// reload ('' when the server has no [dmeResumeProof] secret). Both are saved with the turn.
 						const current = this.responses[this.responses.length - 1];
 						this.settings.resumeSessionName = msg.askMiloSessionName;
 						this.settings.resumeProof = msg.resumeProof;
@@ -358,7 +359,17 @@ export function createEdunatorStore({
 				if (this._priorTurnListPending) {
 					promptMessage.savedTurnList = this._priorTurnListPending;
 				}
-				ws.send(JSON.stringify(promptMessage));
+				// the server closes a connection on a message over maxPayload; say so here instead of "connection lost"
+				const promptMessageText = JSON.stringify(promptMessage);
+				if (messageByteLengthOf(promptMessageText) > WEB_SOCKET_MAX_PAYLOAD_BYTES) {
+					this.responses.pop();
+					this.currentIndex = this.responses.length - 1;
+					this.loading = false;
+					this.lastHeartbeat = null;
+					this.statusMsg = `This question was NOT sent: it is ${(messageByteLengthOf(promptMessageText) / 1048576).toFixed(1)} MB, over the ${WEB_SOCKET_MAX_PAYLOAD_BYTES / 1048576} MB the server accepts. Shorten it, or start a new session.`;
+					return;
+				}
+				ws.send(promptMessageText);
 			},
 
 			clear() {
