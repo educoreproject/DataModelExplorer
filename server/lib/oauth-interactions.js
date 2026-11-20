@@ -66,6 +66,7 @@ const moduleFunction = ({
 	audit,
 	interactionPath = '/oauth/interaction',
 	csrfSecret,
+	forgotPasswordUrl = '', // the website's forgot-password page; blank shows no link (oauth-server.js reads it from [user-registration])
 } = {}) => ({ expressApp }) => {
 	const { xLog } = process.global;
 
@@ -123,6 +124,7 @@ ${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
 <input id="password" name="password" type="password" required>
 <button type="submit">Sign in</button>
 </form>
+${forgotPasswordUrl ? `<p class="muted"><a href="${escapeHtml(forgotPasswordUrl)}" target="_blank" rel="noopener">Forgot password?</a></p>` : ''}
 <p class="muted">EDUcore identity provider</p></div></body></html>`;
 
 	const renderConsent = ({ uid, clientName, scopes, resource }) => `<!doctype html><html><head><meta charset="utf-8">

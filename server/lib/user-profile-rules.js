@@ -19,6 +19,7 @@
 //   textIdentifierRefusalOf(identifierByName)             -> '' or a refusal (identifierNotText) naming each non-text one
 //   refusalOf(caseName, { detailList })                   -> { refusalName, httpStatus, reason }
 //   refusalText(refusal)                                  -> 'refusalName: reason', for pipelines that pass error strings
+//   isAccountDisabled(disabledValue)                      -> true unless users.disabled is blank, '0' or 'false'
 //
 // A refusal is a frozen { refusalName, httpStatus, reason }. A missing or malformed rules file is refused at load.
 
@@ -30,6 +31,7 @@ const RULES_FILE_PATH = path.join(__dirname, 'user-profile-rules.json');
 const REQUIRED_CASE_NAME_LIST = [
 	'noSignedInUser', 'bodyNotAnObject', 'notOwnRecord', 'propertyNotSelfEditable', 'propertyNotAdminEditable', 'propertyValueNotText', 'propertyTooLong', 'emailAdrNotValid',
 	'usernameNotAllowed', 'identifierNotText', 'noSuchUser', 'passwordNotAccepted', 'currentPasswordRequired', 'currentPasswordWrong', 'sessionRevoked',
+	'registrationNotConfigured', 'registrationDisabled', 'emailNotConfirmed', 'linkNotValid', 'tooManyRequests', 'usernameTaken', 'emailAdrTaken', 'requiredPropertyMissing', 'accountDisabled',
 ];
 const BLANK_VALUE_LIST = Object.freeze([undefined, null, '']);
 
@@ -167,9 +169,15 @@ const adminSaveRefusalOf = (userData) => {
 	return refusedNameList.length ? refusalOf('propertyNotAdminEditable', { detailList: refusedNameList }) : '';
 };
 
+// the users.disabled column (oauth-schema-init adds it) is text: '' (or absent), '0' and 'false' are active, as in
+// oauth-bearer-gate.js; 'pendingConfirmation' awaits the emailed link; anything else is disabled by an admin
+const NOT_DISABLED_TEXT_LIST = Object.freeze(['', '0', 'false']);
+const PENDING_CONFIRMATION_TEXT = 'pendingConfirmation';
+const isAccountDisabled = (disabledValue) => !NOT_DISABLED_TEXT_LIST.includes(String(disabledValue === undefined || disabledValue === null ? '' : disabledValue).trim().toLowerCase());
+
 const usernameRefusalOf = (usernameText) => (typeof usernameText === 'string' && usernamePattern.test(usernameText) ? '' : refusalOf('usernameNotAllowed'));
 
 module.exports = {
 	selfSaveRefusalOf, selfSaveRecordOf, adminSaveRefusalOf, usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText, hasNewPassword, isBlank,
-	selfEditablePropertyList, currentPasswordPropertyName,
+	selfEditablePropertyList, currentPasswordPropertyName, isAccountDisabled, PENDING_CONFIRMATION_TEXT,
 };
