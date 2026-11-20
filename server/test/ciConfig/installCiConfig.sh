@@ -43,6 +43,8 @@ main() {
 		echo "installCiConfig: FAILED: could not make the flat layout in $configsDirPath" >&2
 		return 1
 	}
+	# owner-only, as on the servers (config-secrets-owner-only.test.js checks every secrets-bearing .ini is 0600)
+	find "$configsDirPath" -name '*.ini' -exec chmod 600 {} + || return 1
 	replacedCount="$(grep -rhoE 'ci[0-9a-f]{48}' "$configsDirPath" | sort -u | wc -l | tr -d ' ')"
 	echo "installCiConfig: $(find "$configsDirPath" -name '*.ini' | wc -l | tr -d ' ') files installed in $configsDirPath (instanceSpecific/ and flat), $replacedCount distinct random values"
 	return 0
