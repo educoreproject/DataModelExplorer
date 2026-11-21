@@ -64,6 +64,11 @@ export const accountVocabulary = Object.freeze({
 	declineButtonText: 'Decline',
 	sendDeclineEmailLabel: 'Email the applicant that the account was not approved',
 	approvalChooseApplicantText: 'Choose an application from the list.',
+	// WORKORDER-approvalMailPolish-112126 P4: the Pending approvals tool on /admin
+	pendingApprovalsToolText: 'PENDING APPROVALS',
+	pendingApprovalsTitle: 'Accounts waiting for approval',
+	pendingApprovalsReviewText: 'Review',
+	pendingApprovalsRefreshText: 'Refresh',
 	accountStateTextByName: Object.freeze({
 		pendingApproval: 'waiting for approval',
 		declined: 'declined',

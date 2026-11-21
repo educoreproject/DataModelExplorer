@@ -2,13 +2,16 @@
 // @concept: [[UserCrudAdmin]]
 definePageMeta({ middleware: 'auth' });
 
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
 import ManifestEditor from '@/components/tools/manifest-editor.vue';
 import OauthAdmin from '@/components/tools/oauth-admin.vue';
 import CedsRaterAdmin from '@/components/tools/ceds-rater-admin.vue';
+import PendingApprovals from '@/components/tools/pending-approvals.vue';
+import { useAccountApprovalStore } from '@/stores/accountApprovalStore';
+import { accountVocabulary } from '@/components/accountVocabulary.js';
 
 // Dev server selector — runtime backend override for DME (see SPEC §8).
 import { backendProfiles } from '@/config/backendProfiles';
@@ -21,6 +24,7 @@ import { useLoginStore } from '@/stores/loginStore';
 import { isRaterAdminRole } from '@/stores/raterStore';
 
 const LoginStore = useLoginStore();
+const approvalStore = useAccountApprovalStore();
 const route = useRoute();
 const router = useRouter();
 const profile = useBackendProfile();
@@ -51,7 +55,7 @@ const clearProfile = () => {
 
 // Selected tool - default to add-edit-user. The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark
 // or a redirect lands on it: /admin?tool=ceds-rater is the Mapping Survey tab (the old /rater/admin URLs redirect there).
-const TOOL_NAME_LIST = ['add-edit-user', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
+const TOOL_NAME_LIST = ['add-edit-user', 'pending-approvals', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
 const DEFAULT_TOOL_NAME = 'add-edit-user';
 const selectedTool = computed(() => route.query.tool || DEFAULT_TOOL_NAME);
 const isKnownTool = computed(() => TOOL_NAME_LIST.includes(selectedTool.value));
@@ -61,6 +65,13 @@ const isRaterAdmin = computed(() => isRaterAdminRole(LoginStore.loggedInUser?.ro
 const selectTool = (toolName) => {
 	router.push({ query: { tool: toolName } });
 };
+
+// the Pending approvals tab shows how many accounts wait (WORKORDER-approvalMailPolish-112126 P4), so the list is read
+// once here whatever tool is open; the server refuses anyone who is not an approver, and the tool itself shows that
+const pendingApprovalCount = computed(() => approvalStore.pendingApplicantList.length);
+onMounted(() => {
+	approvalStore.loadPendingList();
+});
 </script>
 
 <template>
@@ -83,6 +94,19 @@ const selectTool = (toolName) => {
 									class="mr-2"
 								>
 									ADD/EDIT NEW USER
+								</v-btn>
+
+								<!-- Pending approvals tab (WORKORDER-approvalMailPolish-112126 P4): accounts waiting, with their count -->
+								<v-btn
+									variant="outlined"
+									:disabled="selectedTool === 'pending-approvals'"
+									@click="selectTool('pending-approvals')"
+									prepend-icon="mdi-account-clock"
+									class="mr-2"
+									data-testid="admin-tool-pending-approvals"
+								>
+									{{ accountVocabulary.pendingApprovalsToolText }}
+									<v-chip v-if="pendingApprovalCount" size="x-small" color="warning" variant="flat" class="ml-2" data-testid="admin-tool-pending-approvals-count">{{ pendingApprovalCount }}</v-chip>
 								</v-btn>
 
 								<!-- Manifest Editor tab -->
@@ -136,6 +160,11 @@ const selectTool = (toolName) => {
 							<v-card-text class="d-flex justify-center align-start text-subtitle-1 text-medium-emphasis tool-area">
 								<add-edit-user
 									v-if="selectedTool === 'add-edit-user'"
+								/>
+
+								<!-- Pending approvals: each links to its approval page -->
+								<pending-approvals
+									v-else-if="selectedTool === 'pending-approvals'"
 								/>
 
 								<!-- Manifest Editor -->
