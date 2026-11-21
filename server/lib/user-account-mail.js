@@ -11,9 +11,12 @@
 //   applicationCommentTextOf(applicationComment) -> the comment, or applicationCommentAbsentText (A8)
 //   lifetimeTextOf(minuteCount)                -> '60 minutes', '24 hours'
 //
-// Every filled value is HTML-escaped in the html part; a paragraph that is exactly one URL becomes a link. Every message
+// Every filled value is HTML-escaped in the html part; a paragraph that is exactly one URL becomes a link. A paragraph
+// may instead be an ACTION, { actionUrlFill, actionLabelText } (WORKORDER-approvalMailPolish-112126 P1): a button in the
+// html part, its label and URL in the text part; its fill must be an http(s) URL or the compose throws. Every message
 // says where it came from (WORKORDER-adminApproval-112126 A3): originText's suffix on the subject and its paragraph last,
-// with the host of the siteUrl fill, which every message must carry.
+// with the host of the siteUrl fill, which every message must carry. The vocabulary names the site by that host alone
+// (<!originHost!>), never as an address: the only URLs in a message are its actions (P2).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -33,10 +36,17 @@ if (typeof applicationCommentAbsentText !== 'string' || !applicationCommentAbsen
 if (!originText || typeof originText.subjectSuffixText !== 'string' || !/<!originHost!>/.test(originText.subjectSuffixText) || typeof originText.paragraphText !== 'string' || !/<!originHost!>/.test(originText.paragraphText)) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: originText needs subjectSuffixText and paragraphText, each carrying <!originHost!> (WORKORDER-adminApproval-112126 A3)`);
 }
+// a paragraph is text, or an action: { actionUrlFill: the fill holding its URL, actionLabelText: the button's words }
+const isActionParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object';
+const isValidParagraph = (paragraphEntry) =>
+	typeof paragraphEntry === 'string' || (isActionParagraph(paragraphEntry) && typeof paragraphEntry.actionUrlFill === 'string' && !!paragraphEntry.actionUrlFill && typeof paragraphEntry.actionLabelText === 'string' && !!paragraphEntry.actionLabelText);
 REQUIRED_MESSAGE_NAME_LIST.forEach((messageName) => {
 	const messageEntry = (messageByName || {})[messageName];
 	if (!messageEntry || typeof messageEntry.subjectText !== 'string' || !Array.isArray(messageEntry.paragraphList) || !messageEntry.paragraphList.length) {
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName} needs subjectText and a non-empty paragraphList`);
+	}
+	if (!messageEntry.paragraphList.every(isValidParagraph)) {
+		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is neither text nor { actionUrlFill, actionLabelText }`);
 	}
 });
 REQUIRED_REPLY_NAME_LIST.forEach((replyName) => {
@@ -69,6 +79,10 @@ const originHostOf = (siteUrl) => {
 	return hostMatch ? hostMatch[1] : '';
 };
 
+// the button an action paragraph becomes in the html part: inline styles only, which Apple Mail and Gmail both honour
+const ACTION_BUTTON_STYLE_TEXT = 'display:inline-block;padding:12px 22px;background-color:#1f5fa8;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:6px';
+const ACTION_URL_PATTERN = /^https?:\/\/\S+$/;
+
 const stringFillOf = (fillByName) => Object.fromEntries(Object.entries(fillByName || {}).map(([fillName, fillText]) => [fillName, String(fillText === undefined || fillText === null ? '' : fillText)]));
 
 const accountMailOf = ({ messageName, fillByName }) => {
@@ -83,9 +97,20 @@ const accountMailOf = ({ messageName, fillByName }) => {
 	}
 	const plainFill = { ...stringFillOf(fillByName), originHost };
 	const paragraphTemplateList = [...messageEntry.paragraphList, originText.paragraphText];
+	// P1: an action whose URL is absent or not an address is a code fault, never a button to nowhere
+	paragraphTemplateList.filter(isActionParagraph).forEach(({ actionUrlFill }) => {
+		if (!ACTION_URL_PATTERN.test(plainFill[actionUrlFill] || '')) {
+			throw new Error(`[${moduleName}] accountMailOf: '${messageName}' needs fillByName.${actionUrlFill}, an http(s) URL, for its action (got '${plainFill[actionUrlFill] || ''}')`);
+		}
+	});
 	const escapedFill = Object.fromEntries(Object.entries(plainFill).map(([fillName, fillText]) => [fillName, htmlEscapeOf(fillText)]));
-	const plainParagraphList = paragraphTemplateList.map((paragraphTemplate) => filledTextOf(paragraphTemplate, plainFill));
+	const plainParagraphList = paragraphTemplateList.map((paragraphTemplate) =>
+		isActionParagraph(paragraphTemplate) ? `${paragraphTemplate.actionLabelText}:\n${plainFill[paragraphTemplate.actionUrlFill]}` : filledTextOf(paragraphTemplate, plainFill),
+	);
 	const htmlParagraphList = paragraphTemplateList.map((paragraphTemplate, paragraphIndex) => {
+		if (isActionParagraph(paragraphTemplate)) {
+			return `<p style="margin:24px 0"><a href="${htmlEscapeOf(plainFill[paragraphTemplate.actionUrlFill])}" style="${ACTION_BUTTON_STYLE_TEXT}">${htmlEscapeOf(paragraphTemplate.actionLabelText)}</a></p>`;
+		}
 		const plainParagraph = plainParagraphList[paragraphIndex];
 		if (/^https?:\/\/\S+$/.test(plainParagraph)) {
 			return `<p><a href="${htmlEscapeOf(plainParagraph)}">${htmlEscapeOf(plainParagraph)}</a></p>`;

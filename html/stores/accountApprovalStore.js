@@ -6,6 +6,9 @@
 // admin's STORED role whether they may see or decide anything, and refuses by name (notAnApprover) otherwise.
 //
 // Actions return true or false; the page shows statusMsg (an error, a refusal's reason) or noticeMsg (the server's reply).
+// The pending list keeps its own loading and message (pendingListLoading, pendingListStatusMsg): the /admin Pending
+// approvals tool shows them (WORKORDER-approvalMailPolish-112126 P4), and the approval page, whose own detail request
+// already reports a refusal, does not.
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -19,6 +22,8 @@ const accountApprovalStoreInitObject = {
 	latestDecision: null,
 	adminApprovalEmailSuppress: false,
 	pendingApplicantList: [],
+	pendingListLoading: false,
+	pendingListStatusMsg: '',
 };
 
 // the text to show for a failed request: a refusal's reason, a plain-text error, or the network's message
@@ -78,14 +83,18 @@ export const useAccountApprovalStore = defineStore('accountApprovalStore', {
 
 		async loadPendingList() {
 			const loginStore = useLoginStore();
+			this.pendingListLoading = true;
+			this.pendingListStatusMsg = '';
 			try {
 				const response = await axios.post('/api/listPendingApprovals', {}, { headers: { 'Content-Type': 'application/json', ...loginStore.getAuthTokenProperty } });
 				this.pendingApplicantList = Array.isArray(response.data) ? response.data : [];
 				return true;
 			} catch (error) {
-				// the page's own detail request reports a refusal; an empty list here says nothing more
 				this.pendingApplicantList = [];
+				this.pendingListStatusMsg = failureTextOf(error, 'The accounts waiting for approval could not be read - network or server error');
 				return false;
+			} finally {
+				this.pendingListLoading = false;
 			}
 		},
 	},
