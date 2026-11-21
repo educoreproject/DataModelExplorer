@@ -187,11 +187,14 @@ step((done) => {
 step((done) => {
 	const { accountMailOf } = require(path.join(serverPath, 'lib', 'user-account-mail'));
 	const { messageByName } = require(path.join(serverPath, 'lib', 'user-account-mail-vocabulary.json'));
-	const problemList = Object.keys(messageByName).map((messageName) => [messageName, comingFromProblemOf(accountMailOf({ messageName, fillByName: { siteUrl: `https://${SITE_HOST}` } }))]).filter(([, problemText]) => problemText);
+	// approvalPageUrl: approvalRequest's action needs its URL (WORKORDER-approvalMailPolish-112126 P1; supervisor ruling 2026-11-21)
+	const problemList = Object.keys(messageByName).map((messageName) => [messageName, comingFromProblemOf(accountMailOf({ messageName, fillByName: { siteUrl: `https://${SITE_HOST}`, approvalPageUrl: `https://${SITE_HOST}/account-approval?userRefId=x` } }))]).filter(([, problemText]) => problemText);
 	check(`P1.3 every message in the vocabulary (${Object.keys(messageByName).length}) says where it came from`, !problemList.length, JSON.stringify(problemList));
 	// composed in a child process: the refusal is a throw (a code fault), read from its stderr, not caught here
 	const composeWithoutSite = require('child_process').spawnSync(process.execPath, ['-e', `process.global = {}; require(${JSON.stringify(path.join(serverPath, 'lib', 'user-account-mail'))}).accountMailOf({ messageName: ${JSON.stringify(Object.keys(messageByName)[0])}, fillByName: {} })`], { encoding: 'utf8' });
 	check('P1.3 a mail composed without siteUrl is refused (it could not say where it came from)', composeWithoutSite.status !== 0 && /needs fillByName\.siteUrl/.test(composeWithoutSite.stderr), composeWithoutSite.stderr.slice(0, 300));
+	const composeWithoutAction = require('child_process').spawnSync(process.execPath, ['-e', `process.global = {}; require(${JSON.stringify(path.join(serverPath, 'lib', 'user-account-mail'))}).accountMailOf({ messageName: 'approvalRequest', fillByName: { siteUrl: 'https://${SITE_HOST}' } })`], { encoding: 'utf8' });
+	check('P1.3 an approval request composed without approvalPageUrl is refused by name (no button to nowhere)', composeWithoutAction.status !== 0 && /'approvalRequest' needs fillByName\.approvalPageUrl/.test(composeWithoutAction.stderr), composeWithoutAction.stderr.slice(0, 300));
 	done();
 });
 
