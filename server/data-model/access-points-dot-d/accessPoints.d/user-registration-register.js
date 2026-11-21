@@ -6,9 +6,11 @@
 // user-registration-register.js — ACCESS POINT: a visitor creates their own account (PLAN-userRegistrationReset-112026
 // 4.3, rulings R1, R3, R7). Behind POST /api/registerUser (public).
 //
-//   serviceFunction({ username, password, first, last, emailAdr, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal }))
+//   serviceFunction({ username, password, first, last, emailAdr, applicationComment, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal }))
 //
-// Only those five properties are read: whatever else a request carries (role, disabled, refId, source) never reaches
+// Only those five properties, and the optional applicationComment (WORKORDER-adminApproval-112126 A8: a note to the
+// approvers, text, at most user-profile-rules.json maxLengthByPropertyName.applicationComment, stored in its own users
+// column and shown only on the approval paths), are read: whatever else a request carries (role, disabled, refId, source) never reaches
 // the row. The role is ALWAYS [user-registration] newAccountRole (the July saveUserData hole was a role taken from a
 // request body). Refused by name: registration switched off; a missing, non-text, over-long or malformed value; a
 // password the existing rule refuses; a username already in use or an email address already on an account, both
@@ -33,9 +35,10 @@ const { refusalOf, refusalText, textIdentifierRefusalOf, valueLengthRefusalOf, u
 const { requestApprovalOf } = require('../../../lib/user-account-approval');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
 const { issueToken } = require('../../../lib/user-account-tokens');
-const { accountMailOf, lifetimeTextOf } = require('../../../lib/user-account-mail');
+const { accountMailOf, lifetimeTextOf, applicationCommentTextOf } = require('../../../lib/user-account-mail');
 
 const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr']);
+const OPTIONAL_REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['applicationComment']);
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NEW_ACCOUNT_SOURCE_TEXT = 'selfRegistration';
 const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
@@ -50,7 +53,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const requestGuard = requestGuardOf({ userRegistrationSettings });
 
 	// the registration's own record: the five properties, trimmed, and nothing else from the request
-	const registrationRecordOf = (xQuery) => REGISTRATION_PROPERTY_NAME_LIST.reduce((record, propertyName) => ({ ...record, [propertyName]: xQuery[propertyName] }), {});
+	const registrationRecordOf = (xQuery) => [...REGISTRATION_PROPERTY_NAME_LIST, ...OPTIONAL_REGISTRATION_PROPERTY_NAME_LIST].reduce((record, propertyName) => ({ ...record, [propertyName]: xQuery[propertyName] }), {});
 
 	const shapeRefusalOf = (registrationRecord) => {
 		const presentByName = Object.fromEntries(Object.entries(registrationRecord).filter(([, propertyValue]) => propertyValue !== undefined && propertyValue !== null));
@@ -100,7 +103,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				source: NEW_ACCOUNT_SOURCE_TEXT,
 				role: newAccountRole,
 			};
-			next('', { ...args, newUserRecord, requireEmailConfirmation, requireAdminApproval });
+			const applicationComment = typeof registrationRecord.applicationComment === 'string' ? registrationRecord.applicationComment.trim() : '';
+			next('', { ...args, newUserRecord, applicationComment, requireEmailConfirmation, requireAdminApproval });
 		});
 
 		taskList.push((args, next) => sqlDb.getTable('users', mergeArgs(args, next, 'userTable')));
@@ -131,6 +135,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			const userRow = { ...dataMapping['profile-user'].map(args.newUserRecord, 'reverse'), disabled: initialStateText };
 			args.userTable.saveObject(userRow, QUIET_OPTIONS, (saveError, userRefId) => next(saveError ? `writing the account: ${saveError}` : '', { ...args, userRefId }));
 		});
+
+		// A8: the comment in its own column, never through the mapper (so no profile, login reply or token carries it)
+		taskList.push((args, next) =>
+			args.userTable.runStatement(dataMapping['profile-user'].getSql('applicationCommentByRefId', { refId: args.userRefId, applicationComment: args.applicationComment }), QUIET_OPTIONS, (saveError) => next(saveError ? `writing the application comment: ${saveError}` : '', args)),
+		);
 
 		taskList.push((args, next) =>
 			args.userTable.getData(dataMapping['profile-user'].getSql('byRefId', { refId: args.userRefId }), QUIET_OPTIONS, (readError, userRowList = []) => {
@@ -185,7 +194,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			const noticeMail = accountMailOf({
 				messageName: 'newAccountNotice',
-				fillByName: { username: args.userRow.username, firstName: args.userRow.first, lastName: args.userRow.last, emailAdr: args.userRow.emailAdr, confirmationText: args.requireEmailConfirmation ? 'yes' : 'no', siteUrl: publicSiteUrl },
+				fillByName: { username: args.userRow.username, firstName: args.userRow.first, lastName: args.userRow.last, emailAdr: args.userRow.emailAdr, confirmationText: args.requireEmailConfirmation ? 'yes' : 'no', applicationCommentText: applicationCommentTextOf(args.userRow.applicationComment), siteUrl: publicSiteUrl },
 			});
 			emailSender.sendEmail({ toList: [...newAccountNoticeList], ...noticeMail }, (sendError) => {
 				if (sendError) {

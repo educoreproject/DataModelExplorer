@@ -17,7 +17,8 @@ const makeRefId = require('../../lib/make-ref-id');
 const { pipeRunner, taskListPlus, forwardArgs } = new require('qtools-asynchronous-pipe-plus')();
 const { accountReplyOf } = require('../../lib/user-account-mail');
 
-const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr']);
+// the five, and A8's optional applicationComment (WORKORDER-adminApproval-112126)
+const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr', 'applicationComment']);
 
 // the reply for each outcome (WORKORDER-adminApproval-112126 adds the two that await an approver); only a signed-in reply
 // carries the user. isAwaitingApproval says the page should tell the visitor their application is out for approval.

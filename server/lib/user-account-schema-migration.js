@@ -14,6 +14,8 @@
 //      plus an index on tokenHash; then spent rows (used or expired) are swept.
 //   2b. accountApprovalDecisions (WORKORDER-adminApproval-112126): the table of who approved or declined a self-registered
 //      account and when, its columns added where absent, plus an index on applicantUserRefId.
+//   2c. users.applicationComment (WORKORDER-adminApproval-112126 A8, the one users column the supervisor allowed): the
+//      applicant's optional note to the approvers, TEXT, added where absent.
 //   3. DUPLICATE EMAIL CHECK. Accounts sharing an address (compared without case) are logged by username. No data
 //      changes; a reset by that address refuses at request time (password-reset-request) until an admin fixes them.
 //
@@ -29,6 +31,7 @@ const QUIET_UNTAGGED_OPTIONS = Object.freeze({ suppressStatementLog: true, noTab
 const USERS_TABLE_NAME = 'users';
 const USER_TOKENS_TABLE_NAME = 'userTokens';
 const APPROVAL_DECISIONS_TABLE_NAME = 'accountApprovalDecisions';
+const APPLICATION_COMMENT_COLUMN_NAME = 'applicationComment';
 const TRIGGER_LIST_SQL = "SELECT name, tbl_name AS tableName, sql FROM sqlite_master WHERE type = 'trigger' ORDER BY name";
 
 const moduleFunction = ({ sqlDb, dataMapping }) => (callback) => {
@@ -130,6 +133,29 @@ const moduleFunction = ({ sqlDb, dataMapping }) => (callback) => {
 			next('', args);
 		});
 	});
+
+	// ---- 2c. users.applicationComment
+	taskList.push((args, next) =>
+		args.userTable.getData(dataMapping['profile-user'].getSql('tableInfo'), QUIET_OPTIONS, (infoError, columnRowList = []) => {
+			if (infoError) {
+				next(`reading ${USERS_TABLE_NAME} columns: ${infoError}`, args);
+				return;
+			}
+			if (columnRowList.some((columnRow) => String(columnRow.name).toLowerCase() === APPLICATION_COMMENT_COLUMN_NAME.toLowerCase())) {
+				logInfoList.push(`${USERS_TABLE_NAME}.${APPLICATION_COMMENT_COLUMN_NAME}: present`);
+				next('', args);
+				return;
+			}
+			args.userTable.runStatement(`ALTER TABLE <!tableName!> ADD COLUMN [${APPLICATION_COMMENT_COLUMN_NAME}] TEXT;`, QUIET_OPTIONS, (alterError) => {
+				if (alterError) {
+					next(`adding ${USERS_TABLE_NAME}.${APPLICATION_COMMENT_COLUMN_NAME}: ${alterError}`, args);
+					return;
+				}
+				logInfoList.push(`${USERS_TABLE_NAME}.${APPLICATION_COMMENT_COLUMN_NAME}: added`);
+				next('', args);
+			});
+		}),
+	);
 
 	// ---- 3. duplicate email check
 	taskList.push((args, next) =>

@@ -8,6 +8,7 @@
 //   accountMailOf({ messageName, fillByName }) -> { subject, text, html }   (an unknown messageName throws: a code fault)
 //   accountReplyOf(replyName)                  -> the reply text            (an unknown replyName throws)
 //   approvalWordingOf(decisionName)            -> { decisionText, applicantMessageName } (an unknown decision throws)
+//   applicationCommentTextOf(applicationComment) -> the comment, or applicationCommentAbsentText (A8)
 //   lifetimeTextOf(minuteCount)                -> '60 minutes', '24 hours'
 //
 // Every filled value is HTML-escaped in the html part; a paragraph that is exactly one URL becomes a link. Every message
@@ -25,7 +26,10 @@ const REQUIRED_REPLY_NAME_LIST = [
 	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
 ];
 
-const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase } = require(VOCABULARY_FILE_PATH);
+const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText } = require(VOCABULARY_FILE_PATH);
+if (typeof applicationCommentAbsentText !== 'string' || !applicationCommentAbsentText) {
+	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: applicationCommentAbsentText is missing (WORKORDER-adminApproval-112126 A8)`);
+}
 if (!originText || typeof originText.subjectSuffixText !== 'string' || !/<!originHost!>/.test(originText.subjectSuffixText) || typeof originText.paragraphText !== 'string' || !/<!originHost!>/.test(originText.paragraphText)) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: originText needs subjectSuffixText and paragraphText, each carrying <!originHost!> (WORKORDER-adminApproval-112126 A3)`);
 }
@@ -110,6 +114,10 @@ const approvalWordingOf = (decisionName) => {
 	return approvalWordingByDecision[decisionName];
 };
 
+// the applicant's comment as the approvers' mail shows it (A8): the comment, or the vocabulary's word for none. The
+// composer HTML-escapes it like every filled value.
+const applicationCommentTextOf = (applicationComment) => (typeof applicationComment === 'string' && applicationComment.trim() ? applicationComment.trim() : applicationCommentAbsentText);
+
 const lifetimeTextOf = (minuteCount) => (minuteCount % 60 === 0 && minuteCount >= 120 ? `${minuteCount / 60} hours` : `${minuteCount} minutes`);
 
-module.exports = { accountMailOf, accountReplyOf, approvalWordingOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }) };
+module.exports = { accountMailOf, accountReplyOf, approvalWordingOf, applicationCommentTextOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }) };

@@ -90,8 +90,8 @@ export const useAccountStore = defineStore('accountStore', {
 			return response ? this.acceptSignInReply(response) : false;
 		},
 
-		async registerUser({ username, password, first, last, emailAdr }) {
-			const response = await this.postPublic('/api/registerUser', { username, password, first, last, emailAdr }, 'The account could not be created - network or server error');
+		async registerUser({ username, password, first, last, emailAdr, applicationComment }) {
+			const response = await this.postPublic('/api/registerUser', { username, password, first, last, emailAdr, applicationComment }, 'The account could not be created - network or server error');
 			if (!response) {
 				return false;
 			}

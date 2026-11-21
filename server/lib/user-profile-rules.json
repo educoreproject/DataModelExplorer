@@ -16,8 +16,8 @@
 	"_adminEditablePropertyList": "what admin-create-user and admin-update-user accept (the admin user form sends exactly these; the rater tool sends a subset); anything else is refused by name (propertyNotAdminEditable), never dropped (re-verification 2026-11-10).",
 	"adminEditablePropertyList": ["refId", "username", "password", "first", "last", "emailAdr", "phone", "role"],
 
-	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling. username (2026-11-20) bounds self-registration and the admin tools alike.",
-	"maxLengthByPropertyName": { "username": 64, "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64 },
+	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling. username (2026-11-20) bounds self-registration and the admin tools alike. applicationComment (WORKORDER-adminApproval-112126 A8, 2026-11-21) is the optional note an applicant leaves for the approvers.",
+	"maxLengthByPropertyName": { "username": 64, "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64, "applicationComment": 1000 },
 
 	"_emailPatternText": "the email rule for the self-save path, the same pattern admin-create-user and admin-update-user apply (review N-2).",
 	"emailPatternText": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",

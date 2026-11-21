@@ -7,7 +7,8 @@
 //   T1.2 after the repair, updating one user leaves every other row's updatedAt unchanged
 //   T1.3 a second run repairs nothing, and triggers not named *UpdateTimestamp are byte-identical
 //   T1.4 userTokens exists after the run, with its token columns and the tokenHash index
-//   T1.5 accounts sharing an email (case and spaces ignored) are reported by username; no user data changes
+//   T1.5 accounts sharing an email (case and spaces ignored) are reported by username; no user data changes (the columns
+//        that existed before; the one added column, applicationComment, is NULL everywhere: amended 2026-11-21, A8)
 //
 // Run: node server/test/user-trigger-repair.test.js
 
@@ -85,9 +86,17 @@ const triggerSqlByNameOf = (databaseFilePath) => {
 	return sqlByName;
 };
 
-const userRowsTextOf = (databaseFilePath) => {
+// the users rows as text, over the given columns only (T1.5 compares the columns that existed before the run: the
+// migration adds users.applicationComment, WORKORDER-adminApproval-112126 A8, supervisor ruling 2026-11-21)
+const userColumnNameListOf = (databaseFilePath) => {
 	const db = new Database(databaseFilePath);
-	const rowsText = JSON.stringify(db.prepare('SELECT * FROM users ORDER BY refId').all());
+	const columnNameList = db.prepare('PRAGMA table_info(users)').all().map((columnRow) => columnRow.name);
+	db.close();
+	return columnNameList;
+};
+const userRowsTextOf = (databaseFilePath, columnNameList) => {
+	const db = new Database(databaseFilePath);
+	const rowsText = JSON.stringify(db.prepare(`SELECT ${columnNameList.map((columnName) => `[${columnName}]`).join(', ')} FROM users ORDER BY refId`).all());
 	db.close();
 	return rowsText;
 };
@@ -112,7 +121,8 @@ check('T1.1 before the repair: updating one user restamps the OTHER rows too (th
 const repairedFilePath = path.join(scratchDirPath, 'repaired.sqlite3');
 buildStaleDatabase(repairedFilePath);
 const triggerSqlBeforeByName = triggerSqlByNameOf(repairedFilePath);
-const userRowsTextBefore = userRowsTextOf(repairedFilePath);
+const userColumnNameListBefore = userColumnNameListOf(repairedFilePath);
+const userRowsTextBefore = userRowsTextOf(repairedFilePath, userColumnNameListBefore);
 
 migrateFile(repairedFilePath, (firstError, firstResult = {}) => {
 	check('the migration ran', !firstError, firstError);
@@ -121,7 +131,10 @@ migrateFile(repairedFilePath, (firstError, firstResult = {}) => {
 
 	const triggerSqlAfterByName = triggerSqlByNameOf(repairedFilePath);
 	check('T1.2 the repaired users trigger carries WHERE [refId] = NEW.[refId]', /WHERE \[refId\] = NEW\.\[refId\]/.test(triggerSqlAfterByName.usersUpdateTimestamp || ''), triggerSqlAfterByName.usersUpdateTimestamp);
-	check('T1.5 the migration changed no user data', userRowsTextOf(repairedFilePath) === userRowsTextBefore);
+	check('T1.5 the migration changed no user data (the columns that existed before the run)', userRowsTextOf(repairedFilePath, userColumnNameListBefore) === userRowsTextBefore);
+	const userColumnNameListAfter = userColumnNameListOf(repairedFilePath);
+	check('T1.5 the users table grew by exactly one column, applicationComment (A8)', userColumnNameListAfter.length === userColumnNameListBefore.length + 1 && userColumnNameListAfter.filter((columnName) => !userColumnNameListBefore.includes(columnName)).join() === 'applicationComment', JSON.stringify(userColumnNameListAfter));
+	check('T1.5 applicationComment is NULL on every pre-existing row', JSON.parse(userRowsTextOf(repairedFilePath, ['applicationComment'])).every((userRow) => userRow.applicationComment === null));
 
 	touchUserOne(repairedFilePath);
 	const repairedStampByRefId = updatedAtByRefIdOf(repairedFilePath);

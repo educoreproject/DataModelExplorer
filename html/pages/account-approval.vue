@@ -85,6 +85,8 @@
 								<tr><th>{{ accountVocabulary.approvalNameLabel }}</th><td>{{ approvalStore.applicant.first }} {{ approvalStore.applicant.last }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalEmailLabel }}</th><td>{{ approvalStore.applicant.emailAdr }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalSignedUpLabel }}</th><td>{{ approvalStore.applicant.createdAt }}</td></tr>
+								<!-- A8: the applicant's note, by text interpolation only (never raw HTML); only approvers are served it -->
+								<tr><th>{{ accountVocabulary.approvalCommentLabel }}</th><td class="application-comment" data-testid="approval-comment">{{ approvalStore.applicant.applicationComment || accountVocabulary.approvalNoCommentText }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalStateLabel }}</th><td data-testid="approval-state">{{ stateText }}</td></tr>
 								<tr v-if="decidedText"><th>{{ accountVocabulary.approvalDecidedLabel }}</th><td data-testid="approval-decided">{{ decidedText }}</td></tr>
 							</tbody>
@@ -111,6 +113,9 @@
 <style scoped>
 .approval-page {
 	max-width: 1100px;
+}
+.application-comment {
+	white-space: pre-wrap;
 }
 .decision-buttons {
 	display: flex;

@@ -16,6 +16,9 @@
 	},
 	"declineEmailTextByCase": { "sent": "sent", "suppressed": "not sent (suppressed by the approver)", "notApplicable": "not applicable" },
 
+	"_applicationCommentAbsentText": "WORKORDER-adminApproval-112126 A8: what the approvers' mail says in place of the applicant's comment when none was left.",
+	"applicationCommentAbsentText": "(none)",
+
 	"messageByName": {
 		"passwordReset": {
 			"subjectText": "Reset your EDUcore password",
@@ -53,7 +56,8 @@
 				"Username: <!username!>",
 				"Name: <!firstName!> <!lastName!>",
 				"Email: <!emailAdr!>",
-				"Email confirmation required: <!confirmationText!>"
+				"Email confirmation required: <!confirmationText!>",
+				"Comment from the applicant: <!applicationCommentText!>"
 			]
 		},
 		"approvalRequest": {
@@ -63,6 +67,7 @@
 				"Username: <!username!>",
 				"Name: <!firstName!> <!lastName!>",
 				"Email: <!emailAdr!>",
+				"Comment from the applicant: <!applicationCommentText!>",
 				"To approve or decline it, open this page (you will be asked to sign in as an administrator):",
 				"<!approvalPageUrl!>"
 			]

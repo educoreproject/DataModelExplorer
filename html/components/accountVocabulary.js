@@ -54,6 +54,12 @@ export const accountVocabulary = Object.freeze({
 	approvalSignedUpLabel: 'Signed up',
 	approvalStateLabel: 'State',
 	approvalDecidedLabel: 'Decided',
+	approvalCommentLabel: 'Comment',
+	approvalNoCommentText: '(none)',
+	// A8: the optional note an applicant leaves for the approvers
+	applicationCommentLabel: 'Comment for the administrators (optional)',
+	applicationCommentHintText: 'Who you are and why you would like an account. Only administrators see it.',
+	applicationCommentTooLongText: 'At most 1000 characters.',
 	approveButtonText: 'Approve',
 	declineButtonText: 'Decline',
 	sendDeclineEmailLabel: 'Email the applicant that the account was not approved',

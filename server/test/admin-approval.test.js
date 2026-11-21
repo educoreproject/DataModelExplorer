@@ -28,11 +28,18 @@
 //   P2.8 detail shows the applicant, who decided and when, and presets the decline-email control from the setting
 //   P2.9 a password reset is never mailed to a pendingApproval or declined account (it would sign the account in)
 //
+// A8 (tqii 2026-11-21): the optional application comment
+//   P8.1 stored when given (in its own users column), absent is fine; over the limit refused by name (propertyTooLong)
+//   P8.2 shown to approvers: in the approval request (HTML escaped, inert) and the detail; in the plain new-account
+//        notice when approval is off; "(none)" when absent
+//   P8.3 never public: not in the registration reply, registrationOptions, a login reply or a token; a non-admin
+//        cannot read it; the approval page renders it as text (no v-html)
+//
 // Run: node server/test/admin-approval.test.js
 
 const path = require('path');
 const { httpPost } = require('./lib/userAccountHarness');
-const { bootAccountFlowServer, tokenOfMail, RESET_ACCESS_POINT_NAME_LIST, RESET_ENDPOINT_FILE_NAME_LIST } = require('./lib/accountFlowHarness');
+const { bootAccountFlowServer, tokenOfMail, httpGet, RESET_ACCESS_POINT_NAME_LIST, RESET_ENDPOINT_FILE_NAME_LIST } = require('./lib/accountFlowHarness');
 
 const serverPath = path.join(__dirname, '..');
 const REGISTRATION_ACCESS_POINT_NAME_LIST = ['user-registration-register', 'user-registration-confirm', 'user-registration-resend', 'user-registration-options'];
@@ -432,6 +439,84 @@ step((done) => bootWith({ ...APPROVAL_ON, requireEmailConfirmation: 'false', new
 		done();
 	});
 }));
+
+// ---- A8: the application comment
+const HOSTILE_COMMENT_TEXT = '<b>Hire me</b> & <script>alert(1)</script> please';
+step((done) => {
+	const harness = state.approvalHarness;
+	const post = postTo(harness);
+	harness.capturedMailList.length = 0;
+	post('/api/registerUser', { ...applicantOf('appnote'), applicationComment: `  ${HOSTILE_COMMENT_TEXT}  ` }, (registerResponse) => {
+		check('P8.3 the registration reply does not echo the comment', registerResponse.statusCode === 200 && !/Hire me/.test(registerResponse.bodyText) && !/Hire me/.test(registerResponse.authclaimsText || ''), registerResponse.bodyText);
+		rowOf(harness, 'appnote', (noteRow) => {
+			check('P8.1 the comment is stored, trimmed, in users.applicationComment', noteRow.applicationComment === HOSTILE_COMMENT_TEXT, JSON.stringify(noteRow.applicationComment));
+			confirmOf(harness, 'appnote', () => {
+				const requestMail = mailsWith(harness, /^Approval needed/).find((mailMessage) => /appnote/.test(mailMessage.text));
+				check('P8.2 the approval request carries the comment in its text', requestMail && requestMail.text.includes(`Comment from the applicant: ${HOSTILE_COMMENT_TEXT}`), requestMail && requestMail.text);
+				check('P8.2 in the HTML part the comment arrives escaped (no live tag)', requestMail && requestMail.html.includes('&lt;b&gt;Hire me&lt;/b&gt; &amp; &lt;script&gt;alert(1)&lt;/script&gt; please') && !/<script>|<b>Hire/.test(requestMail.html), requestMail && requestMail.html);
+				post('/api/accountApprovalDetail', { userRefId: noteRow.refId }, (detailResponse) => {
+					check('P8.2 the approver sees the comment in the detail', detailResponse.statusCode === 200 && detailResponse.bodyJson[0].applicant.applicationComment === HOSTILE_COMMENT_TEXT, detailResponse.bodyText);
+					tokenOfSignIn(harness, 'ursula', URSULA_PASSWORD, (ursulaToken) => post('/api/accountApprovalDetail', { userRefId: noteRow.refId }, (userDetail) => {
+						check('P8.3 a non-admin cannot read it (notAnApprover, and the reply holds no comment)', userDetail.statusCode === 403 && !/Hire me/.test(userDetail.bodyText), userDetail.bodyText);
+						post('/api/listPendingApprovals', {}, (listResponse) => {
+							check('P8.2 the pending list carries it for the approver', (listResponse.bodyJson || []).some((applicant) => applicant.username === 'appnote' && applicant.applicationComment === HOSTILE_COMMENT_TEXT), listResponse.bodyText);
+							post('/api/decideAccountApproval', { userRefId: noteRow.refId, decisionName: 'approve' }, () =>
+								post('/api/login', { username: 'appnote', password: APPLICANT_PASSWORD }, (noteLogin) => {
+									check('P8.3 the applicant\'s own login reply and token carry no comment', noteLogin.statusCode === 200 && !/Hire me|applicationComment/.test(noteLogin.bodyText) && !/Hire me|applicationComment/.test(noteLogin.authclaimsText || ''), `${noteLogin.bodyText} ${noteLogin.authclaimsText}`);
+									httpGet({ baseUrl: harness.baseUrl, routePath: '/api/registrationOptions' }, (optionsError, optionsResponse) => {
+										check('P8.3 registrationOptions holds no comment', !optionsError && !/Hire me|applicationComment/.test(optionsResponse.bodyText), optionsResponse && optionsResponse.bodyText);
+										done();
+									});
+								}),
+							state.adaToken);
+						}, state.adaToken);
+					}, ursulaToken));
+				}, state.adaToken);
+			});
+		});
+	});
+});
+
+step((done) => {
+	const harness = state.approvalHarness;
+	const post = postTo(harness);
+	harness.capturedMailList.length = 0;
+	post('/api/registerUser', applicantOf('appnonote'), (plainResponse) => {
+		rowOf(harness, 'appnonote', (plainRow) => {
+			check('P8.1 no comment is fine: registered, stored empty', plainResponse.statusCode === 200 && plainRow.applicationComment === '', `${plainResponse.statusCode} ${JSON.stringify(plainRow.applicationComment)}`);
+			confirmOf(harness, 'appnonote', () => {
+				const requestMail = mailsWith(harness, /^Approval needed/).find((mailMessage) => /appnonote/.test(mailMessage.text));
+				check('P8.2 with no comment the approval request says "(none)"', requestMail && /Comment from the applicant: \(none\)/.test(requestMail.text), requestMail && requestMail.text);
+				post('/api/registerUser', { ...applicantOf('applong'), applicationComment: 'x'.repeat(1001) }, (longResponse) => {
+					check('P8.1 a comment over 1000 characters is refused by name (propertyTooLong, naming applicationComment)', longResponse.statusCode === 400 && longResponse.bodyJson && longResponse.bodyJson.refusalName === 'propertyTooLong' && /applicationComment/.test(longResponse.bodyJson.reason), longResponse.bodyText);
+					post('/api/registerUser', { ...applicantOf('appexact'), applicationComment: 'y'.repeat(1000) }, (exactResponse) => {
+						check('P8.1 exactly 1000 characters is accepted', exactResponse.statusCode === 200, exactResponse.bodyText);
+						post('/api/registerUser', { ...applicantOf('appobject'), applicationComment: { text: 'hi' } }, (objectResponse) => {
+							check('P8.1 a comment that is not text is refused by name', objectResponse.statusCode === 400 && objectResponse.bodyJson && objectResponse.bodyJson.refusalName === 'identifierNotText', objectResponse.bodyText);
+							done();
+						});
+					});
+				});
+			});
+		});
+	});
+});
+
+step((done) => {
+	const harness = state.directHarness;
+	harness.capturedMailList.length = 0;
+	postTo(harness)('/api/registerUser', { ...applicantOf('appopennote'), applicationComment: 'Interested in CEDS mapping' }, () => {
+		const noticeMail = mailsWith(harness, /^New EDUcore account/)[0];
+		check('P8.2 approval off: the plain new-account notice carries the comment', noticeMail && /Comment from the applicant: Interested in CEDS mapping/.test(noticeMail.text), noticeMail && noticeMail.text);
+		done();
+	});
+});
+
+step((done) => {
+	const pageText = require('fs').readFileSync(path.join(serverPath, '..', 'html', 'pages', 'account-approval.vue'), 'utf8');
+	check('P8.3 the approval page shows the comment as text: it uses no v-html', /applicant\.applicationComment/.test(pageText) && !/v-html/.test(pageText));
+	done();
+});
 
 const runSteps = (remainingList) => {
 	if (!remainingList.length) {

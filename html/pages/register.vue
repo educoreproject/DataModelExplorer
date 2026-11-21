@@ -20,6 +20,10 @@
 	const emailAdr = ref('');
 	const password = ref('');
 	const confirmPassword = ref('');
+	// A8 (WORKORDER-adminApproval-112126): an optional note for the approvers, at most this long (the server's limit too)
+	const MAXIMUM_COMMENT_LENGTH = 1000;
+	const applicationComment = ref('');
+	const commentRules = [(commentText) => (String(commentText || '').length <= MAXIMUM_COMMENT_LENGTH ? true : accountVocabulary.applicationCommentTooLongText)];
 	const showPassword = ref(false);
 	const isRegistered = ref(false);
 
@@ -36,7 +40,8 @@
 			last.value.trim() &&
 			EMAIL_ADDRESS_PATTERN.test(emailAdr.value.trim()) &&
 			password.value.length >= MINIMUM_PASSWORD_LENGTH &&
-			password.value === confirmPassword.value,
+			password.value === confirmPassword.value &&
+			applicationComment.value.length <= MAXIMUM_COMMENT_LENGTH,
 	);
 
 	onMounted(() => {
@@ -48,7 +53,7 @@
 		if (!isFormReady.value) {
 			return;
 		}
-		const isAccepted = await accountStore.registerUser({ username: username.value.trim(), password: password.value, first: first.value.trim(), last: last.value.trim(), emailAdr: emailAdr.value.trim() });
+		const isAccepted = await accountStore.registerUser({ username: username.value.trim(), password: password.value, first: first.value.trim(), last: last.value.trim(), emailAdr: emailAdr.value.trim(), applicationComment: applicationComment.value.trim() });
 		if (!isAccepted) {
 			return;
 		}
@@ -93,6 +98,16 @@
 							@click:append-inner="showPassword = !showPassword"
 						/>
 						<v-text-field v-model="confirmPassword" :type="showPassword ? 'text' : 'password'" :rules="confirmRules" :label="accountVocabulary.confirmPasswordLabel" autocomplete="new-password" data-testid="register-password-confirm" @keyup.enter="submitRegistration" />
+						<v-textarea
+							v-model="applicationComment"
+							:rules="commentRules"
+							:label="accountVocabulary.applicationCommentLabel"
+							:hint="accountVocabulary.applicationCommentHintText"
+							:counter="MAXIMUM_COMMENT_LENGTH"
+							rows="3"
+							auto-grow
+							data-testid="register-application-comment"
+						/>
 						<v-btn class="mt-2" color="primary" block :disabled="!isFormReady" :loading="accountStore.loading" data-testid="register-submit" @click="submitRegistration">{{ accountVocabulary.registerButtonText }}</v-btn>
 					</v-form>
 				</template>
