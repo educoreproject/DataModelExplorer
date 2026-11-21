@@ -26,6 +26,7 @@
 //        account still awaiting confirmation and an unknown account are refused by name
 //   P2.7 approval on with an empty newAccountNoticeList: each sign-up logs approvalWithoutApprovers by name
 //   P2.8 detail shows the applicant, who decided and when, and presets the decline-email control from the setting
+//   P2.9 a password reset is never mailed to a pendingApproval or declined account (it would sign the account in)
 //
 // Run: node server/test/admin-approval.test.js
 
@@ -377,6 +378,16 @@ step((done) => {
 			}, state.adaToken);
 		}, state.adaToken);
 	}, state.adaToken);
+});
+
+// ---- P2.9 a password reset is no way around approval
+step((done) => {
+	const harness = state.approvalHarness;
+	harness.capturedMailList.length = 0;
+	postTo(harness)('/api/requestPasswordReset', { identifier: 'paula' }, () => postTo(harness)('/api/requestPasswordReset', { identifier: 'declan' }, () => {
+		check('P2.9 no reset link is mailed to a pendingApproval or a declined account (a reset would sign it in)', !harness.capturedMailList.some((mailMessage) => /reset-password\?token=/.test(mailMessage.text)), JSON.stringify(harness.capturedMailList.map((mailMessage) => mailMessage.subject)));
+		done();
+	}));
 });
 
 // ---- P2.2 confirmation off + approval on
