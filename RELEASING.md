@@ -4,7 +4,7 @@ How code gets from a branch to demo and to production. In force since 2026-11-20
 
 ## The rule
 
-All code goes on a branch and reaches `dev` by pull request. A merge into `dev` deploys demo by itself. Production gets `main`, and `main` changes only through a release pull request from `dev`. GitHub waits for tqii's approval before deploying production.
+All code goes on a branch and reaches `dev` by pull request. A merge into `dev` deploys demo by itself. Production gets `main`, and `main` changes only through a release pull request from `dev`. A merge into `main` deploys production at once; there is no approval step (removed by tqii, 2026-11-21).
 
 | Branch | Deploys to | Server user | Folder |
 |:---|:---|:---|:---|
@@ -24,8 +24,7 @@ Both branches are protected. Nobody can push to them directly, force-push them o
 
 1. Open a pull request from `dev` into `main`.
 2. Merge it with a **merge commit**. Never squash or rebase a release: that gives `main` different commits from `dev`, and every later release conflicts with itself.
-3. The production job waits. tqii approves it on the run's page: **Review deployments**, tick `prod`, **Approve and deploy**.
-4. Production deploys and smoke-tests itself.
+3. Production deploys and smoke-tests itself. The merge is the deploy, so any hold file goes on the server before it.
 
 ## A production emergency
 
@@ -39,7 +38,7 @@ Branch from `main`, open a pull request into `main`, and merge it. Then merge `m
 |:---|:---|
 | build | On a GitHub machine: `npm ci` and `nuxt generate` in `html/`. Nothing is built on the droplet. |
 | test | The server test suite (`server/scripts/deploy/runCiTestGate.sh`), with a secret-free stand-in config (`server/test/ciConfig/`). A failing test stops the deploy. Tests that need a graph, real data or real keys are listed with their reasons in `server/scripts/deploy/ciExcludedTestList.txt`. A new test is included automatically. |
-| deploy | Copies the built site to the server and runs `server/scripts/deploy/deployFromGit.sh` there. For `main` it first waits for approval (GitHub environment `prod`). |
+| deploy | Copies the built site to the server and runs `server/scripts/deploy/deployFromGit.sh` there. For `main` it uses GitHub environment `prod`. |
 
 `deployFromGit.sh`, on the server, in order:
 
@@ -81,7 +80,7 @@ GitHub logs in with a key that can run `deployFromGit.sh` and nothing else. Each
 ## GitHub environments
 
 	demo - deploy jobs for dev
-	prod - deploy jobs for main; tqii is the required reviewer
+	prod - deploy jobs for main only; no required reviewer
 
 Vercel's own environments (`Production`, `Preview` and the rest) are separate. GitHub environment names ignore case, so never name a new one `production`.
 
