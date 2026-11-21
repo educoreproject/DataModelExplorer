@@ -12,6 +12,8 @@
 //      byte-identical. Each repaired trigger is logged by name. Existing updatedAt values are already wrong and are left.
 //   2. userTokens. The table (getTable creates refId, createdAt, updatedAt) and its token columns, added where absent,
 //      plus an index on tokenHash; then spent rows (used or expired) are swept.
+//   2b. accountApprovalDecisions (WORKORDER-adminApproval-112126): the table of who approved or declined a self-registered
+//      account and when, its columns added where absent, plus an index on applicantUserRefId.
 //   3. DUPLICATE EMAIL CHECK. Accounts sharing an address (compared without case) are logged by username. No data
 //      changes; a reset by that address refuses at request time (password-reset-request) until an admin fixes them.
 //
@@ -26,6 +28,7 @@ const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 const QUIET_UNTAGGED_OPTIONS = Object.freeze({ suppressStatementLog: true, noTableNameOk: true });
 const USERS_TABLE_NAME = 'users';
 const USER_TOKENS_TABLE_NAME = 'userTokens';
+const APPROVAL_DECISIONS_TABLE_NAME = 'accountApprovalDecisions';
 const TRIGGER_LIST_SQL = "SELECT name, tbl_name AS tableName, sql FROM sqlite_master WHERE type = 'trigger' ORDER BY name";
 
 const moduleFunction = ({ sqlDb, dataMapping }) => (callback) => {
@@ -98,6 +101,35 @@ const moduleFunction = ({ sqlDb, dataMapping }) => (callback) => {
 	taskList.push((args, next) =>
 		args.tokenTable.runStatement(dataMapping['user-token'].getSql('spentSweep', { nowText: new Date().toISOString() }), QUIET_OPTIONS, (sweepError) => next(sweepError ? `sweeping ${USER_TOKENS_TABLE_NAME}: ${sweepError}` : '', args)),
 	);
+
+	// ---- 2b. accountApprovalDecisions
+	taskList.push((args, next) => sqlDb.getTable(APPROVAL_DECISIONS_TABLE_NAME, mergeArgs(args, next, 'decisionTable')));
+
+	taskList.push((args, next) =>
+		args.decisionTable.getData(dataMapping['account-approval-decision'].getSql('tableInfo'), QUIET_OPTIONS, (infoError, columnRowList = []) => {
+			if (infoError) {
+				next(`reading ${APPROVAL_DECISIONS_TABLE_NAME} columns: ${infoError}`, args);
+				return;
+			}
+			const presentNameList = columnRowList.map((columnRow) => String(columnRow.name).toLowerCase());
+			next('', { ...args, missingDecisionColumnNameList: dataMapping['account-approval-decision'].decisionColumnNameList.filter((columnName) => !presentNameList.includes(columnName.toLowerCase())) });
+		}),
+	);
+
+	taskList.push((args, next) => {
+		const statementList = [
+			...args.missingDecisionColumnNameList.map((columnName) => `ALTER TABLE <!tableName!> ADD COLUMN [${columnName}] TEXT;`),
+			`CREATE INDEX IF NOT EXISTS [${APPROVAL_DECISIONS_TABLE_NAME}_applicantUserRefId] ON <!tableName!> ([applicantUserRefId]);`,
+		];
+		args.decisionTable.runStatement(statementList.join('\n'), QUIET_OPTIONS, (alterError) => {
+			if (alterError) {
+				next(`preparing ${APPROVAL_DECISIONS_TABLE_NAME}: ${alterError}`, args);
+				return;
+			}
+			logInfoList.push(args.missingDecisionColumnNameList.length ? `${APPROVAL_DECISIONS_TABLE_NAME}: added ${args.missingDecisionColumnNameList.join(', ')}` : `${APPROVAL_DECISIONS_TABLE_NAME}: present`);
+			next('', args);
+		});
+	});
 
 	// ---- 3. duplicate email check
 	taskList.push((args, next) =>

@@ -240,6 +240,12 @@ const moduleFunction =
 				'disabledByRefId': `
 					UPDATE <!tableName!> SET [disabled] = <!disabled!> WHERE refId = <!refId!>
 				`,
+				// WORKORDER-adminApproval-112126: the accounts waiting for an approver, oldest first, with what the approval
+				// page shows (never the password)
+				'pendingApprovalList': `
+					SELECT refId, username, first, last, emailAdr, createdAt, disabled FROM <!tableName!>
+					WHERE [disabled] = <!disabled!> ORDER BY createdAt, refId
+				`,
 				// the startup check (R4 depends on one account per address): addresses held by more than one user, with
 				// the usernames that share each. The address itself is not returned, so the log line names no address.
 				'duplicateEmailList': `

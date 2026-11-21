@@ -17,6 +17,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			registrationOptions: {
 				selfRegistrationEnabled: !!(registrationSettings && registrationSettings.selfRegistrationEnabled),
 				requireEmailConfirmation: !!(registrationSettings && registrationSettings.requireEmailConfirmation),
+				// WORKORDER-adminApproval-112126: the register page says the application goes to an approver; names no one
+				requireAdminApproval: !!(registrationSettings && registrationSettings.requireAdminApproval),
 				passwordResetEnabled: !!registrationSettings,
 			},
 		});

@@ -1,6 +1,21 @@
 {
 	"_comment": "The words of every account email and of the public account replies (PLAN-userRegistrationReset-112026 4.7), here so tqii can edit them without touching code. Read by lib/user-account-mail.js, which refuses at load if a message lacks subjectText or paragraphList. <!name!> tokens are filled per message; every filled value is HTML-escaped in the html part. Keep it plain: no internal names, nothing a stranger could not read.",
 
+	"_originText": "WORKORDER-adminApproval-112126 A3: EVERY account email names where it came from, so tqii can search his mail for it. lib/user-account-mail.js appends subjectSuffixText to every subject and paragraphText as every message's last paragraph; <!originHost!> is the host of the instance's publicSiteUrl (the siteUrl fill), e.g. demo.educore.dev.",
+	"originText": {
+		"subjectSuffixText": " (coming from <!originHost!>)",
+		"paragraphText": "This message is coming from <!originHost!>."
+	},
+
+	"_approvalMessages": "WORKORDER-adminApproval-112126. approvalRequest is the new-account notice when requireAdminApproval is on (A4): it goes to newAccountNoticeList once the address is confirmed (or at sign-up when confirmation is off), says plainly that the account awaits approval, and links to the approval page for that one applicant (the link approves nothing by itself). approvalDecided tells the same list who decided, so a second approver does not act.",
+
+	"_approvalWordingByDecision": "per approval decision (user-profile-rules.json approvalDecisionByName): the word the approvers' approvalDecided notice uses, and the message the applicant is sent. declineEmailTextByCase fills that notice's 'Decline email' line.",
+	"approvalWordingByDecision": {
+		"approve": { "decisionText": "approved", "applicantMessageName": "accountApproved" },
+		"decline": { "decisionText": "declined", "applicantMessageName": "accountDeclined" }
+	},
+	"declineEmailTextByCase": { "sent": "sent", "suppressed": "not sent (suppressed by the approver)", "notApplicable": "not applicable" },
+
 	"messageByName": {
 		"passwordReset": {
 			"subjectText": "Reset your EDUcore password",
@@ -40,6 +55,49 @@
 				"Email: <!emailAdr!>",
 				"Email confirmation required: <!confirmationText!>"
 			]
+		},
+		"approvalRequest": {
+			"subjectText": "Approval needed: new EDUcore account <!username!>",
+			"paragraphList": [
+				"A new account on <!siteUrl!> is waiting for an administrator to approve it. It cannot sign in until someone does.",
+				"Username: <!username!>",
+				"Name: <!firstName!> <!lastName!>",
+				"Email: <!emailAdr!>",
+				"To approve or decline it, open this page (you will be asked to sign in as an administrator):",
+				"<!approvalPageUrl!>"
+			]
+		},
+		"awaitingApproval": {
+			"subjectText": "Your EDUcore account is waiting for approval",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Thank you for creating the EDUcore account <!username!>. An administrator will review it; we will email you as soon as it is decided.",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"accountApproved": {
+			"subjectText": "Your EDUcore account was approved",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The EDUcore account <!username!> was approved. You can sign in here:",
+				"<!signInUrl!>",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"accountDeclined": {
+			"subjectText": "Your EDUcore account was not approved",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The EDUcore account <!username!> was not approved, so it cannot be used to sign in.",
+				"EDUcore, <!siteUrl!>"
+			]
+		},
+		"approvalDecided": {
+			"subjectText": "New EDUcore account <!username!>: <!decisionText!> by <!deciderUsername!>",
+			"paragraphList": [
+				"The account <!username!> (<!firstName!> <!lastName!>, <!emailAdr!>) on <!siteUrl!> was <!decisionText!> by <!deciderUsername!>. Nothing more is needed.",
+				"Decline email to the applicant: <!declineEmailText!>"
+			]
 		}
 	},
 
@@ -50,6 +108,11 @@
 		"registeredCheckEmail": "Your account was created. We have emailed a link to confirm your address; open it to sign in.",
 		"registeredSignedIn": "Your account was created and you are signed in.",
 		"passwordResetDone": "Your password was changed and you are signed in. Every earlier sign-in has ended.",
-		"registrationConfirmed": "Your email address is confirmed and you are signed in."
+		"registrationConfirmed": "Your email address is confirmed and you are signed in.",
+		"registeredCheckEmailThenApproval": "Your account was created. We have emailed a link to confirm your address; once you open it, your application goes to an administrator for approval.",
+		"registeredAwaitingApproval": "Your account was created and is now waiting for an administrator to approve it. We will email you when that is decided.",
+		"registrationConfirmedAwaitingApproval": "Your email address is confirmed. Your application is now with an administrator for approval; we will email you when that is decided.",
+		"accountApprovedReply": "The account was approved and its owner emailed.",
+		"accountDeclinedReply": "The account was declined."
 	}
 }

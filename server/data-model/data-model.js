@@ -310,7 +310,7 @@ const moduleFunction =
 			const { xLog, getConfig } = process.global;
 			const emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: getConfig('email-sender') });
 			const userRegistrationSettings = require('../lib/user-registration-settings').registrationSettingsOf(getConfig('user-registration'));
-			[emailSender.configRefusal, userRegistrationSettings.settingsRefusal].filter(Boolean).forEach((refusalText) => xLog.error(`[user-registration] ${refusalText}`));
+			[emailSender.configRefusal, userRegistrationSettings.settingsRefusal, ...userRegistrationSettings.settingsWarningList].filter(Boolean).forEach((refusalText) => xLog.error(`[user-registration] ${refusalText}`));
 			next('', { ...args, emailSender, userRegistrationSettings });
 		});
 
