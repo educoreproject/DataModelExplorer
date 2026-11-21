@@ -21,6 +21,7 @@
 //   refusalText(refusal)                                  -> 'refusalName: reason', for pipelines that pass error strings
 //   isAccountDisabled(disabledValue)                      -> true unless users.disabled is blank, '0' or 'false'
 //   loginRefusalOfAccountState(disabledValue)             -> '' for an active account, else the sign-in refusal of its state
+//   approverRoleList, approvalDecisionByName              -> the approval rules of WORKORDER-adminApproval-112126 (user-profile-rules.json)
 //
 // A refusal is a frozen { refusalName, httpStatus, reason }. A missing or malformed rules file is refused at load.
 

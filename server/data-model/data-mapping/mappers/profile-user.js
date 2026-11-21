@@ -236,7 +236,8 @@ const moduleFunction =
 					SELECT refId FROM <!tableName!> WHERE lower(trim(emailAdr)) = lower(trim(<!emailAdr!>))
 				`,
 				// the account state column (oauth-schema-init adds it): '' is active, 'pendingConfirmation' awaits the emailed
-				// link, anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
+				// link, 'pendingApproval' an approver and 'declined' was refused by one (WORKORDER-adminApproval-112126);
+				// anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
 				'disabledByRefId': `
 					UPDATE <!tableName!> SET [disabled] = <!disabled!> WHERE refId = <!refId!>
 				`,

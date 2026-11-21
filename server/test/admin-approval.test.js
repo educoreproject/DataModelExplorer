@@ -182,8 +182,9 @@ step((done) => {
 	const { messageByName } = require(path.join(serverPath, 'lib', 'user-account-mail-vocabulary.json'));
 	const problemList = Object.keys(messageByName).map((messageName) => [messageName, comingFromProblemOf(accountMailOf({ messageName, fillByName: { siteUrl: `https://${SITE_HOST}` } }))]).filter(([, problemText]) => problemText);
 	check(`P1.3 every message in the vocabulary (${Object.keys(messageByName).length}) says where it came from`, !problemList.length, JSON.stringify(problemList));
-	const composeWithoutSite = () => accountMailOf({ messageName: Object.keys(messageByName)[0], fillByName: {} });
-	check('P1.3 a mail composed without siteUrl is refused (it could not say where it came from)', /needs fillByName\.siteUrl/.test(String((() => { try { composeWithoutSite(); return ''; } catch (composeError) { return composeError.message; } })())));
+	// composed in a child process: the refusal is a throw (a code fault), read from its stderr, not caught here
+	const composeWithoutSite = require('child_process').spawnSync(process.execPath, ['-e', `process.global = {}; require(${JSON.stringify(path.join(serverPath, 'lib', 'user-account-mail'))}).accountMailOf({ messageName: ${JSON.stringify(Object.keys(messageByName)[0])}, fillByName: {} })`], { encoding: 'utf8' });
+	check('P1.3 a mail composed without siteUrl is refused (it could not say where it came from)', composeWithoutSite.status !== 0 && /needs fillByName\.siteUrl/.test(composeWithoutSite.stderr), composeWithoutSite.stderr.slice(0, 300));
 	done();
 });
 
