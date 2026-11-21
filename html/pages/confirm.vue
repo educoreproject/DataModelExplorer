@@ -1,7 +1,8 @@
 <script setup>
 	// confirm — the page the emailed confirmation link opens (?token=...) (WORKORDER-userRegistrationReset-112026). It
 	// confirms at once; on success the server has activated the account and signed it in, and the page goes home. A bad
-	// or expired link offers a new one by user name or email address.
+	// or expired link offers a new one by user name or email address. Where an administrator must approve new accounts
+	// (WORKORDER-adminApproval-112126) the confirmed account is not signed in: the page says it is out for approval.
 	import { useAccountStore } from '@/stores/accountStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
 
@@ -47,10 +48,11 @@
 				<h1 class="text-h6 mb-3">{{ accountVocabulary.confirmTitle }}</h1>
 				<p v-if="isWorking" class="text-body-2" data-testid="confirm-working">{{ accountVocabulary.confirmWorkingText }}</p>
 				<template v-else>
+					<v-alert v-if="accountStore.isAwaitingApproval" type="success" density="compact" class="mb-4" data-testid="confirm-awaiting-approval">{{ accountStore.noticeMsg }}</v-alert>
 					<v-alert v-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="confirm-error">{{ accountStore.statusMsg }}</v-alert>
 					<p v-if="!tokenText" class="text-body-2 mb-4" data-testid="confirm-no-token">{{ accountVocabulary.missingTokenText }}</p>
 					<v-alert v-if="isResendSent && accountStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="confirm-resend-notice">{{ accountStore.noticeMsg }}</v-alert>
-					<template v-if="!isResendSent">
+					<template v-if="!isResendSent && !accountStore.isAwaitingApproval">
 						<p class="text-body-2 mb-3">{{ accountVocabulary.confirmIdentifierPromptText }}</p>
 						<v-text-field v-model="identifier" :label="accountVocabulary.identifierLabel" autocomplete="username" data-testid="confirm-identifier" @keyup.enter="resendConfirmation" />
 						<v-btn color="primary" block :loading="accountStore.loading" data-testid="confirm-resend" @click="resendConfirmation">{{ accountVocabulary.resendConfirmationButtonText }}</v-btn>

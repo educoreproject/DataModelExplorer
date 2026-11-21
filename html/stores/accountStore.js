@@ -18,7 +18,9 @@ const accountStoreInitObject = {
 	statusMsg: '',
 	noticeMsg: '',
 	refusalName: '',
-	registrationOptions: { selfRegistrationEnabled: false, requireEmailConfirmation: true, isLoaded: false },
+	// the server's reply said the account now waits for an approver (WORKORDER-adminApproval-112126): not signed in
+	isAwaitingApproval: false,
+	registrationOptions: { selfRegistrationEnabled: false, requireEmailConfirmation: true, requireAdminApproval: false, isLoaded: false },
 };
 
 // the text to show for a failed request: a refusal's reason, a plain-text error, or the network's message
@@ -32,6 +34,7 @@ export const useAccountStore = defineStore('accountStore', {
 			this.statusMsg = '';
 			this.noticeMsg = '';
 			this.refusalName = '';
+			this.isAwaitingApproval = false;
 		},
 
 		// one public request; the reply's first element, or false with statusMsg and refusalName set
@@ -68,7 +71,7 @@ export const useAccountStore = defineStore('accountStore', {
 				return true;
 			} catch (error) {
 				// no options means no register link: the login form simply does not offer it
-				this.registrationOptions = { selfRegistrationEnabled: false, requireEmailConfirmation: true, isLoaded: true };
+				this.registrationOptions = { selfRegistrationEnabled: false, requireEmailConfirmation: true, requireAdminApproval: false, isLoaded: true };
 				return false;
 			}
 		},
@@ -87,22 +90,32 @@ export const useAccountStore = defineStore('accountStore', {
 			return response ? this.acceptSignInReply(response) : false;
 		},
 
-		async registerUser({ username, password, first, last, emailAdr }) {
-			const response = await this.postPublic('/api/registerUser', { username, password, first, last, emailAdr }, 'The account could not be created - network or server error');
+		async registerUser({ username, password, first, last, emailAdr, applicationComment }) {
+			const response = await this.postPublic('/api/registerUser', { username, password, first, last, emailAdr, applicationComment }, 'The account could not be created - network or server error');
 			if (!response) {
 				return false;
 			}
-			// signed in at once when no confirmation is required; otherwise the reply says to check email
+			// signed in at once when neither confirmation nor approval is required; otherwise the reply says what happens next
 			if (response.data[0]?.user) {
 				return this.acceptSignInReply(response);
 			}
 			this.noticeMsg = response.data[0]?.message || '';
+			this.isAwaitingApproval = response.data[0]?.isAwaitingApproval === true;
 			return true;
 		},
 
 		async confirmRegistration(token) {
 			const response = await this.postPublic('/api/confirmRegistration', { token }, 'The address could not be confirmed - network or server error');
-			return response ? this.acceptSignInReply(response) : false;
+			if (!response) {
+				return false;
+			}
+			// with admin approval on, the confirmed account waits for an approver and is not signed in
+			if (response.data[0]?.isAwaitingApproval === true) {
+				this.noticeMsg = response.data[0].message || '';
+				this.isAwaitingApproval = true;
+				return false;
+			}
+			return this.acceptSignInReply(response);
 		},
 
 		async resendConfirmation(identifier) {

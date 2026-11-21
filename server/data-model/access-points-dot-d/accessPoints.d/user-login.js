@@ -41,7 +41,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const os = require('os');
-const { textIdentifierRefusalOf, refusalText, refusalOf, isAccountDisabled, PENDING_CONFIRMATION_TEXT } = require('../../../lib/user-profile-rules');
+const { textIdentifierRefusalOf, refusalText, loginRefusalOfAccountState } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -369,10 +369,10 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 						return;
 					}
 					// a set disabled is refused (finding F2, 2026-11-20: the website login never read it, though the OAuth and MCP
-					// paths did): pendingConfirmation by emailNotConfirmed, anything else by accountDisabled
-					const disabledValue = (stateRowList.qtLast() || {}).disabled;
-					if (isAccountDisabled(disabledValue)) {
-						const disabledRefusal = refusalOf(String(disabledValue).trim() === PENDING_CONFIRMATION_TEXT ? 'emailNotConfirmed' : 'accountDisabled');
+					// paths did), by the refusal its state names in user-profile-rules.json loginRefusalNameByAccountState
+					// (emailNotConfirmed, awaitingApproval, accountNotApproved), anything else by accountDisabled
+					const disabledRefusal = loginRefusalOfAccountState((stateRowList.qtLast() || {}).disabled);
+					if (disabledRefusal) {
 						callback(refusalText(disabledRefusal), { refusal: disabledRefusal });
 						return;
 					}

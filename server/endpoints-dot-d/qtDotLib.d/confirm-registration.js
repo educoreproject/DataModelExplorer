@@ -5,7 +5,8 @@
 
 // confirm-registration.js — ENDPOINT POST /api/confirmRegistration (public), body { token } (PLAN-userRegistrationReset-112026
 // 4.3). The user-registration-confirm access point redeems the emailed link and activates the account; this endpoint
-// signs it in, as login does. Answers [{ message, user }], or { refusalName, reason } with its status.
+// signs it in, as login does. Answers [{ message, user }], or { refusalName, reason } with its status. When the account
+// now awaits an approver (WORKORDER-adminApproval-112126) it is NOT signed in: [{ message, isAwaitingApproval: true }].
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -24,10 +25,16 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 
 		taskList.push((args, next) => {
 			const requestBody = xReq.qtGetSurePath('body', {});
-			accessPointsDotD['user-registration-confirm']({ token: requestBody.token, clientAddress: xReq.ip }, (err, { user, refusal } = {}) => next(err, { ...args, user, refusal }));
+			accessPointsDotD['user-registration-confirm']({ token: requestBody.token, clientAddress: xReq.ip }, (err, { user, isAwaitingApproval, refusal } = {}) => next(err, { ...args, user, isAwaitingApproval, refusal }));
 		});
 
-		taskList.push((args, next) => accessTokenHeaderTools.refreshauthtoken({ xReq, xRes, payloadValues: { source: 'registrationConfirmed', user: args.user } }, (signError) => next(signError || '', args)));
+		taskList.push((args, next) => {
+			if (args.isAwaitingApproval) {
+				next('', args);
+				return;
+			}
+			accessTokenHeaderTools.refreshauthtoken({ xReq, xRes, payloadValues: { source: 'registrationConfirmed', user: args.user } }, (signError) => next(signError || '', args));
+		});
 
 		pipeRunner(taskList.getList(), { permissionValidator }, (err, args = {}) => {
 			if (args.refusal) {
@@ -40,7 +47,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 				xRes.status(500).send(`the address could not be confirmed (${errorRefId})`);
 				return;
 			}
-			xRes.send([{ message: accountReplyOf('registrationConfirmed'), user: args.user }]);
+			xRes.send([args.isAwaitingApproval ? { message: accountReplyOf('registrationConfirmedAwaitingApproval'), isAwaitingApproval: true } : { message: accountReplyOf('registrationConfirmed'), user: args.user }]);
 		});
 	};
 

@@ -6,9 +6,10 @@
 // one is a NAMED refusal, settingsRefusal, which the registration and reset access points answer to every request (so
 // their endpoints exist and say plainly why they refuse, rather than vanishing at load).
 //
-//   registrationSettingsOf(rawSettings) -> { settingsRefusal, registrationSettings }
+//   registrationSettingsOf(rawSettings) -> { settingsRefusal, registrationSettings, settingsWarningList }
 //
-// registrationSettings: selfRegistrationEnabled, requireEmailConfirmation (booleans), newAccountRole,
+// registrationSettings: selfRegistrationEnabled, requireEmailConfirmation, requireAdminApproval, adminApprovalEmailSuppress
+// (booleans; the last two are WORKORDER-adminApproval-112126 A1 and A6), newAccountRole,
 // confirmationLinkLifetimeMinutes, resetLinkLifetimeMinutes, publicSiteUrl (no trailing slash), newAccountNoticeList
 // (array, may be empty: R7, empty sends nothing), identifierRequestLimit, identifierWindowMinutes, addressRequestLimit,
 // addressWindowMinutes (the abuse limits of 4.5).
@@ -16,7 +17,9 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const { listFromConfig } = require('./email-sender');
 
-const BOOLEAN_SETTING_NAME_LIST = ['selfRegistrationEnabled', 'requireEmailConfirmation'];
+const BOOLEAN_SETTING_NAME_LIST = ['selfRegistrationEnabled', 'requireEmailConfirmation', 'requireAdminApproval', 'adminApprovalEmailSuppress'];
+// approval on with nobody to ask leaves every new account silently pending: named at startup (and at each sign-up)
+const NO_APPROVER_WARNING_TEXT = 'approvalWithoutApprovers: [user-registration] requireAdminApproval=true but newAccountNoticeList is empty, so no one will be asked to approve a new account';
 const WHOLE_NUMBER_SETTING_NAME_LIST = ['confirmationLinkLifetimeMinutes', 'resetLinkLifetimeMinutes', 'identifierRequestLimit', 'identifierWindowMinutes', 'addressRequestLimit', 'addressWindowMinutes'];
 // a self-registered account can never be made one of these by configuration (the July saveUserData hole was a role taken
 // from where it should not have been)
@@ -34,7 +37,7 @@ const booleanOf = (settingValue) => {
 };
 
 const registrationSettingsOf = (rawSettings) => {
-	const refusalOf = (problemText) => ({ settingsRefusal: `${SETTINGS_REFUSAL_NAME}: [user-registration] in startApiServer.ini ${problemText}`, registrationSettings: undefined });
+	const refusalOf = (problemText) => ({ settingsRefusal: `${SETTINGS_REFUSAL_NAME}: [user-registration] in startApiServer.ini ${problemText}`, registrationSettings: undefined, settingsWarningList: [] });
 	if (!rawSettings || typeof rawSettings !== 'object' || !Object.keys(rawSettings).length) {
 		return refusalOf('is absent, so registration and password reset are off on this server');
 	}
@@ -55,17 +58,19 @@ const registrationSettingsOf = (rawSettings) => {
 		return refusalOf('needs publicSiteUrl, the http(s) address of this instance\'s website, for the links in mail');
 	}
 	const numberByName = Object.fromEntries(WHOLE_NUMBER_SETTING_NAME_LIST.map((settingName) => [settingName, Number(String(rawSettings[settingName]).trim())]));
+	const booleanByName = Object.fromEntries(BOOLEAN_SETTING_NAME_LIST.map((settingName) => [settingName, booleanOf(rawSettings[settingName])]));
+	const newAccountNoticeList = Object.freeze(listFromConfig(rawSettings.newAccountNoticeList));
 	return {
 		settingsRefusal: '',
 		registrationSettings: Object.freeze({
-			selfRegistrationEnabled: booleanOf(rawSettings.selfRegistrationEnabled),
-			requireEmailConfirmation: booleanOf(rawSettings.requireEmailConfirmation),
+			...booleanByName,
 			newAccountRole,
 			publicSiteUrl,
-			newAccountNoticeList: Object.freeze(listFromConfig(rawSettings.newAccountNoticeList)),
+			newAccountNoticeList,
 			...numberByName,
 		}),
+		settingsWarningList: booleanByName.requireAdminApproval && !newAccountNoticeList.length ? [NO_APPROVER_WARNING_TEXT] : [],
 	};
 };
 
-module.exports = { registrationSettingsOf, SETTINGS_REFUSAL_NAME };
+module.exports = { registrationSettingsOf, SETTINGS_REFUSAL_NAME, NO_APPROVER_WARNING_TEXT };

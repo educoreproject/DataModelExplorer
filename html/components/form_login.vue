@@ -4,6 +4,7 @@
 	import { useLoginStore } from '@/stores/loginStore';
 	import { useAccountStore } from '@/stores/accountStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
+	import { sameSiteReturnPathOf } from '@/components/returnPathRules.js';
 	const LoginStore = useLoginStore();
 	const accountStore = useAccountStore();
 
@@ -44,8 +45,8 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					const redirect = route.query.redirect || '/';
-					router.push(redirect);
+					// back where the sign-in was asked for (the approval link, WORKORDER-adminApproval-112126 A5), only on this site
+					router.push(sameSiteReturnPathOf(route.query.redirect) || '/');
 				}
 			})
 			.catch((err) => {

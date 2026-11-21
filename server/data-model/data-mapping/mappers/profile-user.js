@@ -236,9 +236,23 @@ const moduleFunction =
 					SELECT refId FROM <!tableName!> WHERE lower(trim(emailAdr)) = lower(trim(<!emailAdr!>))
 				`,
 				// the account state column (oauth-schema-init adds it): '' is active, 'pendingConfirmation' awaits the emailed
-				// link, anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
+				// link, 'pendingApproval' an approver and 'declined' was refused by one (WORKORDER-adminApproval-112126);
+				// anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
 				'disabledByRefId': `
 					UPDATE <!tableName!> SET [disabled] = <!disabled!> WHERE refId = <!refId!>
+				`,
+				// WORKORDER-adminApproval-112126 A8: the applicant's optional note to the approvers. Its own column, NOT in
+				// inputNameMapping, so it never travels in a profile, a login reply or a token: only the approval paths read it.
+				'applicationCommentByRefId': `
+					UPDATE <!tableName!> SET [applicationComment] = <!applicationComment!> WHERE refId = <!refId!>
+				`,
+				// the users columns, for the startup migration (user-account-schema-migration adds applicationComment)
+				'tableInfo': `PRAGMA table_info(<!tableName!>)`,
+				// WORKORDER-adminApproval-112126: the accounts waiting for an approver, oldest first, with what the approval
+				// page shows (never the password)
+				'pendingApprovalList': `
+					SELECT refId, username, first, last, emailAdr, createdAt, disabled, applicationComment FROM <!tableName!>
+					WHERE [disabled] = <!disabled!> ORDER BY createdAt, refId
 				`,
 				// the startup check (R4 depends on one account per address): addresses held by more than one user, with
 				// the usernames that share each. The address itself is not returned, so the log line names no address.

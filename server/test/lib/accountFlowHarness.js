@@ -27,6 +27,8 @@ const RESET_ENDPOINT_FILE_NAME_LIST = Object.freeze(['request-password-reset.js'
 const BASE_REGISTRATION_SETTINGS = Object.freeze({
 	selfRegistrationEnabled: 'true',
 	requireEmailConfirmation: 'true',
+	requireAdminApproval: 'false',
+	adminApprovalEmailSuppress: 'false',
 	newAccountRole: 'user',
 	confirmationLinkLifetimeMinutes: '1440',
 	resetLinkLifetimeMinutes: '60',

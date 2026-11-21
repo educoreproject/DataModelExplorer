@@ -20,6 +20,8 @@
 //   refusalOf(caseName, { detailList })                   -> { refusalName, httpStatus, reason }
 //   refusalText(refusal)                                  -> 'refusalName: reason', for pipelines that pass error strings
 //   isAccountDisabled(disabledValue)                      -> true unless users.disabled is blank, '0' or 'false'
+//   loginRefusalOfAccountState(disabledValue)             -> '' for an active account, else the sign-in refusal of its state
+//   approverRoleList, approvalDecisionByName              -> the approval rules of WORKORDER-adminApproval-112126 (user-profile-rules.json)
 //
 // A refusal is a frozen { refusalName, httpStatus, reason }. A missing or malformed rules file is refused at load.
 
@@ -32,6 +34,7 @@ const REQUIRED_CASE_NAME_LIST = [
 	'noSignedInUser', 'bodyNotAnObject', 'notOwnRecord', 'propertyNotSelfEditable', 'propertyNotAdminEditable', 'propertyValueNotText', 'propertyTooLong', 'emailAdrNotValid',
 	'usernameNotAllowed', 'identifierNotText', 'noSuchUser', 'passwordNotAccepted', 'currentPasswordRequired', 'currentPasswordWrong', 'sessionRevoked',
 	'registrationNotConfigured', 'registrationDisabled', 'emailNotConfirmed', 'linkNotValid', 'tooManyRequests', 'usernameTaken', 'emailAdrTaken', 'requiredPropertyMissing', 'accountDisabled',
+	'awaitingApproval', 'accountNotApproved', 'notAnApprover', 'approvalDecisionNotValid', 'approvalNotDecidable',
 ];
 const BLANK_VALUE_LIST = Object.freeze([undefined, null, '']);
 
@@ -43,7 +46,7 @@ const refuseRules = (problemText) => {
 // ---- loadRules - read the rules file and refuse, naming the entry, anything absent or malformed
 const loadRules = () => {
 	const rulesObject = require(RULES_FILE_PATH);
-	const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, emailPatternText, usernamePatternText, refusalByCase } = rulesObject;
+	const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, emailPatternText, usernamePatternText, refusalByCase, loginRefusalNameByAccountState, approverRoleList, approvalDecisionByName } = rulesObject;
 	if (!Array.isArray(selfEditablePropertyList) || !selfEditablePropertyList.length || selfEditablePropertyList.some((propertyName) => typeof propertyName !== 'string')) {
 		refuseRules('selfEditablePropertyList must be a non-empty list of property names');
 	}
@@ -76,14 +79,28 @@ const loadRules = () => {
 	if (missingCaseNameList.length) {
 		refuseRules(`refusalByCase lacks a complete { refusalName, httpStatus, reason } for: ${missingCaseNameList.join(', ')}`);
 	}
+	const stateEntryList = Object.entries(loginRefusalNameByAccountState || {});
+	if (!stateEntryList.length || stateEntryList.some(([accountState, refusalCaseName]) => !accountState.trim() || !(refusalByCase || {})[refusalCaseName])) {
+		refuseRules('loginRefusalNameByAccountState must map each account state to a refusal named in refusalByCase');
+	}
+	if (!Array.isArray(approverRoleList) || !approverRoleList.length || approverRoleList.some((roleName) => typeof roleName !== 'string' || !roleName.trim())) {
+		refuseRules('approverRoleList must be a non-empty list of role names');
+	}
+	const decisionEntryList = Object.entries(approvalDecisionByName || {});
+	if (!decisionEntryList.length || decisionEntryList.some(([, decisionEntry]) => !decisionEntry || !Array.isArray(decisionEntry.fromStateList) || !decisionEntry.fromStateList.length || typeof decisionEntry.toStateText !== 'string')) {
+		refuseRules('approvalDecisionByName must give each decision a non-empty fromStateList and a toStateText');
+	}
 	return {
+		approverRoleList: Object.freeze([...approverRoleList]),
+		approvalDecisionByName: Object.freeze(Object.fromEntries(decisionEntryList.map(([decisionName, decisionEntry]) => [decisionName, Object.freeze({ fromStateList: Object.freeze([...decisionEntry.fromStateList]), toStateText: decisionEntry.toStateText })]))),
 		selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase,
+		loginRefusalNameByAccountState: Object.freeze({ ...loginRefusalNameByAccountState }),
 		emailPattern: new RegExp(emailPatternText),
 		usernamePattern: new RegExp(usernamePatternText),
 	};
 };
 
-const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase, emailPattern, usernamePattern } = loadRules();
+const { selfEditablePropertyList, adminEditablePropertyList, ownRecordPropertyName, currentPasswordPropertyName, passwordPropertyName, maxLengthByPropertyName, refusalByCase, loginRefusalNameByAccountState, approverRoleList, approvalDecisionByName, emailPattern, usernamePattern } = loadRules();
 
 const isBlank = (propertyValue) => BLANK_VALUE_LIST.includes(propertyValue);
 
@@ -170,14 +187,28 @@ const adminSaveRefusalOf = (userData) => {
 };
 
 // the users.disabled column (oauth-schema-init adds it) is text: '' (or absent), '0' and 'false' are active, as in
-// oauth-bearer-gate.js; 'pendingConfirmation' awaits the emailed link; anything else is disabled by an admin
+// oauth-bearer-gate.js; 'pendingConfirmation' awaits the emailed link, 'pendingApproval' an approver, 'declined' was
+// refused by one (WORKORDER-adminApproval-112126); anything else is disabled by an admin
 const NOT_DISABLED_TEXT_LIST = Object.freeze(['', '0', 'false']);
 const PENDING_CONFIRMATION_TEXT = 'pendingConfirmation';
-const isAccountDisabled = (disabledValue) => !NOT_DISABLED_TEXT_LIST.includes(String(disabledValue === undefined || disabledValue === null ? '' : disabledValue).trim().toLowerCase());
+const PENDING_APPROVAL_TEXT = 'pendingApproval';
+const DECLINED_TEXT = 'declined';
+const accountStateTextOf = (disabledValue) => String(disabledValue === undefined || disabledValue === null ? '' : disabledValue).trim();
+const isAccountDisabled = (disabledValue) => !NOT_DISABLED_TEXT_LIST.includes(accountStateTextOf(disabledValue).toLowerCase());
+
+// ---- loginRefusalOfAccountState - '' for an active account, else the sign-in refusal its state names
+// (loginRefusalNameByAccountState), accountDisabled for any other set value
+const loginRefusalOfAccountState = (disabledValue) => {
+	if (!isAccountDisabled(disabledValue)) {
+		return '';
+	}
+	const stateText = accountStateTextOf(disabledValue);
+	return refusalOf(Object.prototype.hasOwnProperty.call(loginRefusalNameByAccountState, stateText) ? loginRefusalNameByAccountState[stateText] : 'accountDisabled');
+};
 
 const usernameRefusalOf = (usernameText) => (typeof usernameText === 'string' && usernamePattern.test(usernameText) ? '' : refusalOf('usernameNotAllowed'));
 
 module.exports = {
 	selfSaveRefusalOf, selfSaveRecordOf, adminSaveRefusalOf, usernameRefusalOf, textIdentifierRefusalOf, valueLengthRefusalOf, refusalOf, refusalText, hasNewPassword, isBlank,
-	selfEditablePropertyList, currentPasswordPropertyName, isAccountDisabled, PENDING_CONFIRMATION_TEXT,
+	selfEditablePropertyList, currentPasswordPropertyName, approverRoleList, approvalDecisionByName, loginRefusalNameByAccountState, isAccountDisabled, loginRefusalOfAccountState, accountStateTextOf, PENDING_CONFIRMATION_TEXT, PENDING_APPROVAL_TEXT, DECLINED_TEXT,
 };
