@@ -1,0 +1,14 @@
+{
+	"_comment": "Every refusal lib/email-sender.js makes, by name. refusalName is what a caller or a log reader tests; reason is what a person reads. <!detailText!> is filled with the setting or value concerned (never the Resend API key, never a password). A missing entry stops the server at load.",
+	"refusalByCase": {
+		"emailSenderNotConfigured": { "refusalName": "emailSenderNotConfigured", "reason": "this server has no [email-sender] section in startApiServer.ini, so it sends no mail" },
+		"emailSettingMissing": { "refusalName": "emailSettingMissing", "reason": "[email-sender] lacks a required setting: <!detailText!>" },
+		"fromAddressNotOnSendingDomain": { "refusalName": "fromAddressNotOnSendingDomain", "reason": "[email-sender] fromAddress is not an address on sendingDomain (<!detailText!>); the provider would refuse it" },
+		"redirectAddressNotValid": { "refusalName": "redirectAddressNotValid", "reason": "[email-sender] redirectAllEmailTo is not an email address" },
+		"recipientMissing": { "refusalName": "recipientMissing", "reason": "a message needs at least one recipient" },
+		"messageIncomplete": { "refusalName": "messageIncomplete", "reason": "a message needs a subject and a text or html body" },
+		"providerRefused": { "refusalName": "providerRefused", "reason": "the mail provider refused the message: <!detailText!>" },
+		"providerUnreachable": { "refusalName": "providerUnreachable", "reason": "the message could not be sent: <!detailText!>" },
+		"providerAnswerEmpty": { "refusalName": "providerAnswerEmpty", "reason": "the mail provider answered with neither an error nor a message id" }
+	}
+}

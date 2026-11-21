@@ -2,6 +2,7 @@
 	import { useLoginStore } from '@/stores/loginStore';
 	import { computed, ref } from 'vue';
 	import { useRouter } from 'vue-router';
+	import { sameSiteReturnPathOf } from '@/components/returnPathRules.js';
 
 	const LoginStore = useLoginStore();
 	const router = useRouter();
@@ -26,7 +27,8 @@
 		try {
 			await LoginStore.login();
 			if (LoginStore.validUser) {
-				const redirect = router.currentRoute.value.query.redirect;
+				// only a path on this site (components/returnPathRules.js, WORKORDER-adminApproval-112126)
+				const redirect = sameSiteReturnPathOf(router.currentRoute.value.query.redirect);
 				if (redirect) {
 					router.push(redirect);
 				}

@@ -59,7 +59,7 @@ const moduleFunction =
 		} = getConfig(moduleName); //moduleName is closure
 		
 
-		const { pwHash, hashPassword, verifyPassword, validatePasswordStrength } = require('./lib/password-hash')();
+		const { pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash } = require('./lib/password-hash')();
 		
 
 		// ======================================================================================
@@ -91,7 +91,9 @@ const moduleFunction =
 
 			let sqlDbGen = require(`./lib/${databaseTypeName}`)({ getConfig }); //not visible to the rest of the system, hence, ./lib
 			let syncDataGen = require(`./lib/${syncDataSourceName}`)({ getConfig }); //not visible to the rest of the system, hence, ./lib
-			let dataMapping = require(`./data-mapping`)({ pwHash, hashPassword, verifyPassword, validatePasswordStrength });
+			// isStoredPasswordHash: profile-user's reverse map calls it on every password write; without it every password
+			// save threw on the real server while the harnesses (which pass all of password-hash) passed (2026-11-20)
+			let dataMapping = require(`./data-mapping`)({ pwHash, hashPassword, verifyPassword, validatePasswordStrength, isStoredPasswordHash });
 			
 
 			next('', { ...args, sqlDbGen, dataMapping, syncDataGen });
@@ -298,6 +300,20 @@ const moduleFunction =
 			});
 		});
 
+		// PIPELINE STAGE: MAIL AND REGISTRATION SETTINGS (PLAN-userRegistrationReset-112026)
+		//
+		// ONE email sender for the process (lib/email-sender.js, [email-sender]) and the checked [user-registration]
+		// settings, handed to the access points. A missing or inconsistent section is a named refusal, logged here and
+		// answered by every registration and reset request; the rest of the server is unaffected.
+
+		taskList.push((args, next) => {
+			const { xLog, getConfig } = process.global;
+			const emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: getConfig('email-sender') });
+			const userRegistrationSettings = require('../lib/user-registration-settings').registrationSettingsOf(getConfig('user-registration'));
+			[emailSender.configRefusal, userRegistrationSettings.settingsRefusal, ...userRegistrationSettings.settingsWarningList].filter(Boolean).forEach((refusalText) => xLog.error(`[user-registration] ${refusalText}`));
+			next('', { ...args, emailSender, userRegistrationSettings });
+		});
+
 		// --------------------------------------------------------------------------------
 		// PIPELINE STAGE 4: ACCESS POINTS LOADING
 		// 
@@ -321,7 +337,7 @@ const moduleFunction =
 			};
 
 			require('./access-points-dot-d')(
-				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess', 'companionSourcesDirPath']),
+				args.qtSelectProperties(['sqlDb', 'hxAccess', 'syncData', 'dataMapping', 'neo4jDb', 'slackAccess', 'raterToolAccess', 'companionSourcesDirPath', 'companionMomentClock', 'emailSender', 'userRegistrationSettings']),
 				localCallback,
 			);
 		});
@@ -341,6 +357,8 @@ const moduleFunction =
 			databaseTypeName,
 			// companion page source files (SPEC-companionPages-102826) live beside the database
 			companionSourcesDirPath: require('./lib/companion-pages/companion-source-files').companionSourcesDirPathOf(databaseContainerDirPath),
+			// ONE clock for companion uploadedAt and compiledAt, so no two stamps tie (companion-moment-clock.js)
+			companionMomentClock: require('./lib/companion-pages/companion-moment-clock').companionMomentClockOf(),
 			dataModelLogInfoList: [],
 		};
 		pipeRunner(taskList.getList(), initialData, (err, args) => {
@@ -381,6 +399,18 @@ const moduleFunction =
 						return;
 					}
 					xLog && xLog.status(`[graph-state-version-schema-migration] ${migrationResult.logInfoList.join('; ')}`);
+				});
+			}
+			// PLAN-userRegistrationReset-112026 (R5, 4.6): repair WHERE-less updatedAt triggers, make sure userTokens exists,
+			// report accounts sharing an email address. Idempotent; a failure is named in the log and startup continues.
+			if (!err && sqlDb) {
+				require('../lib/user-account-schema-migration')({ sqlDb, dataMapping })((migrationError, migrationResult) => {
+					const xLog = process.global.xLog;
+					if (migrationError) {
+						xLog && xLog.error(`[user-account-schema-migration] FAILED: ${migrationError}`);
+						return;
+					}
+					xLog && xLog.status(`[user-account-schema-migration] ${migrationResult.logInfoList.join('; ')}`);
 				});
 			}
 			// dmeMcpOAuth Phase 2: expose sqlDb so startApiServer can hand it to the

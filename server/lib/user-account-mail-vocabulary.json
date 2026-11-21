@@ -1,0 +1,126 @@
+{
+	"_comment": "The words of every account email and of the public account replies (PLAN-userRegistrationReset-112026 4.7), here so tqii can edit them without touching code. Read by lib/user-account-mail.js, which refuses at load if a message lacks subjectText or paragraphList. <!name!> tokens are filled per message; every filled value is HTML-escaped in the html part. Keep it plain: no internal names, nothing a stranger could not read.",
+
+	"_originText": "WORKORDER-adminApproval-112126 A3: EVERY account email names where it came from, so tqii can search his mail for it. lib/user-account-mail.js appends subjectSuffixText to every subject and paragraphText as every message's last paragraph; <!originHost!> is the host of the instance's publicSiteUrl (the siteUrl fill), e.g. demo.educore.dev.",
+	"originText": {
+		"subjectSuffixText": " (coming from <!originHost!>)",
+		"paragraphText": "This message is coming from <!originHost!>."
+	},
+
+	"_actionParagraph": "WORKORDER-approvalMailPolish-112126 P1/P2. A paragraph may be an object { actionUrlFill, actionLabelText } instead of text: the message's action. The html part shows it as a button labelled actionLabelText linking to the URL in fill actionUrlFill; the text part shows the label and the URL beneath it. The URL must be an http(s) address (anything else is refused when the mail is composed). P2: name the site as <!originHost!> (the host alone, e.g. demo.educore.dev), never <!siteUrl!>: a bare site address competes with the action, and readers click the first link they see. The only URLs in a message are its actions.",
+
+	"_approvalMessages": "WORKORDER-adminApproval-112126. approvalRequest is the new-account notice when requireAdminApproval is on (A4): it goes to newAccountNoticeList once the address is confirmed (or at sign-up when confirmation is off), says plainly that the account awaits approval, and puts the button to the approval page for that one applicant FIRST, before the applicant's details (WORKORDER-approvalMailPolish-112126 P1; the page approves nothing by itself). approvalDecided tells the same list who decided, so a second approver does not act.",
+
+	"_approvalWordingByDecision": "per approval decision (user-profile-rules.json approvalDecisionByName): the word the approvers' approvalDecided notice uses, and the message the applicant is sent. declineEmailTextByCase fills that notice's 'Decline email' line.",
+	"approvalWordingByDecision": {
+		"approve": { "decisionText": "approved", "applicantMessageName": "accountApproved" },
+		"decline": { "decisionText": "declined", "applicantMessageName": "accountDeclined" }
+	},
+	"declineEmailTextByCase": { "sent": "sent", "suppressed": "not sent (suppressed by the approver)", "notApplicable": "not applicable" },
+
+	"_applicationCommentAbsentText": "WORKORDER-adminApproval-112126 A8: what the approvers' mail says in place of the applicant's comment when none was left.",
+	"applicationCommentAbsentText": "(none)",
+
+	"messageByName": {
+		"passwordReset": {
+			"subjectText": "Reset your EDUcore password",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Someone (we hope you) asked to reset the password of the EDUcore account <!username!>. To choose a new password, open this link within <!lifetimeText!>:",
+				"<!linkUrl!>",
+				"If you did not ask for this, ignore this message: your password stays as it is.",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"passwordChanged": {
+			"subjectText": "Your EDUcore password was changed",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The password of the EDUcore account <!username!> was just changed, and every earlier sign-in to it has ended.",
+				"If you did not do this, reset your password at once: <!forgotPasswordUrl!>",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"confirmEmail": {
+			"subjectText": "Confirm your EDUcore account",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Thank you for creating the EDUcore account <!username!>. To confirm this email address and start using it, open this link within <!lifetimeText!>:",
+				"<!linkUrl!>",
+				"If you did not create this account, ignore this message and it will not be activated.",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"newAccountNotice": {
+			"subjectText": "New EDUcore account: <!username!>",
+			"paragraphList": [
+				"A new account was created on <!originHost!>.",
+				"Username: <!username!>",
+				"Name: <!firstName!> <!lastName!>",
+				"Email: <!emailAdr!>",
+				"Email confirmation required: <!confirmationText!>",
+				"Comment from the applicant: <!applicationCommentText!>"
+			]
+		},
+		"approvalRequest": {
+			"subjectText": "Approval needed: new EDUcore account <!username!>",
+			"paragraphList": [
+				"A new account on <!originHost!> is waiting for an administrator to approve it. It cannot sign in until someone does.",
+				{ "actionUrlFill": "approvalPageUrl", "actionLabelText": "Review this application" },
+				"That page shows the application with Approve and Decline; it asks you to sign in as an administrator first.",
+				"Username: <!username!>",
+				"Name: <!firstName!> <!lastName!>",
+				"Email: <!emailAdr!>",
+				"Comment from the applicant: <!applicationCommentText!>"
+			]
+		},
+		"awaitingApproval": {
+			"subjectText": "Your EDUcore account is waiting for approval",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"Thank you for creating the EDUcore account <!username!>. An administrator will review it before it can be used.",
+				"You don't need to do anything now; we will email you as soon as it is decided.",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"accountApproved": {
+			"subjectText": "Your EDUcore account was approved",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The EDUcore account <!username!> was approved. You can sign in here:",
+				"<!signInUrl!>",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"accountDeclined": {
+			"subjectText": "Your EDUcore account was not approved",
+			"paragraphList": [
+				"Hello <!firstName!>,",
+				"The EDUcore account <!username!> was not approved, so it cannot be used to sign in.",
+				"EDUcore, <!originHost!>"
+			]
+		},
+		"approvalDecided": {
+			"subjectText": "New EDUcore account <!username!>: <!decisionText!> by <!deciderUsername!>",
+			"paragraphList": [
+				"The account <!username!> (<!firstName!> <!lastName!>, <!emailAdr!>) on <!originHost!> was <!decisionText!> by <!deciderUsername!>. Nothing more is needed.",
+				"Decline email to the applicant: <!declineEmailText!>"
+			]
+		}
+	},
+
+	"_replyByName": "what the public endpoints answer. resetRequested and confirmationResent are the SAME for every request, whether or not an account matched, so the form cannot be used to learn who has an account.",
+	"replyByName": {
+		"resetRequested": "If an account matches, we have emailed a link to its address. The link works once and expires soon.",
+		"confirmationResent": "If an account is waiting for confirmation, we have emailed a new link to its address.",
+		"registeredCheckEmail": "Your account was created. We have emailed a link to confirm your address; open it to sign in.",
+		"registeredSignedIn": "Your account was created and you are signed in.",
+		"passwordResetDone": "Your password was changed and you are signed in. Every earlier sign-in has ended.",
+		"registrationConfirmed": "Your email address is confirmed and you are signed in.",
+		"registeredCheckEmailThenApproval": "Your account was created. We have emailed a link to confirm your address; once you open it, your application goes to an administrator for approval.",
+		"registeredAwaitingApproval": "Your account was created and is now waiting for an administrator to approve it. We will email you when that is decided.",
+		"registrationConfirmedAwaitingApproval": "Your email address is confirmed. Your application is now with an administrator for approval; we will email you when that is decided.",
+		"accountApprovedReply": "The account was approved and its owner emailed.",
+		"accountDeclinedReply": "The account was declined."
+	}
+}

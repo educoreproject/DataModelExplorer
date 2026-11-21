@@ -15,6 +15,7 @@
 import { defineStore } from 'pinia';
 import { nextTick } from 'vue';
 import axios from 'axios';
+import { resumePlanOf, savedTurnListOf, priorTurnListOf, messageByteLengthOf, WEB_SOCKET_MAX_PAYLOAD_BYTES } from './dmeSessionTurns.js';
 
 // WebSocket reference kept outside reactive state (one per store instance)
 const wsInstances = {};
@@ -66,7 +67,7 @@ export function createEdunatorStore({
 
 	return defineStore(storeId, {
 		state: () => ({
-			responses: [],     // Array of { prompt, stdout, stderr, controlHtml, timestamp }
+			responses: [],     // Array of { prompt, stdout, stderr, controlHtml, timestamp, askMiloSessionName, askMiloResumeProof }
 			currentIndex: -1,  // Which slide is displayed (-1 = none/welcome)
 			loading: false,
 			lastHeartbeat: null,
@@ -80,6 +81,10 @@ export function createEdunatorStore({
 			_activeSessionName: '',
 			sessionList: [],
 			_saveInFlight: false,
+			// Set by loadSession: the saved turns ride along with EVERY prompt until askMilo confirms a save
+			// (askMiloSessionSaved), so the server can rebuild the conversation if the askMilo session is gone or
+			// untrustworthy, and a prompt that is killed, dropped or fails does not leave later prompts without context.
+			_priorTurnListPending: null,
 			// Multi-tenant version selector (08): the user's graph-state versions, the
 			// active version, and whether the current view is read-only (soft lock).
 			availableVersions: [],
@@ -105,6 +110,7 @@ export function createEdunatorStore({
 				promptName: defaultPromptName,
 				newSession: true,
 				resumeSessionName: '',
+				resumeProof: '',   // the server's proof that this browser may resume resumeSessionName
 				// Multi-tenant: which graph the user is exploring.
 				// 'standard' = the public 18-standard graph (default, unchanged
 				// behavior); 'user' = the user's own graph leg. Rides along in
@@ -224,15 +230,23 @@ export function createEdunatorStore({
 					} else if (msg.channel === 'stderr') {
 						const current = this.responses[this.responses.length - 1];
 						if (current) current.stderr += msg.delta;
-						// Auto-detect session name from stderr.
-						// askMilo outputs "Session saved: session_name" via xLog.status.
-						const sessionMatch = msg.delta.match(
-							/Session saved:\s*(\S+)/,
-						);
-						if (sessionMatch) {
-							this.settings.resumeSessionName = sessionMatch[1];
-							this.settings.newSession = false;
+					} else if (msg.channel === 'askMiloSessionSaved') {
+						// ws-graphinator confirms askMilo saved the session IT named for this prompt (by the session file,
+						// not by anything askMilo printed) and sends the proof that lets this browser resume it after a
+						// reload ('' when the server has no [dmeResumeProof] secret). Both are saved with the turn.
+						const current = this.responses[this.responses.length - 1];
+						this.settings.resumeSessionName = msg.askMiloSessionName;
+						this.settings.resumeProof = msg.resumeProof;
+						this.settings.newSession = false;
+						if (current) {
+							current.askMiloSessionName = msg.askMiloSessionName;
+							current.askMiloResumeProof = msg.resumeProof;
 						}
+						this._priorTurnListPending = null;
+					} else if (msg.channel === 'contextRebuilt') {
+						const current = this.responses[this.responses.length - 1];
+						if (current) current.stderr += `<span class="ws-notice">${msg.noticeText}</span>\n`;
+						this.statusMsg = msg.noticeText;
 					} else if (msg.channel === 'heartbeat') {
 						this.lastHeartbeat = Date.now();
 					} else if (msg.channel === 'done') {
@@ -328,7 +342,7 @@ export function createEdunatorStore({
 				// (ws-graphinator) can hand askMilo the versionRefId + internal secret +
 				// executor base URL. Null in Standard mode -> server injects nothing.
 				console.log(`[dmeOpenTrace] store.sendPrompt: sending prompt — graphMode='${this.settings.graphMode}' activeVersionRefId=${this.activeVersionRefId}${this.settings.graphMode === 'user' && !this.activeVersionRefId ? ' <<< USER MODE WITH NO ACTIVE VERSION — server will report no graph' : ''}`);
-				ws.send(JSON.stringify({
+				const promptMessage = {
 					type: 'prompt',
 					text,
 					settings: {
@@ -336,7 +350,26 @@ export function createEdunatorStore({
 						aiToolsSuppressed,
 						activeVersionRefId: this.activeVersionRefId,
 					},
-				}));
+				};
+				// "New Session" ticked after reopening a session: the user wants a fresh conversation, so the saved
+				// turns are dropped rather than rebuilt into it
+				if (this.settings.newSession) {
+					this._priorTurnListPending = null;
+				}
+				if (this._priorTurnListPending) {
+					promptMessage.savedTurnList = this._priorTurnListPending;
+				}
+				// the server closes a connection on a message over maxPayload; say so here instead of "connection lost"
+				const promptMessageText = JSON.stringify(promptMessage);
+				if (messageByteLengthOf(promptMessageText) > WEB_SOCKET_MAX_PAYLOAD_BYTES) {
+					this.responses.pop();
+					this.currentIndex = this.responses.length - 1;
+					this.loading = false;
+					this.lastHeartbeat = null;
+					this.statusMsg = `This question was NOT sent: it is ${(messageByteLengthOf(promptMessageText) / 1048576).toFixed(1)} MB, over the ${WEB_SOCKET_MAX_PAYLOAD_BYTES / 1048576} MB the server accepts. Shorten it, or start a new session.`;
+					return;
+				}
+				ws.send(promptMessageText);
 			},
 
 			clear() {
@@ -362,9 +395,11 @@ export function createEdunatorStore({
 				this.responses = [];
 				this.currentIndex = -1;
 				this.settings.resumeSessionName = '';
+				this.settings.resumeProof = '';
 				this.settings.newSession = true;
 				this._activeSessionRefId = null;
 				this._activeSessionName = '';
+				this._priorTurnListPending = null;
 			},
 
 			navigatePrev() {
@@ -386,7 +421,7 @@ export function createEdunatorStore({
 					const authHeaders = await resolveAuthHeaders();
 
 					const payload = {
-						sessionData: this.responses,
+						sessionData: savedTurnListOf(this.responses),
 					};
 					if (this._activeSessionRefId) {
 						payload.refId = this._activeSessionRefId;
@@ -406,6 +441,10 @@ export function createEdunatorStore({
 					}
 				} catch (err) {
 					console.error(`[${storeId}] Session save failed:`, err);
+					const refusalName = err.response?.data?.refusalName;
+					this.statusMsg = refusalName === 'bodyTooLarge'
+						? 'This session was NOT saved: it is too large to store. Start a new session to keep saving.'
+						: `This session was NOT saved (${err.response?.status || err.message || 'no answer from the server'}). Your work is still on screen; it will try again after your next question.`;
 				} finally {
 					this._saveInFlight = false;
 				}
@@ -457,10 +496,18 @@ export function createEdunatorStore({
 						this.currentIndex = sessionData.length - 1;
 						this._activeSessionRefId = session.refId;
 						this._activeSessionName = session.sessionName || '';
+
+						// Continue the askMilo conversation that answered these turns, not a blank one.
+						// (isRebuildNeeded leaves no name: the server rebuilds from the saved turns sent with the prompt)
+						const { resumeSessionName, resumeProof } = resumePlanOf(sessionData);
+						this.settings.resumeSessionName = resumeSessionName;
+						this.settings.resumeProof = resumeProof;
 						this.settings.newSession = false;
+						this._priorTurnListPending = priorTurnListOf(sessionData);
 					}
 				} catch (err) {
 					console.error(`[${storeId}] Session load failed:`, err);
+					this.statusMsg = `The saved session could not be opened (${err.response?.status || err.message || 'no answer from the server'}).`;
 				}
 			},
 

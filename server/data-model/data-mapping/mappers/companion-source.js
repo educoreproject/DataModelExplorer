@@ -86,7 +86,10 @@ const moduleFunction =
 
 		const columnListText = dataColumnList.map((columnName) => `[${columnName}]`).join(', ');
 		const valueListText = dataColumnList.map((columnName) => `<!${columnName}!>`).join(', ');
-		const NEWEST_FIRST_TEXT = 'ORDER BY sourceRole, sourcePart, uploadedAt DESC, createdAt DESC';
+		// rowid last: rows stamped before companion-moment-clock can tie on uploadedAt (and createdAt is to the second),
+		// and then the later INSERT counts as newer. companion-source-set.js picks by this same order, so a list view and
+		// a compile always agree on which row is current.
+		const NEWEST_FIRST_TEXT = 'ORDER BY sourceRole, sourcePart, uploadedAt DESC, createdAt DESC, rowid DESC';
 
 		const getSql = (queryName, replaceObject = {}) => {
 			const queries = {

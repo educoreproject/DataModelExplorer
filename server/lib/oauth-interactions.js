@@ -66,6 +66,7 @@ const moduleFunction = ({
 	audit,
 	interactionPath = '/oauth/interaction',
 	csrfSecret,
+	forgotPasswordUrl = '', // the website's forgot-password page; blank shows no link (oauth-server.js reads it from [user-registration])
 } = {}) => ({ expressApp }) => {
 	const { xLog } = process.global;
 
@@ -123,6 +124,7 @@ ${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
 <input id="password" name="password" type="password" required>
 <button type="submit">Sign in</button>
 </form>
+${forgotPasswordUrl ? `<p class="muted"><a href="${escapeHtml(forgotPasswordUrl)}" target="_blank" rel="noopener">Forgot password?</a></p>` : ''}
 <p class="muted">EDUcore identity provider</p></div></body></html>`;
 
 	const renderConsent = ({ uid, clientName, scopes, resource }) => `<!doctype html><html><head><meta charset="utf-8">
@@ -205,6 +207,14 @@ ${scopes.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
 
 		credentialHook({ username, password }, (err, result) => {
 			const account = result && result.account;
+			// the password was right but the account's state refuses sign-in: say which, by name (WORKORDER-adminApproval-112126)
+			const stateRefusal = !err && result && result.refusal;
+			if (stateRefusal) {
+				throttle.recordSuccess({ username });
+				audit.write({ event: 'login_failed', username, ip, detail: { reason: stateRefusal.refusalName } });
+				sendHtml(res, stateRefusal.httpStatus, renderLogin({ uid, error: refusalText(stateRefusal) }));
+				return;
+			}
 			if (err || !account) {
 				throttle.recordFailure({ username, ip });
 				audit.write({ event: 'login_failed', username, ip, detail: { reason: err ? 'error' : 'bad_credential' } });

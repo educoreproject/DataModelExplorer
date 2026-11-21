@@ -2,98 +2,77 @@
 # Read by server/scripts/deploy/runCiTestGate.sh. One test per line: its path (relative to the code checkout),
 # a tab, and why it cannot run there. Every other *.test.js the suite finds is gated: a new test is gated by default.
 #
-# Built 2026-11-20 from the runner's own failures (run 44768075552): the reason on each line was read from that
-# test's log by pattern (a code estimation, not a per-test audit). Each still runs, and must pass, on a
-# workstation or server that has configs/, dataStores/ and the graph containers.
+# Rebuilt 2026-11-20 from the runner's own failures (run 44780647949), with the secret-free CI config installed
+# (server/test/ciConfig). The reason on each line was read from that test's log by pattern (a code estimation, not
+# a per-test audit). Each still runs, and must pass, on a workstation or server that has what it names.
 # The gate prints any listed test that starts passing, so this list can shrink.
-cli/lib.d/data-model-explorer/test/apoc-text-allowlist-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/compare-codesets-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/describe-graph-standards.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/explore-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-count-units.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-distinct-rows.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-exact-lookup-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-id-lookup.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-instance-path.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-rationale.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-relation-cap.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/find-mappings-standard-share.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/graph-retriever-refusals.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/grep-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/hybrid-search-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/layer-scope-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/list-standards-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/match-edge-confidence-reads.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/prompt-structure-claims.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/provider-input-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/provider-standard-tools.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/readOnlySession.test.js	needs a graph container
-cli/lib.d/data-model-explorer/test/search-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/standard-filter-family-shown.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/standard-filter-refusal.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/tool-payload-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/traversal-no-mapping-hit.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/traversal-per-hub-cap.test.js	needs a graph container
-cli/lib.d/data-model-explorer/test/traversal-relation-cap.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/traversal-sif-codeset.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/traversal-standard-share.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/unmapped-fields-contract.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/use-case-scope-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/data-model-explorer/test/use-case-search-live.test.js	needs configs/ (not in the repository)
-cli/lib.d/rater-tool/test/raterSample.test.js	needs configs/ (not in the repository)
-cli/lib.d/rater-tool/test/raterSuggested.test.js	needs configs/ (not in the repository)
-server/data-model/lib/ask-milo-multitool/test/promptIsText.test.js	needs askMilo's config (not in the repository)
-server/data-model/lib/ask-milo-multitool/test/stop-reason-marker.test.js	needs askMilo's config (not in the repository)
-server/lib/schema-provider-roles.test.js	needs configs/ (not in the repository)
-server/test/companion-compile.test.js	needs configs/ (not in the repository)
-server/test/companion-csv-python-parity.test.js	needs dataStores/ (not in the repository)
-server/test/companion-identity-stamp.test.js	needs a graph container
-server/test/companion-page-admin.test.js	needs configs/ (not in the repository)
-server/test/config-secrets-owner-only.test.js	needs configs/ (not in the repository)
-server/test/container-connection-refusals.test.js	needs configs/ (not in the repository)
-server/test/dme-list-standards.test.js	needs configs/ (not in the repository)
-server/test/dme-slack-ask-live.test.js	needs askMilo's config (not in the repository)
-server/test/dme-slack-endpoints.test.js	needs configs/ (not in the repository)
-server/test/dme-slack-health.test.js	needs configs/ (not in the repository)
-server/test/dme-slack-mapper.test.js	needs configs/ (not in the repository)
-server/test/downloads-by-identity.test.js	needs configs/ (not in the repository)
-server/test/explorer-hub-family-colour-live.test.js	needs configs/ (not in the repository)
-server/test/explorer-tidy-live.test.js	needs configs/ (not in the repository)
-server/test/explorer-uris-live.test.js	needs configs/ (not in the repository)
-server/test/explorer-uris.test.js	needs configs/ (not in the repository)
-server/test/find-mappings-uri-no-scan-live.test.js	needs configs/ (not in the repository)
-server/test/forged-use-case-structure-live.test.js	needs configs/ (not in the repository)
-server/test/forged-use-cases-live.test.js	needs configs/ (not in the repository)
-server/test/golden-graph-handle-live.test.js	needs configs/ (not in the repository)
-server/test/meanings-clarity-live.test.js	needs configs/ (not in the repository)
-server/test/meanings-explorer-live.test.js	needs configs/ (not in the repository)
-server/test/native-identifier-live.test.js	needs configs/ (not in the repository)
-server/test/neo4j-write-gate.test.js	needs a graph container
-server/test/passport-is-identity.test.js	needs configs/ (not in the repository)
-server/test/rater-admin-main-login.test.js	needs configs/ (not in the repository)
-server/test/rater-card-grouping.test.js	needs configs/ (not in the repository)
-server/test/rater-preview.test.js	needs configs/ (not in the repository)
-server/test/rater-results.test.js	needs configs/ (not in the repository)
-server/test/rater-surveys.test.js	needs configs/ (not in the repository)
-server/test/rater-tool-server.test.js	needs configs/ (not in the repository)
-server/test/read-seam-hardening.test.js	needs configs/ (not in the repository)
-server/test/retired-schema-pages.test.js	needs configs/ (not in the repository)
-server/test/rosetta-anonymous-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-interpret.test.js	needs configs/ (not in the repository)
-server/test/rosetta-job-memory-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-judged-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-meaning-search-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-memory-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-retrieval-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-review-live.test.js	needs configs/ (not in the repository)
-server/test/rosetta-search-description.test.js	needs configs/ (not in the repository)
-server/test/schema-provider-live-timing.test.js	needs configs/ (not in the repository)
-server/test/size-refusal-contact-live.test.js	needs configs/ (not in the repository)
-server/test/standard-downloads-publications.test.js	needs configs/ (not in the repository)
-server/test/standard-downloads.test.js	needs configs/ (not in the repository)
-server/test/standards-neighbourhood-allFamilies.test.js	needs configs/ (not in the repository)
-server/test/standards-neighbourhood.test.js	needs configs/ (not in the repository)
-server/test/standards-query-card-uri-live.test.js	needs configs/ (not in the repository)
-server/test/standards-query-core-live.test.js	needs configs/ (not in the repository)
-server/test/standards-query-size-live.test.js	needs configs/ (not in the repository)
+cli/lib.d/data-model-explorer/test/apoc-text-allowlist-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/compare-codesets-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/describe-graph-standards.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/explore-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-count-units.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-distinct-rows.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-exact-lookup-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-id-lookup.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-instance-path.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-rationale.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-relation-cap.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/find-mappings-standard-share.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/graph-retriever-refusals.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/grep-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/hub-slot-list-shared.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/hybrid-search-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/layer-scope-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/list-standards-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/match-edge-confidence-reads.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/prompt-structure-claims.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/provider-input-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/provider-standard-tools.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/readOnlySession.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/search-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/standard-filter-family-shown.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/standard-filter-refusal.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/tool-payload-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/traversal-no-mapping-hit.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/traversal-per-hub-cap.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/traversal-relation-cap.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/traversal-sif-codeset.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/traversal-standard-share.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/unmapped-fields-contract.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/use-case-scope-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/data-model-explorer/test/use-case-search-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/rater-tool/test/raterSample.test.js	needs a graph container (Neo4j / docker), not on GitHub
+cli/lib.d/rater-tool/test/raterSuggested.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/lib/schema-provider-roles.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/ci-config-names-match.test.js	needs the real configs repository (it checks the CI copy against it)
+server/test/companion-compile.test.js	needs files outside the code repository (management/zNotesPlansDocs sources)
+server/test/companion-csv-python-parity.test.js	needs real data in dataStores/ (not in the repository)
+server/test/companion-identity-stamp.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/companion-page-admin.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/container-connection-refusals.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/dme-list-standards.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/dme-slack-ask-live.test.js	needs askMilo with a real API key and the real prompts
+server/test/dme-slack-endpoints.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/dme-slack-health.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/dme-slack-mapper.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/downloads-by-identity.test.js	needs real data in dataStores/ (not in the repository)
+server/test/explorer-hub-family-colour-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/forged-use-case-structure-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/forged-use-cases-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/golden-graph-handle-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/native-identifier-live.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/neo4j-write-gate.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/passport-is-identity.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/rater-preview.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/rater-results.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/rater-tool-server.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/read-seam-hardening.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/retired-schema-pages.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/rosetta-interpret.test.js	needs the educoreForge code (a separate repository)
+server/test/rosetta-search-description.test.js	needs the educoreForge code (a separate repository)
+server/test/schema-provider-live-timing.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/standard-downloads-publications.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/standard-downloads.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/standards-neighbourhood-allFamilies.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/standards-neighbourhood.test.js	needs a graph container (Neo4j / docker), not on GitHub
+server/test/standards-query-core-live.test.js	needs the educoreForge code (a separate repository)

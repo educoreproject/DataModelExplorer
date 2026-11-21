@@ -41,7 +41,7 @@ const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 )();
 
 const os = require('os');
-const { textIdentifierRefusalOf, refusalText } = require('../../../lib/user-profile-rules');
+const { textIdentifierRefusalOf, refusalText, loginRefusalOfAccountState } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -356,8 +356,27 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			if (authenticated) {
 				// Remove password from user object before returning
 				const { password, ...userWithoutPassword } = user;
-				callback('', {
-					user: userWithoutPassword,
+				// a self-registered account that has not followed its confirmation link is refused by name, and only once
+				// the password has proved right, so the refusal tells a guesser nothing (WORKORDER-userRegistrationReset-112026)
+				if (!user.refId || !args.userTable) {
+					callback('', { user: userWithoutPassword });
+					return;
+				}
+				const stateQuery = dataMapping['profile-user'].getSql('byUsernameForAuth', { username: user.username });
+				args.userTable.getData(stateQuery, { suppressStatementLog: true, noTableNameOk: true }, (stateError, stateRowList = []) => {
+					if (stateError) {
+						callback(`Authentication failed: reading the account state: ${stateError}`, {});
+						return;
+					}
+					// a set disabled is refused (finding F2, 2026-11-20: the website login never read it, though the OAuth and MCP
+					// paths did), by the refusal its state names in user-profile-rules.json loginRefusalNameByAccountState
+					// (emailNotConfirmed, awaitingApproval, accountNotApproved), anything else by accountDisabled
+					const disabledRefusal = loginRefusalOfAccountState((stateRowList.qtLast() || {}).disabled);
+					if (disabledRefusal) {
+						callback(refusalText(disabledRefusal), { refusal: disabledRefusal });
+						return;
+					}
+					callback('', { user: userWithoutPassword });
 				});
 				return;
 			}

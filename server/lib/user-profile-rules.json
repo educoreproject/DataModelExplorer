@@ -16,14 +16,26 @@
 	"_adminEditablePropertyList": "what admin-create-user and admin-update-user accept (the admin user form sends exactly these; the rater tool sends a subset); anything else is refused by name (propertyNotAdminEditable), never dropped (re-verification 2026-11-10).",
 	"adminEditablePropertyList": ["refId", "username", "password", "first", "last", "emailAdr", "phone", "role"],
 
-	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling.",
-	"maxLengthByPropertyName": { "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64 },
+	"_maxLengthByPropertyName": "the longest value each self-editable property may hold, refused by name above it (propertyTooLong) BEFORE any save (review SF-7: a 100000-character first name was saved, and every later reply re-signed it into the authtoken header until Node refused the header, locking the account). Every self-editable property must have an entry. password matches validatePasswordStrength's own ceiling. username (2026-11-20) bounds self-registration and the admin tools alike. applicationComment (WORKORDER-adminApproval-112126 A8, 2026-11-21) is the optional note an applicant leaves for the approvers.",
+	"maxLengthByPropertyName": { "username": 64, "first": 100, "last": 100, "emailAdr": 254, "phone": 40, "password": 64, "currentPassword": 64, "applicationComment": 1000 },
 
 	"_emailPatternText": "the email rule for the self-save path, the same pattern admin-create-user and admin-update-user apply (review N-2).",
 	"emailPatternText": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
 
 	"_usernamePatternText": "the username rule for admin-create-user and admin-update-user, as it stood in both before it moved here (2026-11-10). Production held no username outside it that day.",
 	"usernamePatternText": "^[a-zA-Z0-9_-]+$",
+
+	"_loginRefusalNameByAccountState": "what sign-in answers for each value of users.disabled that is an account STATE rather than an admin's disabling (WORKORDER-adminApproval-112126). Read by the website login (user-login) and the OAuth sign-in page (oidc-verify-credential). Any other set value is accountDisabled; blank, '0' and 'false' are active. Every refusal named here must be in refusalByCase.",
+	"loginRefusalNameByAccountState": { "pendingConfirmation": "emailNotConfirmed", "pendingApproval": "awaitingApproval", "declined": "accountNotApproved" },
+
+	"_approverRoleList": "the roles that may see and decide account applications (WORKORDER-adminApproval-112126 A5). Read from the approver's users row in the database, never from the request or the token's claims.",
+	"approverRoleList": ["admin", "super"],
+
+	"_approvalDecisionByName": "the decisions an approver may make on a self-registered account (WORKORDER-adminApproval-112126): fromStateList is the users.disabled values it may be made from ('' is active), toStateText what it sets. A declined account can be approved later; an approved (active) account cannot be declined here, it is disabled through the admin user tools instead (decided 2026-11-21, so approval never becomes a second way to disable an account in use). An account still awaiting its email confirmation is not decidable: approvers are asked only about proved addresses (A2).",
+	"approvalDecisionByName": {
+		"approve": { "fromStateList": ["pendingApproval", "declined"], "toStateText": "" },
+		"decline": { "fromStateList": ["pendingApproval"], "toStateText": "declined" }
+	},
 
 	"_refusalByCase": "every refusal this module makes: refusalName is the stable name a caller tests, reason is what a person reads, httpStatus is what the endpoint answers. <!detailListText!> is filled with the property names refused, or the password rule's complaints.",
 	"refusalByCase": {
@@ -41,6 +53,22 @@
 		"sessionRevoked": { "refusalName": "sessionRevoked", "httpStatus": 401, "reason": "this sign-in ended when the account's password was changed; please sign in again" },
 		"noSuchUser": { "refusalName": "noSuchUser", "httpStatus": 404, "reason": "no user record has that refId" },
 		"currentPasswordRequired": { "refusalName": "currentPasswordRequired", "httpStatus": 400, "reason": "a new password is saved only with the current password" },
-		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" }
+		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" },
+		"_registrationAndReset": "the refusals of self-registration and password reset (PLAN-userRegistrationReset-112026). linkNotValid covers an unknown, altered, used or expired link alike, so a refusal tells a guesser nothing about which.",
+		"registrationNotConfigured": { "refusalName": "registrationNotConfigured", "httpStatus": 503, "reason": "account registration and password reset are not set up on this server" },
+		"registrationDisabled": { "refusalName": "registrationDisabled", "httpStatus": 403, "reason": "new accounts cannot be created here at present" },
+		"emailNotConfirmed": { "refusalName": "emailNotConfirmed", "httpStatus": 403, "reason": "this account's email address has not been confirmed yet; follow the link we emailed, or ask for a new one" },
+		"linkNotValid": { "refusalName": "linkNotValid", "httpStatus": 400, "reason": "this link is not valid: it may have expired or already been used; please ask for a new one" },
+		"tooManyRequests": { "refusalName": "tooManyRequests", "httpStatus": 429, "reason": "too many requests; please try again in <!detailListText!> seconds" },
+		"usernameTaken": { "refusalName": "usernameTaken", "httpStatus": 409, "reason": "that username is already in use" },
+		"emailAdrTaken": { "refusalName": "emailAdrTaken", "httpStatus": 409, "reason": "an account already uses that email address; you can reset its password instead" },
+		"accountDisabled": { "refusalName": "accountDisabled", "httpStatus": 403, "reason": "this account is disabled; please contact the site's administrators" },
+		"requiredPropertyMissing": { "refusalName": "requiredPropertyMissing", "httpStatus": 400, "reason": "these are required: <!detailListText!>" },
+		"_adminApproval": "the refusals of admin approval of new registrations (WORKORDER-adminApproval-112126). awaitingApproval and accountNotApproved are given at sign-in only once the password has proved right.",
+		"awaitingApproval": { "refusalName": "awaitingApproval", "httpStatus": 403, "reason": "this account is waiting for an administrator to approve it; you will get an email when that is decided" },
+		"accountNotApproved": { "refusalName": "accountNotApproved", "httpStatus": 403, "reason": "this account was not approved; please contact the site's administrators" },
+		"notAnApprover": { "refusalName": "notAnApprover", "httpStatus": 403, "reason": "only an administrator can see or decide account applications" },
+		"approvalDecisionNotValid": { "refusalName": "approvalDecisionNotValid", "httpStatus": 400, "reason": "a decision must be approve or decline, for one account (userRefId), with sendDeclineEmail true or false" },
+		"approvalNotDecidable": { "refusalName": "approvalNotDecidable", "httpStatus": 409, "reason": "this account cannot be given that decision in its present state: <!detailListText!>" }
 	}
 }
