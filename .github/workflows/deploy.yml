@@ -1,7 +1,7 @@
 # Deploy educore from git (PLAN-gitAutoDeploy-112026).
 #
 #   push to dev  -> build, test, deploy demo.educore.dev
-#   push to main -> build, test, wait for tqii's approval (environment 'prod'), deploy production
+#   push to main -> build, test, deploy production (environment 'prod', no approval step)
 #   pull request -> build and test only
 #
 # The server side is server/scripts/deploy/deployFromGit.sh, run as the ssh forced command of the deploy key,
