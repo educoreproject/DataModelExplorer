@@ -12,7 +12,7 @@
 //       name (approvalWithoutApprovers) at every such sign-up, as at startup; a failed mail is logged by name and never
 //       undoes the state change. Only the state write can fail the call.
 //   approvalPageUrlOf({ publicSiteUrl, userRefId }) -> the approval page of one applicant (the link approves nothing)
-//   applicantSummaryOf(userRow) -> { refId, username, first, last, emailAdr, createdAt, accountState } for the approval
+//   applicantSummaryOf(userRow) -> { refId, username, first, last, emailAdr, createdAt, accountState, allowedDecisionNameList } for the approval
 //       page: accountState is active, pendingConfirmation, pendingApproval, declined or disabled (an admin's own text
 //       is not shown); never the password
 //   latestDecisionOf({ sqlDb, dataMapping, applicantUserRefId }, callback(errText, { latestDecision }))
@@ -26,7 +26,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
-const { refusalOf, refusalText, approverRoleList, isAccountDisabled, accountStateTextOf, loginRefusalNameByAccountState, PENDING_APPROVAL_TEXT } = require('./user-profile-rules');
+const { refusalOf, refusalText, approverRoleList, approvalDecisionByName, isAccountDisabled, accountStateTextOf, loginRefusalNameByAccountState, PENDING_APPROVAL_TEXT } = require('./user-profile-rules');
 const { accountMailOf } = require('./user-account-mail');
 const { NO_APPROVER_WARNING_TEXT } = require('./user-registration-settings');
 
@@ -96,6 +96,8 @@ const applicantSummaryOf = (userRow) => ({
 	emailAdr: userRow.emailAdr,
 	createdAt: userRow.createdAt,
 	accountState: accountStateOf(userRow.disabled),
+	// what may still be decided, from approvalDecisionByName: the page shows these buttons and no others
+	allowedDecisionNameList: Object.keys(approvalDecisionByName).filter((decisionName) => approvalDecisionByName[decisionName].fromStateList.includes(accountStateTextOf(userRow.disabled))),
 });
 
 const latestDecisionOf = ({ sqlDb, dataMapping, applicantUserRefId }, callback) => {

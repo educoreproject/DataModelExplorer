@@ -52,7 +52,8 @@
 		if (!isAccepted) {
 			return;
 		}
-		if (accountStore.registrationOptions.requireEmailConfirmation) {
+		// confirmation required, or (WORKORDER-adminApproval-112126) the account now waits for an approver: say so, stay here
+		if (accountStore.registrationOptions.requireEmailConfirmation || accountStore.isAwaitingApproval) {
 			isRegistered.value = true;
 			return;
 		}
@@ -75,6 +76,7 @@
 				</p>
 				<template v-else-if="!isRegistered">
 					<p class="text-body-2 mb-4">{{ accountVocabulary.registerIntroText }}</p>
+					<p v-if="accountStore.registrationOptions.requireAdminApproval" class="text-body-2 mb-4" data-testid="register-approval-notice">{{ accountVocabulary.registerApprovalNoticeText }}</p>
 					<v-form @submit.prevent="submitRegistration">
 						<v-text-field v-model="username" :rules="usernameRules" :label="accountVocabulary.usernameLabel" :hint="accountVocabulary.usernameHintText" autocomplete="username" autofocus data-testid="register-username" />
 						<v-text-field v-model="first" :rules="[requiredRule]" :label="accountVocabulary.firstNameLabel" autocomplete="given-name" data-testid="register-first" />

@@ -304,6 +304,7 @@ step((done) => {
 	post('/api/accountApprovalDetail', { userRefId: state.apptwoRefId }, (detailResponse) => {
 		const detail = detailResponse.bodyJson && detailResponse.bodyJson[0];
 		check('P2.8 detail shows the applicant (username, name, email, sign-up time, state), no password', detail && detail.applicant.username === 'apptwo' && detail.applicant.first === 'App' && detail.applicant.emailAdr === 'apptwo@example.org' && detail.applicant.createdAt && detail.applicant.accountState === 'pendingApproval' && !/password/i.test(JSON.stringify(detail.applicant)), detailResponse.bodyText);
+		check('P2.8 detail says which decisions may be made (approve, decline while pending)', detail && JSON.stringify(detail.applicant.allowedDecisionNameList) === '["approve","decline"]', detailResponse.bodyText);
 		check('P2.8 detail of an undecided account has no decision, and the control preset is the setting (false)', detail && detail.latestDecision === null && detail.adminApprovalEmailSuppress === false, detailResponse.bodyText);
 		post('/api/accountApprovalDetail', { userRefId: state.apponeRefId }, (decidedResponse) => {
 			const decidedDetail = decidedResponse.bodyJson && decidedResponse.bodyJson[0];
@@ -356,7 +357,7 @@ step((done) => {
 	const harness = state.approvalHarness;
 	const post = postTo(harness);
 	post('/api/decideAccountApproval', { userRefId: state.apptwoRefId, decisionName: 'approve' }, (laterApprove) => {
-		check('P2.6 approve after decline works', laterApprove.statusCode === 200 && laterApprove.bodyJson && laterApprove.bodyJson[0].applicant.accountState === 'active', laterApprove.bodyText);
+		check('P2.6 approve after decline works, and then nothing more may be decided here', laterApprove.statusCode === 200 && laterApprove.bodyJson && laterApprove.bodyJson[0].applicant.accountState === 'active' && JSON.stringify(laterApprove.bodyJson[0].applicant.allowedDecisionNameList) === '[]', laterApprove.bodyText);
 		post('/api/decideAccountApproval', { userRefId: state.apptwoRefId, decisionName: 'decline', sendDeclineEmail: true }, (declineApproved) => {
 			check('P2.6 decline after approve is refused by name (approvalNotDecidable)', declineApproved.statusCode === 409 && declineApproved.bodyJson && declineApproved.bodyJson.refusalName === 'approvalNotDecidable', declineApproved.bodyText);
 			post('/api/decideAccountApproval', { userRefId: state.apponeRefId, decisionName: 'approve' }, (approveApproved) => {

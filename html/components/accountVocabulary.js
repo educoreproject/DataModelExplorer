@@ -42,4 +42,28 @@ export const accountVocabulary = Object.freeze({
 	confirmTitle: 'Confirming your email address',
 	confirmWorkingText: 'One moment...',
 	confirmIdentifierPromptText: 'To get a new link, enter your user name or email address.',
+
+	// WORKORDER-adminApproval-112126: the approval steps the applicant sees, and the approval page
+	registerApprovalNoticeText: 'New accounts here are approved by an administrator before they can sign in. We will email you when yours is decided.',
+	approvalPageTitle: 'Account application',
+	approvalPendingListTitle: 'Waiting for approval',
+	approvalPendingListEmptyText: 'No account is waiting for approval.',
+	approvalUsernameLabel: 'User name',
+	approvalNameLabel: 'Name',
+	approvalEmailLabel: 'Email address',
+	approvalSignedUpLabel: 'Signed up',
+	approvalStateLabel: 'State',
+	approvalDecidedLabel: 'Decided',
+	approveButtonText: 'Approve',
+	declineButtonText: 'Decline',
+	sendDeclineEmailLabel: 'Email the applicant that the account was not approved',
+	approvalChooseApplicantText: 'Choose an application from the list.',
+	accountStateTextByName: Object.freeze({
+		pendingApproval: 'waiting for approval',
+		declined: 'declined',
+		active: 'approved (active)',
+		pendingConfirmation: 'email not yet confirmed',
+		disabled: 'disabled by an administrator',
+	}),
+	decisionTextByName: Object.freeze({ approve: 'approved', decline: 'declined' }),
 });
