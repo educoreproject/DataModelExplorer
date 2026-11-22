@@ -4,11 +4,12 @@
 //
 //   B1 (L1, L6) html/tests/accountApproval/accountTimeText.test.mjs (TZ=America/Chicago, so "local" is known) and
 //      accountAccessRules.test.mjs pass
-//   B2 (L4) the browser's approver role list (html/config/accountApprovalRules.json) is the server's
+//   B2 (L4) the browser's approver role list (html/config/adminAccessRules.json) is the server's
 //      (lib/user-profile-rules.json approverRoleList): the browser only decides whether to ASK; the server still decides
 //   B3 (L4, L6) /admin names an access rule for every tool, asks for the pending list only when mayUse('pending-approvals'),
 //      and shows each tab and mounts each tool only behind mayUse (a refused tool is an alert, nothing mounted)
-//   B4 (L6) the rules file's adminRoleList is exactly what every admin-only endpoint behind the tools allows
+//   B4 (L6) the rules file's adminRoleList is exactly what every admin-only endpoint behind the tools allows, and (raterAndAdminLooseEnds
+//      R2) the Mapping Survey's own admin checks read it rather than a list of their own
 //   B5 (L7) the approval page asks for nothing (detail, pending list) unless the visitor is an approver
 //
 // Run: node server/test/account-approval-browser-rules.test.js
@@ -37,7 +38,7 @@ const check = (checkName, condition, detailText = '') => {
 });
 
 // B2
-const browserRules = JSON.parse(fs.readFileSync(path.join(codePath, 'html', 'config', 'accountApprovalRules.json'), 'utf8'));
+const browserRules = JSON.parse(fs.readFileSync(path.join(codePath, 'html', 'config', 'adminAccessRules.json'), 'utf8'));
 const sortedTextOf = (roleList) => JSON.stringify([...(roleList || [])].sort());
 const serverApproverRoleList = JSON.parse(fs.readFileSync(path.join(codePath, 'server', 'lib', 'user-profile-rules.json'), 'utf8')).approverRoleList;
 check('B2 the browser approver role list is the server one', Array.isArray(browserRules.approverRoleList) && sortedTextOf(browserRules.approverRoleList) === sortedTextOf(serverApproverRoleList), `browser ${JSON.stringify(browserRules.approverRoleList)} server ${JSON.stringify(serverApproverRoleList)}`);
@@ -67,8 +68,8 @@ const mismatchList = adminEndpointFileList
 	.filter(([, roleList]) => sortedTextOf(roleList) !== sortedTextOf(browserRules.adminRoleList));
 check(`B4 adminRoleList is what all ${adminEndpointFileList.length} admin-only endpoints allow`, adminEndpointFileList.length >= 10 && !mismatchList.length, JSON.stringify(mismatchList));
 const raterStoreText = fs.readFileSync(path.join(codePath, 'html', 'stores', 'raterStore.js'), 'utf8');
-const raterAdminRoleList = JSON.parse((raterStoreText.match(/const ADMIN_ROLE_LIST = (\[[^\]]*\]);/) || [, 'null'])[1].replace(/'/g, '"'));
-check('B4 adminRoleList is the Mapping Survey admin list (raterStore ADMIN_ROLE_LIST)', sortedTextOf(raterAdminRoleList) === sortedTextOf(browserRules.adminRoleList), JSON.stringify(raterAdminRoleList));
+// raterAndAdminLooseEnds R2: the Mapping Survey keeps no list of its own; both its checks read adminRoleList
+check('B4 the Mapping Survey admin checks (raterStore isRaterAdminRole, isAdmin) read adminRoleList and keep no list of their own', /export const isRaterAdminRole = \(roleText\) => hasRoleIn\(roleText, 'adminRoleList'\);/.test(raterStoreText) && /isAdmin: \(state\) => hasRoleIn\(state\.raterRole, 'adminRoleList'\),/.test(raterStoreText) && !/ADMIN_ROLE_LIST/.test(raterStoreText));
 
 // B5
 const approvalPageText = fs.readFileSync(path.join(codePath, 'html', 'pages', 'account-approval.vue'), 'utf8');

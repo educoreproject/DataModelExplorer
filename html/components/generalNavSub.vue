@@ -3,6 +3,8 @@
 	import { computed, ref } from 'vue';
 	import { useRouter } from 'vue-router';
 	import { sameSiteReturnPathOf } from '@/components/returnPathRules.js';
+	// the Admin button, by the same rule as the sidebar's Admin link (WORKORDER-raterAndAdminLooseEnds-112226 R4)
+	import { mayUseAnyAdminTool } from '@/components/accountAccessRules.js';
 
 	const LoginStore = useLoginStore();
 	const router = useRouter();
@@ -192,7 +194,7 @@
 			</v-btn>
 
 			<v-btn
-				v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
+				v-if="!isAdminPage && mayUseAnyAdminTool(LoginStore.loggedInUser.role)"
 				variant="text"
 				prepend-icon="mdi-shield-account"
 				title="Admin Tools"

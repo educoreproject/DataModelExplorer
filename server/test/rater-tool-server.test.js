@@ -16,7 +16,7 @@
 //   T3.11 download: JSON and CSV carry every saved answer, with foundBy and history
 //   T3.12 left undone (revision 14): progress lists each unsaved item (number, standard, element name); none once all are saved
 //
-//   /usr/local/bin/node server/test/rater-tool-server.test.js
+//   node server/test/rater-tool-server.test.js   (the arm64 node on PATH; /usr/local/bin/node is x86_64 and cannot load better-sqlite3)
 
 const fs = require('fs');
 const os = require('os');
@@ -176,6 +176,11 @@ const stepList = [
 		const itemOf = (position) => state.itemListByRater['rater-x'][position];
 		const stableIdOf = (position) => itemOf(position).element.elementStableId;
 		const tupleOf = (position, cardPosition) => itemOf(position).cardList[cardPosition].cedsTupleId;
+		// a real CEDS card of another item that item 5 does NOT list. The shuffle is new on every run (the raters are new), so
+		// a fixed position such as item 6's first card is sometimes also one of item 5's: then the save is rightly accepted
+		// and this check failed (seen once, 2026-11-21, approvalLooseEnds DEVLOG). Absent such a card, a forged id still exercises the refusal.
+		const item5TupleIdSet = new Set(itemOf(4).cardList.map((card) => card.cedsTupleId));
+		const cardNotListedForItem5 = state.itemListByRater['rater-x'].slice(5).reduce((soFar, item) => soFar.concat(item.cardList), []).find((card) => !item5TupleIdSet.has(card.cedsTupleId));
 		const caseList = [
 			{ caseName: 'valid Best', body: { elementStableId: stableIdOf(0), answerKind: 'cards', bestCedsTupleId: tupleOf(0, 0) }, expected: 'saved' },
 			{ caseName: 'Best + 2 Same', body: { elementStableId: stableIdOf(1), answerKind: 'cards', bestCedsTupleId: tupleOf(1, 0), sameCedsTupleIdList: [tupleOf(1, 1), tupleOf(1, 2)] }, expected: 'saved' },
@@ -188,7 +193,7 @@ const stepList = [
 			{ caseName: 'two Bests', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: [tupleOf(4, 0), tupleOf(4, 1)] }, expected: 'bestNotOne' },
 			{ caseName: 'secondsOnItem not a non-negative number', body: { elementStableId: stableIdOf(4), answerKind: 'noMatch', secondsOnItem: -5 }, expected: 'secondsOnItemInvalid' },
 			{ caseName: 'searchesTyped not a list of text', body: { elementStableId: stableIdOf(4), answerKind: 'noMatch', searchesTyped: 'birth date' }, expected: 'searchesTypedInvalid' },
-			{ caseName: 'a card not in the list', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: tupleOf(5, 0) === tupleOf(4, 0) ? 'https://example.org/not-a-tuple' : tupleOf(5, 0) }, expected: 'bestNotInList' },
+			{ caseName: 'a card not in the list', body: { elementStableId: stableIdOf(4), answerKind: 'cards', bestCedsTupleId: cardNotListedForItem5 ? cardNotListedForItem5.cedsTupleId : 'https://example.org/not-a-tuple' }, expected: 'bestNotInList' },
 		];
 		const runCaseAt = (position) => {
 			if (position >= caseList.length) {
@@ -233,9 +238,15 @@ const stepList = [
 						const searchKeyList = keyListDeep([idResponse.bodyJson, wordsResponse.bodyJson, meaningResponse.bodyJson]);
 						const forbiddenFoundList = FORBIDDEN_KEY_LIST.concat(['foundBy']).filter((forbiddenKey) => searchKeyList.indexOf(forbiddenKey) !== -1);
 						check('no search payload carries foundBy(Method), a score or a rank', forbiddenFoundList.length === 0, forbiddenFoundList.join(', '));
-						// the card to add must not already be in this element's suggested list (it would then be 'suggested', not 'search')
-						const listedTupleIdSet = new Set(state.itemListByRater['rater-x'][5].cardList.map((card) => card.cedsTupleId));
-						next({ ...state, searchedCard: idCardList.find((card) => !listedTupleIdSet.has(card.cedsTupleId)), searchElementStableId: elementStableId });
+						// the card to add must not already be in the element's suggested list (it would then be 'suggested', not 'search').
+						// The shuffle is new on every run, and when item 6 is an identifier element (PersonId, RecipientAssignedID,
+						// EmployeePersonalRefId...) its suggested list holds every P001572 card, so there was none to add and the next
+						// step died on undefined about one run in seven (measured 2026-11-22). The element is now the first item from 6 on
+						// whose list leaves one out; items 1-5 carry the save matrix's answers.
+						const addTargetOf = (item) => ({ item, searchedCard: idCardList.find((card) => !item.cardList.some((listedCard) => listedCard.cedsTupleId === card.cedsTupleId)) });
+						const addTarget = state.itemListByRater['rater-x'].slice(5).map(addTargetOf).find((candidate) => candidate.searchedCard);
+						check('a P001572 card from Search is not yet in the suggested list of some item from 6 on (the card to add)', !!addTarget, `${idCardList.length} cards from the search`);
+						next({ ...state, searchedCard: addTarget ? addTarget.searchedCard : null, searchElementStableId: addTarget ? addTarget.item.element.elementStableId : null });
 					});
 				});
 			});
@@ -243,6 +254,11 @@ const stepList = [
 	},
 	(state, next) => {
 		const addedCard = state.searchedCard;
+		if (!addedCard) {
+			check('a card added from Search can be saved as Best', false, 'no card to add: the search step found none (FAIL above)');
+			next(state);
+			return;
+		}
 		post(state, '/api/raterAnswerSave', { elementStableId: state.searchElementStableId, answerKind: 'cards', bestCedsTupleId: addedCard.cedsTupleId, addedCardList: [{ cedsTupleId: addedCard.cedsTupleId, foundBy: 'search' }], searchesTyped: ['P001572'], secondsOnItem: 42 }, state.xToken, (response) => {
 			check('a card added from Search can be saved as Best', response.statusCode === 200 && response.bodyJson[0].saved, response.bodyText.slice(0, 160));
 			post(state, '/api/raterAnswerSave', { elementStableId: state.searchElementStableId, answerKind: 'cards', bestCedsTupleId: addedCard.cedsTupleId, addedCardList: [{ cedsTupleId: 'https://example.org/forged-tuple', foundBy: 'search' }] }, state.xToken, (forgedResponse) => {
