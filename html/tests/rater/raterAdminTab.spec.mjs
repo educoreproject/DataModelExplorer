@@ -6,7 +6,7 @@
 //        second one to the Results view
 //   B6.3 an admin signing in at /rater lands in the tab, already logged in on the main site (no second sign-in)
 //   B6.4 a rater: rating works and shows no admin link; logged in on the main site, /admin shows no Mapping Survey tab, and
-//        /admin?tool=ceds-rater refuses with a notice and makes no /api/raterAdmin call
+//        /admin?tool=ceds-rater refuses with the page's not-permitted notice and makes no /api/raterAdmin call
 //   B6.5 an unknown ?tool= and an unknown Mapping Survey view are refused by name, not quietly replaced
 // The main login lives in memory only (loginStore), so each context logs in once and moves by clicking; page.goto is
 // used only before a login (it lands on /login with the redirect). Every rater it made is removed in the finally block.
@@ -208,7 +208,9 @@ try {
 	const raterTabCallList = raterAdminCallListOf(raterTabPage);
 	await openWithMainLogin(raterTabPage, '/admin?tool=ceds-rater', fixtureRaterUserName, fixtureAnswer.issuedPassword);
 	await raterTabPage.waitForURL(TAB_URL_PATTERN, { timeout: 20000 });
-	await raterTabPage.waitForSelector('[data-testid="ceds-rater-not-admin"]', { timeout: 20000 });
+	// WORKORDER-approvalLooseEnds-112126 L6: /admin refuses a tool the role may not use before mounting it, so the rater
+	// sees the page's own notice (admin-tool-not-permitted), not the Mapping Survey component's
+	await raterTabPage.waitForSelector('[data-testid="admin-tool-not-permitted"]', { timeout: 20000 });
 	await raterTabPage.waitForTimeout(1500);
 	check('/admin?tool=ceds-rater refuses a rater with a notice and no rater data', (await raterTabPage.locator('[data-testid="rater-admin-panel"]').count()) === 0 && (await raterTabPage.locator('[data-testid="rater-surveys"]').count()) === 0);
 	check('and makes no /api/raterAdmin call', raterAdminCallList.length === 0 && raterTabCallList.length === 0, JSON.stringify([...raterAdminCallList, ...raterTabCallList]));
