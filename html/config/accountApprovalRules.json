@@ -1,4 +1,19 @@
 {
-	"_comment": "WORKORDER-approvalLooseEnds-112126 L4: the roles the browser treats as approvers, so /admin asks for the pending-approvals list only when it would be answered. A copy of server/lib/user-profile-rules.json approverRoleList, held equal by server/test/account-approval-browser-rules.test.js. The browser only decides whether to ASK; the server still decides from the approver's STORED role and refuses anyone else by name.",
-	"approverRoleList": ["admin", "super"]
+	"_comment": "Who may use what on the admin and approval pages, so the browser asks only for what it would be given (WORKORDER-approvalLooseEnds-112126 L4, L6, L7). The browser only decides whether to SHOW and ASK; every endpoint still decides from the role itself and refuses anyone else. Held equal to the server by server/test/account-approval-browser-rules.test.js.",
+
+	"_approverRoleList": "a copy of server/lib/user-profile-rules.json approverRoleList: who may see and decide account applications.",
+	"approverRoleList": ["admin", "super"],
+
+	"_adminRoleList": "the roles every admin-only endpoint behind the /admin tools allows (getValidator(['admin', 'super']) in admin-*, manifest-*, oauth-admin-* endpoints; raterStore ADMIN_ROLE_LIST for the Mapping Survey).",
+	"adminRoleList": ["admin", "super"],
+
+	"_roleListNameByToolName": "per /admin tool (pages/admin.vue TOOL_NAME_LIST, every one listed): the role list above whose roles may use it, or anySignedIn for a tool that makes no admin-only request. A tool the signed-in user may not use is not shown, not mounted, and asks for nothing.",
+	"roleListNameByToolName": {
+		"add-edit-user": "adminRoleList",
+		"pending-approvals": "approverRoleList",
+		"manifest-editor": "adminRoleList",
+		"oauth-admin": "adminRoleList",
+		"ceds-rater": "adminRoleList",
+		"dev-tools": "anySignedIn"
+	}
 }

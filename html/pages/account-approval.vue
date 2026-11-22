@@ -5,15 +5,23 @@
 	// shows one applicant with Approve and Decline, and the control that sends or suppresses the decline email, preset
 	// from the server's adminApprovalEmailSuppress (A6). An account already decided shows who decided and when, and offers
 	// only what may still be done (a declined account can be approved). The list of accounts waiting is beside it. The
-	// server decides from the approver's STORED role and refuses anyone else by name; the page shows that refusal.
+	// server decides from the approver's STORED role and refuses anyone else by name; the page shows that refusal. A visitor
+	// whose token role is not an approver's sees only a plain message and the page asks for nothing (WORKORDER-
+	// approvalLooseEnds-112126 L7).
 	import { useAccountApprovalStore } from '@/stores/accountApprovalStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
 	// every time here is in the viewer's local time, as on the /admin Pending approvals list (WORKORDER-approvalLooseEnds-112126 L1)
 	import { localTimeTextOf } from '@/components/accountTimeText.js';
+	import { hasRoleIn } from '@/components/accountAccessRules.js';
+	import { useLoginStore } from '@/stores/loginStore';
 
 	definePageMeta({ middleware: 'auth' });
 
 	const approvalStore = useAccountApprovalStore();
+	const loginStore = useLoginStore();
+	// L7 (WORKORDER-approvalLooseEnds-112126): someone who is not an approver gets a plain named message and the page asks
+	// for nothing. The role is the token's; the server still decides every request from the STORED role.
+	const isApprover = computed(() => hasRoleIn(loginStore.loggedInUser?.role, 'approverRoleList'));
 	const route = useRoute();
 	const router = useRouter();
 
@@ -29,6 +37,9 @@
 
 	const loadSelected = async () => {
 		approvalStore.clearMessages();
+		if (!isApprover.value) {
+			return;
+		}
 		if (!userRefId.value) {
 			approvalStore.applicant = null;
 			return;
@@ -38,6 +49,9 @@
 	};
 
 	onMounted(() => {
+		if (!isApprover.value) {
+			return;
+		}
 		loadSelected();
 		approvalStore.loadPendingList();
 	});
@@ -55,7 +69,8 @@
 
 <template>
 	<v-container class="approval-page">
-		<v-row>
+		<v-alert v-if="!isApprover" type="warning" variant="tonal" class="ma-4" data-testid="approval-not-approver">{{ accountVocabulary.approvalNotApproverText }}</v-alert>
+		<v-row v-else>
 			<v-col cols="12" md="4">
 				<v-card variant="outlined" data-testid="approval-pending-list">
 					<v-card-title class="text-subtitle-1">{{ accountVocabulary.approvalPendingListTitle }}</v-card-title>
