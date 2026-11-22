@@ -30,6 +30,7 @@
 import axios from 'axios';
 import { parse as parseYaml } from 'yaml';
 import { useLoginStore } from '@/stores/loginStore';
+import { hasRoleIn } from '@/components/accountAccessRules.js';
 import { hrOpenCrosswalk, hrOpenCrosswalkMeta } from '@/data/hr-open-crosswalk';
 import { specElementLoaders, specElementManifest, specCodeLoaders } from '@/data/specElementFiles';
 
@@ -1054,10 +1055,10 @@ export const useSpecificationViewerStore = defineStore('specificationViewerStore
 			Object.values(state.userEquivalents).reduce((n, list) => n + list.length, 0),
 
 		// Reviewing and bulk-exporting proposals is an admin job; the role comes
-		// from the login token, and the server enforces it again.
+		// from the login token, read as the server reads it (adminAccessRules.json adminRoleList), and the server enforces it again.
 		isMappingAdmin: () => {
 			const loginStore = useLoginStore();
-			return !!loginStore.authtoken && ['admin', 'super'].includes(loginStore.loggedInUser?.role);
+			return !!loginStore.authtoken && hasRoleIn(loginStore.loggedInUser?.role, 'adminRoleList');
 		},
 		communityCounts: (state) => {
 			const counts = { proposed: 0, accepted: 0, rejected: 0 };
