@@ -8,6 +8,8 @@
 	// server decides from the approver's STORED role and refuses anyone else by name; the page shows that refusal.
 	import { useAccountApprovalStore } from '@/stores/accountApprovalStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
+	// every time here is in the viewer's local time, as on the /admin Pending approvals list (WORKORDER-approvalLooseEnds-112126 L1)
+	import { localTimeTextOf } from '@/components/accountTimeText.js';
 
 	definePageMeta({ middleware: 'auth' });
 
@@ -22,7 +24,7 @@
 	const stateText = computed(() => accountVocabulary.accountStateTextByName[approvalStore.applicant?.accountState] || approvalStore.applicant?.accountState || '');
 	const decidedText = computed(() => {
 		const decision = approvalStore.latestDecision;
-		return decision ? `${accountVocabulary.decisionTextByName[decision.decisionName] || decision.decisionName} by ${decision.deciderUsername}, ${new Date(decision.decidedAt).toLocaleString()}` : '';
+		return decision ? `${accountVocabulary.decisionTextByName[decision.decisionName] || decision.decisionName} by ${decision.deciderUsername}, ${localTimeTextOf(decision.decidedAt)}` : '';
 	});
 
 	const loadSelected = async () => {
@@ -84,7 +86,7 @@
 								<tr><th>{{ accountVocabulary.approvalUsernameLabel }}</th><td data-testid="approval-username">{{ approvalStore.applicant.username }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalNameLabel }}</th><td>{{ approvalStore.applicant.first }} {{ approvalStore.applicant.last }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalEmailLabel }}</th><td>{{ approvalStore.applicant.emailAdr }}</td></tr>
-								<tr><th>{{ accountVocabulary.approvalSignedUpLabel }}</th><td>{{ approvalStore.applicant.createdAt }}</td></tr>
+								<tr><th>{{ accountVocabulary.approvalSignedUpLabel }}</th><td>{{ localTimeTextOf(approvalStore.applicant.createdAt) }}</td></tr>
 								<!-- A8: the applicant's note, by text interpolation only (never raw HTML); only approvers are served it -->
 								<tr><th>{{ accountVocabulary.approvalCommentLabel }}</th><td class="application-comment" data-testid="approval-comment">{{ approvalStore.applicant.applicationComment || accountVocabulary.approvalNoCommentText }}</td></tr>
 								<tr><th>{{ accountVocabulary.approvalStateLabel }}</th><td data-testid="approval-state">{{ stateText }}</td></tr>

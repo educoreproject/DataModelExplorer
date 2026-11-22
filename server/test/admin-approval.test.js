@@ -187,8 +187,16 @@ step((done) => {
 step((done) => {
 	const { accountMailOf } = require(path.join(serverPath, 'lib', 'user-account-mail'));
 	const { messageByName } = require(path.join(serverPath, 'lib', 'user-account-mail-vocabulary.json'));
-	// approvalPageUrl: approvalRequest's action needs its URL (WORKORDER-approvalMailPolish-112126 P1; supervisor ruling 2026-11-21)
-	const problemList = Object.keys(messageByName).map((messageName) => [messageName, comingFromProblemOf(accountMailOf({ messageName, fillByName: { siteUrl: `https://${SITE_HOST}`, approvalPageUrl: `https://${SITE_HOST}/account-approval?userRefId=x` } }))]).filter(([, problemText]) => problemText);
+	// every fill each message's own template names (WORKORDER-approvalLooseEnds-112126 L2 refuses an absent one; supervisor
+	// ruling 2026-11-21): a word per text token, an address per action, so the check cannot drift when the wording changes
+	const fullFillOf = ({ subjectText, paragraphList }) =>
+		[subjectText, ...paragraphList].reduce((fillByName, paragraphEntry) => {
+			if (typeof paragraphEntry !== 'string') {
+				return { ...fillByName, [paragraphEntry.actionUrlFill]: `https://${SITE_HOST}/action-${paragraphEntry.actionUrlFill}` };
+			}
+			return [...paragraphEntry.matchAll(/<!([A-Za-z0-9_]+)!>/g)].reduce((soFar, [, fillName]) => (fillName === 'originHost' ? soFar : { ...soFar, [fillName]: `filled-${fillName}` }), fillByName);
+		}, { siteUrl: `https://${SITE_HOST}` });
+	const problemList = Object.keys(messageByName).map((messageName) => [messageName, comingFromProblemOf(accountMailOf({ messageName, fillByName: fullFillOf(messageByName[messageName]) }))]).filter(([, problemText]) => problemText);
 	check(`P1.3 every message in the vocabulary (${Object.keys(messageByName).length}) says where it came from`, !problemList.length, JSON.stringify(problemList));
 	// composed in a child process: the refusal is a throw (a code fault), read from its stderr, not caught here
 	const composeWithoutSite = require('child_process').spawnSync(process.execPath, ['-e', `process.global = {}; require(${JSON.stringify(path.join(serverPath, 'lib', 'user-account-mail'))}).accountMailOf({ messageName: ${JSON.stringify(Object.keys(messageByName)[0])}, fillByName: {} })`], { encoding: 'utf8' });

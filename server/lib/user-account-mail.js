@@ -17,6 +17,9 @@
 // says where it came from (WORKORDER-adminApproval-112126 A3): originText's suffix on the subject and its paragraph last,
 // with the host of the siteUrl fill, which every message must carry. The vocabulary names the site by that host alone
 // (<!originHost!>), never as an address: the only URLs in a message are its actions (P2).
+// Every fill a message names is required (WORKORDER-approvalLooseEnds-112126 L2): composing it with a fill absent, null,
+// empty or only spaces throws by name, as an absent action URL does; nothing is quietly filled with ''. Only the fills
+// in the message's optionalFillList may be absent, and an absent one removes its whole paragraph.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -47,6 +50,24 @@ REQUIRED_MESSAGE_NAME_LIST.forEach((messageName) => {
 	}
 	if (!messageEntry.paragraphList.every(isValidParagraph)) {
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is neither text nor { actionUrlFill, actionLabelText }`);
+	}
+});
+
+// the fills a text names, <!fillName!> -> fillName
+const FILL_TOKEN_PATTERN = /<!([A-Za-z0-9_]+)!>/g;
+const fillNameListOfText = (templateText) => [...String(templateText).matchAll(FILL_TOKEN_PATTERN)].map(([, fillName]) => fillName);
+// originHost is the composer's own (from siteUrl), never a caller's fill
+const COMPOSER_FILL_NAME_LIST = Object.freeze(['originHost']);
+
+// L2 (WORKORDER-approvalLooseEnds-112126): every fill a message names is required unless its optionalFillList declares
+// it. An optional fill may appear only in body text paragraphs (never the subject, never an action), because an absent
+// one removes its whole paragraph.
+Object.entries(messageByName || {}).forEach(([messageName, messageEntry]) => {
+	const optionalFillList = messageEntry.optionalFillList === undefined ? [] : messageEntry.optionalFillList;
+	const bodyTextFillNameList = messageEntry.paragraphList.filter((paragraphEntry) => typeof paragraphEntry === 'string').flatMap(fillNameListOfText);
+	const isListValid = Array.isArray(optionalFillList) && optionalFillList.every((fillName) => typeof fillName === 'string' && bodyTextFillNameList.includes(fillName) && !fillNameListOfText(messageEntry.subjectText).includes(fillName));
+	if (!isListValid) {
+		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.optionalFillList must be a list of fills that its body text paragraphs name and its subject does not (got ${JSON.stringify(messageEntry.optionalFillList)})`);
 	}
 });
 REQUIRED_REPLY_NAME_LIST.forEach((replyName) => {
@@ -83,7 +104,10 @@ const originHostOf = (siteUrl) => {
 const ACTION_BUTTON_STYLE_TEXT = 'display:inline-block;padding:12px 22px;background-color:#1f5fa8;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:6px';
 const ACTION_URL_PATTERN = /^https?:\/\/\S+$/;
 
-const stringFillOf = (fillByName) => Object.fromEntries(Object.entries(fillByName || {}).map(([fillName, fillText]) => [fillName, String(fillText === undefined || fillText === null ? '' : fillText)]));
+// a fill is present when it holds something other than spaces; absent, null, '' and '  ' are all absent (L2)
+const isFillPresent = (fillText) => fillText !== undefined && fillText !== null && String(fillText).trim() !== '';
+// the present fills as text; an absent fill is LEFT OUT, never turned into '' (L2: no "Hello ,")
+const presentFillOf = (fillByName) => Object.fromEntries(Object.entries(fillByName || {}).filter(([, fillText]) => isFillPresent(fillText)).map(([fillName, fillText]) => [fillName, String(fillText)]));
 
 const accountMailOf = ({ messageName, fillByName }) => {
 	const messageEntry = messageByName[messageName];
@@ -95,14 +119,22 @@ const accountMailOf = ({ messageName, fillByName }) => {
 	if (!originHost) {
 		throw new Error(`[${moduleName}] accountMailOf: '${messageName}' needs fillByName.siteUrl, the instance's publicSiteUrl, to say where it is coming from`);
 	}
-	const plainFill = { ...stringFillOf(fillByName), originHost };
-	const paragraphTemplateList = [...messageEntry.paragraphList, originText.paragraphText];
+	const plainFill = { ...presentFillOf(fillByName), originHost };
 	// P1: an action whose URL is absent or not an address is a code fault, never a button to nowhere
-	paragraphTemplateList.filter(isActionParagraph).forEach(({ actionUrlFill }) => {
+	messageEntry.paragraphList.filter(isActionParagraph).forEach(({ actionUrlFill }) => {
 		if (!ACTION_URL_PATTERN.test(plainFill[actionUrlFill] || '')) {
 			throw new Error(`[${moduleName}] accountMailOf: '${messageName}' needs fillByName.${actionUrlFill}, an http(s) URL, for its action (got '${plainFill[actionUrlFill] || ''}')`);
 		}
 	});
+	// L2: a required text fill that is absent is a code fault, refused by name like an absent action URL
+	const optionalFillList = messageEntry.optionalFillList || [];
+	const isFillAbsent = (fillName) => !COMPOSER_FILL_NAME_LIST.includes(fillName) && !Object.prototype.hasOwnProperty.call(plainFill, fillName);
+	const missingFillNameList = [...new Set([messageEntry.subjectText, ...messageEntry.paragraphList.filter((paragraphEntry) => typeof paragraphEntry === 'string')].flatMap(fillNameListOfText))].filter((fillName) => !optionalFillList.includes(fillName) && isFillAbsent(fillName));
+	if (missingFillNameList.length) {
+		throw new Error(`[${moduleName}] accountMailOf: '${messageName}' needs ${missingFillNameList.map((fillName) => `fillByName.${fillName}`).join(', ')} (absent or blank; ${optionalFillList.length ? `only ${optionalFillList.join(', ')} may be left out of this message` : 'this message has no optional fill'})`);
+	}
+	// an optional fill that is absent takes its whole paragraph with it, so no label is left dangling
+	const paragraphTemplateList = [...messageEntry.paragraphList.filter((paragraphEntry) => isActionParagraph(paragraphEntry) || !fillNameListOfText(paragraphEntry).some(isFillAbsent)), originText.paragraphText];
 	const escapedFill = Object.fromEntries(Object.entries(plainFill).map(([fillName, fillText]) => [fillName, htmlEscapeOf(fillText)]));
 	const plainParagraphList = paragraphTemplateList.map((paragraphTemplate) =>
 		isActionParagraph(paragraphTemplate) ? `${paragraphTemplate.actionLabelText}:\n${plainFill[paragraphTemplate.actionUrlFill]}` : filledTextOf(paragraphTemplate, plainFill),

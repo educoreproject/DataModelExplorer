@@ -22,6 +22,7 @@ import {
 } from '@/composables/useBackendProfile';
 import { useLoginStore } from '@/stores/loginStore';
 import { isRaterAdminRole } from '@/stores/raterStore';
+import accountApprovalRules from '@/config/accountApprovalRules.json';
 
 const LoginStore = useLoginStore();
 const approvalStore = useAccountApprovalStore();
@@ -67,10 +68,14 @@ const selectTool = (toolName) => {
 };
 
 // the Pending approvals tab shows how many accounts wait (WORKORDER-approvalMailPolish-112126 P4), so the list is read
-// once here whatever tool is open; the server refuses anyone who is not an approver, and the tool itself shows that
+// once here whatever tool is open. Only for an approver (WORKORDER-approvalLooseEnds-112126 L4): anyone else sees no tab
+// and makes no pending-list request for the server to refuse. The role is the token's, so this decides only whether to ASK; the
+// server still decides from the STORED role.
+// roles split as the server's approverOf splits the stored role (on commas and spaces)
+const isApprover = computed(() => `${LoginStore.loggedInUser?.role || ''}`.split(/[\s,]+/).some((roleName) => accountApprovalRules.approverRoleList.includes(roleName)));
 const pendingApprovalCount = computed(() => approvalStore.pendingApplicantList.length);
 onMounted(() => {
-	approvalStore.loadPendingList();
+	if (isApprover.value) approvalStore.loadPendingList();
 });
 </script>
 
@@ -98,6 +103,7 @@ onMounted(() => {
 
 								<!-- Pending approvals tab (WORKORDER-approvalMailPolish-112126 P4): accounts waiting, with their count -->
 								<v-btn
+									v-if="isApprover"
 									variant="outlined"
 									:disabled="selectedTool === 'pending-approvals'"
 									@click="selectTool('pending-approvals')"
@@ -164,8 +170,19 @@ onMounted(() => {
 
 								<!-- Pending approvals: each links to its approval page -->
 								<pending-approvals
-									v-else-if="selectedTool === 'pending-approvals'"
+									v-else-if="selectedTool === 'pending-approvals' && isApprover"
 								/>
+
+								<!-- ?tool=pending-approvals for someone who is not an approver: refused by name, with no request made -->
+								<v-alert
+									v-else-if="selectedTool === 'pending-approvals'"
+									type="warning"
+									variant="tonal"
+									class="ma-4"
+									data-testid="admin-tool-pending-approvals-not-approver"
+								>
+									{{ accountVocabulary.pendingApprovalsNotApproverText }}
+								</v-alert>
 
 								<!-- Manifest Editor -->
 								<manifest-editor

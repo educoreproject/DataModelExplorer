@@ -56,6 +56,8 @@ export const accountVocabulary = Object.freeze({
 	approvalDecidedLabel: 'Decided',
 	approvalCommentLabel: 'Comment',
 	approvalNoCommentText: '(none)',
+	// WORKORDER-approvalLooseEnds-112126 L1: shown where an account time is absent (components/accountTimeText.js)
+	timeAbsentText: '(not recorded)',
 	// A8: the optional note an applicant leaves for the approvers
 	applicationCommentLabel: 'Comment for the administrators (optional)',
 	applicationCommentHintText: 'Who you are and why you would like an account. Only administrators see it.',
@@ -69,6 +71,8 @@ export const accountVocabulary = Object.freeze({
 	pendingApprovalsTitle: 'Accounts waiting for approval',
 	pendingApprovalsReviewText: 'Review',
 	pendingApprovalsRefreshText: 'Refresh',
+	// WORKORDER-approvalLooseEnds-112126 L4: /admin?tool=pending-approvals opened by someone who is not an approver
+	pendingApprovalsNotApproverText: 'Only an account administrator can see the accounts waiting for approval.',
 	accountStateTextByName: Object.freeze({
 		pendingApproval: 'waiting for approval',
 		declined: 'declined',
