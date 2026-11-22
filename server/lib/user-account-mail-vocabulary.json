@@ -21,6 +21,8 @@
 	"_applicationCommentAbsentText": "WORKORDER-adminApproval-112126 A8: what the approvers' mail says in place of the applicant's comment when none was left.",
 	"applicationCommentAbsentText": "(none)",
 
+	"_optionalFillList": "WORKORDER-approvalLooseEnds-112126 L2. Every <!name!> a message names is REQUIRED: composing the message without it (absent, null, empty or only spaces) is refused by name, so no message can read 'Hello ,'. A message's optionalFillList names the few fills that may be left out; an absent optional fill removes its whole paragraph (label and all). An optional fill may sit only in body text, never in the subject or an action. Keep the list short; each entry is justified here. applicationCommentText (approvalRequest, newAccountNotice): the applicant's comment is optional at sign-up (A8). The flows pass applicationCommentTextOf, which says '(none)' when no comment was left, so these messages still show '(none)' today; the declaration is what lets a comment line be absent without the message being refused.",
+
 	"messageByName": {
 		"passwordReset": {
 			"subjectText": "Reset your EDUcore password",
@@ -52,6 +54,7 @@
 			]
 		},
 		"newAccountNotice": {
+			"optionalFillList": ["applicationCommentText"],
 			"subjectText": "New EDUcore account: <!username!>",
 			"paragraphList": [
 				"A new account was created on <!originHost!>.",
@@ -63,6 +66,7 @@
 			]
 		},
 		"approvalRequest": {
+			"optionalFillList": ["applicationCommentText"],
 			"subjectText": "Approval needed: new EDUcore account <!username!>",
 			"paragraphList": [
 				"A new account on <!originHost!> is waiting for an administrator to approve it. It cannot sign in until someone does.",
