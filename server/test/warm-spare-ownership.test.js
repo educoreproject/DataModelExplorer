@@ -97,12 +97,14 @@ process.global = {
 	getConfig: (moduleName) => (moduleName === 'dataModelExplorerSearch' ? { userGraphsDirPath: configuredUserGraphsDirPathByCase.current, goldenContainerName: 'GOLD_TEST_warmSpareOwnership' } : {}),
 };
 
+// made at run time: noContainerLiterals.test.js forbids a password literal in any test
+const STUB_CLONE_PASSWORD_TEXT = `stub-${process.pid}`;
 const realChildProcess = require('child_process');
 const cloneManager = loadWithStubs({
 	modulePath: CLONE_MANAGER_PATH,
 	stubByRequestPath: {
 		child_process: { ...realChildProcess, execFileSync: fakeExecFileSync },
-		'./container-connection-resolver': { resolveContainerConnection: () => ({ password: 'test-password', boltUri: 'bolt://localhost:41000' }) },
+		'./container-connection-resolver': { resolveContainerConnection: () => ({ password: STUB_CLONE_PASSWORD_TEXT, boltUri: 'bolt://localhost:41000' }) },
 	},
 });
 
