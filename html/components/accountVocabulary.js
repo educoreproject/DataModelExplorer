@@ -71,8 +71,10 @@ export const accountVocabulary = Object.freeze({
 	pendingApprovalsTitle: 'Accounts waiting for approval',
 	pendingApprovalsReviewText: 'Review',
 	pendingApprovalsRefreshText: 'Refresh',
-	// WORKORDER-approvalLooseEnds-112126 L4: /admin?tool=pending-approvals opened by someone who is not an approver
-	pendingApprovalsNotApproverText: 'Only an account administrator can see the accounts waiting for approval.',
+	// WORKORDER-approvalLooseEnds-112126 L6: an /admin tool opened (?tool=...) by someone whose role may not use it
+	adminToolNotPermittedText: 'Only an administrator can use this tool.',
+	// WORKORDER-approvalLooseEnds-112126 L7: the approval page opened by someone who is not an approver
+	approvalNotApproverText: 'Only administrators can review account applications.',
 	accountStateTextByName: Object.freeze({
 		pendingApproval: 'waiting for approval',
 		declined: 'declined',
