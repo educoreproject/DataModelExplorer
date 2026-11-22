@@ -55,7 +55,7 @@ const clearProfile = () => {
 
 // The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark or a redirect lands on it: /admin?tool=ceds-rater
 // is the Mapping Survey tab (the old /rater/admin URLs redirect there). Each tool is shown, mounted and asked for only when
-// the signed-in user may use it (config/accountApprovalRules.json roleListNameByToolName, WORKORDER-approvalLooseEnds-112126
+// the signed-in user may use it (config/adminAccessRules.json roleListNameByToolName, WORKORDER-approvalLooseEnds-112126
 // L6): a non-admin makes no admin-only request. With no ?tool=, the first tool in this order the user may use opens.
 const TOOL_NAME_LIST = ['add-edit-user', 'pending-approvals', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
 const mayUse = (toolName) => mayUseTool(LoginStore.loggedInUser?.role, toolName);

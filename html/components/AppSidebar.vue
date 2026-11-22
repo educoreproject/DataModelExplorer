@@ -1,6 +1,7 @@
 <script setup>
 import { useLoginStore } from '@/stores/loginStore';
 import { useRouter } from 'vue-router';
+import { mayUseAnyAdminTool } from '@/components/accountAccessRules.js';
 
 const LoginStore = useLoginStore();
 const router = useRouter();
@@ -16,9 +17,9 @@ const handleLogout = () => {
 	router.push('/');
 };
 
-const isAdmin = computed(() =>
-	['admin', 'super'].includes(LoginStore.loggedInUser?.role),
-);
+// the Admin link only for a user who may use an /admin tool that not every signed-in user may (DEV TOOLS alone does not
+// earn it; WORKORDER-raterAndAdminLooseEnds-112226 R4). /admin itself still shows anyone only the tools they may use.
+const showAdminLink = computed(() => mayUseAnyAdminTool(LoginStore.loggedInUser?.role));
 </script>
 
 <template>
@@ -123,8 +124,9 @@ const isAdmin = computed(() =>
 				title="Sessions"
 			/>
 			<v-list-item
-				v-if="isAdmin"
+				v-if="showAdminLink"
 				to="/admin"
+				data-testid="menu-admin"
 				prepend-icon="mdi-shield-account"
 				title="Admin"
 			/>

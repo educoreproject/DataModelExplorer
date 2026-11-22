@@ -21,6 +21,7 @@
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
 import { postLogin } from '../composables/postLogin.js';
+import { hasRoleIn } from '@/components/accountAccessRules.js';
 
 const SESSION_STORAGE_NAME = 'cedsRaterSession';
 const ANSWER_DRAFT_STORAGE_NAME = 'cedsRaterAnswerDrafts';
@@ -96,7 +97,6 @@ const writeSavedAnswerDrafts = (answerDraftByPlaceName) => {
 	}
 };
 
-const ADMIN_ROLE_LIST = ['admin', 'super'];
 
 // who signs a call. raterSignIn: the rater area's own token (a refusal signs the rater out, as before). mainLogin: the
 // main site's login, for the admin tool inside /admin; a refusal there is shown, and the main login is left alone.
@@ -117,8 +117,10 @@ const CREDENTIAL_BY_SOURCE_NAME = Object.freeze({
 	},
 });
 
-// a main-site role that may use the CEDS Rater admin tool; the server's own gate (/api/raterAdmin) is the judge
-export const isRaterAdminRole = (roleText) => `${roleText || ''}`.split(',').some((roleName) => ADMIN_ROLE_LIST.includes(roleName.trim()));
+// a main-site role that may use the CEDS Rater admin tool, read as the server reads a role (components/accountAccessRules.js,
+// config/adminAccessRules.json adminRoleList; WORKORDER-raterAndAdminLooseEnds-112226 R2); the server's own gate
+// (/api/raterAdmin) is the judge
+export const isRaterAdminRole = (roleText) => hasRoleIn(roleText, 'adminRoleList');
 
 // '<refusalName>: <text> (<errorId>)' -> { refusalName, refusalText }
 const refusalOf = (error, operationText) => {
@@ -135,7 +137,7 @@ export const useRaterStore = defineStore('raterStore', {
 
 	getters: {
 		isSignedIn: (state) => !!state.authtoken,
-		isAdmin: (state) => ADMIN_ROLE_LIST.includes(state.raterRole),
+		isAdmin: (state) => hasRoleIn(state.raterRole, 'adminRoleList'),
 		authHeaderProperty: (state) => ({ Authorization: `Bearer ${state.authtoken}` }),
 	},
 
