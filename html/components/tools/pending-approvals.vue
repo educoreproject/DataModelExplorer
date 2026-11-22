@@ -8,6 +8,8 @@
 	// the count on the tab.
 	import { useAccountApprovalStore } from '@/stores/accountApprovalStore';
 	import { accountVocabulary } from '@/components/accountVocabulary.js';
+	// sign-up times in the viewer's local time, the same helper as the approval page (WORKORDER-approvalLooseEnds-112126 L1)
+	import { localTimeTextOf } from '@/components/accountTimeText.js';
 
 	const approvalStore = useAccountApprovalStore();
 
@@ -16,13 +18,6 @@
 	});
 
 	const approvalPageRouteOf = (userRefId) => ({ path: '/account-approval', query: { userRefId } });
-	// createdAt is SQLite's CURRENT_TIMESTAMP, UTC written without a zone ('2026-11-21 19:24:59'); read bare, a browser would
-	// take it as local time. Anything else is shown exactly as the server sent it.
-	const SQLITE_UTC_TIMESTAMP_PATTERN = /^(\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d)$/;
-	const signedUpTextOf = (createdAt) => {
-		const timestampMatch = String(createdAt || '').match(SQLITE_UTC_TIMESTAMP_PATTERN);
-		return timestampMatch ? new Date(`${timestampMatch[1]}T${timestampMatch[2]}Z`).toLocaleString() : String(createdAt || '');
-	};
 </script>
 
 <template>
@@ -51,7 +46,7 @@
 						<td>{{ pendingApplicant.username }}</td>
 						<td>{{ pendingApplicant.first }} {{ pendingApplicant.last }}</td>
 						<td>{{ pendingApplicant.emailAdr }}</td>
-						<td>{{ signedUpTextOf(pendingApplicant.createdAt) }}</td>
+						<td>{{ localTimeTextOf(pendingApplicant.createdAt) }}</td>
 						<td>
 							<v-btn :to="approvalPageRouteOf(pendingApplicant.refId)" size="small" color="primary" variant="tonal" :data-testid="`pending-approvals-review-${pendingApplicant.username}`">{{ accountVocabulary.pendingApprovalsReviewText }}</v-btn>
 						</td>
