@@ -71,7 +71,8 @@ const selectTool = (toolName) => {
 // once here whatever tool is open. Only for an approver (WORKORDER-approvalLooseEnds-112126 L4): anyone else sees no tab
 // and makes no pending-list request for the server to refuse. The role is the token's, so this decides only whether to ASK; the
 // server still decides from the STORED role.
-const isApprover = computed(() => `${LoginStore.loggedInUser?.role || ''}`.split(',').some((roleName) => accountApprovalRules.approverRoleList.includes(roleName.trim())));
+// roles split as the server's approverOf splits the stored role (on commas and spaces)
+const isApprover = computed(() => `${LoginStore.loggedInUser?.role || ''}`.split(/[\s,]+/).some((roleName) => accountApprovalRules.approverRoleList.includes(roleName)));
 const pendingApprovalCount = computed(() => approvalStore.pendingApplicantList.length);
 onMounted(() => {
 	if (isApprover.value) approvalStore.loadPendingList();
