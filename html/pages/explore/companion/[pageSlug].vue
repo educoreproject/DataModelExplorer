@@ -15,6 +15,7 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useLoginStore } from '@/stores/loginStore';
+import { hasRoleIn } from '@/components/accountAccessRules.js';
 import { useCompanionPageStore } from '@/stores/companionPageStore';
 import { companionPanelListByCompilerName } from '@/components/companionPages/companionPanelRegistry';
 
@@ -25,12 +26,12 @@ const router = useRouter();
 const loginStore = useLoginStore();
 const companionPageStore = useCompanionPageStore();
 
-const ADMIN_ROLE_NAME_LIST = ['admin', 'super'];
-
 const pageSlug = computed(() => String(route.params.pageSlug || ''));
 watch(pageSlug, (chosenPageSlug) => companionPageStore.loadPage(chosenPageSlug), { immediate: true });
 
-const isAdminViewer = computed(() => ADMIN_ROLE_NAME_LIST.includes(loginStore.loggedInUser.role));
+// the role read as the server reads it (config/adminAccessRules.json adminRoleList = the companion endpoints' roleList;
+// WORKORDER-raterAndAdminLooseEnds-112226): an admin whose role is written 'user,admin' gets the tab
+const isAdminViewer = computed(() => hasRoleIn(loginStore.loggedInUser.role, 'adminRoleList'));
 
 const pageRecord = computed(() => companionPageStore.pageRecord);
 const compileAnswer = computed(() => companionPageStore.compileAnswer);

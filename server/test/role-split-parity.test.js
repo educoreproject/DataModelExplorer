@@ -8,6 +8,10 @@
 //   P2 the Mapping Survey's isRaterAdminRole (html/stores/raterStore.js) is that same rule, not a copy of its own
 //   P3 html/components/AppSidebar.vue shows Admin only behind mayUseAnyAdminTool (R4), and no page or component of the
 //      admin family keeps a private ['admin', 'super'] check
+//   P4 (supervisor ruling 30c98e0d) every other browser decision on a role reads it by the shared rule: the decision
+//      expression is cut from its file and run with a role written 'user,admin', which the server treats as an admin:
+//      the companion page's admin tab, the specification viewer's mapping admin, the user list's role badge, and
+//      adminStore's getUsersByRole
 //
 // The browser module is run in a child node (it is an ES module with a JSON import); the server module is required with
 // stub globals, as role-exact-match.test.js does.
@@ -79,6 +83,40 @@ check('P3 AppSidebar.vue decides Admin with mayUseAnyAdminTool on the signed-in 
 const privateAdminCheckFileList = ['components/AppSidebar.vue', 'components/generalNavSub.vue', 'components/tools/ceds-rater-admin.vue', 'pages/admin.vue']
 	.filter((relativeFilePath) => /\['admin', 'super'\]\.includes/.test(fs.readFileSync(path.join(codePath, 'html', relativeFilePath), 'utf8')));
 check("P3 no file of the admin family keeps a private ['admin', 'super'].includes check", !privateAdminCheckFileList.length, JSON.stringify(privateAdminCheckFileList));
+
+console.log('P4 every other role decision in the browser, run with the role "user,admin"');
+const htmlTextOf = (relativeFilePath) => fs.readFileSync(path.join(codePath, 'html', relativeFilePath), 'utf8');
+const firstMatchOf = (sourceText, pattern) => (sourceText.match(pattern) || [, ''])[1];
+const companionText = htmlTextOf('pages/explore/companion/[pageSlug].vue');
+const specificationViewerText = htmlTextOf('stores/specificationViewerStore.js');
+const userListText = htmlTextOf('components/tools/user-list.vue');
+const adminStoreText = htmlTextOf('stores/adminStore.js');
+const MULTI_ROLE_ADMIN_TEXT = 'user,admin';
+// each: the file's own decision expression, any helper lines it needs from the same file, the names it reads, the answer
+const decisionCaseList = [
+	{ caseName: 'companion page: a "user,admin" viewer gets the admin tab', expressionText: firstMatchOf(companionText, /const isAdminViewer = computed\(\(\) => ([^\n]+)\);/), preludeText: firstMatchOf(companionText, /\n(const ADMIN_ROLE_NAME_LIST = [^\n]+)/), scope: { loginStore: { loggedInUser: { role: MULTI_ROLE_ADMIN_TEXT } } }, expectedAnswer: true },
+	{ caseName: 'specification viewer: a signed-in "user,admin" is a mapping admin', expressionText: firstMatchOf(specificationViewerText, /isMappingAdmin: \(\) => \{[\s\S]*?return ([^\n]+);/), preludeText: '', scope: { loginStore: { authtoken: 'signed-in', loggedInUser: { role: MULTI_ROLE_ADMIN_TEXT } } }, expectedAnswer: true },
+	{ caseName: 'user list: a "user,admin" account wears the admin icon', expressionText: firstMatchOf(userListText, /<v-icon>\s*\{\{\s*([\s\S]*?)\s*\}\}\s*<\/v-icon>/), preludeText: (userListText.match(/\n(const (?:ROLE_BADGE_LIST|OTHER_ROLE_BADGE|roleBadgeOf) = [\s\S]*?;)(?=\n)/g) || []).join('\n'), scope: { user: { role: MULTI_ROLE_ADMIN_TEXT } }, expectedAnswer: 'mdi-shield-account' },
+	{ caseName: 'user list: a "user,admin" account wears the admin chip colour', expressionText: firstMatchOf(userListText, /<v-chip\s*:color="([\s\S]*?)"/), preludeText: (userListText.match(/\n(const (?:ROLE_BADGE_LIST|OTHER_ROLE_BADGE|roleBadgeOf) = [\s\S]*?;)(?=\n)/g) || []).join('\n'), scope: { user: { role: MULTI_ROLE_ADMIN_TEXT } }, expectedAnswer: 'orange' },
+	{ caseName: 'adminStore: getUsersByRole("admin") includes a "user,admin" account', expressionText: firstMatchOf(adminStoreText, /getUsersByRole: \(state\) => \(role\) => \{\s*return ([^\n]+);/), preludeText: '', scope: { state: { users: [{ username: 'multi', role: MULTI_ROLE_ADMIN_TEXT }, { username: 'plain', role: 'user' }] }, role: 'admin' }, expectedAnswer: ['multi'], answerOf: 'usernameList' },
+];
+const decisionProbe = spawnSync(process.execPath, ['--input-type=module', '-e', `
+	import { hasRoleIn, roleNameListOf } from ${JSON.stringify(accessRulesModulePath)};
+	const caseList = JSON.parse(process.env.DECISION_CASE_LIST_TEXT);
+	const answerList = caseList.map((decisionCase) => {
+		const scopeNameList = Object.keys(decisionCase.scope);
+		const decide = new Function('hasRoleIn', 'roleNameListOf', ...scopeNameList, decisionCase.preludeText + '\\nreturn (' + decisionCase.expressionText + ');');
+		const answer = decide(hasRoleIn, roleNameListOf, ...scopeNameList.map((scopeName) => decisionCase.scope[scopeName]));
+		return decisionCase.answerOf === 'usernameList' ? answer.map((user) => user.username) : answer;
+	});
+	process.stdout.write(JSON.stringify(answerList));
+`], { encoding: 'utf8', env: { ...process.env, DECISION_CASE_LIST_TEXT: JSON.stringify(decisionCaseList) } });
+check('P4 every decision expression was found and runs', decisionCaseList.every((decisionCase) => decisionCase.expressionText) && decisionProbe.status === 0, `${decisionCaseList.filter((decisionCase) => !decisionCase.expressionText).map((decisionCase) => decisionCase.caseName).join('; ')} ${decisionProbe.stderr.slice(0, 300)}`);
+const decisionAnswerList = decisionProbe.status === 0 ? JSON.parse(decisionProbe.stdout) : [];
+decisionCaseList.forEach((decisionCase, casePosition) => check(`P4 ${decisionCase.caseName}`, JSON.stringify(decisionAnswerList[casePosition]) === JSON.stringify(decisionCase.expectedAnswer), `got ${JSON.stringify(decisionAnswerList[casePosition])}`));
+const privateRoleCompareFileList = ['pages/explore/companion/[pageSlug].vue', 'stores/specificationViewerStore.js', 'components/tools/user-list.vue', 'stores/adminStore.js']
+	.filter((relativeFilePath) => /role === '|\.role === |ADMIN_ROLE_NAME_LIST|\['admin', 'super'\]/.test(htmlTextOf(relativeFilePath)));
+check('P4 none of those files compares a role text itself', !privateRoleCompareFileList.length, JSON.stringify(privateRoleCompareFileList));
 
 console.log(`\nrole-split-parity: ${passCount} passed, ${failCount} failed`);
 process.exit(failCount ? 1 : 0);
