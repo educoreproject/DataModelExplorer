@@ -30,6 +30,14 @@ const WHOLE_MAP_LINK_LIMIT = 200;
 
 // the explorer's synthetic node ids (standards-neighbourhood) that stand for a set of standards rather than a node
 const FAMILY_ID_PREFIX = 'family:';
+
+// THE USE-CASE STANDARD (BD 2026-11-20: "why can't I see the use case data model on the website?"). Its root's standardKind is
+// USE_CASE_STANDARD_KIND, and it has no DmeClass or DmeProperty: its nodes are cases, stories, actors, conditions and the citations
+// of other standards (schema-provider's description of it). Its map is drawn from the KINDS of node it holds (each node's role) and
+// the relationships between them, measured from the graph; the forge's own bookkeeping keys are no part of the model.
+const USE_CASE_STANDARD_KIND = 'useCaseCorpus';
+const USE_CASE_KIND_ID_PREFIX = 'useCaseKind:';
+const forgeBookkeepingKeyList = Object.freeze(['_id', '_source', 'path', 'parentId', 'depth', 'role', 'crossRefs', 'searchText', 'embedding', 'embeddingModelVersion', 'usecaseStableId', 'formatVersionSource', 'sourceFileName']);
 const RELEASE_ID_PREFIX = 'release:';
 
 //START OF moduleFunction() ============================================================
@@ -68,7 +76,7 @@ const moduleFunction =
 			standardOfSource: ({ source }) => ({
 				cypher: `
 					MATCH (root:DmeStandardRoot {_source: $source})
-					RETURN root.stableId AS stableId, root._source AS source, root.name AS name, root.version AS version,
+					RETURN root.stableId AS stableId, root._source AS source, root.name AS name, root.version AS version, root.standardKind AS standardKind,
 					       COUNT { (root)-[:HAS_CLASS]->(:ForgedNode) } AS classCount
 				`,
 				params: { source },
@@ -105,6 +113,40 @@ const moduleFunction =
 					WITH oneClass, property, head(collect(referencedClass)) AS referencedClass
 					RETURN oneClass.stableId AS classStableId, property.name AS name, property.dataType AS dataType, coalesce(property.isRequired, false) AS isRequired,
 					       referencedClass.stableId AS referencedClassStableId, referencedClass.name AS referencedClassName, ${isMappedTextFor('property')} AS isMapped
+				`,
+				params: { source },
+			}),
+
+			// the use-case standard: each kind of node (its role) and how many nodes are of it
+			useCaseKindList: ({ source }) => ({
+				cypher: `
+					MATCH (node:ForgedNode {_source: $source}) WHERE NOT node:DmeStandardRoot AND node.role IS NOT NULL
+					RETURN node.role AS role, count(*) AS nodeCount
+					ORDER BY role
+				`,
+				params: { source },
+			}),
+
+			// ... each kind's own properties (bookkeeping aside): on how many of its nodes, and one value to read the type from
+			useCaseKeyList: ({ source }) => ({
+				cypher: `
+					MATCH (node:ForgedNode {_source: $source}) WHERE NOT node:DmeStandardRoot AND node.role IS NOT NULL
+					UNWIND [oneKey IN keys(node) WHERE NOT oneKey IN $bookkeepingKeyList] AS propertyName
+					RETURN node.role AS role, propertyName, count(*) AS nodeWithCount, head(collect(node[propertyName])) AS sampleValue
+					ORDER BY role, propertyName
+				`,
+				params: { source, bookkeepingKeyList: [...forgeBookkeepingKeyList] },
+			}),
+
+			// ... and the relationships leaving each kind: to which kind of this standard (null: a node of another standard), on how
+			// many of its nodes, the most one node has, and how many there are
+			useCaseRelationshipList: ({ source }) => ({
+				cypher: `
+					MATCH (fromNode:ForgedNode {_source: $source})-[relationship]->(toNode)
+					WHERE NOT fromNode:DmeStandardRoot AND fromNode.role IS NOT NULL
+					WITH fromNode, type(relationship) AS relationshipName, CASE WHEN toNode._source = $source THEN toNode.role ELSE null END AS toRole, count(*) AS perNodeCount
+					RETURN fromNode.role AS fromRole, relationshipName, toRole, count(fromNode) AS fromNodeCount, max(perNodeCount) AS mostPerNode, sum(perNodeCount) AS relationshipCount
+					ORDER BY fromRole, relationshipCount DESC, relationshipName
 				`,
 				params: { source },
 			}),
@@ -180,8 +222,57 @@ const moduleFunction =
 		const numberOf = (countValue) => (countValue && typeof countValue.toNumber === 'function' ? countValue.toNumber() : Number(countValue || 0));
 		const mapClassRecordList = (classRecordList) => classRecordList.map((oneClass) => ({ ...oneClass, propertyCount: numberOf(oneClass.propertyCount), mappedPropertyCount: numberOf(oneClass.mappedPropertyCount) }));
 
+		// ---- the use-case model, from the three useCase* queries: a "class" per kind of node, a row per relationship and per property
+		const kindNameOf = (role) => String(role || '').replace(/^Dme/, '');
+		const kindStableIdOf = (role) => `${USE_CASE_KIND_ID_PREFIX}${role}`;
+		const dataTypeOfValue = (sampleValue) => {
+			if (Array.isArray(sampleValue)) return 'array';
+			if (sampleValue && typeof sampleValue.toNumber === 'function') return 'integer';
+			if (typeof sampleValue === 'number') return Number.isInteger(sampleValue) ? 'integer' : 'number';
+			if (typeof sampleValue === 'boolean') return 'boolean';
+			return 'string';
+		};
+		const isStandardKindUseCase = (standard) => Boolean(standard) && standard.standardKind === USE_CASE_STANDARD_KIND;
+
+		const mapUseCaseModel = ({ kindRecordList, keyRecordList, relationshipRecordList }) => {
+			const nodeCountByRole = Object.fromEntries(kindRecordList.map((oneKind) => [oneKind.role, numberOf(oneKind.nodeCount)]));
+			const classList = kindRecordList.map((oneKind) => ({ stableId: kindStableIdOf(oneKind.role), name: kindNameOf(oneKind.role), source: null }));
+			// the kinds with the most relationships first, so the main ones lead the picture
+			const relationshipRowList = [...relationshipRecordList]
+				.filter((oneRelationship) => nodeCountByRole[oneRelationship.fromRole] !== undefined)
+				.sort((left, right) => numberOf(right.relationshipCount) - numberOf(left.relationshipCount))
+				.map((oneRelationship) => {
+					const isOwnKind = oneRelationship.toRole && nodeCountByRole[oneRelationship.toRole] !== undefined;
+					return {
+						classStableId: kindStableIdOf(oneRelationship.fromRole),
+						name: oneRelationship.relationshipName,
+						dataType: numberOf(oneRelationship.mostPerNode) > 1 ? 'array' : null,
+						isRequired: numberOf(oneRelationship.fromNodeCount) === nodeCountByRole[oneRelationship.fromRole],
+						referencedClassStableId: isOwnKind ? kindStableIdOf(oneRelationship.toRole) : null,
+						referencedClassName: isOwnKind ? kindNameOf(oneRelationship.toRole) : 'another standard',
+						isMapped: false,
+					};
+				});
+			const keyRowList = keyRecordList
+				.filter((oneKey) => nodeCountByRole[oneKey.role] !== undefined)
+				.map((oneKey) => ({
+					classStableId: kindStableIdOf(oneKey.role),
+					name: oneKey.propertyName,
+					dataType: dataTypeOfValue(oneKey.sampleValue),
+					isRequired: numberOf(oneKey.nodeWithCount) === nodeCountByRole[oneKey.role],
+					isIdentifier: oneKey.propertyName === 'stableId',
+					referencedClassStableId: null,
+					referencedClassName: null,
+					isMapped: false,
+				}));
+			const nodeCount = Object.values(nodeCountByRole).reduce((total, oneCount) => total + oneCount, 0);
+			return { classList, propertyList: [...relationshipRowList, ...keyRowList], nodeCount };
+		};
+
 		return {
 			getCypher,
+			isStandardKindUseCase,
+			mapUseCaseModel,
 			requiredLabelList,
 			familyOfSyntheticId,
 			mapNeighbourRecordList,

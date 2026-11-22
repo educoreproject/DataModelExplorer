@@ -6,9 +6,10 @@
 //   2. ONE CLASS: its properties listed (required first, the referring class named, the mapped ones marked), its neighbours on the
 //      right (it refers to) and left (refer to it), the marked property highlighted, a crowded side cut with a note
 //   3. THE MAPPER: every named query builds; a family and a release id read back to their family; counts arrive as numbers
+//   4. THE USE-CASE STANDARD (no classes): its kinds of node as tables, the relationships between them as lines (fixtures/useCaseModelFixture.js)
 // Run: node server/test/data-model-diagram.test.js
 
-const { renderStandardDataModel, renderClassDataModel } = require('../data-model/lib/data-model-diagram/render-data-model-diagram');
+const { renderStandardDataModel, renderUseCaseModel, renderClassDataModel } = require('../data-model/lib/data-model-diagram/render-data-model-diagram');
 const fixture = require('./fixtures/dataModelDiagramFixture');
 
 let passedCount = 0;
@@ -100,6 +101,36 @@ console.log('\n3. the mapper');
 	ok('any other id is no family', mapper.familyOfSyntheticId('case:root') === null);
 	ok('a Neo4j Integer arrives as a number', mapper.mapClassRecordList([{ propertyCount: { toNumber: () => 7 }, mappedPropertyCount: 3 }])[0].propertyCount === 7);
 	ok('a neighbour in another standard is marked so', mapper.mapNeighbourRecordList([{ source: 'A' }, { source: 'B' }], 'A').map((oneNeighbour) => oneNeighbour.isOtherStandard).join() === 'false,true');
+}
+
+// ================================================================================
+console.log('\n4. the use-case standard (UseCase 1.0, no classes): its kinds of node and the relationships between them');
+{
+	const mapper = require('../data-model/data-mapping/mappers/standard-data-model')({ baseMappingProcess: null });
+	const useCaseFixture = require('./fixtures/useCaseModelFixture');
+	const builtList = ['useCaseKindList', 'useCaseKeyList', 'useCaseRelationshipList'].map((queryName) => mapper.getCypher(queryName, { source: 'UseCase' }));
+	ok('the use-case queries build, parameterised', builtList.every((oneBundle) => typeof oneBundle.cypher === 'string' && !/'UseCase'/.test(oneBundle.cypher) && oneBundle.params.source === 'UseCase'));
+	ok('the standard query reads standardKind', /standardKind/.test(mapper.getCypher('standardOfSource', { source: 'UseCase' }).cypher));
+	ok('only a useCaseCorpus standard is read as the use-case standard', mapper.isStandardKindUseCase(useCaseFixture.standard) && !mapper.isStandardKindUseCase({ standardKind: 'dataStandard' }) && !mapper.isStandardKindUseCase(null));
+
+	const useCaseModel = mapper.mapUseCaseModel(useCaseFixture);
+	const rowOf = (kindName, rowName, toKindName) => useCaseModel.propertyList.find((oneRow) => oneRow.classStableId === `useCaseKind:Dme${kindName}` && oneRow.name === rowName && (toKindName === undefined || oneRow.referencedClassName === toKindName));
+	ok('a class per kind of node, named without the Dme prefix', useCaseModel.classList.length === 10 && useCaseModel.classList.some((oneClass) => oneClass.name === 'UserStory'), useCaseModel.classList.map((oneClass) => oneClass.name).join(', '));
+	ok('it counts the nodes', useCaseModel.nodeCount === 190, useCaseModel.nodeCount);
+	ok('a relationship on every node of its kind is required, one a node holds several of is a list', rowOf('UserStory', 'PERFORMED_BY').isRequired && rowOf('UseCase', 'HAS_STEP').dataType === 'array' && !rowOf('UseCase', 'INCLUDES').isRequired);
+	ok('a relationship into another standard names no kind of this one', rowOf('ExternalReference', 'DECLARED_CORRESPONDENCE').referencedClassStableId === null && rowOf('ExternalReference', 'DECLARED_CORRESPONDENCE').referencedClassName === 'another standard');
+	ok('stableId is the identifier; a property on some nodes only is not required', rowOf('Actor', 'stableId').isIdentifier && !rowOf('Actor', 'actorKind').isRequired && rowOf('Actor', 'name').isRequired);
+	ok('a Neo4j Integer count arrives as a number', mapper.mapUseCaseModel({ kindRecordList: [{ role: 'DmeActor', nodeCount: { toNumber: () => 2 } }], keyRecordList: [], relationshipRecordList: [] }).nodeCount === 2);
+
+	const diagram = renderUseCaseModel({ standard: useCaseFixture.standard, ...useCaseModel });
+	ok('it is titled the use case model, for a screen reader too', /<title id="dm-diagram-title">UseCase 1\.0: use case model<\/title>/.test(diagram.svgText));
+	ok('every kind of node is drawn, UseCase at the top', diagram.summary.entityCount === 10 && diagram.summary.entityNameList[0] === 'UseCase', diagram.summary.entityNameList.join(', '));
+	ok('the header counts kinds and nodes', /10 kinds of node · 190 nodes/.test(diagram.summary.summaryText), diagram.summary.summaryText);
+	ok('three relationships between one pair are one line, named for the busiest', diagram.svgText.includes('paint-order="stroke">HAS_ACTOR +2</text>') && !diagram.svgText.includes('paint-order="stroke">HAS_PRIMARY_ACTOR</text>'));
+	// (a long name is shortened to fit its column, so a row is found by how it starts)
+	ok('the table still lists each of them', ['HAS_ACTOR</text>', 'HAS_PRIMARY_', 'HAS_INTEREST'].every((rowStart) => diagram.svgText.includes(`>${rowStart}`)));
+	ok('a crowded table counts its further rows as rows', /\+ \d+ more rows/.test(diagram.svgText));
+	ok('the data standards keep their own words', !/use case model|kinds of node/.test(renderStandardDataModel({ standard: fixture.standard, classList: fixture.classList, propertyList: fixture.propertyList }).svgText));
 }
 
 console.log(`\ndata-model-diagram: ${passedCount} passed, ${failedCount} failed`);

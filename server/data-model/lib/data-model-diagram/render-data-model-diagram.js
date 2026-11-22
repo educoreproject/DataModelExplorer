@@ -12,6 +12,10 @@
 //     Laid out in layers, a class above the classes it refers to; each layer ordered to cross as few lines as it can; classes
 //     with no link to another are gathered in a last row.
 //
+//   renderUseCaseModel({ standard, classList, propertyList, nodeCount })
+//     The use-case standard (standardKind useCaseCorpus, BD 2026-11-20): the same entity tables, one per KIND of node (UseCase,
+//     UserStory, Actor ...), every kind drawn; a row per relationship (upper case, FK to the kind it reaches) and per own property.
+//
 //   renderClassDataModel({ focusClass, propertyList, neighbourList, highlightPropertyName })
 //     One class and its neighbours: the class in the centre with its properties listed (type, the class a property refers to,
 //     required, mapped to a hub); the classes it refers to (and its parent) on the right, each line leaving from the property
@@ -209,7 +213,8 @@ const IDENTIFIER_NAME_PATTERN = /^(identifier|id|sourcedId|uuid)$/i;
 const displayClassNameOf = (className) => String(className || '').replace(/(?<=.)DType$/, '');
 
 // which classes are entities, and the tree (each entity's parent, the link that reached it) they are laid out by
-const chooseEntities = ({ classList, propertyList }) => {
+// keepEveryClass (the use-case model): every class is an entity, none is read as a supporting type, an envelope or a reference type
+const chooseEntities = ({ classList, propertyList, keepEveryClass = false }) => {
 	const classByStableId = Object.fromEntries(classList.map((oneClass) => [oneClass.stableId, oneClass]));
 	const propertyListByClassStableId = {};
 	propertyList.forEach((oneProperty) => (propertyListByClassStableId[oneProperty.classStableId] ||= []).push(oneProperty));
@@ -222,13 +227,14 @@ const chooseEntities = ({ classList, propertyList }) => {
 	propertyList.forEach((oneProperty) => {
 		if (oneProperty.referencedClassStableId && classByStableId[oneProperty.referencedClassStableId] && oneProperty.referencedClassStableId !== oneProperty.classStableId && !isEnvelope(oneProperty.classStableId)) (referrerSetByStableId[oneProperty.referencedClassStableId] ||= new Set()).add(oneProperty.classStableId);
 	});
-	const isSupporting = (stableId) => propertyCountOf(stableId) === 0 || (propertyCountOf(stableId) <= SUPPORTING_PROPERTY_LIMIT && (referrerSetByStableId[stableId] || new Set()).size >= SUPPORTING_REFERRER_MIN);
-	const baseCandidateList = classList.map((oneClass) => oneClass.stableId).filter((stableId) => !isSupporting(stableId) && !isEnvelope(stableId));
+	const isSupporting = (stableId) => !keepEveryClass && (propertyCountOf(stableId) === 0 || (propertyCountOf(stableId) <= SUPPORTING_PROPERTY_LIMIT && (referrerSetByStableId[stableId] || new Set()).size >= SUPPORTING_REFERRER_MIN));
+	const baseCandidateList = classList.map((oneClass) => oneClass.stableId).filter((stableId) => keepEveryClass || (!isSupporting(stableId) && !isEnvelope(stableId)));
 
 	// a REFERENCE TYPE stands for the entity it is named after (OneRoster's OrgGUIDRef for Org): it is no entity of its own, and a
 	// property holding one is a link to that entity (still showing the reference type as its type)
 	const baseCandidateByName = Object.fromEntries(baseCandidateList.map((stableId) => [classByStableId[stableId].name, stableId]));
 	const namedEntityOf = (stableId) => {
+		if (keepEveryClass) return null;
 		const nameMatch = String(classByStableId[stableId]?.name || '').match(REFERENCE_TYPE_NAME_PATTERN);
 		const entityStableId = nameMatch && baseCandidateByName[nameMatch[1]];
 		return entityStableId && entityStableId !== stableId ? entityStableId : null;
@@ -237,7 +243,7 @@ const chooseEntities = ({ classList, propertyList }) => {
 	const candidateSet = new Set(candidateStableIdList);
 	const candidateByName = Object.fromEntries(candidateStableIdList.map((stableId) => [classByStableId[stableId].name, stableId]));
 	const referredEntityOf = (referencedStableId) => {
-		if (!referencedStableId || candidateSet.has(referencedStableId) || !classByStableId[referencedStableId]) return referencedStableId;
+		if (keepEveryClass || !referencedStableId || candidateSet.has(referencedStableId) || !classByStableId[referencedStableId]) return referencedStableId;
 		const nameMatch = String(classByStableId[referencedStableId].name).match(REFERENCE_TYPE_NAME_PATTERN);
 		return (nameMatch && candidateByName[nameMatch[1]]) || referencedStableId;
 	};
@@ -312,10 +318,11 @@ const chooseEntities = ({ classList, propertyList }) => {
 	return { entityList, entitySet, entityLinkList, propertyListByClassStableId, classByStableId, isSupporting, rootStableIdList: chosenRootList, isUnlinked };
 };
 
-// the rows an entity shows: its identifier, its links to drawn entities, then required, then mapped; at most ENTITY_ROW_LIMIT
-const entityRowListOf = ({ propertyList, entitySet, isSupporting }) => {
+// the rows an entity shows: its identifier, its links to drawn entities, then required, then mapped; at most rowLimit
+// (a row may say it is the identifier itself, isIdentifier, where its name does not)
+const entityRowListOf = ({ propertyList, entitySet, isSupporting, rowLimit = ENTITY_ROW_LIMIT }) => {
 	const rankOf = (oneProperty) => {
-		if (IDENTIFIER_NAME_PATTERN.test(oneProperty.name) && oneProperty.isRequired) return 0;
+		if (oneProperty.isIdentifier || (IDENTIFIER_NAME_PATTERN.test(oneProperty.name) && oneProperty.isRequired)) return 0;
 		if (entitySet.has(oneProperty.referencedClassStableId)) return 1;
 		if (oneProperty.isRequired) return 2;
 		if (oneProperty.isMapped) return 3;
@@ -325,7 +332,7 @@ const entityRowListOf = ({ propertyList, entitySet, isSupporting }) => {
 	const shownList = propertyList.filter((oneProperty) => !(oneProperty.referencedClassStableId && isSupporting(oneProperty.referencedClassStableId) && !entitySet.has(oneProperty.referencedClassStableId) && /extension/i.test(oneProperty.referencedClassName || '')));
 	const sortedList = [...shownList].sort((left, right) => rankOf(left) - rankOf(right) || String(left.name).localeCompare(String(right.name)));
 	let identifierMarked = false;
-	const rowList = sortedList.slice(0, ENTITY_ROW_LIMIT).map((oneProperty) => {
+	const rowList = sortedList.slice(0, rowLimit).map((oneProperty) => {
 		const isIdentifier = !identifierMarked && rankOf(oneProperty) === 0;
 		if (isIdentifier) identifierMarked = true;
 		const refersToEntity = entitySet.has(oneProperty.referencedClassStableId);
@@ -339,11 +346,11 @@ const entityRowListOf = ({ propertyList, entitySet, isSupporting }) => {
 			noteText: oneProperty.isMapped ? 'mapped' : '',
 		};
 	});
-	return { rowList, hiddenCount: Math.max(0, shownList.length - ENTITY_ROW_LIMIT) };
+	return { rowList, hiddenCount: Math.max(0, shownList.length - rowLimit) };
 };
 
 // one entity table: a coloured header with its name, then a row per property in four columns
-const entityTableOf = ({ x, y, title, rowList, hiddenCount, palette }) => {
+const entityTableOf = ({ x, y, title, rowList, hiddenCount, palette, hiddenWordList = ['more property', 'more properties'] }) => {
 	const height = ENTITY_HEADER_HEIGHT + (rowList.length + (hiddenCount ? 1 : 0)) * ENTITY_ROW_HEIGHT;
 	const partList = [
 		`<rect x="${x}" y="${y}" width="${ENTITY_WIDTH}" height="${height}" fill="${palette.fill}" stroke="${palette.stroke}" stroke-width="1.5"/>`,
@@ -363,7 +370,7 @@ const entityTableOf = ({ x, y, title, rowList, hiddenCount, palette }) => {
 	if (hiddenCount) {
 		const rowTop = y + ENTITY_HEADER_HEIGHT + rowList.length * ENTITY_ROW_HEIGHT;
 		partList.push(`<line x1="${x}" y1="${rowTop}" x2="${x + ENTITY_WIDTH}" y2="${rowTop}" stroke="${palette.stroke}" stroke-width="1"/>`);
-		partList.push(textElementOf({ x: x + 7, y: rowTop + 16, text: `+ ${countTextOf(hiddenCount, 'more property', 'more properties')}`, fontSize: 11, colour: MUTED_TEXT_COLOUR, anchor: 'start', fontStyle: 'italic' }));
+		partList.push(textElementOf({ x: x + 7, y: rowTop + 16, text: `+ ${countTextOf(hiddenCount, ...hiddenWordList)}`, fontSize: 11, colour: MUTED_TEXT_COLOUR, anchor: 'start', fontStyle: 'italic' }));
 	}
 	return { svgText: partList.join('\n'), leftX: x, rightX: x + ENTITY_WIDTH, topY: y, bottomY: y + height, centreX: x + ENTITY_WIDTH / 2 };
 };
@@ -389,8 +396,8 @@ const erLegendEntryList = Object.freeze([
 	{ endKind: 'oneOrMany', label: 'one or many' },
 	{ endKind: 'zeroOrMany', label: 'zero or many' },
 ]);
-const erLegendOf = ({ canvasWidth, topY }) => {
-	const partList = [textElementOf({ x: MARGIN, y: topY, text: 'PK identifier · FK refers to another entity · bold: required · mapped: maps to a hub (CEDS, CTDL)', fontSize: 11, colour: MUTED_TEXT_COLOUR, anchor: 'start' })];
+const erLegendOf = ({ canvasWidth, topY, keyText = 'PK identifier · FK refers to another entity · bold: required · mapped: maps to a hub (CEDS, CTDL)' }) => {
+	const partList = [textElementOf({ x: MARGIN, y: topY, text: keyText, fontSize: 11, colour: MUTED_TEXT_COLOUR, anchor: 'start' })];
 	let legendX = MARGIN;
 	const legendY = topY + 34;
 	erLegendEntryList.forEach((oneEntry) => {
@@ -403,8 +410,67 @@ const erLegendOf = ({ canvasWidth, topY }) => {
 	return { svgText: partList.join('\n'), bottomY: legendY + 10 };
 };
 
-const renderStandardDataModel = ({ standard, classList, propertyList }) => {
-	const { entityList, entitySet, entityLinkList, propertyListByClassStableId, classByStableId, isSupporting, rootStableIdList, isUnlinked } = chooseEntities({ classList: classList || [], propertyList: propertyList || [] });
+// the words and rules of a whole-standard map: a data standard's (classes and their properties), or the use-case model's (the kinds of
+// node a use case is made of, and the relationships between them)
+const dataStandardLook = Object.freeze({
+	keepEveryClass: false,
+	mergeParallelLinks: false,
+	rowLimit: ENTITY_ROW_LIMIT,
+	titleSuffix: 'data model',
+	factTextOf: ({ entityCount, classCount, leftOutCount }) => [
+		`${countTextOf(entityCount, 'main class', 'main classes')} of ${countTextOf(classCount, 'class', 'classes')}`,
+		leftOutCount ? `${leftOutCount} supporting or further classes are in the explorer's table` : '',
+	].filter(Boolean).join(' · '),
+	linkedNoteOf: (rootNameText) => `Starting from ${rootNameText}: each line is a property of the upper class holding the lower one. Open a class in the explorer to see all its properties.`,
+	unlinkedNote: 'Its classes do not refer to one another, so its largest classes are shown on their own.',
+	emptyText: 'The graph holds no classes with properties for this standard.',
+	summaryLeadText: 'The main classes',
+	hiddenWordList: ['more property', 'more properties'],
+	legendKeyText: undefined,
+});
+
+const useCaseLook = Object.freeze({
+	keepEveryClass: true,
+	// three relationships from UseCase to Actor are one line, 'HAS_ACTOR +2' (the busiest first); its table lists every one
+	mergeParallelLinks: true,
+	rowLimit: 22,
+	titleSuffix: 'use case model',
+	factTextOf: ({ classCount, nodeCount }) => [countTextOf(classCount, 'kind of node', 'kinds of node'), Number.isFinite(nodeCount) ? countTextOf(nodeCount, 'node', 'nodes') : ''].filter(Boolean).join(' · '),
+	linkedNoteOf: (rootNameText) => `Starting from ${rootNameText}: each line is a relationship in the graph, from the upper kind of node to the lower one. A use case is not a data standard; it cites other standards' elements.`,
+	unlinkedNote: 'Its kinds of node have no relationships to one another, so each is shown on its own.',
+	emptyText: 'The graph holds no use cases for this standard.',
+	summaryLeadText: 'The kinds of node',
+	hiddenWordList: ['more row', 'more rows'],
+	legendKeyText: 'PK identifier · FK a relationship to another kind of node · bold: on every node of its kind · UPPER CASE: a relationship, lower case: a property',
+});
+
+const renderStandardDataModel = (input) => renderEntityModel(input, dataStandardLook);
+
+// the use-case model (a standard whose standardKind is useCaseCorpus): each kind of node (UseCase, UserStory, Actor ...) is a table,
+// its rows its relationships and its own properties; nodeCount is how many nodes the standard holds
+const renderUseCaseModel = (input) => renderEntityModel(input, useCaseLook);
+
+// the links between one pair of entities as one link: the first one's, named for it and how many more there are; a list or required
+// when any of them is
+const mergedLinkListOf = (linkList) => {
+	const linkGroupByPair = new Map();
+	linkList.forEach((oneLink) => {
+		const pairKey = `${oneLink.classStableId}|${oneLink.referencedClassStableId}`;
+		if (!linkGroupByPair.has(pairKey)) linkGroupByPair.set(pairKey, []);
+		linkGroupByPair.get(pairKey).push(oneLink);
+	});
+	return [...linkGroupByPair.values()].map((linkGroup) => ({
+		...linkGroup[0],
+		name: linkGroup.length > 1 ? `${linkGroup[0].name} +${linkGroup.length - 1}` : linkGroup[0].name,
+		dataType: linkGroup.some((oneLink) => oneLink.dataType === 'array') ? 'array' : linkGroup[0].dataType,
+		isRequired: linkGroup.some((oneLink) => oneLink.isRequired),
+	}));
+};
+
+const renderEntityModel = ({ standard, classList, propertyList, nodeCount }, look) => {
+	const chosen = chooseEntities({ classList: classList || [], propertyList: propertyList || [], keepEveryClass: look.keepEveryClass });
+	const { entityList, entitySet, propertyListByClassStableId, classByStableId, isSupporting, rootStableIdList, isUnlinked } = chosen;
+	const entityLinkList = look.mergeParallelLinks ? mergedLinkListOf(chosen.entityLinkList) : chosen.entityLinkList;
 
 	// rows of entities: by depth from the top, a depth wider than ENTITIES_PER_ROW wrapping; within a depth, in their parents' order
 	const depthCount = Math.max(0, ...entityList.map((oneEntity) => oneEntity.depth)) + 1;
@@ -423,15 +489,11 @@ const renderStandardDataModel = ({ standard, classList, propertyList }) => {
 	const canvasWidth = Math.max(760, 2 * MARGIN + widestRowCount * ENTITY_WIDTH + (widestRowCount - 1) * ENTITY_GAP);
 
 	const leftOutCount = (classList || []).length - entityList.length;
-	const factText = [
-		`${countTextOf(entityList.length, 'main class', 'main classes')} of ${countTextOf((classList || []).length, 'class', 'classes')}`,
-		leftOutCount ? `${leftOutCount} supporting or further classes are in the explorer's table` : '',
-	].filter(Boolean).join(' · ');
+	const factText = look.factTextOf({ entityCount: entityList.length, classCount: (classList || []).length, leftOutCount, nodeCount });
 	const rootNameText = rootStableIdList.map((stableId) => displayClassNameOf(classByStableId[stableId]?.name)).join(', ');
-	const noteText = isUnlinked
-		? 'Its classes do not refer to one another, so its largest classes are shown on their own.'
-		: `Starting from ${rootNameText}: each line is a property of the upper class holding the lower one. Open a class in the explorer to see all its properties.`;
-	const header = headerOf({ titleText: `${standardNameTextOf(standard)}: data model`, factText, noteText });
+	const noteText = isUnlinked ? look.unlinkedNote : look.linkedNoteOf(rootNameText);
+	const titleText = `${standardNameTextOf(standard)}: ${look.titleSuffix}`;
+	const header = headerOf({ titleText, factText, noteText });
 	const partList = [header.svgText];
 
 	const tableByStableId = {};
@@ -447,8 +509,8 @@ const renderStandardDataModel = ({ standard, classList, propertyList }) => {
 		let rowBottom = rowTop;
 		oneRow.forEach((oneEntity, columnIndex) => {
 			const oneClass = classByStableId[oneEntity.stableId];
-			const { rowList: entityRowList, hiddenCount } = entityRowListOf({ propertyList: propertyListByClassStableId[oneEntity.stableId] || [], entitySet, isSupporting });
-			const table = entityTableOf({ x: rowLeft + columnIndex * (ENTITY_WIDTH + ENTITY_GAP), y: rowTop, title: displayClassNameOf(oneClass.name), rowList: entityRowList, hiddenCount, palette: entityPaletteList[entityOrder % entityPaletteList.length] });
+			const { rowList: entityRowList, hiddenCount } = entityRowListOf({ propertyList: propertyListByClassStableId[oneEntity.stableId] || [], entitySet, isSupporting, rowLimit: look.rowLimit });
+			const table = entityTableOf({ x: rowLeft + columnIndex * (ENTITY_WIDTH + ENTITY_GAP), y: rowTop, title: displayClassNameOf(oneClass.name), rowList: entityRowList, hiddenCount, palette: entityPaletteList[entityOrder % entityPaletteList.length], hiddenWordList: look.hiddenWordList });
 			entityOrder += 1;
 			tableByStableId[oneEntity.stableId] = table;
 			rowBottom = Math.max(rowBottom, table.bottomY);
@@ -514,17 +576,17 @@ const renderStandardDataModel = ({ standard, classList, propertyList }) => {
 	partList.push('<!-- entities -->', ...Object.values(tableByStableId).map((oneTable) => oneTable.svgText));
 	// labels last, on a white halo, so a line under one does not cross its words
 	partList.push('<!-- link labels -->', ...labelList.map((oneLabel) => `<text x="${oneLabel.x}" y="${oneLabel.y}" text-anchor="middle" font-size="12" fill="${PLAIN_TEXT_COLOUR}" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">${escapeXml(oneLabel.text)}</text>`));
-	if (!entityList.length) partList.push(textElementOf({ x: MARGIN, y: header.bottomY + 40, text: 'The graph holds no classes with properties for this standard.', fontSize: 13, colour: MUTED_TEXT_COLOUR, anchor: 'start' }));
+	if (!entityList.length) partList.push(textElementOf({ x: MARGIN, y: header.bottomY + 40, text: look.emptyText, fontSize: 13, colour: MUTED_TEXT_COLOUR, anchor: 'start' }));
 
 	const bodyBottom = Math.max(header.bottomY + 40, ...Object.values(tableByStableId).map((oneTable) => oneTable.bottomY));
-	const legend = erLegendOf({ canvasWidth, topY: bodyBottom + 36 });
+	const legend = erLegendOf({ canvasWidth, topY: bodyBottom + 36, keyText: look.legendKeyText });
 	partList.push('<!-- legend -->', legend.svgText);
 	const canvasHeight = Math.ceil(legend.bottomY + 10);
 
 	const entityNameText = entityList.map((oneEntity) => displayClassNameOf(classByStableId[oneEntity.stableId].name)).join(', ');
-	const summaryText = `${standardNameTextOf(standard)}: ${factText}. The main classes: ${entityNameText || 'none'}.`;
+	const summaryText = `${standardNameTextOf(standard)}: ${factText}. ${look.summaryLeadText}: ${entityNameText || 'none'}.`;
 	return {
-		svgText: svgDocumentOf({ width: canvasWidth, height: canvasHeight, titleText: `${standardNameTextOf(standard)}: data model`, summaryText, partList }),
+		svgText: svgDocumentOf({ width: canvasWidth, height: canvasHeight, titleText, summaryText, partList }),
 		width: canvasWidth,
 		height: canvasHeight,
 		summary: { classCount: (classList || []).length, entityCount: entityList.length, entityNameList: entityList.map((oneEntity) => displayClassNameOf(classByStableId[oneEntity.stableId].name)), linkCount: entityLinkList.length, summaryText },
@@ -679,4 +741,4 @@ const renderClassDataModel = ({ standard, focusClass, propertyList, neighbourLis
 	};
 };
 
-module.exports = { renderStandardDataModel, renderClassDataModel, wrapText };
+module.exports = { renderStandardDataModel, renderUseCaseModel, renderClassDataModel, wrapText };
