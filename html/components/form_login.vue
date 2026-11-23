@@ -12,7 +12,10 @@
 	onMounted(() => accountStore.loadRegistrationOptions());
 
 	const isResendSent = ref(false);
+	// a resend asked for on this form (the store outlives the page, so its isMailNotSent may be another page's)
+	const isResendTried = ref(false);
 	const resendConfirmation = async () => {
+		isResendTried.value = true;
 		isResendSent.value = await accountStore.resendConfirmation(username.value.trim());
 	};
 	const { gitCommitHash } = useRuntimeConfig().public;
@@ -67,8 +70,11 @@
 				rounded="lg"
 				data-testid="login-card"
 			>
+				<!-- WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: a sign-in refused because the account awaits approval
+				     is set apart, not shown as an ordinary error -->
+				<AccountApprovalNotice v-if="LoginStore.statusMsg && LoginStore.loginRefusalName === 'awaitingApproval'" :notice-text="LoginStore.statusMsg" data-testid="login-approval-notice" />
 				<v-alert
-					v-if="LoginStore.statusMsg"
+					v-else-if="LoginStore.statusMsg"
 					type="error"
 					density="compact"
 					class="mb-4"
@@ -105,6 +111,8 @@
 					<v-btn variant="tonal" block :loading="accountStore.loading" data-testid="login-resend-confirmation" @click="resendConfirmation">{{ accountVocabulary.resendConfirmationButtonText }}</v-btn>
 				</div>
 				<v-alert v-if="isResendSent && accountStore.noticeMsg" type="success" density="compact" class="mt-3" data-testid="login-resend-notice">{{ accountStore.noticeMsg }}</v-alert>
+				<!-- M3: the new link's mail did not go -->
+				<v-alert v-if="isResendTried && !isResendSent && accountStore.isMailNotSent && accountStore.statusMsg" type="warning" density="compact" class="mt-3" data-testid="login-resend-mail-not-sent">{{ accountStore.statusMsg }}</v-alert>
 				<!-- reset is always offered; registration only where it is on -->
 				<div class="account-links mt-4">
 					<NuxtLink to="/forgot-password" data-testid="login-forgot-password">{{ accountVocabulary.forgotPasswordLinkText }}</NuxtLink>

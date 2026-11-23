@@ -55,6 +55,7 @@ const PAGE_STYLE = `
   button.secondary{background:#e2e8f0;color:#1d2733}
   .row{display:flex;gap:10px}.row button{margin-top:0}
   .err{background:#fdecea;color:#b3261e;border-radius:6px;padding:10px;font-size:13px;margin-bottom:8px}
+  .err.approval-notice{background:#fff4e5;color:#9a3412;border-left:4px solid #c2410c;font-weight:bold}
   .scopes{background:#f4f6f8;border-radius:6px;padding:12px;font-size:13px;margin:12px 0}
   .scopes li{margin:2px 0}.muted{color:#5b6b7b;font-size:12px;margin-top:18px}
 `;
@@ -111,11 +112,13 @@ const moduleFunction = ({
 		res.send(html);
 	};
 
-	const renderLogin = ({ uid, error }) => `<!doctype html><html><head><meta charset="utf-8">
+	// isApprovalNotice (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4): the refusal says an administrator must
+	// approve the account, so it is set apart in bold amber rather than shown as an ordinary error
+	const renderLogin = ({ uid, error, isApprovalNotice = false }) => `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>EDUcore — Sign in</title>
 <style>${PAGE_STYLE}</style></head><body><div class="card">
 <h1>Sign in to EDUcore</h1><p class="sub">Authorize access to the education-standards knowledge graph.</p>
-${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
+${error ? `<div class="err${isApprovalNotice ? ' approval-notice' : ''}">${escapeHtml(error)}</div>` : ''}
 <form method="post" action="${escapeHtml(interactionPath)}/${escapeHtml(uid)}/login" autocomplete="off">
 <input type="hidden" name="csrf" value="${escapeHtml(csrfToken(uid))}">
 <label for="username">Username</label>
@@ -212,7 +215,7 @@ ${scopes.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
 			if (stateRefusal) {
 				throttle.recordSuccess({ username });
 				audit.write({ event: 'login_failed', username, ip, detail: { reason: stateRefusal.refusalName } });
-				sendHtml(res, stateRefusal.httpStatus, renderLogin({ uid, error: refusalText(stateRefusal) }));
+				sendHtml(res, stateRefusal.httpStatus, renderLogin({ uid, error: refusalText(stateRefusal), isApprovalNotice: stateRefusal.refusalName === 'awaitingApproval' }));
 				return;
 			}
 			if (err || !account) {

@@ -17,6 +17,9 @@
 // says where it came from (WORKORDER-adminApproval-112126 A3): originText's suffix on the subject and its paragraph last,
 // with the host of the siteUrl fill, which every message must carry. The vocabulary names the site by that host alone
 // (<!originHost!>), never as an address: the only URLs in a message are its actions (P2).
+// A paragraph may also be IMPORTANT, { importantText } (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: the
+// sentence telling an applicant an administrator must approve the account): in the html part a tinted box with bold,
+// coloured text; in the text part a line of its own starting with the vocabulary's importantParagraph.textPrefixText.
 // Every fill a message names is required (WORKORDER-approvalLooseEnds-112126 L2): composing it with a fill absent, null,
 // empty or only spaces throws by name, as an absent action URL does; nothing is quietly filled with ''. Only the fills
 // in the message's optionalFillList may be absent, and an absent one removes its whole paragraph.
@@ -32,24 +35,33 @@ const REQUIRED_REPLY_NAME_LIST = [
 	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registeredConfirmationNotSent', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
 ];
 
-const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText } = require(VOCABULARY_FILE_PATH);
+const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText, importantParagraph } = require(VOCABULARY_FILE_PATH);
+if (!importantParagraph || typeof importantParagraph.textPrefixText !== 'string' || !importantParagraph.textPrefixText.trim()) {
+	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: importantParagraph.textPrefixText is missing (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4)`);
+}
 if (typeof applicationCommentAbsentText !== 'string' || !applicationCommentAbsentText) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: applicationCommentAbsentText is missing (WORKORDER-adminApproval-112126 A8)`);
 }
 if (!originText || typeof originText.subjectSuffixText !== 'string' || !/<!originHost!>/.test(originText.subjectSuffixText) || typeof originText.paragraphText !== 'string' || !/<!originHost!>/.test(originText.paragraphText)) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: originText needs subjectSuffixText and paragraphText, each carrying <!originHost!> (WORKORDER-adminApproval-112126 A3)`);
 }
-// a paragraph is text, or an action: { actionUrlFill: the fill holding its URL, actionLabelText: the button's words }
-const isActionParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object';
+// a paragraph is text; an action: { actionUrlFill: the fill holding its URL, actionLabelText: the button's words }; or
+// important text (M4): { importantText }
+const isActionParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object' && Object.prototype.hasOwnProperty.call(paragraphEntry, 'actionUrlFill');
+const isImportantParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object' && Object.prototype.hasOwnProperty.call(paragraphEntry, 'importantText');
 const isValidParagraph = (paragraphEntry) =>
-	typeof paragraphEntry === 'string' || (isActionParagraph(paragraphEntry) && typeof paragraphEntry.actionUrlFill === 'string' && !!paragraphEntry.actionUrlFill && typeof paragraphEntry.actionLabelText === 'string' && !!paragraphEntry.actionLabelText);
+	typeof paragraphEntry === 'string' ||
+	(isActionParagraph(paragraphEntry) && Object.keys(paragraphEntry).length === 2 && typeof paragraphEntry.actionUrlFill === 'string' && !!paragraphEntry.actionUrlFill && typeof paragraphEntry.actionLabelText === 'string' && !!paragraphEntry.actionLabelText) ||
+	(isImportantParagraph(paragraphEntry) && Object.keys(paragraphEntry).length === 1 && typeof paragraphEntry.importantText === 'string' && !!paragraphEntry.importantText.trim());
+// the words of a text or important paragraph, the template its fills are read from ('' for an action)
+const paragraphTemplateTextOf = (paragraphEntry) => (typeof paragraphEntry === 'string' ? paragraphEntry : isImportantParagraph(paragraphEntry) ? paragraphEntry.importantText : '');
 REQUIRED_MESSAGE_NAME_LIST.forEach((messageName) => {
 	const messageEntry = (messageByName || {})[messageName];
 	if (!messageEntry || typeof messageEntry.subjectText !== 'string' || !Array.isArray(messageEntry.paragraphList) || !messageEntry.paragraphList.length) {
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName} needs subjectText and a non-empty paragraphList`);
 	}
 	if (!messageEntry.paragraphList.every(isValidParagraph)) {
-		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is neither text nor { actionUrlFill, actionLabelText }`);
+		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is not text, { actionUrlFill, actionLabelText } or { importantText }`);
 	}
 });
 
@@ -103,6 +115,9 @@ const originHostOf = (siteUrl) => {
 // the button an action paragraph becomes in the html part: inline styles only, which Apple Mail and Gmail both honour
 const ACTION_BUTTON_STYLE_TEXT = 'display:inline-block;padding:12px 22px;background-color:#1f5fa8;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:6px';
 const ACTION_URL_PATTERN = /^https?:\/\/\S+$/;
+// M4: the important paragraph in the html part, inline styles only (Apple Mail and Gmail): a tinted box, bold dark-amber text
+const IMPORTANT_BOX_STYLE_TEXT = 'margin:20px 0;padding:12px 16px;background-color:#fff4e5;border-left:4px solid #c2410c;border-radius:4px';
+const IMPORTANT_TEXT_STYLE_TEXT = 'margin:0;color:#9a3412;font-weight:bold';
 
 // a fill is present when it holds something other than spaces; absent, null, '' and '  ' are all absent (L2)
 const isFillPresent = (fillText) => fillText !== undefined && fillText !== null && String(fillText).trim() !== '';
@@ -129,25 +144,35 @@ const accountMailOf = ({ messageName, fillByName }) => {
 	// L2: a required text fill that is absent is a code fault, refused by name like an absent action URL
 	const optionalFillList = messageEntry.optionalFillList || [];
 	const isFillAbsent = (fillName) => !COMPOSER_FILL_NAME_LIST.includes(fillName) && !Object.prototype.hasOwnProperty.call(plainFill, fillName);
-	const missingFillNameList = [...new Set([messageEntry.subjectText, ...messageEntry.paragraphList.filter((paragraphEntry) => typeof paragraphEntry === 'string')].flatMap(fillNameListOfText))].filter((fillName) => !optionalFillList.includes(fillName) && isFillAbsent(fillName));
+	const missingFillNameList = [...new Set([messageEntry.subjectText, ...messageEntry.paragraphList.map(paragraphTemplateTextOf)].flatMap(fillNameListOfText))].filter((fillName) => !optionalFillList.includes(fillName) && isFillAbsent(fillName));
 	if (missingFillNameList.length) {
 		throw new Error(`[${moduleName}] accountMailOf: '${messageName}' needs ${missingFillNameList.map((fillName) => `fillByName.${fillName}`).join(', ')} (absent or blank; ${optionalFillList.length ? `only ${optionalFillList.join(', ')} may be left out of this message` : 'this message has no optional fill'})`);
 	}
 	// an optional fill that is absent takes its whole paragraph with it, so no label is left dangling
-	const paragraphTemplateList = [...messageEntry.paragraphList.filter((paragraphEntry) => isActionParagraph(paragraphEntry) || !fillNameListOfText(paragraphEntry).some(isFillAbsent)), originText.paragraphText];
+	const paragraphTemplateList = [...messageEntry.paragraphList.filter((paragraphEntry) => isActionParagraph(paragraphEntry) || !fillNameListOfText(paragraphTemplateTextOf(paragraphEntry)).some(isFillAbsent)), originText.paragraphText];
 	const escapedFill = Object.fromEntries(Object.entries(plainFill).map(([fillName, fillText]) => [fillName, htmlEscapeOf(fillText)]));
-	const plainParagraphList = paragraphTemplateList.map((paragraphTemplate) =>
-		isActionParagraph(paragraphTemplate) ? `${paragraphTemplate.actionLabelText}:\n${plainFill[paragraphTemplate.actionUrlFill]}` : filledTextOf(paragraphTemplate, plainFill),
-	);
+	const plainParagraphList = paragraphTemplateList.map((paragraphTemplate) => {
+		if (isActionParagraph(paragraphTemplate)) {
+			return `${paragraphTemplate.actionLabelText}:\n${plainFill[paragraphTemplate.actionUrlFill]}`;
+		}
+		if (isImportantParagraph(paragraphTemplate)) {
+			return `${importantParagraph.textPrefixText}${filledTextOf(paragraphTemplate.importantText, plainFill)}`;
+		}
+		return filledTextOf(paragraphTemplate, plainFill);
+	});
+	const escapedParagraphOf = (paragraphTemplateText) => filledTextOf(htmlEscapeOf(paragraphTemplateText).replace(/&lt;!([A-Za-z0-9_]+)!&gt;/g, '<!$1!>'), escapedFill);
 	const htmlParagraphList = paragraphTemplateList.map((paragraphTemplate, paragraphIndex) => {
 		if (isActionParagraph(paragraphTemplate)) {
 			return `<p style="margin:24px 0"><a href="${htmlEscapeOf(plainFill[paragraphTemplate.actionUrlFill])}" style="${ACTION_BUTTON_STYLE_TEXT}">${htmlEscapeOf(paragraphTemplate.actionLabelText)}</a></p>`;
+		}
+		if (isImportantParagraph(paragraphTemplate)) {
+			return `<div style="${IMPORTANT_BOX_STYLE_TEXT}"><p style="${IMPORTANT_TEXT_STYLE_TEXT}">${escapedParagraphOf(paragraphTemplate.importantText)}</p></div>`;
 		}
 		const plainParagraph = plainParagraphList[paragraphIndex];
 		if (/^https?:\/\/\S+$/.test(plainParagraph)) {
 			return `<p><a href="${htmlEscapeOf(plainParagraph)}">${htmlEscapeOf(plainParagraph)}</a></p>`;
 		}
-		return `<p>${filledTextOf(htmlEscapeOf(paragraphTemplate).replace(/&lt;!([A-Za-z0-9_]+)!&gt;/g, '<!$1!>'), escapedFill)}</p>`;
+		return `<p>${escapedParagraphOf(paragraphTemplate)}</p>`;
 	});
 	return {
 		subject: filledTextOf(`${messageEntry.subjectText}${originText.subjectSuffixText}`, plainFill),

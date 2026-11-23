@@ -6,7 +6,8 @@
 // Phase 1
 //   P1.1 a pendingApproval and a declined account are refused by name at website login (awaitingApproval,
 //        accountNotApproved), only once the password is right
-//   P1.2 the same two at the OAuth sign-in page (real oauth-interactions + the real oidc-verify-credential hook)
+//   P1.2 the same two at the OAuth sign-in page (real oauth-interactions + the real oidc-verify-credential hook); the
+//        awaiting-approval one set apart (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4)
 //   P1.3 every account mail (confirmation, new-account notice, reset, password changed) carries "coming from <host>" in
 //        subject and body, host from publicSiteUrl; and every message in the vocabulary does, composed directly
 //   P1.4 requireAdminApproval and adminApprovalEmailSuppress are required settings (no default); approval on with an
@@ -141,8 +142,10 @@ step((done) => {
 	const signIn = oauthSignInOf(state.phaseOneHarness);
 	signIn({ username: 'paula', password: PAULA_PASSWORD }, (pendingReply) => {
 		check('P1.2 OAuth sign-in: a pendingApproval account is refused by name (awaitingApproval, 403)', pendingReply.statusCode === 403 && /awaitingApproval/.test(pendingReply.htmlText), `${pendingReply.statusCode} ${pendingReply.htmlText.slice(-300)}`);
+		check('P1.2 OAuth sign-in: the awaiting-approval refusal is set apart (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: class approval-notice, bold amber)', /<div class="err approval-notice">awaitingApproval: /.test(pendingReply.htmlText) && /\.err\.approval-notice\{[^}]*font-weight:bold/.test(pendingReply.htmlText), pendingReply.htmlText.slice(-300));
 		signIn({ username: 'declan', password: DECLAN_PASSWORD }, (declinedReply) => {
 			check('P1.2 OAuth sign-in: a declined account is refused by name (accountNotApproved, 403)', declinedReply.statusCode === 403 && /accountNotApproved/.test(declinedReply.htmlText), `${declinedReply.statusCode} ${declinedReply.htmlText.slice(-300)}`);
+			check('P1.2 OAuth sign-in: a declined account is an ordinary error, not the approval notice', /<div class="err">accountNotApproved: /.test(declinedReply.htmlText), declinedReply.htmlText.slice(-300));
 			signIn({ username: 'declan', password: WRONG_PASSWORD }, (wrongReply) => {
 				check('P1.2 OAuth sign-in: a wrong password on a declined account says only "Invalid username or password." (401)', wrongReply.statusCode === 401 && /Invalid username or password/.test(wrongReply.htmlText) && !/accountNotApproved/.test(wrongReply.htmlText), `${wrongReply.statusCode} ${wrongReply.htmlText.slice(-200)}`);
 				signIn({ username: 'alice', password: ALICE_PASSWORD }, (activeReply) => {

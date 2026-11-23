@@ -42,6 +42,8 @@ export const accountVocabulary = Object.freeze({
 	confirmTitle: 'Confirming your email address',
 	confirmWorkingText: 'One moment...',
 	confirmIdentifierPromptText: 'To get a new link, enter your user name or email address.',
+	// WORKORDER-accountMailFailureAndApprovalNotice-112326 M3: a registration whose confirmation mail did not go links here
+	mailNotSentNewLinkText: 'Ask for a new confirmation link',
 
 	// WORKORDER-adminApproval-112126: the approval steps the applicant sees, and the approval page
 	registerApprovalNoticeText: 'New accounts here are approved by an administrator before they can sign in. We will email you when yours is decided.',

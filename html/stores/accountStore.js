@@ -9,9 +9,14 @@
 // Actions return true or false; the page reads statusMsg (an error) or noticeMsg (the server's reply) and decides
 // where to go. A refusal from the server answers { refusalName, reason }: reason is shown, refusalName is kept in
 // refusalName so a page can offer the right next step.
+//
+// WORKORDER-accountMailFailureAndApprovalNotice-112326: isMailNotSent says the mail the person is waiting for did not go
+// (M3: a reset or resend refused accountMailNotSent, or a registration replying mailOutcome accountMailNotSent);
+// isApprovalNotice that noticeMsg tells them an administrator must approve the account (M4: the page sets it apart).
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
+import { isMailNotSentRefusal, isMailNotSentReply, isApprovalReply } from '@/components/accountMailOutcome.js';
 
 const accountStoreInitObject = {
 	loading: false,
@@ -20,6 +25,8 @@ const accountStoreInitObject = {
 	refusalName: '',
 	// the server's reply said the account now waits for an approver (WORKORDER-adminApproval-112126): not signed in
 	isAwaitingApproval: false,
+	isApprovalNotice: false,
+	isMailNotSent: false,
 	registrationOptions: { selfRegistrationEnabled: false, requireEmailConfirmation: true, requireAdminApproval: false, isLoaded: false },
 };
 
@@ -35,6 +42,8 @@ export const useAccountStore = defineStore('accountStore', {
 			this.noticeMsg = '';
 			this.refusalName = '';
 			this.isAwaitingApproval = false;
+			this.isApprovalNotice = false;
+			this.isMailNotSent = false;
 		},
 
 		// one public request; the reply's first element, or false with statusMsg and refusalName set
@@ -47,6 +56,7 @@ export const useAccountStore = defineStore('accountStore', {
 			} catch (error) {
 				this.statusMsg = failureTextOf(error, alternativeFailureText);
 				this.refusalName = error.response?.data?.refusalName || '';
+				this.isMailNotSent = isMailNotSentRefusal(this.refusalName);
 				return false;
 			} finally {
 				this.loading = false;
@@ -101,6 +111,8 @@ export const useAccountStore = defineStore('accountStore', {
 			}
 			this.noticeMsg = response.data[0]?.message || '';
 			this.isAwaitingApproval = response.data[0]?.isAwaitingApproval === true;
+			this.isApprovalNotice = isApprovalReply(response.data[0]);
+			this.isMailNotSent = isMailNotSentReply(response.data[0]);
 			return true;
 		},
 
@@ -113,6 +125,7 @@ export const useAccountStore = defineStore('accountStore', {
 			if (response.data[0]?.isAwaitingApproval === true) {
 				this.noticeMsg = response.data[0].message || '';
 				this.isAwaitingApproval = true;
+				this.isApprovalNotice = true;
 				return false;
 			}
 			return this.acceptSignInReply(response);

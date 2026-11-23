@@ -30,7 +30,9 @@
 		<v-container>
 			<v-sheet class="mx-auto my-6 pa-6 pa-sm-10" width="100%" max-width="420" :elevation="2" rounded="lg" data-testid="forgot-password-card">
 				<h1 class="text-h6 mb-3">{{ accountVocabulary.forgotPasswordTitle }}</h1>
-				<v-alert v-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="forgot-password-error">{{ accountStore.statusMsg }}</v-alert>
+				<!-- WORKORDER-accountMailFailureAndApprovalNotice-112326 M3: the reset mail did not go; say so rather than leave them waiting -->
+				<v-alert v-if="accountStore.statusMsg && accountStore.isMailNotSent" type="warning" density="compact" class="mb-4" data-testid="forgot-password-mail-not-sent">{{ accountStore.statusMsg }}</v-alert>
+				<v-alert v-else-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="forgot-password-error">{{ accountStore.statusMsg }}</v-alert>
 				<v-alert v-if="isSent && accountStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="forgot-password-notice">{{ accountStore.noticeMsg }}</v-alert>
 				<template v-if="!isSent">
 					<p class="text-body-2 mb-4">{{ accountVocabulary.forgotPasswordIntroText }}</p>
