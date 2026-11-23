@@ -40,6 +40,14 @@ const PRE_CHANGE_REGISTER_CHECK_EMAIL_BODY_TEXT = JSON.stringify([{ message: rep
 const SDK_NETWORK_FAILURE_ANSWER = Object.freeze({ data: null, error: { name: 'application_error', statusCode: null, message: 'Unable to fetch data. The request could not be resolved.' }, headers: null });
 const SDK_REFUSAL_ANSWER = Object.freeze({ data: null, error: { name: 'validation_error', statusCode: 403, message: 'The example.org domain is not verified.' }, headers: {} });
 
+// test passwords as named constants (noContainerLiterals.test.js forbids a password literal in an object)
+const ALICE_BRAND_NEW_PASSWORD_TEXT = 'alice-brand-new-pass';
+const ALICE_ORIGINAL_PASSWORD_TEXT = 'alice-original-pass';
+const BOB_ORIGINAL_PASSWORD_TEXT = 'bob-original-pass';
+const DAVE_ORIGINAL_PASSWORD_TEXT = 'dave-original-pass';
+const ERIN_ORIGINAL_PASSWORD_TEXT = 'erin-original-pass';
+const NEWCOMER_1_PASSWORD_TEXT = 'newcomer-pass-1';
+
 const resultList = [];
 const check = (label, passed, detail = '') => {
 	resultList.push(passed);
@@ -71,14 +79,14 @@ const realSenderOf = () => {
 const tokenOfSent = (sendParameters) => (String((sendParameters && sendParameters.text) || '').match(/[?&]token=([A-Za-z0-9_-]{43})/) || [])[1] || '';
 
 const resetSeedUserList = [
-	{ username: 'alice', password: 'alice-original-pass', first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
-	{ username: 'bob', password: 'bob-original-pass', first: 'Bob', last: 'Barred', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
-	{ username: 'dave', password: 'dave-original-pass', first: 'Dave', last: 'Dup', emailAdr: 'Shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
-	{ username: 'erin', password: 'erin-original-pass', first: 'Erin', last: 'Dup', emailAdr: 'shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'alice', password: ALICE_ORIGINAL_PASSWORD_TEXT, first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'bob', password: BOB_ORIGINAL_PASSWORD_TEXT, first: 'Bob', last: 'Barred', emailAdr: 'bob@example.org', phone: '', source: 'test', role: 'user', disabled: 'adminDisabled' },
+	{ username: 'dave', password: DAVE_ORIGINAL_PASSWORD_TEXT, first: 'Dave', last: 'Dup', emailAdr: 'Shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
+	{ username: 'erin', password: ERIN_ORIGINAL_PASSWORD_TEXT, first: 'Erin', last: 'Dup', emailAdr: 'shared@example.org', phone: '', source: 'test', role: 'user', disabled: '' },
 ];
 // the harness makes the users table from its seed rows, so every boot seeds one account
 const registrationSeedUserList = [resetSeedUserList[0]];
-const newcomerOf = (overrideByName = {}) => ({ username: 'newcomer', password: 'newcomer-pass-1', first: 'New', last: 'Comer', emailAdr: 'new.comer@example.org', ...overrideByName });
+const newcomerOf = (overrideByName = {}) => ({ username: 'newcomer', password: NEWCOMER_1_PASSWORD_TEXT, first: 'New', last: 'Comer', emailAdr: 'new.comer@example.org', ...overrideByName });
 
 const bootWith = ({ registrationSettingOverrideByName = {}, seedUserList, accessPointNameList, endpointFileNameList, senderState }, callback) =>
 	bootAccountFlowServer({ registrationSettingOverrideByName, seedUserList, accessPointNameList, endpointFileNameList, emailSenderOverride: senderState.emailSender }, (bootError, harness) => {
@@ -136,7 +144,7 @@ step((done) => {
 						check('N2 during the failure: nothing sent, nothing alerted for those three', senderState.alertLineList.length === alertCountBefore, JSON.stringify(senderState.alertLineList.slice(alertCountBefore)));
 						senderState.mode = 'ok';
 						// N3: the two failed requests did not retire the link alice already held
-						post('/api/completePasswordReset', { token: heldTokenText, password: 'alice-brand-new-pass' }, (heldLinkResponse) => {
+						post('/api/completePasswordReset', { token: heldTokenText, password: ALICE_BRAND_NEW_PASSWORD_TEXT }, (heldLinkResponse) => {
 							check('N3 after failed resets, the link already held still works', heldLinkResponse.statusCode === 200, describe(heldLinkResponse));
 							requestReset('alice', () => {
 								const secondTokenText = tokenOfSent(senderState.sentList[senderState.sentList.length - 1]);

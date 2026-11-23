@@ -34,6 +34,10 @@ const IMPORTANT_PREFIX_TEXT = 'IMPORTANT: ';
 // a sentence that tells someone an administrator must approve (or review) the account
 const APPROVAL_SENTENCE_PATTERN = /administrator[^.]*(approv|review)|(approv|review)[^.]*administrator/i;
 
+// test passwords as named constants (noContainerLiterals.test.js forbids a password literal in an object)
+const ALICE_ORIGINAL_PASSWORD_TEXT = 'alice-original-pass';
+const NEWCOMER_1_PASSWORD_TEXT = 'newcomer-pass-1';
+
 const resultList = [];
 const check = (label, passed, detail = '') => {
 	resultList.push(passed);
@@ -99,7 +103,7 @@ check('E3 html/tests/accountApproval/accountMailOutcome.test.mjs passes (M3 not-
 
 // ---- E2
 const bootWith = (registrationSettingOverrideByName, callback) =>
-	bootAccountFlowServer({ registrationSettingOverrideByName, seedUserList: [{ username: 'alice', password: 'alice-original-pass', first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' }], accessPointNameList: REGISTRATION_ACCESS_POINT_NAME_LIST, endpointFileNameList: REGISTRATION_ENDPOINT_FILE_NAME_LIST }, (bootError, harness) => {
+	bootAccountFlowServer({ registrationSettingOverrideByName, seedUserList: [{ username: 'alice', password: ALICE_ORIGINAL_PASSWORD_TEXT, first: 'Alice', last: 'Able', emailAdr: 'alice@example.org', phone: '', source: 'test', role: 'user', disabled: '' }], accessPointNameList: REGISTRATION_ACCESS_POINT_NAME_LIST, endpointFileNameList: REGISTRATION_ENDPOINT_FILE_NAME_LIST }, (bootError, harness) => {
 		if (bootError) {
 			check('a harness booted', false, bootError);
 			process.exit(1);
@@ -113,7 +117,7 @@ const postTo = (harness) => (routePath, requestBody, callback) => httpPost({ bas
 	callback(response || {});
 });
 const firstReplyOf = (response) => (Array.isArray(response.bodyJson) ? response.bodyJson[0] || {} : {});
-const newcomerOf = (overrideByName = {}) => ({ username: 'newcomer', password: 'newcomer-pass-1', first: 'New', last: 'Comer', emailAdr: 'new.comer@example.org', ...overrideByName });
+const newcomerOf = (overrideByName = {}) => ({ username: 'newcomer', password: NEWCOMER_1_PASSWORD_TEXT, first: 'New', last: 'Comer', emailAdr: 'new.comer@example.org', ...overrideByName });
 
 const finish = () => {
 	const failedCount = resultList.filter((passed) => !passed).length;
