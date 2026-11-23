@@ -21,7 +21,9 @@ const { accountReplyOf } = require('../../lib/user-account-mail');
 const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr', 'applicationComment']);
 
 // the reply for each outcome (WORKORDER-adminApproval-112126 adds the two that await an approver); only a signed-in reply
-// carries the user. isAwaitingApproval says the page should tell the visitor their application is out for approval.
+// carries the user. isAwaitingApproval says the page should tell the visitor their application is out for approval;
+// isApprovalAfterConfirmation that it will be once the address is confirmed (WORKORDER-accountMailFailureAndApprovalNotice-
+// 112326 M4: the page sets either message apart). A confirmation mail that failed is a refusal (M6 e), not a reply.
 const replyOfRegistration = ({ isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, user }) => {
 	if (isSignedIn) {
 		return { message: accountReplyOf('registeredSignedIn'), user };
@@ -29,7 +31,8 @@ const replyOfRegistration = ({ isSignedIn, isAwaitingApproval, isApprovalAfterCo
 	if (isAwaitingApproval) {
 		return { message: accountReplyOf('registeredAwaitingApproval'), isAwaitingApproval: true };
 	}
-	return { message: accountReplyOf(isApprovalAfterConfirmation ? 'registeredCheckEmailThenApproval' : 'registeredCheckEmail') };
+	const approvalFlagObject = isApprovalAfterConfirmation ? { isApprovalAfterConfirmation: true } : {};
+	return { message: accountReplyOf(isApprovalAfterConfirmation ? 'registeredCheckEmailThenApproval' : 'registeredCheckEmail'), ...approvalFlagObject };
 };
 
 const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters }) {

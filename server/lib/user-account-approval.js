@@ -36,9 +36,10 @@ const APPROVAL_PAGE_PATH = '/account-approval';
 
 const approvalPageUrlOf = ({ publicSiteUrl, userRefId }) => `${publicSiteUrl}${APPROVAL_PAGE_PATH}?userRefId=${encodeURIComponent(userRefId)}`;
 
-// one mail, its failure logged by name and swallowed: mail never undoes an account change
+// one mail, its failure logged by name and swallowed: mail never undoes an account change (email-sender alerts it,
+// WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 d, named by logName and the applicant)
 const sendLoggedOf = ({ emailSender, logName, username }) => (mailMessage, done) =>
-	emailSender.sendEmail(mailMessage, (sendError, { messageId } = {}) => {
+	emailSender.sendEmail({ ...mailMessage, alertLabel: { mailName: logName, accountName: username } }, (sendError, { messageId } = {}) => {
 		const { xLog } = process.global;
 		if (sendError) {
 			xLog.error(`[${moduleName}] ${logName}NotSent for ${username}: ${sendError}`);

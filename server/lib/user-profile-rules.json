@@ -25,6 +25,12 @@
 	"_usernamePatternText": "the username rule for admin-create-user and admin-update-user, as it stood in both before it moved here (2026-11-10). Production held no username outside it that day.",
 	"usernamePatternText": "^[a-zA-Z0-9_-]+$",
 
+	"_mailFailureRefusalNameByFlow": "WORKORDER-accountMailFailureAndApprovalNotice-112326 M6: the refusal a person gets when the mail they wait for fails for good, by flow and by whether the failure is transient (lib/email-sender.js isTransientMailFailure) or not. Read by lib/account-mail-failure.js; every name must be in refusalByCase.",
+	"mailFailureRefusalNameByFlow": {
+		"accountMail": { "transient": "accountMailNotSent", "other": "accountMailRefused" },
+		"registration": { "transient": "registrationMailNotSent", "other": "registrationMailRefused" }
+	},
+
 	"_loginRefusalNameByAccountState": "what sign-in answers for each value of users.disabled that is an account STATE rather than an admin's disabling (WORKORDER-adminApproval-112126). Read by the website login (user-login) and the OAuth sign-in page (oidc-verify-credential). Any other set value is accountDisabled; blank, '0' and 'false' are active. Every refusal named here must be in refusalByCase.",
 	"loginRefusalNameByAccountState": { "pendingConfirmation": "emailNotConfirmed", "pendingApproval": "awaitingApproval", "declined": "accountNotApproved" },
 
@@ -55,6 +61,11 @@
 		"currentPasswordRequired": { "refusalName": "currentPasswordRequired", "httpStatus": 400, "reason": "a new password is saved only with the current password" },
 		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" },
 		"_registrationAndReset": "the refusals of self-registration and password reset (PLAN-userRegistrationReset-112026). linkNotValid covers an unknown, altered, used or expired link alike, so a refusal tells a guesser nothing about which.",
+		"_accountMailNotSent": "WORKORDER-accountMailFailureAndApprovalNotice-112326 M3, M6: a mail the person is waiting for (password reset, resend confirmation, sign-up confirmation) failed for good, after email-sender's tries. The reset and resend forms answer accountMailNotSent (the provider unreachable or busy: try again in a few minutes) or accountMailRefused (anything else: a problem on our side, alerted). Sign-up undoes the account it just created (M6 e) and answers registrationMailNotSent or registrationMailRefused. tqii accepted that on the reset form this reveals an account exists, but only during a mail failure. Chosen by lib/account-mail-failure.js from mailFailureRefusalNameByFlow below.",
+		"accountMailNotSent": { "refusalName": "accountMailNotSent", "httpStatus": 503, "reason": "We could not send the email just now. Please try again in a few minutes." },
+		"accountMailRefused": { "refusalName": "accountMailRefused", "httpStatus": 503, "reason": "We could not send the email because of a problem on our side. We have been notified; please try again later." },
+		"registrationMailNotSent": { "refusalName": "registrationMailNotSent", "httpStatus": 503, "reason": "We could not send the email to confirm your address just now, so your account was not created. Please try again in a few minutes." },
+		"registrationMailRefused": { "refusalName": "registrationMailRefused", "httpStatus": 503, "reason": "We could not send the email to confirm your address because of a problem on our side, so your account was not created. We have been notified; please try again later." },
 		"registrationNotConfigured": { "refusalName": "registrationNotConfigured", "httpStatus": 503, "reason": "account registration and password reset are not set up on this server" },
 		"registrationDisabled": { "refusalName": "registrationDisabled", "httpStatus": 403, "reason": "new accounts cannot be created here at present" },
 		"emailNotConfirmed": { "refusalName": "emailNotConfirmed", "httpStatus": 403, "reason": "this account's email address has not been confirmed yet; follow the link we emailed, or ask for a new one" },

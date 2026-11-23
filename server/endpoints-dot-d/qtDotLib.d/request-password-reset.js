@@ -7,7 +7,9 @@
 //
 // THE ANSWER IS THE SAME whether or not an account matched: 200 and [{ message }] with the vocabulary's resetRequested
 // text, byte for byte. Only a refusal that cannot depend on the account (tooManyRequests, a malformed identifier,
-// registration not configured) answers otherwise, as { refusalName, reason } with its status. The client address is
+// registration not configured) answers otherwise, as { refusalName, reason } with its status. The one exception, by
+// tqii's ruling (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3): a matched account whose mail failed to go is
+// answered 503 accountMailNotSent, so the person is not left waiting for a mail that will never come. The client address is
 // req.ip, which `trust proxy 1` in startApiServer.js makes the address nginx saw; no header is read here.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');

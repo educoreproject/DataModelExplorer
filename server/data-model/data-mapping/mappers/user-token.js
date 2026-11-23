@@ -39,8 +39,12 @@ const moduleFunction =
 			const queries = {
 				// the one row a presented token can match, for its purpose only (a reset token never confirms an email)
 				byTokenHashAndPurpose: `SELECT * FROM <!tableName!> WHERE [tokenHash] = <!tokenHash!> AND [purpose] = <!purpose!>`,
-				// a new link of a purpose retires every earlier unused one of the account (a second reset kills the first)
-				unusedOfUserRetire: `UPDATE <!tableName!> SET [usedAt] = <!usedAt!> WHERE [userRefId] = <!userRefId!> AND [purpose] = <!purpose!> AND ${UNUSED_CONDITION_TEXT}`,
+				// a new link of a purpose, once its mail is SENT, retires every earlier unused one of the account (a second reset
+				// kills the first) but not itself (WORKORDER-accountMailFailureAndApprovalNotice-112326: a failed mail leaves the old
+				// link working)
+				unusedOfUserRetireExcept: `UPDATE <!tableName!> SET [usedAt] = <!usedAt!> WHERE [userRefId] = <!userRefId!> AND [purpose] = <!purpose!> AND [tokenHash] <> <!keptTokenHash!> AND ${UNUSED_CONDITION_TEXT}`,
+				// a self-registration undone because its confirmation mail failed (M6 e): that account's tokens go with it
+				ofUserDelete: `DELETE FROM <!tableName!> WHERE [userRefId] = <!userRefId!>`,
 				// redemption: marks one row used only if it is still unused
 				redeemByRefId: `UPDATE <!tableName!> SET [usedAt] = <!usedAt!> WHERE [refId] = <!refId!> AND ${UNUSED_CONDITION_TEXT}`,
 				// used and expired rows are deleted at startup and on each issue; they can never be redeemed

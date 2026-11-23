@@ -9,20 +9,26 @@
 //
 // The account is found by exact username OR by email address without regard to case. Whatever is found, the caller
 // gets the SAME answer (no error, no refusal), so the form cannot be used to learn who has an account. Only these
-// refuse, and none of them depends on whether an account exists: registration not configured, over the rate limit, an
-// identifier that is not text or is blank or too long.
+// refuse, and none but the last depends on whether an account exists: registration not configured, over the rate limit,
+// an identifier that is not text or is blank or too long; and the mail failure (below).
 //
 // A link is mailed only when exactly one account matches, it is active (disabled blank: an admin-disabled or
 // unconfirmed account gets nothing) and it has an email address. The link goes to the address ON FILE, never to the
 // address typed. Every case that sends nothing is logged by name (and by username where there is one), never with the
-// address. A failed send is logged by name and the answer is still the same.
+// address. A failed send (after email-sender's tries) is logged by name and answered as the refusal accountMailNotSent
+// (try again in a few minutes) or accountMailRefused (a problem on our side) (WORKORDER-accountMailFailureAndApprovalNotice-
+// 112326 M3, M6): the person is told the mail did not go rather than left searching for it. tqii accepted that this one
+// answer shows an account exists, and only during a mail failure; no account, an ambiguous identifier and a sent link
+// still answer exactly alike. Earlier reset links of the account are retired only once the new one is SENT, so a failed
+// send leaves the link the person may already hold working (the unsent new token simply expires).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
 const { refusalOf, refusalText, textIdentifierRefusalOf, isAccountDisabled, PENDING_CONFIRMATION_TEXT } = require('../../../lib/user-profile-rules');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
-const { issueToken } = require('../../../lib/user-account-tokens');
+const { issueToken, retireEarlierTokens } = require('../../../lib/user-account-tokens');
+const { mailFailureRefusalOf } = require('../../../lib/account-mail-failure');
 const { accountMailOf, lifetimeTextOf } = require('../../../lib/user-account-mail');
 
 const MAXIMUM_IDENTIFIER_LENGTH = 254;
@@ -110,11 +116,23 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				messageName: 'passwordReset',
 				fillByName: { firstName: userRow.first || userRow.username, username: userRow.username, lifetimeText: lifetimeTextOf(resetLinkLifetimeMinutes), linkUrl: `${publicSiteUrl}/reset-password?token=${tokenText}`, siteUrl: publicSiteUrl },
 			});
-			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...resetMail }, (sendError, { messageId } = {}) => {
+			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...resetMail, alertLabel: { mailName: 'passwordReset', accountName: userRow.username } }, (sendError, { messageId, failureName } = {}) => {
 				if (sendError) {
 					xLog.error(`[${moduleName}] resetMailNotSent for ${userRow.username}: ${sendError}`);
-				} else {
-					xLog.status(`[${moduleName}] reset link sent for ${userRow.username} (message ${messageId})`);
+					const refusal = mailFailureRefusalOf({ flowName: 'accountMail', failureName });
+					next(refusalText(refusal), { ...args, refusal });
+					return;
+				}
+				xLog.status(`[${moduleName}] reset link sent for ${userRow.username} (message ${messageId})`);
+				next('', args);
+			});
+		});
+
+		// the new link is out: now, and only now, the account's earlier reset links stop working (a second reset kills the first)
+		taskList.push((args, next) => {
+			retireEarlierTokens({ sqlDb, dataMapping, userRefId: args.userRow.refId, purpose: 'passwordReset', keptTokenText: args.tokenText }, (retireError) => {
+				if (retireError) {
+					xLog.error(`[${moduleName}] earlierResetLinksNotRetired for ${args.userRow.username}: ${retireError}`);
 				}
 				next('', args);
 			});

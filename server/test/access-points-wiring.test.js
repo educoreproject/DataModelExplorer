@@ -41,7 +41,7 @@ passedResourceByName.companionMomentClock = require('../data-model/lib/companion
 passedResourceByName.dataMapping = new Proxy({}, { get: () => ({ getSql: () => '', map: (inData) => inData }) });
 // the registration and reset access points refuse to load without the email sender (WORKORDER-userRegistrationReset-112026)
 check('data-model.js hands the loader emailSender and userRegistrationSettings', selectedPropertyList.includes('emailSender') && selectedPropertyList.includes('userRegistrationSettings'), selectedPropertyList.join(','));
-passedResourceByName.emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: undefined });
+passedResourceByName.emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: undefined, failureAlerter: () => {} });
 passedResourceByName.userRegistrationSettings = require('../lib/user-registration-settings').registrationSettingsOf(undefined);
 
 require('../data-model/access-points-dot-d/access-points-dot-d')(passedResourceByName, (loadError, accessPointsDotD) => {

@@ -1,0 +1,24 @@
+{
+	"_comment": "Data for lib/email-sender.js beyond its refusals (WORKORDER-accountMailFailureAndApprovalNotice-112326 M1, M5, M6). A missing or malformed entry stops the server at load.",
+
+	"_settingDefaultByName": "M6: the [email-sender] settings that may be left out of startApiServer.ini, and what each is then. A value given in the ini that is not a whole number of milliseconds (or minutes) is refused by name (emailSettingNotValid), never quietly replaced by these. retryDelayMillisecondsList: the wait before each retry, growing; its length is the number of retries (M6 b: first try plus up to two). sendBudgetMilliseconds: the hard limit on one message, every attempt and wait included; when it is spent the send stops and the person is told to try again soon. attemptTimeoutMilliseconds: how long one attempt may wait for Resend's answer before it is abandoned (and, budget allowing, retried with the same idempotency key). connectAttemptTimeoutMilliseconds (M5, M6 a): Node's happy-eyeballs per-address connect window, PROCESS-WIDE, applied once at server start by data-model.js; Node's own 250 ms is what failed on demo (DEVLOG M5). failureAlertIntervalMinutes (M6 d): at most one ACCOUNT_MAIL_ALERT line per this many minutes; the rest are counted into the next.",
+	"settingDefaultByName": {
+		"retryDelayMillisecondsList": [1000, 3000],
+		"sendBudgetMilliseconds": 10000,
+		"attemptTimeoutMilliseconds": 4000,
+		"connectAttemptTimeoutMilliseconds": 2000,
+		"failureAlertIntervalMinutes": 15
+	},
+
+	"_unreachableResolvedErrorShapeList": "M1: the RESOLVED errors that mean the provider was never reached. The Resend SDK (resend 6.39.0, dist/index.cjs fetchRequest) does not reject when fetch fails or is aborted: it catches the failure and resolves { data: null, error: { name: 'application_error', statusCode: null, message: 'Unable to fetch data. The request could not be resolved.' } }. statusCode null is what marks it: every error built from an HTTP answer carries that answer's status. A resolved error matching one of these shapes (every property named here equal) is providerUnreachable.",
+	"unreachableResolvedErrorShapeList": [
+		{ "name": "application_error", "statusCode": null }
+	],
+
+	"_retryableStatusRule": "M6 b: the provider's answers that are worth another try (busy or broken for the moment): these status codes, and any status at or above retryableStatusCodeMinimum. A send that ends on one of them is providerUnavailable. Every other answer (validation_error 422, an unverified domain 403, ...) is providerRefused and never retried.",
+	"retryableStatusCodeList": [429],
+	"retryableStatusCodeMinimum": 500,
+
+	"_transientFailureNameList": "the failures the person is told to retry in a few minutes (the reply's accountMailNotSent); every other failure is 'a problem on our side' (accountMailRefused).",
+	"transientFailureNameList": ["providerUnreachable", "providerUnavailable"]
+}

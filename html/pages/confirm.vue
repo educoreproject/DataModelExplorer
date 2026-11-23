@@ -48,8 +48,14 @@
 				<h1 class="text-h6 mb-3">{{ accountVocabulary.confirmTitle }}</h1>
 				<p v-if="isWorking" class="text-body-2" data-testid="confirm-working">{{ accountVocabulary.confirmWorkingText }}</p>
 				<template v-else>
-					<v-alert v-if="accountStore.isAwaitingApproval" type="success" density="compact" class="mb-4" data-testid="confirm-awaiting-approval">{{ accountStore.noticeMsg }}</v-alert>
-					<v-alert v-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="confirm-error">{{ accountStore.statusMsg }}</v-alert>
+					<!-- WORKORDER-accountMailFailureAndApprovalNotice-112326: M4 what succeeded (address confirmed), then the approval
+					     block on its own; M3 a new link whose mail did not go is a warning of its own -->
+					<template v-if="accountStore.isAwaitingApproval">
+						<v-alert type="success" density="compact" class="mb-4" data-testid="confirm-confirmed">{{ accountStore.noticeMsg }}</v-alert>
+						<AccountApprovalNotice :heading-text="accountVocabulary.approvalNoticeHeadingText" :notice-text="accountVocabulary.approvalNoticeText" data-testid="confirm-awaiting-approval" />
+					</template>
+					<v-alert v-if="accountStore.statusMsg && accountStore.isMailNotSent" type="warning" density="compact" class="mb-4" data-testid="confirm-mail-not-sent">{{ accountStore.statusMsg }}</v-alert>
+					<v-alert v-else-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="confirm-error">{{ accountStore.statusMsg }}</v-alert>
 					<p v-if="!tokenText" class="text-body-2 mb-4" data-testid="confirm-no-token">{{ accountVocabulary.missingTokenText }}</p>
 					<v-alert v-if="isResendSent && accountStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="confirm-resend-notice">{{ accountStore.noticeMsg }}</v-alert>
 					<template v-if="!isResendSent && !accountStore.isAwaitingApproval">

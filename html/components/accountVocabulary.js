@@ -42,6 +42,12 @@ export const accountVocabulary = Object.freeze({
 	confirmTitle: 'Confirming your email address',
 	confirmWorkingText: 'One moment...',
 	confirmIdentifierPromptText: 'To get a new link, enter your user name or email address.',
+	// WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: the approval block (components/AccountApprovalNotice.vue),
+	// never inside a success message. approvalNotice* must match the server's user-account-mail-vocabulary.json
+	// approvalNotice (server/test/account-approval-emphasis.test.js holds them together).
+	approvalNoticeHeadingText: 'Not finished yet: waiting for approval',
+	approvalNoticeText: 'An administrator must approve your account before you can sign in. We will email you when that is decided.',
+	registerApprovalNoticeHeadingText: 'New accounts need approval',
 
 	// WORKORDER-adminApproval-112126: the approval steps the applicant sees, and the approval page
 	registerApprovalNoticeText: 'New accounts here are approved by an administrator before they can sign in. We will email you when yours is decided.',

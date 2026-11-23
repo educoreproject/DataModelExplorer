@@ -55,6 +55,8 @@
 		}
 		const isAccepted = await accountStore.registerUser({ username: username.value.trim(), password: password.value, first: first.value.trim(), last: last.value.trim(), emailAdr: emailAdr.value.trim(), applicationComment: applicationComment.value.trim() });
 		if (!isAccepted) {
+			// the refusal (a mail that did not go: nothing was created) shows at the top of the card, above a long form
+			window.scrollTo({ top: 0, behavior: 'smooth' });
 			return;
 		}
 		// confirmation required, or (WORKORDER-adminApproval-112126) the account now waits for an approver: say so, stay here
@@ -74,14 +76,21 @@
 		<v-container>
 			<v-sheet class="mx-auto my-6 pa-6 pa-sm-10" width="100%" max-width="460" :elevation="2" rounded="lg" data-testid="register-card">
 				<h1 class="text-h6 mb-3">{{ accountVocabulary.registerTitle }}</h1>
-				<v-alert v-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="register-error">{{ accountStore.statusMsg }}</v-alert>
-				<v-alert v-if="isRegistered && accountStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="register-notice">{{ accountStore.noticeMsg }}</v-alert>
+				<!-- M3, M6: the confirmation mail did not go, so nothing was created; a warning of its own -->
+				<v-alert v-if="accountStore.statusMsg && accountStore.isMailNotSent" type="warning" density="compact" class="mb-4" data-testid="register-mail-not-sent">{{ accountStore.statusMsg }}</v-alert>
+				<v-alert v-else-if="accountStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="register-error">{{ accountStore.statusMsg }}</v-alert>
+				<!-- after sign-up (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4): what succeeded, then the approval block
+				     on its own; a confirmation mail that failed is a refusal (statusMsg above) and the form stays to try again -->
+				<template v-if="isRegistered && accountStore.noticeMsg">
+					<v-alert type="success" density="compact" class="mb-4" data-testid="register-notice">{{ accountStore.noticeMsg }}</v-alert>
+					<AccountApprovalNotice v-if="accountStore.isApprovalNotice" :heading-text="accountVocabulary.approvalNoticeHeadingText" :notice-text="accountVocabulary.approvalNoticeText" data-testid="register-approval-notice-after" />
+				</template>
 				<p v-if="accountStore.registrationOptions.isLoaded && !accountStore.registrationOptions.selfRegistrationEnabled" class="text-body-2" data-testid="register-closed">
 					{{ accountVocabulary.registrationClosedText }}
 				</p>
 				<template v-else-if="!isRegistered">
 					<p class="text-body-2 mb-4">{{ accountVocabulary.registerIntroText }}</p>
-					<p v-if="accountStore.registrationOptions.requireAdminApproval" class="text-body-2 mb-4" data-testid="register-approval-notice">{{ accountVocabulary.registerApprovalNoticeText }}</p>
+					<AccountApprovalNotice v-if="accountStore.registrationOptions.requireAdminApproval" :heading-text="accountVocabulary.registerApprovalNoticeHeadingText" :notice-text="accountVocabulary.registerApprovalNoticeText" data-testid="register-approval-notice" />
 					<v-form @submit.prevent="submitRegistration">
 						<v-text-field v-model="username" :rules="usernameRules" :label="accountVocabulary.usernameLabel" :hint="accountVocabulary.usernameHintText" autocomplete="username" autofocus data-testid="register-username" />
 						<v-text-field v-model="first" :rules="[requiredRule]" :label="accountVocabulary.firstNameLabel" autocomplete="given-name" data-testid="register-first" />
