@@ -8,9 +8,11 @@
 //
 //   serviceFunction({ identifier, clientAddress }, callback(errText, { refusal }))
 //
-// Like a reset request, the caller gets the SAME answer whether or not anything was sent. A link is mailed only when
+// Like a reset request, the caller gets the SAME answer whether or not an account matched. A link is mailed only when
 // exactly one account matches the username or address and it is awaiting confirmation; issuing it retires the
-// account's earlier confirmation links. Each case that sends nothing is logged by name.
+// account's earlier confirmation links. Each case that sends nothing is logged by name. A mail that fails to go (after
+// email-sender's one retry) is answered as the refusal accountMailNotSent (WORKORDER-accountMailFailureAndApprovalNotice-
+// 112326 M3), as on the reset form.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -87,6 +89,9 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...confirmMail }, (sendError) => {
 					if (sendError) {
 						xLog.error(`[${moduleName}] confirmationMailNotSent for ${userRow.username}: ${sendError}`);
+						const refusal = refusalOf('accountMailNotSent');
+						next(refusalText(refusal), { ...args, refusal });
+						return;
 					}
 					next('', args);
 				});

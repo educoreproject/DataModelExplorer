@@ -6,7 +6,7 @@
 // user-registration-register.js — ACCESS POINT: a visitor creates their own account (PLAN-userRegistrationReset-112026
 // 4.3, rulings R1, R3, R7). Behind POST /api/registerUser (public).
 //
-//   serviceFunction({ username, password, first, last, emailAdr, applicationComment, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal }))
+//   serviceFunction({ username, password, first, last, emailAdr, applicationComment, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, mailOutcome, refusal }))
 //
 // Only those five properties, and the optional applicationComment (WORKORDER-adminApproval-112126 A8: a note to the
 // approvers, text, at most user-profile-rules.json maxLengthByPropertyName.applicationComment, stored in its own users
@@ -21,6 +21,10 @@
 // and the account cannot sign in (user-login refuses it, emailNotConfirmed) until the link is followed. false: the
 // account is active at once and the endpoint signs it in. Either way the new-account notice goes to
 // newAccountNoticeList (R7; an empty list sends nothing). A failed mail is logged by name and never undoes the account.
+// When the confirmation mail fails to go (its link not issued, or the send failing after email-sender's one retry) the
+// reply carries mailOutcome 'accountMailNotSent' (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3), so the page
+// tells the person to ask for a new link instead of waiting for one; otherwise mailOutcome is ''. The notices to
+// administrators are not waited for by the person and only logged.
 //
 // requireAdminApproval=true (WORKORDER-adminApproval-112126): the account is never signed in here. With confirmation on
 // it waits for its link as above, and the approval request goes out when the link is followed (A2: approvers are asked
@@ -42,6 +46,8 @@ const OPTIONAL_REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['applicationComm
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NEW_ACCOUNT_SOURCE_TEXT = 'selfRegistration';
 const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
+// M3: the reply's mailOutcome when the confirmation mail did not go; the same name as the reset form's refusal
+const ACCOUNT_MAIL_NOT_SENT_TEXT = 'accountMailNotSent';
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
@@ -161,7 +167,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			issueToken({ sqlDb, dataMapping, userRefId: args.userRefId, purpose: 'confirmEmail', lifetimeMinutes: confirmationLinkLifetimeMinutes }, (issueError, { tokenText } = {}) => {
 				if (issueError) {
 					xLog.error(`[${moduleName}] confirmationTokenNotIssued for ${args.userRow.username}: ${issueError}`);
-					next('', args);
+					next('', { ...args, mailOutcome: ACCOUNT_MAIL_NOT_SENT_TEXT });
 					return;
 				}
 				const confirmMail = accountMailOf({
@@ -171,6 +177,8 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				emailSender.sendEmail({ toList: [args.userRow.emailAdr], ...confirmMail }, (sendError) => {
 					if (sendError) {
 						xLog.error(`[${moduleName}] confirmationMailNotSent for ${args.userRow.username}: ${sendError}`);
+						next('', { ...args, mailOutcome: ACCOUNT_MAIL_NOT_SENT_TEXT });
+						return;
 					}
 					next('', args);
 				});
@@ -204,7 +212,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			});
 		});
 
-		pipeRunner(taskList.getList(), {}, (err, args = {}) => {
+		pipeRunner(taskList.getList(), { mailOutcome: '' }, (err, args = {}) => {
 			if (args.refusal) {
 				callback(err, { refusal: args.refusal });
 				return;
@@ -219,6 +227,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				isSignedIn: !args.requireEmailConfirmation && !args.requireAdminApproval,
 				isAwaitingApproval: !!args.requireAdminApproval && !args.requireEmailConfirmation,
 				isApprovalAfterConfirmation: !!args.requireAdminApproval && args.requireEmailConfirmation,
+				mailOutcome: args.mailOutcome,
 			});
 		});
 	};

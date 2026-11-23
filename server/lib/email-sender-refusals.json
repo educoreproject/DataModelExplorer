@@ -3,12 +3,13 @@
 	"refusalByCase": {
 		"emailSenderNotConfigured": { "refusalName": "emailSenderNotConfigured", "reason": "this server has no [email-sender] section in startApiServer.ini, so it sends no mail" },
 		"emailSettingMissing": { "refusalName": "emailSettingMissing", "reason": "[email-sender] lacks a required setting: <!detailText!>" },
+		"emailSettingNotValid": { "refusalName": "emailSettingNotValid", "reason": "[email-sender] has a setting that is not valid: <!detailText!>" },
 		"fromAddressNotOnSendingDomain": { "refusalName": "fromAddressNotOnSendingDomain", "reason": "[email-sender] fromAddress is not an address on sendingDomain (<!detailText!>); the provider would refuse it" },
 		"redirectAddressNotValid": { "refusalName": "redirectAddressNotValid", "reason": "[email-sender] redirectAllEmailTo is not an email address" },
 		"recipientMissing": { "refusalName": "recipientMissing", "reason": "a message needs at least one recipient" },
 		"messageIncomplete": { "refusalName": "messageIncomplete", "reason": "a message needs a subject and a text or html body" },
 		"providerRefused": { "refusalName": "providerRefused", "reason": "the mail provider refused the message: <!detailText!>" },
-		"providerUnreachable": { "refusalName": "providerUnreachable", "reason": "the message could not be sent: <!detailText!>" },
+		"providerUnreachable": { "refusalName": "providerUnreachable", "reason": "the mail provider could not be reached, so the message was not sent: <!detailText!>" },
 		"providerAnswerEmpty": { "refusalName": "providerAnswerEmpty", "reason": "the mail provider answered with neither an error nor a message id" }
 	}
 }

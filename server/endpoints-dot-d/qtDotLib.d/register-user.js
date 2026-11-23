@@ -21,15 +21,22 @@ const { accountReplyOf } = require('../../lib/user-account-mail');
 const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr', 'applicationComment']);
 
 // the reply for each outcome (WORKORDER-adminApproval-112126 adds the two that await an approver); only a signed-in reply
-// carries the user. isAwaitingApproval says the page should tell the visitor their application is out for approval.
-const replyOfRegistration = ({ isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, user }) => {
+// carries the user. isAwaitingApproval says the page should tell the visitor their application is out for approval;
+// isApprovalAfterConfirmation that it will be once the address is confirmed (WORKORDER-accountMailFailureAndApprovalNotice-
+// 112326 M4: the page sets either message apart). mailOutcome 'accountMailNotSent' (M3): the account exists but its
+// confirmation mail did not go, so the message says to ask for a new link.
+const replyOfRegistration = ({ isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, mailOutcome, user }) => {
 	if (isSignedIn) {
 		return { message: accountReplyOf('registeredSignedIn'), user };
 	}
 	if (isAwaitingApproval) {
 		return { message: accountReplyOf('registeredAwaitingApproval'), isAwaitingApproval: true };
 	}
-	return { message: accountReplyOf(isApprovalAfterConfirmation ? 'registeredCheckEmailThenApproval' : 'registeredCheckEmail') };
+	const approvalFlagObject = isApprovalAfterConfirmation ? { isApprovalAfterConfirmation: true } : {};
+	if (mailOutcome === 'accountMailNotSent') {
+		return { message: accountReplyOf('registeredConfirmationNotSent'), mailOutcome, ...approvalFlagObject };
+	}
+	return { message: accountReplyOf(isApprovalAfterConfirmation ? 'registeredCheckEmailThenApproval' : 'registeredCheckEmail'), ...approvalFlagObject };
 };
 
 const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters }) {
@@ -44,7 +51,7 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 		taskList.push((args, next) => {
 			const requestBody = xReq.qtGetSurePath('body', {});
 			const registrationRequest = REGISTRATION_PROPERTY_NAME_LIST.reduce((soFar, propertyName) => ({ ...soFar, [propertyName]: requestBody[propertyName] }), { clientAddress: xReq.ip });
-			accessPointsDotD['user-registration-register'](registrationRequest, (err, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal } = {}) => next(err, { ...args, user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal }));
+			accessPointsDotD['user-registration-register'](registrationRequest, (err, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, mailOutcome, refusal } = {}) => next(err, { ...args, user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, mailOutcome, refusal }));
 		});
 
 		taskList.push((args, next) => {

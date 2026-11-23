@@ -9,13 +9,16 @@
 //
 // The account is found by exact username OR by email address without regard to case. Whatever is found, the caller
 // gets the SAME answer (no error, no refusal), so the form cannot be used to learn who has an account. Only these
-// refuse, and none of them depends on whether an account exists: registration not configured, over the rate limit, an
-// identifier that is not text or is blank or too long.
+// refuse, and none but the last depends on whether an account exists: registration not configured, over the rate limit,
+// an identifier that is not text or is blank or too long; and accountMailNotSent (below).
 //
 // A link is mailed only when exactly one account matches, it is active (disabled blank: an admin-disabled or
 // unconfirmed account gets nothing) and it has an email address. The link goes to the address ON FILE, never to the
 // address typed. Every case that sends nothing is logged by name (and by username where there is one), never with the
-// address. A failed send is logged by name and the answer is still the same.
+// address. A failed send (after email-sender's one retry) is logged by name and answered as the refusal
+// accountMailNotSent (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3): the person is told the mail did not go
+// rather than left searching for it. tqii accepted that this one answer shows an account exists, and only during a mail
+// outage; no account, an ambiguous identifier and a sent link still answer exactly alike.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -113,9 +116,11 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...resetMail }, (sendError, { messageId } = {}) => {
 				if (sendError) {
 					xLog.error(`[${moduleName}] resetMailNotSent for ${userRow.username}: ${sendError}`);
-				} else {
-					xLog.status(`[${moduleName}] reset link sent for ${userRow.username} (message ${messageId})`);
+					const refusal = refusalOf('accountMailNotSent');
+					next(refusalText(refusal), { ...args, refusal });
+					return;
 				}
+				xLog.status(`[${moduleName}] reset link sent for ${userRow.username} (message ${messageId})`);
 				next('', args);
 			});
 		});

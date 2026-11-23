@@ -7,7 +7,9 @@
 //
 // THE ANSWER IS THE SAME whether or not an account matched: 200 and [{ message }] with the vocabulary's
 // confirmationResent text, byte for byte. Only a refusal that cannot depend on the account (tooManyRequests, a malformed identifier,
-// registration not configured) answers otherwise, as { refusalName, reason } with its status. The client address is
+// registration not configured) answers otherwise, as { refusalName, reason } with its status; and, as on the reset form
+// (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3), a link whose mail failed to go answers 503
+// accountMailNotSent. The client address is
 // req.ip, which `trust proxy 1` in startApiServer.js makes the address nginx saw; no header is read here.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');

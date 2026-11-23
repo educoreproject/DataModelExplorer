@@ -55,6 +55,8 @@
 		"currentPasswordRequired": { "refusalName": "currentPasswordRequired", "httpStatus": 400, "reason": "a new password is saved only with the current password" },
 		"currentPasswordWrong": { "refusalName": "currentPasswordWrong", "httpStatus": 403, "reason": "the current password given is not this account's password" },
 		"_registrationAndReset": "the refusals of self-registration and password reset (PLAN-userRegistrationReset-112026). linkNotValid covers an unknown, altered, used or expired link alike, so a refusal tells a guesser nothing about which.",
+		"_accountMailNotSent": "WORKORDER-accountMailFailureAndApprovalNotice-112326 M3: a mail the person is waiting for (password reset, sign-up confirmation, resend confirmation) failed to go, after email-sender's one retry. The reset and resend forms answer it as this refusal; registration (the account IS created) answers 200 with mailOutcome accountMailNotSent. tqii accepted that on the reset form this reveals an account exists, but only during a mail outage. 503: try again later.",
+		"accountMailNotSent": { "refusalName": "accountMailNotSent", "httpStatus": 503, "reason": "We could not send the email just now. Please try again in a few minutes." },
 		"registrationNotConfigured": { "refusalName": "registrationNotConfigured", "httpStatus": 503, "reason": "account registration and password reset are not set up on this server" },
 		"registrationDisabled": { "refusalName": "registrationDisabled", "httpStatus": 403, "reason": "new accounts cannot be created here at present" },
 		"emailNotConfirmed": { "refusalName": "emailNotConfirmed", "httpStatus": 403, "reason": "this account's email address has not been confirmed yet; follow the link we emailed, or ask for a new one" },

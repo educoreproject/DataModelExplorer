@@ -1,0 +1,13 @@
+{
+	"_comment": "Data for lib/email-sender.js beyond its refusals (WORKORDER-accountMailFailureAndApprovalNotice-112326 M1, M2). A missing or malformed entry stops the server at load.",
+
+	"_settingDefaultByName": "M2: an [email-sender] setting that may be left out of startApiServer.ini, and what it is then. unreachableRetryDelayMilliseconds is how long to wait before the ONE retry of a send the provider never answered (providerUnreachable). Set in the ini to override; a value that is not a whole number of milliseconds is refused by name (emailSettingNotValid), never quietly replaced by this default.",
+	"settingDefaultByName": {
+		"unreachableRetryDelayMilliseconds": 2000
+	},
+
+	"_unreachableResolvedErrorShapeList": "M1: the RESOLVED errors that mean the provider was never reached. The Resend SDK (resend 6.39.0, dist/index.cjs fetchRequest) does not reject when fetch fails: it catches the failure and resolves { data: null, error: { name: 'application_error', statusCode: null, message: 'Unable to fetch data. The request could not be resolved.' } }. statusCode null is what marks it: every error built from an HTTP answer carries that answer's status (a JSON error body is passed through as Resend sent it, e.g. validation_error 422, rate_limit_exceeded 429; a body that is not JSON becomes application_error WITH response.status). A resolved error matching one of these shapes (every property named here equal) is providerUnreachable and retried once; every other resolved error is the provider's answer, providerRefused, never retried.",
+	"unreachableResolvedErrorShapeList": [
+		{ "name": "application_error", "statusCode": null }
+	]
+}

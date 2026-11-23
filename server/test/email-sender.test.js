@@ -8,11 +8,24 @@
 //   T2.4 redirectAllEmailTo replaces every recipient (to, cc, bcc, and the configured bccList)
 //   T2.5 a dotted list (list.0, list.1) is read in index order; an empty list is empty
 //   T2.6 a missing API key is a named refusal and no client is built; so is a fromAddress off sendingDomain
+// WORKORDER-accountMailFailureAndApprovalNotice-112326 M1, M2 (the resolved shapes are resend 6.39.0's own, see
+// lib/email-sender-settings.json):
+//   T2.7 the SDK's resolved network failure (application_error, statusCode null) is providerUnreachable, retried ONCE;
+//        a second success is delivered; both attempts carry the same idempotency key; the first attempt is logged
+//   T2.8 network failure twice: providerUnreachable, exactly two attempts
+//   T2.9 a resolved validation_error (an answer, statusCode 422) is providerRefused, never retried
+//   T2.10 a rejection is providerUnreachable, retried once; a second rejection fails
+//   T2.11 application_error WITH a status (a 5xx whose body was not JSON) is the provider's answer: providerRefused, no retry
+//   T2.12 the retry waits unreachableRetryDelayMilliseconds; absent, the settings file's 2000; not a whole number, refused
 //
 // Run: node server/test/email-sender.test.js
 
 const path = require('path');
 const { emailSenderOf, listFromConfig } = require(path.join(__dirname, '..', 'lib', 'email-sender'));
+
+// the server's logger, captured (lib/email-sender.js logs an unreachable attempt through process.global.xLog)
+const statusLogList = [];
+process.global = { xLog: { status: (logText) => statusLogList.push(String(logText)), error: (logText) => statusLogList.push(String(logText)) } };
 
 const resultList = [];
 const check = (label, passed, detail = '') => {
@@ -27,15 +40,25 @@ const goodSettings = Object.freeze({
 	fromName: 'EDUcore',
 	redirectAllEmailTo: '',
 	bccList: { 0: 'audit@example.org' },
+	unreachableRetryDelayMilliseconds: '0',
 });
 
 // a stub Resend client: records what it was asked to send and answers as told
 const stubBuilderOf = (answerOf) => {
-	const stub = { builtCount: 0, sentList: [] };
+	const stub = { builtCount: 0, sentList: [], sendOptionsList: [], sentAtList: [] };
 	stub.builder = (apiKeyText) => {
 		stub.builtCount += 1;
 		stub.builtWithApiKeyText = apiKeyText;
-		return { emails: { send: (sendParameters) => { stub.sentList.push(sendParameters); return answerOf(sendParameters); } } };
+		return {
+			emails: {
+				send: (sendParameters, sendOptions) => {
+					stub.sentList.push(sendParameters);
+					stub.sendOptionsList.push(sendOptions);
+					stub.sentAtList.push(Date.now());
+					return answerOf(sendParameters, stub.sentList.length);
+				},
+			},
+		};
 	};
 	return stub;
 };
@@ -107,6 +130,82 @@ caseList.push((done) => {
 		check('T2.6 an absent [email-sender] section is refused by name', /^emailSenderNotConfigured/.test(emailSenderOf({ emailSenderSettings: undefined }).configRefusal));
 		check('T2.6 no refusal text carries the key', ![noKeySender.configRefusal, offDomainSender.configRefusal].some((refusalText) => refusalText.includes(goodSettings.resendApiKey)));
 		done();
+	});
+});
+
+// resend 6.39.0 dist/index.cjs fetchRequest, the catch around fetch(): exactly this object, resolved
+const SDK_NETWORK_FAILURE_ANSWER = Object.freeze({ data: null, error: { name: 'application_error', statusCode: null, message: 'Unable to fetch data. The request could not be resolved.' }, headers: null });
+const SUCCESS_ANSWER = Object.freeze({ data: { id: 'msg_retry_ok' }, error: null });
+
+// T2.7
+caseList.push((done) => {
+	statusLogList.length = 0;
+	const stub = stubBuilderOf((sendParameters, callNumber) => Promise.resolve(callNumber === 1 ? SDK_NETWORK_FAILURE_ANSWER : SUCCESS_ANSWER));
+	emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText, result) => {
+		check('T2.7 the SDK\'s resolved network failure is retried once and the second success is delivered', !errText && result.messageId === 'msg_retry_ok' && result.attemptCount === 2 && stub.sentList.length === 2, `${errText} ${JSON.stringify(result)} sends=${stub.sentList.length}`);
+		const [firstOptions = {}, secondOptions = {}] = stub.sendOptionsList;
+		check('T2.7 both attempts carry the same idempotency key', !!firstOptions.idempotencyKey && firstOptions.idempotencyKey === secondOptions.idempotencyKey, JSON.stringify(stub.sendOptionsList));
+		check('T2.7 the unreachable first attempt and the second attempt are logged', statusLogList.some((logText) => /providerUnreachable on attempt 1 of 2 \(Unable to fetch data.*application_error\)\); retrying in 0 ms/.test(logText)) && statusLogList.some((logText) => /sent on attempt 2 of 2 \(message msg_retry_ok\)/.test(logText)), JSON.stringify(statusLogList));
+		done();
+	});
+});
+
+// T2.8
+caseList.push((done) => {
+	const stub = stubBuilderOf(() => Promise.resolve(SDK_NETWORK_FAILURE_ANSWER));
+	emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText, result) => {
+		check('T2.8 network failure twice: providerUnreachable (not providerRefused), exactly two attempts', /^providerUnreachable: .*Unable to fetch data.*attempt 2 of 2/.test(errText) && !result.messageId && stub.sentList.length === 2, `${errText} sends=${stub.sentList.length}`);
+		done();
+	});
+});
+
+// T2.9
+caseList.push((done) => {
+	const stub = stubBuilderOf(() => Promise.resolve({ data: null, error: { statusCode: 422, name: 'validation_error', message: 'The from address domain is not verified' }, headers: {} }));
+	emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText) => {
+		check('T2.9 a resolved validation_error is providerRefused and is not retried', /^providerRefused: .*not verified.*validation_error/.test(errText) && stub.sentList.length === 1, `${errText} sends=${stub.sentList.length}`);
+		done();
+	});
+});
+
+// T2.10
+caseList.push((done) => {
+	const stub = stubBuilderOf((sendParameters, callNumber) => (callNumber === 1 ? Promise.reject(new Error('connect ETIMEDOUT')) : Promise.resolve(SUCCESS_ANSWER)));
+	emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText, result) => {
+		check('T2.10 a rejection is retried once and a second success is delivered', !errText && result.messageId === 'msg_retry_ok' && stub.sentList.length === 2, `${errText} sends=${stub.sentList.length}`);
+		const twiceStub = stubBuilderOf(() => Promise.reject(new Error('connect ETIMEDOUT')));
+		emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: twiceStub.builder }).sendEmail(messageOf(), (secondErrText) => {
+			check('T2.10 a rejection twice is providerUnreachable after exactly two attempts', /^providerUnreachable: .*ETIMEDOUT.*attempt 2 of 2/.test(secondErrText) && twiceStub.sentList.length === 2, `${secondErrText} sends=${twiceStub.sentList.length}`);
+			done();
+		});
+	});
+});
+
+// T2.11
+caseList.push((done) => {
+	const stub = stubBuilderOf(() => Promise.resolve({ data: null, error: { name: 'application_error', statusCode: 502, message: 'Internal server error. We are unable to process your request right now, please try again later.' }, headers: {} }));
+	emailSenderOf({ emailSenderSettings: goodSettings, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText) => {
+		check('T2.11 application_error carrying an HTTP status is the provider\'s answer: providerRefused, no retry', /^providerRefused: .*application_error/.test(errText) && stub.sentList.length === 1, `${errText} sends=${stub.sentList.length}`);
+		done();
+	});
+});
+
+// T2.12
+caseList.push((done) => {
+	const stub = stubBuilderOf((sendParameters, callNumber) => Promise.resolve(callNumber === 1 ? SDK_NETWORK_FAILURE_ANSWER : SUCCESS_ANSWER));
+	emailSenderOf({ emailSenderSettings: { ...goodSettings, unreachableRetryDelayMilliseconds: '300' }, resendClientBuilder: stub.builder }).sendEmail(messageOf(), (errText) => {
+		const waitedMilliseconds = stub.sentAtList[1] - stub.sentAtList[0];
+		check('T2.12 the retry waits the configured unreachableRetryDelayMilliseconds (300)', !errText && waitedMilliseconds >= 280 && waitedMilliseconds < 1500, `waited ${waitedMilliseconds} ms`);
+		const notValidSender = emailSenderOf({ emailSenderSettings: { ...goodSettings, unreachableRetryDelayMilliseconds: 'soon' }, resendClientBuilder: stub.builder });
+		check('T2.12 a retry delay that is not a whole number is refused by name', /^emailSettingNotValid: .*unreachableRetryDelayMilliseconds/.test(notValidSender.configRefusal), notValidSender.configRefusal);
+		statusLogList.length = 0;
+		const { unreachableRetryDelayMilliseconds, ...settingsWithoutDelay } = goodSettings;
+		const defaultStub = stubBuilderOf((sendParameters, callNumber) => Promise.resolve(callNumber === 1 ? SDK_NETWORK_FAILURE_ANSWER : SUCCESS_ANSWER));
+		emailSenderOf({ emailSenderSettings: settingsWithoutDelay, resendClientBuilder: defaultStub.builder }).sendEmail(messageOf(), (defaultErrText) => {
+			const defaultWaitedMilliseconds = defaultStub.sentAtList[1] - defaultStub.sentAtList[0];
+			check('T2.12 absent from the ini, the wait is the settings file\'s default, 2000 ms', !defaultErrText && defaultWaitedMilliseconds >= 1950 && statusLogList.some((logText) => /retrying in 2000 ms/.test(logText)), `waited ${defaultWaitedMilliseconds} ms ${JSON.stringify(statusLogList)}`);
+			done();
+		});
 	});
 });
 

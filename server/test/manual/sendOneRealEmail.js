@@ -13,6 +13,9 @@ const commandLineParser = require('qtools-parse-command-line');
 const configFileProcessor = require('qtools-config-file-processor');
 const { emailSenderOf } = require('../../lib/email-sender');
 
+// lib/email-sender.js logs an unreachable first attempt through process.global.xLog, as it does inside the server
+process.global = { xLog: { status: (logText) => console.log(logText), error: (logText) => console.error(logText) } };
+
 const { values: valueListByName } = commandLineParser.getParameters();
 const instanceName = [].concat(valueListByName.instanceName || [])[0];
 const toAddress = [].concat(valueListByName.toAddress || [])[0];

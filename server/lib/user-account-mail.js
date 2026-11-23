@@ -29,7 +29,7 @@ const VOCABULARY_FILE_PATH = path.join(__dirname, 'user-account-mail-vocabulary.
 const REQUIRED_MESSAGE_NAME_LIST = ['passwordReset', 'passwordChanged', 'confirmEmail', 'newAccountNotice', 'approvalRequest', 'awaitingApproval', 'accountApproved', 'accountDeclined', 'approvalDecided'];
 const REQUIRED_REPLY_NAME_LIST = [
 	'resetRequested', 'confirmationResent', 'registeredCheckEmail', 'registeredSignedIn', 'passwordResetDone', 'registrationConfirmed',
-	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
+	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registeredConfirmationNotSent', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
 ];
 
 const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText } = require(VOCABULARY_FILE_PATH);

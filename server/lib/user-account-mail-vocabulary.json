@@ -119,6 +119,7 @@
 		"confirmationResent": "If an account is waiting for confirmation, we have emailed a new link to its address.",
 		"registeredCheckEmail": "Your account was created. We have emailed a link to confirm your address; open it to sign in.",
 		"registeredSignedIn": "Your account was created and you are signed in.",
+		"registeredConfirmationNotSent": "Your account was created, but we could not send the email to confirm your address just now. Please ask for a new confirmation link in a few minutes.",
 		"passwordResetDone": "Your password was changed and you are signed in. Every earlier sign-in has ended.",
 		"registrationConfirmed": "Your email address is confirmed and you are signed in.",
 		"registeredCheckEmailThenApproval": "Your account was created. We have emailed a link to confirm your address; once you open it, your application goes to an administrator for approval.",
