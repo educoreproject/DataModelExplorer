@@ -26,7 +26,7 @@ if (!instanceName || !toAddress) {
 
 const instanceConfigDirPath = path.join(__dirname, '..', '..', '..', '..', 'configs', 'instanceSpecific', instanceName);
 const emailSenderSettings = configFileProcessor.getConfig('startApiServer.ini', instanceConfigDirPath, { resolve: true })['email-sender'];
-const emailSender = emailSenderOf({ emailSenderSettings });
+const emailSender = emailSenderOf({ emailSenderSettings, failureAlerter: (alertFieldByName) => console.error(`sendOneRealEmail: would alert ${JSON.stringify(alertFieldByName)}`) });
 if (emailSender.configRefusal) {
 	console.error(`sendOneRealEmail: REFUSED: ${emailSender.configRefusal}`);
 	process.exit(1);
@@ -36,6 +36,7 @@ const sentAtText = new Date().toISOString();
 emailSender.sendEmail(
 	{
 		toList: [toAddress],
+		alertLabel: { mailName: 'mailCheck', accountName: 'sendOneRealEmail' },
 		subject: `EDUcore mail check from ${instanceName}`,
 		text: `This is the one-time check that the EDUcore server can send mail through Resend (registration and password reset work, ${sentAtText}). No action is needed.`,
 		html: `<p>This is the one-time check that the EDUcore server can send mail through Resend (registration and password reset work, ${sentAtText}).</p><p>No action is needed.</p>`,

@@ -40,22 +40,31 @@ const BASE_REGISTRATION_SETTINGS = Object.freeze({
 	addressWindowMinutes: '60',
 });
 
-const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUserList = [], accessPointNameList, endpointFileNameList }, callback) => {
+// emailSenderOverride (WORKORDER-accountMailFailureAndApprovalNotice-112326): a REAL lib/email-sender.js (stub Resend
+// client, real alerter) used in place of the capture stub, so a gate can drive the real tries, failure names and alerts
+// through the real flows; capturedMailList and setMailRefusal then do nothing
+const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUserList = [], accessPointNameList, endpointFileNameList, emailSenderOverride }, callback) => {
 	const capturedMailList = [];
 	const logList = [];
 	const mailState = { refusalText: '' };
-	const emailSender = {
+	const captureEmailSender = {
 		configRefusal: '',
 		fromAddress: 'noreply@example.org',
 		sendEmail: (message, sendCallback) => {
+			// the real sender refuses a message without an alertLabel (WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 d)
+			if (!message.alertLabel || !message.alertLabel.mailName || !message.alertLabel.accountName) {
+				throw new Error(`accountFlowHarness: a sendEmail without alertLabel { mailName, accountName }: ${message.subject}`);
+			}
+			// a refusal set by the test fails the send as email-sender does: its text, and its name as failureName
 			if (mailState.refusalText) {
-				sendCallback(mailState.refusalText, {});
+				sendCallback(mailState.refusalText, { failureName: mailState.refusalText.split(':')[0] });
 				return;
 			}
 			capturedMailList.push(message);
 			sendCallback('', { messageId: `stub-${capturedMailList.length}`, deliveredToList: message.toList });
 		},
 	};
+	const emailSender = emailSenderOverride || captureEmailSender;
 	const userRegistrationSettings = registrationSettingsOf({ ...BASE_REGISTRATION_SETTINGS, ...registrationSettingOverrideByName });
 	const scratchDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'accountFlow-'));
 	bootUserAccountServer(

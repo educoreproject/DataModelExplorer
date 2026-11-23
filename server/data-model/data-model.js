@@ -306,9 +306,26 @@ const moduleFunction =
 		// settings, handed to the access points. A missing or inconsistent section is a named refusal, logged here and
 		// answered by every registration and reset request; the rest of the server is unaffected.
 
+		// WORKORDER-accountMailFailureAndApprovalNotice-112326: M5/M6 a, Node's per-address connect window raised for the
+		// WHOLE PROCESS here, once (its 250 ms default lost demo's mail); M6 d, a mail that fails for good is alerted as one
+		// rate-limited ACCOUNT_MAIL_ALERT log line (lib/account-mail-alerter.js).
 		taskList.push((args, next) => {
 			const { xLog, getConfig } = process.global;
-			const emailSender = require('../lib/email-sender').emailSenderOf({ emailSenderSettings: getConfig('email-sender') });
+			const emailSenderLib = require('../lib/email-sender');
+			const emailSenderSettings = getConfig('email-sender');
+			const { connectRefusal, appliedMilliseconds } = emailSenderLib.applyConnectAttemptTimeout(emailSenderSettings || {});
+			if (connectRefusal) {
+				xLog.error(`[email-sender] ${connectRefusal}`);
+			}
+			xLog.status(`[email-sender] outgoing connections: per-address connect attempt window ${appliedMilliseconds} ms`);
+			const alertIntervalMinutes = emailSenderLib.settingOf(emailSenderSettings, 'failureAlertIntervalMinutes');
+			const accountMailAlerter = require('../lib/account-mail-alerter').accountMailAlerterOf({
+				// a refused [email-sender] section (logged below) sends nothing; its alerts then keep the settings file's interval
+				minimumIntervalMilliseconds: (Number.isInteger(alertIntervalMinutes) ? alertIntervalMinutes : emailSenderLib.settingOf({}, 'failureAlertIntervalMinutes')) * 60 * 1000,
+				alertLineWriter: (alertLineText) => xLog.error(alertLineText),
+				heldLineWriter: (heldLineText) => xLog.status(heldLineText),
+			});
+			const emailSender = emailSenderLib.emailSenderOf({ emailSenderSettings, failureAlerter: accountMailAlerter.alertMailFailure });
 			const userRegistrationSettings = require('../lib/user-registration-settings').registrationSettingsOf(getConfig('user-registration'));
 			[emailSender.configRefusal, userRegistrationSettings.settingsRefusal, ...userRegistrationSettings.settingsWarningList].filter(Boolean).forEach((refusalText) => xLog.error(`[user-registration] ${refusalText}`));
 			next('', { ...args, emailSender, userRegistrationSettings });

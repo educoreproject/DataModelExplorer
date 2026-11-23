@@ -6,7 +6,7 @@
 // user-registration-register.js — ACCESS POINT: a visitor creates their own account (PLAN-userRegistrationReset-112026
 // 4.3, rulings R1, R3, R7). Behind POST /api/registerUser (public).
 //
-//   serviceFunction({ username, password, first, last, emailAdr, applicationComment, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, mailOutcome, refusal }))
+//   serviceFunction({ username, password, first, last, emailAdr, applicationComment, clientAddress }, callback(errText, { user, isSignedIn, isAwaitingApproval, isApprovalAfterConfirmation, refusal }))
 //
 // Only those five properties, and the optional applicationComment (WORKORDER-adminApproval-112126 A8: a note to the
 // approvers, text, at most user-profile-rules.json maxLengthByPropertyName.applicationComment, stored in its own users
@@ -21,10 +21,12 @@
 // and the account cannot sign in (user-login refuses it, emailNotConfirmed) until the link is followed. false: the
 // account is active at once and the endpoint signs it in. Either way the new-account notice goes to
 // newAccountNoticeList (R7; an empty list sends nothing). A failed mail is logged by name and never undoes the account.
-// When the confirmation mail fails to go (its link not issued, or the send failing after email-sender's one retry) the
-// reply carries mailOutcome 'accountMailNotSent' (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3), so the page
-// tells the person to ask for a new link instead of waiting for one; otherwise mailOutcome is ''. The notices to
-// administrators are not waited for by the person and only logged.
+// EXCEPT the confirmation mail (WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 e): the row is written before it
+// goes, so when it fails for good (its link not issued, or the send failing after email-sender's tries) THIS request's
+// row is undone (deleted with its tokens, only while still pendingConfirmation) and the person is refused
+// registrationMailNotSent or registrationMailRefused: nothing was created, try again. Without the undo the username
+// would be taken by an account nobody can confirm. The notices to administrators are not waited for by the person: a
+// failure is only logged (and alerted by email-sender).
 //
 // requireAdminApproval=true (WORKORDER-adminApproval-112126): the account is never signed in here. With confirmation on
 // it waits for its link as above, and the approval request goes out when the link is followed (A2: approvers are asked
@@ -38,7 +40,8 @@ const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous
 const { refusalOf, refusalText, textIdentifierRefusalOf, valueLengthRefusalOf, usernameRefusalOf, PENDING_CONFIRMATION_TEXT, PENDING_APPROVAL_TEXT } = require('../../../lib/user-profile-rules');
 const { requestApprovalOf } = require('../../../lib/user-account-approval');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
-const { issueToken } = require('../../../lib/user-account-tokens');
+const { issueToken, deleteTokensOfUser } = require('../../../lib/user-account-tokens');
+const { mailFailureRefusalOf } = require('../../../lib/account-mail-failure');
 const { accountMailOf, lifetimeTextOf, applicationCommentTextOf } = require('../../../lib/user-account-mail');
 
 const REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['username', 'password', 'first', 'last', 'emailAdr']);
@@ -46,8 +49,8 @@ const OPTIONAL_REGISTRATION_PROPERTY_NAME_LIST = Object.freeze(['applicationComm
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NEW_ACCOUNT_SOURCE_TEXT = 'selfRegistration';
 const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
-// M3: the reply's mailOutcome when the confirmation mail did not go; the same name as the reset form's refusal
-const ACCOUNT_MAIL_NOT_SENT_TEXT = 'accountMailNotSent';
+// M6 e: the failure name when the confirmation link could not even be issued (a problem on our side, not transient)
+const TOKEN_NOT_ISSUED_FAILURE_NAME = 'confirmationTokenNotIssued';
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
@@ -167,20 +170,44 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			issueToken({ sqlDb, dataMapping, userRefId: args.userRefId, purpose: 'confirmEmail', lifetimeMinutes: confirmationLinkLifetimeMinutes }, (issueError, { tokenText } = {}) => {
 				if (issueError) {
 					xLog.error(`[${moduleName}] confirmationTokenNotIssued for ${args.userRow.username}: ${issueError}`);
-					next('', { ...args, mailOutcome: ACCOUNT_MAIL_NOT_SENT_TEXT });
+					next('', { ...args, confirmationFailureName: TOKEN_NOT_ISSUED_FAILURE_NAME });
 					return;
 				}
 				const confirmMail = accountMailOf({
 					messageName: 'confirmEmail',
 					fillByName: { firstName: args.userRow.first, username: args.userRow.username, lifetimeText: lifetimeTextOf(confirmationLinkLifetimeMinutes), linkUrl: `${publicSiteUrl}/confirm?token=${tokenText}`, siteUrl: publicSiteUrl },
 				});
-				emailSender.sendEmail({ toList: [args.userRow.emailAdr], ...confirmMail }, (sendError) => {
+				emailSender.sendEmail({ toList: [args.userRow.emailAdr], ...confirmMail, alertLabel: { mailName: 'confirmEmail', accountName: args.userRow.username } }, (sendError, { failureName } = {}) => {
 					if (sendError) {
 						xLog.error(`[${moduleName}] confirmationMailNotSent for ${args.userRow.username}: ${sendError}`);
-						next('', { ...args, mailOutcome: ACCOUNT_MAIL_NOT_SENT_TEXT });
+						next('', { ...args, confirmationFailureName: failureName });
 						return;
 					}
 					next('', args);
+				});
+			});
+		});
+
+		// M6 e: the confirmation mail failed for good, so this request's account is undone (its tokens, then its row, only
+		// while still pendingConfirmation) and the person is told nothing was created
+		taskList.push((args, next) => {
+			if (!args.confirmationFailureName) {
+				next('', args);
+				return;
+			}
+			deleteTokensOfUser({ sqlDb, dataMapping, userRefId: args.userRefId }, (tokenDeleteError) => {
+				if (tokenDeleteError) {
+					next(`undoing the account ${args.userRow.username}: ${tokenDeleteError}`, args);
+					return;
+				}
+				args.userTable.runStatement(dataMapping['profile-user'].getSql('unconfirmedByRefIdDelete', { refId: args.userRefId, disabled: PENDING_CONFIRMATION_TEXT }), QUIET_OPTIONS, (rowDeleteError) => {
+					if (rowDeleteError) {
+						next(`undoing the account ${args.userRow.username}: ${rowDeleteError}`, args);
+						return;
+					}
+					xLog.status(`[${moduleName}] account undone: ${args.userRow.username} (its confirmation mail was not sent: ${args.confirmationFailureName})`);
+					const refusal = mailFailureRefusalOf({ flowName: 'registration', failureName: args.confirmationFailureName });
+					next(refusalText(refusal), { ...args, refusal });
 				});
 			});
 		});
@@ -204,7 +231,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				messageName: 'newAccountNotice',
 				fillByName: { username: args.userRow.username, firstName: args.userRow.first, lastName: args.userRow.last, emailAdr: args.userRow.emailAdr, confirmationText: args.requireEmailConfirmation ? 'yes' : 'no', applicationCommentText: applicationCommentTextOf(args.userRow.applicationComment), siteUrl: publicSiteUrl },
 			});
-			emailSender.sendEmail({ toList: [...newAccountNoticeList], ...noticeMail }, (sendError) => {
+			emailSender.sendEmail({ toList: [...newAccountNoticeList], ...noticeMail, alertLabel: { mailName: 'newAccountNotice', accountName: args.userRow.username } }, (sendError) => {
 				if (sendError) {
 					xLog.error(`[${moduleName}] newAccountNoticeNotSent for ${args.userRow.username}: ${sendError}`);
 				}
@@ -212,7 +239,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			});
 		});
 
-		pipeRunner(taskList.getList(), { mailOutcome: '' }, (err, args = {}) => {
+		pipeRunner(taskList.getList(), {}, (err, args = {}) => {
 			if (args.refusal) {
 				callback(err, { refusal: args.refusal });
 				return;
@@ -227,7 +254,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				isSignedIn: !args.requireEmailConfirmation && !args.requireAdminApproval,
 				isAwaitingApproval: !!args.requireAdminApproval && !args.requireEmailConfirmation,
 				isApprovalAfterConfirmation: !!args.requireAdminApproval && args.requireEmailConfirmation,
-				mailOutcome: args.mailOutcome,
 			});
 		});
 	};

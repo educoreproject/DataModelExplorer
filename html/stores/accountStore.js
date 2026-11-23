@@ -10,13 +10,13 @@
 // where to go. A refusal from the server answers { refusalName, reason }: reason is shown, refusalName is kept in
 // refusalName so a page can offer the right next step.
 //
-// WORKORDER-accountMailFailureAndApprovalNotice-112326: isMailNotSent says the mail the person is waiting for did not go
-// (M3: a reset or resend refused accountMailNotSent, or a registration replying mailOutcome accountMailNotSent);
-// isApprovalNotice that noticeMsg tells them an administrator must approve the account (M4: the page sets it apart).
+// WORKORDER-accountMailFailureAndApprovalNotice-112326: isMailNotSent says the request was refused because the mail the
+// person is waiting for did not go (M3, M6: components/accountMailOutcome.js); isApprovalNotice that an administrator
+// must still approve the account (M4: the page shows the approval block beside noticeMsg, which says what succeeded).
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
-import { isMailNotSentRefusal, isMailNotSentReply, isApprovalReply } from '@/components/accountMailOutcome.js';
+import { isMailNotSentRefusal, isApprovalReply } from '@/components/accountMailOutcome.js';
 
 const accountStoreInitObject = {
 	loading: false,
@@ -112,7 +112,6 @@ export const useAccountStore = defineStore('accountStore', {
 			this.noticeMsg = response.data[0]?.message || '';
 			this.isAwaitingApproval = response.data[0]?.isAwaitingApproval === true;
 			this.isApprovalNotice = isApprovalReply(response.data[0]);
-			this.isMailNotSent = isMailNotSentReply(response.data[0]);
 			return true;
 		},
 

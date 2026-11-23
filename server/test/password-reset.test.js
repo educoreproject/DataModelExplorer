@@ -5,7 +5,7 @@
 //
 //   T3.1 found by username; found by email in another case; the mail goes to the STORED address
 //   T3.2 unknown identifier: byte-identical status and body, nothing captured. A refused send for a matched account is
-//        answered 503 accountMailNotSent (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3, tqii's ruling, which
+//        answered 503 accountMailRefused (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3/M6, tqii's ruling, which
 //        replaces R4's "answers exactly like an unknown account" for this one case); an unknown one still answers alike
 //   T3.3 token: works once; second use refused; expired refused; tampered refused; a second request kills the first;
 //        a weak password does not spend the link
@@ -85,7 +85,7 @@ step((done) => {
 	requestReset('carol-not-a-user@example.org', (unknownResponse) => {
 		requestReset('dave', (refusedSendResponse) => {
 			state.harness.setMailRefusal('');
-			check('T3.2 a refused send is told (503 accountMailNotSent); an unknown account during the refusal still answers like a known one', refusedSendResponse.statusCode === 503 && refusedSendResponse.bodyJson && refusedSendResponse.bodyJson.refusalName === 'accountMailNotSent' && unknownResponse.statusCode === state.knownResponse.statusCode && unknownResponse.bodyText === state.knownResponse.bodyText, `${refusedSendResponse.statusCode} ${refusedSendResponse.bodyText}`);
+			check('T3.2 a refused send is told (503 accountMailRefused); an unknown account during the refusal still answers like a known one', refusedSendResponse.statusCode === 503 && refusedSendResponse.bodyJson && refusedSendResponse.bodyJson.refusalName === 'accountMailRefused' && unknownResponse.statusCode === state.knownResponse.statusCode && unknownResponse.bodyText === state.knownResponse.bodyText, `${refusedSendResponse.statusCode} ${refusedSendResponse.bodyText}`);
 			check('T3.2 the refused send is logged by name', logged(/resetMailNotSent for dave: providerRefused/));
 			done();
 		});

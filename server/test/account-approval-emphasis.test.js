@@ -3,9 +3,11 @@
 // person is told that an administrator must approve their account, the sentence is set apart.
 //
 //   E1 mail: every message an APPLICANT receives (every vocabulary message but the approvers' three) is composed; each
-//      sentence in it that speaks of an administrator approving or reviewing sits, in the html part, inside the
-//      important box (bold, coloured) and, in the text part, on a line of its own starting "IMPORTANT: ". At least one
-//      such sentence must be found, so the check cannot pass empty.
+//      sentence in it that speaks of an administrator approving or reviewing sits, in the html part, inside the amber
+//      callout box (bold heading, bold coloured text) and, in the text part, on a line of its own starting "IMPORTANT: ".
+//      At least one such sentence must be found, so the check cannot pass empty.
+//   E4 the approval block's words are the same in the browser vocabulary and the server's (approvalNotice); no reply
+//      that the page shows in a success alert carries an approval sentence (tqii: a green tick says you are done)
 //   E2 the replies that carry an approval message are flagged for the page (isAwaitingApproval or
 //      isApprovalAfterConfirmation), from the REAL register and confirm endpoints
 //   E3 browser: every place found that shows an approval sentence renders it through AccountApprovalNotice, and that
@@ -45,18 +47,18 @@ const SAMPLE_FILL_BY_NAME = Object.freeze({
 	approvalPageUrl: 'https://site.example.org/account-approval?userRefId=1', confirmationText: 'yes', applicationCommentText: '(none)', decisionText: 'approved', deciderUsername: 'admin', declineEmailText: 'sent',
 });
 const sentenceListOf = (plainText) => String(plainText).split(/(?<=[.!?])\s+/).map((sentenceText) => sentenceText.trim()).filter(Boolean);
-const IMPORTANT_HTML_PATTERN = /<div style="[^"]*background-color:[^"]*border-left:[^"]*"><p style="[^"]*color:#[0-9a-f]{6};font-weight:bold">([^<]*)<\/p><\/div>/g;
+const IMPORTANT_HTML_PATTERN = /<div style="[^"]*background-color:#fff4e5;[^"]*border-left:[^"]*"><p style="[^"]*font-weight:bold[^"]*">([^<]*)<\/p><p style="[^"]*color:#[0-9a-f]{6};font-weight:bold">([^<]*)<\/p><\/div>/g;
 const applicantMessageNameList = Object.keys(messageByName).filter((messageName) => !APPROVER_MESSAGE_NAME_LIST.includes(messageName));
 let approvalSentenceCount = 0;
 applicantMessageNameList.forEach((messageName) => {
 	const composedMail = accountMailOf({ messageName, fillByName: SAMPLE_FILL_BY_NAME });
-	const importantHtmlTextList = [...composedMail.html.matchAll(IMPORTANT_HTML_PATTERN)].map(([, innerText]) => innerText);
+	const importantHtmlTextList = [...composedMail.html.matchAll(IMPORTANT_HTML_PATTERN)].map(([, headingText, innerText]) => `${headingText} ${innerText}`);
 	const htmlOutsideImportantText = composedMail.html.replace(IMPORTANT_HTML_PATTERN, '').replace(/<[^>]+>/g, ' ');
 	const textLineList = composedMail.text.split('\n');
 	textLineList.forEach((lineText) => {
 		sentenceListOf(lineText.replace(new RegExp(`^${IMPORTANT_PREFIX_TEXT}`), '')).filter((sentenceText) => APPROVAL_SENTENCE_PATTERN.test(sentenceText)).forEach((sentenceText) => {
 			approvalSentenceCount += 1;
-			check(`E1 ${messageName} text part: "${sentenceText}" is on a line of its own starting IMPORTANT:`, lineText === `${IMPORTANT_PREFIX_TEXT}${sentenceText}`, lineText);
+			check(`E1 ${messageName} text part: "${sentenceText}" is on a line of its own starting IMPORTANT:`, lineText.startsWith(IMPORTANT_PREFIX_TEXT) && lineText.endsWith(sentenceText), lineText);
 			check(`E1 ${messageName} html part: "${sentenceText}" is inside the important box`, importantHtmlTextList.some((innerText) => innerText.includes(sentenceText.replace(/'/g, '&#39;'))), composedMail.html);
 		});
 	});
@@ -68,14 +70,13 @@ check('E1 at least one applicant approval sentence was found and checked (awaiti
 // ---- E3
 const sourceOf = (relativePath) => fs.readFileSync(path.join(htmlDirPath, relativePath), 'utf8');
 const noticeComponentText = sourceOf('components/AccountApprovalNotice.vue');
-check('E3 AccountApprovalNotice is a warning alert, bold', /<v-alert type="warning"[^>]*>\{\{ noticeText \}\}<\/v-alert>/.test(noticeComponentText) && /\.account-approval-notice\s*\{\s*font-weight:\s*700;/.test(noticeComponentText), noticeComponentText);
+check('E3 AccountApprovalNotice is a prominent warning alert with a heading, bold', /<v-alert type="warning"[^>]*prominent[^>]*>\s*<div class="account-approval-notice__heading">\{\{ headingText \}\}<\/div>\s*<div>\{\{ noticeText \}\}<\/div>\s*<\/v-alert>/.test(noticeComponentText) && /\.account-approval-notice\s*\{\s*font-weight:\s*700;\s*color:\s*#9a3412/.test(noticeComponentText), noticeComponentText);
 // each place: the file, what it shows, and the pattern that proves it goes through AccountApprovalNotice
 const APPROVAL_PLACE_LIST = [
-	{ placeName: 'register.vue sign-up explainer (registerApprovalNoticeText)', relativePath: 'pages/register.vue', pattern: /<AccountApprovalNotice v-if="accountStore\.registrationOptions\.requireAdminApproval" :notice-text="accountVocabulary\.registerApprovalNoticeText"/ },
-	{ placeName: 'register.vue after sign-up (an approval reply)', relativePath: 'pages/register.vue', pattern: /<AccountApprovalNotice v-else-if="accountStore\.isApprovalNotice" :notice-text="accountStore\.noticeMsg"/ },
-	{ placeName: 'register.vue after sign-up, confirmation mail not sent, approval to follow', relativePath: 'pages/register.vue', pattern: /<AccountApprovalNotice v-if="accountStore\.isMailNotSent && accountStore\.isApprovalNotice" :notice-text="accountVocabulary\.registerApprovalNoticeText"/ },
-	{ placeName: 'confirm.vue after the address is confirmed (registrationConfirmedAwaitingApproval)', relativePath: 'pages/confirm.vue', pattern: /<AccountApprovalNotice v-if="accountStore\.isAwaitingApproval" :notice-text="accountStore\.noticeMsg"/ },
-	{ placeName: 'form_login.vue sign-in refused awaitingApproval', relativePath: 'components/form_login.vue', pattern: /<AccountApprovalNotice v-if="LoginStore\.statusMsg && LoginStore\.loginRefusalName === 'awaitingApproval'" :notice-text="LoginStore\.statusMsg"/ },
+	{ placeName: 'register.vue sign-up explainer (before submit)', relativePath: 'pages/register.vue', pattern: /<AccountApprovalNotice v-if="accountStore\.registrationOptions\.requireAdminApproval" :heading-text="accountVocabulary\.registerApprovalNoticeHeadingText" :notice-text="accountVocabulary\.registerApprovalNoticeText"/ },
+	{ placeName: 'register.vue after sign-up (an approval reply), beside the success line', relativePath: 'pages/register.vue', pattern: /<v-alert type="success"[^>]*>\{\{ accountStore\.noticeMsg \}\}<\/v-alert>\s*<AccountApprovalNotice v-if="accountStore\.isApprovalNotice" :heading-text="accountVocabulary\.approvalNoticeHeadingText" :notice-text="accountVocabulary\.approvalNoticeText"/ },
+	{ placeName: 'confirm.vue after the address is confirmed, beside the success line', relativePath: 'pages/confirm.vue', pattern: /<v-alert type="success"[^>]*>\{\{ accountStore\.noticeMsg \}\}<\/v-alert>\s*<AccountApprovalNotice :heading-text="accountVocabulary\.approvalNoticeHeadingText" :notice-text="accountVocabulary\.approvalNoticeText"/ },
+	{ placeName: 'form_login.vue sign-in refused awaitingApproval', relativePath: 'components/form_login.vue', pattern: /<AccountApprovalNotice v-if="LoginStore\.statusMsg && LoginStore\.loginRefusalName === 'awaitingApproval'" :heading-text="accountVocabulary\.approvalNoticeHeadingText" :notice-text="accountVocabulary\.approvalNoticeText"/ },
 ];
 APPROVAL_PLACE_LIST.forEach(({ placeName, relativePath, pattern }) => check(`E3 ${placeName} is shown through AccountApprovalNotice`, pattern.test(sourceOf(relativePath))));
 ['pages/register.vue', 'pages/confirm.vue', 'pages/forgot-password.vue', 'pages/reset-password.vue', 'components/form_login.vue'].forEach((relativePath) => {
@@ -83,6 +84,14 @@ APPROVAL_PLACE_LIST.forEach(({ placeName, relativePath, pattern }) => check(`E3 
 	check(`E3 ${relativePath} shows registerApprovalNoticeText only through AccountApprovalNotice`, !looseUseList.length, looseUseList.join(' | '));
 });
 check('E3 the store sets isApprovalNotice from an approval reply and on a confirmation awaiting approval', /this\.isApprovalNotice = isApprovalReply\(response\.data\[0\]\);/.test(sourceOf('stores/accountStore.js')) && /this\.isAwaitingApproval = true;\s*this\.isApprovalNotice = true;/.test(sourceOf('stores/accountStore.js')));
+
+// ---- E4
+const browserVocabularyText = sourceOf('components/accountVocabulary.js');
+const browserTextOf = (vocabularyName) => (browserVocabularyText.match(new RegExp(`${vocabularyName}: '([^']*)'`)) || [])[1];
+const { approvalNotice } = require('../lib/user-account-mail-vocabulary.json');
+check('E4 the browser approval block says exactly what the server vocabulary says (heading and sentence)', browserTextOf('approvalNoticeHeadingText') === approvalNotice.headingText && browserTextOf('approvalNoticeText') === approvalNotice.sentenceText, `${browserTextOf('approvalNoticeHeadingText')} | ${browserTextOf('approvalNoticeText')}`);
+const looseReplyNameList = ['registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registrationConfirmedAwaitingApproval'].filter((replyName) => APPROVAL_SENTENCE_PATTERN.test(replyByName[replyName]) || /approv/i.test(replyByName[replyName]));
+check('E4 the replies shown in a success alert beside the approval block carry no approval sentence', !looseReplyNameList.length, looseReplyNameList.map((replyName) => `${replyName}: ${replyByName[replyName]}`).join(' | '));
 
 // E3: the store's reading of the replies (components/accountMailOutcome.js), its own browser test run here so CI runs it
 const outcomeTestRun = require('child_process').spawnSync(process.execPath, [path.join(htmlDirPath, 'tests', 'accountApproval', 'accountMailOutcome.test.mjs')], { encoding: 'utf8' });

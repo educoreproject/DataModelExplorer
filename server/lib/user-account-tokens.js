@@ -7,8 +7,13 @@
 // a leaked database yields no working link.
 //
 //   issueToken({ sqlDb, dataMapping, userRefId, purpose, lifetimeMinutes }, callback(errText, { tokenText, expiresAt }))
-//       sweeps spent rows, retires every earlier unused token of the same account and purpose (a second reset kills the
-//       first), then writes the new row
+//       sweeps spent rows, then writes the new row. It does NOT retire earlier tokens (WORKORDER-accountMailFailureAnd
+//       ApprovalNotice-112326): a link whose mail then fails must not have killed the one the person already holds.
+//   retireEarlierTokens({ sqlDb, dataMapping, userRefId, purpose, keptTokenText }, callback(errText))
+//       called once the new link's mail is SENT: every other unused token of the account and purpose is retired (a
+//       second reset kills the first)
+//   deleteTokensOfUser({ sqlDb, dataMapping, userRefId }, callback(errText))
+//       every token of one account, for a self-registration undone because its confirmation mail failed (M6 e)
 //   redeemToken({ sqlDb, dataMapping, tokenText, purpose }, callback(errText, { userRefId, refusal }))
 //       an unknown, altered, used or expired token, or one of another purpose, is refused alike (linkNotValid); a good one
 //       is marked used BEFORE its account is returned, so it works exactly once
@@ -47,7 +52,6 @@ const issueToken = ({ sqlDb, dataMapping, userRefId, purpose, lifetimeMinutes },
 
 	taskList.push((args, next) => sqlDb.getTable(USER_TOKENS_TABLE_NAME, mergeArgs(args, next, 'tokenTable')));
 	taskList.push((args, next) => args.tokenTable.runStatement(tokenMapper.getSql('spentSweep', { nowText }), QUIET_OPTIONS, (sweepError) => next(sweepError ? `sweeping spent tokens: ${sweepError}` : '', args)));
-	taskList.push((args, next) => args.tokenTable.runStatement(tokenMapper.getSql('unusedOfUserRetire', { userRefId, purpose, usedAt: nowText }), QUIET_OPTIONS, (retireError) => next(retireError ? `retiring earlier tokens: ${retireError}` : '', args)));
 	taskList.push((args, next) =>
 		args.tokenTable.saveObject(tokenMapper.map({ userRefId, purpose, tokenHash: tokenHashOf(tokenText), expiresAt, usedAt: '' }, 'reverse'), QUIET_OPTIONS, (saveError) => next(saveError ? `writing the token: ${saveError}` : '', args)),
 	);
@@ -58,6 +62,37 @@ const issueToken = ({ sqlDb, dataMapping, userRefId, purpose, lifetimeMinutes },
 			return;
 		}
 		callback('', { tokenText, expiresAt });
+	});
+};
+
+const retireEarlierTokens = ({ sqlDb, dataMapping, userRefId, purpose, keptTokenText }, callback) => {
+	const purposeProblem = purposeProblemOf(purpose);
+	if (purposeProblem || typeof userRefId !== 'string' || !userRefId || !TOKEN_TEXT_PATTERN.test(String(keptTokenText))) {
+		callback(purposeProblem || `[${moduleName}] retireEarlierTokens needs a userRefId and the kept token`);
+		return;
+	}
+	sqlDb.getTable(USER_TOKENS_TABLE_NAME, (tableError, tokenTable) => {
+		if (tableError) {
+			callback(`[${moduleName}] retireEarlierTokens: ${tableError}`);
+			return;
+		}
+		tokenTable.runStatement(dataMapping['user-token'].getSql('unusedOfUserRetireExcept', { userRefId, purpose, keptTokenHash: tokenHashOf(keptTokenText), usedAt: new Date().toISOString() }), QUIET_OPTIONS, (retireError) =>
+			callback(retireError ? `[${moduleName}] retiring earlier tokens: ${retireError}` : ''),
+		);
+	});
+};
+
+const deleteTokensOfUser = ({ sqlDb, dataMapping, userRefId }, callback) => {
+	if (typeof userRefId !== 'string' || !userRefId) {
+		callback(`[${moduleName}] deleteTokensOfUser needs a userRefId`);
+		return;
+	}
+	sqlDb.getTable(USER_TOKENS_TABLE_NAME, (tableError, tokenTable) => {
+		if (tableError) {
+			callback(`[${moduleName}] deleteTokensOfUser: ${tableError}`);
+			return;
+		}
+		tokenTable.runStatement(dataMapping['user-token'].getSql('ofUserDelete', { userRefId }), QUIET_OPTIONS, (deleteError) => callback(deleteError ? `[${moduleName}] deleting the account's tokens: ${deleteError}` : ''));
 	});
 };
 
@@ -107,4 +142,4 @@ const redeemToken = ({ sqlDb, dataMapping, tokenText, purpose }, callback) => {
 	});
 };
 
-module.exports = { issueToken, redeemToken, tokenHashOf, TOKEN_PURPOSE_LIST };
+module.exports = { issueToken, retireEarlierTokens, deleteTokensOfUser, redeemToken, tokenHashOf, TOKEN_PURPOSE_LIST };

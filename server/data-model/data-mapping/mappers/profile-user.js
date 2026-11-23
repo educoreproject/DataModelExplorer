@@ -246,6 +246,11 @@ const moduleFunction =
 				'applicationCommentByRefId': `
 					UPDATE <!tableName!> SET [applicationComment] = <!applicationComment!> WHERE refId = <!refId!>
 				`,
+				// WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 e: a self-registration whose confirmation mail failed is
+				// undone; only that row, and only while it is still in the state the request wrote (pendingConfirmation)
+				'unconfirmedByRefIdDelete': `
+					DELETE FROM <!tableName!> WHERE refId = <!refId!> AND [disabled] = <!disabled!>
+				`,
 				// the users columns, for the startup migration (user-account-schema-migration adds applicationComment)
 				'tableInfo': `PRAGMA table_info(<!tableName!>)`,
 				// WORKORDER-adminApproval-112126: the accounts waiting for an approver, oldest first, with what the approval

@@ -9,6 +9,7 @@
 		"recipientMissing": { "refusalName": "recipientMissing", "reason": "a message needs at least one recipient" },
 		"messageIncomplete": { "refusalName": "messageIncomplete", "reason": "a message needs a subject and a text or html body" },
 		"providerRefused": { "refusalName": "providerRefused", "reason": "the mail provider refused the message: <!detailText!>" },
+		"providerUnavailable": { "refusalName": "providerUnavailable", "reason": "the mail provider was busy or failing and did not take the message: <!detailText!>" },
 		"providerUnreachable": { "refusalName": "providerUnreachable", "reason": "the mail provider could not be reached, so the message was not sent: <!detailText!>" },
 		"providerAnswerEmpty": { "refusalName": "providerAnswerEmpty", "reason": "the mail provider answered with neither an error nor a message id" }
 	}

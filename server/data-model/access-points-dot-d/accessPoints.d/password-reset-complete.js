@@ -90,7 +90,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				return;
 			}
 			const changedMail = accountMailOf({ messageName: 'passwordChanged', fillByName: { firstName: userRow.first || userRow.username, username: userRow.username, forgotPasswordUrl: `${publicSiteUrl}/forgot-password`, siteUrl: publicSiteUrl } });
-			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...changedMail }, (sendError) => {
+			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...changedMail, alertLabel: { mailName: 'passwordChanged', accountName: userRow.username } }, (sendError) => {
 				if (sendError) {
 					xLog.error(`[${moduleName}] passwordChangedNoticeNotSent for ${userRow.username}: ${sendError}`);
 				}

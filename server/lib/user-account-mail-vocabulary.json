@@ -9,8 +9,11 @@
 
 	"_actionParagraph": "WORKORDER-approvalMailPolish-112126 P1/P2. A paragraph may be an object { actionUrlFill, actionLabelText } instead of text: the message's action. The html part shows it as a button labelled actionLabelText linking to the URL in fill actionUrlFill; the text part shows the label and the URL beneath it. The URL must be an http(s) address (anything else is refused when the mail is composed). P2: name the site as <!originHost!> (the host alone, e.g. demo.educore.dev), never <!siteUrl!>: a bare site address competes with the action, and readers click the first link they see. The only URLs in a message are its actions.",
 
-	"_importantParagraph": "WORKORDER-accountMailFailureAndApprovalNotice-112326 M4. A paragraph may be { importantText } instead of text: a sentence the reader must not skim past, today the one telling an applicant that an administrator must approve the account. The html part sets it in a tinted box in bold, coloured text; the text part puts it on a line of its own starting with textPrefixText. Its fills are required (never optional).",
+	"_importantParagraph": "WORKORDER-accountMailFailureAndApprovalNotice-112326 M4. A paragraph may be { importantHeadingText (optional), importantText } instead of text: what the reader must not skim past, today that an administrator must approve the account. The html part sets it in an amber callout box, the heading bold above the text; the text part puts heading and text on one line of its own starting with textPrefixText. Its fills are required (never optional).",
 	"importantParagraph": { "textPrefixText": "IMPORTANT: " },
+
+	"_approvalNotice": "M4 (tqii, 2026-11-23: 'this does not look very prominent'): the words of the approval block, which is never inside a success message. The browser's copy (html/components/accountVocabulary.js approvalNoticeHeadingText, approvalNoticeText) must match; account-approval-emphasis.test.js holds them together. The OAuth sign-in page shows it for a pending account.",
+	"approvalNotice": { "headingText": "Not finished yet: waiting for approval", "sentenceText": "An administrator must approve your account before you can sign in. We will email you when that is decided." },
 
 	"_approvalMessages": "WORKORDER-adminApproval-112126. approvalRequest is the new-account notice when requireAdminApproval is on (A4): it goes to newAccountNoticeList once the address is confirmed (or at sign-up when confirmation is off), says plainly that the account awaits approval, and puts the button to the approval page for that one applicant FIRST, before the applicant's details (WORKORDER-approvalMailPolish-112126 P1; the page approves nothing by itself). approvalDecided tells the same list who decided, so a second approver does not act.",
 
@@ -86,7 +89,7 @@
 			"paragraphList": [
 				"Hello <!firstName!>,",
 				"Thank you for creating the EDUcore account <!username!>.",
-				{ "importantText": "An administrator will review it before it can be used." },
+				{ "importantHeadingText": "Not finished yet: waiting for approval", "importantText": "An administrator must approve your account before you can sign in." },
 				"You don't need to do anything now; we will email you as soon as it is decided.",
 				"EDUcore, <!originHost!>"
 			]
@@ -117,18 +120,17 @@
 		}
 	},
 
-	"_replyByName": "what the public endpoints answer. resetRequested and confirmationResent are the SAME for every request, whether or not an account matched, so the form cannot be used to learn who has an account.",
+	"_replyByName": "what the public endpoints answer. The three *Approval replies say only what SUCCEEDED (M4): the page shows the approval block (approvalNotice) beside them, flagged by isAwaitingApproval or isApprovalAfterConfirmation. resetRequested and confirmationResent are the SAME for every request, whether or not an account matched, so the form cannot be used to learn who has an account.",
 	"replyByName": {
 		"resetRequested": "If an account matches, we have emailed a link to its address. The link works once and expires soon.",
 		"confirmationResent": "If an account is waiting for confirmation, we have emailed a new link to its address.",
 		"registeredCheckEmail": "Your account was created. We have emailed a link to confirm your address; open it to sign in.",
 		"registeredSignedIn": "Your account was created and you are signed in.",
-		"registeredConfirmationNotSent": "Your account was created, but we could not send the email to confirm your address just now. Please ask for a new confirmation link in a few minutes.",
 		"passwordResetDone": "Your password was changed and you are signed in. Every earlier sign-in has ended.",
 		"registrationConfirmed": "Your email address is confirmed and you are signed in.",
-		"registeredCheckEmailThenApproval": "Your account was created. We have emailed a link to confirm your address; once you open it, your application goes to an administrator for approval.",
-		"registeredAwaitingApproval": "Your account was created and is now waiting for an administrator to approve it. We will email you when that is decided.",
-		"registrationConfirmedAwaitingApproval": "Your email address is confirmed. Your application is now with an administrator for approval; we will email you when that is decided.",
+		"registeredCheckEmailThenApproval": "Your account was created. We have emailed a link to confirm your address; please open it.",
+		"registeredAwaitingApproval": "Your account was created.",
+		"registrationConfirmedAwaitingApproval": "Your email address is confirmed.",
 		"accountApprovedReply": "The account was approved and its owner emailed.",
 		"accountDeclinedReply": "The account was declined."
 	}

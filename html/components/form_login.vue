@@ -71,8 +71,8 @@
 				data-testid="login-card"
 			>
 				<!-- WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: a sign-in refused because the account awaits approval
-				     is set apart, not shown as an ordinary error -->
-				<AccountApprovalNotice v-if="LoginStore.statusMsg && LoginStore.loginRefusalName === 'awaitingApproval'" :notice-text="LoginStore.statusMsg" data-testid="login-approval-notice" />
+				     is the approval block, not an ordinary error -->
+				<AccountApprovalNotice v-if="LoginStore.statusMsg && LoginStore.loginRefusalName === 'awaitingApproval'" :heading-text="accountVocabulary.approvalNoticeHeadingText" :notice-text="accountVocabulary.approvalNoticeText" data-testid="login-approval-notice" />
 				<v-alert
 					v-else-if="LoginStore.statusMsg"
 					type="error"

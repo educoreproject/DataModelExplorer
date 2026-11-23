@@ -10,16 +10,18 @@
 //
 // Like a reset request, the caller gets the SAME answer whether or not an account matched. A link is mailed only when
 // exactly one account matches the username or address and it is awaiting confirmation; issuing it retires the
-// account's earlier confirmation links. Each case that sends nothing is logged by name. A mail that fails to go (after
-// email-sender's one retry) is answered as the refusal accountMailNotSent (WORKORDER-accountMailFailureAndApprovalNotice-
-// 112326 M3), as on the reset form.
+// account's earlier confirmation links once it is SENT (a failed send leaves the old link working). Each case that sends
+// nothing is logged by name. A mail that fails for good (after email-sender's tries) is answered as the refusal
+// accountMailNotSent or accountMailRefused (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3, M6), as on the reset
+// form.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs } = new require('qtools-asynchronous-pipe-plus')();
 const { refusalOf, refusalText, textIdentifierRefusalOf, PENDING_CONFIRMATION_TEXT } = require('../../../lib/user-profile-rules');
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
-const { issueToken } = require('../../../lib/user-account-tokens');
+const { issueToken, retireEarlierTokens } = require('../../../lib/user-account-tokens');
+const { mailFailureRefusalOf } = require('../../../lib/account-mail-failure');
 const { accountMailOf, lifetimeTextOf } = require('../../../lib/user-account-mail');
 
 const MAXIMUM_IDENTIFIER_LENGTH = 254;
@@ -86,14 +88,20 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					messageName: 'confirmEmail',
 					fillByName: { firstName: userRow.first || userRow.username, username: userRow.username, lifetimeText: lifetimeTextOf(confirmationLinkLifetimeMinutes), linkUrl: `${publicSiteUrl}/confirm?token=${tokenText}`, siteUrl: publicSiteUrl },
 				});
-				emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...confirmMail }, (sendError) => {
+				emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...confirmMail, alertLabel: { mailName: 'confirmEmail', accountName: userRow.username } }, (sendError, { failureName } = {}) => {
 					if (sendError) {
 						xLog.error(`[${moduleName}] confirmationMailNotSent for ${userRow.username}: ${sendError}`);
-						const refusal = refusalOf('accountMailNotSent');
+						const refusal = mailFailureRefusalOf({ flowName: 'accountMail', failureName });
 						next(refusalText(refusal), { ...args, refusal });
 						return;
 					}
-					next('', args);
+					// the new link is out: only now do the account's earlier confirmation links stop working
+					retireEarlierTokens({ sqlDb, dataMapping, userRefId: userRow.refId, purpose: 'confirmEmail', keptTokenText: tokenText }, (retireError) => {
+						if (retireError) {
+							xLog.error(`[${moduleName}] earlierConfirmationLinksNotRetired for ${userRow.username}: ${retireError}`);
+						}
+						next('', args);
+					});
 				});
 			});
 		});

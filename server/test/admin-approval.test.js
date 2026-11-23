@@ -142,7 +142,7 @@ step((done) => {
 	const signIn = oauthSignInOf(state.phaseOneHarness);
 	signIn({ username: 'paula', password: PAULA_PASSWORD }, (pendingReply) => {
 		check('P1.2 OAuth sign-in: a pendingApproval account is refused by name (awaitingApproval, 403)', pendingReply.statusCode === 403 && /awaitingApproval/.test(pendingReply.htmlText), `${pendingReply.statusCode} ${pendingReply.htmlText.slice(-300)}`);
-		check('P1.2 OAuth sign-in: the awaiting-approval refusal is set apart (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: class approval-notice, bold amber)', /<div class="err approval-notice">awaitingApproval: /.test(pendingReply.htmlText) && /\.err\.approval-notice\{[^}]*font-weight:bold/.test(pendingReply.htmlText), pendingReply.htmlText.slice(-300));
+		check('P1.2 OAuth sign-in: the awaiting-approval refusal is the approval block (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: bold heading and sentence, amber)', /<div class="err approval-notice" data-refusal-name="awaitingApproval"><span class="approval-heading">Not finished yet: waiting for approval<\/span>An administrator must approve your account before you can sign in\./.test(pendingReply.htmlText) && /\.err\.approval-notice\{[^}]*font-weight:bold/.test(pendingReply.htmlText), pendingReply.htmlText.slice(-400));
 		signIn({ username: 'declan', password: DECLAN_PASSWORD }, (declinedReply) => {
 			check('P1.2 OAuth sign-in: a declined account is refused by name (accountNotApproved, 403)', declinedReply.statusCode === 403 && /accountNotApproved/.test(declinedReply.htmlText), `${declinedReply.statusCode} ${declinedReply.htmlText.slice(-300)}`);
 			check('P1.2 OAuth sign-in: a declined account is an ordinary error, not the approval notice', /<div class="err">accountNotApproved: /.test(declinedReply.htmlText), declinedReply.htmlText.slice(-300));
@@ -244,7 +244,9 @@ step((done) => bootWith(APPROVAL_ON, (harness) => {
 	state.approvalHarness = harness;
 	const post = postTo(harness);
 	post('/api/registerUser', applicantOf('appone'), (registerResponse) => {
-		check('P2.1 sign-up says the application goes to an approver after the email is confirmed, not signed in', registerResponse.statusCode === 200 && /goes to an administrator for approval/.test(registerResponse.bodyText) && signedInUsernameOf(registerResponse) !== 'appone', `${registerResponse.bodyText} ${registerResponse.authclaimsText}`);
+		// WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: the reply says only what succeeded and flags the approval to
+		// follow; the page shows the approval block (the sentence is no longer inside the success message)
+		check('P2.1 sign-up flags that the application goes to an approver after the email is confirmed, not signed in', registerResponse.statusCode === 200 && registerResponse.bodyJson && registerResponse.bodyJson[0].isApprovalAfterConfirmation === true && signedInUsernameOf(registerResponse) !== 'appone', `${registerResponse.bodyText} ${registerResponse.authclaimsText}`);
 		const apponeConfirmMail = confirmMailOf(harness, 'appone');
 		check('P2.1 no approval request before the address is confirmed (A2), and no informational notice', !mailsWith(harness, /Approval needed|New EDUcore account/).length, JSON.stringify(harness.capturedMailList.map((mailMessage) => mailMessage.subject)));
 		harness.capturedMailList.length = 0;

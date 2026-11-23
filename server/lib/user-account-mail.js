@@ -18,8 +18,9 @@
 // with the host of the siteUrl fill, which every message must carry. The vocabulary names the site by that host alone
 // (<!originHost!>), never as an address: the only URLs in a message are its actions (P2).
 // A paragraph may also be IMPORTANT, { importantText } (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: the
-// sentence telling an applicant an administrator must approve the account): in the html part a tinted box with bold,
-// coloured text; in the text part a line of its own starting with the vocabulary's importantParagraph.textPrefixText.
+// sentence telling an applicant an administrator must approve the account): in the html part an amber callout box, its
+// optional heading bold above coloured text; in the text part heading and text on a line of their own starting with the
+// vocabulary's importantParagraph.textPrefixText.
 // Every fill a message names is required (WORKORDER-approvalLooseEnds-112126 L2): composing it with a fill absent, null,
 // empty or only spaces throws by name, as an absent action URL does; nothing is quietly filled with ''. Only the fills
 // in the message's optionalFillList may be absent, and an absent one removes its whole paragraph.
@@ -32,10 +33,13 @@ const VOCABULARY_FILE_PATH = path.join(__dirname, 'user-account-mail-vocabulary.
 const REQUIRED_MESSAGE_NAME_LIST = ['passwordReset', 'passwordChanged', 'confirmEmail', 'newAccountNotice', 'approvalRequest', 'awaitingApproval', 'accountApproved', 'accountDeclined', 'approvalDecided'];
 const REQUIRED_REPLY_NAME_LIST = [
 	'resetRequested', 'confirmationResent', 'registeredCheckEmail', 'registeredSignedIn', 'passwordResetDone', 'registrationConfirmed',
-	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registeredConfirmationNotSent', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
+	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
 ];
 
-const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText, importantParagraph } = require(VOCABULARY_FILE_PATH);
+const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText, importantParagraph, approvalNotice } = require(VOCABULARY_FILE_PATH);
+if (!approvalNotice || typeof approvalNotice.headingText !== 'string' || !approvalNotice.headingText || typeof approvalNotice.sentenceText !== 'string' || !approvalNotice.sentenceText) {
+	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: approvalNotice needs headingText and sentenceText (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4)`);
+}
 if (!importantParagraph || typeof importantParagraph.textPrefixText !== 'string' || !importantParagraph.textPrefixText.trim()) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: importantParagraph.textPrefixText is missing (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4)`);
 }
@@ -46,22 +50,25 @@ if (!originText || typeof originText.subjectSuffixText !== 'string' || !/<!origi
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: originText needs subjectSuffixText and paragraphText, each carrying <!originHost!> (WORKORDER-adminApproval-112126 A3)`);
 }
 // a paragraph is text; an action: { actionUrlFill: the fill holding its URL, actionLabelText: the button's words }; or
-// important text (M4): { importantText }
+// important text (M4): { importantHeadingText (optional), importantText }
 const isActionParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object' && Object.prototype.hasOwnProperty.call(paragraphEntry, 'actionUrlFill');
 const isImportantParagraph = (paragraphEntry) => paragraphEntry !== null && typeof paragraphEntry === 'object' && Object.prototype.hasOwnProperty.call(paragraphEntry, 'importantText');
 const isValidParagraph = (paragraphEntry) =>
 	typeof paragraphEntry === 'string' ||
 	(isActionParagraph(paragraphEntry) && Object.keys(paragraphEntry).length === 2 && typeof paragraphEntry.actionUrlFill === 'string' && !!paragraphEntry.actionUrlFill && typeof paragraphEntry.actionLabelText === 'string' && !!paragraphEntry.actionLabelText) ||
-	(isImportantParagraph(paragraphEntry) && Object.keys(paragraphEntry).length === 1 && typeof paragraphEntry.importantText === 'string' && !!paragraphEntry.importantText.trim());
+	(isImportantParagraph(paragraphEntry) &&
+		Object.keys(paragraphEntry).every((propertyName) => ['importantHeadingText', 'importantText'].includes(propertyName)) &&
+		typeof paragraphEntry.importantText === 'string' && !!paragraphEntry.importantText.trim() &&
+		(paragraphEntry.importantHeadingText === undefined || (typeof paragraphEntry.importantHeadingText === 'string' && !!paragraphEntry.importantHeadingText.trim())));
 // the words of a text or important paragraph, the template its fills are read from ('' for an action)
-const paragraphTemplateTextOf = (paragraphEntry) => (typeof paragraphEntry === 'string' ? paragraphEntry : isImportantParagraph(paragraphEntry) ? paragraphEntry.importantText : '');
+const paragraphTemplateTextOf = (paragraphEntry) => (typeof paragraphEntry === 'string' ? paragraphEntry : isImportantParagraph(paragraphEntry) ? `${paragraphEntry.importantHeadingText || ''} ${paragraphEntry.importantText}` : '');
 REQUIRED_MESSAGE_NAME_LIST.forEach((messageName) => {
 	const messageEntry = (messageByName || {})[messageName];
 	if (!messageEntry || typeof messageEntry.subjectText !== 'string' || !Array.isArray(messageEntry.paragraphList) || !messageEntry.paragraphList.length) {
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName} needs subjectText and a non-empty paragraphList`);
 	}
 	if (!messageEntry.paragraphList.every(isValidParagraph)) {
-		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is not text, { actionUrlFill, actionLabelText } or { importantText }`);
+		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: messageByName.${messageName}.paragraphList holds a paragraph that is not text, { actionUrlFill, actionLabelText } or { importantHeadingText, importantText }`);
 	}
 });
 
@@ -116,7 +123,8 @@ const originHostOf = (siteUrl) => {
 const ACTION_BUTTON_STYLE_TEXT = 'display:inline-block;padding:12px 22px;background-color:#1f5fa8;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:6px';
 const ACTION_URL_PATTERN = /^https?:\/\/\S+$/;
 // M4: the important paragraph in the html part, inline styles only (Apple Mail and Gmail): a tinted box, bold dark-amber text
-const IMPORTANT_BOX_STYLE_TEXT = 'margin:20px 0;padding:12px 16px;background-color:#fff4e5;border-left:4px solid #c2410c;border-radius:4px';
+const IMPORTANT_BOX_STYLE_TEXT = 'margin:20px 0;padding:14px 18px;background-color:#fff4e5;border:1px solid #fdba74;border-left:6px solid #c2410c;border-radius:6px';
+const IMPORTANT_HEADING_STYLE_TEXT = 'margin:0 0 6px 0;color:#9a3412;font-weight:bold;font-size:17px';
 const IMPORTANT_TEXT_STYLE_TEXT = 'margin:0;color:#9a3412;font-weight:bold';
 
 // a fill is present when it holds something other than spaces; absent, null, '' and '  ' are all absent (L2)
@@ -156,7 +164,8 @@ const accountMailOf = ({ messageName, fillByName }) => {
 			return `${paragraphTemplate.actionLabelText}:\n${plainFill[paragraphTemplate.actionUrlFill]}`;
 		}
 		if (isImportantParagraph(paragraphTemplate)) {
-			return `${importantParagraph.textPrefixText}${filledTextOf(paragraphTemplate.importantText, plainFill)}`;
+			const headingText = paragraphTemplate.importantHeadingText ? `${filledTextOf(paragraphTemplate.importantHeadingText, plainFill)}. ` : '';
+			return `${importantParagraph.textPrefixText}${headingText}${filledTextOf(paragraphTemplate.importantText, plainFill)}`;
 		}
 		return filledTextOf(paragraphTemplate, plainFill);
 	});
@@ -166,7 +175,8 @@ const accountMailOf = ({ messageName, fillByName }) => {
 			return `<p style="margin:24px 0"><a href="${htmlEscapeOf(plainFill[paragraphTemplate.actionUrlFill])}" style="${ACTION_BUTTON_STYLE_TEXT}">${htmlEscapeOf(paragraphTemplate.actionLabelText)}</a></p>`;
 		}
 		if (isImportantParagraph(paragraphTemplate)) {
-			return `<div style="${IMPORTANT_BOX_STYLE_TEXT}"><p style="${IMPORTANT_TEXT_STYLE_TEXT}">${escapedParagraphOf(paragraphTemplate.importantText)}</p></div>`;
+			const headingHtml = paragraphTemplate.importantHeadingText ? `<p style="${IMPORTANT_HEADING_STYLE_TEXT}">${escapedParagraphOf(paragraphTemplate.importantHeadingText)}</p>` : '';
+			return `<div style="${IMPORTANT_BOX_STYLE_TEXT}">${headingHtml}<p style="${IMPORTANT_TEXT_STYLE_TEXT}">${escapedParagraphOf(paragraphTemplate.importantText)}</p></div>`;
 		}
 		const plainParagraph = plainParagraphList[paragraphIndex];
 		if (/^https?:\/\/\S+$/.test(plainParagraph)) {
@@ -202,4 +212,4 @@ const applicationCommentTextOf = (applicationComment) => (typeof applicationComm
 
 const lifetimeTextOf = (minuteCount) => (minuteCount % 60 === 0 && minuteCount >= 120 ? `${minuteCount / 60} hours` : `${minuteCount} minutes`);
 
-module.exports = { accountMailOf, accountReplyOf, approvalWordingOf, applicationCommentTextOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }) };
+module.exports = { approvalNotice: Object.freeze({ ...approvalNotice }), accountMailOf, accountReplyOf, approvalWordingOf, applicationCommentTextOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }) };

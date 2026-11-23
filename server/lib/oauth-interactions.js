@@ -35,6 +35,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const crypto = require('crypto');
 const { textIdentifierRefusalOf, refusalText } = require('./user-profile-rules');
+const { approvalNotice } = require('./user-account-mail');
 
 // --- tiny HTML helpers (no template engine; escape everything interpolated) ---
 const escapeHtml = (value) =>
@@ -55,7 +56,8 @@ const PAGE_STYLE = `
   button.secondary{background:#e2e8f0;color:#1d2733}
   .row{display:flex;gap:10px}.row button{margin-top:0}
   .err{background:#fdecea;color:#b3261e;border-radius:6px;padding:10px;font-size:13px;margin-bottom:8px}
-  .err.approval-notice{background:#fff4e5;color:#9a3412;border-left:4px solid #c2410c;font-weight:bold}
+  .err.approval-notice{background:#fff4e5;color:#9a3412;border:1px solid #fdba74;border-left:6px solid #c2410c;font-weight:bold;font-size:14px}
+  .err.approval-notice .approval-heading{display:block;font-size:15px;margin-bottom:4px}
   .scopes{background:#f4f6f8;border-radius:6px;padding:12px;font-size:13px;margin:12px 0}
   .scopes li{margin:2px 0}.muted{color:#5b6b7b;font-size:12px;margin-top:18px}
 `;
@@ -112,13 +114,15 @@ const moduleFunction = ({
 		res.send(html);
 	};
 
-	// isApprovalNotice (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4): the refusal says an administrator must
-	// approve the account, so it is set apart in bold amber rather than shown as an ordinary error
+	// isApprovalNotice (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4): an account waiting for approval is shown
+	// the approval block (user-account-mail-vocabulary.json approvalNotice: bold heading, the sentence, amber), not an
+	// ordinary error; the refusal's name stays on the block for a reader of the page source
+	const approvalNoticeHtml = `<span class="approval-heading">${escapeHtml(approvalNotice.headingText)}</span>${escapeHtml(approvalNotice.sentenceText)}`;
 	const renderLogin = ({ uid, error, isApprovalNotice = false }) => `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>EDUcore — Sign in</title>
 <style>${PAGE_STYLE}</style></head><body><div class="card">
 <h1>Sign in to EDUcore</h1><p class="sub">Authorize access to the education-standards knowledge graph.</p>
-${error ? `<div class="err${isApprovalNotice ? ' approval-notice' : ''}">${escapeHtml(error)}</div>` : ''}
+${error && isApprovalNotice ? `<div class="err approval-notice" data-refusal-name="awaitingApproval">${approvalNoticeHtml}</div>` : error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
 <form method="post" action="${escapeHtml(interactionPath)}/${escapeHtml(uid)}/login" autocomplete="off">
 <input type="hidden" name="csrf" value="${escapeHtml(csrfToken(uid))}">
 <label for="username">Username</label>
