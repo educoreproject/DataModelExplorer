@@ -21,6 +21,11 @@
 // answer shows an account exists, and only during a mail failure; no account, an ambiguous identifier and a sent link
 // still answer exactly alike. Earlier reset links of the account are retired only once the new one is SENT, so a failed
 // send leaves the link the person may already hold working (the unsent new token simply expires).
+//
+// WORKORDER-accountMailLooseEnds-112326: a failed send does not count against the identifier limit (E3: the guard's
+// releaseIdentifierAdmission; the address limit still counts it, and every request that never reached a send still
+// counts, so those answers stay alike). A reset link that could not be issued, and earlier links that could not be
+// retired, are alerted (E4) as well as logged; the answer stays the same as every other case.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -37,8 +42,8 @@ const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
 	const { sqlDb, dataMapping, emailSender, userRegistrationSettings } = passThroughParameters;
-	if (!emailSender || typeof emailSender.sendEmail !== 'function') {
-		throw new Error(`[${moduleName}] needs emailSender in passThroughParameters (data-model.js builds it)`);
+	if (!emailSender || typeof emailSender.sendEmail !== 'function' || typeof emailSender.alertFailure !== 'function') {
+		throw new Error(`[${moduleName}] needs emailSender { sendEmail, alertFailure } in passThroughParameters (data-model.js builds it)`);
 	}
 	const requestGuard = requestGuardOf({ userRegistrationSettings });
 
@@ -47,7 +52,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) => {
-			const guardRefusal = requestGuard.refusalOfRequest({ clientAddress, identifierText: typeof identifier === 'string' ? identifier : '' });
+			const { refusal: guardRefusal, releaseIdentifierAdmission } = requestGuard.admissionOfRequest({ clientAddress, identifierText: typeof identifier === 'string' ? identifier : '' });
 			const identifierRefusal = textIdentifierRefusalOf({ identifier });
 			const shapeRefusal = identifierRefusal || (!identifier.trim() ? refusalOf('requiredPropertyMissing', { detailList: ['identifier'] }) : identifier.length > MAXIMUM_IDENTIFIER_LENGTH ? refusalOf('propertyTooLong', { detailList: ['identifier'] }) : '');
 			const refusal = guardRefusal || shapeRefusal;
@@ -55,7 +60,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next(refusalText(refusal), { ...args, refusal });
 				return;
 			}
-			next('', args);
+			next('', { ...args, releaseIdentifierAdmission });
 		});
 
 		taskList.push((args, next) => sqlDb.getTable('users', mergeArgs(args, next, 'userTable')));
@@ -102,6 +107,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				// a failure here happens only for a matched account, so it is logged and answered like every other case
 				if (issueError) {
 					xLog.error(`[${moduleName}] resetTokenNotIssued for ${args.userRow.username}: ${issueError}`);
+					emailSender.alertFailure({ mailName: 'passwordReset', accountName: args.userRow.username, failureName: 'resetTokenNotIssued' });
 					next('skipRestOfPipe', args);
 					return;
 				}
@@ -119,6 +125,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...resetMail, alertLabel: { mailName: 'passwordReset', accountName: userRow.username } }, (sendError, { messageId, failureName } = {}) => {
 				if (sendError) {
 					xLog.error(`[${moduleName}] resetMailNotSent for ${userRow.username}: ${sendError}`);
+					args.releaseIdentifierAdmission();
 					const refusal = mailFailureRefusalOf({ flowName: 'accountMail', failureName });
 					next(refusalText(refusal), { ...args, refusal });
 					return;
@@ -133,6 +140,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			retireEarlierTokens({ sqlDb, dataMapping, userRefId: args.userRow.refId, purpose: 'passwordReset', keptTokenText: args.tokenText }, (retireError) => {
 				if (retireError) {
 					xLog.error(`[${moduleName}] earlierResetLinksNotRetired for ${args.userRow.username}: ${retireError}`);
+					emailSender.alertFailure({ mailName: 'passwordReset', accountName: args.userRow.username, failureName: 'earlierResetLinksNotRetired' });
 				}
 				next('', args);
 			});

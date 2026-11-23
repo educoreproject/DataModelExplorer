@@ -5,7 +5,7 @@
 // PLAN-userRegistrationReset-112026). Ported from justkidding's data-model/lib/email-sender.js, itself modelled on
 // lennypens' server/lib/emailSender.js; attachments dropped (nothing here sends one).
 //
-//   emailSenderOf({ emailSenderSettings, failureAlerter, resendClientBuilder }) -> { configRefusal, sendEmail, fromAddress }
+//   emailSenderOf({ emailSenderSettings, failureAlerter, resendClientBuilder }) -> { configRefusal, sendEmail, alertFailure, fromAddress }
 //   sendEmail({ toList, ccList, bccList, subject, text, html, alertLabel: { mailName, accountName } },
 //             callback(errText, { messageId, deliveredToList, attemptCount, failureName }))
 //   isTransientMailFailure(failureName)       -> true when the person should simply try again in a few minutes
@@ -30,6 +30,9 @@
 //
 // ALERT (M6 d): a message that fails for good is handed to failureAlerter({ mailName, accountName, failureName }) (lib/
 // account-mail-alerter.js, rate-limited), named by the message's alertLabel. Every send must carry an alertLabel.
+// alertFailure({ mailName, accountName, failureName }) hands the SAME alerter a failure that happened before any send
+// (WORKORDER-accountMailLooseEnds-112326 E4: a confirmation link that could not be issued), so it shares the one line
+// format and the one rate limit; each of the three names is required (it throws by name otherwise).
 //
 // SETTINGS ([email-sender] in startApiServer.ini, every one from configuration, no literal domain or address here, R6):
 //   resendApiKey, sendingDomain, fromAddress (must be ON sendingDomain), fromName, redirectAllEmailTo (blank, or one
@@ -293,7 +296,15 @@ const emailSenderOf = ({ emailSenderSettings, failureAlerter, resendClientBuilde
 		attemptSend(1);
 	};
 
-	return { configRefusal, sendEmail, fromAddress: configRefusal ? '' : String(fromAddress).trim() };
+	const alertFailure = ({ mailName, accountName, failureName } = {}) => {
+		const absentNameList = Object.entries({ mailName, accountName, failureName }).filter(([, nameText]) => !String(nameText || '').trim()).map(([propertyName]) => propertyName);
+		if (absentNameList.length) {
+			throw new Error(`[${moduleName}] alertFailure requires ${absentNameList.join(', ')} (WORKORDER-accountMailLooseEnds-112326 E4)`);
+		}
+		failureAlerter({ mailName, accountName, failureName });
+	};
+
+	return { configRefusal, sendEmail, alertFailure, fromAddress: configRefusal ? '' : String(fromAddress).trim() };
 };
 
 module.exports = { emailSenderOf, listFromConfig, isTransientMailFailure, applyConnectAttemptTimeout, settingOf };

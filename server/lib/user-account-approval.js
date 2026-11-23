@@ -9,7 +9,8 @@
 //       puts the account in pendingApproval, emails the applicant that it awaits approval, and sends the approval request
 //       (the A4 new-account notice, with the link to that applicant's approval page) to newAccountNoticeList. Called once
 //       the address is proved (A2): at confirmation, or at sign-up when confirmation is off. An empty list is logged by
-//       name (approvalWithoutApprovers) at every such sign-up, as at startup; a failed mail is logged by name and never
+//       name (approvalWithoutApprovers) at every such sign-up, as at startup, and alerted through emailSender.alertFailure
+//       (WORKORDER-accountMailLooseEnds-112326 E4); a failed mail is logged by name and never
 //       undoes the state change. Only the state write can fail the call.
 //   approvalPageUrlOf({ publicSiteUrl, userRefId }) -> the approval page of one applicant (the link approves nothing)
 //   applicantSummaryOf(userRow) -> { refId, username, first, last, emailAdr, createdAt, applicationComment, accountState, allowedDecisionNameList } for the approval
@@ -37,16 +38,19 @@ const APPROVAL_PAGE_PATH = '/account-approval';
 const approvalPageUrlOf = ({ publicSiteUrl, userRefId }) => `${publicSiteUrl}${APPROVAL_PAGE_PATH}?userRefId=${encodeURIComponent(userRefId)}`;
 
 // one mail, its failure logged by name and swallowed: mail never undoes an account change (email-sender alerts it,
-// WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 d, named by logName and the applicant)
+// WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 d, named by logName and the applicant); done({ failureName }) says
+// what happened, '' when it was sent, so a caller can tell the person (WORKORDER-accountMailLooseEnds-112326 E1)
 const sendLoggedOf = ({ emailSender, logName, username }) => (mailMessage, done) =>
-	emailSender.sendEmail({ ...mailMessage, alertLabel: { mailName: logName, accountName: username } }, (sendError, { messageId } = {}) => {
+	emailSender.sendEmail({ ...mailMessage, alertLabel: { mailName: logName, accountName: username } }, (sendError, { messageId, failureName } = {}) => {
 		const { xLog } = process.global;
 		if (sendError) {
 			xLog.error(`[${moduleName}] ${logName}NotSent for ${username}: ${sendError}`);
-		} else {
-			xLog.status(`[${moduleName}] ${logName} sent for ${username} (message ${messageId})`);
+			// the caller may say what happened (WORKORDER-accountMailLooseEnds-112326 E1); it is never an error of the flow
+			done({ failureName: failureName || 'unnamedMailFailure' });
+			return;
 		}
-		done();
+		xLog.status(`[${moduleName}] ${logName} sent for ${username} (message ${messageId})`);
+		done({ failureName: '' });
 	});
 
 const requestApprovalOf = ({ sqlDb, dataMapping, emailSender, registrationSettings, userRow }, callback) => {
@@ -68,6 +72,8 @@ const requestApprovalOf = ({ sqlDb, dataMapping, emailSender, registrationSettin
 	taskList.push((args, next) => {
 		if (!newAccountNoticeList.length) {
 			xLog.error(`[${moduleName}] ${NO_APPROVER_WARNING_TEXT}; ${userRow.username} is waiting and nobody was asked`);
+			// WORKORDER-accountMailLooseEnds-112326 E4: the approval request that should have gone went nowhere; alerted like a failed mail
+			emailSender.alertFailure({ mailName: 'approvalRequest', accountName: userRow.username, failureName: 'approvalWithoutApprovers' });
 			next('', args);
 			return;
 		}

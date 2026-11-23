@@ -6,14 +6,17 @@
 // The admin validator is only the first screen (it reads the token's claims): the account-approval-decide access point reads the
 // signed-in user's own row and refuses (notAnApprover) unless its STORED role is an approver's. Only the signed-in
 // username (the identity the verified token names) and the listed body properties are passed on; a role in the body or
-// the claims never reaches a decision. Answers [{ message, applicant, latestDecision }], or { refusalName, reason } with its status.
+// the claims never reaches a decision. Answers [{ message, isApplicantMailNotSent, applicant, latestDecision }], or { refusalName, reason } with its status.
+// message says what actually happened to the applicant's email (WORKORDER-accountMailLooseEnds-112326 E1): emailed, or
+// decided but the email could not be sent (could not be reached just now / a problem on our side); isApplicantMailNotSent
+// is true exactly then, so the page shows it as a warning. The decision stands either way.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
 const makeRefId = require('../../lib/make-ref-id');
 const { pipeRunner, taskListPlus } = new require('qtools-asynchronous-pipe-plus')();
 const { refusalOf, refusalText } = require('../../lib/user-profile-rules');
-const { accountReplyOf } = require('../../lib/user-account-mail');
+const { decisionMailOutcomeOf } = require('../../lib/account-mail-failure');
 
 const REQUEST_PROPERTY_NAME_LIST = Object.freeze(['userRefId', 'decisionName', 'sendDeclineEmail']);
 
@@ -54,7 +57,8 @@ const moduleFunction = function ({ dotD: endpointsDotD, passThroughParameters })
 				xRes.status(500).send(`the decision could not be recorded (${errorRefId})`);
 				return;
 			}
-			xRes.send([{ message: accountReplyOf(args.result.latestDecision.decisionName === 'approve' ? 'accountApprovedReply' : 'accountDeclinedReply'), applicant: args.result.applicant, latestDecision: args.result.latestDecision }]);
+			const { replyText, isApplicantMailNotSent } = decisionMailOutcomeOf({ decisionName: args.result.latestDecision.decisionName, failureName: args.result.applicantMailFailureName });
+			xRes.send([{ message: replyText, isApplicantMailNotSent, applicant: args.result.applicant, latestDecision: args.result.latestDecision }]);
 		});
 	};
 

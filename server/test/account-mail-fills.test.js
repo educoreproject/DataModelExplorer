@@ -9,6 +9,9 @@
 //   F2 for every message and every required fill: absent, and only spaces, each refused by name (no "Hello ,")
 //   F3 every optional fill: absent or '' composes, and its paragraph (label and all) is gone from subject, text and html
 //   F4 the optional list is short and justified: exactly the fills named in OPTIONAL_FILL_EXPECTATION below
+//   F5 approvalDecided (WORKORDER-accountMailLooseEnds-112326 E1): WITHOUT applicantMailNotSentText it is byte for byte
+//      the notice composed before that work order (written out below, composed on origin/dev 59ee933); WITH it, the
+//      notice names the failure and asks the approvers to tell the applicant
 //
 // The refusal is a throw (a code fault), so each refused compose runs in a child process and is read from its stderr.
 //
@@ -27,7 +30,8 @@ const TOKEN_PATTERN = /<!([A-Za-z0-9_]+)!>/g;
 // originHost is the composer's own (from siteUrl), never a caller's fill
 const COMPOSER_FILL_NAME_LIST = ['originHost'];
 // the fills that may be absent, by message (L2: the applicant's comment is the only one)
-const OPTIONAL_FILL_EXPECTATION = Object.freeze({ approvalRequest: ['applicationCommentText'], newAccountNotice: ['applicationCommentText'] });
+// approvalDecided's applicantMailNotSentText: WORKORDER-accountMailLooseEnds-112326 E1 (justified in the vocabulary's _optionalFillList)
+const OPTIONAL_FILL_EXPECTATION = Object.freeze({ approvalDecided: ['applicantMailNotSentText'], approvalRequest: ['applicationCommentText'], newAccountNotice: ['applicationCommentText'] });
 
 let passCount = 0;
 let failCount = 0;
@@ -108,7 +112,18 @@ messageNameList.forEach((messageName) => {
 
 // F4
 const declaredOptional = Object.fromEntries([...messageNameList].sort().filter((messageName) => (messageByName[messageName].optionalFillList || []).length).map((messageName) => [messageName, [...messageByName[messageName].optionalFillList].sort()]));
-check('F4 the optional fills are exactly the applicant comment in the two approver notices', JSON.stringify(declaredOptional) === JSON.stringify(OPTIONAL_FILL_EXPECTATION), JSON.stringify(declaredOptional));
+check('F4 the optional fills are exactly the applicant comment in the two approver notices, and the applicant-mail failure in the decision notice', JSON.stringify(declaredOptional) === JSON.stringify(OPTIONAL_FILL_EXPECTATION), JSON.stringify(declaredOptional));
+
+// F5
+const PRE_CHANGE_APPROVAL_DECIDED_MAIL = Object.freeze({"subject": "New EDUcore account appone: approved by ada (coming from site.example.org)", "text": "The account appone (App One, appone@example.org) on site.example.org was approved by ada. Nothing more is needed.\n\nDecline email to the applicant: not applicable\n\nThis message is coming from site.example.org.", "html": "<p>The account appone (App One, appone@example.org) on site.example.org was approved by ada. Nothing more is needed.</p>\n<p>Decline email to the applicant: not applicable</p>\n<p>This message is coming from site.example.org.</p>"});
+const decidedFillByName = { username: 'appone', firstName: 'App', lastName: 'One', emailAdr: 'appone@example.org', decisionText: 'approved', deciderUsername: 'ada', declineEmailText: 'not applicable', siteUrl: 'https://site.example.org' };
+['absent', 'empty'].forEach((formName) => {
+	const decidedMail = accountMailOf({ messageName: 'approvalDecided', fillByName: formName === 'absent' ? decidedFillByName : { ...decidedFillByName, applicantMailNotSentText: '' } });
+	check(`F5 approvalDecided with applicantMailNotSentText ${formName} is byte for byte the pre-change notice`, ['subject', 'text', 'html'].every((partName) => decidedMail[partName] === PRE_CHANGE_APPROVAL_DECIDED_MAIL[partName]), JSON.stringify(decidedMail.text));
+});
+const notSentText = 'One thing IS needed: the email telling the applicant could not be sent (the mail service could not be reached). Please tell them yourself.';
+const notSentMail = accountMailOf({ messageName: 'approvalDecided', fillByName: { ...decidedFillByName, applicantMailNotSentText: notSentText } });
+check('F5 approvalDecided with applicantMailNotSentText names the failure in text and html, and is otherwise the pre-change notice', notSentMail.subject === PRE_CHANGE_APPROVAL_DECIDED_MAIL.subject && notSentMail.text.includes(notSentText) && notSentMail.html.includes(`<p>${notSentText}</p>`) && notSentMail.text.replace(`${notSentText}\n\n`, '') === PRE_CHANGE_APPROVAL_DECIDED_MAIL.text, JSON.stringify(notSentMail.text));
 
 console.log(`\naccount-mail-fills: ${passCount} passed, ${failCount} failed`);
 process.exit(failCount ? 1 : 0);

@@ -9,11 +9,18 @@
 //       flowName 'accountMail' (reset request, resend confirmation) or 'registration' (sign-up, account undone);
 //       failureName is email-sender's (providerUnreachable, providerRefused, ...); a transient one says "try again in a
 //       few minutes", any other "a problem on our side". An unknown flowName throws: a code fault.
+//
+//   decisionMailOutcomeOf({ decisionName, failureName }) -> { replyText, isApplicantMailNotSent, applicantMailNotSentText }
+//       WORKORDER-accountMailLooseEnds-112326 E1: what the approval page and the approvers' notice say about the email to
+//       the applicant. failureName '' (sent, or a decline email suppressed) -> the plain reply; a transient failure ->
+//       "could not be reached just now"; any other -> "a problem on our side". Words: user-account-mail-vocabulary.json
+//       decisionReplyNameByMailOutcome, applicantMailNotSentTextByKind. An unknown decisionName throws: a code fault.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const path = require('path');
 const { refusalOf } = require('./user-profile-rules');
 const { isTransientMailFailure } = require('./email-sender');
+const { accountReplyOf, decisionReplyNameByMailOutcome, applicantMailNotSentTextByKind } = require('./user-account-mail');
 
 const RULES_FILE_PATH = path.join(__dirname, 'user-profile-rules.json');
 const { mailFailureRefusalNameByFlow, refusalByCase } = require(RULES_FILE_PATH);
@@ -33,4 +40,16 @@ const mailFailureRefusalOf = ({ flowName, failureName }) => {
 	return refusalOf(refusalNameByKind[isTransientMailFailure(failureName) ? 'transient' : 'other']);
 };
 
-module.exports = { mailFailureRefusalOf };
+const decisionMailOutcomeOf = ({ decisionName, failureName }) => {
+	const replyNameByOutcome = (decisionReplyNameByMailOutcome || {})[decisionName];
+	if (!replyNameByOutcome) {
+		throw new Error(`[${moduleName}] decisionMailOutcomeOf: '${decisionName}' is not one of: ${Object.keys(decisionReplyNameByMailOutcome || {}).join(', ')}`);
+	}
+	if (!failureName) {
+		return { replyText: accountReplyOf(replyNameByOutcome.noMailFailure), isApplicantMailNotSent: false, applicantMailNotSentText: '' };
+	}
+	const outcomeName = isTransientMailFailure(failureName) ? 'transientMailFailure' : 'otherMailFailure';
+	return { replyText: accountReplyOf(replyNameByOutcome[outcomeName]), isApplicantMailNotSent: true, applicantMailNotSentText: applicantMailNotSentTextByKind[outcomeName] };
+};
+
+module.exports = { mailFailureRefusalOf, decisionMailOutcomeOf };

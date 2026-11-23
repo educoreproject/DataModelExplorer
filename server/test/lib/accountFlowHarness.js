@@ -8,7 +8,7 @@
 // so a gate can check that a case was logged by name.
 //
 //   bootAccountFlowServer({ registrationSettingOverrideByName, seedUserList, accessPointNameList, endpointFileNameList }, callback(errText, harness))
-//   harness: { baseUrl, capturedMailList, logList, setMailRefusal(text), sqlDb, dataMapping, userTable, seededUserList, tokenSecret, close }
+//   harness: { baseUrl, capturedMailList, capturedAlertList (the capture stub's alertFailure lines), logList, setMailRefusal(text), sqlDb, dataMapping, userTable, seededUserList, tokenSecret, close }
 //   tokenOfMail(mailMessage) -> the token in the mail's link
 //   httpGet({ baseUrl, routePath, authtoken }, callback(errText, { statusCode, bodyText, bodyJson, authtoken }))
 
@@ -45,6 +45,7 @@ const BASE_REGISTRATION_SETTINGS = Object.freeze({
 // through the real flows; capturedMailList and setMailRefusal then do nothing
 const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUserList = [], accessPointNameList, endpointFileNameList, emailSenderOverride }, callback) => {
 	const capturedMailList = [];
+	const capturedAlertList = [];
 	const logList = [];
 	const mailState = { refusalText: '' };
 	const captureEmailSender = {
@@ -63,6 +64,8 @@ const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUse
 			capturedMailList.push(message);
 			sendCallback('', { messageId: `stub-${capturedMailList.length}`, deliveredToList: message.toList });
 		},
+		// WORKORDER-accountMailLooseEnds-112326 E4: a failure before any send, recorded as the real alerter's line would read
+		alertFailure: ({ mailName, accountName, failureName }) => capturedAlertList.push(`ACCOUNT_MAIL_ALERT mail=${mailName} account=${accountName} failure=${failureName}`),
 	};
 	const emailSender = emailSenderOverride || captureEmailSender;
 	const userRegistrationSettings = registrationSettingsOf({ ...BASE_REGISTRATION_SETTINGS, ...registrationSettingOverrideByName });
@@ -102,7 +105,7 @@ const bootAccountFlowServer = ({ registrationSettingOverrideByName = {}, seedUse
 							callback(`harness: user-account-schema-migration: ${migrationError}`);
 							return;
 						}
-						callback('', { ...harness, capturedMailList, logList, userRegistrationSettings, setMailRefusal: (refusalText) => { mailState.refusalText = refusalText; } });
+						callback('', { ...harness, capturedMailList, capturedAlertList, logList, userRegistrationSettings, setMailRefusal: (refusalText) => { mailState.refusalText = refusalText; } });
 					});
 				});
 			});
