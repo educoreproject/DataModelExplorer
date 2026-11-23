@@ -15,6 +15,11 @@
 	// a resend asked for on this form (the store outlives the page, so its isMailNotSent may be another page's)
 	const isResendTried = ref(false);
 	const resendConfirmation = async () => {
+		// WORKORDER-accountMailLooseEnds-112326 E2: a request is in flight (up to the server's 10 s mail budget); a second
+		// press, Enter or Space does nothing until it answers
+		if (accountStore.loading) {
+			return;
+		}
 		isResendTried.value = true;
 		isResendSent.value = await accountStore.resendConfirmation(username.value.trim());
 	};

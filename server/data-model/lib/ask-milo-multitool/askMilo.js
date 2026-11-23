@@ -10,6 +10,12 @@ const fs = require('fs');
 const commandLineParser = require('qtools-parse-command-line');
 const configFileProcessor = require('qtools-config-file-processor');
 
+// WORKORDER-accountMailLooseEnds-112326 E7: Node's per-address connect window, before anything calls out. Started by the
+// server, this process inherits the server's window (NODE_OPTIONS); started by hand, it applies the [email-sender]
+// default. Either way the tools it runs inherit it. `askMilo -connectWindow` prints what was applied and does nothing else.
+const outgoingConnectWindowReport = require('../../../lib/outgoing-connect-window').applyOwnOutgoingConnectWindow();
+const isConnectWindowReportOnly = process.argv.slice(2).includes('-connectWindow');
+
 //START OF moduleFunction() ============================================================
 const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
@@ -993,7 +999,7 @@ Examples:
 //END OF moduleFunction() ============================================================
 
 // prettier-ignore
-{
+if (!isConnectWindowReportOnly) {
 
 	let commandLineParameters = commandLineParser.getParameters({ noFunctions: true });
 
@@ -1044,4 +1050,8 @@ Examples:
 	});
 }
 
-module.exports = moduleFunction({ moduleName })({});
+if (isConnectWindowReportOnly) {
+	console.log(JSON.stringify({ outgoingConnectWindow: outgoingConnectWindowReport }));
+} else {
+	module.exports = moduleFunction({ moduleName })({});
+}

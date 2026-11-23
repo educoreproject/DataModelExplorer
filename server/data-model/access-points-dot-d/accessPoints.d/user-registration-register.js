@@ -28,6 +28,11 @@
 // would be taken by an account nobody can confirm. The notices to administrators are not waited for by the person: a
 // failure is only logged (and alerted by email-sender).
 //
+// WORKORDER-accountMailLooseEnds-112326: an undone sign-up does not count against the identifier (username) limit (E3:
+// nothing was created and no mail reached anyone); the address limit still counts it. A confirmation link that could
+// not be issued is alerted (E4) through emailSender.alertFailure, the same alerter, line and rate limit as a failed send,
+// and so is an undo that itself failed (the username is then held by an account nobody can confirm).
+//
 // requireAdminApproval=true (WORKORDER-adminApproval-112126): the account is never signed in here. With confirmation on
 // it waits for its link as above, and the approval request goes out when the link is followed (A2: approvers are asked
 // only about addresses proved to work; user-registration-confirm). With confirmation off the row is written as
@@ -51,12 +56,14 @@ const NEW_ACCOUNT_SOURCE_TEXT = 'selfRegistration';
 const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 // M6 e: the failure name when the confirmation link could not even be issued (a problem on our side, not transient)
 const TOKEN_NOT_ISSUED_FAILURE_NAME = 'confirmationTokenNotIssued';
+// WORKORDER-accountMailLooseEnds-112326 E4: the alert's failure name when the undo itself failed
+const ACCOUNT_NOT_UNDONE_FAILURE_NAME = 'accountNotUndone';
 
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
 	const { sqlDb, dataMapping, emailSender, userRegistrationSettings } = passThroughParameters;
-	if (!emailSender || typeof emailSender.sendEmail !== 'function') {
-		throw new Error(`[${moduleName}] needs emailSender in passThroughParameters (data-model.js builds it)`);
+	if (!emailSender || typeof emailSender.sendEmail !== 'function' || typeof emailSender.alertFailure !== 'function') {
+		throw new Error(`[${moduleName}] needs emailSender { sendEmail, alertFailure } in passThroughParameters (data-model.js builds it)`);
 	}
 	const { validatePasswordStrength } = dataMapping['profile-user'];
 	const requestGuard = requestGuardOf({ userRegistrationSettings });
@@ -95,7 +102,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) => {
-			const guardRefusal = requestGuard.refusalOfRequest({ clientAddress, identifierText: typeof registrationRecord.username === 'string' ? registrationRecord.username : '' });
+			const { refusal: guardRefusal, releaseIdentifierAdmission } = requestGuard.admissionOfRequest({ clientAddress, identifierText: typeof registrationRecord.username === 'string' ? registrationRecord.username : '' });
 			const refusal = guardRefusal || (!requestGuard.registrationSettings.selfRegistrationEnabled ? refusalOf('registrationDisabled') : shapeRefusalOf(registrationRecord));
 			if (refusal) {
 				next(refusalText(refusal), { ...args, refusal });
@@ -113,7 +120,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				role: newAccountRole,
 			};
 			const applicationComment = typeof registrationRecord.applicationComment === 'string' ? registrationRecord.applicationComment.trim() : '';
-			next('', { ...args, newUserRecord, applicationComment, requireEmailConfirmation, requireAdminApproval });
+			next('', { ...args, newUserRecord, applicationComment, requireEmailConfirmation, requireAdminApproval, releaseIdentifierAdmission });
 		});
 
 		taskList.push((args, next) => sqlDb.getTable('users', mergeArgs(args, next, 'userTable')));
@@ -170,6 +177,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			issueToken({ sqlDb, dataMapping, userRefId: args.userRefId, purpose: 'confirmEmail', lifetimeMinutes: confirmationLinkLifetimeMinutes }, (issueError, { tokenText } = {}) => {
 				if (issueError) {
 					xLog.error(`[${moduleName}] confirmationTokenNotIssued for ${args.userRow.username}: ${issueError}`);
+					emailSender.alertFailure({ mailName: 'confirmEmail', accountName: args.userRow.username, failureName: TOKEN_NOT_ISSUED_FAILURE_NAME });
 					next('', { ...args, confirmationFailureName: TOKEN_NOT_ISSUED_FAILURE_NAME });
 					return;
 				}
@@ -197,15 +205,19 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			}
 			deleteTokensOfUser({ sqlDb, dataMapping, userRefId: args.userRefId }, (tokenDeleteError) => {
 				if (tokenDeleteError) {
+					emailSender.alertFailure({ mailName: 'confirmEmail', accountName: args.userRow.username, failureName: ACCOUNT_NOT_UNDONE_FAILURE_NAME });
 					next(`undoing the account ${args.userRow.username}: ${tokenDeleteError}`, args);
 					return;
 				}
 				args.userTable.runStatement(dataMapping['profile-user'].getSql('unconfirmedByRefIdDelete', { refId: args.userRefId, disabled: PENDING_CONFIRMATION_TEXT }), QUIET_OPTIONS, (rowDeleteError) => {
 					if (rowDeleteError) {
+						emailSender.alertFailure({ mailName: 'confirmEmail', accountName: args.userRow.username, failureName: ACCOUNT_NOT_UNDONE_FAILURE_NAME });
 						next(`undoing the account ${args.userRow.username}: ${rowDeleteError}`, args);
 						return;
 					}
 					xLog.status(`[${moduleName}] account undone: ${args.userRow.username} (its confirmation mail was not sent: ${args.confirmationFailureName})`);
+					// E3: nothing was created and nothing reached anyone, so this sign-up does not count against the username
+					args.releaseIdentifierAdmission();
 					const refusal = mailFailureRefusalOf({ flowName: 'registration', failureName: args.confirmationFailureName });
 					next(refusalText(refusal), { ...args, refusal });
 				});

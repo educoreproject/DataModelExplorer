@@ -13,7 +13,8 @@
 // account's earlier confirmation links once it is SENT (a failed send leaves the old link working). Each case that sends
 // nothing is logged by name. A mail that fails for good (after email-sender's tries) is answered as the refusal
 // accountMailNotSent or accountMailRefused (WORKORDER-accountMailFailureAndApprovalNotice-112326 M3, M6), as on the reset
-// form.
+// form. As there (WORKORDER-accountMailLooseEnds-112326): a failed send does not count against the identifier limit
+// (E3), and a link not issued or earlier links not retired are alerted (E4) as well as logged.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -30,8 +31,8 @@ const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
 	const { sqlDb, dataMapping, emailSender, userRegistrationSettings } = passThroughParameters;
-	if (!emailSender || typeof emailSender.sendEmail !== 'function') {
-		throw new Error(`[${moduleName}] needs emailSender in passThroughParameters (data-model.js builds it)`);
+	if (!emailSender || typeof emailSender.sendEmail !== 'function' || typeof emailSender.alertFailure !== 'function') {
+		throw new Error(`[${moduleName}] needs emailSender { sendEmail, alertFailure } in passThroughParameters (data-model.js builds it)`);
 	}
 	const requestGuard = requestGuardOf({ userRegistrationSettings });
 
@@ -40,14 +41,14 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 		const taskList = new taskListPlus();
 
 		taskList.push((args, next) => {
-			const guardRefusal = requestGuard.refusalOfRequest({ clientAddress, identifierText: typeof identifier === 'string' ? identifier : '' });
+			const { refusal: guardRefusal, releaseIdentifierAdmission } = requestGuard.admissionOfRequest({ clientAddress, identifierText: typeof identifier === 'string' ? identifier : '' });
 			const shapeRefusal = textIdentifierRefusalOf({ identifier }) || (!identifier.trim() ? refusalOf('requiredPropertyMissing', { detailList: ['identifier'] }) : identifier.length > MAXIMUM_IDENTIFIER_LENGTH ? refusalOf('propertyTooLong', { detailList: ['identifier'] }) : '');
 			const refusal = guardRefusal || shapeRefusal;
 			if (refusal) {
 				next(refusalText(refusal), { ...args, refusal });
 				return;
 			}
-			next('', args);
+			next('', { ...args, releaseIdentifierAdmission });
 		});
 
 		taskList.push((args, next) => sqlDb.getTable('users', mergeArgs(args, next, 'userTable')));
@@ -81,6 +82,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			issueToken({ sqlDb, dataMapping, userRefId: userRow.refId, purpose: 'confirmEmail', lifetimeMinutes: confirmationLinkLifetimeMinutes }, (issueError, { tokenText } = {}) => {
 				if (issueError) {
 					xLog.error(`[${moduleName}] confirmationTokenNotIssued for ${userRow.username}: ${issueError}`);
+					emailSender.alertFailure({ mailName: 'confirmEmail', accountName: userRow.username, failureName: 'confirmationTokenNotIssued' });
 					next('skipRestOfPipe', args);
 					return;
 				}
@@ -91,6 +93,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				emailSender.sendEmail({ toList: [String(userRow.emailAdr).trim()], ...confirmMail, alertLabel: { mailName: 'confirmEmail', accountName: userRow.username } }, (sendError, { failureName } = {}) => {
 					if (sendError) {
 						xLog.error(`[${moduleName}] confirmationMailNotSent for ${userRow.username}: ${sendError}`);
+						args.releaseIdentifierAdmission();
 						const refusal = mailFailureRefusalOf({ flowName: 'accountMail', failureName });
 						next(refusalText(refusal), { ...args, refusal });
 						return;
@@ -99,6 +102,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 					retireEarlierTokens({ sqlDb, dataMapping, userRefId: userRow.refId, purpose: 'confirmEmail', keptTokenText: tokenText }, (retireError) => {
 						if (retireError) {
 							xLog.error(`[${moduleName}] earlierConfirmationLinksNotRetired for ${userRow.username}: ${retireError}`);
+							emailSender.alertFailure({ mailName: 'confirmEmail', accountName: userRow.username, failureName: 'earlierConfirmationLinksNotRetired' });
 						}
 						next('', args);
 					});

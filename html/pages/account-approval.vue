@@ -59,7 +59,12 @@
 
 	const chooseApplicant = (applicantUserRefId) => router.replace({ query: { userRefId: applicantUserRefId } });
 
+	// WORKORDER-accountMailLooseEnds-112326 E2: one decision at a time; a second press (or Space on the focused button)
+	// while one is in flight does nothing, for as long as the server's mail tries take
 	const decide = async (decisionName) => {
+		if (approvalStore.loading) {
+			return;
+		}
 		const isRecorded = await approvalStore.decide({ userRefId: userRefId.value, decisionName, sendDeclineEmail: sendDeclineEmail.value });
 		if (isRecorded) {
 			approvalStore.loadPendingList();
@@ -93,7 +98,9 @@
 					<h1 class="text-h6 mb-3">{{ accountVocabulary.approvalPageTitle }}</h1>
 					<v-progress-linear v-if="approvalStore.loading" indeterminate class="mb-3" />
 					<v-alert v-if="approvalStore.statusMsg" type="error" density="compact" class="mb-4" data-testid="approval-error">{{ approvalStore.statusMsg }}</v-alert>
-					<v-alert v-if="approvalStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="approval-notice">{{ approvalStore.noticeMsg }}</v-alert>
+					<!-- E1: decided, but the email to the applicant was not sent: a warning that says so, never a success -->
+					<v-alert v-if="approvalStore.noticeMsg && approvalStore.isNoticeWarning" type="warning" density="compact" class="mb-4" data-testid="approval-mail-not-sent">{{ approvalStore.noticeMsg }}</v-alert>
+					<v-alert v-else-if="approvalStore.noticeMsg" type="success" density="compact" class="mb-4" data-testid="approval-notice">{{ approvalStore.noticeMsg }}</v-alert>
 					<p v-if="!userRefId" class="text-body-2" data-testid="approval-choose">{{ accountVocabulary.approvalChooseApplicantText }}</p>
 					<template v-if="approvalStore.applicant">
 						<v-table density="compact" class="mb-4" data-testid="approval-applicant">

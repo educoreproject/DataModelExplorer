@@ -28,8 +28,8 @@ const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
 	const { sqlDb, dataMapping, emailSender, userRegistrationSettings } = passThroughParameters;
-	if (!emailSender || typeof emailSender.sendEmail !== 'function') {
-		throw new Error(`[${moduleName}] needs emailSender in passThroughParameters (data-model.js builds it)`);
+	if (!emailSender || typeof emailSender.sendEmail !== 'function' || typeof emailSender.alertFailure !== 'function') {
+		throw new Error(`[${moduleName}] needs emailSender { sendEmail, alertFailure } in passThroughParameters (data-model.js builds it)`);
 	}
 	const requestGuard = requestGuardOf({ userRegistrationSettings });
 

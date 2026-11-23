@@ -22,12 +22,23 @@
 		"approve": { "decisionText": "approved", "applicantMessageName": "accountApproved" },
 		"decline": { "decisionText": "declined", "applicantMessageName": "accountDeclined" }
 	},
-	"declineEmailTextByCase": { "sent": "sent", "suppressed": "not sent (suppressed by the approver)", "notApplicable": "not applicable" },
+	"declineEmailTextByCase": { "sent": "sent", "suppressed": "not sent (suppressed by the approver)", "notApplicable": "not applicable", "notSent": "NOT sent: the email failed" },
+
+	"_decisionReplyNameByMailOutcome": "WORKORDER-accountMailLooseEnds-112326 E1: the approval page's answer says what actually happened to the applicant's email. Per decision, the replyByName entry for: noMailFailure (sent, or a decline email the approver suppressed), transientMailFailure (the mail provider could not be reached or was unavailable: email-sender-settings.json transientFailureNameList) and otherMailFailure (refused, or a problem on our side). The decision itself stands either way; a failed mail never undoes it.",
+	"decisionReplyNameByMailOutcome": {
+		"approve": { "noMailFailure": "accountApprovedReply", "transientMailFailure": "accountApprovedMailNotSentReply", "otherMailFailure": "accountApprovedMailRefusedReply" },
+		"decline": { "noMailFailure": "accountDeclinedReply", "transientMailFailure": "accountDeclinedMailNotSentReply", "otherMailFailure": "accountDeclinedMailRefusedReply" }
+	},
+	"_applicantMailNotSentTextByKind": "WORKORDER-accountMailLooseEnds-112326 E1: the approvalDecided notice's extra paragraph (its optional fill applicantMailNotSentText) when the email to the applicant failed; absent when it was sent, so that notice is otherwise unchanged.",
+	"applicantMailNotSentTextByKind": {
+		"transientMailFailure": "One thing IS needed: the email telling the applicant could not be sent (the mail service could not be reached). Please tell them yourself.",
+		"otherMailFailure": "One thing IS needed: the email telling the applicant could not be sent because of a problem on our side. Please tell them yourself."
+	},
 
 	"_applicationCommentAbsentText": "WORKORDER-adminApproval-112126 A8: what the approvers' mail says in place of the applicant's comment when none was left.",
 	"applicationCommentAbsentText": "(none)",
 
-	"_optionalFillList": "WORKORDER-approvalLooseEnds-112126 L2. Every <!name!> a message names is REQUIRED: composing the message without it (absent, null, empty or only spaces) is refused by name, so no message can read 'Hello ,'. A message's optionalFillList names the few fills that may be left out; an absent optional fill removes its whole paragraph (label and all). An optional fill may sit only in body text, never in the subject or an action. Keep the list short; each entry is justified here. applicationCommentText (approvalRequest, newAccountNotice): the applicant's comment is optional at sign-up (A8). The flows pass applicationCommentTextOf, which says '(none)' when no comment was left, so these messages still show '(none)' today; the declaration is what lets a comment line be absent without the message being refused.",
+	"_optionalFillList": "WORKORDER-approvalLooseEnds-112126 L2. Every <!name!> a message names is REQUIRED: composing the message without it (absent, null, empty or only spaces) is refused by name, so no message can read 'Hello ,'. A message's optionalFillList names the few fills that may be left out; an absent optional fill removes its whole paragraph (label and all). An optional fill may sit only in body text, never in the subject or an action. Keep the list short; each entry is justified here. applicationCommentText (approvalRequest, newAccountNotice): the applicant's comment is optional at sign-up (A8). The flows pass applicationCommentTextOf, which says '(none)' when no comment was left, so these messages still show '(none)' today; the declaration is what lets a comment line be absent without the message being refused. applicantMailNotSentText (approvalDecided, WORKORDER-accountMailLooseEnds-112326 E1): present only when the email to the applicant failed, so the approvers are told to tell the applicant themselves; absent, the notice reads exactly as before.",
 
 	"messageByName": {
 		"passwordReset": {
@@ -115,8 +126,10 @@
 			"subjectText": "New EDUcore account <!username!>: <!decisionText!> by <!deciderUsername!>",
 			"paragraphList": [
 				"The account <!username!> (<!firstName!> <!lastName!>, <!emailAdr!>) on <!originHost!> was <!decisionText!> by <!deciderUsername!>. Nothing more is needed.",
+				"<!applicantMailNotSentText!>",
 				"Decline email to the applicant: <!declineEmailText!>"
-			]
+			],
+			"optionalFillList": ["applicantMailNotSentText"]
 		}
 	},
 
@@ -132,6 +145,10 @@
 		"registeredAwaitingApproval": "Your account was created.",
 		"registrationConfirmedAwaitingApproval": "Your email address is confirmed.",
 		"accountApprovedReply": "The account was approved and its owner emailed.",
-		"accountDeclinedReply": "The account was declined."
+		"accountDeclinedReply": "The account was declined.",
+		"accountApprovedMailNotSentReply": "The account was approved, but the email to its owner could not be sent: the mail service could not be reached just now. Please tell them yourself that they can sign in.",
+		"accountApprovedMailRefusedReply": "The account was approved, but the email to its owner could not be sent because of a problem on our side. We have been notified. Please tell them yourself that they can sign in.",
+		"accountDeclinedMailNotSentReply": "The account was declined, but the email to its owner could not be sent: the mail service could not be reached just now.",
+		"accountDeclinedMailRefusedReply": "The account was declined, but the email to its owner could not be sent because of a problem on our side. We have been notified."
 	}
 }

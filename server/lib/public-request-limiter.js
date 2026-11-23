@@ -7,10 +7,13 @@
 // never on process.global. A restart forgets them, which is acceptable for a limit meant to slow a script, not to
 // account for anyone.
 //
-//   requestLimiterOf({ requestLimit, windowMinutes }) -> { admissionOf(subjectText, nowMilliseconds) }
-//   admissionOf -> { isAdmitted: true } or { isAdmitted: false, retryAfterSeconds }
+//   requestLimiterOf({ requestLimit, windowMinutes }) -> { admissionOf(subjectText, nowMilliseconds), releaseAdmission(subjectText, admittedAtMilliseconds) }
+//   admissionOf -> { isAdmitted: true, admittedAtMilliseconds } or { isAdmitted: false, retryAfterSeconds }
+//   releaseAdmission -> true when that one admission was found and no longer counts, false when it was not there
 //
 // A refused request is not counted, so a client that keeps trying is admitted again once its window has moved on.
+// releaseAdmission takes back ONE admission (the one admissionOf stamped admittedAtMilliseconds), so a caller can say
+// "this request turned out not to count" (WORKORDER-accountMailLooseEnds-112326 E3: a request whose mail failed).
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 
@@ -47,10 +50,21 @@ const requestLimiterOf = ({ requestLimit, windowMinutes }) => {
 			return { isAdmitted: false, retryAfterSeconds: Math.max(1, Math.ceil((liveList[0] + windowMilliseconds - nowMilliseconds) / MILLISECONDS_PER_SECOND)) };
 		}
 		admittedAtListBySubject.set(subjectName, [...liveList, nowMilliseconds]);
-		return { isAdmitted: true };
+		return { isAdmitted: true, admittedAtMilliseconds: nowMilliseconds };
 	};
 
-	return { admissionOf };
+	const releaseAdmission = (subjectText, admittedAtMilliseconds) => {
+		const subjectName = String(subjectText);
+		const admittedAtList = admittedAtListBySubject.get(subjectName) || [];
+		const releasedPosition = admittedAtList.indexOf(admittedAtMilliseconds);
+		if (releasedPosition < 0) {
+			return false;
+		}
+		admittedAtListBySubject.set(subjectName, admittedAtList.filter((admittedAt, position) => position !== releasedPosition));
+		return true;
+	};
+
+	return { admissionOf, releaseAdmission };
 };
 
 module.exports = { requestLimiterOf };

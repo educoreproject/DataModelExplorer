@@ -5,11 +5,12 @@
 // PLAN-userRegistrationReset-112026). Ported from justkidding's data-model/lib/email-sender.js, itself modelled on
 // lennypens' server/lib/emailSender.js; attachments dropped (nothing here sends one).
 //
-//   emailSenderOf({ emailSenderSettings, failureAlerter, resendClientBuilder }) -> { configRefusal, sendEmail, fromAddress }
+//   emailSenderOf({ emailSenderSettings, failureAlerter, resendClientBuilder }) -> { configRefusal, sendEmail, alertFailure, fromAddress }
 //   sendEmail({ toList, ccList, bccList, subject, text, html, alertLabel: { mailName, accountName } },
 //             callback(errText, { messageId, deliveredToList, attemptCount, failureName }))
 //   isTransientMailFailure(failureName)       -> true when the person should simply try again in a few minutes
-//   applyConnectAttemptTimeout(emailSenderSettings) -> { connectRefusal, appliedMilliseconds } (process-wide; data-model.js, once)
+//   applyConnectAttemptTimeout(emailSenderSettings) -> { connectRefusal, appliedMilliseconds } (process-wide and for every
+//       Node process started from it, lib/outgoing-connect-window.js; data-model.js, once)
 //   settingOf(emailSenderSettings, settingName) -> a timing setting: the ini's value, or the settings file's default
 //   listFromConfig(rawList)  -> the INI's dotted list (name.0=, name.1=) as an array, in index order, blanks dropped
 //
@@ -30,6 +31,9 @@
 //
 // ALERT (M6 d): a message that fails for good is handed to failureAlerter({ mailName, accountName, failureName }) (lib/
 // account-mail-alerter.js, rate-limited), named by the message's alertLabel. Every send must carry an alertLabel.
+// alertFailure({ mailName, accountName, failureName }) hands the SAME alerter a failure that happened before any send
+// (WORKORDER-accountMailLooseEnds-112326 E4: a confirmation link that could not be issued), so it shares the one line
+// format and the one rate limit; each of the three names is required (it throws by name otherwise).
 //
 // SETTINGS ([email-sender] in startApiServer.ini, every one from configuration, no literal domain or address here, R6):
 //   resendApiKey, sendingDomain, fromAddress (must be ON sendingDomain), fromName, redirectAllEmailTo (blank, or one
@@ -46,6 +50,7 @@ const qt = require('qtools-functional-library');
 const path = require('path');
 const crypto = require('crypto');
 const net = require('net');
+const { applyOutgoingConnectWindow } = require('./outgoing-connect-window');
 
 const REFUSALS_FILE_PATH = path.join(__dirname, 'email-sender-refusals.json');
 const SETTINGS_FILE_PATH = path.join(__dirname, 'email-sender-settings.json');
@@ -160,13 +165,14 @@ const settingsRefusalOf = (emailSenderSettings) => {
 // M5, M6 a: Node's per-address connect window, PROCESS-WIDE (it governs every outgoing connection of the server, which is
 // why data-model.js calls this once, at start, and logs it). Node's 250 ms default lost demo's mail: see the DEVLOG.
 // A value that is not a whole number is refused by name and NOT applied (Node's own window stays); the caller logs it.
+// WORKORDER-accountMailLooseEnds-112326 E7: applied through lib/outgoing-connect-window.js, which also hands it to every
+// Node process the server starts (askMilo and the rest), so the whole process tree uses the one window.
 const applyConnectAttemptTimeout = (emailSenderSettings) => {
 	const connectAttemptTimeoutMilliseconds = settingOf(emailSenderSettings, 'connectAttemptTimeoutMilliseconds');
 	if (!Number.isInteger(connectAttemptTimeoutMilliseconds) || connectAttemptTimeoutMilliseconds < 10) {
 		return { connectRefusal: refusalTextOf('emailSettingNotValid', `connectAttemptTimeoutMilliseconds must be a whole number of at least 10 (got '${(emailSenderSettings || {}).connectAttemptTimeoutMilliseconds}')`), appliedMilliseconds: net.getDefaultAutoSelectFamilyAttemptTimeout() };
 	}
-	net.setDefaultAutoSelectFamilyAttemptTimeout(connectAttemptTimeoutMilliseconds);
-	return { connectRefusal: '', appliedMilliseconds: net.getDefaultAutoSelectFamilyAttemptTimeout() };
+	return { connectRefusal: '', ...applyOutgoingConnectWindow(connectAttemptTimeoutMilliseconds) };
 };
 
 const realResendClientBuilder = (apiKeyText) => {
@@ -293,7 +299,15 @@ const emailSenderOf = ({ emailSenderSettings, failureAlerter, resendClientBuilde
 		attemptSend(1);
 	};
 
-	return { configRefusal, sendEmail, fromAddress: configRefusal ? '' : String(fromAddress).trim() };
+	const alertFailure = ({ mailName, accountName, failureName } = {}) => {
+		const absentNameList = Object.entries({ mailName, accountName, failureName }).filter(([, nameText]) => !String(nameText || '').trim()).map(([propertyName]) => propertyName);
+		if (absentNameList.length) {
+			throw new Error(`[${moduleName}] alertFailure requires ${absentNameList.join(', ')} (WORKORDER-accountMailLooseEnds-112326 E4)`);
+		}
+		failureAlerter({ mailName, accountName, failureName });
+	};
+
+	return { configRefusal, sendEmail, alertFailure, fromAddress: configRefusal ? '' : String(fromAddress).trim() };
 };
 
 module.exports = { emailSenderOf, listFromConfig, isTransientMailFailure, applyConnectAttemptTimeout, settingOf };

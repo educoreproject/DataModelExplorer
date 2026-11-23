@@ -31,7 +31,9 @@
 	});
 
 	const resendConfirmation = async () => {
-		if (!identifier.value.trim()) {
+		// WORKORDER-accountMailLooseEnds-112326 E2: a request is in flight (up to the server's 10 s mail budget); a second
+		// press, Enter or Space does nothing until it answers
+		if (accountStore.loading || !identifier.value.trim()) {
 			return;
 		}
 		isResendSent.value = await accountStore.resendConfirmation(identifier.value.trim());

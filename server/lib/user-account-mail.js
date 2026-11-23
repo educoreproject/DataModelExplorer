@@ -34,9 +34,13 @@ const REQUIRED_MESSAGE_NAME_LIST = ['passwordReset', 'passwordChanged', 'confirm
 const REQUIRED_REPLY_NAME_LIST = [
 	'resetRequested', 'confirmationResent', 'registeredCheckEmail', 'registeredSignedIn', 'passwordResetDone', 'registrationConfirmed',
 	'registeredCheckEmailThenApproval', 'registeredAwaitingApproval', 'registrationConfirmedAwaitingApproval', 'accountApprovedReply', 'accountDeclinedReply',
+	'accountApprovedMailNotSentReply', 'accountApprovedMailRefusedReply', 'accountDeclinedMailNotSentReply', 'accountDeclinedMailRefusedReply',
 ];
+// WORKORDER-accountMailLooseEnds-112326 E1: the outcomes of an applicant's decision email, and the mail failure kinds
+const DECISION_MAIL_OUTCOME_NAME_LIST = ['noMailFailure', 'transientMailFailure', 'otherMailFailure'];
+const MAIL_FAILURE_KIND_NAME_LIST = ['transientMailFailure', 'otherMailFailure'];
 
-const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, applicationCommentAbsentText, importantParagraph, approvalNotice } = require(VOCABULARY_FILE_PATH);
+const { messageByName, replyByName, originText, approvalWordingByDecision, declineEmailTextByCase, decisionReplyNameByMailOutcome, applicantMailNotSentTextByKind, applicationCommentAbsentText, importantParagraph, approvalNotice } = require(VOCABULARY_FILE_PATH);
 if (!approvalNotice || typeof approvalNotice.headingText !== 'string' || !approvalNotice.headingText || typeof approvalNotice.sentenceText !== 'string' || !approvalNotice.sentenceText) {
 	throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: approvalNotice needs headingText and sentenceText (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4)`);
 }
@@ -100,9 +104,23 @@ Object.entries(approvalWordingByDecision || {}).forEach(([decisionName, wordingE
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: approvalWordingByDecision.${decisionName} needs decisionText and an applicantMessageName that is in messageByName`);
 	}
 });
-['sent', 'suppressed', 'notApplicable'].forEach((caseName) => {
+['sent', 'suppressed', 'notApplicable', 'notSent'].forEach((caseName) => {
 	if (typeof (declineEmailTextByCase || {})[caseName] !== 'string') {
 		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: declineEmailTextByCase.${caseName} is missing`);
+	}
+});
+// E1: every decision has a reply for every mail outcome, each one a reply in replyByName; every failure kind has its notice text
+Object.keys(approvalWordingByDecision || {}).forEach((decisionName) =>
+	DECISION_MAIL_OUTCOME_NAME_LIST.forEach((outcomeName) => {
+		const replyName = ((decisionReplyNameByMailOutcome || {})[decisionName] || {})[outcomeName];
+		if (!replyName || typeof (replyByName || {})[replyName] !== 'string') {
+			throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: decisionReplyNameByMailOutcome.${decisionName}.${outcomeName} must name a reply in replyByName (got ${JSON.stringify(replyName)})`);
+		}
+	}),
+);
+MAIL_FAILURE_KIND_NAME_LIST.forEach((kindName) => {
+	if (typeof (applicantMailNotSentTextByKind || {})[kindName] !== 'string' || !applicantMailNotSentTextByKind[kindName].trim()) {
+		throw new Error(`[${moduleName}] ${VOCABULARY_FILE_PATH}: applicantMailNotSentTextByKind.${kindName} is missing`);
 	}
 });
 
@@ -212,4 +230,4 @@ const applicationCommentTextOf = (applicationComment) => (typeof applicationComm
 
 const lifetimeTextOf = (minuteCount) => (minuteCount % 60 === 0 && minuteCount >= 120 ? `${minuteCount / 60} hours` : `${minuteCount} minutes`);
 
-module.exports = { approvalNotice: Object.freeze({ ...approvalNotice }), accountMailOf, accountReplyOf, approvalWordingOf, applicationCommentTextOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }) };
+module.exports = { approvalNotice: Object.freeze({ ...approvalNotice }), accountMailOf, accountReplyOf, approvalWordingOf, applicationCommentTextOf, lifetimeTextOf, filledTextOf, originHostOf, declineEmailTextByCase: Object.freeze({ ...declineEmailTextByCase }), decisionReplyNameByMailOutcome, applicantMailNotSentTextByKind: Object.freeze({ ...applicantMailNotSentTextByKind }) };

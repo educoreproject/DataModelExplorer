@@ -5,7 +5,7 @@
 // account-approval-decide.js — ACCESS POINT: an approver approves or declines one self-registered account
 // (WORKORDER-adminApproval-112126, flow steps 4 and 5). Behind POST /api/decideAccountApproval (admin).
 //
-//   serviceFunction({ signedInUsername, userRefId, decisionName, sendDeclineEmail }, callback(errText, { applicant, latestDecision, refusal }))
+//   serviceFunction({ signedInUsername, userRefId, decisionName, sendDeclineEmail }, callback(errText, { applicant, latestDecision, applicantMailFailureName, refusal }))
 //
 // Refused by name: the signed-in user is not an approver by their STORED role (notAnApprover; never a role from the
 // request or the token's claims); a decision that is not one of user-profile-rules.json approvalDecisionByName, a
@@ -18,6 +18,11 @@
 // standing decision); the applicant is emailed (approved, sign in here; or declined unless sendDeclineEmail is false);
 // newAccountNoticeList is told who decided, so a second approver does not act. A failed mail is logged by name and never
 // undoes the decision.
+//
+// WORKORDER-accountMailLooseEnds-112326 E1: nothing claims an email that was not sent. applicantMailFailureName is
+// email-sender's failure name when the email to the applicant failed ('' when it was sent or a decline email was
+// suppressed); the endpoint words its answer from it (lib/account-mail-failure.js decisionMailOutcomeOf), and the
+// approvers' notice says the applicant was NOT emailed and asks them to tell the applicant themselves.
 
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const qt = require('qtools-functional-library');
@@ -26,6 +31,7 @@ const { refusalOf, refusalText, textIdentifierRefusalOf, approvalDecisionByName,
 const { requestGuardOf } = require('../../../lib/user-account-request-guard');
 const { approverOf, applicantSummaryOf, latestDecisionOf, sendLoggedOf, APPROVAL_DECISIONS_TABLE_NAME } = require('../../../lib/user-account-approval');
 const { accountMailOf, approvalWordingOf, declineEmailTextByCase } = require('../../../lib/user-account-mail');
+const { decisionMailOutcomeOf } = require('../../../lib/account-mail-failure');
 
 const QUIET_OPTIONS = Object.freeze({ suppressStatementLog: true });
 const DECLINE_DECISION_NAME = 'decline';
@@ -33,8 +39,8 @@ const DECLINE_DECISION_NAME = 'decline';
 const moduleFunction = function ({ dotD, passThroughParameters }) {
 	const { xLog } = process.global;
 	const { sqlDb, dataMapping, emailSender, userRegistrationSettings } = passThroughParameters;
-	if (!emailSender || typeof emailSender.sendEmail !== 'function') {
-		throw new Error(`[${moduleName}] needs emailSender in passThroughParameters (data-model.js builds it)`);
+	if (!emailSender || typeof emailSender.sendEmail !== 'function' || typeof emailSender.alertFailure !== 'function') {
+		throw new Error(`[${moduleName}] needs emailSender { sendEmail, alertFailure } in passThroughParameters (data-model.js builds it)`);
 	}
 	// every decision the rules allow has its wording in the vocabulary (approvalWordingOf throws at load otherwise)
 	Object.keys(approvalDecisionByName).forEach(approvalWordingOf);
@@ -104,12 +110,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 			xLog.status(`[${moduleName}] account ${applicantRow.username} ${decisionText} by ${approverRow.username}`);
 			if (decisionName === DECLINE_DECISION_NAME && !args.isDeclineEmailSent) {
 				xLog.status(`[${moduleName}] decline email suppressed for ${applicantRow.username}`);
-				next('', args);
+				next('', { ...args, applicantMailFailureName: '' });
 				return;
 			}
 			const { publicSiteUrl } = requestGuard.registrationSettings;
 			const applicantMail = accountMailOf({ messageName: applicantMessageName, fillByName: { firstName: applicantRow.first || applicantRow.username, username: applicantRow.username, signInUrl: `${publicSiteUrl}/login`, siteUrl: publicSiteUrl } });
-			sendLoggedOf({ emailSender, logName: `${applicantMessageName}Mail`, username: applicantRow.username })({ toList: [applicantRow.emailAdr], ...applicantMail }, () => next('', args));
+			sendLoggedOf({ emailSender, logName: `${applicantMessageName}Mail`, username: applicantRow.username })({ toList: [applicantRow.emailAdr], ...applicantMail }, ({ failureName }) => next('', { ...args, applicantMailFailureName: failureName }));
 		});
 
 		taskList.push((args, next) => {
@@ -119,9 +125,12 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				next('', args);
 				return;
 			}
+			const { applicantMailNotSentText } = decisionMailOutcomeOf({ decisionName, failureName: args.applicantMailFailureName });
+			const declineEmailCaseName = decisionName !== DECLINE_DECISION_NAME ? 'notApplicable' : !args.isDeclineEmailSent ? 'suppressed' : args.applicantMailFailureName ? 'notSent' : 'sent';
 			const noticeMail = accountMailOf({
 				messageName: 'approvalDecided',
-				fillByName: { username: applicantRow.username, firstName: applicantRow.first, lastName: applicantRow.last, emailAdr: applicantRow.emailAdr, decisionText: approvalWordingOf(decisionName).decisionText, deciderUsername: approverRow.username, declineEmailText: declineEmailTextByCase[decisionName !== DECLINE_DECISION_NAME ? 'notApplicable' : args.isDeclineEmailSent ? 'sent' : 'suppressed'], siteUrl: publicSiteUrl },
+				// applicantMailNotSentText is '' when the applicant was emailed: an absent optional fill drops its paragraph
+				fillByName: { username: applicantRow.username, firstName: applicantRow.first, lastName: applicantRow.last, emailAdr: applicantRow.emailAdr, decisionText: approvalWordingOf(decisionName).decisionText, deciderUsername: approverRow.username, declineEmailText: declineEmailTextByCase[declineEmailCaseName], applicantMailNotSentText, siteUrl: publicSiteUrl },
 			});
 			sendLoggedOf({ emailSender, logName: 'approvalDecidedNotice', username: applicantRow.username })({ toList: [...newAccountNoticeList], ...noticeMail }, () => next('', args));
 		});
@@ -141,7 +150,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback(err, {});
 				return;
 			}
-			callback('', { applicant: applicantSummaryOf(args.applicantRow), latestDecision: args.latestDecision });
+			callback('', { applicant: applicantSummaryOf(args.applicantRow), latestDecision: args.latestDecision, applicantMailFailureName: args.applicantMailFailureName });
 		});
 	};
 
