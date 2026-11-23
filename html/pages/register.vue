@@ -50,7 +50,9 @@
 	});
 
 	const submitRegistration = async () => {
-		if (!isFormReady.value) {
+		// WORKORDER-accountMailLooseEnds-112326 E2: a request is in flight (up to the server's 10 s mail budget); a second
+		// press, Enter or Space does nothing until it answers
+		if (accountStore.loading || !isFormReady.value) {
 			return;
 		}
 		const isAccepted = await accountStore.registerUser({ username: username.value.trim(), password: password.value, first: first.value.trim(), last: last.value.trim(), emailAdr: emailAdr.value.trim(), applicationComment: applicationComment.value.trim() });

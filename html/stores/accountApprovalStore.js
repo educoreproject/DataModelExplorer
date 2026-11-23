@@ -9,6 +9,9 @@
 // The pending list keeps its own loading and message (pendingListLoading, pendingListStatusMsg): the /admin Pending
 // approvals tool shows them (WORKORDER-approvalMailPolish-112126 P4), and the approval page, whose own detail request
 // already reports a refusal, does not.
+//
+// isNoticeWarning (WORKORDER-accountMailLooseEnds-112326 E1): the decision was recorded but the email to the applicant
+// could not be sent (the server's isApplicantMailNotSent); the page then shows noticeMsg as a warning, not a success.
 
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
@@ -17,6 +20,7 @@ const accountApprovalStoreInitObject = {
 	loading: false,
 	statusMsg: '',
 	noticeMsg: '',
+	isNoticeWarning: false,
 	refusalName: '',
 	applicant: null,
 	latestDecision: null,
@@ -36,6 +40,7 @@ export const useAccountApprovalStore = defineStore('accountApprovalStore', {
 		clearMessages() {
 			this.statusMsg = '';
 			this.noticeMsg = '';
+			this.isNoticeWarning = false;
 			this.refusalName = '';
 		},
 
@@ -78,6 +83,7 @@ export const useAccountApprovalStore = defineStore('accountApprovalStore', {
 			this.applicant = result.applicant || this.applicant;
 			this.latestDecision = result.latestDecision || this.latestDecision;
 			this.noticeMsg = result.message || '';
+			this.isNoticeWarning = result.isApplicantMailNotSent === true;
 			return true;
 		},
 
