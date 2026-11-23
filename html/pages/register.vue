@@ -55,6 +55,8 @@
 		}
 		const isAccepted = await accountStore.registerUser({ username: username.value.trim(), password: password.value, first: first.value.trim(), last: last.value.trim(), emailAdr: emailAdr.value.trim(), applicationComment: applicationComment.value.trim() });
 		if (!isAccepted) {
+			// the refusal (a mail that did not go: nothing was created) shows at the top of the card, above a long form
+			window.scrollTo({ top: 0, behavior: 'smooth' });
 			return;
 		}
 		// confirmation required, or (WORKORDER-adminApproval-112126) the account now waits for an approver: say so, stay here

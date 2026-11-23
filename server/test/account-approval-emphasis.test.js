@@ -70,7 +70,7 @@ check('E1 at least one applicant approval sentence was found and checked (awaiti
 // ---- E3
 const sourceOf = (relativePath) => fs.readFileSync(path.join(htmlDirPath, relativePath), 'utf8');
 const noticeComponentText = sourceOf('components/AccountApprovalNotice.vue');
-check('E3 AccountApprovalNotice is a prominent warning alert with a heading, bold', /<v-alert type="warning"[^>]*prominent[^>]*>\s*<div class="account-approval-notice__heading">\{\{ headingText \}\}<\/div>\s*<div>\{\{ noticeText \}\}<\/div>\s*<\/v-alert>/.test(noticeComponentText) && /\.account-approval-notice\s*\{\s*font-weight:\s*700;\s*color:\s*#9a3412/.test(noticeComponentText), noticeComponentText);
+check('E3 AccountApprovalNotice is a prominent warning alert with a heading, bold, its words in dark amber', /<v-alert type="warning"[^>]*prominent[^>]*>\s*<div class="account-approval-notice__heading">\{\{ headingText \}\}<\/div>\s*<div class="account-approval-notice__text">\{\{ noticeText \}\}<\/div>\s*<\/v-alert>/.test(noticeComponentText) && /\.account-approval-notice\s*\{\s*font-weight:\s*700;\s*\}/.test(noticeComponentText) && /\.account-approval-notice__heading,\s*\.account-approval-notice__text\s*\{\s*color:\s*#9a3412;/.test(noticeComponentText), noticeComponentText);
 // each place: the file, what it shows, and the pattern that proves it goes through AccountApprovalNotice
 const APPROVAL_PLACE_LIST = [
 	{ placeName: 'register.vue sign-up explainer (before submit)', relativePath: 'pages/register.vue', pattern: /<AccountApprovalNotice v-if="accountStore\.registrationOptions\.requireAdminApproval" :heading-text="accountVocabulary\.registerApprovalNoticeHeadingText" :notice-text="accountVocabulary\.registerApprovalNoticeText"/ },

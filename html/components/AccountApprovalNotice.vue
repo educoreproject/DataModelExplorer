@@ -10,15 +10,19 @@
 <template>
 	<v-alert type="warning" variant="tonal" border="start" prominent class="account-approval-notice mb-4">
 		<div class="account-approval-notice__heading">{{ headingText }}</div>
-		<div>{{ noticeText }}</div>
+		<div class="account-approval-notice__text">{{ noticeText }}</div>
 	</v-alert>
 </template>
 
 <style scoped>
-	/* dark amber like the awaiting-approval email; the tonal warning's own text colour is too pale to read easily */
+	/* the alert keeps Vuetify's amber warning tint and icon; only the words are set in dark amber (as in the awaiting-approval
+	   email), because the tonal warning's own text colour is too pale to read easily */
 	.account-approval-notice {
 		font-weight: 700;
-		color: #9a3412 !important;
+	}
+	.account-approval-notice__heading,
+	.account-approval-notice__text {
+		color: #9a3412;
 	}
 	.account-approval-notice__heading {
 		font-size: 1.05rem;
