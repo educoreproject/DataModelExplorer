@@ -9,7 +9,8 @@
 //   sendEmail({ toList, ccList, bccList, subject, text, html, alertLabel: { mailName, accountName } },
 //             callback(errText, { messageId, deliveredToList, attemptCount, failureName }))
 //   isTransientMailFailure(failureName)       -> true when the person should simply try again in a few minutes
-//   applyConnectAttemptTimeout(emailSenderSettings) -> { connectRefusal, appliedMilliseconds } (process-wide; data-model.js, once)
+//   applyConnectAttemptTimeout(emailSenderSettings) -> { connectRefusal, appliedMilliseconds } (process-wide and for every
+//       Node process started from it, lib/outgoing-connect-window.js; data-model.js, once)
 //   settingOf(emailSenderSettings, settingName) -> a timing setting: the ini's value, or the settings file's default
 //   listFromConfig(rawList)  -> the INI's dotted list (name.0=, name.1=) as an array, in index order, blanks dropped
 //
@@ -49,6 +50,7 @@ const qt = require('qtools-functional-library');
 const path = require('path');
 const crypto = require('crypto');
 const net = require('net');
+const { applyOutgoingConnectWindow } = require('./outgoing-connect-window');
 
 const REFUSALS_FILE_PATH = path.join(__dirname, 'email-sender-refusals.json');
 const SETTINGS_FILE_PATH = path.join(__dirname, 'email-sender-settings.json');
@@ -163,13 +165,14 @@ const settingsRefusalOf = (emailSenderSettings) => {
 // M5, M6 a: Node's per-address connect window, PROCESS-WIDE (it governs every outgoing connection of the server, which is
 // why data-model.js calls this once, at start, and logs it). Node's 250 ms default lost demo's mail: see the DEVLOG.
 // A value that is not a whole number is refused by name and NOT applied (Node's own window stays); the caller logs it.
+// WORKORDER-accountMailLooseEnds-112326 E7: applied through lib/outgoing-connect-window.js, which also hands it to every
+// Node process the server starts (askMilo and the rest), so the whole process tree uses the one window.
 const applyConnectAttemptTimeout = (emailSenderSettings) => {
 	const connectAttemptTimeoutMilliseconds = settingOf(emailSenderSettings, 'connectAttemptTimeoutMilliseconds');
 	if (!Number.isInteger(connectAttemptTimeoutMilliseconds) || connectAttemptTimeoutMilliseconds < 10) {
 		return { connectRefusal: refusalTextOf('emailSettingNotValid', `connectAttemptTimeoutMilliseconds must be a whole number of at least 10 (got '${(emailSenderSettings || {}).connectAttemptTimeoutMilliseconds}')`), appliedMilliseconds: net.getDefaultAutoSelectFamilyAttemptTimeout() };
 	}
-	net.setDefaultAutoSelectFamilyAttemptTimeout(connectAttemptTimeoutMilliseconds);
-	return { connectRefusal: '', appliedMilliseconds: net.getDefaultAutoSelectFamilyAttemptTimeout() };
+	return { connectRefusal: '', ...applyOutgoingConnectWindow(connectAttemptTimeoutMilliseconds) };
 };
 
 const realResendClientBuilder = (apiKeyText) => {

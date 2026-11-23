@@ -317,7 +317,8 @@ const moduleFunction =
 			if (connectRefusal) {
 				xLog.error(`[email-sender] ${connectRefusal}`);
 			}
-			xLog.status(`[email-sender] outgoing connections: per-address connect attempt window ${appliedMilliseconds} ms`);
+			// E7 (WORKORDER-accountMailLooseEnds-112326): the same window reaches every Node process started from here (NODE_OPTIONS)
+			xLog.status(`[email-sender] outgoing connections: per-address connect attempt window ${appliedMilliseconds} ms (this process and the Node processes it starts)`);
 			const alertIntervalMinutes = emailSenderLib.settingOf(emailSenderSettings, 'failureAlertIntervalMinutes');
 			const accountMailAlerter = require('../lib/account-mail-alerter').accountMailAlerterOf({
 				// a refused [email-sender] section (logged below) sends nothing; its alerts then keep the settings file's interval
