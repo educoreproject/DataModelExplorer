@@ -3,6 +3,7 @@
 // @concept: [[AuthenticatedApiCall]]
 import axios from 'axios';
 import { useLoginStore } from '@/stores/loginStore';
+import { roleNameListOf } from '@/components/accountAccessRules.js';
 
 /**
  * ADMIN STORE: Administrative User Management
@@ -310,9 +311,9 @@ export const useAdminStore = defineStore('adminStore', {
 	// GETTERS
 
 	getters: {
-		// Get users by role
+		// Get users by role: one of the account's role names (read as the server reads a role, so 'user,admin' counts as admin)
 		getUsersByRole: (state) => (role) => {
-			return state.users.filter(user => user.role === role);
+			return state.users.filter((user) => roleNameListOf(user.role).includes(role));
 		},
 
 		// Check if currently loading

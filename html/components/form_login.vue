@@ -2,7 +2,27 @@
 	// @concept: [[JwtTokenManagement]]
 	// @concept: [[ReactiveFormValidation]]
 	import { useLoginStore } from '@/stores/loginStore';
+	import { useAccountStore } from '@/stores/accountStore';
+	import { accountVocabulary } from '@/components/accountVocabulary.js';
+	import { sameSiteReturnPathOf } from '@/components/returnPathRules.js';
 	const LoginStore = useLoginStore();
+	const accountStore = useAccountStore();
+
+	// "Create an account" only where the server says registration is on (WORKORDER-userRegistrationReset-112026)
+	onMounted(() => accountStore.loadRegistrationOptions());
+
+	const isResendSent = ref(false);
+	// a resend asked for on this form (the store outlives the page, so its isMailNotSent may be another page's)
+	const isResendTried = ref(false);
+	const resendConfirmation = async () => {
+		// WORKORDER-accountMailLooseEnds-112326 E2: a request is in flight (up to the server's 10 s mail budget); a second
+		// press, Enter or Space does nothing until it answers
+		if (accountStore.loading) {
+			return;
+		}
+		isResendTried.value = true;
+		isResendSent.value = await accountStore.resendConfirmation(username.value.trim());
+	};
 	const { gitCommitHash } = useRuntimeConfig().public;
 
 	const router = useRouter();
@@ -33,8 +53,8 @@
 		const tmp = await LoginStore.login()
 			.then((validLogin) => {
 				if (LoginStore.validUser) {
-					const redirect = route.query.redirect || '/';
-					router.push(redirect);
+					// back where the sign-in was asked for (the approval link, WORKORDER-adminApproval-112126 A5), only on this site
+					router.push(sameSiteReturnPathOf(route.query.redirect) || '/');
 				}
 			})
 			.catch((err) => {
@@ -55,8 +75,11 @@
 				rounded="lg"
 				data-testid="login-card"
 			>
+				<!-- WORKORDER-accountMailFailureAndApprovalNotice-112326 M4: a sign-in refused because the account awaits approval
+				     is the approval block, not an ordinary error -->
+				<AccountApprovalNotice v-if="LoginStore.statusMsg && LoginStore.loginRefusalName === 'awaitingApproval'" :heading-text="accountVocabulary.approvalNoticeHeadingText" :notice-text="accountVocabulary.approvalNoticeText" data-testid="login-approval-notice" />
 				<v-alert
-					v-if="LoginStore.statusMsg"
+					v-else-if="LoginStore.statusMsg"
 					type="error"
 					density="compact"
 					class="mb-4"
@@ -88,6 +111,18 @@
 
 					<v-btn class="mt-2" color="primary" @click="submitButton" block>Login</v-btn>
 				</v-form>
+				<!-- WORKORDER-userRegistrationReset-112026: an account awaiting confirmation is offered a new link -->
+				<div v-if="LoginStore.loginRefusalName === 'emailNotConfirmed' && !isResendSent" class="mt-3">
+					<v-btn variant="tonal" block :loading="accountStore.loading" data-testid="login-resend-confirmation" @click="resendConfirmation">{{ accountVocabulary.resendConfirmationButtonText }}</v-btn>
+				</div>
+				<v-alert v-if="isResendSent && accountStore.noticeMsg" type="success" density="compact" class="mt-3" data-testid="login-resend-notice">{{ accountStore.noticeMsg }}</v-alert>
+				<!-- M3: the new link's mail did not go -->
+				<v-alert v-if="isResendTried && !isResendSent && accountStore.isMailNotSent && accountStore.statusMsg" type="warning" density="compact" class="mt-3" data-testid="login-resend-mail-not-sent">{{ accountStore.statusMsg }}</v-alert>
+				<!-- reset is always offered; registration only where it is on -->
+				<div class="account-links mt-4">
+					<NuxtLink to="/forgot-password" data-testid="login-forgot-password">{{ accountVocabulary.forgotPasswordLinkText }}</NuxtLink>
+					<NuxtLink v-if="accountStore.registrationOptions.selfRegistrationEnabled" to="/register" data-testid="login-create-account">{{ accountVocabulary.createAccountLinkText }}</NuxtLink>
+				</div>
 			</v-sheet>
 		</v-sheet>
 		<div class="version-tag">build {{ gitCommitHash }}</div>
@@ -95,6 +130,13 @@
 </template>
 
 <style scoped>
+.account-links {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	font-size: 0.875rem;
+}
 .version-tag {
 	font-size: 8pt;
 	color: #bbb;

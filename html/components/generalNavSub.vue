@@ -2,6 +2,9 @@
 	import { useLoginStore } from '@/stores/loginStore';
 	import { computed, ref } from 'vue';
 	import { useRouter } from 'vue-router';
+	import { sameSiteReturnPathOf } from '@/components/returnPathRules.js';
+	// the Admin button, by the same rule as the sidebar's Admin link (WORKORDER-raterAndAdminLooseEnds-112226 R4)
+	import { mayUseAnyAdminTool } from '@/components/accountAccessRules.js';
 
 	const LoginStore = useLoginStore();
 	const router = useRouter();
@@ -26,7 +29,8 @@
 		try {
 			await LoginStore.login();
 			if (LoginStore.validUser) {
-				const redirect = router.currentRoute.value.query.redirect;
+				// only a path on this site (components/returnPathRules.js, WORKORDER-adminApproval-112126)
+				const redirect = sameSiteReturnPathOf(router.currentRoute.value.query.redirect);
 				if (redirect) {
 					router.push(redirect);
 				}
@@ -190,7 +194,7 @@
 			</v-btn>
 
 			<v-btn
-				v-if="!isAdminPage && ['admin', 'super'].includes(LoginStore.loggedInUser.role)"
+				v-if="!isAdminPage && mayUseAnyAdminTool(LoginStore.loggedInUser.role)"
 				variant="text"
 				prepend-icon="mdi-shield-account"
 				title="Admin Tools"

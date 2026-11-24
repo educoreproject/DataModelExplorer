@@ -11,7 +11,10 @@ const {pipeRunner, taskListPlus, mergeArgs, forwardArgs} = new require('qtools-a
 
 
 //START OF moduleFunction() ============================================================
-const moduleFunction = ({ sqlDb, hxAccess, dataMapping, neo4jDb, slackAccess, raterToolAccess, companionSourcesDirPath }, callback) => {
+// Every resource data-model.js hands over must be named here AND in passThroughParameters below: a module that needs
+// one that is dropped throws at load, and qtools-library-dot-d then skips it with only a log line ("ignoring invalid
+// file"), so the endpoint silently vanishes (2026-11-19: companionMomentClock; test/access-points-wiring.test.js).
+const moduleFunction = ({ sqlDb, hxAccess, dataMapping, neo4jDb, slackAccess, raterToolAccess, companionSourcesDirPath, companionMomentClock, emailSender, userRegistrationSettings }, callback) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters } = process.global;
 	const localConfig = getConfig(moduleName); //moduleName is closure
 
@@ -66,7 +69,7 @@ const moduleFunction = ({ sqlDb, hxAccess, dataMapping, neo4jDb, slackAccess, ra
 			next(err, { ...args, newValue });
 		};
 		
-		const passThroughParameters = {sqlDb, hxAccess, dataMapping, neo4jDb, slackAccess, raterToolAccess, companionSourcesDirPath, accessPointsDotD};
+		const passThroughParameters = {sqlDb, hxAccess, dataMapping, neo4jDb, slackAccess, raterToolAccess, companionSourcesDirPath, companionMomentClock, emailSender, userRegistrationSettings, accessPointsDotD}; // emailSender, userRegistrationSettings: WORKORDER-userRegistrationReset-112026
 		accessPointsDotD.loadModules({ passThroughParameters }, localCallback);
 		
 	});

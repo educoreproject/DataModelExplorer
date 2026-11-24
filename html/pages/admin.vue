@@ -2,13 +2,16 @@
 // @concept: [[UserCrudAdmin]]
 definePageMeta({ middleware: 'auth' });
 
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 // Import tool components
 import AddEditUser from '@/components/tools/add-edit-user.vue';
 import ManifestEditor from '@/components/tools/manifest-editor.vue';
 import OauthAdmin from '@/components/tools/oauth-admin.vue';
 import CedsRaterAdmin from '@/components/tools/ceds-rater-admin.vue';
+import PendingApprovals from '@/components/tools/pending-approvals.vue';
+import { useAccountApprovalStore } from '@/stores/accountApprovalStore';
+import { accountVocabulary } from '@/components/accountVocabulary.js';
 
 // Dev server selector — runtime backend override for DME (see SPEC §8).
 import { backendProfiles } from '@/config/backendProfiles';
@@ -18,9 +21,10 @@ import {
 	clearBackendProfile,
 } from '@/composables/useBackendProfile';
 import { useLoginStore } from '@/stores/loginStore';
-import { isRaterAdminRole } from '@/stores/raterStore';
+import { mayUseTool } from '@/components/accountAccessRules.js';
 
 const LoginStore = useLoginStore();
+const approvalStore = useAccountApprovalStore();
 const route = useRoute();
 const router = useRouter();
 const profile = useBackendProfile();
@@ -49,18 +53,28 @@ const clearProfile = () => {
 	switchBackend(() => clearBackendProfile());
 };
 
-// Selected tool - default to add-edit-user. The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark
-// or a redirect lands on it: /admin?tool=ceds-rater is the Mapping Survey tab (the old /rater/admin URLs redirect there).
-const TOOL_NAME_LIST = ['add-edit-user', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
-const DEFAULT_TOOL_NAME = 'add-edit-user';
-const selectedTool = computed(() => route.query.tool || DEFAULT_TOOL_NAME);
+// The tool is the `tool` query parameter (WORKORDER-RATER6), so a bookmark or a redirect lands on it: /admin?tool=ceds-rater
+// is the Mapping Survey tab (the old /rater/admin URLs redirect there). Each tool is shown, mounted and asked for only when
+// the signed-in user may use it (config/adminAccessRules.json roleListNameByToolName, WORKORDER-approvalLooseEnds-112126
+// L6): a non-admin makes no admin-only request. With no ?tool=, the first tool in this order the user may use opens.
+const TOOL_NAME_LIST = ['add-edit-user', 'pending-approvals', 'manifest-editor', 'oauth-admin', 'ceds-rater', 'dev-tools'];
+const mayUse = (toolName) => mayUseTool(LoginStore.loggedInUser?.role, toolName);
+const defaultToolName = computed(() => TOOL_NAME_LIST.find(mayUse));
+const selectedTool = computed(() => route.query.tool || defaultToolName.value);
 const isKnownTool = computed(() => TOOL_NAME_LIST.includes(selectedTool.value));
-const isRaterAdmin = computed(() => isRaterAdminRole(LoginStore.loggedInUser?.role));
 
 // Handle tool selection
 const selectTool = (toolName) => {
 	router.push({ query: { tool: toolName } });
 };
+
+// the Pending approvals tab shows how many accounts wait (WORKORDER-approvalMailPolish-112126 P4), so the list is read
+// once here whatever tool is open, and only for an approver (WORKORDER-approvalLooseEnds-112126 L4). The role is the
+// token's, so this decides only whether to ASK; the server still decides from the STORED role.
+const pendingApprovalCount = computed(() => approvalStore.pendingApplicantList.length);
+onMounted(() => {
+	if (mayUse('pending-approvals')) approvalStore.loadPendingList();
+});
 </script>
 
 <template>
@@ -76,6 +90,7 @@ const selectTool = (toolName) => {
 
 								<!-- Add/Edit User tab -->
 								<v-btn
+									v-if="mayUse('add-edit-user')"
 									variant="outlined"
 									:disabled="selectedTool === 'add-edit-user'"
 									@click="selectTool('add-edit-user')"
@@ -85,8 +100,23 @@ const selectTool = (toolName) => {
 									ADD/EDIT NEW USER
 								</v-btn>
 
+								<!-- Pending approvals tab (WORKORDER-approvalMailPolish-112126 P4): accounts waiting, with their count -->
+								<v-btn
+									v-if="mayUse('pending-approvals')"
+									variant="outlined"
+									:disabled="selectedTool === 'pending-approvals'"
+									@click="selectTool('pending-approvals')"
+									prepend-icon="mdi-account-clock"
+									class="mr-2"
+									data-testid="admin-tool-pending-approvals"
+								>
+									{{ accountVocabulary.pendingApprovalsToolText }}
+									<v-chip v-if="pendingApprovalCount" size="x-small" color="warning" variant="flat" class="ml-2" data-testid="admin-tool-pending-approvals-count">{{ pendingApprovalCount }}</v-chip>
+								</v-btn>
+
 								<!-- Manifest Editor tab -->
 								<v-btn
+									v-if="mayUse('manifest-editor')"
 									variant="outlined"
 									:disabled="selectedTool === 'manifest-editor'"
 									@click="selectTool('manifest-editor')"
@@ -98,6 +128,7 @@ const selectTool = (toolName) => {
 
 								<!-- OAuth Access tab (dmeMcpOAuth Phase 4) -->
 								<v-btn
+									v-if="mayUse('oauth-admin')"
 									variant="outlined"
 									:disabled="selectedTool === 'oauth-admin'"
 									@click="selectTool('oauth-admin')"
@@ -110,7 +141,7 @@ const selectTool = (toolName) => {
 								<!-- Mapping Survey tab (WORKORDER-RATER6; renamed from CEDS Rater in revision 7): raters, surveys,
 								     results; admins only. ?tool=ceds-rater and the test id keep the old name: bookmarks and test hooks -->
 								<v-btn
-									v-if="isRaterAdmin"
+									v-if="mayUse('ceds-rater')"
 									variant="outlined"
 									:disabled="selectedTool === 'ceds-rater'"
 									@click="selectTool('ceds-rater')"
@@ -123,6 +154,7 @@ const selectTool = (toolName) => {
 
 								<!-- Dev Tools tab -->
 								<v-btn
+									v-if="mayUse('dev-tools')"
 									variant="outlined"
 									:disabled="selectedTool === 'dev-tools'"
 									@click="selectTool('dev-tools')"
@@ -134,8 +166,35 @@ const selectTool = (toolName) => {
 
 							<!-- Tool area with conditional rendering -->
 							<v-card-text class="d-flex justify-center align-start text-subtitle-1 text-medium-emphasis tool-area">
+								<!-- an unknown ?tool= is refused by name, not quietly replaced -->
+								<v-alert
+									v-if="!isKnownTool"
+									type="warning"
+									variant="tonal"
+									class="ma-4"
+									data-testid="admin-tool-unknown"
+								>
+									There is no admin tool '{{ selectedTool }}'. Choose one above.
+								</v-alert>
+
+								<!-- a known tool this user may not use (L6): refused by name, nothing mounted, no request made -->
+								<v-alert
+									v-else-if="!mayUse(selectedTool)"
+									type="warning"
+									variant="tonal"
+									class="ma-4"
+									data-testid="admin-tool-not-permitted"
+								>
+									{{ accountVocabulary.adminToolNotPermittedText }}
+								</v-alert>
+
 								<add-edit-user
-									v-if="selectedTool === 'add-edit-user'"
+									v-else-if="selectedTool === 'add-edit-user'"
+								/>
+
+								<!-- Pending approvals: each links to its approval page -->
+								<pending-approvals
+									v-else-if="selectedTool === 'pending-approvals'"
 								/>
 
 								<!-- Manifest Editor -->
@@ -148,21 +207,10 @@ const selectTool = (toolName) => {
 									v-else-if="selectedTool === 'oauth-admin'"
 								/>
 
-								<!-- Mapping Survey (raters, surveys, results); the component refuses a non-admin itself -->
+								<!-- Mapping Survey (raters, surveys, results); the component also refuses a non-admin itself -->
 								<ceds-rater-admin
 									v-else-if="selectedTool === 'ceds-rater'"
 								/>
-
-								<!-- an unknown ?tool= is refused by name, not quietly replaced -->
-								<v-alert
-									v-else-if="!isKnownTool"
-									type="warning"
-									variant="tonal"
-									class="ma-4"
-									data-testid="admin-tool-unknown"
-								>
-									There is no admin tool '{{ selectedTool }}'. Choose one above.
-								</v-alert>
 
 								<!-- Dev Tools: dev-server-selector -->
 								<v-card

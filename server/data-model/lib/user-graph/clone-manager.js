@@ -339,10 +339,36 @@ const renameContainer = (oldName, newName) => {
 	execFileSync('docker', ['rename', dockerSafeContainerName(oldName), dockerSafeContainerName(newName)], DOCKER_QUIET_OPTIONS);
 };
 
+// isPathInsideDirectory — true when candidatePath is directoryPath or lies under it. Both are compared as REAL paths
+// (symlinks resolved, so the macOS /var and /tmp spellings of /private/var and /private/tmp match), each with one
+// trailing separator, so /a/userGraphs2/... is never 'under' /a/userGraphs. A path that does not exist is compared as
+// path.resolve gives it.
+const realPathOf = (fileSystemPath) => (fs.existsSync(fileSystemPath) ? fs.realpathSync(fileSystemPath) : path.resolve(fileSystemPath));
+const isPathInsideDirectory = (candidatePath, directoryPath) => {
+	const directoryPrefixText = `${realPathOf(directoryPath).replace(/[\\/]+$/, '')}${path.sep}`;
+	return `${realPathOf(candidatePath)}${path.sep}`.startsWith(directoryPrefixText);
+};
+
+// a spare made by ANOTHER instance on this docker host is logged once by name, not on every reconcile
+const loggedForeignWarmSpareNameSet = new Set();
+const noteForeignWarmSpare = (containerName, cloneDir, userGraphsBase) => {
+	if (loggedForeignWarmSpareNameSet.has(containerName)) {
+		return;
+	}
+	loggedForeignWarmSpareNameSet.add(containerName);
+	if (process.global.xLog) process.global.xLog.status(`[dmeOpenTrace] clone-manager: warm spare ${containerName} belongs to another instance (its clone dir ${cloneDir} is not under this instance's userGraphsDirPath ${userGraphsBase || '(none configured)'}) — leaving it alone: not adopted, not torn down`);
+};
+
 // describeWarmContainers — reconstruct descriptors for every RUNNING idle warm spare
 // (usr__warm_*) from docker, so the warm pool can be ADOPTED across server restarts (the
 // in-memory pool is empty on boot but the containers survive). Safe because a claimed spare
 // is renamed away from usr__warm_*, so this only ever sees genuine idle spares.
+// OWNERSHIP (WORKORDER-raterAndAdminLooseEnds-112226 R7, 2026-11-22): docker lists every instance's spares on the host,
+// and a test or walk server, another checkout, or another session's scratch config can share it with this one. A spare
+// is this instance's only when its clone dir lies under this instance's userGraphsDirPath; any other is neither adopted
+// (it may be cut from another snapshot or golden) nor torn down (it is not ours to remove). With no userGraphsDirPath,
+// nothing is ours. This runs only from reconcileAndPrime, so at warmPoolDepth=0 (demo and production today) it never
+// runs at all. Proved by server/test/warm-spare-ownership.test.js.
 const describeWarmContainers = () => {
 	let names = [];
 	try {
@@ -380,6 +406,11 @@ const describeWarmContainers = () => {
 				if (line.slice(0, eq) === '/data') dataSrc = line.slice(eq + 1);
 			});
 			const cloneDir = dataSrc ? path.dirname(dataSrc) : null;
+			const userGraphsBase = getUserGraphsBase();
+			if (cloneDir && !(userGraphsBase && isPathInsideDirectory(cloneDir, userGraphsBase))) {
+				noteForeignWarmSpare(name, cloneDir, userGraphsBase);
+				return;
+			}
 			if (boltPort && cloneDir) {
 				// Verify the orphan is actually query-ready before adopting it. A half-booted
 				// leftover (e.g. from a prior crashed prime) must never be handed to a user;

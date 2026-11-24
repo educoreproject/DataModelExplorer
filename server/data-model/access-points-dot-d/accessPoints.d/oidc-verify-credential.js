@@ -26,6 +26,15 @@
 //                                    or null when authentication fails (no such
 //                                    user / disabled / bad password). Failure is
 //                                    NOT an error — findAccount returns nothing.
+//   callback('', { account: null, refusal })
+//                                 -> the password proved right but the account's
+//                                    state refuses sign-in (emailNotConfirmed,
+//                                    awaitingApproval, accountNotApproved,
+//                                    accountDisabled; user-profile-rules.json
+//                                    loginRefusalNameByAccountState), so the
+//                                    sign-in page can say which, by name
+//                                    (WORKORDER-adminApproval-112126). A wrong
+//                                    password on such an account says nothing more.
 // The returned account carries: sub (refId), username, role, accessRevokedAfter
 // (epoch, 0 when unset), disabled — never the password/hash.
 // ============================================================================
@@ -35,7 +44,7 @@ const qt = require('qtools-functional-library');
 const { pipeRunner, taskListPlus, mergeArgs, forwardArgs } = new require(
 	'qtools-asynchronous-pipe-plus',
 )();
-const { textIdentifierRefusalOf } = require('../../../lib/user-profile-rules');
+const { textIdentifierRefusalOf, loginRefusalOfAccountState, isAccountDisabled } = require('../../../lib/user-profile-rules');
 
 //START OF moduleFunction() ============================================================
 
@@ -103,11 +112,6 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback('', { account: null });
 				return;
 			}
-			// Disabled account cannot authenticate (missing column -> undefined -> allowed).
-			if (user.disabled) {
-				callback('', { account: null });
-				return;
-			}
 			// DB-users-only: the stored password MUST be a real PBKDF2 hash (`hash:salt`).
 			// A row without a hashed password (plaintext/builtin-only) is NOT authenticated
 			// by this path — that is the whole point of C1.
@@ -120,6 +124,13 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				callback('', { account: null });
 				return;
 			}
+			// A disabled account cannot authenticate (missing column -> undefined -> allowed). Checked after the password,
+			// so its named refusal tells a guesser nothing. Blank, '0' and 'false' are active, as at the bearer gate.
+			const stateRefusal = loginRefusalOfAccountState(user.disabled);
+			if (stateRefusal) {
+				callback('', { account: null, refusal: stateRefusal });
+				return;
+			}
 
 			// Success — return a sanitized account (never the password/hash).
 			const account = {
@@ -127,7 +138,7 @@ const moduleFunction = function ({ dotD, passThroughParameters }) {
 				username: user.username,
 				role: user.role,
 				accessRevokedAfter: Number(user.accessRevokedAfter) || 0,
-				disabled: !!user.disabled,
+				disabled: isAccountDisabled(user.disabled),
 			};
 			callback('', { account });
 		});

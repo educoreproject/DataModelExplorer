@@ -35,6 +35,7 @@
 const moduleName = __filename.replace(__dirname + '/', '').replace(/.js$/, '');
 const crypto = require('crypto');
 const { textIdentifierRefusalOf, refusalText } = require('./user-profile-rules');
+const { approvalNotice } = require('./user-account-mail');
 
 // --- tiny HTML helpers (no template engine; escape everything interpolated) ---
 const escapeHtml = (value) =>
@@ -55,6 +56,8 @@ const PAGE_STYLE = `
   button.secondary{background:#e2e8f0;color:#1d2733}
   .row{display:flex;gap:10px}.row button{margin-top:0}
   .err{background:#fdecea;color:#b3261e;border-radius:6px;padding:10px;font-size:13px;margin-bottom:8px}
+  .err.approval-notice{background:#fff4e5;color:#9a3412;border:1px solid #fdba74;border-left:6px solid #c2410c;font-weight:bold;font-size:14px}
+  .err.approval-notice .approval-heading{display:block;font-size:15px;margin-bottom:4px}
   .scopes{background:#f4f6f8;border-radius:6px;padding:12px;font-size:13px;margin:12px 0}
   .scopes li{margin:2px 0}.muted{color:#5b6b7b;font-size:12px;margin-top:18px}
 `;
@@ -66,6 +69,7 @@ const moduleFunction = ({
 	audit,
 	interactionPath = '/oauth/interaction',
 	csrfSecret,
+	forgotPasswordUrl = '', // the website's forgot-password page; blank shows no link (oauth-server.js reads it from [user-registration])
 } = {}) => ({ expressApp }) => {
 	const { xLog } = process.global;
 
@@ -110,11 +114,15 @@ const moduleFunction = ({
 		res.send(html);
 	};
 
-	const renderLogin = ({ uid, error }) => `<!doctype html><html><head><meta charset="utf-8">
+	// isApprovalNotice (WORKORDER-accountMailFailureAndApprovalNotice-112326 M4): an account waiting for approval is shown
+	// the approval block (user-account-mail-vocabulary.json approvalNotice: bold heading, the sentence, amber), not an
+	// ordinary error; the refusal's name stays on the block for a reader of the page source
+	const approvalNoticeHtml = `<span class="approval-heading">${escapeHtml(approvalNotice.headingText)}</span>${escapeHtml(approvalNotice.sentenceText)}`;
+	const renderLogin = ({ uid, error, isApprovalNotice = false }) => `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>EDUcore — Sign in</title>
 <style>${PAGE_STYLE}</style></head><body><div class="card">
 <h1>Sign in to EDUcore</h1><p class="sub">Authorize access to the education-standards knowledge graph.</p>
-${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
+${error && isApprovalNotice ? `<div class="err approval-notice" data-refusal-name="awaitingApproval">${approvalNoticeHtml}</div>` : error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
 <form method="post" action="${escapeHtml(interactionPath)}/${escapeHtml(uid)}/login" autocomplete="off">
 <input type="hidden" name="csrf" value="${escapeHtml(csrfToken(uid))}">
 <label for="username">Username</label>
@@ -123,6 +131,7 @@ ${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
 <input id="password" name="password" type="password" required>
 <button type="submit">Sign in</button>
 </form>
+${forgotPasswordUrl ? `<p class="muted"><a href="${escapeHtml(forgotPasswordUrl)}" target="_blank" rel="noopener">Forgot password?</a></p>` : ''}
 <p class="muted">EDUcore identity provider</p></div></body></html>`;
 
 	const renderConsent = ({ uid, clientName, scopes, resource }) => `<!doctype html><html><head><meta charset="utf-8">
@@ -205,6 +214,14 @@ ${scopes.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
 
 		credentialHook({ username, password }, (err, result) => {
 			const account = result && result.account;
+			// the password was right but the account's state refuses sign-in: say which, by name (WORKORDER-adminApproval-112126)
+			const stateRefusal = !err && result && result.refusal;
+			if (stateRefusal) {
+				throttle.recordSuccess({ username });
+				audit.write({ event: 'login_failed', username, ip, detail: { reason: stateRefusal.refusalName } });
+				sendHtml(res, stateRefusal.httpStatus, renderLogin({ uid, error: refusalText(stateRefusal), isApprovalNotice: stateRefusal.refusalName === 'awaitingApproval' }));
+				return;
+			}
 			if (err || !account) {
 				throttle.recordFailure({ username, ip });
 				audit.write({ event: 'login_failed', username, ip, detail: { reason: err ? 'error' : 'bad_credential' } });

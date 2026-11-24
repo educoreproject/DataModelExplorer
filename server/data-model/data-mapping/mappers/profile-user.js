@@ -223,6 +223,51 @@ const moduleFunction =
 				'byRefId': `
 					SELECT * FROM <!tableName!> WHERE refId = <!refId!>
 				`,
+				// PLAN-userRegistrationReset-112026 (R3, R4): a reset finds the account by exact username OR by email address,
+				// the address compared without regard to case. Whole rows: the caller needs disabled and emailAdr.
+				'byUsernameOrEmail': `
+					SELECT * FROM <!tableName!> WHERE username = <!identifier!> OR lower(trim(emailAdr)) = lower(trim(<!identifier!>))
+				`,
+				// registration refuses a username or an address already in use, both compared without regard to case
+				'byUsernameInsensitive': `
+					SELECT refId FROM <!tableName!> WHERE lower(username) = lower(<!username!>)
+				`,
+				'byEmailInsensitive': `
+					SELECT refId FROM <!tableName!> WHERE lower(trim(emailAdr)) = lower(trim(<!emailAdr!>))
+				`,
+				// the account state column (oauth-schema-init adds it): '' is active, 'pendingConfirmation' awaits the emailed
+				// link, 'pendingApproval' an approver and 'declined' was refused by one (WORKORDER-adminApproval-112126);
+				// anything else is disabled. Not in inputNameMapping, so no profile or admin save can write it.
+				'disabledByRefId': `
+					UPDATE <!tableName!> SET [disabled] = <!disabled!> WHERE refId = <!refId!>
+				`,
+				// WORKORDER-adminApproval-112126 A8: the applicant's optional note to the approvers. Its own column, NOT in
+				// inputNameMapping, so it never travels in a profile, a login reply or a token: only the approval paths read it.
+				'applicationCommentByRefId': `
+					UPDATE <!tableName!> SET [applicationComment] = <!applicationComment!> WHERE refId = <!refId!>
+				`,
+				// WORKORDER-accountMailFailureAndApprovalNotice-112326 M6 e: a self-registration whose confirmation mail failed is
+				// undone; only that row, and only while it is still in the state the request wrote (pendingConfirmation)
+				'unconfirmedByRefIdDelete': `
+					DELETE FROM <!tableName!> WHERE refId = <!refId!> AND [disabled] = <!disabled!>
+				`,
+				// the users columns, for the startup migration (user-account-schema-migration adds applicationComment)
+				'tableInfo': `PRAGMA table_info(<!tableName!>)`,
+				// WORKORDER-adminApproval-112126: the accounts waiting for an approver, oldest first, with what the approval
+				// page shows (never the password)
+				'pendingApprovalList': `
+					SELECT refId, username, first, last, emailAdr, createdAt, disabled, applicationComment FROM <!tableName!>
+					WHERE [disabled] = <!disabled!> ORDER BY createdAt, refId
+				`,
+				// the startup check (R4 depends on one account per address): addresses held by more than one user, with
+				// the usernames that share each. The address itself is not returned, so the log line names no address.
+				'duplicateEmailList': `
+					SELECT group_concat(username, ', ') AS usernameListText, count(*) AS userCount
+					FROM <!tableName!>
+					WHERE emailAdr IS NOT NULL AND trim(emailAdr) != ''
+					GROUP BY lower(trim(emailAdr))
+					HAVING count(*) > 1
+				`,
 				// updateByRefId: an UPDATE of the columns present, by refId, every value escaped ONCE by safeSql. User
 				// rows are written this way, not through sqlite-instance saveObject, because this project's (pre-10.0)
 				// saveObject doubles every apostrophe before escaping it again: O'Brien was stored as O''Brien, and each

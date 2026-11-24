@@ -32,6 +32,7 @@ const PASSWORD_PROPERTY_NAME = 'password';
 const loginStoreInitObject = {
 	loggedInUser: userFields,
 	statusMsg: '',
+	loginRefusalName: '',
 	validUser: false,
 };
 
@@ -123,10 +124,15 @@ export const useLoginStore = defineStore('loginStore', {
 					password: this.loggedInUser.password,
 				});
 
+				this.loginRefusalName = '';
 				return this.acceptLoginReply(response);
 			} catch (error) {
-				// Improved error handling with fallback
-				if (error.response?.data) {
+				// a named refusal (emailNotConfirmed, accountDisabled) answers { refusalName, reason }: show the reason and
+				// keep the name, so the form can offer the next step (WORKORDER-userRegistrationReset-112026)
+				this.loginRefusalName = error.response?.data?.refusalName || '';
+				if (error.response?.data?.reason) {
+					this.statusMsg = error.response.data.reason;
+				} else if (error.response?.data) {
 					this.statusMsg = error.response.data;
 				} else if (error.message) {
 					this.statusMsg = error.message;

@@ -1,0 +1,8 @@
+{
+	"_comment": "Limits for resuming a reopened DME session (lib/dme-resume-context.js, lib/ws-graphinator.js). rebuiltContextCharacterBudget: the most saved-turn text a rebuild hands askMilo as prior context, and the budget askMilo replays a session's context within on every later turn (--sessionContextCharacterBudget); about 100k tokens at 4 characters a token. savedTurnCountLimit and savedTurnCharacterLimit: the most saved turns, and the most characters across them, one prompt may carry (refused by name above either, BEFORE any other processing). webSocketMaxPayloadBytes: the largest message /ws/explorer accepts: the saved-turn cap at up to 3 UTF-8 bytes a character plus room for the prompt and JSON escaping. resumeProofLifetimeDays: how long a resume proof is honoured; an expired one is not refused, the session is rebuilt from its saved turns.",
+	"rebuiltContextCharacterBudget": 400000,
+	"savedTurnCountLimit": 1000,
+	"savedTurnCharacterLimit": 800000,
+	"webSocketMaxPayloadBytes": 4194304,
+	"resumeProofLifetimeDays": 180
+}

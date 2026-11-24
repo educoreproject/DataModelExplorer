@@ -2,6 +2,13 @@
 // @concept: [[UserCrudAdmin]]
 import { ref, computed, onMounted } from 'vue';
 import { useAdminStore } from '@/stores/adminStore';
+import { roleNameListOf } from '@/components/accountAccessRules.js';
+
+// the badge an account wears in the list: the first of these its role names (read as the server reads a role, so
+// 'user,admin' wears the admin badge; WORKORDER-raterAndAdminLooseEnds-112226), else the plain account badge
+const ROLE_BADGE_LIST = Object.freeze([{ roleName: 'admin', iconName: 'mdi-shield-account', colorName: 'orange' }, { roleName: 'super', iconName: 'mdi-shield-star', colorName: 'red' }]);
+const OTHER_ROLE_BADGE = Object.freeze({ iconName: 'mdi-account', colorName: 'blue' });
+const roleBadgeOf = (roleText) => ROLE_BADGE_LIST.find((roleBadge) => roleNameListOf(roleText).includes(roleBadge.roleName)) || OTHER_ROLE_BADGE;
 
 const adminStore = useAdminStore();
 
@@ -124,8 +131,7 @@ onMounted(() => {
 					<template #prepend>
 						<v-avatar size="32" :color="isUserSelected(user.refId) ? 'primary' : 'grey-lighten-2'">
 							<v-icon>
-								{{ user.role === 'admin' ? 'mdi-shield-account' : 
-								   user.role === 'super' ? 'mdi-shield-star' : 'mdi-account' }}
+								{{ roleBadgeOf(user.role).iconName }}
 							</v-icon>
 						</v-avatar>
 					</template>
@@ -144,8 +150,7 @@ onMounted(() => {
 
 					<template #append>
 						<v-chip
-							:color="user.role === 'admin' ? 'orange' : 
-								   user.role === 'super' ? 'red' : 'blue'"
+							:color="roleBadgeOf(user.role).colorName"
 							size="x-small"
 							variant="flat"
 						>

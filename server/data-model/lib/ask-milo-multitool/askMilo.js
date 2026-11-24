@@ -10,6 +10,12 @@ const fs = require('fs');
 const commandLineParser = require('qtools-parse-command-line');
 const configFileProcessor = require('qtools-config-file-processor');
 
+// WORKORDER-accountMailLooseEnds-112326 E7: Node's per-address connect window, before anything calls out. Started by the
+// server, this process inherits the server's window (NODE_OPTIONS); started by hand, it applies the [email-sender]
+// default. Either way the tools it runs inherit it. `askMilo -connectWindow` prints what was applied and does nothing else.
+const outgoingConnectWindowReport = require('../../../lib/outgoing-connect-window').applyOwnOutgoingConnectWindow();
+const isConnectWindowReportOnly = process.argv.slice(2).includes('-connectWindow');
+
 //START OF moduleFunction() ============================================================
 const moduleFunction = ({ moduleName } = {}) => ({ unused } = {}) => {
 	const { xLog, getConfig, rawConfig, commandLineParameters, projectRoot } = process.global;
@@ -426,6 +432,21 @@ Examples:
 	// -- session resume logic (Phase 6) --
 	let resumeSession = null;
 	let sessionContext = null;
+
+	// --priorContextText (the DME, ws-graphinator.js): context rebuilt from a saved DME session for a NEW askMilo
+	// session. It is this turn's session context and is stored ONCE on the session as priorContextText (never as the
+	// turn's prompt), so later turns replay it within the budget instead of carrying it forward as text of their own.
+	// --sessionContextCharacterBudget: optional; when given, the replayed context keeps the newest turns that fit and
+	// the newest end of priorContextText. Absent (the CLI), the context is built whole, as before.
+	const priorContextText = (commandLineParameters.values.priorContextText || [])[0] || '';
+	delete commandLineParameters.values.priorContextText; // createNewSession stores the values; the text is stored once, below
+	const sessionContextCharacterBudgetText = (commandLineParameters.values.sessionContextCharacterBudget || [])[0];
+	const sessionContextCharacterBudget = sessionContextCharacterBudgetText === undefined ? undefined : Number(sessionContextCharacterBudgetText);
+	if (sessionContextCharacterBudgetText !== undefined && !(sessionContextCharacterBudget > 0)) {
+		xLog.error(`--sessionContextCharacterBudget must be a positive number, not '${sessionContextCharacterBudgetText}'.`);
+		process.exitCode = 1;
+		return;
+	}
 	const resumeSessionName = (commandLineParameters.values.resumeSession || [])[0];
 	if (resumeSessionName) {
 		try {
@@ -491,11 +512,19 @@ Examples:
 		}
 		// Build session context from prior turns (only if session was found)
 		if (resumeSession) {
-			sessionContext = sessionManager.buildSessionContext(resumeSession);
+			sessionContext = sessionManager.buildSessionContext(resumeSession, { characterBudget: sessionContextCharacterBudget });
 			if (evalConfig.verbose) {
 				xLog.status(`[Resume] Loaded session "${resumeSessionName}" with ${resumeSession.turns.length} prior turn(s)`);
 				xLog.status(`[Resume] Session context: ${sessionContext.length} chars`);
 			}
+		}
+	}
+
+	if (priorContextText) {
+		if (resumeSession) {
+			xLog.error('--priorContextText is for a NEW session; this one was resumed, so it is ignored.');
+		} else {
+			sessionContext = priorContextText;
 		}
 	}
 
@@ -954,6 +983,7 @@ Examples:
 						config: result.config,
 						turn: thisTurn,
 					});
+					if (priorContextText) session.priorContextText = priorContextText;
 				}
 
 				sessionManager.saveSession(session);
@@ -969,7 +999,7 @@ Examples:
 //END OF moduleFunction() ============================================================
 
 // prettier-ignore
-{
+if (!isConnectWindowReportOnly) {
 
 	let commandLineParameters = commandLineParser.getParameters({ noFunctions: true });
 
@@ -1020,4 +1050,8 @@ Examples:
 	});
 }
 
-module.exports = moduleFunction({ moduleName })({});
+if (isConnectWindowReportOnly) {
+	console.log(JSON.stringify({ outgoingConnectWindow: outgoingConnectWindowReport }));
+} else {
+	module.exports = moduleFunction({ moduleName })({});
+}

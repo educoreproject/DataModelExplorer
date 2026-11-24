@@ -170,7 +170,11 @@ const moduleFunction = ({ expressApp, accessPointsDotD, sqlDb } = {}) => {
 
 		// interaction pages (login + consent) — registered FIRST so they own
 		// /oauth/interaction/* ahead of the provider delegate.
-		makeInteractions({ provider, credentialHook, throttle, audit, interactionPath: INTERACTION_PREFIX, csrfSecret })({ expressApp });
+		// the sign-in page links to the website's forgot-password page (PLAN-userRegistrationReset-112026 4.7); without a
+		// usable [user-registration] section there is no reset, so no link
+		const { registrationSettings } = require('./user-registration-settings').registrationSettingsOf(getConfig && getConfig('user-registration'));
+		const forgotPasswordUrl = registrationSettings ? `${registrationSettings.publicSiteUrl}/forgot-password` : '';
+		makeInteractions({ provider, credentialHook, throttle, audit, interactionPath: INTERACTION_PREFIX, csrfSecret, forgotPasswordUrl })({ expressApp });
 
 		// well-known docs at root paths.
 		makeWellKnown({ issuer, mcpResource, routes: {
